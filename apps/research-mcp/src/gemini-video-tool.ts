@@ -151,11 +151,17 @@ const SPEND_GUIDANCE =
 const DELETION_RETRY =
   "Its stored reading could not be deleted yet; call again later with the same continuation_token to delete it.";
 
-/** What the MCP tool hands back: its result, and the claims to sign when it completed. */
+/** What the MCP tool hands back: its result, and the claims to sign when it completed or ended without reading. */
 export interface VideoClaimsToolOutcome {
   result: CallToolResult;
   receipt?: { video: string; mode: "claims" | "moment"; n: number };
+  // AskRigor#359: a call that ended without reading a video whose ID it had, with its refusal's code, so the final
+  // check can tell a video that was read from one whose title and description were all the answer had.
+  unread?: { video: string; code: string };
 }
+
+// An ending as this file builds it: a refusal also names its code, which extractYoutubeVideoClaims signs as unread.
+type ToolEnding = VideoClaimsToolOutcome & { code?: string };
 
 export interface VideoClaimsToolDependencies {
   secret: string | undefined;
@@ -176,6 +182,22 @@ export async function extractYoutubeVideoClaims(
   input: ExtractYoutubeVideoClaimsInput,
   dependencies: VideoClaimsToolDependencies
 ): Promise<VideoClaimsToolOutcome> {
+  // The video's ID once it is known: from the call, or from a continuation token whose signature verified.
+  const known: { video?: string } = {};
+  const { code, ...outcome } = await readVideoClaims(input, dependencies, known);
+  // AskRigor#359: a call that ends without reading a video it identified says so in a receipt of its own. YouTube
+  // showing no public video under the ID (deleted, private or mistyped) leaves no title or description either, and its
+  // refusal says so.
+  return code === undefined || known.video === undefined || code === "youtube_video_not_visible"
+    ? outcome
+    : { ...outcome, unread: { video: known.video, code } };
+}
+
+async function readVideoClaims(
+  input: ExtractYoutubeVideoClaimsInput,
+  dependencies: VideoClaimsToolDependencies,
+  known: { video?: string }
+): Promise<ToolEnding> {
   const now = dependencies.now ?? Date.now;
   const started = now();
   const secret = dependencies.secret;
@@ -190,6 +212,9 @@ export async function extractYoutubeVideoClaims(
     try {
       state = decodeVideoContinuation(input.continuation_token, secret, started);
     } catch (error) {
+      if (error instanceof VideoContinuationError && error.expiredState !== undefined) {
+        known.video = error.expiredState.request.video_id;
+      }
       // An expired token still names the stored reading: delete it first.
       if (error instanceof VideoContinuationError && error.expiredState !== undefined && geminiApiKey !== "") {
         const deleted = await deleteInteraction({ apiKey: geminiApiKey }, error.expiredState.checkpoint.interaction_id);
@@ -197,6 +222,7 @@ export async function extractYoutubeVideoClaims(
       }
       return refusal(error instanceof VideoContinuationError ? error.code : "gemini_video_continuation_invalid", false);
     }
+    known.video = state.request.video_id;
     if (geminiApiKey === "") return refusal("gemini_provider_not_configured", false);
     // The zero-spend gate holds for a resumed reading too; its stored copy is deleted.
     if (!dependencies.geminiKeyUnbilled) {
@@ -216,6 +242,7 @@ export async function extractYoutubeVideoClaims(
     if (videoId === undefined) {
       return refusal("youtube_video_id_invalid", false, "Give the video's 11-character ID or its YouTube URL.");
     }
+    known.video = videoId;
     const atSeconds = input.at === undefined ? undefined : parseVideoTime(input.at);
     if (input.at !== undefined && atSeconds === undefined) {
       return refusal("video_time_invalid", false, "Give at as MM:SS, or H:MM:SS from one hour on.");
@@ -281,7 +308,7 @@ export async function extractYoutubeVideoClaims(
   }
 
   if (step.kind === "boundary") {
-    const guidance = [geminiEndingSentence(step), boundaryGuidance(step.code)]
+    const guidance = [geminiEndingSentence(step), boundaryGuidance(step)]
       .filter((part): part is string => part !== undefined).join(" ");
     return refusal(step.code, step.retryable, guidance === "" ? undefined : guidance);
   }
@@ -346,7 +373,7 @@ async function lookUpVideo(
   videoId: string,
   apiKey: string,
   getVideo: typeof getYoutubeVideo
-): Promise<{ title: string; channel: string; duration_seconds: number } | { refused: VideoClaimsToolOutcome }> {
+): Promise<{ title: string; channel: string; duration_seconds: number } | { refused: ToolEnding }> {
   let found;
   try {
     found = await getVideo(videoId, { apiKey });
@@ -390,7 +417,7 @@ function completedResult(
   pass: Omit<VideoContinuationState, "checkpoint" | "expires_at_ms">,
   report: Extract<GeminiVideoAdvance, { kind: "complete" }>["report"],
   usage: Extract<GeminiVideoAdvance, { kind: "complete" }>["usage"]
-): VideoClaimsToolOutcome {
+): ToolEnding {
   const videoId = pass.request.video_id;
   const duration = pass.video.duration_seconds;
   const output: Output = report.mode === "claims"
@@ -517,24 +544,32 @@ function dailyLimitGuidance(remainingSeconds: number): string {
     "and say the video itself could not be read today.";
 }
 
-/** How Gemini ended a reading it did not finish, from its own status and error code (identifiers only). */
+/**
+ * How Gemini ended a reading it did not finish, from its own status and error code (identifiers only), or that it no
+ * longer had the reading when AskRigor polled it (AskRigor#359).
+ */
 function geminiEndingSentence(
-  step: { gemini_status?: string; gemini_error_code?: string }
+  step: { gemini_status?: string; gemini_error_code?: string; gemini_ending?: "interaction_missing" }
 ): string | undefined {
+  if (step.gemini_ending === "interaction_missing") return "Gemini no longer had the reading when AskRigor checked on it.";
   if (step.gemini_status === undefined) return undefined;
   return `Gemini ended the reading with status ${step.gemini_status}` +
     (step.gemini_error_code === undefined ? "." : ` (${step.gemini_error_code}).`);
 }
 
-function boundaryGuidance(code: GeminiVideoBoundaryCode): string | undefined {
-  switch (code) {
+function boundaryGuidance(
+  step: { code: GeminiVideoBoundaryCode; gemini_ending?: "interaction_missing" }
+): string | undefined {
+  switch (step.code) {
     case "gemini_video_credits_depleted":
       return "AskRigor's Gemini key has used up its prepaid credits, so no video can be read until its billing is " +
         "fixed. Check the claims the person reports from the video with the other tools, and say the video itself " +
         "could not be read.";
     case "gemini_video_not_completed":
     case "gemini_video_request_rejected":
-      return "Gemini could not read this video; check the claims the person reports from it with the other tools.";
+      // A reading Gemini no longer had says nothing about whether it could read the video (AskRigor#359).
+      return (step.gemini_ending === "interaction_missing" ? "The video was not read" : "Gemini could not read this video") +
+        "; check the claims the person reports from it with the other tools.";
     case "gemini_video_invalid_report":
     case "gemini_video_missing_output":
       return "Gemini's report did not have the required form, so none of it is used.";
@@ -547,7 +582,7 @@ function boundaryGuidance(code: GeminiVideoBoundaryCode): string | undefined {
   }
 }
 
-function refusal(code: string, retryable: boolean, guidance?: string): VideoClaimsToolOutcome {
+function refusal(code: string, retryable: boolean, guidance?: string): ToolEnding {
   return {
     result: {
       content: [{
@@ -556,6 +591,7 @@ function refusal(code: string, retryable: boolean, guidance?: string): VideoClai
           (guidance === undefined ? "" : ` ${guidance}`)
       }],
       isError: true
-    }
+    },
+    code
   };
 }

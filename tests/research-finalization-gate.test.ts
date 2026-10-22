@@ -2834,6 +2834,29 @@ describe("finalize_research gate", () => {
     }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
   });
 
+  it("counts a video the person gave that Gemini could not read as found too, and says it was not watched", () => {
+    // AskRigor#359: its comments can still be audited, and the answer says the video itself was not watched.
+    const base = {
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
+    };
+    const notRead = sign("youtube_video_unread", { video: "ggggggggggg", code: "gemini_video_not_completed" }, options);
+    const videoG = sign("youtube_video_audit", {
+      video: "ggggggggggg", state: "api_visible_complete", lock: "pass", records: 60
+    }, options);
+    const audited = finalizeResearch({
+      ...base, receipts: [survey, emptySearch, notRead, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options);
+    expect(audited.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toMatch(/is not among the videos found/u);
+    expect(audited.community.material_videos).toEqual(["ggggggggggg"]);
+    expect(audited.caveats).toContain("I could not watch [this video](https://www.youtube.com/watch?v=ggggggggggg), so " +
+      "what this answer says about it comes only from its title and description.");
+    // It is no discovery round either.
+    expect(finalizeResearch({
+      ...base, receipts: [notRead, videoG, study], material_video_ids: ["ggggggggggg"]
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
+  });
+
   it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
     const result = finalizeResearch({
       receipts: [`${study.slice(0, -2)}xx`, "not-a-receipt"],

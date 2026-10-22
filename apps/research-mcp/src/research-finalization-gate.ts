@@ -195,6 +195,73 @@ export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS
   return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
 }
 
+// The one thing a question is about, and a video the person gave that AskRigor could not read (AskRigor#359: an answer
+// described a video it could not watch as if it had, then judged its 2-minute routine by studies of other exercises).
+// named_target gives HRP ExactProgramFingerprint's fields and each key study says how it matches each one; the model
+// judges the matches, the check is exact on what it declares, and the caveats state only declared mismatches.
+export const NAMED_TARGET_FIELDS = [
+  "components", "dose_or_intensity", "frequency_and_duration", "population", "outcome", "time_horizon"
+] as const;
+type NamedTargetField = typeof NAMED_TARGET_FIELDS[number];
+export const NAMED_TARGET_SOURCES = ["video_read", "video_description_only", "person", "source_text"] as const;
+export const TARGET_MATCHES = ["same", "different", "not_described"] as const;
+export const UNWATCHED_CONTENT_SOURCES = ["description_only", "person"] as const;
+const NAMED_TARGET_LABEL_MAX_CHARACTERS = 160;
+const NAMED_TARGET_FIELD_MAX_CHARACTERS = 300;
+// The HRP's sentinel for a field the description leaves out.
+export const PROGRAM_NOT_DESCRIBED = "program not described";
+const TARGET_FIELD_WORDS: Readonly<Record<NamedTargetField, string>> = {
+  components: "the components",
+  dose_or_intensity: "the dose or intensity",
+  frequency_and_duration: "the frequency and duration",
+  population: "the population",
+  outcome: "the outcome",
+  time_horizon: "the time horizon"
+};
+
+/** A key source's match with one field of the named target. */
+const targetMatchField = <F extends NamedTargetField>(field: F) => `target_${field}` as const;
+
+/**
+ * Whether a fingerprint field is the HRP's sentinel "program not described", with the legacy spacing, hyphen,
+ * underscore and case variants the HRP normalizes, and any quotation marks or closing stop around it. Exact: the
+ * sentinel is an identifier, not a meaning.
+ */
+export function isProgramNotDescribed(value: string): boolean {
+  return value.trim().replace(/^["'\p{Pi}\p{Pf}]+|["'\p{Pi}\p{Pf}.]+$/gu, "").replace(/[\s_-]+/gu, " ").trim()
+    .toLowerCase() === PROGRAM_NOT_DESCRIBED;
+}
+
+/** The caveat for a video extract_youtube_video_claims did not read, by where the answer's account of it comes from. */
+export function unwatchedVideoCaveat(video: string, contentFrom: typeof UNWATCHED_CONTENT_SOURCES[number]): string {
+  return `I could not watch ${videoLink(video, "this video")}, so what this answer says about it comes ` +
+    (contentFrom === "person" ? "from what you said about it, not from watching it." : "only from its title and description.");
+}
+
+/**
+ * The caveat for a named target no key study tested as described, for one study or several: the fields they differ
+ * in, or, when none differs, the fields that could not be compared.
+ */
+export function namedTargetCaveat(label: string, studies: number, differing: readonly NamedTargetField[],
+  uncompared: readonly NamedTargetField[]): string {
+  const target = withoutEndPunctuation(label);
+  const one = studies === 1;
+  const fields = (list: readonly NamedTargetField[]) => {
+    const words = list.map((field) => TARGET_FIELD_WORDS[field]);
+    return words.length <= 2 ? words.join(" and ") : `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
+  };
+  if (differing.length > 0) {
+    return (one
+      ? `The study I found did not test ${target} as described: it differs in ${fields(differing)}, so it is`
+      : `None of the studies I found tested ${target} as described: they differ in ${fields(differing)}, so they are`) +
+      " indirect evidence about it.";
+  }
+  return (one
+    ? `The study I found is not known to have tested ${target} as described: `
+    : `None of the studies I found is known to have tested ${target} as described: `) +
+    `${fields(uncompared)} could not be compared, so how directly ${one ? "it applies" : "they apply"} is not known.`;
+}
+
 // Research results remind the AI, in the turn it researches, that answers using
 // the research are checked at the end, in that turn or a later one (owner
 // question 86: a "continue" turn dropped AskRigor's final check).
@@ -472,14 +539,29 @@ export const finalizeResearchInputSchema = z.object({
       .describe("For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text " +
         "was read through another full-text tool connected here; unavailable, one was tried without access; cost, " +
         "one was not used because it costs the user credits; none, no such tool is connected. A study read that way " +
-        "is reported as read through another tool, not audited by AskRigor.")
+        "is reported as read through another tool, not audited by AskRigor."),
+    // AskRigor#359: with named_target, how this study matches each of its fields, as the model judges it.
+    target_components: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: same when this study's components are named_target's, different when they differ, " +
+        "not_described when this study or named_target does not describe them."),
+    target_dose_or_intensity: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the dose or intensity."),
+    target_frequency_and_duration: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the frequency and duration."),
+    target_population: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the population."),
+    target_outcome: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the outcome."),
+    target_time_horizon: z.enum(TARGET_MATCHES).optional()
+      .describe("With named_target: as target_components, for the time horizon.")
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
       "With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts " +
-      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to."),
+      "tie to it: a copy read here, or the page resolve_doi found the DOI registered to. With named_target, each study " +
+      "also says how it matches each of its fields (target_components to target_time_horizon)."),
   intervention_identity: z.object({
     status: z.enum(["not_applicable", "checked"]),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -494,6 +576,51 @@ export const finalizeResearchInputSchema = z.object({
       }).strict().optional()
     }).strict()).min(1).max(60).optional()
   }).strict().optional().describe("Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty."),
+  // AskRigor#359: the one thing the question is about, as HRP ExactProgramFingerprint's fields give it.
+  named_target: z.object({
+    label: z.string().trim().min(1).max(NAMED_TARGET_LABEL_MAX_CHARACTERS)
+      .describe(`What the question is about, as the answer names it, in at most ${NAMED_TARGET_LABEL_MAX_CHARACTERS} ` +
+        "characters, so that \"None of the studies I found tested [label] as described.\" reads as a sentence: for " +
+        "example, the video's 2-minute bouncing routine."),
+    described_from: z.enum(NAMED_TARGET_SOURCES)
+      .describe("Where its description comes from: video_read, the video as extract_youtube_video_claims read it; " +
+        "video_description_only, the video's title and description only; person, what the person said; " +
+        "source_text, a study, a label or another text."),
+    video_id: youtubeVideoIdSchema.optional()
+      .describe("The video's 11-character ID, when it comes from a video; needed with video_read and " +
+        "video_description_only."),
+    components: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`What it is made of, every part its description names, in at most ${NAMED_TARGET_FIELD_MAX_CHARACTERS} ` +
+        `characters, or "${PROGRAM_NOT_DESCRIBED}".`),
+    dose_or_intensity: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Its dose or intensity in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    frequency_and_duration: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`How often and for how long, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    population: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Who it is for, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    outcome: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`The outcome it is said to change, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`),
+    time_horizon: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
+      .describe(`Over what time, in a few words, or "${PROGRAM_NOT_DESCRIBED}".`)
+  }).strict().optional()
+    .describe("When the question is about one specific intervention, product, program or video routine, and whenever " +
+      "extract_youtube_video_claims ran on a video, read or not: what it is, where its description comes from, and " +
+      "its fingerprint (HRP ExactProgramFingerprint), each field in a few words or \"program not described\". Each key " +
+      "source then gives target_components to target_time_horizon: same, different or not_described. When no key " +
+      "study is the same on all six, the answer states the caveat \"None of the studies I found tested [label] as " +
+      "described: they differ in [fields], so they are indirect evidence about it.\" Which matches hold stays the " +
+      "model's declaration."),
+  unwatched_videos: z.array(z.object({
+    video_id: youtubeVideoIdSchema.describe("The video's 11-character ID."),
+    content_from: z.enum(UNWATCHED_CONTENT_SOURCES)
+      .describe("Where the answer's account of its content comes from: description_only, its title and description; " +
+        "person, what the person said about it.")
+  }).strict()).max(20).optional()
+    .describe("Videos extract_youtube_video_claims could not read, with where the answer's account of each comes " +
+      "from. Each such video adds the caveat \"I could not watch [this video](link), so what this answer says about " +
+      "it comes only from its title and description.\", or with person \"…, so what this answer says about it comes " +
+      "from what you said about it, not from watching it.\" A video left out counts as description_only, unless " +
+      "named_target is described_from person with its video_id."),
   shopping: z.object({
     status: z.enum(["not_requested", "buy_options", "no_live_option_found"]),
     destination: z.string().trim().min(1).max(200).optional(),
@@ -1094,7 +1221,9 @@ export const finalizeResearchOutputSchema = z.object({
       "answer_draft, the draft does not yet say, show or link what it must; carried_state, the conversation's " +
       "carried state; second_reading, a sentence a second reading found; tool_list, the connector-refresh hint."),
   unchecked_line: z.string().optional()
-    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked."),
+    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked. " +
+      "Such an answer also says at its start that it is partial, and gives no ranking or verdict that a step still " +
+      "open could change."),
   previous_check: z.object({
     status: z.literal("not_ready"),
     open: z.array(z.enum(NEXT_STEP_KINDS))
@@ -1453,6 +1582,10 @@ export function finalizeResearch(
   let surveys = 0;
   let partialSurveys = 0;
   const discovered = new Set<string>();
+  // Videos the person gave that extract_youtube_video_claims read, and those it identified but did not read
+  // (AskRigor#359).
+  const videosRead = new Set<string>();
+  const videosUnread = new Set<string>();
   const audited = new Map<string, VideoAudit>();
   const communityAudited = new Set<string>();
   // Videos a one-call audit read comments from; its other selected videos
@@ -1491,6 +1624,12 @@ export function finalizeResearch(
       // its comments needs no discovery round to have turned it up. It is no
       // round itself, so community discovery still runs as before.
       discovered.add(text(claims.video));
+      videosRead.add(text(claims.video));
+    }
+    if (kind === "youtube_video_unread") {
+      // One it could not read counts as found too: its comments can still be audited.
+      discovered.add(text(claims.video));
+      videosUnread.add(text(claims.video));
     }
     if (kind === "youtube_video_audit") {
       // Comments the audit's final view returned; receipts from before `shown`
@@ -2183,6 +2322,114 @@ export function finalizeResearch(
       "No study was declared decision-critical; say that no study's methods were checked in full text.",
       "No study's methods were checked in full text for this answer."
     );
+  }
+
+  // A video the person gave, and the one thing the question is about (AskRigor#359). The receipts show which videos
+  // extract_youtube_video_claims read and which it did not; either kind is the exact trigger for named_target, a video
+  // the person gave. Where the answer's account of an unread video comes from, what the question is about and how each
+  // key study matches each of its fields are the model's declarations, checked exactly; the caveats state only what
+  // the receipts show and the declared mismatches.
+  const unwatched = new Map<string, { index: number; from: typeof UNWATCHED_CONTENT_SOURCES[number] }>();
+  const listedVideos = new Map<string, number>();
+  for (const [index, { video_id: video, content_from: from }] of (input.unwatched_videos ?? []).entries()) {
+    const at = `unwatched_videos[${index}]`;
+    const first = listedVideos.get(video);
+    if (first === undefined) listedVideos.set(video, index);
+    if (first !== undefined) {
+      addStep("declaration", `${at} names the same video as unwatched_videos[${first}]: give each video one entry.`);
+    } else if (videosRead.has(video)) {
+      addStep("declaration", `${at} names video ${video}, which extract_youtube_video_claims read: leave it out.`);
+    } else if (!videosUnread.has(video)) {
+      addStep("declaration", `${at} names video ${video}, which no research_receipt passed here shows ` +
+        "extract_youtube_video_claims could not read: read it with extract_youtube_video_claims and pass the " +
+        "research_receipt it returns, or leave the entry out.");
+    } else unwatched.set(video, { index, from });
+  }
+  const target = input.named_target;
+  // An unread video's caveat says where the answer's account of it comes from: its entry, else a named target
+  // described from what the person said about that video, else its title and description.
+  for (const video of [...videosUnread].filter((video) => !videosRead.has(video)).sort()) {
+    const from = unwatched.get(video)?.from ??
+      (target?.video_id === video && target.described_from === "person" ? "person" : "description_only");
+    caveatOnce(`Video ${video} was not watched, so what the answer says about it comes ` +
+      (from === "person" ? "from what the person said about it" : "only from its title and description") +
+      ": say so, as the caveat does.", unwatchedVideoCaveat(video, from));
+  }
+  const matchOf = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
+    source[targetMatchField(field)];
+  if (target === undefined) {
+    if (videosRead.size > 0 || videosUnread.size > 0) {
+      requireDeclaration("Give named_target: the person gave a video, which extract_youtube_video_claims read or " +
+        "could not read, so the answer is about what it puts forward. Give its label as the answer names it; " +
+        "described_from, where its description comes from (video_read, video_description_only, person or " +
+        "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, " +
+        "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source " +
+        "then says how it matches each one (target_components to target_time_horizon: same, different or " +
+        "not_described).");
+    }
+    if (input.key_sources.some((source) => NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) !== undefined))) {
+      addStep("declaration", "key_sources gives target_components to target_time_horizon without named_target, what " +
+        "they are matched with: give named_target, or leave the matches out.");
+    }
+  } else {
+    const video = target.video_id;
+    const describedFrom = target.described_from;
+    if (video === undefined && (describedFrom === "video_read" || describedFrom === "video_description_only")) {
+      addStep("declaration", `named_target is described_from ${describedFrom} without video_id: give the video's ` +
+        "11-character ID.");
+    } else if (describedFrom === "video_read" && video !== undefined && !videosRead.has(video)) {
+      addStep("declaration", videosUnread.has(video)
+        ? `named_target is described_from video_read, but extract_youtube_video_claims could not read video ${video}: ` +
+          "give described_from as the case is, video_description_only or person."
+        : `named_target is described_from video_read, but no research_receipt passed here shows that ` +
+          `extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or ` +
+          "give described_from as the case is.");
+    }
+    const entry = video === undefined ? undefined : unwatched.get(video);
+    const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
+      ? "description_only" : undefined;
+    if (entry !== undefined && declared !== undefined && entry.from !== declared) {
+      addStep("declaration", `named_target is described_from ${describedFrom} for video ${video}, but ` +
+        `unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`);
+    }
+    // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
+    // nothing, so no study is the same there or differs there.
+    const unmatched = input.key_sources.filter((source) =>
+      NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) === undefined));
+    if (unmatched.length > 0) {
+      requireDeclaration(`named_target is given, so each key source says how it matches it: give ` +
+        `${listOf(unmatched.map(({ id }) => id), "and")} target_components, target_dose_or_intensity, ` +
+        "target_frequency_and_duration, target_population, target_outcome and target_time_horizon, each same, " +
+        "different or not_described (the study, or named_target, does not describe it).");
+    }
+    const undescribed = NAMED_TARGET_FIELDS.filter((field) => isProgramNotDescribed(target[field]));
+    for (const field of undescribed) {
+      const matched = input.key_sources.filter((source) => {
+        const match = matchOf(source, field);
+        return match === "same" || match === "different";
+      });
+      if (matched.length > 0) {
+        addStep("declaration", `named_target.${field} is "${PROGRAM_NOT_DESCRIBED}", so no study is the same there or ` +
+          `differs there: give ${listOf(matched.map(({ id }) => id), "and")} ${targetMatchField(field)} not_described.`);
+      }
+    }
+    // A study tested it as described only when it is the same on all six fields.
+    const effective = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
+      undescribed.includes(field) ? "not_described" : matchOf(source, field);
+    if (unmatched.length === 0 && input.key_sources.length > 0 && !input.key_sources.some((source) =>
+      NAMED_TARGET_FIELDS.every((field) => effective(source, field) === "same"))) {
+      const fieldsWhere = (match: typeof TARGET_MATCHES[number]) => NAMED_TARGET_FIELDS.filter((field) =>
+        input.key_sources.some((source) => effective(source, field) === match));
+      // The label reaches the reader in the caveat, so it shows no internal labels, as a declared class does.
+      const labels = internalLabels(target.label, options.protocolNames ?? new Set());
+      if (labels.length > 0) {
+        addStep("declaration", `named_target.label shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          `${labels.length > 8 ? ", and more" : ""}): the answer names it in its caveat, so give it in plain words.`);
+      }
+      caveatOnce(`No key study is shown to have tested ${withoutEndPunctuation(target.label)} as described: say so, ` +
+        "as the caveat does.",
+      namedTargetCaveat(target.label, input.key_sources.length, fieldsWhere("different"), fieldsWhere("not_described")));
+    }
   }
 
   // After a first pass of research the answer offers the two ways to go

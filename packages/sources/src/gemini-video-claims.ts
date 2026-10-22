@@ -156,6 +156,9 @@ export type GeminiVideoAdvance =
       // How Gemini ended a pass it did not finish: its status and error code, identifiers only, never its text.
       gemini_status?: string;
       gemini_error_code?: string;
+      // A pass Gemini no longer had when it was polled (HTTP 404): a fixed marker, never Gemini's reply or the pass's
+      // identity, so the refusal can tell it from a pass Gemini ended with a status (AskRigor#359).
+      gemini_ending?: "interaction_missing";
     };
 
 const GEMINI_STATUS_PATTERN = /^[A-Za-z][A-Za-z_]{0,39}$/u;
@@ -368,9 +371,11 @@ export async function advanceGeminiVideoPass(
         });
   } catch (error) {
     if (prior === undefined) return failureBoundary(error);
-    // The stored pass is gone (deleted, or expired at Google): it cannot finish.
+    // The stored pass is gone (deleted, or expired at Google): it cannot finish, and its ending says so.
     if (error instanceof UpstreamHttpError && error.status === 404) {
-      return { kind: "boundary", code: "gemini_video_not_completed", retryable: false };
+      return {
+        kind: "boundary", code: "gemini_video_not_completed", retryable: false, gemini_ending: "interaction_missing"
+      };
     }
     // Any other failed poll counts as one attempt and polls again later.
     return pollAgain(parsedConfig.data, prior);

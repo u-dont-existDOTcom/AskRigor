@@ -2125,7 +2125,7 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
-      const { result, receipt } = await extractYoutubeVideoClaims(input, {
+      const { result, receipt, unread } = await extractYoutubeVideoClaims(input, {
         secret: researchReceiptSecretFromEnv(),
         geminiKeyUnbilled: geminiKeyDeclaredUnbilled(),
         // Owner answer 146b: only a dev account the server's settings list may name a trial arm.
@@ -2134,9 +2134,13 @@ function defineResearchOperations(
           return researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv());
         }
       });
-      return receipt === undefined
-        ? result
-        : withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt));
+      // AskRigor#359: a video the tool did not read is signed on its refusal, so the final check can tell a video that
+      // was read from one whose title and description were all the answer had.
+      return receipt !== undefined
+        ? withResearchReceipt(result, researchReceipt("youtube_video_claims", receipt))
+        : unread === undefined
+          ? result
+          : withResearchReceipt(result, researchReceipt("youtube_video_unread", unread), true);
     }
   );
 
@@ -2159,7 +2163,9 @@ function defineResearchOperations(
         "(option_classes); where " +
         "the topic is discussed and what each community searched outside YouTube showed (principal_communities, " +
         "community_searches); what the YouTube comments read showed (community_findings); the studies the " +
-        "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), item-level product " +
+        "conclusions rest on (key_sources), whole-intervention identity (intervention_identity), the one thing the " +
+        "question is about and how each key study matches it (named_target), videos AskRigor could not read " +
+        "(unwatched_videos), item-level product " +
         "identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, " +
         "another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare " +
         "video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was " +
@@ -2334,8 +2340,12 @@ function defineResearchOperations(
             "\nGive the user the checked answer_draft word for word, followed only by the lines this result gives for " +
             "its end; to change anything in it, call finalize_research again with the changed draft first.") +
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
+          // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
+          // partial, and gives no ranking or verdict that a step still open could change.
           (result.unchecked_line === undefined ? "" :
-            `\nAn answer given before this check passes ends with this line, as written (in the answer's language when the answer is not in English): ${result.unchecked_line}`) +
+            "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or " +
+              "verdict that a step still open could change, and ends with this line, as written (in the answer's " +
+              `language when the answer is not in English): ${result.unchecked_line}`) +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
@@ -2875,16 +2885,17 @@ function receiptSequence(): number {
 }
 
 /**
- * Adds the receipt to a result. An error result carries none, except a
- * discovery round's (`signsStoppedRound`): a search a rate limit or the daily
- * quota stopped is signed with that limit, which keeps discovery open.
+ * Adds the receipt to a result. An error result carries none, except where
+ * `signsError` asks for it: a discovery round's, as a search a rate limit or
+ * the daily quota stopped is signed with that limit, which keeps discovery
+ * open; and a video extract_youtube_video_claims did not read (AskRigor#359).
  */
 function withResearchReceipt(
   result: CallToolResult,
   receipt: string | undefined,
-  signsStoppedRound = false
+  signsError = false
 ): CallToolResult {
-  if (receipt === undefined || (result.isError === true && !signsStoppedRound)) return result;
+  if (receipt === undefined || (result.isError === true && !signsError)) return result;
   // The reminder reaches the AI whenever it researches, in any turn: a
   // "continue" turn without a mention is still the same task (owner question 86).
   return {
@@ -2894,7 +2905,11 @@ function withResearchReceipt(
       { type: "text", text: `research_receipt: ${receipt}` },
       { type: "text", text: FINALIZE_REMINDER }
     ],
-    structuredContent: { ...result.structuredContent, research_receipt: receipt }
+    // An error result without structured content gets none: clients check any they receive against the tool's output
+    // schema, which describes a result that completed, so its receipt goes in the text only.
+    ...(result.isError === true && result.structuredContent === undefined
+      ? {}
+      : { structuredContent: { ...result.structuredContent, research_receipt: receipt } })
   };
 }
 

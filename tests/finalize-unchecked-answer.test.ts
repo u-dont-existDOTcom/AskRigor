@@ -151,7 +151,10 @@ describe("the unchecked line and the previous check in finalize_research's resul
   it("tells the model the line an unchecked answer ends with, and that an answer after a failed check went out unchecked", async () => {
     const blocked = await call(base({ absence_claims: undefined }));
     expect(blocked.output.status).toBe("not_ready");
-    expect(blocked.text).toContain("An answer given before this check passes ends with this line, as written (in the " +
+    // AskRigor#359: an answer given while the check said not_ready opened with a confident verdict, so such an answer
+    // also says at its start that it is partial, and gives no ranking or verdict that a step still open could change.
+    expect(blocked.text).toContain("An answer given before this check passes says at its start that it is partial, " +
+      "gives no ranking or verdict that a step still open could change, and ends with this line, as written (in the " +
       "answer's language when the answer is not in English): AskRigor's final check has not passed: some of its " +
       "statements were not checked.");
     expect(blocked.text).not.toContain("End the answer with this line");
@@ -168,5 +171,13 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "this result gives for its end; to change anything in it, call finalize_research again with the changed draft " +
       "first.");
     expect(next.text).not.toContain("An answer given before this check passes");
+  });
+
+  it("says the same where the result's unchecked_line is published", async () => {
+    const tool = (await client!.listTools()).tools.find(({ name }) => name === "finalize_research")!;
+    const output = tool.outputSchema as { properties: Record<string, { description?: string }> };
+    expect(output.properties.unchecked_line!.description).toBe("When not_ready: the line an answer given before this " +
+      "check passes ends with, saying why it is unchecked. Such an answer also says at its start that it is partial, " +
+      "and gives no ranking or verdict that a step still open could change.");
   });
 });
