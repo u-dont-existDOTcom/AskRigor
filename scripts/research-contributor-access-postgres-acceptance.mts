@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import { Pool } from "pg";
 
@@ -81,7 +82,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0017_atlas_findings",
+      migration: "0018_atlas_card_fields",
     })}\n`);
     return;
   }
@@ -570,6 +571,7 @@ async function verify(
     await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
+    await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1480,17 +1482,18 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
 }
 
 /**
- * Migration 0017: applied, a second migrate changes nothing, and a database at 0016 holding data upgrades to it and
- * then takes an Atlas finding.
+ * Migrations 0017 and 0018 (Atlas phase 3): applied, a second migrate changes nothing, and a database at 0016 holding
+ * data upgrades to them and then takes an Atlas finding.
  */
 export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const { adminUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 2 });
   try {
     const applied = await admin.query<{ migration_id: string }>(
-      `SELECT migration_id FROM ${schema}.schema_migrations WHERE migration_id = '0017_atlas_findings'`,
+      `SELECT migration_id FROM ${schema}.schema_migrations
+        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields')`,
     );
-    assert(applied.rowCount === 1, "MIGRATION_0017_NOT_APPLIED");
+    assert(applied.rowCount === 2, "MIGRATION_0017_OR_0018_NOT_APPLIED");
     const before = await atlasMigrationSnapshot(admin, schema);
     const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
     try {
@@ -1499,7 +1502,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
       await again.close();
     }
     assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
-    checks.push("migration_0017_applied_and_a_second_migrate_changes_nothing");
+    checks.push("migrations_0017_and_0018_applied_and_a_second_migrate_changes_nothing");
 
     // A database at 0016, as production holds it before this release, with canonical and account rows in it.
     const upgrade = `${schema}_atlas_upgrade`;
@@ -1549,8 +1552,8 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
         "ATLAS_UPGRADE_BASELINE_MISMATCH");
       await upgradeRepository.migrate();
       const upgraded = await counted();
-      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 17,
-        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017");
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 18,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_OR_0018");
       const prepared = prepareAtlasFindingIntent(atlasAccept({
         wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
         bases: ["full_text_audit"],
@@ -1571,7 +1574,388 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     } finally {
       await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
     }
-    checks.push("an_0016_database_with_data_upgrades_to_0017_keeps_its_rows_and_takes_a_finding");
+    checks.push("an_0016_database_with_data_upgrades_to_0018_keeps_its_rows_and_takes_a_finding");
+  } finally {
+    await admin.end();
+  }
+}
+
+/**
+ * Atlas phase 3 (docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md, sections 6 and 9): migration 0018. A
+ * database at 0017 holding a phase 2 finding upgrades to it, and the finding reads back with none of the new fields;
+ * the writer then stores an effect's and a search that found nothing's fields where the design puts them; the columns'
+ * check refuses what no intent may hold, and the append-only guard refuses any change; decision 7's erasure takes the
+ * subject and the searches' queries with the rest of the wording; and a second migrate on the populated database
+ * changes nothing.
+ */
+export async function verifyAtlasCardFields(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
+  const { adminUrl, checks } = context;
+  const schema = `${context.schema}_card_fields`;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  let instant = Date.parse("2026-11-04T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  try {
+    // A database at 0017, as production holds it once phases 1 and 2 are released.
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      for (const migrationId of [...MIGRATIONS_BEFORE_ATLAS, "0017_atlas_findings"]) {
+        const sql = await readFile(
+          new URL(`../packages/evidence-repository/migrations/${migrationId}.sql`, import.meta.url),
+          "utf8",
+        );
+        await client.query(sql.replaceAll("__SCHEMA__", schema));
+        await client.query(
+          `INSERT INTO ${schema}.schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)`,
+          [migrationId, createHash("sha256").update(sql).digest("hex")],
+        );
+      }
+      // A phase 2 finding, F-1001, as 0017's writer leaves it: claim_type other, direction unclear, no subject, and
+      // the version row with 0017's columns only.
+      const runId = deterministicUuid(`card-fields-phase-2-run:${schema}`);
+      const topicId = deterministicUuid(`card-fields-phase-2-topic:${schema}`);
+      const questionId = deterministicUuid(`card-fields-phase-2-question:${schema}`);
+      const claimId = deterministicUuid(`card-fields-phase-2-claim:${schema}`);
+      const findingId = deterministicUuid(`card-fields-phase-2-finding:${schema}`);
+      const versionId = deterministicUuid(`card-fields-phase-2-version:${schema}`);
+      await client.query(
+        `INSERT INTO ${schema}.research_runs (run_id, run_kind, started_at, completed_at, protocol_manifest_sha256s,
+           provenance_note) VALUES ($1, 'live_research', $2, $2, '[]'::jsonb, 'Synthetic phase 2 finding.')`,
+        [runId, "2026-10-23T09:00:00.000Z"],
+      );
+      await client.query(`INSERT INTO ${schema}.topics (topic_id, canonical_key, label) VALUES ($1, $2, $3)`,
+        [topicId, ATLAS_TOPIC.key, ATLAS_TOPIC.label]);
+      await client.query(
+        `INSERT INTO ${schema}.questions (question_id, topic_id, normalized_question, created_by_run_id)
+         VALUES ($1, $2, $3, $4)`,
+        [questionId, topicId, ATLAS_QUESTION, runId],
+      );
+      await client.query(`INSERT INTO ${schema}.claims (claim_id, question_id, claim_type) VALUES ($1, $2, 'other')`,
+        [claimId, questionId]);
+      // Its number comes from the sequence, as decide_atlas_card_item() takes it, so it is F-1001 and the next is F-1002.
+      await client.query(
+        `INSERT INTO ${schema}.atlas_findings (finding_id, public_number, claim_id, entry_kind, lead_origin,
+           created_by_run_id)
+         VALUES ($1, 'F-' || nextval('${schema}.atlas_public_number_seq')::text, $2, 'finding', NULL, $3)`,
+        [findingId, claimId, runId],
+      );
+      await client.query(
+        `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion, population,
+           direction, inference_type, capability_state, uncertainty_and_limitations, status)
+         VALUES ($1, $2, $3, 'Zentarine cut relapse in an invented trial.', 'Adults with Velmor syndrome', 'unclear',
+           'unknown', 'can_support', '[]'::jsonb, 'current')`,
+        [versionId, claimId, runId],
+      );
+      await client.query(
+        `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, certainty,
+           usual_answer, why_not_usual, what_would_change_it, who_else, what_it_changes, tags, verified_bases, numbers,
+           research_checked_on, made_with, card_wording_key, accepted_wording_key, edited_at_acceptance)
+         VALUES ($1, $2, 1, 'moderate', 'A gentle supplement.', 'It misses the dose.', 'A larger trial.', NULL, NULL,
+           '[]'::jsonb, '["full_text_audit"]'::jsonb, '[]'::jsonb, '2026-10-22', $3::jsonb, NULL, NULL, false)`,
+        [versionId, findingId, JSON.stringify(ATLAS_MADE_WITH)],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+    const migrations = (await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.schema_migrations`)).rows[0]!.count;
+    const reader = new PostgresAtlasReader({ connectionString: adminUrl, schema });
+    const review = new PostgresAtlasReviewStore({ connectionString: adminUrl, schema });
+    const runner = new AtlasFindingPromotionRunner(
+      new PostgresAtlasPromotionStore({ connectionString: adminUrl, schema }),
+      { now: () => tick() },
+    );
+    try {
+      const contentOf = async (publicNumber: string) => {
+        const state = await reader.readAtlasState({ publicNumbers: [publicNumber] });
+        return state.findings.find((finding) => finding.publicNumber === publicNumber)!.versions.map(({ content }) => content);
+      };
+      const [phase2] = await contentOf("F-1001");
+      assert(
+        migrations === 18 && phase2 !== undefined &&
+          ["kind", "subject", "subjectType", "direction", "searchScope"].every((field) => !(field in phase2)),
+        "ATLAS_CARD_FIELDS_UPGRADE_CHANGED_A_PHASE_2_FINDING",
+      );
+      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_0018_and_reads_it_without_the_new_fields");
+
+      // The writer stores an effect's fields and a search that found nothing's where the design puts them.
+      const decide = async (cardNumber: number, payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        const decided = await review.decide({
+          cardNumber, itemKind: "finding", itemNumber: 1, decision: "accepted", cardSha256: atlasCardSha256(cardNumber),
+          ownerReason: null, decidedAt: tick(),
+          intent: { intentId: deterministicUuid(`card-fields-intent:${schema}:${cardNumber}`), ...prepared },
+          recheckedPublicNumber: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted", `ATLAS_CARD_FIELDS_NOT_PROMOTED ${cardNumber}`);
+        return decided.publicNumber!;
+      };
+      const effectFields = { kind: "effect", subject: "Zentarine", subjectType: "supplement", direction: "benefit" };
+      const searches = [{ database: "pubmed", query: "zentarine children" }, { database: "ctgov", query: "zentarine" }];
+      const nothingFields = {
+        kind: "nothing_found", subject: "Zentarine", subjectType: "supplement", direction: "descriptive",
+        searchScope: searches,
+      };
+      const effect = await decide(9001, {
+        ...atlasAccept({
+          wording: "In an invented trial, zentarine 20 mg halved the tremor score in more adults than placebo.",
+          bases: ["full_text_audit"], sources: [atlasSource("10.0000/synthetic-card-fields-a", tick())],
+        }),
+        content: {
+          ...atlasContent("In an invented trial, zentarine 20 mg halved the tremor score in more adults than placebo.",
+            ["full_text_audit"]),
+          ...effectFields,
+        },
+      });
+      const nothing = await decide(9002, {
+        ...atlasAccept({
+          wording: "No trial of zentarine in people under 18 was found.", bases: ["bounded_absence"],
+          sources: [atlasSource("10.0000/synthetic-card-fields-b", tick())],
+        }),
+        content: { ...atlasContent("No trial of zentarine in people under 18 was found.", ["bounded_absence"]), ...nothingFields },
+      });
+      const stored = await admin.query<{
+        public_number: string; claim_type: string; direction: string; program_or_exposure: string | null;
+        kind: string | null; subject_type: string | null; search_scope: unknown;
+      }>(
+        `SELECT finding.public_number, claim.claim_type, claimed.direction, claimed.program_or_exposure, version.kind,
+                version.subject_type, version.search_scope
+           FROM ${schema}.atlas_findings finding
+           JOIN ${schema}.claims claim ON claim.claim_id = finding.claim_id
+           JOIN ${schema}.atlas_finding_versions version ON version.finding_id = finding.finding_id
+           JOIN ${schema}.claim_versions claimed ON claimed.version_id = version.claim_version_id
+          ORDER BY finding.public_number`,
+      );
+      // jsonb keeps an object's keys in its own order, so the rows are compared as values, whatever their key order.
+      assert(isDeepStrictEqual(stored.rows, [
+        { public_number: "F-1001", claim_type: "other", direction: "unclear", program_or_exposure: null, kind: null,
+          subject_type: null, search_scope: null },
+        { public_number: effect, claim_type: "effect", direction: "benefit", program_or_exposure: "Zentarine",
+          kind: "effect", subject_type: "supplement", search_scope: null },
+        { public_number: nothing, claim_type: "other", direction: "descriptive", program_or_exposure: "Zentarine",
+          kind: "nothing_found", subject_type: "supplement", search_scope: searches },
+      ]), "ATLAS_CARD_FIELDS_STORED_ELSEWHERE");
+      const [effectContent] = await contentOf(effect);
+      const [nothingContent] = await contentOf(nothing);
+      assert(
+        effectContent !== undefined && nothingContent !== undefined &&
+          isDeepStrictEqual({ kind: effectContent.kind, subject: effectContent.subject, subjectType: effectContent.subjectType,
+            direction: effectContent.direction }, effectFields) && !("searchScope" in effectContent) &&
+          isDeepStrictEqual(nothingContent.searchScope, searches),
+        "ATLAS_CARD_FIELDS_READ_BACK_MISMATCH",
+      );
+      checks.push("atlas_writer_stores_kind_subject_direction_and_searches_and_the_claim_type_from_the_kind");
+
+      // The columns' check refuses what no intent may hold, and the append-only guard refuses any change.
+      const nothingVersion = (await admin.query<{ claim_version_id: string; finding_id: string }>(
+        `SELECT version.claim_version_id, version.finding_id FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+          WHERE finding.public_number = $1`,
+        [nothing],
+      )).rows[0]!;
+      const insertedVersion = (fields: string) => async () => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          // A copy of the nothing-found version as version 2, with the fields under test.
+          const version = deterministicUuid(`card-fields-refused:${schema}:${fields}`);
+          await inner.query(
+            `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion,
+               direction, inference_type, capability_state, uncertainty_and_limitations, status,
+               supersedes_claim_version_id)
+             SELECT $1, claimed.claim_id, claimed.created_by_run_id, claimed.normalized_assertion, 'descriptive',
+                    'unknown', 'can_support', '[]'::jsonb, 'current', claimed.version_id
+               FROM ${schema}.claim_versions claimed WHERE claimed.version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, tags,
+               verified_bases, numbers, research_checked_on, made_with, edited_at_acceptance, kind, subject_type,
+               search_scope)
+             SELECT $1, version.finding_id, 2, version.tags, version.verified_bases, version.numbers,
+                    version.research_checked_on, version.made_with, false, ${fields}
+               FROM ${schema}.atlas_finding_versions version WHERE version.claim_version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      };
+      for (const fields of [
+        "'anecdote', NULL, NULL",
+        "'effect', 'person', NULL",
+        `'effect', 'supplement', '${JSON.stringify(searches)}'::jsonb`,
+        `NULL, 'supplement', '${JSON.stringify(searches)}'::jsonb`,
+        "'nothing_found', 'supplement', '[]'::jsonb",
+        "'nothing_found', 'supplement', '{\"database\":\"pubmed\"}'::jsonb",
+        `'nothing_found', 'supplement', '${JSON.stringify(Array.from({ length: 11 }, () => searches[0]))}'::jsonb`,
+      ]) {
+        await expectMessage(insertedVersion(fields), "atlas_finding_versions_card_fields_check");
+      }
+      for (const sql of [
+        `UPDATE ${schema}.atlas_finding_versions SET kind = 'harm' WHERE claim_version_id = $1`,
+        `UPDATE ${schema}.atlas_finding_versions SET search_scope = NULL WHERE claim_version_id = $1`,
+        `UPDATE ${schema}.claim_versions SET direction = 'benefit' WHERE version_id = $1`,
+        `UPDATE ${schema}.claim_versions SET program_or_exposure = 'Another subject' WHERE version_id = $1`,
+        `DELETE FROM ${schema}.atlas_finding_versions WHERE claim_version_id = $1`,
+      ]) {
+        await expectMessage(() => admin.query(sql, [nothingVersion.claim_version_id]), "APPEND_ONLY_TABLE");
+      }
+      checks.push("atlas_card_fields_check_refuses_what_no_intent_may_hold_and_the_guard_refuses_any_change");
+
+      // Under a redaction row, the searches may change only by losing their queries to the marker.
+      const runId = (await admin.query<{ run_id: string }>(
+        `SELECT created_by_run_id AS run_id FROM ${schema}.atlas_findings WHERE finding_id = $1`,
+        [nothingVersion.finding_id],
+      )).rows[0]!.run_id;
+      const underRedaction = async (sql: string) => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          const redaction = deterministicUuid(`card-fields-redaction-probe:${schema}`);
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at,
+               run_id) VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+            [redaction, nothingVersion.finding_id, nothingVersion.claim_version_id, tick(), runId],
+          );
+          await inner.query("SELECT set_config('askrigor.atlas_erasing_redaction', $1, true)", [redaction]);
+          await inner.query(sql, [nothingVersion.claim_version_id]);
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      };
+      for (const scope of [
+        "'[]'::jsonb",
+        `'${JSON.stringify([{ database: "europepmc", query: ATLAS_ERASED }, { database: "ctgov", query: ATLAS_ERASED }])}'::jsonb`,
+        `'${JSON.stringify([{ database: "pubmed", query: "another query" }, searches[1]])}'::jsonb`,
+      ]) {
+        await expectMessage(() => underRedaction(
+          `UPDATE ${schema}.atlas_finding_versions SET search_scope = ${scope} WHERE claim_version_id = $1`),
+        "APPEND_ONLY_TABLE");
+      }
+      await expectMessage(() => underRedaction(
+        `UPDATE ${schema}.atlas_finding_versions SET kind = 'harm' WHERE claim_version_id = $1`), "APPEND_ONLY_TABLE");
+      // The marker in place of each query, the databases kept, is what the exception permits (the probe rolls back).
+      await underRedaction(`UPDATE ${schema}.atlas_finding_versions
+         SET search_scope = ${schema}.atlas_search_scope_without_queries(search_scope) WHERE claim_version_id = $1`);
+      // erase_atlas_wording() takes the queries of a version whose searches are the only wording it has left: a
+      // version 2 with no texts and no wording keys (rolled back).
+      const onlySearches = await (async () => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          const version = deterministicUuid(`card-fields-only-searches:${schema}`);
+          const redaction = deterministicUuid(`card-fields-only-searches-redaction:${schema}`);
+          await inner.query(
+            `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion,
+               direction, inference_type, capability_state, uncertainty_and_limitations, status,
+               supersedes_claim_version_id)
+             SELECT $1, claimed.claim_id, claimed.created_by_run_id, $3, 'descriptive', 'unknown', 'can_support',
+                    '[]'::jsonb, 'current', claimed.version_id
+               FROM ${schema}.claim_versions claimed WHERE claimed.version_id = $2`,
+            [version, nothingVersion.claim_version_id, ATLAS_ERASED],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, tags,
+               verified_bases, numbers, research_checked_on, made_with, edited_at_acceptance, kind, subject_type,
+               search_scope)
+             SELECT $1, version.finding_id, 2, version.tags, version.verified_bases, '[]'::jsonb,
+                    version.research_checked_on, version.made_with, false, version.kind, version.subject_type,
+                    version.search_scope
+               FROM ${schema}.atlas_finding_versions version WHERE version.claim_version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at,
+               run_id) VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+            [redaction, nothingVersion.finding_id, version, tick(), runId],
+          );
+          await inner.query(`SELECT ${schema}.erase_atlas_wording($1)`, [redaction]);
+          return (await inner.query<{ search_scope: unknown }>(
+            `SELECT search_scope FROM ${schema}.atlas_finding_versions WHERE claim_version_id = $1`, [version],
+          )).rows[0]?.search_scope;
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      })();
+      assert(
+        isDeepStrictEqual(onlySearches, searches.map(({ database }) => ({ database, query: ATLAS_ERASED }))),
+        "ATLAS_CARD_FIELDS_ONLY_SEARCHES_NOT_ERASED",
+      );
+
+      // Decision 7 through the runner: withdraw the search that found nothing and erase every version's wording.
+      const record = async (kind: "withdraw" | "erase", payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        await review.recordIntent({
+          intentId: deterministicUuid(`card-fields-${kind}:${schema}`), intentKind: kind, publicNumber: nothing,
+          payload: prepared.payload, payloadSha256: prepared.payloadSha256, ownerReason: null, createdAt: tick(),
+          retryOfIntentId: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted", `ATLAS_CARD_FIELDS_${kind}_NOT_PROMOTED`);
+      };
+      await record("withdraw", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: nothing, version: 1,
+        note: "Withdrawn: the search terms named a person.", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      await record("erase", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: nothing, version: 2,
+        scope: "all_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      const erasedRows = await admin.query<{
+        version_number: number; program_or_exposure: string; direction: string; kind: string; subject_type: string;
+        search_scope: Array<{ database: string; query: string }>;
+      }>(
+        `SELECT version.version_number, claimed.program_or_exposure, claimed.direction, version.kind,
+                version.subject_type, version.search_scope
+           FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.claim_versions claimed ON claimed.version_id = version.claim_version_id
+          WHERE version.finding_id = $1 ORDER BY version.version_number`,
+        [nothingVersion.finding_id],
+      );
+      assert(
+        erasedRows.rows.length === 2 && erasedRows.rows.every((row) =>
+          row.program_or_exposure === ATLAS_ERASED && row.direction === "descriptive" && row.kind === "nothing_found" &&
+          row.subject_type === "supplement" &&
+          isDeepStrictEqual(row.search_scope, searches.map(({ database }) => ({ database, query: ATLAS_ERASED })))),
+        "ATLAS_CARD_FIELDS_ERASE_MISMATCH",
+      );
+      const leftover = await admin.query<{ rows: string }>(
+        `SELECT concat_ws(' ', (SELECT json_agg(row_to_json(version))::text FROM ${schema}.atlas_finding_versions version),
+                (SELECT json_agg(intent.payload_json)::text FROM ${schema}.atlas_finding_intents intent
+                  WHERE intent.public_number = $1)) AS rows`,
+        [nothing],
+      );
+      assert(!leftover.rows[0]!.rows.includes("zentarine children"), "ATLAS_CARD_FIELDS_QUERY_LEFT_AFTER_ERASURE");
+      checks.push("atlas_erasure_takes_the_subject_and_the_searches_queries_and_keeps_kind_type_direction_and_databases");
+
+      // A second migrate on the populated database changes nothing.
+      const before = await atlasMigrationSnapshot(admin, schema);
+      const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+      try {
+        await again.migrate();
+      } finally {
+        await again.close();
+      }
+      assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_CARD_FIELDS_SECOND_MIGRATE_CHANGED_SOMETHING");
+      checks.push("migration_0018_on_a_populated_database_changes_nothing_when_run_again");
+    } finally {
+      await Promise.allSettled([reader.close(), review.close(), runner.close()]);
+    }
   } finally {
     await admin.end();
   }

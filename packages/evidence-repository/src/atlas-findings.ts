@@ -94,6 +94,13 @@ export const ATLAS_KIND_CLAIM_TYPES: Readonly<Record<AtlasFindingKind, "effect" 
   nothing_found: "other",
   tested_vs_sold: "applicability",
 };
+export type AtlasClaimType = typeof ATLAS_KIND_CLAIM_TYPES[AtlasFindingKind];
+
+/** claims.claim_type for a finding whose first version has this kind: other when it has none, as in phase 2. */
+export function atlasClaimTypeOf(kind: AtlasFindingKind | undefined): AtlasClaimType {
+  return kind === undefined ? "other" : ATLAS_KIND_CLAIM_TYPES[kind];
+}
+
 /** The most searches one finding carries, and the longest query. */
 export const ATLAS_SEARCHES_PER_FINDING = 10;
 export const ATLAS_SEARCH_QUERY_MAX_CHARACTERS = 500;
@@ -248,7 +255,22 @@ const canonicalSubset = <T extends string>(allowed: readonly T[], values: readon
   new Set(values).size === values.length &&
   values.every((value, index) => index === 0 || allowed.indexOf(values[index - 1]!) < allowed.indexOf(value));
 
-/** One version's content: the accepted wording and its fields. */
+/**
+ * A search that found nothing, as the final check bound it to a literature_search receipt of its call (Atlas phase 3):
+ * the database and the exact query. Its date is the version's research day.
+ */
+export const atlasSearchSchema = z.object({
+  database: z.enum(ATLAS_SEARCH_DATABASES),
+  query: atlasText(ATLAS_SEARCH_QUERY_MAX_CHARACTERS),
+}).strict();
+export type AtlasSearch = z.infer<typeof atlasSearchSchema>;
+
+/**
+ * One version's content: the accepted wording and its fields. Atlas phase 3 adds the kind, subject, subject type,
+ * direction and searches the research AI declared on its card, or the AI declared at acceptance for an older card.
+ * They are optional, with no default, so an intent queued before phase 3 parses to itself and keeps its SHA-256; a
+ * version without them stores none.
+ */
 export const atlasVersionContentSchema = z.object({
   wording: atlasText(500),
   appliesTo: atlasText(300).nullable(),
@@ -261,12 +283,25 @@ export const atlasVersionContentSchema = z.object({
   tags: z.array(z.enum(ATLAS_FINDING_TAGS)).max(ATLAS_FINDING_TAGS.length),
   verifiedBases: z.array(z.enum(ATLAS_VERIFIED_BASES)).max(ATLAS_VERIFIED_BASES.length),
   numbers: atlasNumbersSchema,
+  kind: z.enum(ATLAS_FINDING_KINDS).optional(),
+  subject: atlasText(ATLAS_SUBJECT_MAX_CHARACTERS).optional(),
+  subjectType: z.enum(ATLAS_SUBJECT_TYPES).optional(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
+  searchScope: z.array(atlasSearchSchema).min(1).max(ATLAS_SEARCHES_PER_FINDING).optional(),
 }).strict().superRefine((content, context) => {
   if (!canonicalSubset(ATLAS_FINDING_TAGS, content.tags)) {
     context.addIssue({ code: "custom", path: ["tags"], message: "tags once each, in their listed order" });
   }
   if (!canonicalSubset(ATLAS_VERIFIED_BASES, content.verifiedBases)) {
     context.addIssue({ code: "custom", path: ["verifiedBases"], message: "bases once each, in their listed order" });
+  }
+  // Searches go only with a search that found nothing, which states no direction (design section 2, checks 9 and 10;
+  // migration 0018 holds the first too).
+  if (content.searchScope !== undefined && content.kind !== ATLAS_SEARCH_KIND) {
+    context.addIssue({ code: "custom", path: ["searchScope"], message: "searches go only with kind nothing_found" });
+  }
+  if (content.kind === ATLAS_SEARCH_KIND && content.direction !== undefined && content.direction !== "descriptive") {
+    context.addIssue({ code: "custom", path: ["direction"], message: "a search that found nothing has direction descriptive" });
   }
 });
 export type AtlasVersionContent = z.infer<typeof atlasVersionContentSchema>;
@@ -903,7 +938,8 @@ export interface AtlasWritePlan {
   };
   topic: { topicId: string; canonicalKey: string; label: string } | null;
   question: { questionId: string; topicId: string; normalizedQuestion: string } | null;
-  claim: { claimId: string; questionId: string } | null;
+  /** The finding's claim, whose claim_type its first version's kind gives (Atlas phase 3). */
+  claim: { claimId: string; questionId: string; claimType: AtlasClaimType } | null;
   finding: {
     findingId: string;
     publicNumber: string;
@@ -996,9 +1032,15 @@ export function atlasNumberEntryWithoutLabels(entry: AtlasNumberEntry): AtlasNum
     follow_up: ATLAS_ERASED_TEXT };
 }
 
+/** A search with its query erased, as atlas_search_scope_without_queries() (migration 0018) writes it: the database stays. */
+export function atlasSearchWithoutQuery(search: AtlasSearch): AtlasSearch {
+  return { ...search, query: ATLAS_ERASED_TEXT };
+}
+
 /**
  * A version's content as erase_atlas_wording() leaves it: every text the fixed marker (a missing one stays missing),
- * and the numbers' text labels too; certainty, tags, verified bases and the counts stay.
+ * the numbers' text labels and the searches' queries too (Atlas phase 3, migration 0018); certainty, tags, verified
+ * bases, the counts, the kind, the subject type, the direction and each search's database stay.
  */
 export function atlasErasedContent(content: AtlasVersionContent): AtlasVersionContent {
   return {
@@ -1011,6 +1053,8 @@ export function atlasErasedContent(content: AtlasVersionContent): AtlasVersionCo
     whoElse: erasedOrNull(content.whoElse),
     whatItChanges: erasedOrNull(content.whatItChanges),
     numbers: content.numbers.map(atlasNumberEntryWithoutLabels),
+    ...(content.subject === undefined ? {} : { subject: ATLAS_ERASED_TEXT }),
+    ...(content.searchScope === undefined ? {} : { searchScope: content.searchScope.map(atlasSearchWithoutQuery) }),
   };
 }
 
@@ -1317,7 +1361,7 @@ export function planAtlasWrite(intent: PreparedAtlasStoredIntent, state: AtlasSt
       if (storedQuestion === undefined) plan.question = { questionId, topicId, normalizedQuestion: payload.question };
       const claimId = deterministicUuid(`askrigor:atlas-claim:${intent.publicNumber}`);
       const findingId = deterministicUuid(`askrigor:atlas-finding:${intent.publicNumber}`);
-      plan.claim = { claimId, questionId };
+      plan.claim = { claimId, questionId, claimType: atlasClaimTypeOf(payload.content.kind) };
       plan.finding = {
         findingId,
         publicNumber: intent.publicNumber,
@@ -2447,7 +2491,7 @@ interface InMemoryCanonicalRows {
   runs: AtlasWritePlan["run"][];
   topics: Array<{ topicId: string; canonicalKey: string; label: string }>;
   questions: Array<{ questionId: string; topicId: string; normalizedQuestion: string }>;
-  claims: Array<{ claimId: string; questionId: string }>;
+  claims: Array<{ claimId: string; questionId: string; claimType: AtlasClaimType }>;
   findings: Array<NonNullable<AtlasWritePlan["finding"]> & { runId: string }>;
   versions: Array<AtlasPlannedFindingVersion & { runId: string }>;
   bindings: AtlasPlannedBinding[];

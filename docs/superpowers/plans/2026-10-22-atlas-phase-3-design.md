@@ -138,10 +138,12 @@ only if its digest matches, so its new fields are the ones the final check check
 - **Intents queued before this release** have no new content fields. The new fields are optional in the intent schema,
   with no default, so a queued payload parses to itself and keeps its SHA-256.
 - **Rollback.** An image from before this release reads no new column and writes none; its strict intent schema
-  refuses an intent with the new fields, which then stays pending, as an older image leaves every Atlas intent
-  pending, and the Atlas queue waits behind it until this release serves again. Its migrate re-runs 0017's function
-  bodies, so an erasure made while it serves leaves a nothing-found finding's queries in place: the runbook says not to
-  erase such a finding during a rollback.
+  refuses an intent with the new fields, which then stays pending, and the Atlas queue waits behind it until this
+  release serves again. A decision it records on a finding accepted with this release writes a version without the
+  new fields, and an erasure it records leaves the subject and the searches' queries in the private intents (and, if
+  its migrate ran, which puts back 0017's function bodies, in the canonical rows too). So the runbook
+  (`infra/living-evidence-production/README.md`) drains the Atlas queue before the rollback and keeps the owner's
+  Atlas actions closed while the earlier image serves; no migration is undone.
 
 ## 5. Acceptance (phase 2) with the new fields
 
@@ -301,8 +303,9 @@ the method the checks apply.
   it cannot be reworded, since it must match its receipt, so that search is left out or run again.
 - **The research day** is a day late for a search made just before midnight and finalized just after; "searched by"
   stays true.
-- **Rollback** (section 4): the Atlas queue waits on a phase 3 intent, and an erasure during a rollback leaves a
-  nothing-found finding's queries.
+- **Rollback** (section 4): a phase 3 intent left pending stops the Atlas queue under the earlier image, and a
+  decision or erasure the earlier image records loses the new fields or leaves their texts, which is why the runbook
+  drains the queue first and keeps the owner's Atlas actions closed.
 
 ## 11. Build order (each part keeps `npm run verify` green)
 

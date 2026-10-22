@@ -314,6 +314,57 @@ recreate `research-mcp` with that image, then run
 `research-use-notice-v3-restore.sql` as the migrator (never while the earlier
 image serves), and then steps 2 to 4 of the release above.
 
+Atlas phase 3 (design
+`../../docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`) stores the
+fields a findings card's research AI declares for the Atlas pages. Migration
+`0018_atlas_card_fields` adds three nullable columns to
+`atlas_finding_versions`: `kind`, `subject_type` and `search_scope` (the
+searches that found nothing, each a database and its query), under the check
+`atlas_finding_versions_card_fields_check` (the kind's and the subject type's
+values, and one to ten searches only on a version of kind `nothing_found`). A
+finding's subject goes to `claim_versions.program_or_exposure`, its direction to
+`claim_versions.direction`, and its first version's kind gives
+`claims.claim_type`. It adds the writer-only
+`atlas_search_scope_without_queries` and new bodies for
+`atlas_redaction_permits` and `erase_atlas_wording`, so decision 7's erasure
+also sets each search's query to the fixed marker and keeps its database. It
+adds no table, role, grant or sequence, changes no row, and leaves 0017's body of
+`reject_living_evidence_mutation()` in force. A version written before it holds
+NULL in the new columns and reads back without the fields.
+
+Its release: run the one-shot admin `migrate`, which applies 0018, before the new
+image serves; the review role needs no new grant. Then steps 3 and 4 of the
+release above: the promotion service by hand, and the 33-tool catalog, where
+`finalize_research`, `save_research_findings` and
+`review_research_contribution` take new optional fields, so the owner refreshes
+each connector's tool list.
+
+An image rollback below phase 3, to the image that serves phases 1 and 2, goes
+in this order:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. Run `askrigor-research-promotion.service` once by hand with the phase 3
+   image, and expect `no_pending_promotion` for the Atlas queue. The earlier
+   image cannot parse an intent with the new fields: it leaves it `PENDING`,
+   and every later Atlas intent waits behind it until phase 3 serves again.
+3. Keep the owner's Atlas actions closed while the earlier image serves:
+   `ASKRIGOR_ATLAS_REVIEW` is not `enabled` in the `runtime.env` it gets. A
+   decision it recorded on a finding accepted with phase 3 would write a
+   version without the new fields, and an erasure it recorded would leave the
+   subject and the searches' queries in the private intents.
+4. Restore the selector and `runtime.env` from the release's rollback folder,
+   recreate only `research-mcp` with the earlier image, and check its health.
+5. Re-enable the timer against the restored image.
+
+Undo no migration: 0018 stays, with its columns and rows. The earlier image
+names no new column, so the versions it writes hold NULL there. It needs no
+`migrate`; if its `migrate` runs, it ignores 0018's row in `schema_migrations`
+and puts back 0017's bodies of `atlas_redaction_permits` and
+`erase_atlas_wording`, which leave the searches' queries in place, until phase
+3's `migrate` runs again. To serve phase 3 again: run its `migrate` before its
+image serves, recreate `research-mcp` with that image, and only then open the
+owner's Atlas actions.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and
