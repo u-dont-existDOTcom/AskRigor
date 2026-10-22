@@ -1992,18 +1992,47 @@ describe("AskRigor MCP tools", () => {
         },
         outputSchema: { type: "object" }
       });
+      // The DOI under either name: the 22 Oct regressions' 27 failed calls here all named it doi.
       expect(retraction).toMatchObject({
         description: "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
-          required: ["identifier"],
           additionalProperties: false,
-          properties: { identifier: { type: "string", minLength: 1, maxLength: 5000 } }
+          properties: {
+            identifier: { type: "string", minLength: 1, maxLength: 5000 },
+            doi: { type: "string", minLength: 1, maxLength: 5000 }
+          }
         },
         outputSchema: { type: "object" }
       });
+      expect((retraction?.inputSchema as { required?: string[] }).required ?? []).toEqual([]);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("takes the retraction check's DOI as identifier or doi, and says which to give when neither is", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+    process.env.CROSSREF_MAILTO = "maintainer@example.test";
+
+    try {
+      for (const args of [{ identifier: "10.0000/unresolvable" }, { doi: "10.0000/unresolvable" }]) {
+        const result = await client.callTool({ name: "check_retraction_status", arguments: args });
+        expect(result.structuredContent).toMatchObject({ error: { code: "crossref_upstream_unavailable" } });
+      }
+      const missing = await client.callTool({ name: "check_retraction_status", arguments: {} });
+      expect(missing.isError).toBe(true);
+      expect(missing.content).toEqual([{ type: "text", text: "Give the DOI to inspect as identifier." }]);
+      expect(missing.structuredContent).toMatchObject({
+        data: { status: "unknown" }, error: { code: "crossref_identifier_missing" }
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (previous === undefined) delete process.env.CROSSREF_MAILTO;
+      else process.env.CROSSREF_MAILTO = previous;
       await server.close();
     }
   });

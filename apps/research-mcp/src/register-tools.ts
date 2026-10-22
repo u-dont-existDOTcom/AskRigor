@@ -1282,17 +1282,26 @@ function defineResearchOperations(
     {
       description:
         "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
+      // Either name: in the 22 Oct regressions all 27 calls that failed here named the DOI doi, and the app refused
+      // them before they reached AskRigor, as identifier was required.
       inputSchema: z.object({
-        identifier: z.string().trim().min(1).max(5_000).describe(
+        identifier: z.string().trim().min(1).max(5_000).optional().describe(
           "DOI URL, doi: identifier, or bare DOI to inspect."
-        )
+        ),
+        doi: z.string().trim().min(1).max(5_000).optional().describe("The same DOI, for a call that names it doi.")
       }).strict(),
       outputSchema: retractionStatusEnvelopeSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ identifier }) => {
+    async ({ identifier, doi }) => {
+      const given = identifier ?? doi;
+      if (given === undefined) {
+        return crossrefToolResult("Give the DOI to inspect as identifier.", crossrefRetractionFailure(
+          "crossref_identifier_missing", "Give the DOI to inspect as identifier (or doi)."
+        ));
+      }
       try {
-        const result = await checkRetractionStatus(identifier, crossrefConfig());
+        const result = await checkRetractionStatus(given, crossrefConfig());
         return crossrefToolResult(
           `Crossref retraction-status lookup finished with status ${result.data.status}; access status ${result.access_status}.`,
           result
@@ -3756,7 +3765,7 @@ function crossrefResolveFailure() {
   });
 }
 
-function crossrefRetractionFailure() {
+function crossrefRetractionFailure(code = "crossref_tool_failed", message = "Crossref retraction-status lookup failed") {
   return errorEnvelope({
     provider: "crossref",
     recordType: "retraction_status",
@@ -3764,8 +3773,8 @@ function crossrefRetractionFailure() {
     returned: 0,
     accessStatus: "error",
     limitations: ["Crossref metadata was unavailable or could not be interpreted; retraction state remains unknown."],
-    code: "crossref_tool_failed",
-    message: "Crossref retraction-status lookup failed",
+    code,
+    message,
     retryable: false,
     data: { doi: null, status: "unknown", evidence: [], sources_checked: ["crossref"] }
   });

@@ -1342,8 +1342,10 @@ gained it, both book cases, l24 and q130 maker lost it.
      `audit_youtube_community` (`max_videos` 4 against 3), `continue_open_full_text` and `load_protocol` (no section
      named "Safety").
    The figure rule and the retraction check's `identifier` lead both days: a recurring cost, not a one-off.
-   Proposed: a derived figure names the printed figures it comes from and the server checks the arithmetic (a change
-   to how audits record figures, for the owner), and `identifier` leads the retraction check's description.
+   All 27 refused retraction checks named the DOI `doi`, and the app refused them before they reached AskRigor:
+   built since, not yet released, the check takes the DOI as `identifier` or `doi`. Proposed: a derived figure names
+   the printed figures it comes from and the server checks the arithmetic (a change to how audits record figures, for
+   the owner).
 7. **Template sentences still break** (21 Oct, finding 7). "Another pass would take Rough estimate: 20–40 minutes"
    (b-book reviews), "... take About", "Approximately" or "Roughly" (seven answers), "Another pass would take Planning
    estimate" (q137), "Comfort measures depends on" and "did not research Preventive medicines" (l26), "The evidence on

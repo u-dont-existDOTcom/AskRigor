@@ -5158,15 +5158,18 @@
         "type": "object",
         "properties": {
           "identifier": {
+            "description": "DOI URL, doi: identifier, or bare DOI to inspect.",
             "type": "string",
             "minLength": 1,
-            "maxLength": 5000,
-            "description": "DOI URL, doi: identifier, or bare DOI to inspect."
+            "maxLength": 5000
+          },
+          "doi": {
+            "description": "The same DOI, for a call that names it doi.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
           }
         },
-        "required": [
-          "identifier"
-        ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
