@@ -2,8 +2,10 @@ import {
   assertNoProhibitedPersistentKeys,
   livingEvidenceContributionSchema,
   researchFrontierContributionSchema,
+  topicLinkContributionSchema,
   type LivingEvidenceContribution,
   type ResearchFrontierContribution,
+  type TopicLinkContribution,
 } from "./contracts.js";
 import { sha256, stableJson } from "./hash.js";
 
@@ -65,6 +67,17 @@ export function prepareFrontierContribution(input: unknown): PreparedFrontierCon
     payloadSha256: sha256(stableJson(contribution)),
     queryDigests,
   };
+}
+
+export interface PreparedTopicLinkContribution {
+  contribution: TopicLinkContribution;
+  payloadSha256: string;
+}
+
+export function prepareTopicLinkContribution(input: unknown): PreparedTopicLinkContribution {
+  assertNoProhibitedPersistentKeys(input);
+  const contribution = topicLinkContributionSchema.parse(input);
+  return { contribution, payloadSha256: sha256(stableJson(contribution)) };
 }
 
 export function splitMarkdownPreservingBytes(markdown: string): LivingEvidenceContribution["analysis"]["sections"] {

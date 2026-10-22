@@ -8,6 +8,8 @@ import {
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
   ResearchContributorAccessService,
+  PAID_PRIVATE_MAP_ONLY,
+  RESEARCH_MAP_CONSENT,
   sha256,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
@@ -261,8 +263,36 @@ describe("research contributor access", () => {
       proposalKind: "RESEARCH_FRONTIER",
       privacyBoundary: PRIVACY_BOUNDARY,
       payload: partialFrontier(),
+    })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE", message: PAID_PRIVATE_MAP_ONLY });
+    expect(store.allProposals()).toHaveLength(0);
+
+    // Owner answer 143a: only this research's map, with the user's yes and the receipt of the check that offered it,
+    // which the caller checked; the consent alone, or a receipt the caller did not check, files nothing.
+    const receipt = "rr1~finalization~map=offered~1~synthetic";
+    const consented = {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: partialFrontier(),
+      userConsent: RESEARCH_MAP_CONSENT,
+      finalizationReceipt: receipt,
+    };
+    await expect(service.submitProposal(SUBJECT, consented)).rejects.toMatchObject({
+      code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE",
+    });
+    await expect(service.submitProposal(SUBJECT, consented, {
+      paidPrivateConsent: { receiptSha256: sha256("another receipt") },
+    })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE" });
+    // A paid private account files a map, never an analysis or a topic link, even with a checked consent.
+    await expect(service.submitProposal(SUBJECT, { ...consented, proposalKind: "SOURCE_ANALYSIS" }, {
+      paidPrivateConsent: { receiptSha256: sha256(receipt) },
     })).rejects.toMatchObject({ code: "PAID_PRIVATE_DOES_NOT_CONTRIBUTE" });
     expect(store.allProposals()).toHaveLength(0);
+    const filed = await service.submitProposal(SUBJECT, consented, {
+      paidPrivateConsent: { receiptSha256: sha256(receipt) },
+    });
+    expect(filed.status).toBe("inserted");
+    expect(filed.record.consentReceiptSha256).toBe(sha256(receipt));
+    expect(store.allProposals()).toHaveLength(1);
   });
 
   // Owner decision Q11 (2026-09-30): free use saves each finished answer's findings card, so the notice changed.
@@ -322,6 +352,65 @@ describe("research contributor access", () => {
     await expect(service.requireActive(SUBJECT)).rejects.toMatchObject({
       code: "RESEARCH_ACCESS_REVOKED",
     });
+  });
+
+  // Owner answer 140b (2026-10-20): the plain-answer note is a stored choice, on by default.
+  it("stores the plain-answer note setting, on by default, which saving or revoking the account leaves as it is", async () => {
+    const { store, service } = fixture();
+    await expect(service.setPlainAnswerNote(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false,
+    });
+    await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false,
+    });
+    // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
+    await service.revoke(SUBJECT);
+    await expect(service.setPlainAnswerNote(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
+    await service.setPlainAnswerNote(SUBJECT, true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: true });
+    // Only the choice is kept: no text field joins the account row.
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeVersion", "plainAnswerNote", "revokedAt",
+      "status", "updatedAt"
+    ]);
+  });
+
+  // Owner question 154 (2026-10-21): detailed lesson reports are a stored choice, off by default, that the user turns on.
+  it("stores the detailed lesson reports setting, off by default, which saving or revoking the account leaves as it is", async () => {
+    const { store, service } = fixture();
+    await expect(service.setDetailedLessonReports(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: false });
+    await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true,
+    });
+    // Each setting changes only itself.
+    await service.setPlainAnswerNote(SUBJECT, false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: true });
+    // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: true });
+    await service.revoke(SUBJECT);
+    await expect(service.setDetailedLessonReports(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: true });
+    await expect(service.setDetailedLessonReports(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: false });
+    // Only the choice is kept: no report or text field joins the account row.
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt"
+    ]);
   });
 
   it("rejects identity secrets that cannot protect a stable OAuth subject", () => {

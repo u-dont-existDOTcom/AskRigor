@@ -10,7 +10,12 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  * leaves only a lead,
  * a recorded full-text service failure after public-copy search,
  * a treatment-coverage check, or Gemini's reading of a
- * video the person gave) returns one short token. The
+ * video the person gave) returns one short token, and so does
+ * manage_research_access for a plain answer registered before research (the
+ * digests of its claims, its text and its research target, a binding to the
+ * account, and its issue order; owner answer 140b), and
+ * submit_research_contribution for a research map it filed (a binding to the
+ * account and its issue order; owner answer 143a). The
  * finalize_research gate verifies the tokens, so completion is checked by the
  * server instead of taken from the model's own report. Tokens are stateless:
  * they survive restarts and need no session store.
@@ -38,7 +43,9 @@ export const RESEARCH_RECEIPT_KINDS = [
   "study_audit",
   "review_audit",
   "treatment_coverage",
-  "finalization"
+  "finalization",
+  "plain_answer",
+  "research_map"
 ] as const;
 export type ResearchReceiptKind = typeof RESEARCH_RECEIPT_KINDS[number];
 
@@ -146,6 +153,27 @@ export function receiptIssueOrder(receipt: {
   return typeof sequence === "string" && /^\d{1,16}$/u.test(sequence)
     ? Number(sequence)
     : Date.parse(receipt.issued_at);
+}
+
+/**
+ * What binds a plain-answer receipt to the account that registered it (owner answer 140b): 16 hex characters of an
+ * HMAC, under the receipt secret, of the pseudonymous account key, so the receipt names no account and another
+ * account's plain answer does not count as this one's.
+ */
+export function plainAnswerAccountBinding(secret: string, accountKey: string): string {
+  return createHmac("sha256", secret).update("askrigor:plain-answer-account:v1\0", "utf8")
+    .update(accountKey, "utf8").digest("hex").slice(0, 16);
+}
+
+/**
+ * What binds this research's map to the account (owner answer 143a): 16 hex characters of an HMAC, under the receipt
+ * secret, of the pseudonymous account key. A research_map receipt signs it, so a map another account filed does not
+ * count as this research's; and a finalization receipt whose offer included the map signs it, so only this account
+ * can file a map on the yes to that offer. Neither names the account.
+ */
+export function researchMapAccountBinding(secret: string, accountKey: string): string {
+  return createHmac("sha256", secret).update("askrigor:research-map-account:v1\0", "utf8")
+    .update(accountKey, "utf8").digest("hex").slice(0, 16);
 }
 
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;

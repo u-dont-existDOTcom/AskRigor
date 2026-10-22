@@ -43,8 +43,8 @@ const packageFor = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   not_relevant_reason: "Isolates exact declaration checks with synthetic receipts and text.",
   treatment_choice: "not_compared", key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
   intervention_identity: { status: "not_applicable", reason: "This synthetic key study does not concern a coded or multi-ingredient product." },
-  answer_draft: GOOD, absence_claims: [], scale_results: [declaration()],
-  user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [], ...overrides
+  answer_draft: GOOD, absence_claims: [], scale_results: [declaration()], binary_results: [],
+  user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [], ...overrides
 });
 
 describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_results through the %s", (surface) => {

@@ -1,7 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 
-import { geminiVideoCheckpointSchema, geminiVideoRequestSchema } from "@askrigor/sources";
+import {
+  geminiVideoCheckpointSchema,
+  geminiVideoRequestSchema,
+  GEMINI_MODEL_TRIAL_ARMS
+} from "@askrigor/sources";
 import { z } from "zod";
 
 /**
@@ -30,6 +34,8 @@ const continuationStateSchema = z.object({
   }).strict(),
   checkpoint: geminiVideoCheckpointSchema,
   charged_seconds: z.number().int().positive(),
+  // Owner answer 146b: a dev account's trial arm, which the resumed reading keeps.
+  model_trial: z.enum(GEMINI_MODEL_TRIAL_ARMS).optional(),
   expires_at_ms: z.number().int().positive()
 }).strict();
 

@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import type { LessonCandidate } from "./contracts.js";
+import {
+  detailedLessonReportTexts,
+  type DetailedLessonReport,
+  type LessonCandidate,
+} from "./contracts.js";
 
 export type PrivacyScreenReasonCode =
   | "secret_like_data"
@@ -53,6 +57,18 @@ export function screenLessonCandidate(candidate: LessonCandidate): PrivacyScreen
   }
 
   return { safe: true, candidate };
+}
+
+/**
+ * The same screen for a connector lesson's detailed report (owner question 154): every one of its texts, the first
+ * rule one breaks, or undefined. Any failure refuses the whole lesson, as a failing lesson field does.
+ */
+export function screenDetailedLessonReport(report: DetailedLessonReport): PrivacyScreenReasonCode | undefined {
+  for (const value of detailedLessonReportTexts(report)) {
+    const reasonCode = screenPrivateText(value);
+    if (reasonCode) return reasonCode;
+  }
+  return undefined;
 }
 
 /** Whether a text holds something shaped like an API key, access token or private key. */

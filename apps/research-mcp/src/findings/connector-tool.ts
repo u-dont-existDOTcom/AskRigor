@@ -8,7 +8,8 @@ import {
 
 export const SAVE_RESEARCH_FINDINGS_DESCRIPTION =
   "In paid private mode, save the findings card of the final checked answer to AskRigor's private findings " +
-  "library, for the owner's review, when the answer offered the save and the user said yes to it. Send the card " +
+  "library, for the owner's review, when the user said yes to saving it: after the answer offered the save, or " +
+  "when the user asked for it. Send the card " +
   "exactly as the last finalize_research call checked it, with its finalization_receipt; never include claims the " +
   "user corrected, and no personal details. (Free contributor findings are saved by finalize_research.) Returns a " +
   "receipt, never the stored card.";

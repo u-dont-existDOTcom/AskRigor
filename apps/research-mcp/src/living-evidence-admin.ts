@@ -7,6 +7,7 @@ import {
   assertNoProhibitedPersistentKeys,
   researchFrontierContributionSchema,
   stableJson,
+  type ResearchContributionPromotionFailure,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 import { auditableDocumentIndexSchema } from "@askrigor/sources";
@@ -111,13 +112,30 @@ async function main(): Promise<void> {
         repository,
       );
       try {
-        const result = await runner.promoteNext();
+        // An intent that ends FAILED is named by its fixed code as it happens (owner answer 138b); the next one is
+        // then tried in the same activation.
+        const failureLine = ({ promotionId, proposalId, proposalKind, failureCode }: ResearchContributionPromotionFailure) => ({
+          promotion_id: promotionId,
+          proposal_id: proposalId,
+          proposal_kind: proposalKind,
+          failure_code: failureCode,
+        });
+        const run = await runner.promoteAccepted({
+          onFailed: (failure) => writeReceipt({
+            receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
+            operation: "promote-accepted",
+            status: "intent_failed",
+            schema: config.schema,
+            ...failureLine(failure),
+          }),
+        });
         writeReceipt({
           receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
           operation: "promote-accepted",
           status: "complete",
           schema: config.schema,
-          result,
+          result: run.result,
+          failed: run.failed.map(failureLine),
         });
       } finally {
         await runner.close();

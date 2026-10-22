@@ -950,6 +950,41 @@ describe("research session controller core", () => {
       .toEqual(progress.scout.background_job);
   });
 
+  it("keeps a background scout's budget hold only while the scout is in progress", () => {
+    const budgetHold = {
+      hold_id: "00000000-0000-4000-8000-000000000003",
+      held_nano_usd: 1_000_000_000,
+      utc_month: "2026-10"
+    };
+    const progress = recordAutomatedScoutProgress(initialState(), {
+      interaction_id: "interaction-background-controller-hold",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    }, 1_000_000_000, budgetHold);
+
+    expect(progress.scout.budget_hold).toEqual(budgetHold);
+    // A restored session keeps it, so its completion can still settle it.
+    expect(reconcileRestoredResearchSessionState(progress).scout.budget_hold).toEqual(budgetHold);
+    // A boundary leaves the hold charged and drops it with the checkpoint.
+    const blocked = recordAutomatedScoutBoundary(progress, {
+      classification: "RETRYABLE",
+      code: "AUTOMATED_SCOUT_GEMINI_YOUTUBE_SCOUT_REQUEST_FAILED",
+      summary: "The background scout failed before it completed."
+    });
+    expect(blocked.scout.background_job).toBeUndefined();
+    expect(blocked.scout.budget_hold).toBeUndefined();
+    expect(() => researchSessionStateSchema.parse({
+      ...blocked,
+      scout: { ...blocked.scout, budget_hold: budgetHold }
+    })).toThrow(/Only an in-progress scout may retain a budget hold/u);
+    expect(() => recordAutomatedScoutProgress(initialState(), progress.scout.background_job!, 1_000_000_000, {
+      ...budgetHold,
+      hold_id: "not-a-hold"
+    })).toThrow();
+  });
+
   it("projects a stable terminal block instead of a continue-without-work exception", () => {
     const routed = applyServerModuleApplicability(
       initialState(),

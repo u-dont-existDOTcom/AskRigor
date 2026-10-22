@@ -18,10 +18,14 @@ import type { FindingsRecord } from "./service.js";
  * research thread reaching the same findings again is not another occurrence.
  * A thread's new card replaces its earlier open cards (owner decision Q9: a
  * corrected answer's findings, not the wrong ones, are what gets reviewed).
+ * A card with a finding that rests on work a quick answer cannot do is also
+ * labeled beyond-quick-answer, and so is an open card such a save joins.
  */
 
 export const FINDINGS_CARD_LABEL = "findings-card";
 export const PENDING_REVIEW_LABEL = "pending-review";
+// A card with a finding that rests on work a quick answer cannot do, which the owner reviews first (owner answer 139c).
+export const BEYOND_QUICK_ANSWER_LABEL = "beyond-quick-answer";
 
 export interface GitHubFindingsSubmission {
   record: FindingsRecord;
@@ -61,6 +65,8 @@ interface OpenCard {
   number: number;
   /** The issue's comment count; unknown counts as one, so the card is kept. */
   comments: number;
+  /** Whether the issue carries the beyond-quick-answer label. */
+  beyondQuickAnswer: boolean;
   metadata: CardMetadata;
 }
 
@@ -104,7 +110,7 @@ export class GitHubFindingsQueue {
       .sort((left, right) => left.number - right.number)[0];
     const saved = same === undefined
       ? await this.createCard(input)
-      : await this.addOccurrence(same.number, same.metadata, input);
+      : await this.addOccurrence(same, input);
     let replaced = 0;
     for (const earlier of open) {
       if (earlier.metadata.thread !== input.thread || earlier.number === saved.issueNumber) continue;
@@ -137,7 +143,9 @@ export class GitHubFindingsQueue {
             issue.comments >= 0
           ? issue.comments
           : 1;
-        cards.push({ number: issue.number, comments, metadata });
+        const beyondQuickAnswer = Array.isArray(issue.labels) &&
+          issue.labels.some((label) => isRecord(label) && label.name === BEYOND_QUICK_ANSWER_LABEL);
+        cards.push({ number: issue.number, comments, beyondQuickAnswer, metadata });
       }
       if (response.length < 100) break;
     }
@@ -168,10 +176,10 @@ export class GitHubFindingsQueue {
   }
 
   private async addOccurrence(
-    issueNumber: number,
-    card: CardMetadata,
+    open: OpenCard,
     input: GitHubFindingsSubmission,
   ): Promise<GitHubFindingsQueueResult> {
+    const { number: issueNumber, metadata: card } = open;
     if (card.receipt_sha256 === input.receiptSha256) {
       return { kind: "created", issueNumber, occurrenceCount: 1, replaced: 0 };
     }
@@ -211,6 +219,17 @@ export class GitHubFindingsQueue {
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
+    // A save beyond a quick answer marks the card it joins, so the owner reviews it first.
+    if (beyondQuickAnswer(input.record) && !open.beyondQuickAnswer) {
+      try {
+        await this.request(`${this.issuesPath}/${issueNumber}/labels`, {
+          method: "POST",
+          body: JSON.stringify({ labels: [BEYOND_QUICK_ANSWER_LABEL] }),
+        });
+      } catch {
+        // The occurrence is saved; the label only orders the owner's review.
+      }
+    }
     return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count, replaced: 0 };
   }
 
@@ -226,7 +245,11 @@ export class GitHubFindingsQueue {
       body: JSON.stringify({
         title: issueTitle(input.record.card.question),
         body: cardIssueBody(input.record, metadata),
-        labels: [FINDINGS_CARD_LABEL, PENDING_REVIEW_LABEL],
+        labels: [
+          FINDINGS_CARD_LABEL,
+          PENDING_REVIEW_LABEL,
+          ...(beyondQuickAnswer(input.record) ? [BEYOND_QUICK_ANSWER_LABEL] : []),
+        ],
       }),
     });
     if (!isRecord(response) || !isPositiveInteger(response.number)) {
@@ -258,8 +281,15 @@ function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
 
 function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(OCCURRENCE_MARKER, metadata)}`;
+  // The card's own copy shows its first save's bases; a later save's, which may have labeled the card, show here.
+  const bases = beyondQuickAnswer(record)
+    ? `\n\n${section("Beyond a quick answer, as this save's receipts show", record.card.findings.map((finding, index) =>
+      `- Finding ${index + 1}: ${(finding.verified_bases ?? []).length === 0
+        ? "none"
+        : finding.verified_bases!.map(escapeMarkdown).join(", ")}`).join("\n"))}`
+    : "";
   const full = `## Saved again\n\nOccurrence ${metadata.occurrence_count}: the same question and claims, saved ` +
-    `again after another checked answer.\n\n${readableStamp(record)}\n\n${tail}`;
+    `again after another checked answer.${bases}\n\n${readableStamp(record)}\n\n${tail}`;
   return boundedBody(full, tail);
 }
 
@@ -295,12 +325,20 @@ function readableCard(record: FindingsRecord): string {
       ].join(", ") || "none stored"}`,
       `- Why the usual answer misses it: ${escapeMarkdown(finding.why_not_usual)}`,
       `- Tags: ${finding.tags.length === 0 ? "none" : finding.tags.map(escapeMarkdown).join(", ")}`,
+      `- Beyond a quick answer, as the receipts show: ${(finding.verified_bases ?? []).length === 0
+        ? "none"
+        : finding.verified_bases!.map(escapeMarkdown).join(", ")}`,
       `- What would change it: ${escapeMarkdown(finding.what_would_change_it)}`,
     ].join("\n"))),
     ...(card.open_leads.length === 0
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),
   ].join("\n\n");
+}
+
+/** Whether a finding of the record rests on work a quick answer cannot do. */
+function beyondQuickAnswer(record: FindingsRecord): boolean {
+  return record.card.findings.some(({ verified_bases: bases }) => (bases ?? []).length > 0);
 }
 
 function readableStamp(record: FindingsRecord): string {

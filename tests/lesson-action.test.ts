@@ -4,23 +4,43 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  InMemoryResearchContributorAccessStore,
+  RESEARCH_USE_NOTICE_VERSION,
+  ResearchContributorAccessService,
+} from "@askrigor/evidence-repository";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LessonSubmissionResult } from
+import { connectorLessonInputSchema, DETAILED_REPORT_RULE } from
+  "../apps/research-mcp/src/lessons/connector-tool.js";
+import type { DetailedLessonReport, LessonSubmissionResult } from
   "../apps/research-mcp/src/lessons/contracts.js";
 import {
   createLessonActionRoute,
   LESSON_ACTION_REQUEST_SCHEMA,
   LESSON_ACTION_RESPONSE_SCHEMAS,
 } from "../apps/research-mcp/src/lessons/action-route.js";
+import { createLocalLessonGeneralizer } from "../apps/research-mcp/src/lessons/local-generalizer.js";
 import {
   createDefaultActionRoutes,
   createLessonRuntimeFromEnv,
   submitConnectorLessonCandidate,
 } from "../apps/research-mcp/src/lessons/runtime.js";
-import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
+import { LessonSubmissionService } from "../apps/research-mcp/src/lessons/service.js";
+import {
+  RESEARCH_OPERATIONS,
+  registerTools,
+  type RegisterToolsOptions,
+} from "../apps/research-mcp/src/register-tools.js";
+import {
+  DETAILED_REPORTS_OFF,
+  DETAILED_REPORTS_ON,
+  manageResearchAccessInputSchema,
+} from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   createAskRigorHttpServer,
   createAskRigorServer,
@@ -541,6 +561,52 @@ describe("consequential lesson Action", () => {
     }
   });
 
+  // Issue #357: the connector may name the public AskRigor issue that reports
+  // the failure, by number only; the Action's schema and the receipt stay the same.
+  it("lets the connector name a related public AskRigor issue by number, with the same receipt", async () => {
+    const received: unknown[] = [];
+    const server = createAskRigorServer("standard", {
+      lessonSubmission: async (raw) => {
+        received.push(raw);
+        return submitted();
+      },
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const tool = (await client.listTools()).tools.find(({ name }) => name === "submit_lesson_candidate");
+      expect(tool?.inputSchema.properties?.related_issue).toEqual({
+        description: "The number of an issue in u-dont-existDOTcom/AskRigor that reports this failure in detail, when the user filed one.",
+        type: "integer",
+        minimum: 1,
+        maximum: 1_000_000,
+      });
+      expect(tool?.inputSchema.required).not.toContain("related_issue");
+      expect(LESSON_ACTION_REQUEST_SCHEMA.properties).not.toHaveProperty("related_issue");
+
+      const saved = await client.callTool({
+        name: "submit_lesson_candidate",
+        arguments: { ...validCandidate, related_issue: 357 },
+      });
+      expect(saved.isError).not.toBe(true);
+      expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(saved.structuredContent).toEqual(submitted());
+      expect(received).toEqual([{ ...validCandidate, related_issue: 357 }]);
+
+      for (const related_issue of [0, -357, 357.5, "357", 1_000_001, "https://github.com/u-dont-existDOTcom/AskRigor/issues/357"]) {
+        const rejected = await client.callTool({
+          name: "submit_lesson_candidate",
+          arguments: { ...validCandidate, related_issue },
+        });
+        expect(rejected.isError).toBe(true);
+      }
+      expect(received).toHaveLength(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it("returns the unavailable receipt when the connector's lesson queue is not configured", async () => {
     clearRuntimeEnvironment();
     await expect(submitConnectorLessonCandidate(validCandidate)).resolves.toEqual({
@@ -548,6 +614,228 @@ describe("consequential lesson Action", () => {
       retryable: false,
       reason_code: "github_auth_unavailable",
     });
+  });
+});
+
+// Owner question 154 (2026-10-21): "i would not give everyone a long report like that in chat unless they turn that
+// on in askrigor settings". A connector lesson carries a detailed report only from an account that turned detailed
+// lesson reports on with manage_research_access; any other is refused with a stable reason code, and nothing is stored.
+describe("detailed lesson reports on the connector", () => {
+  const report: DetailedLessonReport = {
+    steps: [
+      "The assistant searched one database for the intervention and found three trials.",
+      "It wrote the answer before reading any of the trials in full.",
+    ],
+    observed: "The answer called the evidence strong although no trial had been read in full.",
+    expected: "The answer should read the decisive trials in full, or say the evidence was not read, before rating it.",
+    causes: [{ cause: "The final check accepted an answer that declared no key studies.", confidence: "high" }],
+    parts_to_change: ["finalize_research"],
+    proposed_change: "Refuse a strength rating unless a key study was read in full or the answer says it was not.",
+    test_cases: [{ case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false }],
+    uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
+  };
+  const refused = { status: "detailed_report_refused", retryable: false, reason_code: "detailed_reports_off" };
+  const REFUSED_TEXT = "Not saved: detailed lesson reports are off for this account, so nothing was stored. Send the " +
+    "same lesson again without detailed_report.";
+  const agreement = {
+    noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+    eligibleDeidentifiedResearchContributionRequired: true as const,
+    prohibitedPrivateAndRawContentExcluded: true as const,
+    proposalReviewAndNoAuthorityAcknowledged: true as const,
+    paidPrivateAlternativeAcknowledged: true as const,
+  };
+  const text = (result: CallToolResult) => (result.content as Array<{ text: string }>).map(({ text }) => text).join("\n");
+
+  async function accounts() {
+    const store = new InMemoryResearchContributorAccessStore();
+    const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 7) });
+    await service.acceptFreeContributor("auth0|on", agreement);
+    await service.acceptFreeContributor("auth0|off", agreement);
+    return { store, service };
+  }
+
+  // The real lesson service behind a recording queue, so a test sees exactly what would be stored.
+  function lessonQueue() {
+    const queued: Array<Record<string, unknown>> = [];
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: {
+        submit: async (input) => {
+          queued.push(input as unknown as Record<string, unknown>);
+          return { kind: "created", issueNumber: 42, occurrenceCount: 1, possibleRegression: false };
+        },
+      },
+    });
+    return { queued, service };
+  }
+
+  // The tools as registered behind the research-access guard, called for a signed-in subject; each input first
+  // passes the tool's own schema, as the SDK checks it.
+  function tools(options: RegisterToolsOptions) {
+    type Handler = (input: unknown, extra?: unknown) => Promise<CallToolResult>;
+    const handlers = new Map<string, Handler>();
+    registerTools({
+      registerTool: (name: string, _config: unknown, execute: Handler) => {
+        handlers.set(name, execute);
+      },
+    } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude", ...options });
+    const call = (name: "manage_research_access" | "submit_lesson_candidate") =>
+      async (input: Record<string, unknown>, subject: string) => handlers.get(name)!(
+        (name === "manage_research_access" ? manageResearchAccessInputSchema : connectorLessonInputSchema).parse(input),
+        {
+          authInfo: {
+            token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
+            expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject },
+          },
+        },
+      );
+    return { manage: call("manage_research_access"), submit: call("submit_lesson_candidate") };
+  }
+
+  it("shows the setting on inspect, off by default, and turns it on and off for one account", async () => {
+    const { store, service } = await accounts();
+    const { manage } = tools({ researchContributorAccessService: service });
+    const row = (subject: string) =>
+      store.allAccounts().find(({ accountKey }) => accountKey === service.accountKeyForSubject(subject));
+
+    const inspected = await manage({ action: "inspect" }, "auth0|on");
+    expect(inspected.structuredContent).toMatchObject({
+      ok: true, access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" }, detailedLessonReports: false,
+    });
+    expect(text(inspected)).toContain(DETAILED_REPORTS_OFF);
+    expect(DETAILED_REPORTS_OFF).toBe("Detailed lesson reports are off for this account, so a lesson carries no detailed report.");
+
+    const on = await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: true }, "auth0|on");
+    expect(on.isError).not.toBe(true);
+    expect(on.structuredContent).toEqual({ ok: true, detailedLessonReports: true });
+    expect(text(on)).toBe("Detailed lesson reports are now on for this account: a lesson may carry a detailed report, " +
+      "shown to the user with the lesson before asking and stored only in AskRigor's private lessons repository.");
+    expect(row("auth0|on")).toMatchObject({ detailedLessonReports: true });
+    const shown = await manage({ action: "inspect" }, "auth0|on");
+    expect(shown.structuredContent).toMatchObject({ ok: true, detailedLessonReports: true });
+    expect(text(shown)).toContain(DETAILED_REPORTS_ON);
+    expect(DETAILED_REPORTS_ON).toBe("Detailed lesson reports are on for this account: a lesson may carry a detailed " +
+      "report, shown to the user with the lesson before asking.");
+    // Another account keeps its own setting.
+    expect((await manage({ action: "inspect" }, "auth0|off")).structuredContent).toMatchObject({ detailedLessonReports: false });
+
+    const off = await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: false }, "auth0|on");
+    expect(off.structuredContent).toEqual({ ok: true, detailedLessonReports: false });
+    expect(text(off)).toBe("Detailed lesson reports are now off for this account, so a lesson carries no detailed report.");
+    expect(row("auth0|on")).toMatchObject({ detailedLessonReports: false });
+    expect((await manage({ action: "inspect" }, "auth0|on")).structuredContent).toMatchObject({ detailedLessonReports: false });
+
+    // The action and its field go together.
+    for (const input of [{ action: "set_detailed_lesson_reports" }, { action: "inspect", detailedLessonReports: true }]) {
+      expect((await manage(input, "auth0|on")).structuredContent).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    }
+    // An account without research access has no setting to show or change, and nothing is stored for it.
+    expect((await manage({ action: "inspect" }, "auth0|new")).structuredContent).not.toHaveProperty("detailedLessonReports");
+    expect((await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: true }, "auth0|new")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "research_access_required" } });
+    await service.revoke("auth0|off");
+    expect((await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: true }, "auth0|off")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "research_access_revoked" } });
+    expect(store.allAccounts()).toHaveLength(2);
+    expect(row("auth0|off")).not.toHaveProperty("detailedLessonReports");
+  });
+
+  it("saves a detailed report only for an account that turned detailed lesson reports on", async () => {
+    const { service } = await accounts();
+    const { queued, service: lessons } = lessonQueue();
+    const contexts: unknown[] = [];
+    const { manage, submit } = tools({
+      researchContributorAccessService: service,
+      lessonSubmission: async (raw, context) => {
+        contexts.push(context);
+        return await lessons.submit(raw, "connector", context);
+      },
+    });
+    await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: true }, "auth0|on");
+
+    const saved = await submit({ ...validCandidate, detailed_report: report }, "auth0|on");
+    expect(saved.isError).not.toBe(true);
+    expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+    expect(saved.structuredContent).toEqual(submitted());
+    expect(queued).toEqual([expect.objectContaining({ source: "connector", detailedReport: report })]);
+    expect(queued[0]!.candidate).not.toHaveProperty("detailed_report");
+
+    const notSaved = await submit({ ...validCandidate, detailed_report: report }, "auth0|off");
+    expect(notSaved.isError).toBe(true);
+    expect(notSaved.structuredContent).toEqual(refused);
+    expect(text(notSaved)).toBe(REFUSED_TEXT);
+    expect(queued).toHaveLength(1);
+    // The same lesson without its report is saved, from an account with the setting off as from one with it on.
+    for (const subject of ["auth0|off", "auth0|on"]) {
+      expect((await submit(validCandidate, subject)).structuredContent).toEqual(submitted());
+    }
+    expect(queued).toHaveLength(3);
+    expect(queued.slice(1).every((input) => !("detailedReport" in input))).toBe(true);
+    // The account is read only for a lesson that carries a report.
+    expect(contexts).toEqual([
+      { detailedReports: true }, { detailedReports: false }, { detailedReports: false }, { detailedReports: false },
+    ]);
+
+    // Turned off again, the account's report is refused.
+    await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: false }, "auth0|on");
+    expect((await submit({ ...validCandidate, detailed_report: report }, "auth0|on")).structuredContent).toEqual(refused);
+    expect(queued).toHaveLength(3);
+  });
+
+  it("refuses a detailed report without a research account and publishes the field with its rule", async () => {
+    const { queued, service: lessons } = lessonQueue();
+    const contexts: unknown[] = [];
+    const server = createAskRigorServer("standard", {
+      lessonSubmission: async (raw, context) => {
+        contexts.push(context);
+        return await lessons.submit(raw, "connector", context);
+      },
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const tool = (await client.listTools()).tools.find(({ name }) => name === "submit_lesson_candidate");
+      expect(tool?.description).toContain(DETAILED_REPORT_RULE);
+      expect(DETAILED_REPORT_RULE).toBe("Include detailed_report, shown to the user with the lesson before asking, " +
+        "only when manage_research_access shows this account's detailed lesson reports on.");
+      const field = tool?.inputSchema.properties?.detailed_report as { description: string; required: string[] };
+      expect(field.description).toMatch(/^Only when manage_research_access shows this account's detailed lesson reports on, and shown to the user with the lesson before asking: /u);
+      expect(field.description).toContain("≤10,000 characters in all");
+      expect(field.required).toEqual([
+        "steps", "observed", "expected", "causes", "parts_to_change", "proposed_change", "test_cases", "uncertain",
+      ]);
+      expect(tool?.inputSchema.required).not.toContain("detailed_report");
+      expect(LESSON_ACTION_REQUEST_SCHEMA.properties).not.toHaveProperty("detailed_report");
+
+      const notSaved = await client.callTool({
+        name: "submit_lesson_candidate",
+        arguments: { ...validCandidate, detailed_report: report },
+      });
+      expect(notSaved.isError).toBe(true);
+      expect(notSaved.structuredContent).toEqual(refused);
+      expect(notSaved.content).toEqual([{ type: "text", text: REFUSED_TEXT }]);
+      expect(queued).toHaveLength(0);
+
+      // A report over 10,000 characters in all is refused by the tool's own schema before the lesson service.
+      const tooLong = await client.callTool({
+        name: "submit_lesson_candidate",
+        arguments: {
+          ...validCandidate,
+          detailed_report: {
+            ...report,
+            steps: Array.from({ length: 12 }, () => "s".repeat(300)),
+            test_cases: Array.from({ length: 5 }, () => ({ case: "t".repeat(1_200), negative_control: false })),
+          },
+        },
+      });
+      expect(tooLong.isError).toBe(true);
+      expect(contexts).toEqual([{ detailedReports: false }]);
+      expect(queued).toHaveLength(0);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 });
 

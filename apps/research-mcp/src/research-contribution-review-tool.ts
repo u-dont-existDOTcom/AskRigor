@@ -1,7 +1,12 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  RELATED_PROPOSAL_KEY_KINDS,
+  RELATED_RECORDS_SHOWN,
+  RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES,
   ResearchContributionReviewError,
   ResearchContributionReviewService,
+  type CanonicalIdentityReader,
+  type ResearchContributionReviewView,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -45,16 +50,18 @@ export const researchContributionReviewInputSchema = z.object({
 
 const promotionSchema = z.object({
   promotionId: z.string().uuid(),
-  status: z.enum(["PENDING", "COMPLETED"]),
+  status: z.enum(["PENDING", "COMPLETED", "FAILED"]),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
   receipt: z.record(z.string(), z.unknown()).nullable(),
   receiptSha256: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
+  failureCode: z.enum(RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES).nullable(),
+  failedAt: z.string().nullable(),
 }).strict();
 
 const proposalSchema = z.object({
   proposalId: z.string().uuid(),
-  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS"]),
+  proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
   payloadSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   payload: z.record(z.string(), z.unknown()),
   privacyBoundary: z.record(z.string(), z.boolean()),
@@ -64,6 +71,35 @@ const proposalSchema = z.object({
   reviewedAt: z.string().nullable(),
   reviewReason: z.string().nullable(),
   promotion: promotionSchema.nullable(),
+  supersedesProposalId: z.string().uuid().nullable(),
+  supersededByProposalIds: z.array(z.string().uuid()),
+  // Owner answer 138b: what shares this proposal's identities, by ID only, and a dry run of the writer's identity checks.
+  related: z.object({
+    proposals: z.array(z.object({
+      proposalId: z.string().uuid(),
+      proposalKind: z.enum(["RESEARCH_FRONTIER", "SOURCE_ANALYSIS", "TOPIC_LINK"]),
+      status: z.enum(["PENDING_REVIEW", "ACCEPTED"]),
+      promotionStatus: z.literal("PENDING").nullable(),
+      shared: z.array(z.enum(RELATED_PROPOSAL_KEY_KINDS)),
+    }).strict()).max(RELATED_RECORDS_SHOWN),
+    proposalsNotShown: z.number().int().nonnegative(),
+    canonical: z.object({
+      records: z.array(z.object({
+        record: z.enum(["topic", "question", "frontier", "frontier_candidate", "source_family"]),
+        id: z.string().uuid(),
+        frontierId: z.string().uuid().optional(),
+        shared: z.enum(["topic_key", "question_text_and_dimensions", "question_id", "frontier_id", "identifier"]),
+      }).strict()).max(RELATED_RECORDS_SHOWN),
+      notShown: z.number().int().nonnegative(),
+    }).strict().nullable(),
+  }).strict(),
+  preflight: z.object({
+    status: z.enum(["clear", "conflicts", "replay", "unavailable"]),
+    conflicts: z.array(z.object({
+      code: z.enum(RESEARCH_CONTRIBUTION_PROMOTION_FAILURE_CODES),
+      path: z.string().min(1).max(300),
+    }).strict()).optional(),
+  }).strict().nullable(),
 }).strict();
 
 const reviewErrorSchema = z.object({
@@ -86,6 +122,7 @@ export const researchContributionReviewOutputSchema = z.object({
     "pending_review",
     "accepted_pending_promotion",
     "accepted_promoted",
+    "accepted_promotion_failed",
     "rejected",
     "withdrawn",
     "no_pending_proposal",
@@ -99,6 +136,8 @@ export interface ResearchContributionReviewToolOptions {
   service?: ResearchContributionReviewService;
   resourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
+  /** The canonical store's read-only identity view, for the related records and the promotion preflight. */
+  canonical?: CanonicalIdentityReader;
 }
 
 export function createResearchContributionReviewHandler(
@@ -125,7 +164,7 @@ export function createResearchContributionReviewHandler(
             decision: parsed.action === "accept" ? "ACCEPT" : "REJECT",
             reason: parsed.reason!,
           })
-        : await options.service.inspect(parsed.proposalId);
+        : await options.service.inspect(parsed.proposalId, { canonical: options.canonical });
       if (proposal === null) {
         if (parsed.action === "status") {
           return reviewError(
@@ -146,17 +185,23 @@ export function createResearchContributionReviewHandler(
             ? "withdrawn"
             : proposal.promotion?.status === "COMPLETED"
               ? "accepted_promoted"
-              : "accepted_pending_promotion";
+              : proposal.promotion?.status === "FAILED"
+                ? "accepted_promotion_failed"
+                : "accepted_pending_promotion";
       const text = outcome === "accepted_pending_promotion"
         ? "The exact reviewed proposal was accepted and queued for the separate canonical promotion runner. This call did not change canonical evidence."
         : outcome === "accepted_promoted"
           ? "The accepted proposal has a completed canonical promotion receipt."
-          : outcome === "rejected"
-            ? "The proposal was rejected and no promotion intent exists."
-            : outcome === "withdrawn"
-              ? "The contributor withdrew this proposal before review."
-              : "Loaded the proposal for owner review; it remains non-authoritative and pending.";
-      return successfulResult(text, { outcome, proposal });
+          : outcome === "accepted_promotion_failed"
+            ? `The accepted proposal's promotion failed: the canonical writer refused it with ${proposal.promotion!.failureCode}, ` +
+              "a conflict with what the append-only canonical store already holds, so nothing from it was written and " +
+              "it no longer holds back later accepted proposals. Filing the research again needs a corrected proposal."
+            : outcome === "rejected"
+              ? "The proposal was rejected and no promotion intent exists."
+              : outcome === "withdrawn"
+                ? "The contributor withdrew this proposal before review."
+                : "Loaded the proposal for owner review; it remains non-authoritative and pending.";
+      return successfulResult(`${text}${reviewAidText(proposal)}`, { outcome, proposal });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return reviewError("invalid_request", "The owner-review request is invalid.");
@@ -176,6 +221,43 @@ export function createResearchContributionReviewHandler(
       );
     }
   };
+}
+
+/** What shares the proposal's identities and what promotion would meet, in a sentence or two (IDs only). */
+function reviewAidText(proposal: ResearchContributionReviewView): string {
+  const parts: string[] = [];
+  if (proposal.proposalKind === "TOPIC_LINK" && proposal.status === "PENDING_REVIEW") {
+    // Owner answer 138b: whether two wordings name one topic is the model's declaration and the owner's judgment.
+    const link = proposal.payload as { relation: string; fromTopic: { canonicalKey: string }; toTopic: { canonicalKey: string } };
+    parts.push(`It declares topic ${link.fromTopic.canonicalKey} ${link.relation === "same" ? "the same as" : link.relation === "related" ? "related to" : `${link.relation} than`} ` +
+      `topic ${link.toTopic.canonicalKey}; whether that is so is your judgment. Accepting it writes ` +
+      (link.relation === "same" ? "each topic's label as the other's alias" : "one topic edge") +
+      " and moves, changes or deletes nothing filed under either topic.");
+  }
+  if (proposal.supersedesProposalId !== null && proposal.status === "PENDING_REVIEW") {
+    parts.push(`It replaces this account's draft ${proposal.supersedesProposalId}; accepting it rejects that draft as superseded.`);
+  }
+  const pending = proposal.related.proposals.length + proposal.related.proposalsNotShown;
+  const canonical = proposal.related.canonical === null
+    ? 0
+    : proposal.related.canonical.records.length + proposal.related.canonical.notShown;
+  if (pending > 0 || canonical > 0) {
+    parts.push(`Related (proposal.related): ${pending} other pending or queued proposal${pending === 1 ? "" : "s"} and ` +
+      `${canonical} canonical record${canonical === 1 ? "" : "s"} share its topic, question, frontier or identifiers.`);
+  }
+  const preflight = proposal.preflight;
+  if (preflight !== null) {
+    parts.push(preflight.status === "clear"
+      ? "Promotion preflight: the canonical writer's identity checks find no conflict."
+      : preflight.status === "replay"
+        ? "Promotion preflight: the canonical store already holds this exact payload, so promotion replays it."
+        : preflight.status === "unavailable"
+          ? "Promotion preflight: the canonical store could not be read just now."
+          : `Promotion preflight: promotion would end FAILED with ${preflight.conflicts[0]!.code} at ` +
+            `${preflight.conflicts[0]!.path}` +
+            (preflight.conflicts.length > 1 ? ` (${preflight.conflicts.length} conflicts in proposal.preflight).` : "."));
+  }
+  return parts.length === 0 ? "" : ` ${parts.join(" ")}`;
 }
 
 function authorizeOwnerReview(

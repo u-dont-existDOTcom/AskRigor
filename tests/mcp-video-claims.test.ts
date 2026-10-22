@@ -199,6 +199,39 @@ describe("extract_youtube_video_claims", () => {
     expect(broken.deps.advance).not.toHaveBeenCalled();
   });
 
+  // Owner answer 146b (2026-10-21): the owner's Gemini 4 trial, for the dev accounts the server's settings list.
+  it("runs a dev account's trial arm through the reading and reports its real cost; refuses anyone else", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T14:00:00.000Z"));
+    const refusedDeps = dependencies({ devAccount: async () => false });
+    const refused = await extractYoutubeVideoClaims({ video: VIDEO, model_trial: "gemini-4-low" }, refusedDeps.deps);
+    expect(text(refused)).toContain("gemini_model_trial_dev_only");
+    expect(refusedDeps.deps.advance).not.toHaveBeenCalled();
+    expect(refusedDeps.charge).not.toHaveBeenCalled();
+
+    const { deps } = dependencies({ devAccount: async () => true });
+    deps.advance.mockResolvedValue(progress(0));
+    const first = await extractYoutubeVideoClaims({ video: VIDEO, model_trial: "gemini-4-low" }, deps);
+    const trialConfig = { apiKey: "gemini-key", model: "gemini-4-argon", thinkingLevel: "low" };
+    expect(deps.advance).toHaveBeenNthCalledWith(1, { mode: "claims", video_id: VIDEO }, trialConfig, undefined);
+    const pending = first.result.structuredContent as { continuation_token: string; model_trial: unknown };
+    expect(pending.model_trial).toEqual({ arm: "gemini-4-low", model: "gemini-4-argon", thinking: "low" });
+    expect(decodeVideoContinuation(pending.continuation_token, SECRET, deps.now()).model_trial).toBe("gemini-4-low");
+
+    deps.advance.mockReset();
+    deps.advance.mockResolvedValueOnce({
+      ...complete(),
+      usage: { total_input_tokens: 270_000, total_output_tokens: 4_000, total_thought_tokens: 1_000 }
+    });
+    const done = await extractYoutubeVideoClaims({ continuation_token: pending.continuation_token }, deps);
+    expect(deps.advance).toHaveBeenCalledExactlyOnceWith({ mode: "claims", video_id: VIDEO }, trialConfig,
+      expect.objectContaining({ interaction_id: "interaction-1" }));
+    const cost = (done.result.structuredContent as { model_trial: { cost_usd: number } }).model_trial.cost_usd;
+    // At Gemini 4's October prices: 270,000 input tokens at $2 and 5,000 output tokens at $10 per million.
+    expect(cost).toBeCloseTo(0.59, 9);
+    vi.useRealTimers();
+  });
+
   it("charges the whole video once, hands back a token while Gemini reads, then links each claim to its time", async () => {
     const { deps, charge } = dependencies();
     deps.advance.mockResolvedValue(progress(0));

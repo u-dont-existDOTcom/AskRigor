@@ -6,7 +6,9 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { coreSectionNames, getProtocolManifest, loadProtocolSectionSnapshot, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoBookReviewsUniversal, undoOwnerQuestion109Universal, undoReadDepth } from "./helpers/undo-read-depth.js";
+import {
+  undoBookReviewsUniversal, undoOwnerQuestion109Universal, undoOwnerQuestion153Universal, undoReadDepth,
+} from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded fixture: the owner's new Universal item of 2026-10-20, its two sentences word for word
 // and in this order, the existing reviews-and-forums line they follow in the core section sources, and the revision.
@@ -77,7 +79,12 @@ const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = () => readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+const loadCurrent = () => readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
+// Universal 20.5.45, this layer's result, rebuilt from the current file.
+const load = async () => undoOwnerQuestion153Universal(await loadCurrent());
+// The state before this layer, from the current file.
+const undoBookReviews = async () => undoBookReviewsUniversal(await loadCurrent());
+const CURRENT = { version: "20.5.46", revisionDate: "2026-10-21", sha256: "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e" } as const;
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -161,20 +168,21 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
     expect(expectedEdits(prior).reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     expect(expectedEdits(prior).reduce((text, [before, after]) =>
       replaceOnce(text, normalize(before), normalize(after)), normalize(prior))).toBe(normalize(current));
-    await expect(undoBookReviewsUniversal(current)).resolves.toBe(prior);
+    await expect(undoBookReviews()).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(previous.from.sha256);
-    await expect(undoOwnerQuestion109Universal(current)).resolves.toBe(beforePrevious);
+    await expect(undoOwnerQuestion109Universal(await loadCurrent())).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).universal as Edits;
-    expect(hash(await undoReadDepth(current, "universal"))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(), "universal"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("universal")).resolves.toEqual({
-      name: "AskRigor.com universal saved instructions", version: PINS.to.version, revisionDate: "2026-10-20", sha256: hash(current),
+      name: "AskRigor.com universal saved instructions", version: CURRENT.version, revisionDate: CURRENT.revisionDate, sha256: CURRENT.sha256,
     });
+    expect(hash(await loadCurrent())).toBe(CURRENT.sha256);
   });
 
   it("puts the owner's two sentences, then question 129's two, word for word and in order, on one line of sources", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     expect(section(text, "sources")).toContain(`${FORUM_SIGNAL_END}\n${LINE}\n${CONSILIENCE_START}`);
     const lines = text.split("\n");
     const at = lines.indexOf(LINE);
@@ -202,7 +210,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
   it("moves EstimandPreservation into the core section sources, word for word and only once, after the paragraph on reading studies", async () => {
     const [name, from, to] = Q126.move;
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     expect(protocolNamedElements(prior, name)).toMatchObject([{ tag: "rule", section: from }]);
     expect(protocolNamedElements(text, name)).toMatchObject([{ tag: "rule", section: to }]);
     expect(coreSectionNames("universal")).toContain(to);
@@ -225,7 +233,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
 
   it("adds question 135's paragraph to output_style, right after question 121's short-answer paragraph", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     expect(section(text, "output_style")).toBe(replaceOnce(section(prior, "output_style"),
       `${Q135.shortAnswer}\n\n${Q135.nextStep}`, `${Q135.shortAnswer}\n\n${Q135.paragraph}\n\n${Q135.nextStep}`));
     expect(text.split("\n").filter((line) => line.includes(Q135.paragraph))).toEqual([Q135.paragraph]);
@@ -236,7 +244,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
 
   it("adds question 128's wording word for word, right after the sentence on keeping serious events separate", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     expect(section(text, Q128.section)).toBe(replaceOnce(section(prior, Q128.section), `${Q128.after}\n`, `${Q128.after} ${Q128_TEXT}\n`));
     // On the same line, which still starts with the ranking sentence and now ends with the owner's last sentence.
     const lines = text.split("\n").filter((line) => line.includes(Q128.after));
@@ -254,7 +262,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
 
   it("places the exact Critical revision first, directly above 20.5.44's, wrapped like its neighbours", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     const body = element(text, "revision", "version", PINS.to.version);
     expect(plain(body)).toBe(REVISIONS.join(" "));
     const lines = body.split("\n").slice(1, -1);
@@ -268,7 +276,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
 
   it("wraps every new line within 118 characters, apart from the root line and the one-line paragraphs", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     const remaining = new Map<string, number>();
     for (const line of prior.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
     const added = text.split("\n").filter((line) => {
@@ -283,7 +291,7 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
 
   it("changes only the sections its edits name, by their exact bytes, and keeps the core one page", async () => {
     const text = await load();
-    const prior = await undoBookReviewsUniversal(text);
+    const prior = await undoBookReviews();
     const [now, before] = [protocolSections("universal", text), protocolSections("universal", prior)];
     expect(now.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)
@@ -334,7 +342,12 @@ describe('owner request: book research with reader reviews (2026-10-20), with qu
       expect(response.isError).not.toBe(true);
       expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
       for (const line of [LINE, ruleLine(text, Q126.move[0]), Q135.paragraph]) expect(core).toContain(`\n${line}\n`);
-      expect(core).toContain(` ${Q128.after} ${Q128_TEXT}\n`);
+      // The server serves the current file: owner answer 153c (2026-10-21) has since inserted a clause into question
+      // 128's first sentence, and the rest is served as this layer wrote it.
+      const [first, ...rest] = Q128.sentences;
+      const clause = "or when the answer ranks or puts forward a medicine likely to be taken for months or years, ";
+      const withClause = replaceOnce(first, "or which option is safer, ", `or which option is safer, ${clause}`);
+      expect(core).toContain(` ${Q128.after} ${[withClause, ...rest].join(" ")}\n`);
     } finally {
       await client.close();
       await server.close();

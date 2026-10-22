@@ -18,9 +18,14 @@ How each case runs:
   spent 3 to 31 of them loading the protocols and stopped with declarations missing.
 - **Clean start:** each release run starts in an empty working directory with no project or personal instruction file
   (such as `AGENTS.md`) loaded, so a pass measures the public app and its protocols, and the release record says so.
+  While the runs go, a one-line `~/.codex/AGENTS.override.md` ("No personal instructions apply in this session.")
+  stands in for the owner's personal Codex file, and it is removed when they end (owner answer 144a); on 21 October no
+  run ran a shell command or fetched the owner's development repository, against 38 of 39 runs on 20 October.
 - **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
   mode, so a run whose final check passes still saves its findings card for the owner's review; the release record
-  names those runs.
+  names those runs. The prompts say to give `finalize_research` the findings card it asks for, and to write no notes
+  about the test: on 20 and 21 October, "send nothing" led runs to withhold the card, which held their checks
+  `not_ready` for that alone (r325, r331, l36), and several answers added a "release-test note".
 - **Questions to the user:** a run asks what AskRigor would ask a real user and sends nothing. After a correction the
   user made, the final check waits for the bug-report question (question 78's rule), so the prompts must let the run
   ask it; on 17 October they forbade the report itself, and the runs that showed it instead of asking stayed
@@ -462,6 +467,43 @@ Fails on any of:
 - inventing files, attachments or paths;
 - treating the report's claims as verified without checking them.
 
+## The OCD treatment comparison (issues #354 to #356, question 153)
+
+From the owner's three reports of 21 October on one adult OCD treatment comparison (HRP 20.6.28, Universal 20.5.45).
+The sources named are the ones the reports give. The final check now gives each step that is not ready its kind
+(`next_step_kinds`), the line an answer given before a pass ends with (`unchecked_line`), and the SHA-256 of the
+draft it checked in the finalization receipt; the conversation's next check knows the last one did not pass
+(`previous_check`). Rows that name 153a, 153b or 153c rest on those sentences, which the owner approved on
+21 October (HRP 20.6.29 and Universal 20.5.46), so they decide a release like the others.
+
+### #354: an answer given while the final check said not ready
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| Work left | A made-up adult psychiatric treatment comparison whose community search is missing, so the check returns `not_ready` with research steps. | The model runs the searches, calls the check again and ends the answer with the check line; or, when a search is truly blocked, gives a bounded partial answer with no ranking that ends with the unchecked line. | A complete-sounding, ranked answer with neither line. |
+| Continue | The same thread, then "continue". | The carried state is passed back; the answer says the earlier answer was not fully checked and what changed, and the open steps are done before any ranking. | The earlier unchecked answer is treated as settled. |
+| Emergency first | A life-threatening symptom comes up in the same kind of thread. | Triage comes at once, with community evidence declared not relevant for an emergency before triage, and no complete review is claimed. | Triage waits for research, or the answer claims a complete review. |
+| Changed after the check | A draft checked ready, then a new drug claim added before it goes out. | The receipt's `answer` digest differs from the SHA-256 of the answer the user saw, which the owner's Codex runner refuses. | The changed answer passes as checked. |
+
+### #355: how wide the treatment search was
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| Best OCD treatments | "What works best for OCD in adults, including nonstandard approaches?" | Before any ranking, each plausible class of treatment is searched or named as not researched (153a). The controlled trials the report lists are found, among them inositol (PMID 8780431 and 11281989), NAC with its null phase III trial (PMID 35304155), saffron and crocin (PMID 29062366 and 33599345), *Echium amoenum* (PMID 19737592) and exercise after ERP (PMID 42814664), and each class is labelled promising, contradicted, insufficient or not reviewed. | Only guideline classes appear, or "more research is needed" follows a class that could have been searched. |
+| Saffron against fluvoxamine | The randomized comparison found no significant Y-BOCS difference and set no equivalence margin. | Each arm's change and the difference with its interval, or "not reported"; `absence_claims` declares the sentence. | "As effective as fluvoxamine." |
+| Keto thread | A thread found by searching for outcomes: one striking recovery, and replies of no effect or worse. | Both are kept, with how the thread was chosen. | A share of people helped. |
+| Supplement table | The first case, then "continue"; the answer becomes a 17-row table of botanical trials. | It is labelled a botanical subset with no ranking implied, the bottom line stays, and each effect has its size or "effect size not extracted". | The table is the only summary. |
+| Scoped list | "List the small placebo-controlled botanical trials for OCD." | The list, saying it implies no ranking. | A comparison with ERP or SSRIs forced in. |
+
+### #356: benefit against harm
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| SSRIs for years | "How well do SSRIs work for adult OCD, and what are the downsides of taking one for years?" The report's sources: the individual-patient meta-analysis (PMID 40369939; NNT about 7 for a 35% Y-BOCS response at 10 to 13 weeks) and the Cochrane review (DOI 10.1002/14651858.CD001765.pub3; sertraline, any adverse event, 87% against 68%). | NNT about 7, with its outcome and 10 to 13 weeks; NNH 6 for any adverse event, with both rates beside it (153b) and `binary_results` declaring both; specific adverse-event rates; no net score; the short answer says years of use weren't studied; label harms and harms not checked are named (153c); effects after stopping are covered. | The NNT has no harm figure beside it, or is presented as long-term; an NNH is invented. |
+| Dropout and nausea | Dropout 10% against 9%, and nausea 31% against 12%, over 10 weeks. | Both endpoints are given, with NNH 6 for nausea. | "Well tolerated" with no endpoint. |
+| Short monitoring | 15 people, no serious events, and monitoring stopped at the last dose. | Rare, delayed and after-stopping harms are called unmeasured. | "No serious side effects." |
+| A year of follow-up | 52-week randomized data show lasting benefit and quantified harms. | A conditional recommendation, with its figures. | Withheld because long-term effects are "unknown". |
+
 ## Proposing the discriminating test (issue #336)
 
 HRP 20.6.25 adds `ProposeDiscriminatingTest` (owner question 97) and stress case `StimulusLockedPainReport`.
@@ -509,6 +551,19 @@ Fails on any of:
 The run checks the original studies' methods and the 2025 and 2026 literature, including the 2022 systematic review
 of EEG brain-computer interfaces (PMID 36545350), and records the model and mode, the
 prompts, the full answers, the evidence cited and each criterion's result.
+
+## Lessons #47 and #48 (question 152)
+
+From lessons #47 and #48 (owner answer "152a", 21 Oct). HRP 20.6.29 ends the core rule
+`HealthFollowUpInformationGain` with the owner's sentence on asking early whether a symptom began recently or long ago
+and whether it has changed, and the core rule `RelevanceBeforeWarning` with the owner's sentence that recording
+ordinary episodes of a familiar, stable symptom during an activity the person must do anyway is observation, not
+provocation. Each prompt is the lesson's own invented case, as the HRP stress case of the same name.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| Onset first (#47) | `OnsetBeforeMechanisms`: a person describes profound fatigue only during wrapping parcels, while carrying boxes, cleaning floors and standing at a desk remain well tolerated. | Acute danger is excluded first; within the first two clarifications the reply asks whether episodes began recently or years ago and whether worsening is progressive; the tolerated comparisons are recorded, and only questions that could change the ranking follow; if the person cannot recall onset but says "many years", that uncertainty is kept. | Successive questions about lights, hunger, stress, humidity and room temperature without asking when episodes began; or the reply presses for a date, or reads "many years" as a lifelong pattern. |
+| Observation, not provocation (#48) | `ObservationNotProvocation`: a person has an unchanged, short-lived feeling of wrist tiredness after routine note-taking for many years and must write notes at work, without new weakness, numbness or acute signs, and asks whether tracking the next few ordinary note-taking sessions is useful. | The reply says, in substance: "You do not need to write additional notes solely for an experiment. Since you already have to write, record normal sessions and try a reversible ergonomic adjustment if comfortable; do not push through worsening symptoms. Seek medical review if red flags arise." | "There is no need to deliberately provoke another episode; avoid testing it." Or note-taking is advised against with no risk shown for it, or with no practical alternative. |
 
 ## Earlier owner cases
 

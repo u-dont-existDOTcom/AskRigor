@@ -9,6 +9,7 @@ import {
   stableJson,
   type AnalysisReuseCandidate,
   type AnalysisReuseLookupInput,
+  type CanonicalSourceMatch,
   type LivingEvidenceContribution,
 } from "@askrigor/evidence-repository";
 import type { ProtocolManifest } from "@askrigor/protocol";
@@ -241,6 +242,61 @@ function compatibleStudyAudit(
   return { audit, receipt };
 }
 
+/**
+ * The source part of a server-built analysis and the IDs derived from it (owner answer 138b, 2026-10-20). With a
+ * canonical family the identifiers name, the analysis is filed under it, reusing its title, the version with the same
+ * bytes and its freshness policy. Each audit is its own analysis, keyed by the audit and the protocols it was
+ * validated under, so a second audit of a study never claims a second initial version and neither hides the other;
+ * whether one supersedes the other stays a human judgment. A new source version records no retrieval time: the
+ * builder does not know it, and the validation and integrity-check times are on the run and the freshness check.
+ */
+export function analysisSourceIdentity(input: {
+  index: AuditableDocumentIndex;
+  kind: "study" | "review";
+  auditSha256: string;
+  protocolManifests: ProtocolManifest[];
+  canonicalSource?: CanonicalSourceMatch;
+}) {
+  const { index, canonicalSource } = input;
+  const identifiers = sourceIdentifiers(index);
+  const protocolDigest = sha256(stableJson(input.protocolManifests));
+  const familyId = canonicalSource?.family.familyId ??
+    deterministicUuid(`askrigor:source-family:${stableJson(identifiers)}`);
+  const analysisId = deterministicUuid(
+    `askrigor:analysis:${familyId}:${input.kind}-method-v1:${input.auditSha256}:${protocolDigest}`,
+  );
+  return {
+    identifiers,
+    familyId,
+    identityHash: canonicalSource?.family.identityHash ?? sha256(stableJson(identifiers)),
+    displayTitle: canonicalSource?.family.displayTitle ??
+      (index.source.title ?? index.source.primary_identifier).slice(0, 500),
+    sourceVersionId: canonicalSource?.version?.versionId ??
+      deterministicUuid(`askrigor:source-version:${familyId}:${index.source.content_sha256}`),
+    retrievedAt: canonicalSource?.version?.retrievedAt ?? null,
+    sourceLocator: canonicalSource?.version === null || canonicalSource?.version === undefined
+      ? index.source.canonical_url
+      : canonicalSource.version.sourceLocator,
+    analysisId,
+    analysisVersionId: deterministicUuid(
+      `askrigor:analysis-version:${analysisId}:${input.auditSha256}:${protocolDigest}`,
+    ),
+    // The family's one canonical policy, as the contract records it.
+    freshnessPolicy: canonicalSource?.freshnessPolicy === null || canonicalSource?.freshnessPolicy === undefined
+      ? null
+      : {
+          policyId: canonicalSource.freshnessPolicy.policyId,
+          sourceClass: canonicalSource.freshnessPolicy.sourceClass,
+          cadenceDays: canonicalSource.freshnessPolicy.cadenceDays,
+          maximumAgeDays: canonicalSource.freshnessPolicy.maximumAgeDays,
+          ownerRole: canonicalSource.freshnessPolicy.ownerRole,
+          requiredChecks: canonicalSource.freshnessPolicy.requiredChecks,
+          failureBehavior: canonicalSource.freshnessPolicy.failureBehavior,
+        },
+    defaultPolicyId: deterministicUuid(`askrigor:freshness-policy:${familyId}:${input.kind}`),
+  };
+}
+
 export function createValidatedStudyAuditContribution(input: {
   index: AuditableDocumentIndex;
   auditReceipt: StudyMethodAuditReceipt;
@@ -252,6 +308,7 @@ export function createValidatedStudyAuditContribution(input: {
     nextDueAt: string;
     receiptSha256: string;
   };
+  canonicalSource?: CanonicalSourceMatch;
 }): LivingEvidenceContribution {
   const index = auditableDocumentIndexSchema.parse(input.index);
   const receipt = studyMethodAuditReceiptSchema.parse(input.auditReceipt);
@@ -260,18 +317,17 @@ export function createValidatedStudyAuditContribution(input: {
   if (revalidated.audit_sha256 !== receipt.audit_sha256) {
     throw new Error("STORED_STUDY_AUDIT_REVALIDATION_MISMATCH");
   }
-  const identifiers = sourceIdentifiers(index);
-  const protocolDigest = sha256(stableJson(input.protocolManifests));
-  const familyId = deterministicUuid(`askrigor:source-family:${stableJson(identifiers)}`);
-  const sourceVersionId = deterministicUuid(
-    `askrigor:source-version:${familyId}:${index.source.content_sha256}`,
-  );
-  const analysisId = deterministicUuid(`askrigor:analysis:${familyId}:study-method-v1`);
-  const analysisVersionId = deterministicUuid(
-    `askrigor:analysis-version:${analysisId}:${receipt.audit_sha256}:${protocolDigest}`,
-  );
+  const source = analysisSourceIdentity({
+    index,
+    kind: "study",
+    auditSha256: receipt.audit_sha256,
+    protocolManifests: input.protocolManifests,
+    canonicalSource: input.canonicalSource,
+  });
+  const { identifiers, familyId, analysisId, analysisVersionId } = source;
+  const sourceVersionId = source.sourceVersionId;
   const envelope = JSON.stringify({ schema: REUSE_SCHEMA, audit_receipt: receipt });
-  const policyId = deterministicUuid(`askrigor:freshness-policy:${familyId}:study`);
+  const policyId = source.freshnessPolicy?.policyId ?? source.defaultPolicyId;
   const receiptId = deterministicUuid(
     `askrigor:receipt:${analysisVersionId}:${receipt.audit_sha256}`,
   );
@@ -291,13 +347,13 @@ export function createValidatedStudyAuditContribution(input: {
       familyId,
       versionId: sourceVersionId,
       sourceKind: "study" as const,
-      identityHash: sha256(stableJson(identifiers)),
-      displayTitle: (index.source.title ?? index.source.primary_identifier).slice(0, 500),
+      identityHash: source.identityHash,
+      displayTitle: source.displayTitle,
       identifiers,
       sourceContentSha256: index.source.content_sha256,
       accessStatus: "complete" as const,
-      retrievedAt: input.freshness.checkedAt,
-      sourceLocator: index.source.canonical_url,
+      retrievedAt: source.retrievedAt,
+      sourceLocator: source.sourceLocator,
       rawContentPersisted: false as const,
     },
     analysis: {
@@ -366,7 +422,7 @@ export function createValidatedStudyAuditContribution(input: {
       sourceEdges: [],
       claimEdges: [],
       assessment: null,
-      freshnessPolicy: {
+      freshnessPolicy: source.freshnessPolicy ?? {
         policyId,
         sourceClass: "study" as const,
         cadenceDays: 30,

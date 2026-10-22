@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
@@ -17,15 +19,21 @@ import {
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import type { SecondReaderFinding } from "./second-reader.js";
-import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
+import { extractUnsignedNumbers, includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
 import {
-  FINDINGS_SAVE_OFFER,
+  findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
+  findingsSaveOffer,
   screenFindingsCard,
+  signedFindingBases,
+  verifiedWorkPhrase,
   type FindingsCard,
-  type FindingsPrivacyReason
+  type FindingsPrivacyReason,
+  type VerifiedBasis,
+  type VerifiedWork
 } from "./findings/card.js";
 import {
   discoveryQueryDigest,
@@ -108,10 +116,15 @@ export const COMMUNITY_SKIP_CAVEAT_START = "I did not search firsthand reports o
 export const COMMUNITY_SKIP_LIMIT = "Firsthand reports and community discussions were not searched, for a question " +
   "declared to have no real-world outcome: say so in the answer, with the reason, as the caveat does.";
 
+/** The server's words completed by a declared phrase, on one line, ending as a sentence. */
+function completedCaveat(start: string, phrase: string): string {
+  const stated = phrase.replace(/\s+/gu, " ").trim();
+  return `${start} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+}
+
 /** The skip's caveat: the server's words and the declared reason, on one line, ending as a sentence. */
 export function communitySkipCaveat(reason: string): string {
-  const stated = reason.replace(/\s+/gu, " ").trim();
-  return `${COMMUNITY_SKIP_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+  return completedCaveat(COMMUNITY_SKIP_CAVEAT_START, reason);
 }
 
 // What a receipt that failed verification needs, by the verifier's reason (UDA lane item
@@ -144,15 +157,32 @@ export const HARM_SCREEN_SOURCES = [
 ] as const;
 const HARM_SCREEN_MAX_ENTRIES = 20;
 const HARM_TEXT_MAX_CHARACTERS = 150;
-const HARM_QUERY_MAX_CHARACTERS = 500;
+// The exact query of a literature search a declaration names, as harm_screen and option_classes give it.
+const LITERATURE_QUERY_MAX_CHARACTERS = 500;
 // A serious harm the screen did not search by name reaches the answer in this sentence, completed by the harm as the
 // call declares it (owner answer "128b": "This answer did not check [harm].").
 export const HARM_NOT_CHECKED_CAVEAT_START = "This answer did not check";
 
 /** The caveat for a harm not checked: the server's words and the declared harm, on one line, ending as a sentence. */
 export function harmNotCheckedCaveat(harm: string): string {
-  const stated = harm.replace(/\s+/gu, " ").trim();
-  return `${HARM_NOT_CHECKED_CAVEAT_START} ${stated}${/\p{STerm}$/u.test(stated) ? "" : "."}`;
+  return completedCaveat(HARM_NOT_CHECKED_CAVEAT_START, harm);
+}
+
+// The classes of treatment an answer comparing treatment options covers (owner answer 153a, from the OCD comparison
+// reports AskRigor#354 to #357): each materially plausible class, searched by name, not researched, or out of reach. A
+// class not researched or out of reach reaches the answer in these sentences, completed by the class as the call
+// declares it ("This answer did not research [class].").
+export const OPTION_CLASS_STATES = ["researched", "not_researched", "inaccessible"] as const;
+const OPTION_CLASSES_MAX_ENTRIES = 20;
+const OPTION_CLASS_MAX_CHARACTERS = 120;
+export const OPTION_CLASS_CAVEAT_STARTS = {
+  not_researched: "This answer did not research",
+  inaccessible: "This answer could not reach the research on"
+} as const;
+
+/** The caveat for a class not researched or out of reach: the server's words and the declared class, ending as a sentence. */
+export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS, optionClass: string): string {
+  return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
 }
 
 // Research results remind the AI, in the turn it researches, that answers using
@@ -160,6 +190,12 @@ export function harmNotCheckedCaveat(harm: string): string {
 // question 86: a "continue" turn dropped AskRigor's final check).
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
   "are given, in this turn or a later one.";
+
+// The plain answer a paid private or dev account registers before research (owner answer 140b, 2026-10-20), and how
+// the checked answer compares with each of its claims.
+export const PLAIN_ANSWER_LIMITS = { textCharacters: 1_500, claims: 5, claimCharacters: 250 } as const;
+export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "not_checked"] as const;
+type PlainAnswerOutcome = typeof PLAIN_ANSWER_OUTCOMES[number];
 
 export const READ_DEPTH_VALUES = [
   "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
@@ -187,6 +223,9 @@ const reportIdentitySchema = z.object({
 // full_text_search and lab_preparation are one object each, not two alternatives: ChatGPT's app shows the model a
 // two-branch union only as "unknown" (read-only Codex probes, 2026-10-16), so the model invented their fields and
 // the connector rejected the call. The status names the field it needs, which the final check asks for.
+/** How a lead_only study was handled with this app's other full-text tools (owner answer 147a). */
+export const OTHER_ROUTE_VALUES = ["read", "unavailable", "cost", "none"] as const;
+
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
@@ -236,7 +275,31 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Why none of the videos found was worth auditing; needed only when discovery found videos but material_video_ids is empty."),
   treatment_choice: z.enum(["compared", "not_compared"])
     .describe("compared when the answer compares, ranks or recommends treatment options. Deep research then needs an " +
-      "assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final ranking."),
+      "assess_treatment_landscape_coverage result; a first pass presents the comparison as provisional, with no final " +
+      "ranking. With answer_draft, option_classes then lists each plausible class of treatment."),
+  // Flat fields only, as binary_results' are: ChatGPT's app shows the model an object nested in an entry only as
+  // "unknown" (FINALIZE_RESEARCH_HIDDEN_SHAPES).
+  option_classes: z.array(z.object({
+    option_class: z.string().trim().min(1).max(OPTION_CLASS_MAX_CHARACTERS)
+      .describe(`One materially plausible class of treatment, in at most ${OPTION_CLASS_MAX_CHARACTERS} characters, ` +
+        `named as the answer would name it, so that "${OPTION_CLASS_CAVEAT_STARTS.not_researched} [class]." reads as a ` +
+        "sentence: for example, supplements and botanicals."),
+    state: z.enum(OPTION_CLASS_STATES)
+      .describe("researched: searched by name in a literature search passed here; not_researched: not searched; " +
+        "inaccessible: its research was out of reach here, such as a search that failed or studies that could not " +
+        "be read."),
+    search_query: z.string().trim().min(1).max(LITERATURE_QUERY_MAX_CHARACTERS).optional()
+      .describe("With researched: the exact query the class was searched by name with in search_pubmed, " +
+        "search_europe_pmc or search_clinical_trials, whose research_receipt is passed in receipts."),
+    answer_quote: answerQuote.optional()
+      .describe("With researched: the answer's sentence reporting what that search found, copied from answer_draft.")
+  }).strict()).max(OPTION_CLASSES_MAX_ENTRIES).optional()
+    .describe("With answer_draft, when treatment_choice is compared, in a first pass too: each materially plausible " +
+      `class of treatment, and whether it was searched by name (at least one entry, at most ${OPTION_CLASSES_MAX_ENTRIES}). ` +
+      "Each state's own field is checked: a researched class gives search_query, the query of a literature search " +
+      "passed here, and answer_quote, shown in the answer; a class not_researched adds the caveat " +
+      `"${OPTION_CLASS_CAVEAT_STARTS.not_researched} [class]." and one inaccessible the caveat ` +
+      `"${OPTION_CLASS_CAVEAT_STARTS.inaccessible} [class]." Which classes are plausible stays the model's declaration.`),
   research_target: z.string().trim().min(1).max(5_000)
     .describe("The research target, copied exactly as given to the scout, search_youtube and " +
       "assess_treatment_landscape_coverage, and as research_question to surveys and community audits. Discovery " +
@@ -387,7 +450,14 @@ export const finalizeResearchInputSchema = z.object({
       .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
     answer_marker: z.string().trim().min(3).max(80).optional()
       .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
-    reason: z.string().trim().min(1).max(1_000).optional()
+    reason: z.string().trim().min(1).max(1_000).optional(),
+    // Owner answer 147a (2026-10-21, from UDA #411): AskRigor cannot see the app's other tools, so the model declares
+    // whether a lead was read through one.
+    other_route: z.enum(OTHER_ROUTE_VALUES).optional()
+      .describe("For a lead_only study, as you know it (AskRigor cannot see this app's other tools): read, its text " +
+        "was read through another full-text tool connected here; unavailable, one was tried without access; cost, " +
+        "one was not used because it costs the user credits; none, no such tool is connected. A study read that way " +
+        "is reported as read through another tool, not audited by AskRigor.")
   }).strict()).max(60)
     .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
@@ -433,17 +503,20 @@ export const finalizeResearchInputSchema = z.object({
   absence_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     state: z.enum(["support_not_located", "direct_null_evidence", "not_established", "bounded_exclusion"])
-      .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect; " +
-        "not_established: studies were found but do not establish the effect; " +
-        "bounded_exclusion: precise studies rule out an effect above a stated size."),
+      .describe("support_not_located: the searches did not find it; direct_null_evidence: studies found no effect, " +
+        "or no difference between the options compared; not_established: studies were found but do not establish the " +
+        "effect; bounded_exclusion: precise studies rule out an effect, or a difference between options, above a " +
+        "stated size."),
     studies: z.array(z.string().trim().min(1).max(300)).max(20).optional()
       .describe("For direct_null_evidence, not_established and bounded_exclusion: the key sources (DOI, PMID or " +
         "PMCID) it rests on.")
   }).strict()).max(20).optional()
     .describe("With answer_draft: each place the answer says something was not found, not studied, has no evidence or " +
-      "has no effect, or calls an intervention's evidence unconvincing, weak, not demonstrated or showing no benefit " +
-      "(an empty list if none). Evidence-strength sentences are absence claims, declared with not_established and " +
-      "their key sources when studies were found, or support_not_located with search coverage when none were."),
+      "has no effect; that an option made no difference compared with another, worked as well as it, or did no " +
+      "better or no worse than it; or calls an intervention's evidence unconvincing, weak, not demonstrated or " +
+      "showing no benefit (an empty list if none). Evidence-strength sentences are absence claims, declared with " +
+      "not_established and their key sources when studies were found, or support_not_located with search coverage " +
+      "when none were."),
   scale_results: z.array(z.object({
     quote: answerQuote.describe("Records the sentence(s) reporting and explaining the result, copied from answer_draft."),
     scale: z.string().trim().min(1).max(300).describe("Records the scale's name or abbreviation as the answer writes it."),
@@ -465,6 +538,42 @@ export const finalizeResearchInputSchema = z.object({
       "answer_draft this declaration is required. The quote contains the scale name, both range endpoints, each " +
       "value and any benchmark value as numbers; digits in any script and a decimal dot or comma count, compared " +
       "by absolute value. Direction and magnitude interpretation remain the model's declarations."),
+  // Flat fields only: ChatGPT's app shows the model an object nested in an entry only as "unknown"
+  // (FINALIZE_RESEARCH_HIDDEN_SHAPES).
+  binary_results: z.array(z.object({
+    quote: answerQuote.describe("The sentence(s) reporting the result, copied from answer_draft."),
+    outcome: z.string().trim().min(1).max(200)
+      .describe("The yes-or-no outcome as the answer names it, such as response or any adverse event."),
+    better: z.enum(["fewer", "more"])
+      .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
+        "response or a remission."),
+    option: z.string().trim().min(1).max(120).describe("The option the result is about, as the answer names it."),
+    option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
+    option_total: z.number().int().min(1).describe("How many people were in the option's group."),
+    comparator: z.string().trim().min(1).max(120)
+      .describe("What the option was compared with, as the answer names it, such as placebo."),
+    comparator_events: z.number().int().nonnegative()
+      .describe("How many people in the comparator's group had the outcome."),
+    comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
+    follow_up: z.string().trim().min(1).max(120)
+      .describe("How long people were followed for this outcome, as the answer writes it, such as 12 weeks."),
+    nnt: z.number().positive().optional()
+      .describe("The number needed to treat the answer gives for this outcome, if it gives one: 1 divided by the " +
+        "difference in the groups' rates, rounded up."),
+    nnh: z.number().positive().optional()
+      .describe("The number needed to harm the answer gives for this outcome, if it gives one: 1 divided by the " +
+        "difference in the groups' rates, rounded up."),
+    harms_quote: answerQuote.optional()
+      .describe("With nnt: the answer's sentence giving the harms measured over the same follow-up, or saying that " +
+        "none were found, copied from answer_draft.")
+  }).strict()).max(20).optional()
+    .describe("Lists each yes-or-no outcome answer_draft reports for two groups, or with a number needed to treat or " +
+      "harm (an empty list if none). With answer_draft this declaration is required. The quote shows each group's " +
+      "events and total, or its rate as a percentage; nnt (the option did better) or nnh (it did worse) is checked " +
+      "against 1 divided by the difference in the groups' rates, rounded up, and the quote shows it with the " +
+      "follow-up; beside an nnt, harms_quote gives the harms measured over the same follow-up, or says that none were " +
+      "found, and is shown in the answer. Whether the counts are the paper's own, and whether harms_quote reports " +
+      "harms, remain the model's declarations."),
   safety_claims: z.array(z.object({
     quote: answerQuote.describe("The sentence(s), copied from answer_draft."),
     direction: z.enum(["harm", "safety"])
@@ -487,9 +596,9 @@ export const finalizeResearchInputSchema = z.object({
       "risky, or should be avoided because of a possible harm, or that calls something safe or harmless, with what " +
       "it is about, its basis and the sources it rests on (an empty list if none)."),
   safety_question: z.boolean().optional()
-    .describe("true when the user asks whether something is safe, how risky it is or what harm it can do, or the " +
-      "answer compares options' safety. With answer_draft, harm_screen is then required, as it is whenever " +
-      "safety_claims lists a sentence."),
+    .describe("Required with answer_draft: true when the user asks whether something is safe, how risky it is or " +
+      "what harm it can do, or the answer compares options' safety; false otherwise. When true, harm_screen is " +
+      "required, as it is whenever safety_claims lists a sentence or recommendations lists one for long-term use."),
   harm_screen: z.array(z.object({
     harm: z.string().trim().min(1).max(HARM_TEXT_MAX_CHARACTERS)
       .describe(`One serious harm plausible for this exposure, in at most ${HARM_TEXT_MAX_CHARACTERS} characters, ` +
@@ -506,12 +615,13 @@ export const finalizeResearchInputSchema = z.object({
         "except not_checked."),
     answer_quote: answerQuote.optional()
       .describe("With label_warning or reported_signal: the answer's sentence reporting it, copied from answer_draft."),
-    search_query: z.string().trim().min(1).max(HARM_QUERY_MAX_CHARACTERS).optional()
+    search_query: z.string().trim().min(1).max(LITERATURE_QUERY_MAX_CHARACTERS).optional()
       .describe("With not_found: the exact query it was searched with in search_pubmed, search_europe_pmc or " +
         "search_clinical_trials, whose research_receipt is passed in receipts.")
   }).strict()).max(HARM_SCREEN_MAX_ENTRIES).optional()
-    .describe("With answer_draft, when safety_claims lists a sentence or safety_question is true: the serious harms " +
-      "plausible for this exposure, apart from its common side effects, each searched by name, with what the " +
+    .describe("With answer_draft, when safety_claims lists a sentence, safety_question is true or recommendations " +
+      "lists one for long-term use: the serious harms plausible for this exposure, apart from its common side " +
+      "effects, each searched by name, with what the " +
       `search found (at least one entry, at most ${HARM_SCREEN_MAX_ENTRIES}). Each state's own field is checked: ` +
       "answer_quote is shown in the answer, search_query is the query of a literature search passed here, and a " +
       `harm not_checked adds the caveat "${HARM_NOT_CHECKED_CAVEAT_START} [harm]." Whether the list is complete ` +
@@ -541,14 +651,16 @@ export const finalizeResearchInputSchema = z.object({
       "through a mechanism, with the route of the use it describes, the route of the experiment it rests on, whom " +
       "it was done in, any difference in tissue, and those studies (an empty list if none)."),
   recommendations: z.array(z.object({
-    quote: answerQuote.describe("The sentence that puts it forward, copied from answer_draft."),
+    quote: answerQuote.describe("The sentence that puts it forward or ranks it, copied from answer_draft."),
     intervention: z.string().trim().min(1).max(200).describe("What it is, as the answer names it."),
     safety_check: z.enum(["resolved", "conditional", "unresolved"])
       .describe("Whether this person's safety conflicts and missing safety inputs for it are resolved, resolved on " +
-        "a condition a clinician should confirm, or still open."),
+        "a condition a clinician should confirm (as for a general ranking with no person-specific inputs), or still " +
+        "open."),
     open_inputs: z.string().trim().min(1).max(300).optional()
       .describe("For conditional and unresolved: the conflicts or inputs still open, in a few words."),
-    long_term_use: z.boolean().describe("Whether it would likely be taken for months or years."),
+    long_term_use: z.boolean()
+      .describe("Whether it would likely be taken for months or years; if so, harm_screen lists its serious harms."),
     longest_follow_up: z.string().trim().min(1).max(120).optional()
       .describe("For long-term use: the longest follow-up in its evidence, as the sources state it, such as 12 weeks."),
     follow_up_matches_use: z.boolean().optional()
@@ -557,9 +669,11 @@ export const finalizeResearchInputSchema = z.object({
       .describe("For long-term use: whether the answer covers stopping, withdrawal and lasting harms, or says they " +
         "are unknown.")
   }).strict()).max(20).optional()
-    .describe("Records each intervention the answer recommends or puts forward for this person, with the sentence " +
-      "that does so, whether this person's safety conflicts and inputs are resolved, and, for long-term use, the " +
-      "longest follow-up in its evidence and whether stopping is covered (an empty list if none)."),
+    .describe("Records each intervention the answer recommends or puts forward for this person, or ranks among the " +
+      "treatments it compares, with the sentence that does so, whether this person's safety conflicts and inputs are " +
+      "resolved (a general ranking with no person-specific inputs is conditional, with open_inputs naming what a " +
+      "clinician should confirm), and, for long-term use, the longest follow-up in its evidence and whether stopping " +
+      "is covered (an empty list if none)."),
   user_observations: z.array(userObservationSchema).max(30).optional()
     .describe("With answer_draft: each observation the user reported, about themselves or others, that the answer relies on or rules out, including attempts where nothing happened and reports withdrawn or called uncertain (HRP UserObservationLedger); an empty list if the user reported none."),
   proposed_tests: z.array(z.object({
@@ -601,12 +715,33 @@ export const finalizeResearchInputSchema = z.object({
     text: z.string().trim().min(1).max(4_000).describe("As the answer states it, with the caveat's links.")
   }).strict()).max(40).optional()
     .describe("In an answer not in English: each caveat in the answer's language."),
+  plain_answer_comparison: z.array(z.object({
+    claim: z.string().trim().min(1).max(PLAIN_ANSWER_LIMITS.claimCharacters)
+      .describe("One claim of the plain answer registered before this research, copied exactly as " +
+        "manage_research_access listed it."),
+    outcome: z.enum(PLAIN_ANSWER_OUTCOMES)
+      .describe("confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds " +
+        "only in part or under conditions; not_checked: the research did not test it."),
+    answer_quote: answerQuote.optional()
+      .describe("With corrected or qualified, and optionally with confirmed: the answer's sentence that states it, " +
+        "copied from answer_draft."),
+    sources: z.array(z.string().trim().min(1).max(300)).max(10).optional()
+      .describe("What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were " +
+        "read here (video ID); left out when its sentence is one absence_claims or a correction the research found " +
+        "also declares.")
+  }).strict()).max(PLAIN_ANSWER_LIMITS.claims).optional()
+    .describe("With answer_draft, when a plain answer registered with manage_research_access before this research is " +
+      "passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or " +
+      "qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and " +
+      "what backs it, checked against this call's receipts and declarations. From it the final check writes " +
+      "plain_answer_note, for the end of the answer."),
   findings_card: findingsCardSchema.optional()
     .describe("With answer_draft, when the answer cites a study or video verified here: the answer's best findings " +
       "for AskRigor's findings library, never claims the user corrected and no personal details, checked against the " +
       "answer and this call's verified sources. Leave it out when the answer cites none. In free " +
-      "contributor mode a checked card is saved for the owner's review; in paid private mode it adds a caveat " +
-      "offering the save. A rejected card is not saved or offered and does not hold back the answer."),
+      "contributor mode a checked card is saved for the owner's review; in paid private mode, when a finding rests " +
+      "on work a quick answer cannot do, it adds a caveat offering the save, which also asks to file this research's " +
+      "map. A rejected card is not saved or offered and does not hold back the answer."),
   reported_model: z.string().trim().min(1).max(80).optional()
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
@@ -660,8 +795,8 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
   { paths: ["scale_results[].benchmark"], examples: [{ value: 1, kind: "minimal_important_difference" }, "none_established"] },
   { paths: ["mechanism_claims[].tissue"], examples: [{ measured: "…", claimed: "…" }] },
   { paths: ["harm_screen[].sources_searched"], examples: [["label", "case_reports"]] },
-  { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies"],
-    examples: [["10.1000/example"]] }
+  { paths: ["absence_claims[].studies", "safety_claims[].studies", "mechanism_claims[].studies",
+    "plain_answer_comparison[].sources"], examples: [["10.1000/example"]] }
 ];
 
 // Limits the type does not show, which the 2026-10-16 regression's first calls broke.
@@ -736,11 +871,13 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
       nextSteps.push(`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
     }
   }
+  // A second reading of no answer finds nothing, so every step here is about the inputs.
+  const secondReading = options.secondReading === undefined
+    ? undefined : checkSecondReading(undefined, options.secondReading, nextSteps);
   return {
     contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: nextSteps,
-    ...(options.secondReading === undefined ? {} : {
-      second_reading: checkSecondReading(undefined, options.secondReading, nextSteps)
-    }),
+    next_step_kinds: nextSteps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
+    ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
@@ -770,10 +907,38 @@ function retractedStatementShown(draft: string, statement: string, changes: read
 const optionKey = (text: string) => text.trim().toLowerCase();
 
 // The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
+/** A push-only view of the check's steps that files each one under a kind, for a helper that only adds steps. */
+function stepSink(addStep: (kind: NextStepKind, ...steps: string[]) => void, kind: NextStepKind): Pick<string[], "push"> {
+  return {
+    push: (...steps: string[]) => {
+      addStep(kind, ...steps);
+      return steps.length;
+    }
+  };
+}
+
+// The line an answer given before the final check passes ends with (AskRigor#354). The server never sees which answer
+// the user gets, so it cannot hold one back; the answer says itself that the check has not passed, and why, from the
+// kinds of step still open.
+export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
+const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
+  new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
+
+export function uncheckedLine(kinds: readonly NextStepKind[]): string {
+  const open = new Set(kinds);
+  const reasons = [
+    ...(open.has("input_invalid") ? ["the check could not run"] : []),
+    ...(open.has("research") ? ["research this answer needs is unfinished"] : []),
+    ...(open.has("receipt_rejected") ? ["some of its research records did not verify"] : []),
+    ...([...open].some((kind) => UNCHECKED_ANSWER_KINDS.has(kind)) ? ["some of its statements were not checked"] : [])
+  ];
+  return reasons.length === 0 ? `${UNCHECKED_LINE_START}.` : `${UNCHECKED_LINE_START}: ${listOf(reasons, "and")}.`;
+}
+
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
-function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: string[]):
+function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: Pick<string[], "push">):
   { carried?: CarriedState; invalid: boolean } {
   let carried: CarriedState | undefined;
   let invalid = false;
@@ -827,7 +992,8 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
  * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
  * changes it.
  */
-function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions):
+function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -857,7 +1023,9 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     ...(goal === undefined ? {} : { primary_outcome: goal }),
     rejected,
     named_communities: [...new Set([...(carried?.named_communities ?? []),
-      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8)
+      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8),
+    last_status: check.status,
+    ...(check.status === "not_ready" ? { open_kinds: check.open } : {})
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -876,6 +1044,20 @@ export const finalizeResearchOutputSchema = z.object({
   contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   next_steps: z.array(z.string()),
+  next_step_kinds: z.array(z.enum(NEXT_STEP_KINDS))
+    .describe("Each next step's kind, in the same order: input_invalid, the inputs failed and the check did not run; " +
+      "receipt_rejected, a receipt did not verify or is for another research target; research, a search, reading, " +
+      "audit or community lane is not done; declaration, a declaration is missing, incomplete or inconsistent; " +
+      "answer_draft, the draft does not yet say, show or link what it must; carried_state, the conversation's " +
+      "carried state; second_reading, a sentence a second reading found; tool_list, the connector-refresh hint."),
+  unchecked_line: z.string().optional()
+    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked."),
+  previous_check: z.object({
+    status: z.literal("not_ready"),
+    open: z.array(z.enum(NEXT_STEP_KINDS))
+  }).strict().optional()
+    .describe("When the carried state shows that the previous final check in this conversation did not pass: the " +
+      "kinds of step it left open. An answer given after it went out unchecked."),
   limits: z.array(z.string()),
   caveats: z.array(z.string())
     .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
@@ -915,14 +1097,43 @@ export const finalizeResearchOutputSchema = z.object({
   findings_card: z.object({
     status: z.enum(["checked", "rejected", "absent", "closed", "private"]),
     problems: z.array(z.string()),
+    beyond_quick_answer: z.number().int().nonnegative().optional()
+      .describe("For a checked card: how many of its findings rest on work a quick answer cannot do (a full-text " +
+        "audit, audited comments, a checked absence claim or a correction the research found), as this call's " +
+        "receipts show."),
     saved: z.object({
       status: z.enum(["saved", "already_saved", "not_saved", "unconfirmed"]),
       card_id: z.string().regex(/^ARF-[0-9]{4,}$/u).optional(),
       reason: z.string().optional()
     }).strict().optional()
   }).strict().describe("Whether findings_card checked, and for a free contributor account whether it was saved; for " +
-    "a paid private account a checked card's caveats offer the save. closed: the findings library is not open; " +
-    "private: no research account, so nothing is saved."),
+    "a paid private account, a checked card with a finding beyond a quick answer adds the caveat offering the save " +
+    "(and the filing of this research's map; see research_map). closed: the findings library is not open; private: " +
+    "no research account, so nothing is saved."),
+  saved_line: z.string().optional()
+    .describe("When a free contributor's card was saved, or a map of this research was filed: the line the answer " +
+      "ends with, just before check_line, saying what was saved."),
+  research_map: z.object({
+    status: z.enum(["filed", "offered", "not_filed"]),
+    note: z.string().optional()
+  }).strict().optional()
+    .describe("This research's map, a RESEARCH_FRONTIER proposal of its searches, the studies found and the leads " +
+      "left open for the owner's review: filed, a map was filed after this research began; offered, a paid private " +
+      "answer's save offer also asks to file it, which submit_research_contribution does only after the user's yes; " +
+      "not_filed, a free contributor's research did work a quick answer cannot do and no map of it was filed, which " +
+      "note says to do. It holds nothing back."),
+  plain_answer: z.object({
+    status: z.enum(["registered", "note_off", "no_receipt", "other_account", "other_target", "after_research"]),
+    claims: z.number().int().positive().optional(),
+    reason: z.string().optional()
+  }).strict().optional()
+    .describe("For a paid private or dev account: registered, a plain answer signed for this research target before " +
+      "the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's " +
+      "note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), " +
+      "which holds nothing back."),
+  plain_answer_note: z.string().optional()
+    .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
+      "check_line, quoting each of its claims exactly and saying what the research found, and what backs each change."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -952,6 +1163,16 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
+  // A paid private or dev account on the connector (owner answer 140b): a plain answer it registered before research
+  // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
+  // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
+  plainAnswer?: { note: boolean; account: string };
+  // This research's map on the connector (owner answer 143a, 2026-10-21). "offer": a paid private account, whose save
+  // offer also asks, in the same sentence, to file the map, so one yes saves the card and files it; the finalization
+  // receipt then signs the offer and this account. "remind": a free contributor account, whose map is filed without
+  // asking, reminded when the research did work a quick answer cannot do and no map of it was filed. `account` is the
+  // binding its research_map receipts sign (researchMapAccountBinding); another account's map counts for nothing.
+  researchMap?: { mode: "offer" | "remind"; account: string };
   // The client's own hint that the answer will be read on a phone or tablet:
   // the answer then carries the owner's mobile notice (owner request,
   // 2026-10-15), as Universal's output_style asks wherever a phone shows.
@@ -1000,6 +1221,7 @@ export function finalizeResearch(
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
       next_steps: nextSteps,
+      next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
       limits: [
         "This AskRigor server cannot verify research receipts. The research steps still apply, and the answer says that research completion was not server-verified."
@@ -1054,10 +1276,16 @@ export function finalizeResearch(
   });
 
   const nextSteps: string[] = [];
+  // Each step's kind, in the same order (AskRigor#354).
+  const stepKinds: NextStepKind[] = [];
+  const addStep = (kind: NextStepKind, ...steps: string[]): void => {
+    nextSteps.push(...steps);
+    stepKinds.push(...steps.map(() => kind));
+  };
   let missingDeclaration = false;
   const requireDeclaration = (step: string): void => {
     missingDeclaration = true;
-    nextSteps.push(step);
+    addStep("declaration", step);
   };
   const limits: string[] = [];
   // Each limit's sentences for the user, written here so the answer carries
@@ -1070,6 +1298,7 @@ export function finalizeResearch(
   const caveatOnce = (limit: string, caveat: string): void => {
     if (!caveats.includes(caveat)) requireLimit(limit, caveat);
   };
+  const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   if (input.answer_draft !== undefined && input.treatment_choice === "compared" &&
       (input.community_searches ?? []).some(({ platform, threads_read }) =>
         platform !== "review_site" && threads_read.length > 0) && input.comparison_claims === undefined) {
@@ -1110,14 +1339,14 @@ export function finalizeResearch(
   for (const [index, test] of (input.proposed_tests ?? []).entries()) {
     if (test.repeats !== undefined) {
       const observation = input.user_observations?.[test.repeats]?.observation;
-      if (observation === undefined) nextSteps.push(`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
-      else if (test.difference === undefined) nextSteps.push(`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
+      if (observation === undefined) addStep("declaration", `proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (test.difference === undefined) addStep("declaration", `proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
     if (!test.blinded) caveatOnce(
       "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
       "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
   }
-  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, nextSteps);
+  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, stepSink(addStep, "carried_state"));
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -1137,7 +1366,7 @@ export function finalizeResearch(
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
   let communitiesUnverified = 0;
-  for (const { index, reason } of rejected) nextSteps.push(rejectedReceiptStep(index, reason));
+  for (const { index, reason } of rejected) addStep("receipt_rejected", rejectedReceiptStep(index, reason));
 
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
@@ -1151,7 +1380,7 @@ export function finalizeResearch(
       const matches = verified.filter(({ kind, claims }) => kind === "literature_search" &&
         claims.src === "europepmc" && claims.q === discoveryQueryDigest([query]));
       if (!matches.some(({ claims }) => Array.isArray(claims.ft) && claims.ft.length > 0)) {
-        nextSteps.push(`full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
+        addStep("research", `full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
           (matches.length === 0 ? ". " : " (the matching receipt has no section fields). ") +
           "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts.");
       }
@@ -1259,20 +1488,20 @@ export function finalizeResearch(
           ? [`shopping is ${input.shopping.status}`] : [])
       ];
       if (triggers.length > 0) {
-        nextSteps.push(
+        addStep("research", 
           `community_evidence cannot be not_relevant with no_real_world_outcome when ${triggers.join("; ")}: ` +
             "comparing options' real-world usefulness or a product people buy needs the community and buyer-review " +
             "layer. Research that layer with community_evidence researched, principal_communities and " +
             "community_searches, or complete it with an access_boundary."
         );
       }
-      if (input.key_sources.length > 0) commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      if (input.key_sources.length > 0) commercialReviewCoverage(input, { addStep, requireDeclaration });
       // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
       // reader, so it shows no internal labels; whether it is a good reason stays the model's declaration.
       if (input.not_relevant_reason !== undefined) {
         const labels = internalLabels(input.not_relevant_reason, options.protocolNames ?? new Set());
         if (labels.length > 0) {
-          nextSteps.push(`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
+          addStep("declaration", `not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
             `${labels.length > 8 ? ", and more" : ""}): the answer states this reason in its caveat, so give it in ` +
             "plain words.");
         }
@@ -1291,7 +1520,7 @@ export function finalizeResearch(
       // Any discovery round counts: the Gemini scout is the primary route, and
       // YouTube's own search is capped at 100 calls a day per project.
       if (rounds.length === 0) {
-        nextSteps.push(
+        addStep("research", 
           "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
             "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
             "rediscovery_leads (a video or creator as video:<id>)." +
@@ -1331,7 +1560,7 @@ export function finalizeResearch(
         firstPassRateLimited = saturation.rateLimited;
       } else if (!saturated) {
         discoveryContinues = true;
-        nextSteps.push(...saturation.nextSteps);
+        addStep("research", ...saturation.nextSteps);
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
@@ -1368,7 +1597,7 @@ export function finalizeResearch(
       const unfinished: string[] = [];
       for (const video of materialVideos) {
         if (!discovered.has(video)) {
-          nextSteps.push(offTargetVideos.has(video)
+          addStep("declaration", offTargetVideos.has(video)
             ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
               "research_target, or drop it from material_video_ids."
             : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
@@ -1376,7 +1605,7 @@ export function finalizeResearch(
         }
         const audit = audited.get(video);
         if (audit === undefined) {
-          nextSteps.push(
+          addStep("research", 
             (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
               `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
           );
@@ -1407,8 +1636,8 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { nextSteps, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
-    commercialReviewCoverage(input, { nextSteps, requireDeclaration });
+      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
+    commercialReviewCoverage(input, { addStep, requireDeclaration });
   }
 
   // Comments that were read must reach the answer, even when their signal is
@@ -1432,13 +1661,13 @@ export function finalizeResearch(
     const unlisted = [...commentVideos].filter((video) => !reviewed.has(video)).sort();
     const unaudited = [...reviewed].filter((video) => !auditedAtAll.has(video)).sort();
     if (unlisted.length > 0) {
-      nextSteps.push(
+      addStep("declaration", 
         `Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the ` +
           "findings must account for them."
       );
     }
     if (unaudited.length > 0) {
-      nextSteps.push(
+      addStep("declaration", 
         `community_findings.videos_reviewed lists ${unaudited.join(", ")}, but no comment-audit receipt passed here ` +
           "covers them; pass the receipt or drop them."
       );
@@ -1448,7 +1677,7 @@ export function finalizeResearch(
     }
   }
 
-  productIdentityDeclarations(input, rounds, verified, { nextSteps, requireDeclaration, requireLimit, mustReport });
+  productIdentityDeclarations(input, rounds, verified, { addStep, requireDeclaration, requireLimit, mustReport });
   mustReport.push(...communityLanes);
 
   // Treatment coverage. A first pass does not run the coverage lock, so its
@@ -1475,7 +1704,7 @@ export function finalizeResearch(
       .sort((left, right) => coverageRestriction(right) - coverageRestriction(left))
       .at(0);
     if (coverageChecks.length > 0 && coverage === undefined) {
-      nextSteps.push(
+      addStep("research", 
         "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
           "for this question, give research_target exactly as the check received it, or run the check again."
       );
@@ -1485,20 +1714,20 @@ export function finalizeResearch(
     // research's discovery, so a check made for another question cannot pass.
     const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
     if (foreignCoverageVideos.length > 0) {
-      nextSteps.push(
+      addStep("research", 
         `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
           "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
       );
     }
     if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
-      nextSteps.push(
+      addStep("research", 
         "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
           "assess_treatment_landscape_coverage again with broad_treatment_choice true."
       );
     }
     if (coverageBoundary === undefined) {
       if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
-        nextSteps.push(
+        addStep("research", 
           "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
             "and pass its research_receipt."
         );
@@ -1510,10 +1739,70 @@ export function finalizeResearch(
           "options."
       );
     } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
-      nextSteps.push(
+      addStep("research", 
         `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
           "blockers and call it again until it allows the answer (deep research needs ledger_consistent_for_synthesis)."
       );
+    }
+  }
+
+  // The classes of treatment a comparison covers, in a first pass too (owner answer 153a; HRP: "search each materially
+  // plausible class by name at least once, or say in the answer that it was not researched"). The model lists each
+  // class and what was done, and each state's own field is checked exactly, as harm_screen's are: a class researched
+  // was searched with the query of a literature-search receipt passed here, and the answer shows its sentence on what
+  // that search found; a class not researched, or whose research was out of reach, reaches the answer in the server's
+  // sentence. Which classes are plausible, and so whether the list is complete, stays the model's declaration: no word
+  // list reads the classes or the answer.
+  const optionClasses = input.option_classes ?? [];
+  if (input.answer_draft !== undefined && input.treatment_choice === "compared" && optionClasses.length === 0) {
+    (input.option_classes === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
+      `option_classes ${input.option_classes === undefined ? "is missing" : "lists no class"}: the answer compares ` +
+        "treatment options, so option_classes lists each materially plausible class of treatment and whether it was " +
+        "searched by name: researched, with the exact search_query of a literature search passed here and the " +
+        "answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was " +
+        "out of reach (at least one entry)."
+    );
+  }
+  // Each entry's own field, as its state needs it; another state's field, if given, is not used.
+  const listedClasses = new Map<string, number>();
+  for (const [index, entry] of optionClasses.entries()) {
+    const at = `option_classes[${index}]`;
+    const optionClass = plainPhrase(entry.option_class).replace(/\s+/gu, " ");
+    // One class, one entry: names compared as harms are, so a repeat adds no second caveat.
+    const first = listedClasses.get(caveatText(optionClass));
+    if (first === undefined) listedClasses.set(caveatText(optionClass), index);
+    else addStep("declaration", `${at} names the same class as option_classes[${first}]: give each class one entry.`);
+    if (entry.state === "researched") {
+      // Searched with a query a literature-search receipt in this call signed, compared by its digest as a harm not
+      // found is; nothing else shows that the search ran.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      if (query === undefined) {
+        addStep("declaration", `${at} is researched without search_query: give the exact query ${optionClass} was ` +
+          "searched by name with, and pass that search's research_receipt, or declare it not_researched.");
+      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ` +
+          `${optionClass} by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact ` +
+          "query, and pass its research_receipt, or declare it not_researched.");
+      }
+      if (entry.answer_quote === undefined) {
+        addStep("answer_draft", `${at} is researched without answer_quote: say in the answer what the search for ` +
+          `${optionClass} found, and copy that sentence from answer_draft.`);
+      }
+      continue;
+    }
+    // The class reaches the reader in the caveat, so it shows no internal labels, as a harm not checked does.
+    const labels = internalLabels(entry.option_class, options.protocolNames ?? new Set());
+    if (labels.length > 0) {
+      addStep("declaration", `${at}.option_class shows internal labels (${labels.slice(0, 8).join(", ")}` +
+        `${labels.length > 8 ? ", and more" : ""}): the answer names this class in its caveat, so give it in plain ` +
+        "words.");
+    }
+    if (first === undefined) {
+      caveatOnce(entry.state === "not_researched"
+        ? `A plausible class of treatment, ${optionClass}, was not researched: say so in the answer, as the caveat does.`
+        : `The research on a plausible class of treatment, ${optionClass}, was out of reach: say so in the answer, as ` +
+          "the caveat does.",
+      optionClassCaveat(entry.state, entry.option_class));
     }
   }
 
@@ -1615,7 +1904,7 @@ export function finalizeResearch(
     const doi = isDoi(id) ? id : pubmedDoi !== undefined && pubmedDoi !== "" ? pubmedDoi : undefined;
     const openCopy = pmcidFor(id);
     if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
-    nextSteps.push(
+    addStep("research", 
       `PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
         `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
         `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
@@ -1634,6 +1923,11 @@ export function finalizeResearch(
   // Studies read only as leads: one limit each, and one caveat per reason that
   // stopped the reading, from the state each full-text lead receipt signed.
   const unreadStudies = new Map<string, string | undefined>();
+  // Owner answer 147a: a lead the model declares it read through another of this app's tools.
+  const readThroughOtherTool = (sourceId: string, id: string): void => {
+    requireLimit(`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
+    unreadStudies.set(id, "OTHER_TOOL");
+  };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
   // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
   const keyLinks = input.key_sources.map((source) => {
@@ -1653,7 +1947,7 @@ export function finalizeResearch(
       requireDeclaration(`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
-      nextSteps.push(`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
+      addStep("declaration", `Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
         `give read_depth ${read ? "full_text_read" : "partial_text or another lower value reflecting what was read"}, ` +
         `or pass its matching research_receipt.`);
     }
@@ -1674,16 +1968,16 @@ export function finalizeResearch(
       if (source.answer_marker === undefined) {
         requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
       } else if (untied !== undefined) {
-        nextSteps.push(`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
+        addStep("answer_draft", `Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
           `link ${listOf(pages, "or")} instead` + (isDoi(id)
             ? `, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is ` +
               "registered to, and fetch_pubmed_record ties the study's PubMed page."
             : "."));
       } else if (!markerLinks.some((links) => links.some(linked))) {
-        nextSteps.push(`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
+        addStep("answer_draft", `Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
       if (identified && untied === undefined && !studyLinks.some(linked)) {
-        nextSteps.push(`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+        addStep("answer_draft", `Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
     }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
@@ -1701,6 +1995,10 @@ export function finalizeResearch(
         PARTIAL_TEXT_READABLE: "only part of its text was readable",
         IDENTITY_MISMATCH: "no copy found could be verified as the same paper"
       };
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
       requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
@@ -1712,7 +2010,7 @@ export function finalizeResearch(
     if (source.status === "lead_only" && failedForSource.length > 0) {
       const times = failedForSource.map(({ issued }) => issued);
       if (Math.max(...times) - Math.min(...times) < 60_000) {
-        nextSteps.push(`A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
+        addStep("research", `A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
           "after the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.");
         continue;
       }
@@ -1720,19 +2018,23 @@ export function finalizeResearch(
         [doi, new Set(failures.map(({ pmcid }) => pmcid))]));
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, failedAttempts)) continue;
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, ` +
         "so its methods were not audited.");
       unreadStudies.set(id, "ROUTE_FAILED");
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
-      nextSteps.push(
+      addStep("declaration", 
         `Identify ${source.id} by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.`
       );
       continue;
     }
     if (isPmid(id) && pubmedDoi === undefined) {
-      nextSteps.push(
+      addStep("research", 
         `Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
       );
       continue;
@@ -1741,7 +2043,7 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "" && pubmedPmcid !== undefined) {
       // An open copy exists in PMC, so this is not a lead; the full-text chain
       // needs a DOI, so find one or keep the study out of the key sources.
-      nextSteps.push(
+      addStep("research", 
         `PubMed lists an open full text in PubMed Central (${pubmedPmcid}) for PMID ${id} but no DOI. Find its DOI ` +
           `(search_europe_pmc for ${pubmedPmcid}) and read it with acquire_open_full_text and that pmcid, or leave it out of ` +
           "key_sources and label its claims unverified."
@@ -1751,6 +2053,10 @@ export function finalizeResearch(
     if (isPmid(id) && pubmedDoi === "") {
       // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
       leadSources.push(source.id);
+      if (source.other_route === "read") {
+        readThroughOtherTool(source.id, id);
+        continue;
+      }
       requireLimit(
         `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
       );
@@ -1758,7 +2064,7 @@ export function finalizeResearch(
       continue;
     }
     const target = pubmedDoi ?? source.id;
-    nextSteps.push(source.status === "validated"
+    addStep("research", source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
           `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
@@ -1830,7 +2136,7 @@ export function finalizeResearch(
     directions.forEach(({ direction, what }, index) => {
       const count = focuses[index]!.length;
       if (count > 3) {
-        nextSteps.push(`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
+        addStep("declaration", `open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
         return;
       }
       if (count >= 2) return;
@@ -1845,7 +2151,7 @@ export function finalizeResearch(
     });
     const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
     if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      (estimate === undefined ? requireDeclaration : (step: string) => nextSteps.push(step))(
+      (estimate === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
         "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in " +
           "digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\")."
       );
@@ -1892,15 +2198,20 @@ export function finalizeResearch(
   // find is bounded to the searches made (owner reports, 2026-09-30: "I
   // found no evidence that smelling humic acid treats neuroinflammation";
   // 2026-10-12: an answer judged a remedy to have "no convincing benefit"
-  // before searching its exact route).
+  // before searching its exact route). A sentence saying one option worked as
+  // well as another, made no difference against it, or did no better or worse
+  // is one too, so a null comparison also gives its numbers (AskRigor#355: an
+  // answer called saffron "as effective as fluvoxamine" for OCD from a trial
+  // that found no significant difference and set no equivalence margin).
   const absenceClaims = input.absence_claims ?? [];
   if (input.answer_draft !== undefined && input.absence_claims === undefined) {
     requireDeclaration(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
-        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
-        "with not_established and their key sources when studies were found, or support_not_located with search " +
-        "coverage when none were."
+        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
+        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
+        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
+        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
+        "with search coverage when none were."
     );
   }
   if (input.answer_draft !== undefined && input.scale_results === undefined) {
@@ -1908,6 +2219,70 @@ export function finalizeResearch(
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
         "reported in the answer (an empty list means none)."
     );
+  }
+  if (input.answer_draft !== undefined && input.binary_results === undefined) {
+    requireDeclaration(
+      "binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two " +
+        "groups, or with a number needed to treat or harm (an empty list means none)."
+    );
+  }
+  // Yes-or-no results (AskRigor#356; the 21 Oct q136 responders case, whose
+  // answer computed a ratio from counts that conflicted with the paper's). For
+  // each outcome the answer reports for two groups, the model declares each
+  // group's events and total, which direction is better and the follow-up; the
+  // gate checks the arithmetic here, exactly, and in answerDraftProblems that
+  // the quote shows each group's figure and any number needed to treat or harm
+  // with its follow-up (HRP NNTAndNNH). Owner answer 153b adds the reciprocal
+  // rounded up, and beside a benefit figure the harms measured over the same
+  // follow-up, or that none were found: the model copies that sentence as
+  // harms_quote, which the answer must show. Whether the counts are the
+  // paper's own stays the model's declaration and the study audit's job, and
+  // whether harms_quote reports harms stays the model's declaration.
+  for (const [index, result] of (input.binary_results ?? []).entries()) {
+    const at = `binary_results[${index}]`;
+    const overCounted = binaryGroups(result).filter(({ events, total }) => events > total);
+    for (const { field, name } of overCounted) {
+      addStep("declaration", `${at} gives more events than people for ${name}: ${field}_events counts the people in that ` +
+        `group with the outcome, so it cannot exceed ${field}_total.`);
+    }
+    const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
+    if (overCounted.length > 0 || stated.length === 0) continue;
+    const contrast = binaryContrast(result);
+    if (contrast === undefined) {
+      addStep("declaration", `${at}'s counts give the same rate in both groups, so there is no number needed to treat or ` +
+        `harm: leave ${stated.join(" and ")} out.`);
+      continue;
+    }
+    // The option did better when a larger share had an outcome more people should have, or a smaller share one
+    // fewer should.
+    const optionBetter = contrast.optionHigher === (result.better === "more");
+    const supported = optionBetter ? "nnt" : "nnh";
+    if (stated.length === 2) {
+      addStep("declaration", `${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
+    } else {
+      const field = stated[0]!;
+      const value = result[field]!;
+      if (field !== supported) {
+        const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
+          .map(withoutEndPunctuation);
+        const share = contrast.optionHigher ? "larger" : "smaller";
+        addStep("declaration", `${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with ` +
+          `${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to ` +
+          `${optionBetter ? "treat" : "harm"}: give it as ${supported}.`);
+      }
+      // Only the reciprocal rounded up counts (owner answer 153b: "rounding the reciprocal up").
+      if (value !== contrast.roundedUp) {
+        addStep("declaration", `${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates ` +
+          `is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded ` +
+          "up, recomputed from the groups' counts the answer uses, or correct the counts.");
+      }
+    }
+    // A number needed to treat the counts support has the harms beside it. An entry whose counts leave no number, or
+    // make it a number needed to harm, is not asked for them: its own step changes the number first.
+    if (supported === "nnt" && result.nnt !== undefined && result.harms_quote === undefined) {
+      addStep("answer_draft", `${at} gives nnt without harms_quote: give, beside the benefit figure, the harms measured ` +
+        "over the same follow-up, or say that none were found, and copy that sentence from answer_draft as harms_quote.");
+    }
   }
   // Harm and safety sentences, the terms a conclusion depends on, and
   // mechanism claims (owner questions 86, 88 and 89). HRP and Universal
@@ -1941,9 +2316,10 @@ export function finalizeResearch(
   if (input.answer_draft !== undefined && input.recommendations === undefined) {
     requireDeclaration(
       "recommendations is missing: with answer_draft, it lists each intervention the answer recommends or puts " +
-        "forward for this person, with the sentence that does so, whether this person's safety conflicts and inputs " +
-        "are resolved, and for long-term use its longest follow-up and whether stopping is covered (an empty list " +
-        "means none)."
+        "forward for this person, or ranks among the treatments it compares, with the sentence that does so, whether " +
+        "this person's safety conflicts and inputs are resolved (for a general ranking, conditional, with what a " +
+        "clinician should confirm), and for long-term use its longest follow-up and whether stopping is covered (an " +
+        "empty list means none)."
     );
   }
   // The key source a declared study names, by its own identifier or its PubMed record's DOI.
@@ -1962,11 +2338,10 @@ export function finalizeResearch(
   const undeclaredStudies = (at: string, studies: readonly string[]): void => {
     const missing = studies.filter((id) => keySourceFor(id) === undefined);
     if (missing.length > 0) {
-      nextSteps.push(`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
+      addStep("declaration", `${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
         "with its read depth and link, so its reading is checked like any key study.");
     }
   };
-  const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   for (const [index, claim] of (input.safety_claims ?? []).entries()) {
     const at = `safety_claims[${index}]`;
     const exposure = plainPhrase(claim.exposure);
@@ -1982,14 +2357,14 @@ export function finalizeResearch(
     }
     const numbers = extractUnsignedNumbers(claim.quote);
     if (claim.basis === "comparative_rates" && numbers.length < 2) {
-      nextSteps.push(`${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
+      addStep("answer_draft", `${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
         "give the rate in each group in that sentence.");
     }
     if (claim.basis === "observed_rates" && numbers.length < 1) {
-      nextSteps.push(`${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
+      addStep("answer_draft", `${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
     }
     if (claim.basis === "share_of_reports" && numbers.length < 1) {
-      nextSteps.push(`${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
+      addStep("answer_draft", `${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
         "in that sentence.");
     }
     const measured = claim.measured_exposure === undefined ? undefined : plainPhrase(claim.measured_exposure);
@@ -2033,12 +2408,28 @@ export function finalizeResearch(
   // was searched with the query of a literature-search receipt passed here, and a harm not checked reaches the answer
   // in the server's sentence. Which harms are plausible, and so whether the list is complete, stays the model's
   // declaration: no word list reads the harms or the answer. The rule itself is the protocols' serious-harm screen.
+  // Every answer says whether its question is about safety (AskRigor#356), so leaving safety_question out cannot
+  // skip the screen. An answer that recommends, puts forward or ranks a medicine likely to be taken for months or
+  // years screens it too (owner answer 153c), as its recommendations entry declares with long_term_use. The step names
+  // one reason: the answer's own safety statements, else the question, else the long-term medicine.
+  if (input.answer_draft !== undefined && input.safety_question === undefined) {
+    requireDeclaration(
+      "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user " +
+        "asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' " +
+        "safety; false otherwise."
+    );
+  }
   const harmScreen = input.harm_screen ?? [];
   const harmScreenTrigger = (input.safety_claims ?? []).length > 0
     ? "the answer makes safety statements (safety_claims)"
-    : input.safety_question === true ? "the question is about safety (safety_question)" : undefined;
+    : input.safety_question === true
+      ? "the question is about safety (safety_question)"
+      : (input.recommendations ?? []).some(({ long_term_use }) => long_term_use)
+        ? "the answer recommends, puts forward or ranks a medicine likely to be taken for months or years " +
+          "(recommendations)"
+        : undefined;
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
-    (input.harm_screen === undefined ? requireDeclaration : (step: string) => { nextSteps.push(step); })(
+    (input.harm_screen === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
       `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
         "harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each " +
         "searched by name, with what the search found: label_warning or reported_signal with the answer's sentence " +
@@ -2054,17 +2445,17 @@ export function finalizeResearch(
     // One harm, one entry: names compared as caveats are, so a repeat adds no second caveat.
     const first = screenedHarms.get(caveatText(harm));
     if (first === undefined) screenedHarms.set(caveatText(harm), index);
-    else nextSteps.push(`${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
+    else addStep("declaration", `${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
     const sources = new Set(entry.sources_searched ?? []);
     if (entry.state !== "not_checked" && sources.size === 0) {
-      nextSteps.push(`${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
+      addStep("declaration", `${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
     }
     if (entry.state === "label_warning" && sources.size > 0 && !sources.has("label") && !sources.has("regulator_warning")) {
-      nextSteps.push(`${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
+      addStep("declaration", `${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
         `one whose warning names ${harm}, or declare it reported_signal.`);
     }
     if ((entry.state === "label_warning" || entry.state === "reported_signal") && entry.answer_quote === undefined) {
-      nextSteps.push(`${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
+      addStep("answer_draft", `${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
         "sentence from answer_draft.");
     }
     if (entry.state === "not_found") {
@@ -2072,10 +2463,10 @@ export function finalizeResearch(
       // digest as full_text_search queries are; nothing else shows that the search ran.
       const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
       if (query === undefined) {
-        nextSteps.push(`${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
+        addStep("declaration", `${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
           "pass that search's research_receipt, or declare it not_checked.");
       } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
-        nextSteps.push(`${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
+        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
           "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its " +
           "research_receipt, or declare it not_checked.");
       }
@@ -2084,7 +2475,7 @@ export function finalizeResearch(
       // The harm reaches the reader in the caveat, so it shows no internal labels, as not_relevant_reason does.
       const labels = internalLabels(entry.harm, options.protocolNames ?? new Set());
       if (labels.length > 0) {
-        nextSteps.push(`${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
+        addStep("declaration", `${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
           `${labels.length > 8 ? ", and more" : ""}): the answer names this harm in its caveat, so give it in plain ` +
           "words.");
       }
@@ -2122,8 +2513,12 @@ export function finalizeResearch(
   }
   // Question 90 (lesson #23): what the answer puts forward for this person
   // carries its safety check, and a medicine taken long term its follow-up and
-  // stopping. Whether a sentence recommends something and whether an input is
-  // open stay the model's declarations; the checks and caveats are exact.
+  // stopping. Owner answer 153c widens it to the options an answer ranks among
+  // the treatments it compares: a general ranking with no person-specific
+  // inputs is declared conditional, with what a clinician should confirm, and
+  // the caveat below applies (FS231). Whether a sentence recommends or ranks
+  // something and whether an input is open stay the model's declarations; the
+  // checks and caveats are exact.
   const sentenceStart = (text: string): string => {
     const phrase = plainPhrase(text);
     return phrase.charAt(0).toUpperCase() + phrase.slice(1);
@@ -2133,7 +2528,7 @@ export function finalizeResearch(
     const intervention = sentenceStart(recommendation.intervention);
     if (recommendation.safety_check !== "resolved") {
       if (recommendation.open_inputs === undefined) {
-        nextSteps.push(`${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
+        addStep("declaration", `${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
           "inputs still open, in a few words.");
       } else {
         const open = plainPhrase(recommendation.open_inputs);
@@ -2152,12 +2547,12 @@ export function finalizeResearch(
       ...(recommendation.stopping_covered === undefined ? ["stopping_covered"] : [])
     ];
     if (missing.length > 0) {
-      nextSteps.push(`${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
+      addStep("declaration", `${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
         "evidence, whether it matches how long it would be taken, and whether the answer covers stopping.");
       continue;
     }
     if (recommendation.stopping_covered === false) {
-      nextSteps.push(`${at} puts ${plainPhrase(recommendation.intervention)} forward for long-term use without ` +
+      addStep("answer_draft", `${at} puts ${plainPhrase(recommendation.intervention)} forward for long-term use without ` +
         "covering stopping: say what is known about stopping, withdrawal and lasting harms, or that they are " +
         "unknown, and mark stopping_covered.");
     }
@@ -2174,6 +2569,8 @@ export function finalizeResearch(
     const doi = isPmid(normalized) ? pubmedDois.get(normalized) : undefined;
     return validatedIds.has(normalized) || (doi !== undefined && doi !== "" && validatedIds.has(doi));
   };
+  // The absence claims these checks accept, on which a finding's verified basis may rest (owner answer 139c).
+  const acceptedAbsences = new Set<number>();
   for (const [index, claim] of absenceClaims.entries()) {
     if (claim.state === "support_not_located") continue;
     const verdict = claim.state === "not_established";
@@ -2182,23 +2579,28 @@ export function finalizeResearch(
       : verdict ? "that studies do not establish the effect" : "a bounded exclusion");
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
+    let accepted = true;
     if (studies.length === 0) {
+      accepted = false;
       requireDeclaration(`${stated} without the studies it rests on: ` + (verdict
         ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
         : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
     } else if (unaudited.length > 0) {
-      nextSteps.push(`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
+      accepted = false;
+      addStep("research", `${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
         ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
           "full-text method audit."
         : "an abstract or a lead cannot show a null result. Audit each, or state it as support_not_located."));
     }
     // A verdict that studies do not establish an effect states no estimate.
     if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
-      nextSteps.push(
+      accepted = false;
+      addStep("answer_draft", 
         `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
           "studies could have missed."
       );
     }
+    if (accepted) acceptedAbsences.add(index);
   }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
   // to the searches made here; its own step above names a search receipt it lacks.
@@ -2214,9 +2616,15 @@ export function finalizeResearch(
     const searched = new Set(verified.filter(({ kind }) => kind === "literature_search")
       .map(({ claims }) => text(claims.src)));
     const names = LITERATURE_SOURCES.filter(({ id }) => searched.has(id)).map(({ name }) => name);
+    // What the searches did not find is accepted once it is bounded to searches passed here.
+    if (names.length > 0) {
+      absenceClaims.forEach(({ state }, index) => {
+        if (state === "support_not_located") acceptedAbsences.add(index);
+      });
+    }
     if (names.length === 0) {
       if (notLocated) {
-        nextSteps.push(
+        addStep("research", 
           "The answer says something was not found, but no literature search receipt was passed: search with " +
             "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
         );
@@ -2258,6 +2666,59 @@ export function finalizeResearch(
             status: "rejected",
             problems: ["A findings card is checked against the answer: pass answer_draft with it."]
           };
+  // Work a quick answer cannot do behind a finding (owner answer 139c), from this call's receipts and declarations
+  // only, compared exactly and the same in any language: a source audited in full text (each paper once, whichever
+  // identifier cites it), a video whose comments were read, a sentence that is an accepted absence claim, or one that
+  // states a correction the research found. Whether the finding is better than a quick answer stays the model's
+  // why_not_usual, for the owner's review.
+  const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
+  const verifiedWork = (sources: readonly string[], quote: string | undefined) => ({
+    studies: new Set(sources.filter(auditedStudy).map(paperKey)),
+    videos: new Set(sources.filter((source) => commentVideos.has(source))),
+    absences: new Set(quote === undefined ? [] : absenceClaims.flatMap(({ quote: claimed }, index) =>
+      acceptedAbsences.has(index) && sameQuote(quote, claimed) ? [index] : [])),
+    corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
+      by_user === false && sameQuote(quote, change) ? [index] : []))
+  });
+  type Work = ReturnType<typeof verifiedWork>;
+  const basesOf = (work: Work): VerifiedBasis[] => [
+    ...(work.studies.size > 0 ? ["full_text_audit" as const] : []),
+    ...(work.videos.size > 0 ? ["comment_audit" as const] : []),
+    ...(work.absences.size > 0 ? ["bounded_absence" as const] : []),
+    ...(work.corrections.size > 0 ? ["research_correction" as const] : [])
+  ];
+  const countWork = (works: readonly Work[]) => ({
+    studies: new Set(works.flatMap(({ studies }) => [...studies])).size,
+    videos: new Set(works.flatMap(({ videos }) => [...videos])).size,
+    absences: new Set(works.flatMap(({ absences }) => [...absences])).size,
+    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
+  });
+  let cardBases: VerifiedBasis[][] | undefined;
+  // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
+  // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
+  // account, is not. With no research receipt there is no research to have mapped.
+  const researchBegan = Math.min(...verified.filter(({ kind }) => !NOT_RESEARCH_KINDS.has(kind)).map(receiptOrder));
+  const mapAccount = options.researchMap?.account;
+  const mapFiled = mapAccount !== undefined && verified.some((receipt) => receipt.kind === "research_map" &&
+    text(receipt.claims.acct) === mapAccount && receiptOrder(receipt) > researchBegan);
+  // Whether the paid private offer also asks to file it, which the finalization receipt then signs.
+  let mapOffered = false;
+  // What this research did that a quick answer cannot, counted as a card's work is, for the free reminder.
+  const researchWork: VerifiedWork = {
+    studies: new Set([...validatedIds].map(paperKey)).size,
+    videos: commentVideos.size,
+    absences: acceptedAbsences.size,
+    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
+  };
+  // Owner answer 140b (2026-10-20): a paid private or dev account registers, before research, the short answer it
+  // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
+  // here is compared with the answer; one signed later or for another target, or none, gives no note and holds
+  // nothing back.
+  const plainAnswer = options.plainAnswer === undefined
+    ? undefined
+    : registeredPlainAnswer(verified, options.plainAnswer.account, targetDigest);
+  // Each registered claim with what the research found, for the note.
+  let compared: ComparedClaim[] | undefined;
   if (draft === undefined) {
     requireDeclaration(
       "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
@@ -2299,7 +2760,90 @@ export function finalizeResearch(
           materialVideos.includes(id),
         videoAudited
       });
-      if (findingsCard.status === "checked" && options.findings === "offer") caveats.push(FINDINGS_SAVE_OFFER);
+      if (findingsCard.status === "checked") {
+        const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
+        cardBases = work.map(basesOf);
+        const beyond = cardBases.filter((bases) => bases.length > 0).length;
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond };
+        // A paid private answer offers the save only when a finding rests on such work, which the offer names with
+        // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
+        // can still ask for the save.
+        if (options.findings === "offer" && beyond > 0) {
+          // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
+          // one was filed already, so one yes saves the card and files the map.
+          mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
+          caveats.push(mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work)));
+        }
+      }
+    }
+    // Whether the research confirmed, corrected or qualified each claim, or did not check it, is the model's
+    // declaration, in any language. What is checked exactly: every claim has one entry, a change quotes the answer's
+    // sentence stating it, and what backs it is work this call's receipts and declarations show, as for a findings card.
+    if (plainAnswer?.status === "registered") {
+      const registered = plainAnswer.claims;
+      const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
+      const comparison = input.plain_answer_comparison;
+      if (comparison === undefined) {
+        requireDeclaration(`Give plain_answer_comparison: for each of the ${count} of the plain answer registered ` +
+          "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, " +
+          "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the " +
+          "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the " +
+          "plain answer's research_receipt out of receipts: the answer then ends without the note.");
+      } else {
+        // Registered claim number -> the entry giving it, and what the research found for it.
+        const entryFor = new Map<number, number>();
+        const found = new Map<number, ComparedClaim>();
+        for (const [index, entry] of comparison.entries()) {
+          const at = `plain_answer_comparison[${index}]`;
+          const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
+          if (number < 0) {
+            addStep("declaration", `${at}.claim is not one of the ${count} of the plain answer registered before this ` +
+              "research: copy it exactly as manage_research_access listed it.");
+            continue;
+          }
+          const earlier = entryFor.get(number);
+          if (earlier !== undefined) {
+            addStep("declaration", `${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
+            continue;
+          }
+          entryFor.set(number, index);
+          if (entry.outcome === "not_checked") {
+            found.set(number, { claim: entry.claim, outcome: entry.outcome });
+            continue;
+          }
+          const sources = entry.sources ?? [];
+          const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source));
+          if (unbacked.length > 0) {
+            addStep("declaration", `${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment ` +
+              "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose " +
+              "comments were read here (video ID), or leave sources out.");
+          }
+          const work = verifiedWork(sources, entry.answer_quote);
+          const backed = basesOf(work).length > 0;
+          if (entry.outcome !== "confirmed" && entry.answer_quote === undefined) {
+            addStep("declaration", `${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the ` +
+              "change from answer_draft.");
+          } else if (entry.outcome !== "confirmed" && !backed) {
+            addStep("declaration", `${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give ` +
+              "in sources a study audited in full text here or a video whose comments were read here, or quote as " +
+              "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare.");
+          }
+          found.set(number, {
+            claim: entry.claim, outcome: entry.outcome,
+            ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
+            ...(backed ? { work: countWork([work]) } : {})
+          });
+        }
+        const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
+        if (left.length > 0) {
+          addStep("declaration", `plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
+            `${joinNames(left.map(String))} of the plain answer registered before this research, as ` +
+            "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
+            "corrected or qualified it, or did not check it.");
+        } else {
+          compared = registered.map((_, number) => found.get(number)!);
+        }
+      }
     }
     const lanes: AnswerLane[] = [
       ...(findings === undefined || commentVideos.size === 0 ? [] : [{
@@ -2316,16 +2860,25 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
-    nextSteps.push(...answerDraftProblems(draft, {
+    addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
       caveats,
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
       scaleResults: input.scale_results ?? [],
+      binaryResults: input.binary_results ?? [],
       declaredQuotes: [
         ...(input.reader_dismissed ?? []).map(({ quote }, index) => ({ at: `reader_dismissed[${index}]`, quote })),
         ...(input.comparison_claims ?? []).map(({ quote }, index) => ({ at: `comparison_claims[${index}]`, quote })),
+        // A class researched is shown in the answer by the sentence on what its search found.
+        ...optionClasses.flatMap(({ state, answer_quote: quote }, index) => state === "researched" && quote !== undefined
+          ? [{ at: `option_classes[${index}].answer_quote`, quote }] : []),
+        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
+        ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
+          { at: `binary_results[${index}]`, quote },
+          ...(nnt === undefined || harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
+        ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
         ...harmScreen.flatMap(({ state, answer_quote: quote }, index) =>
@@ -2339,7 +2892,10 @@ export function finalizeResearch(
         ]),
         ...(input.corrections ?? []).flatMap(({ report }, index) => report === undefined ? [] :
           [{ at: `corrections[${index}].report`, quote: report }]),
-        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
+        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change })),
+        ...(plainAnswer?.status === "registered" ? input.plain_answer_comparison ?? [] : [])
+          .flatMap(({ outcome, answer_quote: quote }, index) => outcome === "not_checked" || quote === undefined ? [] :
+            [{ at: `plain_answer_comparison[${index}].answer_quote`, quote }])
       ],
       corrections: input.corrections ?? [],
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
@@ -2352,9 +2908,9 @@ export function finalizeResearch(
     }));
   }
 
-  if (missingDeclaration) nextSteps.push(TOOL_LIST_REFRESH_HINT);
+  if (missingDeclaration) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
 
-  const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
+  const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
 
   const status = nextSteps.length > 0
     ? "not_ready"
@@ -2365,6 +2921,7 @@ export function finalizeResearch(
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
     next_steps: nextSteps,
+    next_step_kinds: stepKinds,
     limits,
     caveats,
     must_report: mustReport,
@@ -2391,12 +2948,38 @@ export function finalizeResearch(
   if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
   else if (status === "ready_with_limits") {
     output.check_line = "Checked with AskRigor's final check, with the limits above.";
+  } else output.unchecked_line = uncheckedLine(stepKinds);
+  // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
+  // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
+  if (carried?.last_status === "not_ready") {
+    output.previous_check = { status: "not_ready", open: carried.open_kinds ?? [] };
+  }
+  if (plainAnswer !== undefined) {
+    const note = options.plainAnswer?.note !== false;
+    output.plain_answer = plainAnswer.status !== "registered"
+      ? { status: plainAnswer.status, reason: PLAIN_ANSWER_REASONS[plainAnswer.status] }
+      : note
+        ? { status: "registered", claims: plainAnswer.claims.length }
+        : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
+    // The account's setting removes the note only: the plain answer is still compared with the answer.
+    if (status !== "not_ready" && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
+  }
+  // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
+  // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
+  // None of them holds back the answer.
+  if (options.researchMap !== undefined) {
+    if (mapFiled) output.research_map = { status: "filed" };
+    else if (mapOffered) output.research_map = { status: "offered", note: RESEARCH_MAP_OFFERED };
+    else if (options.researchMap.mode === "remind" && verifiedWorkPhrase(researchWork) !== "") {
+      output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
+    }
   }
   if (status !== "not_ready") {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
-      receipts: verified.length,
+      // Research receipts, which a saved card's stamp counts; a plain answer or a filed map is not research.
+      receipts: verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "research_map").length,
       videos: materialVideos.length,
       depth: input.research_depth,
       target: targetDigest,
@@ -2406,17 +2989,28 @@ export function finalizeResearch(
       leads: leadSources.length,
       limits: limits.length,
       unverified: communitiesUnverified,
-      // The findings library saves only the card whose digest this signs.
+      // The SHA-256 of the answer draft this check read, without leading and trailing white space (AskRigor#354):
+      // whoever holds the receipt and the answer the user saw can tell whether that answer is the checked one.
+      ...(draft === undefined ? {} : { answer: createHash("sha256").update(draft, "utf8").digest("hex") }),
+      // The findings library saves only the card whose digest this signs, and stamps each finding's bases with it.
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
-        ? { findings: findingsCardDigest(input.findings_card) }
-        : {})
+        ? {
+            findings: findingsCardDigest(input.findings_card),
+            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
+          }
+        : {}),
+      // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
+      // this receipt and the user's yes to it (owner answer 143a).
+      ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
     });
   }
   // A carried state that does not verify gets no replacement: the model passes the last good one again.
-  const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options);
+  const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
+    status, open: [...new Set(stepKinds)]
+  });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
   return finalizeResearchOutputSchema.parse(output);
@@ -2493,6 +3087,40 @@ const YOUTUBE_LANE_FINDINGS = [
   "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
 ] as const;
 
+type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
+
+/** A yes-or-no result's two groups as declared, by the prefix of their fields: the option's and the comparator's. */
+function binaryGroups(result: BinaryResult) {
+  return [
+    { field: "option", name: withoutEndPunctuation(result.option), events: result.option_events,
+      total: result.option_total },
+    { field: "comparator", name: withoutEndPunctuation(result.comparator), events: result.comparator_events,
+      total: result.comparator_total }
+  ] as const;
+}
+
+/**
+ * How a yes-or-no result's two rates differ, in exact integer arithmetic: the rates are compared by cross-multiplying,
+ * option_events · comparator_total against comparator_events · option_total, so 1 / |risk difference| is
+ * option_total · comparator_total / |difference|. Undefined when the rates are the same, which leaves no number
+ * needed to treat or harm.
+ */
+function binaryContrast(result: BinaryResult):
+  { optionHigher: boolean; reciprocal: number; roundedUp: number } | undefined {
+  const option = BigInt(result.option_events) * BigInt(result.comparator_total);
+  const comparator = BigInt(result.comparator_events) * BigInt(result.option_total);
+  if (option === comparator) return undefined;
+  const people = BigInt(result.option_total) * BigInt(result.comparator_total);
+  const difference = option > comparator ? option - comparator : comparator - option;
+  // Both are positive, so the quotient is rounded down.
+  const roundedDown = people / difference;
+  return {
+    optionHigher: option > comparator,
+    reciprocal: Number(people) / Number(difference),
+    roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
+  };
+}
+
 function answerDraftProblems(
   draft: string,
   context: {
@@ -2502,6 +3130,7 @@ function answerDraftProblems(
     lanes: readonly AnswerLane[];
     absenceQuotes: readonly string[];
     scaleResults: NonNullable<FinalizeResearchInput["scale_results"]>;
+    binaryResults: readonly BinaryResult[];
     declaredQuotes: ReadonlyArray<{ at: string; quote: string }>;
     corrections: NonNullable<FinalizeResearchInput["corrections"]>;
     communityNames: readonly string[];
@@ -2621,6 +3250,39 @@ function answerDraftProblems(
     }
     if (result.benchmark !== "none_established" && !includesAbsoluteNumber(numbers, result.benchmark.value)) {
       problems.push(`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
+    }
+  }
+  // Yes-or-no results (AskRigor#356; finalizeResearch checks their arithmetic): the quote shows each group's figure
+  // as declared, its events and total or its rate as a percentage, and a number needed to treat or harm with its
+  // follow-up (HRP NNTAndNNH). A total of 1,000 or more may be written with a grouping separator, so each number
+  // counts in every reading. Whether the quote reports the declared outcome stays the model's declaration.
+  for (const [index, result] of context.binaryResults.entries()) {
+    const at = `binary_results[${index}]`;
+    const numbers = numberReadings(result.quote);
+    for (const { name, events, total } of binaryGroups(result)) {
+      // More events than people has its own step, and no rate.
+      if (events > total) continue;
+      const rate = 100 * events / total;
+      // A rate rounded to a whole number or to one decimal is within 0.5 of it.
+      const rateShown = numbers.some((number) => Math.abs(number - rate) <= 0.5 + 1e-9);
+      if (!rateShown && !(includesAbsoluteNumber(numbers, events) && includesAbsoluteNumber(numbers, total))) {
+        problems.push(`${at} quotes no figure for ${name}: the quote contains neither its events and total ` +
+          `(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
+      }
+    }
+    const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
+    for (const field of stated) {
+      if (!includesAbsoluteNumber(numbers, result[field]!)) {
+        problems.push(`${at} quotes no number needed to ${field === "nnt" ? "treat" : "harm"}: the quote does not ` +
+          `contain ${result[field]}.`);
+      }
+    }
+    // The follow-up is folded as declared quotes are, so case, spacing, dashes, emphasis and a closing mark aside.
+    const followUp = quoteForm(result.follow_up);
+    if (stated.length > 0 && !(/[\p{L}\p{N}]/u.test(followUp) &&
+        quoteForm(result.quote.replace(MARKDOWN_LINK_TEXT, "$1")).includes(followUp))) {
+      problems.push(`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain ` +
+        "the declared follow-up.");
     }
   }
   const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
@@ -2767,7 +3429,7 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: string[]): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<string[], "push">): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -2777,21 +3439,19 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
   };
   const showing = quoteLocator(displayedProse(input?.answer_draft ?? ""));
   const findings = reading.findings.filter(({ kind, quote }) => Object.hasOwn(labels, kind) && showing(quote).length > 0);
-  const forms = (quote: string) => [quoteForm(quote.replace(MARKDOWN_LINK, "$1")),
-    quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
-  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => forms(quote));
+  const dismissedQuotes = (input?.reader_dismissed ?? []).map(({ quote }) => quoteForms(quote));
   let open = 0;
   let dismissed = 0;
   for (const { kind, quote } of findings) {
-    const normalized = forms(quote);
+    const normalized = quoteForms(quote);
     if (dismissedQuotes.some((other) => normalized.some((text, i) => text === other[i]))) {
       dismissed += 1;
       continue;
     }
     const covered = kind === "key_terms"
       ? (input?.key_terms ?? []).some(({ term }) => normalized.some((text, i) =>
-        termOccurrences(text, forms(term)[i]!).length > 0))
-      : (input?.[kind] ?? []).some((declared) => forms(declared.quote).some((text, i) =>
+        termOccurrences(text, quoteForms(term)[i]!).length > 0))
+      : (input?.[kind] ?? []).some((declared) => quoteForms(declared.quote).some((text, i) =>
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
@@ -2882,6 +3542,127 @@ function findingsCardCheck(
   return problems.length === 0 ? { status: "checked", problems: [] } : { status: "rejected", problems };
 }
 
+/** A plain answer's claim with what the research found and, for a change, what backs it. */
+interface ComparedClaim {
+  claim: string;
+  outcome: PlainAnswerOutcome;
+  quote?: string;
+  work?: VerifiedWork;
+}
+
+type RegisteredPlainAnswer =
+  | { status: "registered"; claims: string[] }
+  | { status: "no_receipt" | "other_account" | "other_target" | "after_research" };
+
+/**
+ * The plain answer this call compares with the answer: of the plain-answer receipts this account signed for this
+ * research target, the latest one issued before every research receipt passed here, by the signed issue order. Its
+ * claims are their digests (plainAnswerClaimDigest), in the order registered.
+ */
+function registeredPlainAnswer(
+  verified: readonly VerifiedReceipt[],
+  account: string,
+  target: string
+): RegisteredPlainAnswer {
+  const plain = verified.filter(({ kind }) => kind === "plain_answer");
+  if (plain.length === 0) return { status: "no_receipt" };
+  const own = plain.filter(({ claims }) => text(claims.acct) === account);
+  if (own.length === 0) return { status: "other_account" };
+  const forTarget = own.filter(({ claims }) => text(claims.target) === target && list(claims.claims).length > 0);
+  if (forTarget.length === 0) return { status: "other_target" };
+  // Research began with the earliest receipt passed here, whatever it was made for: a plain answer written after it,
+  // even for a later question, could draw on that research.
+  const began = Math.min(...verified.filter(({ kind }) => kind !== "plain_answer" && kind !== "finalization")
+    .map(receiptOrder));
+  const latest = forTarget.filter((receipt) => receiptOrder(receipt) < began)
+    .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
+    .at(-1);
+  return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+}
+
+// Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
+// check of it and a map filed after it.
+const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map"]);
+
+// What filing this research's map asks of the model, in the words of the tool that files it.
+const RESEARCH_MAP_FILING = "submit_research_contribution, a RESEARCH_FRONTIER proposal of its searches, the studies " +
+  "found and the leads left open, deidentified as that tool's description shows, never the chat";
+
+/** A paid private answer whose save offer also asks to file this research's map (owner answer 143a). */
+export const RESEARCH_MAP_OFFERED = "The offer also asks to file this research's map. Only after the user's yes to " +
+  `it, save the card with save_research_findings and file the map with ${RESEARCH_MAP_FILING}, with userConsent ` +
+  '"yes_to_this_save" and finalizationReceipt, the finalization_receipt of this check. If the user accepts only one ' +
+  "of the two, do only that one; without a yes, file nothing.";
+
+/**
+ * The reminder a free contributor's final check gives when its research did work a quick answer cannot do and no map
+ * of it was filed (owner answer 143a: "Free accounts aren't asked: the final check reminds the AI to file the map").
+ */
+export function researchMapReminder(work: VerifiedWork): string {
+  return `This research includes ${verifiedWorkPhrase(work)}, work a quick answer does not do, and no map of it was ` +
+    `filed after it began. File it with ${RESEARCH_MAP_FILING}; the free contributor agreement covers it, so the user ` +
+    "is not asked. Then call finalize_research again with the research_receipt that returns among the receipts, so " +
+    "the answer's last line says the map was filed. Nothing here holds back the answer.";
+}
+
+// Why a paid private or dev account's answer ends without the plain-answer note; nothing is held back for it.
+const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
+const PLAIN_ANSWER_REASONS = {
+  no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
+    `so the answer ends without the note comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
+    `comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
+    `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
+  after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
+    "cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
+    "register its plain answer before researching it, and pass only receipts issued after it.",
+  note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
+    "without it; manage_research_access with action set_plain_answer_note turns it back on."
+} as const;
+
+/**
+ * What a plain-answer receipt signs for each claim: 16 hex characters of its SHA-256, compared as quotes are, so the
+ * receipt holds no text of the plain answer and its size is the same in any language. finalize_research finds each
+ * claim the comparison copies by it.
+ */
+export function plainAnswerClaimDigest(claim: string): string {
+  return createHash("sha256").update(`askrigor:plain-answer-claim:v1\0${quoteForms(claim)[1]}`, "utf8")
+    .digest("hex").slice(0, 16);
+}
+
+/**
+ * Whether a claim stands as a sentence of a text, as the answer check reads a caveat: it begins a paragraph or list
+ * item or follows a sentence's end, and ends its sentence, by Unicode's sentence-ending punctuation, so "。" and "?"
+ * end one too; in a script that ends sentences without punctuation, only a whole paragraph or list item stands alone.
+ * Compared as quotes are, so exact and the same in any language.
+ */
+export function sentencesOf(text: string): (claim: string) => boolean {
+  const blocks = displayedProse(text).map((block) => caveatText(linkTargets(block)));
+  return (claim) => statesCaveat(blocks, claim);
+}
+
+/** Text in quotation marks, exactly as given, ending its sentence. */
+function quotation(text: string): string {
+  const quoted = text.trim();
+  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"']*$/u.test(quoted) ? "" : "."}`;
+}
+
+/**
+ * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, then what
+ * the research found, with the answer's own sentence and what backs a change, for example "Without AskRigor, a quick
+ * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
+ */
+function plainAnswerNote(compared: readonly ComparedClaim[]): string {
+  return compared.map(({ claim, outcome, quote, work }, index) => {
+    const said = `${index === 0 ? "Without AskRigor, a quick answer would have said:" : "It would also have said:"} ` +
+      quotation(claim);
+    if (outcome === "not_checked") return `${said} This research did not check that.`;
+    const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
+    return `${said} This research ${outcome} that${from}${quote === undefined ? "." : `: ${quotation(quote)}`}`;
+  }).join(" ");
+}
+
 // Bounded and closed to brackets and parentheses, so a long draft is read in linear time.
 const MARKDOWN_LINK = /\[[^[\]\n]{0,500}\]\(([^\s()[\]]{1,2048})\)/gu;
 // The same link, by its text.
@@ -2907,6 +3688,17 @@ function quoteForm(quote: string, fold: (text: string) => string = caveatText): 
   while (end > start && (QUOTE_MARK.test(text.charAt(end - 1)) || SENTENCE_MARK.test(text.charAt(end - 1)) ||
     text.charAt(end - 1) === " ")) end -= 1;
   return text.slice(start, end).trim();
+}
+
+/** A quote's two forms as the answer check compares them: each link by its target, and by its text. */
+function quoteForms(quote: string): [string, string] {
+  return [quoteForm(quote.replace(MARKDOWN_LINK, "$1")), quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"))];
+}
+
+/** Whether two declared quotes are one sentence, compared as the answer check compares a quote: by link target or text. */
+export function sameQuote(left: string, right: string): boolean {
+  const [ours, theirs] = [quoteForms(left), quoteForms(right)];
+  return ours.some((form, index) => /[\p{L}\p{N}]/u.test(form) && form === theirs[index]);
 }
 
 /** The pages a text links to, compared as two links to one page are. */
@@ -2975,6 +3767,8 @@ function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>):
   return [...groups].map(([reason, links]) => {
     const [one, several] = UNREAD_STUDY_REASONS[reason]!;
     const listed = links.length === 1 ? links[0]! : `${links.slice(0, -1).join(", ")} and ${links.at(-1)}`;
+    // A study read through another tool was read: the sentence says by what, and that AskRigor did not audit it.
+    if (reason === "OTHER_TOOL") return `${(links.length === 1 ? one : several).replace("{links}", () => listed)}.`;
     return links.length === 1
       ? `${one.replace("{links}", () => listed)}, so its methods were not checked.`
       : `${several.replace("{links}", () => listed)}, so their methods were not checked.`;
@@ -2989,6 +3783,10 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "AskRigor could not fetch the full texts of {links} because full-text services kept failing"
   ],
   UNAVAILABLE: ["The full text of {links} was not openly available", "The full texts of {links} were not openly available"],
+  OTHER_TOOL: [
+    "One key study, {links}, was read through another tool, not audited by AskRigor",
+    "Key studies {links} were read through another tool, not audited by AskRigor"
+  ],
   NO_DOI: [
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
     "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
@@ -3334,7 +4132,7 @@ function communityKey(name: string, platform: string): string {
 
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
 interface DeclarationSteps {
-  nextSteps: string[];
+  addStep: (kind: NextStepKind, ...steps: string[]) => void;
   requireDeclaration: (step: string) => void;
 }
 
@@ -3358,7 +4156,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: Declaration
       );
     }
     if (sites.length > 0 || searches.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         "commercial_review_applicability is not_applicable, but principal_communities or community_searches lists " +
           "platform review_site: change the declaration or the review-site entry so they agree."
       );
@@ -3414,7 +4212,7 @@ function productIdentityDeclarations(
       const labels = corpora.map(({ product }) => normalizeProductName(product));
       if (labels.length !== products.length || new Set(labels).size !== labels.length ||
           products.some((product) => !labels.includes(normalizeProductName(product)))) {
-        out.nextSteps.push("community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
+        out.addStep("declaration", "community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
       }
       const receipts = [...rounds.filter(({ kind }) => kind === "youtube_community_audit"),
         ...verified.filter(({ kind }) => kind === "youtube_video_audit")];
@@ -3427,10 +4225,10 @@ function productIdentityDeclarations(
             (list(claims.videos).includes(video) || text(claims.video) === video);
         }));
         if (uncovered.length > 0) {
-          out.nextSteps.push(`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
+          out.addStep("research", `The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
         }
         const unreviewed = corpus.video_ids.filter((video) => !input.community_findings!.videos_reviewed.includes(video));
-        if (unreviewed.length > 0) out.nextSteps.push(`The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
+        if (unreviewed.length > 0) out.addStep("declaration", `The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
         out.mustReport.push(`${corpus.product}: Exact product signal: ${corpus.exact_product_signal}` +
           (corpus.variant_unresolved_signal === undefined ? "" : ` Variant unresolved signal: ${corpus.variant_unresolved_signal}`));
       }
@@ -3442,7 +4240,7 @@ function productIdentityDeclarations(
       if (counts === undefined) {
         out.requireDeclaration(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
       } else if (counts.exact_product + counts.variant_unresolved + counts.other_variant_excluded !== corpus.reviews_read) {
-        out.nextSteps.push(`item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
+        out.addStep("declaration", `item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
       } else {
         out.mustReport.push(`${search.community}, ${corpus.product}: ${counts.exact_product} exact-product review(s), ${counts.variant_unresolved} variant-unresolved review(s), ${counts.other_variant_excluded} other-variant review(s) excluded.`);
       }
@@ -3451,7 +4249,7 @@ function productIdentityDeclarations(
       if (outcomeSearch === undefined && boundary === undefined) {
         out.requireDeclaration(`Give outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}: the searches run within the review text for the outcome and their directions, or why that search could not run.`);
       } else if (outcomeSearch !== undefined && boundary !== undefined) {
-        out.nextSteps.push(`Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
+        out.addStep("declaration", `Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
       }
       if (outcomeSearch !== undefined) {
         const directions = outcomeSearch.directions;
@@ -3461,7 +4259,7 @@ function productIdentityDeclarations(
           ...(directions.includes("worse") || directions.includes("adverse") ? [] : ["worse or adverse"])
         ];
         if (missing.length > 0) {
-          out.nextSteps.push(`outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
+          out.addStep("research", `outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
         }
         // The community's own caveat already says AskRigor could not verify its searches; no second limit here.
       }
@@ -3484,18 +4282,18 @@ function productIdentityDeclarations(
   }
   if (intervention?.status === "not_applicable") {
     if (intervention.reason === undefined) out.requireDeclaration("Give a reason for intervention_identity not_applicable.");
-    if (intervention.interventions !== undefined) out.nextSteps.push("intervention_identity not_applicable cannot list interventions; make the declaration agree.");
+    if (intervention.interventions !== undefined) out.addStep("declaration", "intervention_identity not_applicable cannot list interventions; make the declaration agree.");
   } else if (intervention?.status === "checked") {
     if (intervention.interventions === undefined) out.requireDeclaration("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
     const sources = new Set(input.key_sources.map(({ id }) => normalizeIdentifier(id)));
     for (const entry of intervention.interventions ?? []) {
       if (entry.study_ids.some((id) => !sources.has(normalizeIdentifier(id)))) {
-        out.nextSteps.push(`intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
+        out.addStep("declaration", `intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
       }
       if (entry.status === "resolved" && entry.identity === undefined) {
         out.requireDeclaration(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
       } else if (entry.status === "unresolved") {
-        if (entry.identity !== undefined) out.nextSteps.push(`The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
+        if (entry.identity !== undefined) out.addStep("declaration", `The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
         out.requireLimit(`The intervention ${entry.label} has not been traced to a current product.`,
           `The exact product tested in ${entry.label} was not traced to a current product, so this answer does not present it as something to buy.`);
       }
@@ -3507,7 +4305,7 @@ function productIdentityDeclarations(
   }
   if (shopping === undefined) return;
   if (shopping.status === "not_requested") {
-    if ((shopping.offers?.length ?? 0) > 0) out.nextSteps.push("shopping not_requested cannot list offers.");
+    if ((shopping.offers?.length ?? 0) > 0) out.addStep("declaration", "shopping not_requested cannot list offers.");
     return;
   }
   if (shopping.destination === undefined) out.requireDeclaration("Give the destination for shopping buy_options or no_live_option_found.");
@@ -3520,14 +4318,14 @@ function productIdentityDeclarations(
   for (const offer of offers) {
     if (offer.role !== "buy_option") continue;
     if (offer.offer_state !== "live_destination_orderable") {
-      out.nextSteps.push(`The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
+      out.addStep("declaration", `The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
     }
     if (input.answer_draft !== undefined && !links.has(comparableUrl(offer.url))) {
-      out.nextSteps.push(`The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
+      out.addStep("answer_draft", `The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
     }
   }
   if (shopping.status === "no_live_option_found") {
-    if (offers.some(({ role }) => role === "buy_option")) out.nextSteps.push("shopping no_live_option_found cannot list buy options.");
+    if (offers.some(({ role }) => role === "buy_option")) out.addStep("declaration", "shopping no_live_option_found cannot list buy options.");
     if (new Set(shopping.routes_searched ?? []).size < 3) {
       out.requireDeclaration("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
     }
@@ -3654,7 +4452,7 @@ function communityCoverage(
   for (const search of input.community_searches ?? []) {
     const name = search.community;
     if (search.platform === "review_site" && search.report_identity !== undefined) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives report_identity, which is for threads outside review sites: review sites use review_corpora.`
       );
     }
@@ -3662,13 +4460,13 @@ function communityCoverage(
     const links = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])];
     const hosts = links.map(hostOf);
     if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
-      out.nextSteps.push(`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
+      out.addStep("declaration", `community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
     }
     // A platform with its own hosts links only there, and its hosts' links belong to it.
     const own = PLATFORM_HOSTS[search.platform];
     if (own !== undefined && hosts.some((host) => !own.host.test(host))) {
-      out.nextSteps.push(search.platform === "reddit"
+      out.addStep("declaration", search.platform === "reddit"
         ? `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
         : `community_searches for ${name} is on ${own.label} but lists links elsewhere; give the ${own.label} links ` +
           "of the community and the posts you read.");
@@ -3678,7 +4476,7 @@ function communityCoverage(
       .find(([platform, { host }]) => platform !== search.platform && hosts.some((link) => host.test(link)));
     if (foreign !== undefined) {
       const [platform, { label }] = foreign;
-      out.nextSteps.push(platform === "reddit"
+      out.addStep("declaration", platform === "reddit"
         ? `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
           "they are in."
         : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
@@ -3689,22 +4487,22 @@ function communityCoverage(
     const communityStep = COMMUNITY_LINK_STEPS[search.platform];
     if (communityStep !== undefined && (search.threads_read.some(({ url }) => community(url, true) === undefined) ||
       (search.url !== undefined && community(search.url, false) === undefined))) {
-      out.nextSteps.push(`community_searches for ${name} ${communityStep}`);
+      out.addStep("declaration", `community_searches for ${name} ${communityStep}`);
       continue;
     }
     // A subreddit is one community: its entry names it, and its threads are in it.
     if (search.platform === "reddit") {
       const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
       if (subreddit === undefined) {
-        out.nextSteps.push(`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
+        out.addStep("declaration", `Name the Reddit community ${name} by its subreddit, as r/<name>.`);
         continue;
       }
       if (search.url !== undefined && subredditHomeOf(search.url) !== subreddit) {
-        out.nextSteps.push(`community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
+        out.addStep("declaration", `community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
         continue;
       }
       if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {
-        out.nextSteps.push(
+        out.addStep("declaration", 
           `community_searches for ${name} lists links that are not threads in r/${subreddit}: list each thread you ` +
             `read by its full link (reddit.com/r/${subreddit}/comments/…), under its own subreddit's entry.`
         );
@@ -3724,19 +4522,19 @@ function communityCoverage(
             : []);
         if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
           if (absent.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} lists thread(s) Reddit does not have (${absent.join(", ")}): list only ` +
                 "threads you read, by the links you read them at."
             );
           }
           if (elsewhere.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} lists thread(s) that Reddit files under another subreddit ` +
                 `(${elsewhere.join(", ")}): list each thread under its own subreddit's entry.`
             );
           }
           if (retitled.length > 0) {
-            out.nextSteps.push(
+            out.addStep("declaration", 
               `community_searches for ${name} gives thread title(s) that differ from Reddit's (${retitled.join("; ")}): ` +
                 "check that each link is the thread you read, and give its title exactly as Reddit shows it."
             );
@@ -3749,7 +4547,7 @@ function communityCoverage(
     const shared = search.threads_read.map(({ url }) => comparableUrl(url))
       .filter((thread) => (threadOwners.get(thread) ?? key) !== key);
     if (shared.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} lists a thread already listed for another community; list each thread under ` +
           "the one community it belongs to."
       );
@@ -3764,7 +4562,7 @@ function communityCoverage(
       continue;
     }
     if (search.access_boundary === "no_relevant_results" && search.threads_read.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives both threads read and access_boundary no_relevant_results; keep one: ` +
           "the threads and what they showed, or the boundary if nothing relevant turned up."
       );
@@ -3773,7 +4571,7 @@ function communityCoverage(
     // A review site's reviews need their counts and selection (HRP ReviewCorpusSelectionAndCounts).
     const corpora = search.review_corpora ?? [];
     if (corpora.length > 0 && search.platform !== "review_site") {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives review_corpora, which are for review sites: record the site's product ` +
           "reviews under platform review_site, or leave review_corpora out."
       );
@@ -3789,7 +4587,7 @@ function communityCoverage(
     const miscounted = corpora.filter(({ reviews_shown: shown, reviews_read: read, selection }) =>
       shown !== undefined && (read > shown || (selection === "all" && read < shown)));
     if (miscounted.length > 0) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} gives review counts that do not fit (${miscounted.map(({ product }) => product)
           .join(", ")}): reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.`
       );
@@ -3811,7 +4609,7 @@ function communityCoverage(
           ...(search.url === undefined ? [] : [community(search.url, false) ?? siteOf(search.url)])
         ]);
     if (sites.size > 1) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +
           "own entry."
       );
@@ -3820,7 +4618,7 @@ function communityCoverage(
     const site = [...sites][0];
     const owner = site === undefined ? undefined : siteOwners.get(site);
     if (owner !== undefined && owner !== key) {
-      out.nextSteps.push(
+      out.addStep("declaration", 
         `community_searches for ${name} is on ${site}, as ${searched.get(owner) ?? "another entry"} is: ` +
           "one site is one discussion pool, so list its threads under one entry and search an independent community."
       );
@@ -3847,7 +4645,7 @@ function communityCoverage(
         const { exposure, reports_read, firsthand_exact, exposure_unclear, other_exposure, not_firsthand, measured_after } = report;
         if (firsthand_exact + exposure_unclear + other_exposure + not_firsthand !== reports_read ||
             measured_after > firsthand_exact) {
-          out.nextSteps.push(
+          out.addStep("declaration", 
             `report_identity for ${exposure} in ${name} does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.`
           );
           continue;
@@ -3975,7 +4773,7 @@ function communityCoverage(
     const others = [...new Map(communities
       .filter(({ name, platform }) => !searched.has(communityKey(name, platform)))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
-    out.nextSteps.push(
+    out.addStep("research", 
       "Search at least one more community, independent of " +
         `${searched.size === 0 ? "the first" : [...searched.values()].join(", ")}` +
         `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +

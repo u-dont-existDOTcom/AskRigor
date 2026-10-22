@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.28` (2026-10-20), SHA-256
-`a38e3e76b0983f9d4545325a90c6e14b76d087750600ce99623b3ec4aa22cef4`,
-and Universal Instructions `20.5.45` (2026-10-20), SHA-256
-`564c8697fdd4aa69f08b0ecba228ca47cc7dc3e022e6ef55d84ea14f86fb416e`.
+The current canonical files identify HRP `20.6.29` (2026-10-21), SHA-256
+`a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79`,
+and Universal Instructions `20.5.46` (2026-10-21), SHA-256
+`e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -456,6 +456,20 @@ the second before free research continues (migration
 checked or saved) until `ASKRIGOR_FINDINGS_LIBRARY=enabled`, which follows the
 owner's notice wording, the private repository and its GitHub App installation,
 and deploy approval; the data flow is in `docs/privacy-data-map.md`.
+
+Owner answers 139c and 140b (2026-10-20; built, not yet released): the final
+check derives each card finding's work beyond a quick answer from the call's
+receipts (a full-text audit, audited comments, a checked absence claim or a
+correction the research found), signs it with the card and stamps it on the
+saved card, labeled `beyond-quick-answer`. A paid-private answer offers the save
+only when a finding has such a basis, naming the work with the server's counts,
+and a free answer whose save confirmed ends with "Saved to AskRigor's findings
+library for review as ARF-####.". Paid private accounts and the dev accounts
+listed in `ASKRIGOR_DEV_ACCOUNT_KEYS` register, through `manage_research_access`,
+the short answer they would give without AskRigor's tools before research; the
+checked answer ends with a note comparing the two, which each account can turn
+off (migration `0013_research_plain_answer_note`). The plan is
+`docs/superpowers/plans/2026-10-21-atlas-merging-save-offer-plain-answer.md`.
 
 ## Public-review status
 

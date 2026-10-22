@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   FINDINGS_SAVE_OFFER,
   findingsCardDigest,
-  findingsCardSchema
+  findingsCardSchema,
+  findingsSaveOffer
 } from "../apps/research-mcp/src/findings/card.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
@@ -173,13 +174,31 @@ const absenceDefaults = (input: Record<string, unknown>) =>
   "absence_claims" in input || !("answer_draft" in input) ? {} : { absence_claims: [] };
 const scaleDefaults = (input: Record<string, unknown>) =>
   "scale_results" in input || !("answer_draft" in input) ? {} : { scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] };
-// The same for harm and safety sentences, key terms and mechanism claims (owner questions 86, 88 and 89).
+// The same for harm and safety sentences, key terms and mechanism claims (owner questions 86, 88 and 89), and for
+// yes-or-no results and whether the question is about safety (AskRigor#356).
 const claimDefaults = (input: Record<string, unknown>) => !("answer_draft" in input) ? {} : {
   ...("safety_claims" in input ? {} : { safety_claims: [] }),
   ...("key_terms" in input ? {} : { key_terms: [] }),
   ...("mechanism_claims" in input ? {} : { mechanism_claims: [] }),
-  ...("recommendations" in input ? {} : { recommendations: [] })
+  ...("recommendations" in input ? {} : { recommendations: [] }),
+  ...("binary_results" in input ? {} : { binary_results: [] }),
+  ...("safety_question" in input ? {} : { safety_question: false })
 };
+// An answer that compares treatments lists each plausible class of treatment, searched by name (owner answer 153a);
+// tests of other checks searched exercise therapy in PubMed, which CLEAN_DRAFT reports in a sentence of its own. The
+// search's receipt is signed without an issue order, so the other receipts keep theirs.
+const EXERCISE_QUERY = "exercise therapy hip osteoarthritis";
+const EXERCISE_SEARCH = issueResearchReceipt("literature_search", {
+  src: "pubmed", q: discoveryQueryDigest([EXERCISE_QUERY]), ret: 20, n: 20
+}, options);
+const optionClassDefaults = (input: Record<string, unknown>) =>
+  input.treatment_choice !== "compared" || "option_classes" in input || !Array.isArray(input.receipts) ? {} : {
+    receipts: [...input.receipts, EXERCISE_SEARCH],
+    option_classes: [{
+      option_class: "exercise therapy", state: "researched", search_query: EXERCISE_QUERY,
+      answer_quote: "Exercise therapy has the strongest evidence for hip osteoarthritis."
+    }]
+  };
 // Threads read outside review sites say how they were chosen; tests of other
 // checks read every relevant thread their searches found.
 const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArray(input.community_searches) ? {} : {
@@ -188,7 +207,7 @@ const threadSelectionDefaults = (input: Record<string, unknown>) => !Array.isArr
       report_identity: REDDIT_SEARCH.report_identity, thread_selection: "all_found", ...search
     })
 };
-// Every call gets the community, offer, absence and scale defaults unless it passes its own.
+// Every call gets the community, offer, absence, scale and option-class defaults unless it passes its own.
 const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parameters<typeof finalizeResearchBare>[1]) =>
   finalizeResearchBare({
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
@@ -198,6 +217,7 @@ const finalizeResearchRaw = (input: Record<string, unknown>, gateOptions: Parame
       ? { commercial_review_applicability: NONCOMMERCIAL_EXERCISE } : {}),
     comparison_claims: [],
     ...communityDefaults(input), ...offerDefaults(input), ...absenceDefaults(input), ...scaleDefaults(input), ...claimDefaults(input), ...input,
+    ...optionClassDefaults(input),
     ...threadSelectionDefaults({ ...communityDefaults(input), ...input }),
     ...(typeof input.answer_draft === "string"
       ? { answer_draft: `${fixtureStudyLinks(input)}\n\n${input.answer_draft}${skipParagraph(input)}` } : {})
@@ -1042,7 +1062,7 @@ describe("finalize_research gate", () => {
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] })
+      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1148,7 +1168,7 @@ describe("finalize_research gate", () => {
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
         "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
-      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: []
     }, options);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -1212,7 +1232,7 @@ describe("finalize_research gate", () => {
         { name: "ADHD Parents Forum", platform: "forum" }
       ],
       community_searches: searches ?? [amazon(corpora), forum],
-      absence_claims: [], scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: []
+      absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: []
     });
     const lanes = `[Study](https://doi.org/10.1002/art.41142) reports study outcomes.\n\nIn [the drops' reviews on Amazon](${reviewsPage}), several parents saw calmer evenings, some saw ` +
       "no difference, and two reported stomach upset; these show the range of experiences only. On the " +
@@ -1575,10 +1595,11 @@ describe("finalize_research gate", () => {
     // The answer must say which it is: an absence it does not declare cannot be checked.
     expect(check({ absence_claims: undefined }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect, or calling an intervention's evidence unconvincing, weak, not demonstrated or " +
-        "showing no benefit (an empty list means none). Evidence-strength sentences are absence claims, declared " +
-        "with not_established and their key sources when studies were found, or support_not_located with search " +
-        "coverage when none were."
+        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
+        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
+        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
+        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
+        "with search coverage when none were."
     );
     expect(check({ absence_claims: [{ quote: "There is no evidence at all.", state: "support_not_located" }] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain("absence_claims[0] gives text the answer does not show: copy each sentence exactly from answer_draft.");
@@ -1862,6 +1883,29 @@ describe("finalize_research gate", () => {
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toContain(`Cite ${id} as a lead: ${limit}, so its methods were not audited.`);
     expect(result.caveats).toContain(caveat);
+  });
+
+  // Owner answer 147a (2026-10-21, from UDA #411): a lead read through another of the app's full-text tools is
+  // reported as read that way, never as abstract-only and never as AskRigor's audit; the other answers keep the lead.
+  it("reports a lead read through another tool as read there, not audited by AskRigor", () => {
+    const id = "10.1016/j.joca.2020.01.001";
+    const receipt = sign("full_text_lead", { doi: id, state: "PAYWALL_OR_LOGIN_REQUIRED" }, options);
+    const check = (other_route: "read" | "unavailable" | "cost" | "none") => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, receipt],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only", other_route }]
+    }, options);
+    const read = check("read");
+    expect(read.status).toBe("ready_with_limits");
+    expect(read.sources.lead_only).toEqual([id]);
+    expect(read.limits).toContain(`Cite ${id} as read through another tool, not audited by AskRigor.`);
+    expect(read.caveats).toContain(`One key study, ${LEAD_LINK}, was read through another tool, not audited by AskRigor.`);
+    expect(read.caveats.join(" ")).not.toContain("was not openly available");
+    for (const other of ["unavailable", "cost", "none"] as const) {
+      const lead = check(other);
+      expect(lead.caveats).toContain(`The full text of ${LEAD_LINK} was not openly available, so its methods were not checked.`);
+      expect(lead.caveats.join(" ")).not.toContain("read through another tool");
+    }
   });
 
   it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
@@ -2991,22 +3035,108 @@ describe("findings card at the final gate", () => {
     }]
   };
   const withFinding = (overrides: Record<string, unknown>) => ({ ...CARD, findings: [{ ...CARD.findings[0], ...overrides }] });
-  const findingsClaim = (receipt: string | undefined) => {
+  const signedClaim = (claim: string) => (receipt: string | undefined) => {
     const verified = verifyResearchReceipt(receipt!, options);
-    return verified.ok ? verified.claims.findings : "unverified";
+    return verified.ok ? verified.claims[claim] : "unverified";
   };
+  const findingsClaim = signedClaim("findings");
+  const basesClaim = signedClaim("bases");
+  // The card's one finding cites the study audited here and a video whose 240 comments were read.
+  const CARD_OFFER = findingsSaveOffer({ studies: 1, videos: 1, absences: 0, corrections: 0 });
 
   it("checks a card the answer shows and this call's receipts back, and signs it without offering anything", () => {
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [] });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
     // The answer's own result is what it would be without the library: no caveat offers a save.
     expect(carded.status).toBe("ready_with_limits");
     expect(carded.status).toBe(plain.status);
     expect(carded.limits).toEqual(plain.limits);
     expect(carded.caveats).toEqual(plain.caveats);
     expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
+    // Each finding's work beyond a quick answer is signed with the card, for the library to stamp (owner answer 139c).
+    expect(basesClaim(carded.finalization_receipt)).toEqual(["full_text_audit.comment_audit"]);
     expect(findingsClaim(plain.finalization_receipt)).toBeUndefined();
+    expect(basesClaim(plain.finalization_receipt)).toBeUndefined();
+  });
+
+  // Owner answer 139c (2026-10-20): what a quick answer can't do, derived exactly from the call's own receipts.
+  it("derives each finding's basis from this call's receipts alone: full-text audits and comments read", () => {
+    const silent = sign("youtube_video_audit", {
+      video: "ccccccccccc", state: "api_visible_complete", lock: "pass", records: 0
+    }, options);
+    const input = {
+      ...READY,
+      receipts: [...READY.receipts, silent, lead],
+      key_sources: [...READY.key_sources,
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" }]
+    };
+    const finding = (sources: string[]) => ({ ...CARD.findings[0], sources, tags: [] });
+    const card = { ...CARD, findings: [
+      finding(["10.1002/art.41142"]),
+      finding(["aaaaaaaaaaa"]),
+      // A lead was not read in full text, and a video whose audit found no comments had none read.
+      finding(["10.1016/j.joca.2020.01.001"]),
+      finding(["ccccccccccc"]),
+      finding(["10.1016/j.joca.2020.01.001", "aaaaaaaaaaa", "10.1002/art.41142"])
+    ] };
+    const result = finalizeResearch({ ...input, findings_card: card }, options);
+    expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3 });
+    expect(basesClaim(result.finalization_receipt)).toEqual([
+      "full_text_audit", "comment_audit", "none", "none", "full_text_audit.comment_audit"
+    ]);
+    // A tag is still the model's declaration, and a basis does not depend on it.
+    expect(finalizeResearch({ ...input, findings_card: withFinding({ tags: [] }) }, options).findings_card)
+      .toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+  });
+
+  it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
+    const pubmedSearch = sign("literature_search", { src: "pubmed", q: "p1p1p1p1p1p1", ret: 0, n: 0 }, options);
+    const base = {
+      receipts: [study, lead, pubmedSearch],
+      community_evidence: "not_relevant",
+      not_relevant_basis: "no_real_world_outcome",
+      not_relevant_reason: "How the body clears a drug, with no real-world outcome.",
+      treatment_choice: "not_compared",
+      research_target: TARGET,
+      research_depth: "deep",
+      answer_language: "fr",
+      key_sources: [
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" },
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" }
+      ]
+    };
+    // A study read only as a lead is verified for a card, but not read in full text.
+    const LEAD = ["10.1016/j.joca.2020.01.001"];
+    // The answer's sentences, and the same sentences as the declarations copy them, with other quotation marks.
+    const absent = "Aucune étude n’a mesuré cet effet chez l’enfant.";
+    const corrected = "Le foie élimine ce médicament en quelques heures, et non en quelques jours.";
+    const finding = (answer_quote: string) => ({ ...CARD.findings[0], answer_quote, sources: ["10.1000/never-read"], tags: [] });
+    const declarations = {
+      absence_claims: [{ quote: "Aucune étude n'a mesuré cet effet chez l'enfant", state: "support_not_located" }],
+      corrections: [{ retracted: "Le foie élimine ce médicament en quelques jours.", change: corrected, by_user: false }]
+    };
+    const check = (overrides: Record<string, unknown>, sources = ["PMC10518852"]) => {
+      const card = { ...CARD, findings: [{ ...finding(absent), sources }, { ...finding(corrected), sources }] };
+      const draft = `${absent} ${corrected}`;
+      const first = finalizeResearchRaw({ ...base, ...declarations, findings_card: card, answer_draft: draft, ...overrides }, options);
+      return finalizeResearchRaw({
+        ...base, ...declarations, findings_card: card, answer_draft: [draft, ...first.caveats].join("\n\n"), ...overrides
+      }, options);
+    };
+    const both = check({});
+    expect(both).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(basesClaim(both.finalization_receipt)).toEqual(["full_text_audit.bounded_absence", "full_text_audit.research_correction"]);
+    // A correction the user pointed out is not the research's own, and what the searches did not find counts only
+    // once it is bounded to searches passed here.
+    const userCorrected = check({ corrections: [{ ...declarations.corrections[0], by_user: true }] }, LEAD);
+    expect(userCorrected.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    const unsearched = check({ receipts: [study, lead] }, LEAD);
+    expect(unsearched.status).toBe("not_ready");
+    expect(unsearched.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    const leadsOnly = check({}, LEAD);
+    expect(basesClaim(leadsOnly.finalization_receipt)).toEqual(["bounded_absence", "research_correction"]);
   });
 
   it("does not ask for a card when the answer cites no study or audited video (2026-10-15 owner regressions)", () => {
@@ -3082,7 +3212,7 @@ describe("findings card at the final gate", () => {
     };
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
-    }, options).findings_card).toEqual({ status: "checked", problems: [] });
+    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: ["full_text_read"] })
     }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
@@ -3140,16 +3270,19 @@ describe("findings card at the final gate", () => {
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [] });
-    expect(carded.caveats).toEqual([...plain.caveats, FINDINGS_SAVE_OFFER]);
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1 });
+    // The offer names what was done, with this call's counts (owner answer 139c).
+    expect(CARD_OFFER).toBe("These findings rest on a full-text audit of 1 study and audited comments on 1 video, " +
+      `work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+    expect(carded.caveats).toEqual([...plain.caveats, CARD_OFFER]);
     expect(findingsClaim(carded.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
 
     const draft = [CLEAN_DRAFT, ...plain.caveats].join(" ");
     const missing = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: draft }, offerOptions);
-    expect(missing).toMatchObject({ status: "not_ready", next_steps: [leftOut(FINDINGS_SAVE_OFFER)] });
+    expect(missing).toMatchObject({ status: "not_ready", next_steps: [leftOut(CARD_OFFER)] });
     expect(missing.finalization_receipt).toBeUndefined();
     const stated = finalizeResearch(
-      { ...READY, findings_card: CARD, answer_draft: `${draft} ${FINDINGS_SAVE_OFFER}` }, offerOptions
+      { ...READY, findings_card: CARD, answer_draft: `${draft} ${CARD_OFFER}` }, offerOptions
     );
     expect(stated).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     expect(findingsClaim(stated.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
@@ -3165,6 +3298,45 @@ describe("findings card at the final gate", () => {
     expect(findingsClaim(rejected.finalization_receipt)).toBeUndefined();
   });
 
+  it("offers a paid private save only when a finding rests on work a quick answer can't do, counting each paper once", () => {
+    const offerOptions = { secret: SECRET, now, findings: "offer" as const };
+    const pubmed = sign("pubmed_record", { pmid: "31999999", doi: "10.1002/art.41142" }, options);
+    const input = {
+      ...READY,
+      receipts: [...READY.receipts, lead, pubmed, videoB],
+      material_video_ids: ["aaaaaaaaaaa", "bbbbbbbbbbb"],
+      key_sources: [...READY.key_sources,
+        { read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1016/j.joca.2020.01.001", status: "lead_only" }]
+    };
+    const plain = finalizeResearch(input, closedOptions);
+    // A card resting on a lead alone has no offer line; its receipt still signs it, so the user can still ask.
+    const leadOnly = finalizeResearch({ ...input, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: [] }) }, offerOptions);
+    expect(leadOnly).toMatchObject({ status: plain.status, next_steps: [], findings_card: { status: "checked", beyond_quick_answer: 0 } });
+    expect(leadOnly.caveats).toEqual(plain.caveats);
+    expect(leadOnly.caveats.some((caveat) => caveat.includes(FINDINGS_SAVE_OFFER))).toBe(false);
+    expect(basesClaim(leadOnly.finalization_receipt)).toEqual(["none"]);
+    expect(findingsClaim(leadOnly.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(
+      withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: [] }))));
+    // One paper cited by its DOI in one finding and by its PMID in another is one study; two videos are two.
+    const card = { ...CARD, findings: [
+      { ...CARD.findings[0], sources: ["https://doi.org/10.1002/ART.41142", "aaaaaaaaaaa"] },
+      { ...CARD.findings[0], sources: ["PMID: 31999999", "bbbbbbbbbbb"], tags: [] }
+    ] };
+    const offer = findingsSaveOffer({ studies: 1, videos: 2, absences: 0, corrections: 0 });
+    expect(offer).toBe("These findings rest on a full-text audit of 1 study and audited comments on 2 videos, work a " +
+      `quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+    const counted = finalizeResearch({ ...input, findings_card: card }, offerOptions);
+    expect(counted).toMatchObject({ status: plain.status, next_steps: [], findings_card: { status: "checked", beyond_quick_answer: 2 } });
+    expect(counted.caveats).toEqual([...plain.caveats, offer]);
+    // The owner's example (139c), word for word.
+    expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 0, corrections: 0 })).toBe("These findings rest on " +
+      "full-text audits of 2 studies and audited comments on 3 videos, work a quick answer does not do. If you want " +
+      "them saved to AskRigor's findings library for review, say yes; nothing is saved otherwise.");
+    expect(findingsSaveOffer({ studies: 2, videos: 3, absences: 2, corrections: 1 })).toBe("These findings rest on " +
+      "full-text audits of 2 studies, audited comments on 3 videos, 2 checks of what the evidence does not show and a " +
+      `correction the research made to an earlier statement, work a quick answer does not do. ${FINDINGS_SAVE_OFFER}`);
+  });
+
   it("lets a paid private answer in another language give the offer in that language", () => {
     const base = {
       receipts: [study],
@@ -3178,19 +3350,21 @@ describe("findings card at the final gate", () => {
     };
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const quote = "Le foie élimine ce médicament en quelques heures.";
-    const offer = "Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
+    const english = findingsSaveOffer({ studies: 1, videos: 0, absences: 0, corrections: 0 });
+    const offer = "Ces résultats reposent sur l'audit du texte intégral d'une étude, un travail qu'une réponse rapide ne " +
+      "fait pas. Si vous voulez enregistrer ces résultats dans la bibliothèque d'AskRigor pour examen, dites oui ; " +
       "rien n'est enregistré sinon.";
     const card = withFinding({ answer_quote: quote, sources: ["PMC10518852"], tags: ["full_text_read"] });
     const translated = finalizeResearch({
       ...base, findings_card: card, answer_draft: `${quote} ${offer}`, answer_language: "fr",
-      caveat_renderings: [{ caveat: FINDINGS_SAVE_OFFER, text: offer }]
+      caveat_renderings: [{ caveat: english, text: offer }]
     }, offerOptions);
     expect(translated).toMatchObject({
       status: "ready_with_limits", next_steps: [], limits: [COMMUNITY_SKIP_LIMIT],
-      caveats: [communitySkipCaveat(base.not_relevant_reason), FINDINGS_SAVE_OFFER], findings_card: { status: "checked" }
+      caveats: [communitySkipCaveat(base.not_relevant_reason), english], findings_card: { status: "checked" }
     });
     expect(finalizeResearch({ ...base, findings_card: card, answer_draft: quote, answer_language: "fr" }, offerOptions).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
-      .toEqual([leftOut(FINDINGS_SAVE_OFFER)]);
+      .toEqual([leftOut(english)]);
   });
 
   it("keeps research without a research account private: no card is needed, checked or signed", () => {

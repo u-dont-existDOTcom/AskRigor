@@ -1,7 +1,12 @@
 import {
   ResearchAccessError,
+  auditAlreadyCanonical,
+  canonicalIdentityRequest,
+  resolveCanonicalSource,
   sha256,
   stableJson,
+  type CanonicalIdentityReader,
+  type CanonicalSourceMatch,
   type LivingEvidenceContribution,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest, type ProtocolManifest } from "@askrigor/protocol";
@@ -60,7 +65,8 @@ export const analysesSavedSchema = z.object({
 export type AnalysesSaved = z.output<typeof analysesSavedSchema>;
 
 export type StagedAnalysis =
-  | { ready: true; contribution: LivingEvidenceContribution }
+  /** alreadyCanonical: the canonical store already holds this audit of this source under these protocols. */
+  | { ready: true; contribution: LivingEvidenceContribution; alreadyCanonical?: true }
   | { ready: false; reason: AnalysisNotSavedReason };
 
 interface Entry {
@@ -110,6 +116,12 @@ export interface BuildStagedAnalysisInput {
   now?: () => Date;
   checkIntegrity?: typeof checkRetractionStatus;
   protocolManifests?: () => Promise<ProtocolManifest[]>;
+  /**
+   * The canonical store's read-only identity view (owner answer 138b): the analysis is filed under the canonical
+   * source family its identifiers name, and an audit the store already holds is not filed again. Without it, or when
+   * it cannot be read, the analysis is built from the document alone.
+   */
+  canonical?: CanonicalIdentityReader;
 }
 
 /**
@@ -135,12 +147,29 @@ export async function buildStagedAnalysis(input: BuildStagedAnalysisInput): Prom
     const protocolManifests = await (input.protocolManifests ?? currentProtocolManifests)();
     // The validation is the analysis's only recorded moment.
     const common = { index: input.index, protocolManifests, startedAt: checkedAt, completedAt: checkedAt, freshness };
-    return {
-      ready: true,
-      contribution: input.kind === "study"
-        ? createValidatedStudyAuditContribution({ ...common, auditReceipt: input.auditReceipt as StudyMethodAuditReceipt })
-        : createValidatedReviewAuditContribution({ ...common, auditReceipt: input.auditReceipt as ReviewMethodAuditReceipt }),
-    };
+    const build = (canonicalSource?: CanonicalSourceMatch) => input.kind === "study"
+      ? createValidatedStudyAuditContribution({
+          ...common, auditReceipt: input.auditReceipt as StudyMethodAuditReceipt, canonicalSource,
+        })
+      : createValidatedReviewAuditContribution({
+          ...common, auditReceipt: input.auditReceipt as ReviewMethodAuditReceipt, canonicalSource,
+        });
+    const contribution = build();
+    const state = input.canonical === undefined
+      ? undefined
+      : await input.canonical.readCanonicalIdentity(canonicalIdentityRequest("SOURCE_ANALYSIS", contribution))
+        .catch(() => undefined);
+    if (state === undefined) return { ready: true, contribution };
+    const match = resolveCanonicalSource(contribution.source!, state);
+    let resolved = contribution;
+    try {
+      if (match !== undefined) resolved = build(match);
+    } catch {
+      // Filed from the document alone; the owner's review shows any conflict before acceptance.
+    }
+    return auditAlreadyCanonical(resolved, state)
+      ? { ready: true, contribution: resolved, alreadyCanonical: true }
+      : { ready: true, contribution: resolved };
   } catch {
     return { ready: false, reason: "contribution_invalid" };
   }
@@ -162,6 +191,7 @@ export async function saveStagedAnalyses(
   const outcomes = analyses.map(async (pending): Promise<Outcome> => {
     const analysis = await pending;
     if (!analysis.ready) return analysis.reason;
+    if (analysis.alreadyCanonical === true) return "already_saved";
     try {
       return await submit(analysis.contribution) === "inserted" ? "saved" : "already_saved";
     } catch (error) {

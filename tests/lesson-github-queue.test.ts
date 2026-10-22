@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { GeneralizedLesson } from "../apps/research-mcp/src/lessons/contracts.js";
+import type { DetailedLessonReport, GeneralizedLesson } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
 import {
   GitHubLessonQueue,
   publicCandidateId,
 } from "../apps/research-mcp/src/lessons/github-lessons.js";
+import { createLocalLessonGeneralizer } from "../apps/research-mcp/src/lessons/local-generalizer.js";
+import { canonicalizeLesson, lessonFingerprint } from "../apps/research-mcp/src/lessons/privacy-screen.js";
+import { LessonSubmissionService } from "../apps/research-mcp/src/lessons/service.js";
 
 const fingerprint = "f".repeat(64);
 const observedAt = "2026-08-13T12:00:00.000Z";
@@ -340,7 +343,7 @@ describe("private GitHub lesson queue", () => {
         "",
         "## Privacy gate",
         "",
-        "Passed before and after model generalization\\.",
+        "Passed the server's privacy screen\\.",
         "",
         "## Anonymous occurrence count",
         "",
@@ -386,6 +389,305 @@ describe("private GitHub lesson queue", () => {
     await queue(github).submit({ candidate, fingerprint, source: "connector" });
     expect(requestCalls(github, "POST")[0]!.body).toMatchObject({
       labels: ["lesson-candidate", "needs-review", "source-connector", "category:missing_sources"],
+    });
+  });
+
+  // Issue #357: a connector lesson may name the public AskRigor issue that
+  // reports the failure; the body shows it as one reference built from the number.
+  it("shows a connector lesson's related public issue as one reference and changes nothing else", async () => {
+    const plain = new FakeGitHub();
+    const related = new FakeGitHub();
+
+    await queue(plain).submit({ candidate, fingerprint, source: "connector" });
+    await queue(related).submit({ candidate, fingerprint, source: "connector", relatedIssue: 357 });
+
+    const plainCreate = requestCalls(plain, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+    const relatedCreate = requestCalls(related, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+    const reference = "## Related AskRigor issue\n\nu-dont-existDOTcom/AskRigor#357";
+    expect(relatedCreate.body).toContain(
+      `## Privacy gate\n\nPassed the server's privacy screen\\.\n\n${reference}\n\n## Anonymous occurrence count`,
+    );
+    expect(relatedCreate.body.replace(`${reference}\n\n`, "")).toBe(plainCreate.body);
+    expect(relatedCreate.title).toBe(plainCreate.title);
+    expect(relatedCreate.labels).toEqual(plainCreate.labels);
+    expect(parseFinalMetadata(relatedCreate.body)).toEqual({
+      fingerprint,
+      occurrence_count: 1,
+      first_seen: observedAt,
+      last_seen: observedAt,
+    });
+    expect(plainCreate.body).not.toContain("Related AskRigor issue");
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -357],
+    ["not an integer", 357.5],
+    ["over the bound", 1_000_001],
+    ["not a number", Number.NaN],
+    ["a numeric string", "357"],
+    ["a reference string", "u-dont-existDOTcom/AskRigor#357"],
+  ])(
+    "fails closed before any GitHub request when the related issue is %s",
+    async (_name, relatedIssue) => {
+      const github = new FakeGitHub();
+
+      await expect(queue(github).submit({
+        candidate,
+        fingerprint,
+        source: "connector",
+        relatedIssue: relatedIssue as number,
+      })).rejects.toMatchObject({ code: "github_service_unavailable", retryable: false });
+      expect(github.calls).toHaveLength(0);
+    },
+  );
+
+  it("treats the same lesson with or without a related issue as one candidate, and a repeat's comment names the issue", async () => {
+    const github = new FakeGitHub();
+    const repeatAt = "2026-08-13T13:00:00.000Z";
+    let now = new Date(observedAt);
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: queue(github, () => now),
+    });
+
+    await expect(service.submit(candidate, "connector")).resolves.toEqual({
+      status: "submitted",
+      candidate_id: "ARL-0001",
+      occurrence_count: 1,
+      retryable: false,
+    });
+    now = new Date(repeatAt);
+    const repeat = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    expect(repeat).toEqual({
+      status: "existing_candidate",
+      candidate_id: "ARL-0001",
+      occurrence_count: 2,
+      retryable: false,
+    });
+    expect(JSON.stringify(repeat)).not.toContain("357");
+    const lessonFingerprintValue = lessonFingerprint(canonicalizeLesson(candidate));
+    expect(github.issues).toHaveLength(1);
+    expect(parseFinalMetadata(github.issues[0]!.body)).toMatchObject({ fingerprint: lessonFingerprintValue });
+    expect(github.issues[0]!.body).not.toContain("Related AskRigor issue");
+    expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([[
+      "## Anonymous lesson occurrence",
+      "",
+      "Occurrence count: 2",
+      `Observed at: ${repeatAt}`,
+      "Related AskRigor issue: u-dont-existDOTcom/AskRigor#357",
+      "",
+      occurrenceMarker({ fingerprint: lessonFingerprintValue, occurrence_count: 2, observed_at: repeatAt }),
+    ].join("\n")]);
+  });
+
+  // Owner question 154: a connector lesson from an account that turned detailed lesson reports on carries a detailed
+  // report, rendered from its validated fields with the same escaping; it is in neither the fingerprint nor the
+  // hidden metadata, and a repeat's occurrence comment carries the repeat's report.
+  describe("detailed report", () => {
+    const report: DetailedLessonReport = {
+      steps: [
+        "The assistant searched one database for the intervention and found three trials.",
+        "It wrote the answer before reading any of the trials in full.",
+      ],
+      observed: "The answer called the evidence strong although no trial had been read in full.",
+      expected: "The answer should read the decisive trials in full, or say the evidence was not read, before rating it.",
+      causes: [
+        { cause: "The final check accepted an answer that declared no key studies.", confidence: "high" },
+        { cause: "The tool description did not say that a strength rating needs a full-text read.", confidence: "medium" },
+      ],
+      parts_to_change: ["finalize_research", "The final check's key-study rule"],
+      proposed_change: "Refuse a strength rating unless a key study was read in full or the answer says it was not.",
+      test_cases: [
+        { case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false },
+        { case: "An invented answer reads one trial in full and rates it; the check accepts it.", negative_control: true },
+      ],
+      uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
+    };
+    const section = [
+      "## Detailed report",
+      "",
+      "### Steps",
+      "",
+      "1. The assistant searched one database for the intervention and found three trials\\.",
+      "2. It wrote the answer before reading any of the trials in full\\.",
+      "",
+      "### What happened",
+      "",
+      "The answer called the evidence strong although no trial had been read in full\\.",
+      "",
+      "### What was expected",
+      "",
+      "The answer should read the decisive trials in full, or say the evidence was not read, before rating it\\.",
+      "",
+      "### Causes",
+      "",
+      "- The final check accepted an answer that declared no key studies\\. \\(confidence: high\\)",
+      "- The tool description did not say that a strength rating needs a full\\-text read\\. \\(confidence: medium\\)",
+      "",
+      "### Parts to change",
+      "",
+      "- finalize\\_research",
+      "- The final check's key\\-study rule",
+      "",
+      "### Proposed change",
+      "",
+      "Refuse a strength rating unless a key study was read in full or the answer says it was not\\.",
+      "",
+      "### Invented test cases",
+      "",
+      "1. An invented answer rates three abstracts as strong; the check refuses it\\.",
+      "2. Negative control: An invented answer reads one trial in full and rates it; the check accepts it\\.",
+      "",
+      "### What stays uncertain",
+      "",
+      "Whether the model would still rate the evidence once the rule names the full\\-text read\\.",
+    ].join("\n");
+
+    it("adds one Detailed report section to a new issue and changes nothing else", async () => {
+      const plain = new FakeGitHub();
+      const detailed = new FakeGitHub();
+
+      await queue(plain).submit({ candidate, fingerprint, source: "connector", relatedIssue: 357 });
+      await expect(queue(detailed).submit({
+        candidate,
+        fingerprint,
+        source: "connector",
+        relatedIssue: 357,
+        detailedReport: report,
+      })).resolves.toEqual({ kind: "created", issueNumber: 1, occurrenceCount: 1, possibleRegression: false });
+
+      const plainCreate = requestCalls(plain, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+      const detailedCreate = requestCalls(detailed, "POST")[0]!.body as { title: string; body: string; labels: string[] };
+      expect(detailedCreate.body).toContain(
+        `## Related AskRigor issue\n\nu-dont-existDOTcom/AskRigor#357\n\n${section}\n\n## Anonymous occurrence count`,
+      );
+      expect(detailedCreate.body.replace(`${section}\n\n`, "")).toBe(plainCreate.body);
+      expect(detailedCreate.title).toBe(plainCreate.title);
+      expect(detailedCreate.labels).toEqual(plainCreate.labels);
+      expect(parseFinalMetadata(detailedCreate.body)).toEqual({
+        fingerprint,
+        occurrence_count: 1,
+        first_seen: observedAt,
+        last_seen: observedAt,
+      });
+    });
+
+    it("appends a repeat's report to its occurrence comment and leaves the issue body alone", async () => {
+      const github = new FakeGitHub();
+      const issue = addIssue(github, { number: 8, count: 2 });
+      const body = issue.body;
+      const now = new Date("2026-08-13T13:00:00.000Z");
+
+      await expect(queue(github, () => now).submit({ candidate, fingerprint, source: "connector", detailedReport: report }))
+        .resolves.toEqual({ kind: "existing", issueNumber: 8, occurrenceCount: 3, possibleRegression: false });
+
+      expect(issue.body).toBe(body);
+      expect(requestCalls(github, "PATCH")).toHaveLength(0);
+      expect(github.comments.get(8)?.map((comment) => comment.body)).toEqual([[
+        "## Anonymous lesson occurrence",
+        "",
+        "Occurrence count: 3",
+        `Observed at: ${now.toISOString()}`,
+        "",
+        section,
+        "",
+        occurrenceMarker({ fingerprint, occurrence_count: 3, observed_at: now.toISOString() }),
+      ].join("\n")]);
+      expect(parseOccurrenceMetadata(github.comments.get(8)![0]!.body)).toEqual({
+        fingerprint,
+        occurrence_count: 3,
+        observed_at: now.toISOString(),
+      });
+      // A later occurrence counts on from the commented one.
+      await expect(queue(github, () => now).submit({ candidate, fingerprint, source: "connector" }))
+        .resolves.toMatchObject({ kind: "existing", occurrenceCount: 4 });
+      expect(github.comments.get(8)?.at(-1)?.body).toBe(occurrenceComment(fingerprint, 4, now.toISOString()));
+    });
+
+    it("escapes the report's text, so it can open no heading, list, link or queue marker of its own", async () => {
+      const github = new FakeGitHub();
+      const fakeMarker = "<!-- askrigor-lesson-occurrence:e30 -->";
+      const adversarial: DetailedLessonReport = {
+        ...report,
+        steps: [`# Heading ${fakeMarker}`],
+        observed: "<b>bold</b> & ~~struck~~ [link](x)",
+        parts_to_change: ["- not a list item"],
+      };
+
+      await queue(github).submit({ candidate, fingerprint, source: "connector", detailedReport: adversarial });
+      const created = String((requestCalls(github, "POST")[0]!.body as { body: string }).body);
+      expect(created).toContain("1. \\# Heading &lt;\\!\\-\\- askrigor\\-lesson\\-occurrence:e30 \\-\\-&gt;");
+      expect(created).toContain("&lt;b&gt;bold&lt;/b&gt; &amp; \\~\\~struck\\~\\~ \\[link\\]\\(x\\)");
+      expect(created).toContain("- \\- not a list item");
+      expect(created).not.toContain(fakeMarker);
+      // The repeat's comment holds one queue marker, its own, so the count still reads.
+      await queue(github).submit({ candidate, fingerprint, source: "connector", detailedReport: adversarial });
+      await expect(queue(github).submit({ candidate, fingerprint })).resolves.toMatchObject({ occurrenceCount: 3 });
+    });
+
+    it.each([
+      ["over 10,000 characters in all", {
+        ...report,
+        steps: Array.from({ length: 12 }, () => "s".repeat(300)),
+        test_cases: Array.from({ length: 5 }, () => ({ case: "t".repeat(1_200), negative_control: false })),
+      }],
+      ["with another field", { ...report, transcript: "The raw chat." }],
+      ["without its steps", { ...report, steps: [] }],
+      ["not an object", "A long report."],
+    ])("fails closed before any GitHub request when the report is %s", async (_name, detailedReport) => {
+      const github = new FakeGitHub();
+
+      await expect(queue(github).submit({
+        candidate,
+        fingerprint,
+        source: "connector",
+        detailedReport: detailedReport as DetailedLessonReport,
+      })).rejects.toMatchObject({ code: "github_service_unavailable", retryable: false });
+      expect(github.calls).toHaveLength(0);
+    });
+
+    it("treats the same lesson with or without a report as one candidate, through the lesson service", async () => {
+      const github = new FakeGitHub();
+      const repeatAt = "2026-08-13T13:00:00.000Z";
+      let now = new Date(observedAt);
+      const service = new LessonSubmissionService({
+        limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+        anonymizer: createLocalLessonGeneralizer(),
+        queue: queue(github, () => now),
+      });
+
+      await expect(service.submit({ ...candidate, detailed_report: report }, "connector", { detailedReports: true }))
+        .resolves.toEqual({ status: "submitted", candidate_id: "ARL-0001", occurrence_count: 1, retryable: false });
+      now = new Date(repeatAt);
+      const repeat = await service.submit({ ...candidate, detailed_report: report }, "connector", { detailedReports: true });
+      expect(repeat).toEqual({ status: "existing_candidate", candidate_id: "ARL-0001", occurrence_count: 2, retryable: false });
+      // Refused while the setting is off: no comment, and the count stays.
+      await expect(service.submit({ ...candidate, detailed_report: report }, "connector"))
+        .resolves.toMatchObject({ status: "detailed_report_refused" });
+
+      const lessonFingerprintValue = lessonFingerprint(canonicalizeLesson(candidate));
+      expect(github.issues).toHaveLength(1);
+      expect(github.issues[0]!.body).toContain(section);
+      expect(parseFinalMetadata(github.issues[0]!.body)).toEqual({
+        fingerprint: lessonFingerprintValue,
+        occurrence_count: 1,
+        first_seen: observedAt,
+        last_seen: observedAt,
+      });
+      expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([[
+        "## Anonymous lesson occurrence",
+        "",
+        "Occurrence count: 2",
+        `Observed at: ${repeatAt}`,
+        "",
+        section,
+        "",
+        occurrenceMarker({ fingerprint: lessonFingerprintValue, occurrence_count: 2, observed_at: repeatAt }),
+      ].join("\n")]);
+      expect(JSON.stringify(repeat)).not.toContain("trials");
     });
   });
 

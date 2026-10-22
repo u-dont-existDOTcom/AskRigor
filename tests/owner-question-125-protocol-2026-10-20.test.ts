@@ -6,7 +6,9 @@ import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { coreSectionNames, getProtocolManifest, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoOwnerQuestion109Hrp, undoOwnerQuestion125Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
+import {
+  undoOwnerQuestion109Hrp, undoOwnerQuestion125Hrp, undoOwnerQuestions152And153Hrp, undoReadDepth,
+} from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded edit fixture: owner question 125's approved sentence, word for word (answer "125a",
 // 2026-10-20, from lesson #38), the first sentence it follows, the stress case from the report's own example, and the
@@ -89,7 +91,12 @@ const parser = new XMLParser({ parseTagValue: false });
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+// HRP 20.6.28, this layer's result, rebuilt from the current file.
+const load = async () => undoOwnerQuestions152And153Hrp(await loadCurrent());
+// The state before this layer, from the current file.
+const undo125 = async () => undoOwnerQuestion125Hrp(await loadCurrent());
+const CURRENT = { version: "20.6.29", revisionDate: "2026-10-21", sha256: "a72aed35746b86b084398cdb92fa1d36dac2d2941b31feea34e242678cf49b79" } as const;
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -207,20 +214,21 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
     expect(expectedEdits(prior).reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(current);
     expect(expectedEdits(prior).reduce((text, [before, after]) =>
       replaceOnce(text, normalize(before), normalize(after)), normalize(prior))).toBe(normalize(current));
-    await expect(undoOwnerQuestion125Hrp(current)).resolves.toBe(prior);
+    await expect(undo125()).resolves.toBe(prior);
     const beforePrevious = [...previous.edits].reverse().reduce((text, [before, after]) => replaceOnce(text, after, before), prior);
     expect(hash(beforePrevious)).toBe(previous.from.sha256);
-    await expect(undoOwnerQuestion109Hrp(current)).resolves.toBe(beforePrevious);
+    await expect(undoOwnerQuestion109Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
-    expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
+    expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-20", sha256: hash(current),
+      name: "HRP", version: CURRENT.version, revisionDate: CURRENT.revisionDate, sha256: CURRENT.sha256,
     });
+    expect(hash(await loadCurrent())).toBe(CURRENT.sha256);
   });
 
   it("adds the approved sentence word for word to ForumSignalNonTrigger, directly after its first sentence", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     const before = plain(element(prior, "Rule", "name", RULE));
     expect(before.startsWith(`${FIRST_SENTENCE} Nonactivation is an affirmative relevance decision`)).toBe(true);
     expect(plain(element(text, "Rule", "name", RULE))).toBe(`${FIRST_SENTENCE} ${APPROVED}${before.slice(FIRST_SENTENCE.length)}`);
@@ -246,14 +254,14 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
     const cases = caseNames(text);
     const at = cases.indexOf("ConditionsGiven");
     expect(cases.slice(at, at + CASES.length + 2)).toEqual(["ConditionsGiven", ...CASES.map(([id]) => id), "CodedFormulaLargeEffect"]);
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     for (const [id] of CASES) expect(caseNames(prior)).not.toContain(id);
   });
 
   it("moves IndividualAttributionVsPopulationEffect into the core section EvidenceLayers, word for word and only once", async () => {
     const [name, from, to] = Q126.move;
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     expect(protocolNamedElements(prior, name)).toMatchObject([{ tag: "Rule", section: from }]);
     expect(protocolNamedElements(text, name)).toMatchObject([{ tag: "Rule", section: to }]);
     expect(coreSectionNames("hrp")).toContain(to);
@@ -274,7 +282,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("ends RelevanceBeforeWarning, in the core, with question 126's sentence word for word", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     expect(plain(element(text, "Rule", "name", Q126.rule))).toBe(`${plain(element(prior, "Rule", "name", Q126.rule))} ${Q126.sentence}`);
     expect(normalize(text).split(Q126.sentence)).toHaveLength(2);
     expect(normalize(prior)).not.toContain(Q126.sentence);
@@ -285,7 +293,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("ends StudyReadDepthDisclosure with question 130's sentence word for word", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     expect(plain(element(text, "Rule", "name", Q130.rule))).toBe(`${plain(element(prior, "Rule", "name", Q130.rule))} ${Q130.sentence}`);
     expect(normalize(text).split(Q130.sentence)).toHaveLength(2);
     expect(normalize(prior)).not.toContain(Q130.sentence);
@@ -295,7 +303,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("inserts exactly question 132's clause into the core rule EvidenceLayersAreNotAFixedDiscoveryOrder, and nothing else", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     const before = plain(element(prior, "Rule", "name", Q132.rule));
     expect(before.split(`${Q132.at} use early bounded sampling across the relevant layers`)).toHaveLength(2);
     expect(plain(element(text, "Rule", "name", Q132.rule))).toBe(before.replace(`${Q132.at} `, `${Q132.at} ${Q132.clause} `));
@@ -307,7 +315,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("adds question 128's final check FS240 word for word, directly after FS239 and in the markup of FS236 to FS239", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     const [id, body] = Q128.check;
     expect(plain(element(text, "Check", "id", id))).toBe(body);
     expect(protocolNamedElements(prior, id)).toEqual([]);
@@ -329,7 +337,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("places the exact Critical revision first, wrapped like its neighbours", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     expect(plain(element(text, "Revision", "version", PINS.to.version))).toBe(REVISIONS.join(" "));
     expect(section(prior, "RevisionHistory").trimStart().startsWith(`<Revision version="${PINS.from.version}" priority="Critical">`)).toBe(true);
     expect(section(text, "RevisionHistory")).toBe(`\n${REVISION_XML}${section(prior, "RevisionHistory")}`);
@@ -337,7 +345,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("wraps new lines at 118, apart from the root line and the one-line check, like its neighbours", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     const remaining = new Map<string, number>();
     for (const line of prior.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
     const added = text.split("\n").filter((line) => {
@@ -351,7 +359,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
 
   it("changes only the sections its edits name, by their exact bytes; the core stays one page", async () => {
     const text = await load();
-    const prior = await undoOwnerQuestion125Hrp(text);
+    const prior = await undo125();
     const [now, before] = [protocolSections("hrp", text), protocolSections("hrp", prior)];
     expect(now.map(({ name }) => name)).toEqual(before.map(({ name }) => name));
     const changed = now.filter(({ name, sha256 }) => before.find((section) => section.name === name)!.sha256 !== sha256)
@@ -385,7 +393,8 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
     try {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
-      const text = await load();
+      // The server serves the current file.
+      const text = await loadCurrent();
       const bytes = Buffer.from(text, "utf8");
       for (const name of [RULE, Q126.move[0], Q126.rule, Q130.rule, Q132.rule, Q128.check[0], ...CASES.map(([id]) => id)]) {
         const found = protocolNamedElements(text, name);

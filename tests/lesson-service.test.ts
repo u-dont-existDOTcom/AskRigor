@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LessonCandidate } from "../apps/research-mcp/src/lessons/contracts.js";
+import type { DetailedLessonReport, LessonCandidate } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
+import { createLocalLessonGeneralizer } from "../apps/research-mcp/src/lessons/local-generalizer.js";
 import type { CanonicalLesson, PrivacyScreenResult } from "../apps/research-mcp/src/lessons/privacy-screen.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
@@ -151,6 +152,91 @@ describe("lesson submission pipeline", () => {
     await service.submit(candidate, "connector");
     expect(submit.mock.calls.map(([input]) => (input as { source?: string }).source))
       .toEqual(["custom-gpt", "connector"]);
+  });
+
+  // Issue #357: a connector lesson may name the public AskRigor issue that
+  // reports the failure. The number is linkage, like incident provenance: it
+  // stays out of the screen and the anonymizer and reaches the queue as validated.
+  it("hands a connector lesson's related issue to the queue, outside the lesson the anonymizer sees", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    const result = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    expect(result).toEqual({
+      status: "submitted",
+      candidate_id: "ARL-0042",
+      occurrence_count: 1,
+      retryable: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("357");
+    expect(generalize.mock.calls.map(([input]) => input)).toEqual([candidate]);
+    expect(generalize.mock.calls[0]![0]).not.toHaveProperty("related_issue");
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "connector",
+      relatedIssue: 357,
+    }]);
+  });
+
+  it("gives the queue the same fingerprint with or without a related issue", async () => {
+    const { service, submit } = createSubject();
+
+    await service.submit(candidate, "connector");
+    await service.submit({ ...candidate, related_issue: 357 }, "connector");
+
+    const inputs = submit.mock.calls.map(([input]) => input as { fingerprint: string; relatedIssue?: number });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]!.fingerprint).toBe(inputs[0]!.fingerprint);
+    expect(inputs.map(({ relatedIssue }) => relatedIssue)).toEqual([undefined, 357]);
+    expect(inputs[0]).not.toHaveProperty("relatedIssue");
+  });
+
+  it("keeps the Action's strict shape: there a related issue is an unknown field", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    await expect(service.submit({ ...candidate, related_issue: 357 })).resolves.toEqual({
+      status: "privacy_rejected",
+      retryable: false,
+      reason_code: "unsafe_candidate",
+    });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -357, 357.5, "357", 1_000_001])(
+    "rejects the connector's related issue %j before either external dependency",
+    async (relatedIssue) => {
+      const { service, generalize, submit } = createSubject();
+
+      await expect(service.submit({ ...candidate, related_issue: relatedIssue }, "connector")).resolves.toEqual({
+        status: "privacy_rejected",
+        retryable: false,
+        reason_code: "unsafe_candidate",
+      });
+      expect(generalize).not.toHaveBeenCalled();
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
+
+  it("drops an empty related issue key before the local generalizer's strict parse", async () => {
+    const submit = vi.fn(async (_input: unknown) => ({
+      kind: "created" as const,
+      issueNumber: 42,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }));
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: { submit },
+    });
+
+    await expect(service.submit({ ...candidate, related_issue: undefined }, "connector"))
+      .resolves.toMatchObject({ status: "submitted" });
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit.mock.calls[0]![0]).not.toHaveProperty("relatedIssue");
+    expect((submit.mock.calls[0]![0] as { candidate: object }).candidate).not.toHaveProperty("related_issue");
   });
 
   it("maps an active duplicate to the same public-safe candidate shape", async () => {
@@ -488,5 +574,164 @@ describe("lesson submission pipeline", () => {
     await service.submit(candidate);
 
     expect(consume).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Owner question 154 (2026-10-21): a connector lesson may carry a detailed report only when the calling account turned
+// detailed lesson reports on. It passes the same screen as the lesson's fields, never reaches the anonymizer, and the
+// exact validated report reaches the private queue; any other is refused and nothing is stored.
+describe("connector lesson detailed report", () => {
+  const report: DetailedLessonReport = {
+    steps: [
+      "The assistant searched one database for the intervention and found three trials.",
+      "It wrote the answer before reading any of the trials in full.",
+    ],
+    observed: "The answer called the evidence strong although no trial had been read in full.",
+    expected: "The answer should read the decisive trials in full, or say the evidence was not read, before rating it.",
+    causes: [{ cause: "The final check accepted an answer that declared no key studies.", confidence: "high" }],
+    parts_to_change: ["finalize_research"],
+    proposed_change: "Refuse a strength rating unless a key study was read in full or the answer says it was not.",
+    test_cases: [{ case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false }],
+    uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
+  };
+  const withReport = { ...candidate, detailed_report: report };
+  const refused = { status: "detailed_report_refused", retryable: false, reason_code: "detailed_reports_off" };
+
+  it("hands the queue the exact report from an account that turned detailed reports on, outside the anonymizer", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    const result = await service.submit({ ...withReport, related_issue: 357 }, "connector", { detailedReports: true });
+
+    // The public receipt is the same as without a report.
+    expect(result).toEqual({ status: "submitted", candidate_id: "ARL-0042", occurrence_count: 1, retryable: false });
+    expect(JSON.stringify(result)).not.toContain("trials");
+    expect(generalize.mock.calls.map(([input]) => input)).toEqual([candidate]);
+    expect(generalize.mock.calls[0]![0]).not.toHaveProperty("detailed_report");
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "connector",
+      relatedIssue: 357,
+      detailedReport: report,
+    }]);
+  });
+
+  it.each([
+    ["the account's setting is off", { detailedReports: false }],
+    ["the caller has no research account", {}],
+    ["the setting is anything but true", { detailedReports: "true" as unknown as boolean }],
+  ])("refuses a lesson with a detailed report when %s, and stores nothing", async (_name, context) => {
+    const { service, generalize, submit } = createSubject();
+
+    await expect(service.submit(withReport, "connector", context)).resolves.toEqual(refused);
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    // The same lesson without its report is then saved as before.
+    await expect(service.submit(candidate, "connector", context)).resolves.toMatchObject({ status: "submitted" });
+    expect(submit.mock.calls[0]![0]).not.toHaveProperty("detailedReport");
+  });
+
+  it("refuses a report the account may not send before parsing or screening it, whatever it holds", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    for (const detailed_report of [{ ...report, observed: "o".repeat(1_001) }, "a long report", null]) {
+      await expect(service.submit({ ...candidate, detailed_report }, "connector")).resolves.toEqual(refused);
+    }
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a step", { steps: [report.steps[0]!, "Contact reviewer@example.com for the transcript."] }],
+    ["observed", { observed: "Contact reviewer@example.com for the transcript." }],
+    ["expected", { expected: "Contact reviewer@example.com for the transcript." }],
+    ["a cause", { causes: [{ cause: "Contact reviewer@example.com for the transcript.", confidence: "low" as const }] }],
+    ["a part to change", { parts_to_change: ["Contact reviewer@example.com for the transcript."] }],
+    ["the proposed change", { proposed_change: "Contact reviewer@example.com for the transcript." }],
+    ["a test case", { test_cases: [{ case: "Contact reviewer@example.com for the transcript.", negative_control: true }] }],
+    ["what stays uncertain", { uncertain: "Contact reviewer@example.com for the transcript." }],
+  ])("refuses the whole lesson when %s fails the privacy screen", async (_name, change) => {
+    const { service, generalize, submit } = createSubject();
+
+    await expect(service.submit(
+      { ...candidate, detailed_report: { ...report, ...change } },
+      "connector",
+      { detailedReports: true },
+    )).resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("refuses a report over 10,000 characters in all before either external dependency", async () => {
+    const { service, generalize, submit } = createSubject();
+    const tooLong: DetailedLessonReport = {
+      ...report,
+      steps: Array.from({ length: 12 }, () => "A step of the failure, told in general terms. ".repeat(6).trim()),
+      observed: "What happened, in general terms. ".repeat(30).trim(),
+      expected: "What should have happened instead. ".repeat(28).trim(),
+      proposed_change: "A general change to the final check. ".repeat(40).trim(),
+      test_cases: Array.from({ length: 5 }, () => ({ case: "An invented case. ".repeat(60).trim(), negative_control: false })),
+      uncertain: "What stays uncertain, in general terms. ".repeat(25).trim(),
+    };
+
+    await expect(service.submit({ ...candidate, detailed_report: tooLong }, "connector", { detailedReports: true }))
+      .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it("gives the queue the same fingerprint with or without a detailed report", async () => {
+    const { service, submit } = createSubject();
+
+    await service.submit(candidate, "connector");
+    await service.submit(withReport, "connector", { detailedReports: true });
+
+    const inputs = submit.mock.calls.map(([input]) => input as { fingerprint: string; detailedReport?: unknown });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]!.fingerprint).toBe(inputs[0]!.fingerprint);
+    expect(inputs[0]).not.toHaveProperty("detailedReport");
+    expect(inputs[1]!.detailedReport).toEqual(report);
+  });
+
+  it("keeps the Action's path unchanged: there a detailed report is an unknown field, whatever the context", async () => {
+    const { service, generalize, submit } = createSubject();
+
+    for (const context of [{}, { detailedReports: true }]) {
+      await expect(service.submit(withReport, "custom-gpt", context)).resolves.toEqual({
+        status: "privacy_rejected",
+        retryable: false,
+        reason_code: "unsafe_candidate",
+      });
+    }
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    await expect(service.submit(candidate, "custom-gpt", { detailedReports: true })).resolves.toMatchObject({ status: "submitted" });
+    expect(submit.mock.calls.map(([input]) => input)).toEqual([{
+      candidate,
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      source: "custom-gpt",
+    }]);
+  });
+
+  it("drops an empty detailed report key before the local generalizer's strict parse", async () => {
+    const submit = vi.fn(async (_input: unknown) => ({
+      kind: "created" as const,
+      issueNumber: 42,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }));
+    const service = new LessonSubmissionService({
+      limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+      anonymizer: createLocalLessonGeneralizer(),
+      queue: { submit },
+    });
+
+    await expect(service.submit({ ...candidate, detailed_report: undefined }, "connector"))
+      .resolves.toMatchObject({ status: "submitted" });
+    await expect(service.submit(withReport, "connector", { detailedReports: true }))
+      .resolves.toMatchObject({ status: "submitted" });
+    expect(submit.mock.calls.map(([input]) => input as { detailedReport?: unknown })
+      .map(({ detailedReport }) => detailedReport)).toEqual([undefined, report]);
+    expect((submit.mock.calls[1]![0] as { candidate: object }).candidate).not.toHaveProperty("detailed_report");
   });
 });

@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { z } from "zod";
 
+import { NEXT_STEP_KINDS } from "./next-step-kinds.js";
+
 export const CARRIED_STATE_MAX_CHARACTERS = 48_000;
 export const CARRIED_STATE_TOO_LARGE = "This conversation's state is too large to carry to the next final check.";
 export const userObservationSchema = z.object({
@@ -17,7 +19,12 @@ export const carriedStateSchema = z.object({
   retracted: z.array(z.string().max(200)).max(12),
   primary_outcome: z.string().trim().min(1).max(300).optional(),
   rejected: z.array(z.string().trim().min(1).max(120)).max(12),
-  named_communities: z.array(z.string().trim().min(1).max(120)).max(8)
+  named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
+  // The last final check's status and the kinds of step it left open (AskRigor#354), so the next check in this
+  // conversation knows that an answer given after a check that did not pass went out unchecked. Tokens issued before
+  // these fields existed have neither.
+  last_status: z.enum(["ready", "ready_with_limits", "not_ready"]).optional(),
+  open_kinds: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional()
 }).strict();
 export type CarriedState = z.output<typeof carriedStateSchema>;
 type Options = { secret: string };
@@ -38,7 +45,9 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
     const ordered: CarriedState = {
       v: 1, issued_at: checked.issued_at, observations: checked.observations, retracted,
       ...(checked.primary_outcome === undefined ? {} : { primary_outcome: checked.primary_outcome }),
-      rejected: checked.rejected, named_communities: checked.named_communities
+      rejected: checked.rejected, named_communities: checked.named_communities,
+      ...(checked.last_status === undefined ? {} : { last_status: checked.last_status }),
+      ...(checked.open_kinds === undefined ? {} : { open_kinds: checked.open_kinds })
     };
     const payload = deflateRawSync(Buffer.from(JSON.stringify(ordered))).toString("base64url");
     const body = `cs1~${payload}`;

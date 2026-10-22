@@ -1,0 +1,632 @@
+{
+ "u01": {
+  "claims": [
+   {
+    "quote": "The abstract and discussion reverse the results shown in Table 2. If the table is correct, dawnroot performed worse than the group labelled placebo, whose capsule contents are unspecified.",
+    "label": "TRUE",
+    "reason": "Table 2 gives Dawnroot 'Baseline, mean 24.6' to 'Week 6, mean 19.8' (change -4.8) and Placebo 24.9 to 15.3 (change -9.6), while the abstract says scores 'improved by 9.6 points on dawnroot and by 4.8 points on placebo' and the discussion says 'Dawnroot doubled the improvement seen with placebo'; the placebo is never described beyond 'placebo'."
+   },
+   {
+    "quote": "The abstract assigns the improvements to the opposite groups. A swapped label or transcription error could explain the conflict, but we cannot establish which section is wrong.",
+    "label": "TRUE",
+    "reason": "The abstract ('improved by 9.6 points on dawnroot and by 4.8 points on placebo') gives each group the other group's Table 2 change ('Change -4.8 -9.6'), and nothing in the report shows which section is right."
+   },
+   {
+    "quote": "“Halves the burden” is also unsupported.",
+    "label": "TRUE",
+    "reason": "Even on the abstract's '9.6 points' vs '4.8 points' the week-6 scores would be about 15.0 vs 20.1 (ratio 0.75), and on Table 2 dawnroot ends worse (19.8 vs 15.3), so 'Dawnroot halves the burden of restless legs compared with placebo' is not supported by any of the report's numbers."
+   },
+   {
+    "quote": "Of 52 assigned per group, 50 dawnroot and 51 reported-placebo participants completed. The table still labels both groups 52; how missing outcomes were handled is unclear.",
+    "label": "TRUE",
+    "reason": "The report says '52 were randomized to each group; 50 and 51 completed' yet Table 2 is headed 'Dawnroot (n = 52) Placebo (n = 52)' and nothing describes how missing week-6 scores were handled (the 50/51 split by group is implied by the group order rather than stated)."
+   },
+   {
+    "quote": "Until reconciled, the main conclusion is unsupported.",
+    "label": "TRUE",
+    "reason": "The conclusion ('Dawnroot doubled the improvement seen with placebo') is contradicted by the report's own Table 2 ('Change -4.8 -9.6' for Dawnroot vs Placebo), so it is unsupported until the conflict is resolved."
+   }
+  ],
+  "numbers": [
+   {
+    "quote": "On the International Restless Legs Scale (0 to 40; lower means fewer symptoms)",
+    "label": "CORRECT",
+    "note": "IRLS range 0-40: abstract 'International Restless Legs Scale, 0 to 40, higher is worse'; Table 2 '(0-40, higher = worse)'."
+   },
+   {
+    "quote": "dawnroot went from 24.6 to 19.8",
+    "label": "CORRECT",
+    "note": "Dawnroot baseline 24.6: Table 2 'Baseline, mean 24.6' (Dawnroot column)."
+   },
+   {
+    "quote": "dawnroot went from 24.6 to 19.8",
+    "label": "CORRECT",
+    "note": "Dawnroot week 6 19.8: Table 2 'Week 6, mean 19.8' (Dawnroot column)."
+   },
+   {
+    "quote": "and the reported placebo group from 24.9 to 15.3",
+    "label": "CORRECT",
+    "note": "Placebo baseline 24.9: Table 2 'Baseline, mean ... 24.9' (Placebo column)."
+   },
+   {
+    "quote": "and the reported placebo group from 24.9 to 15.3",
+    "label": "CORRECT",
+    "note": "Placebo week 6 15.3: Table 2 'Week 6, mean ... 15.3' (Placebo column)."
+   },
+   {
+    "quote": "Of 52 assigned per group",
+    "label": "CORRECT",
+    "note": "52 per group: '52 were randomized to each group'."
+   },
+   {
+    "quote": "50 dawnroot and 51 reported-placebo participants completed",
+    "label": "CORRECT",
+    "note": "50 dawnroot completers: '50 and 51 completed', read in the report's dawnroot-then-placebo order (the per-group mapping is implied, not stated)."
+   },
+   {
+    "quote": "50 dawnroot and 51 reported-placebo participants completed",
+    "label": "CORRECT",
+    "note": "51 placebo completers: '50 and 51 completed', read in the report's dawnroot-then-placebo order (the per-group mapping is implied, not stated)."
+   },
+   {
+    "quote": "The table still labels both groups 52",
+    "label": "CORRECT",
+    "note": "Table n = 52 per group: 'Dawnroot (n = 52) Placebo (n = 52)'."
+   },
+   {
+    "quote": "Six weeks covers short-term symptoms.",
+    "label": "CORRECT",
+    "note": "6 weeks: abstract 'for 6 weeks'; primary outcome 'from baseline to week 6'."
+   },
+   {
+    "quote": "“Halves the burden”",
+    "label": "CORRECT",
+    "note": "Halves the burden: abstract 'Dawnroot halves the burden of restless legs compared with placebo.'"
+   },
+   {
+    "quote": "Even under the abstract’s favourable figures, twice the improvement would not mean half the remaining symptoms.",
+    "label": "CORRECT",
+    "note": "2x: the abstract's 9.6 vs 4.8 points is exactly 2.0 times, and the discussion says 'Dawnroot doubled the improvement seen with placebo'."
+   }
+  ]
+ },
+ "u02": {
+  "claims": [
+   {
+    "quote": "The abstract says irritation was 5–8% across all three groups. Table 2 instead reports 9/40 = 22.5% at high dose, versus 2/40 = 5% with placebo: an observed difference of 17.5 percentage points.",
+    "label": "TRUE",
+    "reason": "The abstract says 'Eye irritation was uncommon and similar in all three groups (5% to 8%)', but Table 2 gives 'Eye irritation, n (%) 3 (8) 9 (23) 2 (5)', so the high dose's 9/40 (22.5%) is far outside 5-8%, which rounding cannot explain."
+   },
+   {
+    "quote": "High-dose side-effect discontinuation was also higher: 5/40 = 12.5% versus 0/40 = 0%. Small counts leave the exact excess uncertain, but these findings undermine the reassuring summary.",
+    "label": "TRUE",
+    "reason": "Table 2 gives 'Stopped because of side effects, n (%) 1 (3) 5 (13) 0 (0)', i.e. 5/40 on the high dose vs 0/40 on placebo, which the reassuring abstract and the discussion ('both were well tolerated') leave out."
+   },
+   {
+    "quote": "The demonstrated problem is the mismatch between the safety summary and table.",
+    "label": "TRUE",
+    "reason": "The safety summary ('similar in all three groups (5% to 8%)') does not match Table 2's high-dose irritation '9 (23)'."
+   },
+   {
+    "quote": "little trust in the blanket claim that both doses were well tolerated",
+    "label": "JUDGMENT",
+    "reason": "Distrusting 'both were well tolerated' is a fair, well-grounded critique given Table 2's high-dose irritation '9 (23)' and discontinuations '5 (13)' versus placebo '2 (5)' and '0 (0)', but whether those rates rule out 'well tolerated' is an evaluation rather than a demonstrable factual error."
+   },
+   {
+    "quote": "Neither dose demonstrated a clear advantage on the eight-week symptom-response outcome; the high dose had more reported irritation and more discontinuation because of side effects, so tolerability requires further investigation.",
+    "label": "JUDGMENT",
+    "reason": "The proposed conclusion matches Table 2 (responders '14 (35) 11 (28) 13 (33)', irritation '9 (23)' vs '2 (5)', stops '5 (13)' vs '0 (0)'), but on efficacy the report already says 'Neither dose improved symptoms more than placebo', so only its tolerability conclusion is overstated and calling for further investigation is an interpretation."
+   }
+  ],
+  "numbers": [
+   {
+    "quote": "with 40 people assigned to each group",
+    "label": "CORRECT",
+    "note": "40 per group: '40 were randomized to each group'."
+   },
+   {
+    "quote": "Outcome over 8 weeks",
+    "label": "CORRECT",
+    "note": "8 weeks: abstract 'for 8 weeks'; Table 2 'Outcomes at week 8'."
+   },
+   {
+    "quote": "14/40 (35%)",
+    "label": "CORRECT",
+    "note": "Low-dose responders: Table 2 '14 (35)'."
+   },
+   {
+    "quote": "11/40 (27.5%)",
+    "label": "CORRECT",
+    "note": "High-dose responders: Table 2 '11 (28)'; 11/40 = 27.5% exactly, the unrounded value of the printed 28%."
+   },
+   {
+    "quote": "13/40 (32.5%)",
+    "label": "CORRECT",
+    "note": "Placebo responders: Table 2 '13 (33)'; 13/40 = 32.5% exactly, the unrounded value of the printed 33%."
+   },
+   {
+    "quote": "3/40 (7.5%)",
+    "label": "CORRECT",
+    "note": "Low-dose irritation: Table 2 '3 (8)'; 3/40 = 7.5% exactly."
+   },
+   {
+    "quote": "9/40 (22.5%)",
+    "label": "CORRECT",
+    "note": "High-dose irritation: Table 2 '9 (23)'; 9/40 = 22.5% exactly."
+   },
+   {
+    "quote": "2/40 (5%)",
+    "label": "CORRECT",
+    "note": "Placebo irritation: Table 2 '2 (5)'."
+   },
+   {
+    "quote": "1/40 (2.5%)",
+    "label": "CORRECT",
+    "note": "Low-dose stops: Table 2 '1 (3)'; 1/40 = 2.5% exactly."
+   },
+   {
+    "quote": "5/40 (12.5%)",
+    "label": "CORRECT",
+    "note": "High-dose stops: Table 2 '5 (13)'; 5/40 = 12.5% exactly."
+   },
+   {
+    "quote": "0/40 (0%)",
+    "label": "CORRECT",
+    "note": "Placebo stops: Table 2 '0 (0)'."
+   },
+   {
+    "quote": "improved by at least 10 points on a 0–100 symptom score",
+    "label": "CORRECT",
+    "note": "Primary outcome: 'improvement of at least 10 points on a 0 to 100 dry-eye symptom score at week 8'."
+   },
+   {
+    "quote": "The abstract says irritation was 5–8% across all three groups.",
+    "label": "CORRECT",
+    "note": "Abstract irritation: 'similar in all three groups (5% to 8%)'."
+   },
+   {
+    "quote": "Table 2 instead reports 9/40 = 22.5% at high dose, versus 2/40 = 5% with placebo",
+    "label": "CORRECT",
+    "note": "Table 2 irritation: high dose '9 (23)' and placebo '2 (5)'; 22.5% is the exact 9/40."
+   }
+  ]
+ },
+ "n01": {
+  "claims": [
+   {
+    "quote": "after completion in June 2015. The original main outcomes included mobility and broader questionnaires; the revised list emphasized pain. That raises concern about emphasizing favorable results, without establishing deliberate manipulation.",
+    "label": "NOT CHECKABLE",
+    "reason": "This concerns the ISRCTN registry's outcome-revision history (a 30 December 2016 revision, June 2015 completion, the original outcome list), which neither the paper nor the correction describes; the paper only cites 'ISRCTN55861167' and states 'The primary endpoint was pain reduction and the secondary endpoints were functional and quality of life improvements.'"
+   },
+   {
+    "quote": "says the treatment and placebo columns in the Western Ontario and McMaster Universities Osteoarthritis Index (WOMAC), a symptom and activity questionnaire, were swapped. The corrected table favors ozone; reading the original columns literally gives the opposite impression.",
+    "label": "TRUE",
+    "reason": "The 2024 correction states 'The data in the Placebo and Treatment groups are swapped in Table 4', and the printed Table 4 shows e.g. Pain at 4 weeks 'Placebo 20.0 (7, 37) | Treatment 45.0 (25, 60)' on a scale where 'the higher the value, the worse the symptoms', so read literally it favours placebo while the corrected table favours ozone."
+   },
+   {
+    "quote": "Some abstract quality-of-life numbers also confuse changes over time with treatment-versus-control differences.",
+    "label": "TRUE",
+    "reason": "The abstract cites SF-36 values such as '(MD = -25.82, p < 0.001 (CI 95% 33.65–17.99)' and 'MD = -40.82' as showing 'ozone was more effective than the placebo', but Table 5 lists these numbers on its 'Basal— 8 weeks' time-comparison rows (-25.82, -33.65 to -17.99; -40.82, -54.48 to -27.17)."
+   },
+   {
+    "quote": "The value MD = -25.82; CI 95% 33.65–17.99 in 2017 trial is physically impossible as printed, so it is not used.",
+    "label": "TRUE",
+    "reason": "The abstract prints 'SF-36 (FC) [(MD = -25.82, p < 0.001 (CI 95% 33.65–17.99)]', a negative estimate outside an all-positive interval, which is impossible as printed (Table 5 has '-33.65 | -17.99')."
+   },
+   {
+    "quote": "take the pain result seriously as a signal worth confirming, while treating the broad efficacy conclusion as overstated.",
+    "label": "JUDGMENT",
+    "reason": "Whether 'The study confirms the efficacy of ozone concerning pain relief, functional improvement, and quality of life' overstates what one trial with these reporting errors shows is a view on the strength of the evidence, not a demonstrable factual error."
+   },
+   {
+    "quote": "but contradicts itself about whether controls received oxygen injections or no injections.",
+    "label": "TRUE",
+    "reason": "The later trial says 'the control group received intra-articular oxygen injections (same volume as ozone groups: 10 mL)' but its limitations say 'the control group received standard care without intra-articular injections'."
+   },
+   {
+    "quote": "The reported figures in later 59-person trial don't match the study's own data, so its results stay unreliable until they are reconciled.",
+    "label": "TRUE",
+    "reason": "The later trial's printed figures do conflict with its own counts, e.g. Table 1 K-L grade III '9 (363.00%)' where its row (9, 7 and 9 of 25 patients) gives 36%; that the results stay unreliable until reconciled is a judgment."
+   },
+   {
+    "quote": "The value 9 (363.00%) in later 59-person trial is physically impossible as printed, so it is not used.",
+    "label": "TRUE",
+    "reason": "The later trial's Table 1 prints 'Grade III | 9 (36.00%) | 7 (28.00%) | 9 (363.00%)', and a group share above 100% is impossible (9 of the 25 grade III patients is 36%)."
+   }
+  ],
+  "numbers": [
+   {
+    "quote": "2017 trial",
+    "label": "CORRECT",
+    "note": "Published 2017: PLoS ONE, 24 July 2017."
+   },
+   {
+    "quote": "randomly assigned 98 adults aged 60–85",
+    "label": "CORRECT",
+    "note": "98 randomized: '98 patients with symptomatic knee osteoarthritis (OA) were randomized'."
+   },
+   {
+    "quote": "randomly assigned 98 adults aged 60–85",
+    "label": "CORRECT",
+    "note": "Age 60-85: 'aged between 60 and 85 years'."
+   },
+   {
+    "quote": "The regimen was 10 mL at 20 micrograms/mL ozone, injected into the knee weekly for eight weeks.",
+    "label": "CORRECT",
+    "note": "10 mL: 'ozone 20 μg/ml—10 ml'; placebo '10 ml of air'."
+   },
+   {
+    "quote": "The regimen was 10 mL at 20 micrograms/mL ozone, injected into the knee weekly for eight weeks.",
+    "label": "CORRECT",
+    "note": "20 micrograms/mL: 'intra-articular 20 μg/ml of ozone'."
+   },
+   {
+    "quote": "The regimen was 10 mL at 20 micrograms/mL ozone, injected into the knee weekly for eight weeks.",
+    "label": "CORRECT",
+    "note": "Weekly for 8 weeks: 'once a week for 8 consecutive weeks'."
+   },
+   {
+    "quote": "Two ozone participants withdrew, leaving 61 versus 35 analyzed.",
+    "label": "CORRECT",
+    "note": "2 ozone withdrawals: '2 patients assigned to the treatment group abandoned the study'."
+   },
+   {
+    "quote": "Two ozone participants withdrew, leaving 61 versus 35 analyzed.",
+    "label": "CORRECT",
+    "note": "61 vs 35 analysed: Table 1 'Placebo (N = 35) | Treatment (N = 61)'."
+   },
+   {
+    "quote": "On the visual analogue pain scale (0 to 10, lower means less pain)",
+    "label": "CORRECT",
+    "note": "VAS 0-10: Table 2 reports VAS on 0-10 (e.g. '8 (4, 10)'); the methods describe a '10-centimeter line' with 'without pain' at one end, read with a '0-100mm ruler'."
+   },
+   {
+    "quote": "1.9 with ozone versus 4.1 with air",
+    "label": "CORRECT",
+    "note": "8-week VAS: Table 2 'VAS | 8 weeks | 4.1 (3.1) | 1.9 (2.6)' (placebo, treatment)."
+   },
+   {
+    "quote": "2.16 points",
+    "label": "CORRECT",
+    "note": "8-week difference: Table 2 MD '2.16'."
+   },
+   {
+    "quote": "0.42–3.89",
+    "label": "CORRECT",
+    "note": "8-week CI: Table 2 '0.42 | 3.89'."
+   },
+   {
+    "quote": "On the same scale at 16 weeks",
+    "label": "CORRECT",
+    "note": "16 weeks: visit 4 is '8 weeks after the end of the injections', reported as '16 weeks'."
+   },
+   {
+    "quote": "1.7 versus 4.8",
+    "label": "CORRECT",
+    "note": "16-week VAS: Table 2 'VAS | 16 weeks | 4.8 (3.6) | 1.7 (2.6)'."
+   },
+   {
+    "quote": "3.16 points",
+    "label": "CORRECT",
+    "note": "16-week difference: Table 2 MD '3.16'."
+   },
+   {
+    "quote": "1.42–4.89",
+    "label": "CORRECT",
+    "note": "16-week CI: Table 2 '1.42 | 4.89'."
+   },
+   {
+    "quote": "30 December 2016",
+    "label": "NOT CHECKABLE",
+    "note": "Registry revision date 30 December 2016: from the ISRCTN record, which was not provided."
+   },
+   {
+    "quote": "after completion in June 2015",
+    "label": "NOT CHECKABLE",
+    "note": "Completion June 2015: from the registry, not provided; the paper gives only enrollment 'between November 2010 and March 2015' and 'a 4.5 year clinical trial'."
+   },
+   {
+    "quote": "2024 correction",
+    "label": "CORRECT",
+    "note": "Correction 2024: e0314494, dated 21 November 2024."
+   },
+   {
+    "quote": "only two were missing",
+    "label": "CORRECT",
+    "note": "2 missing: 98 randomized vs 96 analysed; 'Intention-to-treat analysis (ITT) was not carried out for the 2 patients who dropped out'."
+   },
+   {
+    "quote": "The SF-36 quality-of-life questionnaire scores health domains from 0 to 100",
+    "label": "CORRECT",
+    "note": "SF-36 0-100: 'The score for each item of the questionnaire varies between 0 and 100'."
+   },
+   {
+    "quote": "MD = -25.82; CI 95% 33.65–17.99",
+    "label": "CORRECT",
+    "note": "As printed: abstract '(MD = -25.82, p < 0.001 (CI 95% 33.65–17.99)'; Table 5 gives -33.65 to -17.99 on the 'Basal— 8 weeks' row."
+   },
+   {
+    "quote": "1/61 ozone recipients and 2/35 air recipients",
+    "label": "CORRECT",
+    "note": "1/61 vs 2/35: 'recorded in 3 patients (2 in the placebo group and 1 in the ozone group) and included only puncture accidents'; the denominators are the analysed group sizes."
+   },
+   {
+    "quote": "collected by questionnaire over the 16-week study",
+    "label": "CORRECT",
+    "note": "16-week study: assessments at baseline, 4, 8 and 16 weeks; adverse effects 'collected according to a questionnaire'."
+   },
+   {
+    "quote": "later 59-person trial",
+    "label": "CORRECT",
+    "note": "Later trial 59: 'included 59 knee osteoarthritis (KOA) patients'."
+   },
+   {
+    "quote": "also reported benefit with four weekly injections",
+    "label": "CORRECT",
+    "note": "Later trial 4 injections: 'administered weekly for four consecutive weeks'."
+   },
+   {
+    "quote": "The value 9 (363.00%)",
+    "label": "CORRECT",
+    "note": "Later trial 363.00%: Table 1 'Grade III | ... | 9 (363.00%)'."
+   }
+  ]
+ },
+ "n02": {
+  "claims": [
+   {
+    "quote": "The original Table 3 assigned the groups’ baseline and final scores to the wrong rows; its adaptive-group baseline appeared as −0.77. The correction places it at −0.86",
+    "label": "TRUE",
+    "reason": "The 2018 correction says 'In Table 3, the mean baseline and end z-scores are incorrectly switched between treatment conditions', moving the ACR baseline from the printed '-0.77 ± 0.73' to '-0.86 ± 0.77' while the change scores stay '0.25 ± 0.45' and '0.09 ± 0.37'."
+   },
+   {
+    "quote": "The original results prose also prints −0.25 where the abstract and corrected table give +0.25",
+    "label": "TRUE",
+    "reason": "The results text prints 'ACR n = 70 vs active control n = 60, mean±SD:-0·25±0·45 vs. 0·09±0·37', whereas the abstract gives '0·25±0·45 vs. 0·09±0·37' and the corrected Table 3 gives '0.25 ± 0.45'."
+   },
+   {
+    "quote": "Table 2 labels 7/135 participants as below 1%, although that is 5.2%.",
+    "label": "TRUE",
+    "reason": "Table 2 prints 'Primary Progressive | 3(<1%) | 4 (<1%) | 7 (<1%)', but 7/135 is 5.2% (and 3/74 and 4/61 are about 4% and 7%)."
+   },
+   {
+    "quote": "The reported figures in Original trial don't match the study's own data, so its results stay unreliable until they are reconciled.",
+    "label": "TRUE",
+    "reason": "The uncorrected paper's figures do conflict (Table 3's ACR baseline '-0.77' vs the text's '-0·86±0·77', the text's '-0·25' vs the abstract's '0·25', Table 2's '7 (<1%)'), although the headline 'estimated difference = 0·16 with 95% CI: 0·02–0·30' is consistent, so calling the results unreliable is a judgment."
+   },
+   {
+    "quote": "That makes “high compliance” less persuasive than the retention figures suggest.",
+    "label": "JUDGMENT",
+    "reason": "The paper claims 'high compliance', yet only 'ACR n = 44 ... 59·46%' reached 30 of the 60 target hours and ACR averaged '37·74' hours vs '56·95' for games; that this weakens the compliance claim is a fair critique rather than a factual error."
+   }
+  ],
+  "numbers": [
+   {
+    "quote": "after 12 weeks of supported home training",
+    "label": "CORRECT",
+    "note": "12 weeks: '60 hours over 12 weeks'."
+   },
+   {
+    "quote": "The trial randomly assigned 135 adults with multiple sclerosis",
+    "label": "CORRECT",
+    "note": "135 randomized: 'A total of n = 135 participants were enrolled', 74 ACR and 61 control."
+   },
+   {
+    "quote": "with a target of 60 training hours over 12 weeks",
+    "label": "CORRECT",
+    "note": "60 hours over 12 weeks: 'targeting 60 hours of total program use'."
+   },
+   {
+    "quote": "The main outcome combined six cognitive tests",
+    "label": "CORRECT",
+    "note": "6 tests: Table 1 lists PASAT, Letter Number Sequence, Digit Span Backwards, SRT, BVMT-R and D-KEFS Trails."
+   },
+   {
+    "quote": "+0.25 versus +0.09",
+    "label": "CORRECT",
+    "note": "+0.25 vs +0.09: abstract '0·25±0·45 vs. 0·09±0·37'."
+   },
+   {
+    "quote": "+0.16 z-score units",
+    "label": "CORRECT",
+    "note": "+0.16: 'estimated difference = 0·16'."
+   },
+   {
+    "quote": "95% confidence interval of 0.02–0.30",
+    "label": "CORRECT",
+    "note": "0.16 (0.02-0.30): linear mixed model adjusted for the stratification factors, 'estimated difference = 0·16 with 95% CI: 0·02–0·30, p = 0·0286'."
+   },
+   {
+    "quote": "130 of 135 participants completing follow-up",
+    "label": "CORRECT",
+    "note": "130/135: 'Only five participants did not complete the study'; changes analysed for 'ACR n = 70 vs active control n = 60'."
+   },
+   {
+    "quote": "the five missing outcomes",
+    "label": "CORRECT",
+    "note": "5 missing: 'There were five (3·74%) patients who had incomplete scores'."
+   },
+   {
+    "quote": "44/74",
+    "label": "CORRECT",
+    "note": "44/74: 'ACR n = 44, ... 59·46%' under the 'meeting or exceeding 30 hours of training time' definition (half the 60-hour target)."
+   },
+   {
+    "quote": "38 hours",
+    "label": "CORRECT",
+    "note": "About 38 hours: '37·74±23 ·78' (abstract '37·7')."
+   },
+   {
+    "quote": "57 hours",
+    "label": "CORRECT",
+    "note": "About 57 hours: '56·95±34·53' (abstract '56·9')."
+   },
+   {
+    "quote": "its adaptive-group baseline appeared as −0.77",
+    "label": "CORRECT",
+    "note": "Original -0.77: printed Table 3 'ACR | -0.77 ± 0.73'."
+   },
+   {
+    "quote": "The correction places it at −0.86",
+    "label": "CORRECT",
+    "note": "Corrected -0.86: correction Table 3 'ACR | -0.86 ± 0.77'."
+   },
+   {
+    "quote": "The original results prose also prints −0.25 where the abstract and corrected table give +0.25",
+    "label": "CORRECT",
+    "note": "-0.25 vs +0.25: text '-0·25±0·45'; abstract '0·25±0·45'; corrected Table 3 '0.25 ± 0.45'."
+   },
+   {
+    "quote": "Table 2 labels 7/135 participants as below 1%",
+    "label": "CORRECT",
+    "note": "7/135 below 1%: Table 2 '7 (<1%)' with full sample n = 135; 7/135 = 5.19%, so the 5.2% derivation is right."
+   },
+   {
+    "quote": "“Class I evidence”",
+    "label": "CORRECT",
+    "note": "Class I: abstract 'This study provides Class I evidence'; discussion 'Class 1 efficacy'."
+   }
+  ]
+ },
+ "n03": {
+  "claims": [
+   {
+    "quote": "The published correction changes untreated cardiovascular deaths from",
+    "label": "TRUE",
+    "reason": "The 2025 correction says the non-denosumab CVD count 'should be corrected from “3 (1.9)” to “32 (19.8)”', and its corrected Table 3 keeps the CVD hazard ratios '0.54 (0.25–1.17)' and '0.33 (0.14–0.78)'."
+   },
+   {
+    "quote": "Separately, Table 2 lists fracture-event counts of",
+    "label": "TRUE",
+    "reason": "Table 2 prints 'Non-denosumab | 60 (37.0)' and 'Denosumab | 21 (40.4)' events, whereas Table 1 gives 'Incidence fractures [n (%)] | 45 (21.0) | 37 (22.8) | 8 (15.4)' and the text says '37 patients (22.8%)' and '8 patients (15.4%)', and the correction does not touch Table 2."
+   },
+   {
+    "quote": "don't match the study's own data, so its results stay unreliable until they are reconciled.",
+    "label": "TRUE",
+    "reason": "The paper's figures do conflict internally (Table 2 '60 (37.0)' and '21 (40.4)' vs Table 1 '37 (22.8)' and '8 (15.4)'; Table 3 CVD '3 (1.9)', later corrected to '32 (19.8)'); that the results stay unreliable is a judgment."
+   },
+   {
+    "quote": "My conclusion is narrower than the paper’s strongest wording",
+    "label": "JUDGMENT",
+    "reason": "The paper is a 'retrospective cohort study' in which 'the attending physician made the decision to administer denosumab' and 'selection bias in drug use may have occurred', yet it concludes 'denosumab suppresses mortality'; reading this as an association rather than a causal effect is a fair critique."
+   }
+  ],
+  "numbers": [
+   {
+    "quote": "The researchers reviewed records of 214 adults with osteoporosis at one Tokyo dialysis facility",
+    "label": "CORRECT",
+    "note": "214 at 1 facility: 'final analysis of 214 patients' at 'Keijin Hospital, a maintenance hemodialysis facility in Tokyo'."
+   },
+   {
+    "quote": "during December 2013–December 2022",
+    "label": "CORRECT",
+    "note": "Study period: 'from December 2013 to December 2022'."
+   },
+   {
+    "quote": "Fifty-two received denosumab",
+    "label": "CORRECT",
+    "note": "52 treated: 'Fifty-two patients (24.3%) were treated with denosumab'."
+   },
+   {
+    "quote": "60 mg injected under the skin every six months",
+    "label": "CORRECT",
+    "note": "Regimen: 'a 60 mg subcutaneous injection administered every six months'."
+   },
+   {
+    "quote": "162 never received it",
+    "label": "CORRECT",
+    "note": "162 untreated: '162 patients (75.7%) were not treated with denosumab'."
+   },
+   {
+    "quote": "8/52 (15.4%)",
+    "label": "CORRECT",
+    "note": "Fracture, denosumab: Table 1 '8 (15.4)'; text '8 patients (15.4%)'."
+   },
+   {
+    "quote": "37/162 (22.8%)",
+    "label": "CORRECT",
+    "note": "Fracture, no denosumab: Table 1 '37 (22.8)'; text '37 patients (22.8%)'."
+   },
+   {
+    "quote": "Inconclusive: ratio 0.64, 95% confidence interval 0.27–1.51",
+    "label": "CORRECT",
+    "note": "Fracture HR: adjusted 'HR was 0.64 (95% CI, 0.27–1.51)'."
+   },
+   {
+    "quote": "23/52 (44.2%)",
+    "label": "CORRECT",
+    "note": "Deaths, denosumab: Table 3 'Denosumab | 23 (44.2)'."
+   },
+   {
+    "quote": "78/162 (48.1%)",
+    "label": "CORRECT",
+    "note": "Deaths, no denosumab: Table 3 'Non-denosumab | 78 (48.1)'."
+   },
+   {
+    "quote": "Lower estimated death hazard: 0.46, interval 0.26–0.80",
+    "label": "CORRECT",
+    "note": "All-cause HR: Table 3 'Adjusted* | 0.46 (0.26–0.80)'."
+   },
+   {
+    "quote": "8/52 (15.4%)",
+    "label": "CORRECT",
+    "note": "CVD deaths, denosumab: Table 3 'Denosumab | 8 (15.4)'."
+   },
+   {
+    "quote": "32/162 (19.8%)",
+    "label": "CORRECT",
+    "note": "CVD deaths, no denosumab: corrected Table 3 '32 (19.8)' (the original printed '3 (1.9)')."
+   },
+   {
+    "quote": "Lower estimated death hazard: 0.33, interval 0.14–0.78",
+    "label": "CORRECT",
+    "note": "CVD HR: Table 3 'Adjusted** | 0.33 (0.14–0.78)'."
+   },
+   {
+    "quote": "2025 correction",
+    "label": "CORRECT",
+    "note": "Correction 2025: e0320569, dated 21 March 2025."
+   },
+   {
+    "quote": "active vitamin D use was 90.4% versus 52.5%",
+    "label": "CORRECT",
+    "note": "Vitamin D: Table 1 'Active vitamin D analogue [n (%)] | 132 (61.7) | 85 (52.5) | 47 (90.4)'."
+   },
+   {
+    "quote": "3 to 32",
+    "label": "CORRECT",
+    "note": "3 to 32: correction 'from “3 (1.9)” to “32 (19.8)”'."
+   },
+   {
+    "quote": "60 and 21",
+    "label": "CORRECT",
+    "note": "60 and 21: Table 2 '60 (37.0)' and '21 (40.4)'."
+   },
+   {
+    "quote": "37 and 8",
+    "label": "CORRECT",
+    "note": "37 and 8: Table 1 '37 (22.8) | 8 (15.4)'; text '37 patients' and '8 patients'."
+   },
+   {
+    "quote": "A larger US study of women aged 65 or older on dialysis",
+    "label": "NOT CHECKABLE",
+    "note": "US study population: a different study that was not provided."
+   },
+   {
+    "quote": "raw events were 607/1,523 versus 23/1,281 with oral bisphosphonates",
+    "label": "NOT CHECKABLE",
+    "note": "607/1,523 vs 23/1,281: a different study that was not provided."
+   },
+   {
+    "quote": "41.1% versus 2.0%",
+    "label": "NOT CHECKABLE",
+    "note": "41.1% vs 2.0%: a different study that was not provided."
+   },
+   {
+    "quote": "an excess of 39.1 percentage points (95% interval 36.3–41.9)",
+    "label": "NOT CHECKABLE",
+    "note": "39.1 points (36.3-41.9): a different study that was not provided; 41.1 - 2.0 = 39.1 is at least internally consistent."
+   }
+  ]
+ }
+}

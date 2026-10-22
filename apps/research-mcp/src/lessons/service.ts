@@ -1,13 +1,18 @@
 import { z } from "zod";
 import {
+  connectorLessonCandidateSchema,
+  connectorLessonSubmissionResultSchema,
   generalizedLessonSchema,
   lessonCandidateSchema,
   lessonSubmissionResultSchema,
+  type ConnectorLessonCandidate,
+  type ConnectorLessonSubmissionResult,
+  type DetailedLessonReport,
   type GeneralizedLesson,
   type LessonCandidate,
   type LessonSubmissionResult,
 } from "./contracts.js";
-import { GitHubApiError } from "./github-app.js";
+import { GitHubApiError, isRecord } from "./github-app.js";
 import {
   publicCandidateId,
   type GitHubLessonQueue,
@@ -18,14 +23,27 @@ import type { LessonAnonymizer } from "./openai-anonymizer.js";
 import {
   canonicalizeLesson,
   lessonFingerprint,
+  screenDetailedLessonReport,
   screenLessonCandidate,
   type CanonicalLesson,
   type PrivacyScreenResult,
 } from "./privacy-screen.js";
 import type { LessonAttemptLimiter } from "./rate-limit.js";
 
+/** What the caller knows about the account a lesson comes from. */
+export interface LessonSubmissionContext {
+  /**
+   * Whether the calling account has detailed lesson reports turned on (owner question 154). Only then may a connector
+   * lesson carry a detailed report; absent means off.
+   */
+  detailedReports?: boolean;
+}
+
 export interface LessonSubmissionPipeline {
-  parseCandidate(raw: unknown): LessonCandidate | undefined;
+  /**
+   * Strict parse; only a connector request may name a related public AskRigor issue or carry a detailed report.
+   */
+  parseCandidate(raw: unknown, source: LessonSource): LessonCandidate | ConnectorLessonCandidate | undefined;
   parseGeneralized(raw: unknown): GeneralizedLesson | undefined;
   screen(candidate: LessonCandidate): PrivacyScreenResult;
   canonicalize(candidate: LessonCandidate): CanonicalLesson;
@@ -41,8 +59,10 @@ export interface LessonSubmissionServiceOptions {
 }
 
 const defaultPipeline: LessonSubmissionPipeline = {
-  parseCandidate(raw) {
-    const result = lessonCandidateSchema.safeParse(raw);
+  parseCandidate(raw, source) {
+    const result = source === "connector"
+      ? connectorLessonCandidateSchema.safeParse(raw)
+      : lessonCandidateSchema.safeParse(raw);
     return result.success ? result.data : undefined;
   },
   parseGeneralized(raw) {
@@ -105,7 +125,11 @@ export class LessonSubmissionService {
     this.pipeline = options.pipeline ?? defaultPipeline;
   }
 
-  async submit(raw: unknown, source: LessonSource = "custom-gpt"): Promise<LessonSubmissionResult> {
+  async submit(
+    raw: unknown,
+    source: LessonSource = "custom-gpt",
+    context: LessonSubmissionContext = {},
+  ): Promise<ConnectorLessonSubmissionResult> {
     try {
       const parsedLimit = lessonAttemptLimitDecisionSchema.safeParse(
         this.options.limiter.consume(),
@@ -121,11 +145,28 @@ export class LessonSubmissionService {
         });
       }
 
-      const parsedCandidate = this.pipeline.parseCandidate(raw);
-      if (!parsedCandidate) return privacyRejected();
+      // Owner question 154: a connector lesson carries a detailed report only from an account that turned detailed
+      // lesson reports on. Any other is refused before it is parsed or screened, and nothing is stored, so the model
+      // can send the same lesson again without it. The Action's shape has no such field and is unchanged.
+      if (source === "connector" && carriesDetailedReport(raw) && context.detailedReports !== true) {
+        return detailedReportRefused();
+      }
+
+      const parsed = this.pipeline.parseCandidate(raw, source);
+      if (!parsed) return privacyRejected();
+      // A related public AskRigor issue (connector only) is a validated number
+      // the queue renders as a reference, not lesson text. Like incident
+      // provenance below, it stays out of the screen and the anonymizer, and
+      // the exact validated number reaches the queue. A detailed report
+      // (connector only) is screened here, field by field, and never reaches
+      // the anonymizer either: the queue renders it from its validated fields.
+      const { candidate: parsedCandidate, relatedIssue, detailedReport } = splitConnectorFields(parsed);
 
       const preScreen = this.pipeline.screen(parsedCandidate);
       if (!preScreen.safe) return privacyRejected();
+      if (detailedReport !== undefined && screenDetailedLessonReport(detailedReport) !== undefined) {
+        return privacyRejected();
+      }
 
       // Opaque incident provenance is server-owned linkage metadata, not content
       // for model generalization. Keep it out of the anonymizer and reattach the
@@ -176,6 +217,8 @@ export class LessonSubmissionService {
           candidate: postScreen.candidate,
           fingerprint,
           source,
+          ...(relatedIssue === undefined ? {} : { relatedIssue }),
+          ...(detailedReport === undefined ? {} : { detailedReport }),
         });
       } catch (error) {
         return githubUnavailable(error);
@@ -199,6 +242,38 @@ export class LessonSubmissionService {
       retryable: false,
     });
   }
+}
+
+// Each connector-only key is dropped even when present with no value, so the
+// anonymizer and the strict generalized parse never see it.
+function splitConnectorFields(
+  parsed: LessonCandidate | ConnectorLessonCandidate,
+): { candidate: LessonCandidate; relatedIssue?: number; detailedReport?: DetailedLessonReport } {
+  // The Action's strict shape has neither key, so only a connector candidate gets past this.
+  if (!("related_issue" in parsed) && !("detailed_report" in parsed)) return { candidate: parsed };
+  const {
+    related_issue: relatedIssue,
+    detailed_report: detailedReport,
+    ...candidate
+  } = parsed as ConnectorLessonCandidate;
+  return {
+    candidate,
+    ...(relatedIssue === undefined ? {} : { relatedIssue }),
+    ...(detailedReport === undefined ? {} : { detailedReport }),
+  };
+}
+
+// Checked before the strict parse, so a report the account may not send is refused whatever it holds.
+function carriesDetailedReport(raw: unknown): boolean {
+  return isRecord(raw) && raw.detailed_report !== undefined;
+}
+
+function detailedReportRefused(): ConnectorLessonSubmissionResult {
+  return connectorLessonSubmissionResultSchema.parse({
+    status: "detailed_report_refused",
+    retryable: false,
+    reason_code: "detailed_reports_off",
+  });
 }
 
 function privacyRejected(): LessonSubmissionResult {

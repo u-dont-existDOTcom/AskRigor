@@ -18,8 +18,8 @@ import {
 import { GitHubLessonQueue } from "./github-lessons.js";
 import { createLocalLessonGeneralizer } from "./local-generalizer.js";
 import { createLessonAttemptLimiter } from "./rate-limit.js";
-import type { LessonSubmissionResult } from "./contracts.js";
-import { LessonSubmissionService } from "./service.js";
+import type { ConnectorLessonSubmissionResult } from "./contracts.js";
+import { LessonSubmissionService, type LessonSubmissionContext } from "./service.js";
 
 const CONFIGURATION_ERROR = "Lesson runtime configuration unavailable";
 const LEGACY_AI_CONFIGURATION = [
@@ -64,16 +64,20 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
  * Submits one lesson candidate from the MCP connector through the same
  * service, privacy screen, limits and private queue as the lesson Action.
  * It does not depend on the GPT Action transport being enabled. An
- * unconfigured queue returns the public "unavailable" receipt.
+ * unconfigured queue returns the public "unavailable" receipt. The context
+ * says whether the calling account turned detailed lesson reports on.
  */
-export async function submitConnectorLessonCandidate(raw: unknown): Promise<LessonSubmissionResult> {
+export async function submitConnectorLessonCandidate(
+  raw: unknown,
+  context: LessonSubmissionContext = {},
+): Promise<ConnectorLessonSubmissionResult> {
   let service: LessonSubmissionService;
   try {
     service = sharedLessonService();
   } catch {
     return { status: "github_unavailable", retryable: false, reason_code: "github_auth_unavailable" };
   }
-  return await service.submit(raw, "connector");
+  return await service.submit(raw, "connector", context);
 }
 
 function assertLessonActionTransportConfigured(): void {

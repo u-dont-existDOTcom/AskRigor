@@ -42,7 +42,8 @@ repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below. The research-review role can execute only the
-two bounded owner-review functions and has no direct table privileges. The
+three bounded owner-review functions (inspect, decide, and the review context of
+migration 0012) and has no direct table privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -97,7 +98,7 @@ placed in Compose.
    proposal review-state updates, canonical-table writes, deletes, truncation,
    temporary objects, and schema creation fail.
    Connect separately as `askrigor_research_review` and prove that the exact
-   inspect/decide functions work while direct proposal-table reads or updates,
+   inspect/decide/context functions work while direct proposal-table reads or updates,
    canonical-table reads or writes, temporary objects, and schema creation fail.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
@@ -151,7 +152,45 @@ Add `ASKRIGOR_RESEARCH_REVIEW_ENABLED=true`, the dedicated review-role URL,
 schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
-the hash-bound inspect/decide functions and cannot read tables directly.
+the hash-bound inspect/decide functions and the read-only review context
+function, and cannot read tables directly.
+
+Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
+a plain answer before research, and their checked answers end with a note
+comparing the two. Mark an account dev with `ASKRIGOR_DEV_ACCOUNT_KEYS` in the
+same runtime environment: a comma-separated list of account references, the
+12 hexadecimal characters AskRigor shows a signed-in user who asks for their
+account reference, which are the first 12 of the account's `account_key` in
+`research_use_accounts` (a full 64-character key also works; neither is a
+secret; an entry that is neither is ignored). Migration
+`0013_research_plain_answer_note` adds each account's note setting
+(`plain_answer_note`, on by default); the access role's existing table grant
+covers it. Apply it with the one-shot admin `migrate` before an image that
+reads it serves, since the access store reads that column on every research
+call. An earlier image does not read it, so a rollback needs no step.
+
+Owner answer 143a (2026-10-21): a paid private account files a research map
+only with the user's yes to the answer's offer. Migration
+`0014_research_map_consent` adds `consent_receipt_sha256` to
+`research_contribution_proposals` (the SHA-256 of the finalization receipt
+whose offer the user accepted, never the receipt), a check that only a
+`RESEARCH_FRONTIER` proposal carries one, a unique index so one yes files one
+map, and a new body for the proposal account guard that admits an active paid
+private account's map with its digest and nothing else from that account. The
+access role's existing table grant covers the column. Apply it with the
+one-shot admin `migrate` before the image that files such maps serves. An
+earlier image never files a paid private proposal, and the guard still admits
+free contributors as before, so a rollback needs no step.
+
+Owner question 154 (2026-10-21): an account's connector lessons carry a
+detailed report only when the user turned detailed lesson reports on. Migration
+`0015_research_detailed_lesson_reports` adds each account's setting
+(`detailed_lesson_reports`, off by default; never a report, which is stored only
+in the private lessons repository); the access role's existing table grant
+covers it. Apply it with the one-shot admin `migrate` before an image that
+reads it serves, since the access store reads that column on every research
+call. An earlier image does not read it and accepts no detailed report, so a
+rollback needs no step.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
@@ -193,8 +232,10 @@ using the same one-shot admin profile; do not create a VPS import file or log
 the payload.
 
 After the owner accepts an exact proposal, invoke `promote-accepted` through
-the one-shot admin profile. Each invocation processes at most one pending
-intent and emits only a bounded receipt. The initial owner-review release used
+the one-shot admin profile. Each invocation promotes at most one pending
+intent and emits only a bounded receipt; an intent whose canonical write
+conflicts deterministically ends `FAILED` with its fixed code on the way, and
+the invocation tries the next one. The initial owner-review release used
 manual repetition until `no_pending_promotion`. The separately reviewed
 promotion-scheduler slice installs a hardened five-minute systemd timer that
 invokes this exact command without arguments or a shell; its activation and
