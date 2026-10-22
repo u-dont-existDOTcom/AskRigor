@@ -482,6 +482,11 @@ describe("production living-evidence deployment", () => {
     expect(runbook).toContain("expect `no_pending_promotion` for the Atlas queue");
     expect(runbook).toContain("Keep the owner's Atlas actions closed while the earlier image serves");
     expect(runbook).toContain("Undo no migration: 0018 stays");
+    // Review finding 5: the restored runtime.env opens the actions again unless its line goes, and an app whose tool
+    // list was refreshed for phase 3 sends card fields the earlier image refuses.
+    expect(runbook).toContain("remove its `ASKRIGOR_ATLAS_REVIEW=enabled` line before recreating `research-mcp`");
+    expect(runbook).toContain("answers `input_invalid` until the model leaves them out");
+    expect(runbook).toContain("each user refreshes the app's tool list again");
     expect(scheduler).toContain("## Atlas findings queue");
     expect(scheduler).toContain("Strictly first in, first out");
     expect(scheduler).toContain("`FOR UPDATE NOWAIT`");

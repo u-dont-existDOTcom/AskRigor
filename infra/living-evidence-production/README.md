@@ -352,9 +352,20 @@ in this order:
    decision it recorded on a finding accepted with phase 3 would write a
    version without the new fields, and an erasure it recorded would leave the
    subject and the searches' queries in the private intents.
-4. Restore the selector and `runtime.env` from the release's rollback folder,
-   recreate only `research-mcp` with the earlier image, and check its health.
+4. Restore the selector and `runtime.env` from the release's rollback folder.
+   The restored `runtime.env` is the one phases 1 and 2 served with, which
+   opens the owner's Atlas actions, so remove its
+   `ASKRIGOR_ATLAS_REVIEW=enabled` line before recreating `research-mcp`, as
+   step 3 says. Then recreate only `research-mcp` with the earlier image, and
+   check its health and that the Atlas actions answer `atlas_review_closed`.
 5. Re-enable the timer against the restored image.
+
+The earlier image's findings card is strict, so a `finalize_research` call from
+an app whose tool list was refreshed for phase 3 sends the topic and the new
+finding fields, which that image refuses: it answers `input_invalid` until the
+model leaves them out. After the rollback, each user refreshes the app's tool
+list again (today the owner, the only free contributor), so the app sends the
+fields the earlier image takes.
 
 Undo no migration: 0018 stays, with its columns and rows. The earlier image
 names no new column, so the versions it writes hold NULL there. It needs no
@@ -362,8 +373,9 @@ names no new column, so the versions it writes hold NULL there. It needs no
 and puts back 0017's bodies of `atlas_redaction_permits` and
 `erase_atlas_wording`, which leave the searches' queries in place, until phase
 3's `migrate` runs again. To serve phase 3 again: run its `migrate` before its
-image serves, recreate `research-mcp` with that image, and only then open the
-owner's Atlas actions.
+image serves, recreate `research-mcp` with that image, have each user refresh
+the app's tool list once more, and only then put the
+`ASKRIGOR_ATLAS_REVIEW=enabled` line back and open the owner's Atlas actions.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

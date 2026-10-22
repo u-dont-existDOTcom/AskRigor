@@ -148,7 +148,11 @@ only if its digest matches, so its new fields are the ones the final check check
   new fields, and an erasure it records leaves the subject and the searches' queries in the private intents (and, if
   its migrate ran, which puts back 0017's function bodies, in the canonical rows too). So the runbook
   (`infra/living-evidence-production/README.md`) drains the Atlas queue before the rollback and keeps the owner's
-  Atlas actions closed while the earlier image serves; no migration is undone.
+  Atlas actions closed while the earlier image serves, removing `ASKRIGOR_ATLAS_REVIEW=enabled` from the
+  `runtime.env` it restores, since phase 2's has it (review finding 5); no migration is undone. The earlier image's
+  findings card is strict, so an app whose tool list was refreshed for this release gets `input_invalid` from
+  `finalize_research` until the model leaves the new fields out; each user refreshes the tool list again after the
+  rollback.
 
 ## 5. Acceptance (phase 2) with the new fields
 
