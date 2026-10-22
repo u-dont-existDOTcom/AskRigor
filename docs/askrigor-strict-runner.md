@@ -78,8 +78,13 @@ calls and `not_ready` checks send the model back to complete the returned next
 steps. The final message must match that call's `answer_draft`, allowing only
 line-ending normalization to `\n`, trailing whitespace removal on each line, and
 trimming the whole text. No words, internal spacing, punctuation, case or Unicode
-characters are otherwise normalized. A stored `carried_state` must be supplied
-unchanged to the passing call.
+characters are otherwise normalized. After the draft, the message may give only the
+closing lines that call gave for the answer's end, which it writes after reading the
+draft: its plain-answer note and saved line when it gives them, then its check line.
+Each must stand on a line of its own, exactly as the check wrote it, in that order.
+A closing line reworded or translated into the answer's language is not compared by
+meaning: the runner sends the AI back for the lines as written. A stored
+`carried_state` must be supplied unchanged to the passing call.
 
 Readiness, draft and carried-state fixes share the `--rounds` budget. The single
 research-classification question is separate. A passing receipt can cover a
@@ -90,6 +95,9 @@ or invalid JSON cannot produce a checked answer.
 Checked answers end with this footer, with the returned status filled in:
 
 > — Checked by AskRigor's final check (ready). The answer above is the checked draft, word for word (strict runner).
+
+When the answer gives the check's closing lines, the footer says so: "The answer above is the checked draft, word for
+word, then the check's own closing lines (strict runner)."
 
 When checks fail, the runner prints `Not checked: <reason>.` and the open steps.
 The unchecked final answer is hidden unless `--show-unchecked` is set.

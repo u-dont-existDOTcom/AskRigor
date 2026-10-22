@@ -18,10 +18,13 @@ const mcp = (server: string, tool: string, args: unknown = {}, result: unknown =
 function check(status = "ready", options: {
   draft?: string; carriedState?: string; nextSteps?: string[]; carryForward?: string;
   textOnly?: boolean; error?: unknown; declarations?: Record<string, unknown>;
+  plainAnswerNote?: string; savedLine?: string;
 } = {}) {
   const receipt = {
     status, next_steps: options.nextSteps ?? [], caveats: ["A declared limit."], check_line: "Checked.",
     ...(options.carryForward === undefined ? {} : { carry_forward: options.carryForward }),
+    ...(options.plainAnswerNote === undefined ? {} : { plain_answer_note: options.plainAnswerNote }),
+    ...(options.savedLine === undefined ? {} : { saved_line: options.savedLine }),
   };
   return mcp("codex_apps", "askrigor_new_slug.finalize_research", {
     ...options.declarations, answer_draft: options.draft ?? answer,
@@ -108,13 +111,38 @@ describe("strict runner gate and bounded fixes", () => {
     expect(result.turn.finalizations).toHaveLength(1);
   });
 
+  // A passing check gives its closing lines after reading the draft, so the draft cannot hold them (AskRigor#354).
+  it("accepts the checked draft followed only by the check's own closing lines, exactly and in order", async () => {
+    const note = "Compared with the plain answer you registered first: it said no; the research found a small benefit.";
+    const closing = { plainAnswerNote: note, savedLine: "Saved these findings as ARF-0042." };
+    for (const text of [`${answer}\n\nChecked.`, `${answer}\n\n${note}\n\nSaved these findings as ARF-0042.\n\nChecked.  `,
+      `${answer}\r\nSaved these findings as ARF-0042.`]) {
+      expect(gate(parseEventLog(log(check("ready", closing), final(text))))).toMatchObject({ kind: "passed" });
+    }
+    const { result } = await fixtures([log(check(), final(`${answer}\n\nChecked.`))]);
+    expect(result.output).toBe(`${answer}\n\nChecked.\n\n— Checked by AskRigor's final check (ready). The answer above is ` +
+      "the checked draft, word for word, then the check's own closing lines (strict runner).");
+  });
+
+  it.each([
+    ["a sentence after the check line", `${answer}\n\nChecked.\n\nMemantine may help as an add-on.`],
+    ["a sentence before it", `${answer}\n\nMemantine may help as an add-on.\n\nChecked.`],
+    ["the closing lines out of order", `${answer}\n\nChecked.\n\nSaved these findings as ARF-0042.`],
+    ["the check line run into the draft's last line", `${answer} Checked.`],
+    ["the check line reworded or translated", `${answer}\n\nVérifié par le contrôle final.`],
+    ["the check line twice", `${answer}\n\nChecked.\n\nChecked.`],
+  ])("sends back the checked draft with %s", (_, text) => {
+    expect(gate(parseEventLog(log(check("ready", { savedLine: "Saved these findings as ARF-0042." }), final(text)))))
+      .toMatchObject({ kind: "fix", prompt: DRAFT_PROMPT });
+  });
+
   it("does next steps after not_ready, passing on the second execution", async () => {
     const { result, calls } = await fixtures([
       log(check("not_ready", { nextSteps: ["Read the study.", "Report its limit."] }), final()),
       log(check(), final()),
     ]);
     expect(calls).toHaveLength(2);
-    expect(calls[1].prompt).toBe(`${AUTOMATED_MARK} AskRigor's final check has not passed (status: not_ready). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message:\nRead the study.\nReport its limit.\n${NOT_FROM_USER}`);
+    expect(calls[1].prompt).toBe(`${AUTOMATED_MARK} AskRigor's final check has not passed (status: not_ready). Do each of its next steps, call finalize_research again, and give exactly the checked draft as your final message, followed only by the closing lines the check gives, exactly as it wrote them:\nRead the study.\nReport its limit.\n${NOT_FROM_USER}`);
     expect(result.kind).toBe("passed");
   });
 
@@ -461,7 +489,7 @@ const advisoryLines = `- a harm or safety statement (safety_claims): "${harm}"\n
   + `- a scale or questionnaire result (scale_results): "${scale}"`;
 const revisionPrompt = `${AUTOMATED_MARK} A second reading found sentences that look like statements the declarations leave out:\n`
   + advisoryLines
-  + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message."
+  + "\nFor each, declare it in finalize_research (safety_claims, key_terms or scale_results, as named), or keep the answer as it is if you judge it is not one; then call finalize_research again and give exactly the checked draft as your final message, followed only by the closing lines the check gives, exactly as it wrote them."
   + `\n${NOT_FROM_USER}`;
 const readingLog = (value: unknown = { findings }) => log(final(JSON.stringify(value)));
 const checkedReaderAnswer = (declarations?: Record<string, unknown>) =>
