@@ -54,6 +54,14 @@ export function numberReadings(text: string): number[] {
     .flatMap(({ index }) => firstNumberReadings(text.slice(index)));
 }
 
+/**
+ * Text with each decimal digit, in any script, written as the ASCII digit of the same value, so a text compared with
+ * another reads "١٢" and "१२" as "12"; every other character stays as it is.
+ */
+export function withAsciiDigits(text: string): string {
+  return text.replace(/\p{Nd}/gu, (digit) => digitValues.get(digit) ?? digit);
+}
+
 /** Whether an extracted number matches the declared magnitude, within 1e-9. */
 export function includesAbsoluteNumber(numbers: readonly number[], declared: number): boolean {
   return numbers.some((number) => Math.abs(Math.abs(number) - Math.abs(declared)) <= 1e-9);

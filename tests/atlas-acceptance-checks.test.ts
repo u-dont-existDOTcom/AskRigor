@@ -249,6 +249,20 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     expect(codes([dashed, { ...nausea, follow_up: "12-week follow-up" }], wording)).toEqual([]);
   });
 
+  it("compares the follow-up in digits of any script (review finding 9)", () => {
+    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٣٠ من ١٢٠ بالغًا تناولوا زنتارين و١٨ من ١٢٠ " +
+      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ١٢ من ١٢٠ و٦ من ١٢٠، أي أن عدد من يلزم " +
+      "لحدوث ضرر ٢٠.";
+    // Declared in ASCII digits and shown in Arabic-Indic ones, or declared in Arabic-Indic and Devanagari digits and
+    // shown in ASCII ones; the harm beside the number needed to treat is then over the same follow-up too.
+    const ascii = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "12 أسبوعًا" });
+    expect(codes([ascii(tremor), ascii(nausea)], arabic)).toEqual([]);
+    expect(codes([{ ...tremor, follow_up: "١٢ weeks" }, { ...nausea, follow_up: "१२ weeks" }])).toEqual([]);
+    // Another follow-up is still another, in any script.
+    expect(codes([{ ...tremor, follow_up: "١٣ weeks" }, nausea]))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[0] harms_missing"]);
+  });
+
   it("puts beside a number needed to treat the harms over the same follow-up, or that none were found", () => {
     expect(codes([tremor])).toEqual(["numbers[0] harms_missing"]);
     expect(codes([tremor, { ...nausea, follow_up: "6 weeks", nnh: undefined }])).toEqual(["numbers[0] harms_missing"]);

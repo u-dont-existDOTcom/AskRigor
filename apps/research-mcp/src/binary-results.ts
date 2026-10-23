@@ -1,7 +1,7 @@
 import type { AtlasNumberEntry } from "@askrigor/evidence-repository";
 
 import { normalizedFindingsText } from "./findings/card.js";
-import { includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
+import { includesAbsoluteNumber, numberReadings, withAsciiDigits } from "./unicode-numbers.js";
 
 /**
  * Yes-or-no results for two groups: finalize_research's binary_results for an answer (AskRigor#356), and the numbers
@@ -203,10 +203,12 @@ export function atlasNumbersProblems(
 /**
  * Text as these checks compare a follow-up with the wording: as the findings library compares wording (Unicode
  * compatibility form, invisible characters, spacing and case set aside), with curly quotation marks, dashes and
- * emphasis marks set aside too. Exact, and the same in any language.
+ * emphasis marks set aside too, and each digit written as its ASCII digit, so a follow-up declared as "12 weeks" is
+ * found in wording that writes it "١٢ weeks", as the figures are read in digits of any script (review finding 9).
+ * Exact, and the same in any language.
  */
 function comparableText(text: string): string {
-  return normalizedFindingsText(text)
+  return withAsciiDigits(normalizedFindingsText(text))
     .replace(/[‘’ʼ]/gu, "'")
     .replace(/[“”]/gu, "\"")
     .replace(/[‐-―−]/gu, "-")

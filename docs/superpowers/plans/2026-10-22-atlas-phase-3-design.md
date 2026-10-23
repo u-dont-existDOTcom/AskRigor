@@ -89,8 +89,8 @@ then neither saved nor offered and never holds back the answer, as today.
    none when the rates are equal (`atlasNumbersProblems`, the function phase 2's acceptance runs).
 6. **The computed figures match what the card states**, in digits of any script (`numberReadings` in
    `unicode-numbers.ts`): the claim shows each group's events and total, or its rate rounded to a whole number or one
-   decimal; it shows each `nnt` or `nnh` with its follow-up; and beside an `nnt` the numbers hold a harm over the same
-   follow-up, or `harms_none_found` (153b). This is phase 2's acceptance check run on the claim, so a card the final
+   decimal; it shows each `nnt` or `nnh` with its follow-up, which is compared in digits of any script too (review
+   finding 9); and beside an `nnt` the numbers hold a harm over the same follow-up, or `harms_none_found` (153b). This is phase 2's acceptance check run on the claim, so a card the final
    check passes also passes acceptance (choice 3).
 7. **Each figure is one the answer reported:** its four counts and its `better` are those of a `binary_results` entry
    of the same call, which the gate has already checked against the answer (choice 4).
