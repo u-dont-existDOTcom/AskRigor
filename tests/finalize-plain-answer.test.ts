@@ -208,6 +208,21 @@ describe("finalize_research compares the answer with the plain answer registered
       `to an earlier statement: “${fixed}”`);
   });
 
+  // The 23 Oct regressions l26, l48 and l49 author reply declared corrections of the plain answer's own claims, which the
+  // user had not been shown, and l48 then asked the user to approve a bug report about one.
+  it("refuses a correction of a plain-answer claim on the first turn, where no answer was shown before", () => {
+    const fixed = "A daily dose of 1,000 IU is not enough for everyone; trials used 400 to 4,000 IU.";
+    const result = check({
+      answer_draft: `${LINK}\n\n${CORRECTED} ${fixed}`,
+      corrections: [{ retracted: CLAIMS[1]!, change: fixed, by_user: false }],
+      plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "corrected", answer_quote: fixed }]
+    });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toContain("corrections[0] takes back a claim of the plain answer written before this " +
+      "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records what " +
+      "the research changed.");
+  });
+
   it("gives no note, and holds nothing back, without this account's plain answer registered before this research", () => {
     const later = " For a later question, register its plain answer before researching it.";
     const afterResearch = "The plain answer passed was registered after a research receipt passed here was issued, so " +

@@ -3252,6 +3252,18 @@ export function finalizeResearch(
           "wrong statement as your earlier answer put it, outside the caveat's words.");
       }
     }
+    // On a conversation's first turn the user has seen no answer yet, so a claim of the plain answer registered before
+    // the research was never shown as one; plain_answer_comparison records what the research changed in it (the 23 Oct
+    // regressions l26, l48 and l49 author reply "corrected" it, and l48 asked the user to approve a bug report about it).
+    if (plainAnswer?.status === "registered" && input.carried_state === undefined) {
+      for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
+        if (plainAnswer.claims.includes(plainAnswerClaimDigest(retracted))) {
+          addStep("declaration", `corrections[${index}] takes back a claim of the plain answer written before this ` +
+            "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records " +
+            "what the research changed.");
+        }
+      }
+    }
     addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
       protocolNames: options.protocolNames ?? new Set(),
