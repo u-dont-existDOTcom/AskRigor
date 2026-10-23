@@ -263,6 +263,33 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
       .toEqual(["numbers[0] follow_up_not_shown", "numbers[0] harms_missing"]);
   });
 
+  it("does not read the follow-up's own numbers as a rate (review finding 10)", () => {
+    // 37 of 300 is 12.3%, which "12 weeks" does not show, while "12% at 12 weeks" does.
+    const entry: AtlasNumber = {
+      outcome: "tremor score halved", better: "more", option: "zentarine", option_events: 37, option_total: 300,
+      comparator: "placebo", comparator_events: 18, comparator_total: 300, follow_up: "12 weeks"
+    };
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 6% on placebo and in more on zentarine."))
+      .toEqual(["numbers[0] group_figure_not_shown"]);
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    expect(codes([entry], "The tremor score halved in 12% on zentarine and 6% on placebo at 12 weeks.")).toEqual([]);
+    // A follow-up of two numbers sets aside one occurrence of each.
+    expect(codes([{ ...entry, follow_up: "6 to 12 weeks" }],
+      "From 6 to 12 weeks, the tremor score halved in more on zentarine than on placebo.")).toEqual([
+      "numbers[0] group_figure_not_shown", "numbers[0] group_figure_not_shown"]);
+    expect(codes([{ ...entry, follow_up: "6 to 12 weeks" }],
+      "From 6 to 12 weeks, the tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    // Natural frequencies are read as before.
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 37 of 300 on zentarine and 18 of 300 on placebo."))
+      .toEqual([]);
+    // A follow-up the wording does not show sets nothing aside: the wording's numbers are then all its own.
+    expect(codes([entry], "The tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    // In another script too.
+    expect(codes([{ ...entry, follow_up: "١٢ أسبوعًا" }],
+      "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٦٪ ممن تناولوا دواءً وهميًا ولدى عدد أكبر ممن تناولوا زنتارين."))
+      .toEqual(["numbers[0] group_figure_not_shown"]);
+  });
+
   it("puts beside a number needed to treat the harms over the same follow-up, or that none were found", () => {
     expect(codes([tremor])).toEqual(["numbers[0] harms_missing"]);
     expect(codes([tremor, { ...nausea, follow_up: "6 weeks", nnh: undefined }])).toEqual(["numbers[0] harms_missing"]);

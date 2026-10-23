@@ -159,13 +159,19 @@ export function atlasNumbersProblems(
         }
       }
     }
+    const followUp = comparableFollowUp(entry.follow_up);
+    const followUpShown = /[\p{L}\p{N}]/u.test(followUp) && shownWording.includes(followUp);
+    // A follow-up the wording shows holds numbers of its own, which show no rate: they are set aside, one occurrence
+    // per number, before rates are matched, so "12 weeks" does not show a rate of 12.3% while "12% at 12 weeks" still
+    // shows 12% (review finding 10). Events and totals are matched in every number, as before.
+    const rateReadings = followUpShown ? setAside(readings, numberReadings(entry.follow_up)) : readings;
     // What the wording shows: each group's figure, as its events and total or its rate as a percentage.
     for (const { name, events, total } of binaryGroups(entry)) {
       // More events than people has its own problem, and no rate.
       if (events > total) continue;
       const rate = 100 * events / total;
       // A rate rounded to a whole number or to one decimal is within 0.5 of it.
-      const rateShown = readings.some((number) => Math.abs(number - rate) <= 0.5 + 1e-9);
+      const rateShown = rateReadings.some((number) => Math.abs(number - rate) <= 0.5 + 1e-9);
       if (!rateShown && !(includesAbsoluteNumber(readings, events) && includesAbsoluteNumber(readings, total))) {
         add(at, "group_figure_not_shown", `${at} gives a figure the ${named} does not show for ${name}: the ${named} ` +
           `contains neither its events and total (${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
@@ -177,8 +183,7 @@ export function atlasNumbersProblems(
           `the ${named} does not show: the ${named} does not contain ${entry[field]}.`);
       }
     }
-    const followUp = comparableFollowUp(entry.follow_up);
-    if (stated.length > 0 && !(/[\p{L}\p{N}]/u.test(followUp) && shownWording.includes(followUp))) {
+    if (stated.length > 0 && !followUpShown) {
       add(at, "follow_up_not_shown", `${at} gives a number needed to treat or harm without its follow-up: the ` +
         `${named} does not contain the declared follow-up.`);
     }
@@ -215,6 +220,16 @@ function comparableText(text: string): string {
     .replace(/[*_`]/gu, "")
     .replace(/ {2,}/gu, " ")
     .trim();
+}
+
+/** The readings left once each of the others is set aside, one occurrence of it each. */
+function setAside(readings: readonly number[], others: readonly number[]): number[] {
+  const left = [...readings];
+  for (const number of others) {
+    const at = left.indexOf(number);
+    if (at >= 0) left.splice(at, 1);
+  }
+  return left;
 }
 
 /** A declared follow-up as the checks compare it: without a closing sentence mark, then as comparableText. */
