@@ -9,6 +9,7 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInfoAccessClient, infoAccessClientFromEnv } from "../apps/research-mcp/src/infoaccess-client.js";
+import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { AcquireOpenFullTextInput, AcquireOpenFullTextRuntime } from "../packages/sources/src/open-full-text.js";
 import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
 
@@ -114,12 +115,21 @@ async function run(surface: "function" | "mcp", input: Partial<AcquireOpenFullTe
     expect(JSON.stringify(output)).not.toContain(TOKEN);
     if (retrievalErrorCode !== undefined) {
       expect(JSON.stringify(output)).not.toContain(PROVIDER_MESSAGE);
-      // A library miss may carry a lead receipt; a library failure never does.
-      if (retrievalErrorCode !== "not_found") expect(JSON.stringify(output)).not.toContain("research_receipt");
+      // A library miss may carry a lead receipt; a library failure never does, only a retry receipt.
+      if (retrievalErrorCode !== "not_found") expect(JSON.stringify(output)).not.toContain("full_text_lead");
       expect(JSON.stringify(output)).not.toContain("coverage_receipt");
     }
     return output.structuredContent as any;
   } finally { await client.close(); await server.close(); }
+}
+
+
+/** A failed owner-library route earns a retry receipt, never a lead (23 Oct: r332's library errors had no receipt). */
+function expectLibraryRetryReceipt(surface: "function" | "mcp", result: { research_receipt?: string }): void {
+  // Receipts are signed at the MCP surface; the executor alone signs none.
+  if (surface === "function") return expect(result.research_receipt).toBeUndefined();
+  expect(verifyResearchReceipt(result.research_receipt!, { secret: "library-receipt-secret-0123456789abcdef" })).toMatchObject({
+    ok: true, kind: "full_text_route_failure", claims: { routes: ["owner_library"], http: ["error"] } });
 }
 
 beforeEach(async () => {
@@ -275,7 +285,7 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     advertisedHash = "0".repeat(64);
     const result = await run(surface, { public_copy_search: SEARCH });
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
-    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined(); expect(result.research_receipt).toBeUndefined();
+    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined(); expectLibraryRetryReceipt(surface, result);
   });
   it("refuses a wrong paper despite a valid checksum", async () => {
     pdf = syntheticPdf(syntheticArticleText("Different fixture paper DOI 10.1234/another.paper"));
@@ -288,24 +298,27 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
     const result = await run(surface, { public_copy_search: SEARCH });
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
     expect(result.discovery_attempts.some((attempt: any) => attempt.route === "owner_library" && attempt.result === "inaccessible")).toBe(false);
-    expect(result.research_receipt).toBeUndefined();
+    expectLibraryRetryReceipt(surface, result);
   });
   // rate_limited: the free route's limits are shared with the owner's own InfoAccess use (owner answer 157a).
-  it.each(["retrieval_failed", "too_large", "rate_limited"])("records InfoAccess %s as an error attempt with no lead receipt", async (code) => {
+  it.each(["retrieval_failed", "too_large", "rate_limited"])("records InfoAccess %s as an error attempt with a retry receipt, not a lead", async (code) => {
     retrievalErrorCode = "retrieval_failed";
     const before = await run(surface, { public_copy_search: SEARCH });
     retrievalErrorCode = code;
     const result = await run(surface, { public_copy_search: SEARCH });
     expect(result.discovery_attempts.at(-1)).toMatchObject({ route: "owner_library", result: "error" });
     expect(result.discovery_attempts.some((item: any) => item.result === "inaccessible")).toBe(false);
-    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined(); expect(result.research_receipt).toBeUndefined();
+    expect(result.source).toBeUndefined(); expect(result.blocks).toBeUndefined(); expectLibraryRetryReceipt(surface, result);
     expect(result.coverage_receipt).toBeUndefined(); expect(result.document_handle).toBeUndefined();
     expect(actual.canSignFullTextLead(result)).toBe(false);
     expect(JSON.stringify(result)).not.toContain(LIBRARY_URL);
     expect(JSON.stringify(result)).not.toContain(TOKEN);
     expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
     expect(JSON.stringify(result)).not.toContain(syntheticBody("methods"));
-    expect(result).toEqual(before);
+    // The receipts carry their own issue times; everything else is the same.
+    const { research_receipt: _receipt, ...rest } = result;
+    const { research_receipt: _beforeReceipt, ...restBefore } = before;
+    expect(rest).toEqual(restBefore);
     expect(downloads).toBe(0);
   });
   it("records an InfoAccess not_found as a completed library miss, not a route failure", async () => {

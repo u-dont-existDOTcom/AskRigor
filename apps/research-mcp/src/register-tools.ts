@@ -3143,9 +3143,10 @@ async function invokeOpenFullTextMcp(
   const receipt = openFullTextResearchReceipt(operationId, result.body);
   const output = result.body as Parameters<typeof canSignFullTextLead>[0] & Parameters<typeof failedPrimaryRoutes>[0];
   const failed = failedPrimaryRoutes(output);
+  const routeNames: Record<string, string> = { europe_pmc: "Europe PMC", unpaywall: "Unpaywall", owner_library: "the owner library" };
   const routeList = [...new Set(failed.map((attempt) =>
-    `${attempt.route === "europe_pmc" ? "Europe PMC" : "Unpaywall"}: ${attempt.http_status === undefined
-      ? attempt.failure_kind : `HTTP ${attempt.http_status}`}`))].sort().join(", ");
+    `${routeNames[attempt.route!] ?? attempt.route}: ${attempt.http_status === undefined
+      ? attempt.failure_kind ?? "error" : `HTTP ${attempt.http_status}`}`))].sort().join(", ");
   const failureText = failed.length > 0 && output.public_copy_search?.status !== "declared"
     ? ` ${LEAD_RECEIPT_SEARCH}`
     : failed.length > 0 && receipt !== undefined
@@ -3153,8 +3154,7 @@ async function invokeOpenFullTextMcp(
         "Try acquire_open_full_text again at least a minute after this attempt; if the service fails again, pass both " +
         "receipts to finalize_research and cite this study as a lead."
       : output.discovery_attempts?.some(({ route, result }) => route === "candidate" && result === "error") &&
-          !output.discovery_attempts.some(({ route, result }) =>
-            (route === "europe_pmc" || route === "unpaywall") && result === "error")
+          failed.length === 0
         ? " A supplied candidate failed; no AskRigor route failed. Pass a public copy read with your own search as " +
           'candidate_texts with retrieved_via "client_search_index" for identity and completeness checks.'
         : " A source failed (an outage or rate limit), so this is not yet a completed lead and has no receipt. " +
@@ -3199,7 +3199,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
           ?? output.requested_pmcid,
         routes: [...new Set(failed.map(({ route }) => route!))].sort(),
         http: [...new Set(failed.map(({ http_status, failure_kind }) =>
-          http_status === undefined ? failure_kind! : String(http_status)))].sort(),
+          http_status === undefined ? failure_kind ?? "error" : String(http_status)))].sort(),
         state: output.acquisition_state
       });
     }
