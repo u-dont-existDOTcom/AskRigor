@@ -193,7 +193,7 @@ describe("rendered final check result", () => {
     [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
     [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
     [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
-    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "\u26a0 Not checked: this answer was given before AskRigor's final check passed."],
+    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft."],
     [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
     [{ status: "unknown" }, "AskRigor's final check could not run here."],
     [undefined, "AskRigor's final check could not run here."],

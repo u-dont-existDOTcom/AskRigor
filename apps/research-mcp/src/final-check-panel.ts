@@ -28,6 +28,9 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
 // One line for the reader (owner question 108): whether AskRigor's final check passed on this answer, in AskRigor's own
 // words. The limits are in the answer itself, which the check made sure of.
+// A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
+// usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
+// completion check failed"). An answer given before the check passed says so in its own last line.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
@@ -39,7 +42,7 @@ function renderFinalCheck(doc, structuredContent) {
   if (result.status === "ready_with_limits") {
     line = "\u2713 Checked by AskRigor's final check. The answer states its " + limits + (limits === 1 ? " limit." : " limits.");
   }
-  if (result.status === "not_ready") line = "\u26a0 Not checked: this answer was given before AskRigor's final check passed.";
+  if (result.status === "not_ready") line = "AskRigor's final check asked for more work on this draft.";
   const paragraph = doc.createElement("p");
   paragraph.textContent = line;
   root.appendChild(paragraph);
