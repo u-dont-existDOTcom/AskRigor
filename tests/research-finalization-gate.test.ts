@@ -2543,6 +2543,25 @@ describe("finalize_research gate", () => {
         "could not be checked yet, not that it is thin."
     );
     expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
+
+    // A video found another way and read after the quota stopped discovery (s359 T1b, 23 Oct): YouTube evidence was
+    // checked, so the check says the search was incomplete, not that nothing could be checked.
+    const readAnyway = finalizeResearch({
+      ...firstPass,
+      receipts: [stoppedSurvey, videoA, study],
+      material_video_ids: [],
+      no_material_video_reason: "The video read does not show the routine asked about.",
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." },
+        COMMUNITY_FOCUSES[1]
+      ]
+    }, options);
+    expect(readAnyway.limits.join(" ")).not.toContain("No video turned up before");
+    expect(readAnyway.caveats.join(" ")).not.toContain("before any video turned up");
+    expect(readAnyway.caveats).toContain(
+      "YouTube's search limit stopped discovery, so the video read here was found another way, not by a complete search."
+    );
   });
 
   it("sends back an answer that leaves out a caveat the gate wrote", () => {

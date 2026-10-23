@@ -1790,7 +1790,19 @@ export function finalizeResearch(
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
-          if (saturation.rateLimited > 0) {
+          if (saturation.rateLimited > 0 && audited.size > 0) {
+            // Videos read after the quota stopped discovery were found another way (s359 T1b of 23 Oct): saying that
+            // no YouTube evidence was checked would be false, and a correction cannot take back the check's own caveat.
+            requireLimit(
+              "YouTube's rate limit or daily quota stopped discovery, and the videos read were found another way; say " +
+                "that YouTube discovery was incomplete.",
+              audited.size === 1
+                ? "YouTube's search limit stopped discovery, so the video read here was found another way, not by a " +
+                  "complete search."
+                : `YouTube's search limit stopped discovery, so the ${audited.size} videos read here were found another ` +
+                  "way, not by a complete search."
+            );
+          } else if (saturation.rateLimited > 0) {
             requireLimit(
               "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube " +
                 "evidence could not be checked yet, not that it is thin.",
