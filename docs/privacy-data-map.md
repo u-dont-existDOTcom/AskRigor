@@ -579,9 +579,11 @@ stored, logged, echoed, checkpointed, or included in receipts. Only search
 status, missing identifier kinds, and a query count are returned and may enter
 the compact checkpoint. A lead receipt includes the acquisition state, not
 the queries. A route-failure receipt includes the requested DOI, the failing Europe PMC
-PMCID (or the requested PMCID, when present), the failed primary routes, their HTTP
-statuses or timeout/network failure kinds, and the acquisition state; it includes no
-queries. After the primary OA routes yield no admitted document,
+PMCID (or the requested PMCID, when present), the failed AskRigor routes (Europe PMC,
+Unpaywall or the owner library), their HTTP statuses, timeout/network failure kinds or
+"error" when a failure gives neither, and the acquisition state; it includes no
+queries. A refusal (an HTTP 4xx other than 408 and 429) ends the search on its route
+and earns no route-failure receipt. After the primary OA routes yield no admitted document,
 the server sends a direct GET to each supplied URL. This is a new data flow:
 the model supplies the destination, rather than Unpaywall alone choosing it.
 The URL path and query are sent to that host; redirects send their resulting
