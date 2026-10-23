@@ -175,13 +175,21 @@
 - **Lessons:** lesson #49 (161a, HRP 20.6.31) was labelled accepted and incorporated at 22:29 UTC. `npm run
   lessons:status` at 22:34 UTC: 32 open, 0 needing review, 0 accepted but not incorporated, 37 incorporated or closed, 0
   eligible for deletion, every lane item recorded (main and open pull requests).
-- **Product acceptance (owner regressions): pending.**
-  - It runs 79 cases in `/home/joel/askrigor-releases/20261022-361/regress`: the 65 of 22 October's run and 14 new rows
-    of the regression list:
-    - five from #359 (T1, T1b, T2, T3 and T5);
-    - six from #360;
-    - three from lesson #49.
-  - #359's T4 and T6 are judged wherever their conditions arise; the server tests cover them.
+- **Product acceptance (owner regressions): judged** (`docs/audits/2026-10-23-owner-regressions-judgment.md`).
+  - A probe at 12:29 UTC on 23 Oct found the ChatGPT app's tool list current (build 1582f063, both versions, 33 tools,
+    every new final-check field, research access active on notice v3), so `regress/run.sh` started at 12:30:54 UTC and
+    ran 79 cases in 90 runs until 19:43:04 UTC: the 65 of 22 October's run and 14 new rows (five from #359: T1, T1b,
+    T2, T3 and T5; six from #360; three from lesson #49). #359's T4 and T6 are judged wherever their conditions
+    arise; the server tests cover them.
+  - Result: 38 pass, 38 pass in part, 2 fail (o355 supplement table, as on 22 Oct; r332 agar yields, whose audit
+    never ran after a full-text source failure), 1 not judged (q130 maker authors: OpenAI's biological-risk filter,
+    as on 21 and 22 Oct). Of the 64 cases judged both days: 15 better, 11 worse, 38 the same.
+  - The final check passed in 73 of 79 cases (22 Oct: 55 of 65), with 467 calls and none rejected; 50 of the 83
+    turns whose check passed delivered the checked draft word for word (22 Oct: 5 of 64). No run called another
+    app's or server's tool or ran a shell command.
+  - Found for the next builds: two new ways the check gets stuck (a full-text source that keeps failing; a YouTube
+    caveat the run's own audits contradict), corrections declared against the unseen plain answer, and the two
+    proposals of 22 Oct (spliced sentences, derived figures in study audits), now owner questions 165 and 166.
 - **Rollback:**
   - **The Atlas review alone:** restore `runtime.env.before-atlas` from the rollback folder (or remove the
     `ASKRIGOR_ATLAS_REVIEW` line) and recreate only `research-mcp`. The owner actions close, and nothing else changes.
