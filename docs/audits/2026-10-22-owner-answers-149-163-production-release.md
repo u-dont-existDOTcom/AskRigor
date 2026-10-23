@@ -162,10 +162,16 @@
   - **Notice v3:** both of the owner's accounts were free accounts on notice v2, so each must accept v3 before free
     research. The Claude account's `inspect` reads `UNENROLLED` with notice `free-contributor-v3-2026-10-22`, and its
     manifests report research access `mode_not_chosen` with the step to show the new notice. Question 164 on the owner
-    page asks for the acceptance.
+    page asked for the acceptance.
+  - **The owner accepted it** at 00:07:25 UTC on 23 October (the account's `activatedAt`). Claude and ChatGPT sign in
+    to the same AskRigor account, so both apps show it accepted; the laptop's probes saw it from 00:13 UTC, and
+    their logs hold no acceptance call, so the probes only read the account's state.
   - **The regressions wait for both.** From 22:38 UTC, `probe-then-run.sh` probes the ChatGPT app every 8 minutes, up
     to 15 times. It starts the run only when `finalize_research` lists `named_target` and `unwatched_videos` and the
     account's research access is active.
+  - **The app's tool list stayed stale.** The probes ran every 8 minutes to 00:38 UTC, every 20 minutes from 00:41 to
+    03:27 and every 30 minutes from 03:50 to 07:25 on 23 October (32 in all), and every one found the tool list that
+    names build `71f09f63`. The regressions wait for the owner's refresh in ChatGPT's app settings.
 - **Lessons:** lesson #49 (161a, HRP 20.6.31) was labelled accepted and incorporated at 22:29 UTC. `npm run
   lessons:status` at 22:34 UTC: 32 open, 0 needing review, 0 accepted but not incorporated, 37 incorporated or closed, 0
   eligible for deletion, every lane item recorded (main and open pull requests).
