@@ -7,7 +7,7 @@ import {
   type AtlasNumberEntry as AtlasNumber
 } from "@askrigor/evidence-repository";
 
-import { atlasNumbersProblems, binaryContrast } from "../apps/research-mcp/src/binary-results.js";
+import { atlasNumbersProblems, binaryContrast, figureShown } from "../apps/research-mcp/src/binary-results.js";
 import {
   atlasBasesOf,
   atlasLinkProblems,
@@ -159,6 +159,20 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
   const codes = (numbers: AtlasNumber[], wording = WORDING) =>
     atlasNumbersProblems(numbers, wording).map(({ at, code }) => `${at} ${code}`);
 
+  it("reads what a text shows of a figure with the one check the answer's binary_results uses too", () => {
+    expect(figureShown(tremor, WORDING)).toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: true });
+    expect(figureShown({ ...tremor, nnt: 9 }, "Over 12 weeks, the tremor score halved in more on zentarine.")).toEqual({
+      groupsNotShown: [
+        { field: "option", name: "zentarine", events: 30, total: 120, rate: 25 },
+        { field: "comparator", name: "placebo", events: 18, total: 120, rate: 15 },
+      ],
+      numbersNeededNotShown: ["nnt"],
+      followUpShown: true,
+    });
+    expect(figureShown(tremor, "The tremor score halved in 30 of 120 and 18 of 120, a number needed to treat of 10."))
+      .toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: false });
+  });
+
   it("is binary_results' flat entry without its quote", () => {
     expect(atlasNumbersSchema.parse([tremor, nausea])).toEqual([tremor, nausea]);
     expect(atlasNumbersSchema.parse([])).toEqual([]);
@@ -247,6 +261,8 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     const dashed = { ...tremor, follow_up: "12-Week follow-up." };
     const wording = WORDING.replace("Over 12 weeks", "At the *12–week follow‑up*");
     expect(codes([dashed, { ...nausea, follow_up: "12-week follow-up" }], wording)).toEqual([]);
+    // And the quotation marks around a declared follow-up, as the answer's check sets them aside.
+    expect(codes([{ ...tremor, follow_up: "“12 weeks”" }, nausea])).toEqual([]);
   });
 
   it("compares the follow-up in digits of any script (review finding 9)", () => {
@@ -261,6 +277,37 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     // Another follow-up is still another, in any script.
     expect(codes([{ ...tremor, follow_up: "١٣ weeks" }, nausea]))
       .toEqual(["numbers[0] follow_up_not_shown", "numbers[0] harms_missing"]);
+  });
+
+  it("finds the follow-up only as its own number, not as part of a longer one, as the answer's check does", () => {
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over 112 weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over 1,12 weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    const weekOne = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "week 1" });
+    expect(codes([weekOne(tremor), weekOne(nausea)], WORDING.replace("Over 12 weeks", "At week 12")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([weekOne(tremor), weekOne(nausea)], WORDING.replace("Over 12 weeks", "At week 1"))).toEqual([]);
+    // Any occurrence that stands as its own number shows it.
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "After 112 weeks of screening and over 12 weeks")))
+      .toEqual([]);
+    // In another script's digits too.
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over ١١٢ weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    // A link is read by its text, as the answer's check reads one: a follow-up only in a link's target is not shown.
+    const dashed = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "12-week" });
+    expect(codes([dashed(tremor), dashed(nausea)],
+      WORDING.replace("Over 12 weeks", "In [the trial](https://example.org/12-week-trial)")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([dashed(tremor), dashed(nausea)], WORDING.replace("Over 12 weeks", "In [the 12-week trial](https://example.org/a)")))
+      .toEqual([]);
+    // Not part of a longer number, the follow-up's numbers are not set aside either: "2 years" in "12 years" is not
+    // the follow-up, so the 2 of "2%" still shows a rate.
+    const strokes: AtlasNumber = {
+      outcome: "stroke", better: "fewer", option: "zentarine", option_events: 6, option_total: 300,
+      comparator: "placebo", comparator_events: 3, comparator_total: 300, follow_up: "2 years"
+    };
+    expect(codes([strokes], "Over 12 years, a stroke in 2% on zentarine and 1% on placebo.")).toEqual([]);
   });
 
   it("does not read the follow-up's own numbers as a rate (review finding 10)", () => {

@@ -12,7 +12,7 @@ import {
   CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
-import { binaryContrast, binaryGroups, withoutEndPunctuation } from "./binary-results.js";
+import { binaryContrast, binaryGroups, figureShown, withoutEndPunctuation } from "./binary-results.js";
 import { cardFieldProblems, type AnswerFigure } from "./findings/card-fields.js";
 import {
   permissiveConnectorInputSchema,
@@ -26,7 +26,7 @@ import {
   toolListNotice, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
 } from "./tool-list-currency.js";
 import type { SecondReaderFinding } from "./second-reader.js";
-import { extractUnsignedNumbers, includesAbsoluteNumber, numberReadings } from "./unicode-numbers.js";
+import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
   findingsAndMapSaveOffer,
   findingsCardDigest,
@@ -3472,7 +3472,8 @@ const YOUTUBE_LANE_FINDINGS = [
   "benefit_reports", "no_effect_reports", "adverse_reports", "creators_versus_commenters", "effect_on_answer"
 ] as const;
 
-// binaryGroups and binaryContrast, which read these, are shared with the Atlas's numbers (binary-results.ts).
+// binaryGroups, binaryContrast and figureShown, which read these, are shared with the Atlas's numbers
+// (binary-results.ts).
 type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
 
 function answerDraftProblems(
@@ -3608,33 +3609,21 @@ function answerDraftProblems(
   }
   // Yes-or-no results (AskRigor#356; finalizeResearch checks their arithmetic): the quote shows each group's figure
   // as declared, its events and total or its rate as a percentage, and a number needed to treat or harm with its
-  // follow-up (HRP NNTAndNNH). A total of 1,000 or more may be written with a grouping separator, so each number
-  // counts in every reading. Whether the quote reports the declared outcome stays the model's declaration.
+  // follow-up (HRP NNTAndNNH). figureShown reads them, the one reading an Atlas finding's numbers get too: each number
+  // in every reading and in digits of any script, the follow-up standing as its own number, and its own numbers
+  // showing no rate. Whether the quote reports the declared outcome stays the model's declaration.
   for (const [index, result] of context.binaryResults.entries()) {
     const at = `binary_results[${index}]`;
-    const numbers = numberReadings(result.quote);
-    for (const { name, events, total } of binaryGroups(result)) {
-      // More events than people has its own step, and no rate.
-      if (events > total) continue;
-      const rate = 100 * events / total;
-      // A rate rounded to a whole number or to one decimal is within 0.5 of it.
-      const rateShown = numbers.some((number) => Math.abs(number - rate) <= 0.5 + 1e-9);
-      if (!rateShown && !(includesAbsoluteNumber(numbers, events) && includesAbsoluteNumber(numbers, total))) {
-        problems.push(`${at} quotes no figure for ${name}: the quote contains neither its events and total ` +
-          `(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
-      }
+    const shown = figureShown(result, result.quote);
+    for (const { name, events, total, rate } of shown.groupsNotShown) {
+      problems.push(`${at} quotes no figure for ${name}: the quote contains neither its events and total ` +
+        `(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
     }
-    const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
-    for (const field of stated) {
-      if (!includesAbsoluteNumber(numbers, result[field]!)) {
-        problems.push(`${at} quotes no number needed to ${field === "nnt" ? "treat" : "harm"}: the quote does not ` +
-          `contain ${result[field]}.`);
-      }
+    for (const field of shown.numbersNeededNotShown) {
+      problems.push(`${at} quotes no number needed to ${field === "nnt" ? "treat" : "harm"}: the quote does not ` +
+        `contain ${result[field]}.`);
     }
-    // The follow-up is folded as declared quotes are, so case, spacing, dashes, emphasis and a closing mark aside.
-    const followUp = quoteForm(result.follow_up);
-    if (stated.length > 0 && !(/[\p{L}\p{N}]/u.test(followUp) &&
-        quoteForm(result.quote.replace(MARKDOWN_LINK_TEXT, "$1")).includes(followUp))) {
+    if ((result.nnt !== undefined || result.nnh !== undefined) && !shown.followUpShown) {
       problems.push(`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain ` +
         "the declared follow-up.");
     }

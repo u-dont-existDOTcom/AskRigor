@@ -333,8 +333,47 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
       ready(await one(declaration({ quote: unbounded.replace(", a number needed to treat of 7", ""), nnt: undefined })));
       // Case, dashes, spacing, emphasis and a closing mark aside.
       ready(await one(declaration({ follow_up: "12 WEEKS." })));
+      ready(await one(declaration({ follow_up: "“12 weeks”" })));
       ready(await one(declaration({ quote: GOOD.replace("12 weeks", "**12**  weeks") })));
       ready(await one({ ...sertraline, quote: SERTRALINE.replace("10 to 13", "10–13"), follow_up: "over 10-13 weeks" }));
+    });
+
+    // The answer's figures and an Atlas finding's numbers are read by one check (figureShown in binary-results.ts).
+    const NO_FOLLOW_UP = "binary_results[0] gives a number needed to treat or harm without its follow-up: the quote does " +
+      "not contain the declared follow-up.";
+
+    it("compares the follow-up in digits of any script", async () => {
+      ready(await one(declaration({ quote: GOOD.replace("12 weeks", "١٢ weeks") })));
+      ready(await one(declaration({ quote: GOOD.replace("12 weeks", "१२ weeks") })));
+      ready(await one(declaration({ follow_up: "١٢ weeks" })));
+      blocked(await one(declaration({ quote: GOOD.replace("12 weeks", "١٣ weeks") })), [NO_FOLLOW_UP]);
+    });
+
+    it("finds the follow-up only as its own number, not as part of a longer one", async () => {
+      blocked(await one(declaration({ quote: GOOD.replace("12 weeks", "112 weeks") })), [NO_FOLLOW_UP]);
+      blocked(await one(declaration({ quote: GOOD.replace("12 weeks", "1.12 weeks") })), [NO_FOLLOW_UP]);
+      blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 12"), follow_up: "week 1" })),
+        [NO_FOLLOW_UP]);
+      blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1.5"), follow_up: "week 1" })),
+        [NO_FOLLOW_UP]);
+      // Standing as its own number, it is shown, beside other numbers too.
+      ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1"), follow_up: "week 1" })));
+      ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "After 8-12 weeks") })));
+      ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At visit 3, 12 weeks in") })));
+      // Any occurrence that stands as its own number shows it.
+      ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "After 112 weeks of screening and 12 weeks") })));
+    });
+
+    it("does not read the follow-up's own numbers as a group's rate", async () => {
+      // 37 of 300 is 12.3%, which "12 weeks" does not show, while "12% after 12 weeks" does.
+      const figure = declaration({ option_events: 37, option_total: 300, comparator_events: 18, comparator_total: 300,
+        nnt: undefined });
+      blocked(await one({ ...figure, quote: "After 12 weeks, 6% of people taking placebo had a response, and more " +
+        "taking the drug." }), [noFigure(0, "the drug", 37, 300, 12.3)]);
+      ready(await one({ ...figure, quote: "After 12 weeks, 12% of people taking the drug had a response, against 6% " +
+        "taking placebo." }));
+      // A follow-up the quote does not show sets nothing aside.
+      ready(await one({ ...figure, quote: "12% of people taking the drug had a response, against 6% taking placebo." }));
     });
   });
 

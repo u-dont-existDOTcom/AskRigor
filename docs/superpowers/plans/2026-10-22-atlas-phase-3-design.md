@@ -87,13 +87,16 @@ then neither saved nor offered and never holds back the answer, as today.
 5. **Counts are at most their sizes**, and each figure's arithmetic holds: an `nnt` or `nnh` is 1 divided by the
    difference in rates, rounded up, and the one its counts support (an `nnt` when the option did better); not both;
    none when the rates are equal (`atlasNumbersProblems`, the function phase 2's acceptance runs).
-6. **The computed figures match what the card states**, in digits of any script (`numberReadings` in
-   `unicode-numbers.ts`): the claim shows each group's events and total, or its rate rounded to a whole number or one
-   decimal, where the numbers of a follow-up the claim shows are not read as a rate, one occurrence of each set aside,
-   so "12 weeks" shows no rate of 12.3% and "12% at 12 weeks" still shows 12% (review finding 10); it shows each `nnt`
-   or `nnh` with its follow-up, which is compared in digits of any script too (review
-   finding 9); and beside an `nnt` the numbers hold a harm over the same follow-up, or `harms_none_found` (153b). This is phase 2's acceptance check run on the claim, so a card the final
-   check passes also passes acceptance (choice 3).
+6. **The computed figures match what the card states**, read by `figureShown` in `binary-results.ts`, the one
+   reading the answer's `binary_results` quotes get too, so the two checks cannot read a figure differently, as their
+   two copies did before (review findings 9 and 10, and the same defects found again in the answer's copy): the claim
+   shows each group's events and total, or its rate rounded to a whole number or one decimal, in digits of any script
+   (`numberReadings` in `unicode-numbers.ts`), where the numbers of a follow-up the claim shows are not read as a rate,
+   one occurrence of each set aside, so "12 weeks" shows no rate of 12.3% and "12% at 12 weeks" still shows 12%; it
+   shows each `nnt` or `nnh` with its follow-up, compared in digits of any script too and standing as its own number,
+   so "2 years" is not shown by "12 years" or "1.2 years", nor "week 1" by "week 12"; and beside an `nnt` the numbers
+   hold a harm over the same follow-up, or `harms_none_found` (153b). This is phase 2's acceptance check run on the
+   claim, so a card the final check passes also passes acceptance (choice 3).
 7. **Each figure is one the answer reported:** its four counts and its `better` are those of a `binary_results` entry
    of the same call, which the gate has already checked against the answer (choice 4).
 8. **Each search is bound to the call's receipts:** a `literature_search` receipt verified in this call has the same
