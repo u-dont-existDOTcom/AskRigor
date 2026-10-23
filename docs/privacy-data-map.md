@@ -978,7 +978,10 @@ What the model sends, and when:
   included: since the Atlas keeps a topic's key for good, the screen reads it
   as the key followed by its words (each `.` and `_`, and each dash not between
   two digits, read as a space), so a joined token such as `555_867_5309` shows
-  what it holds. The sentence on what
+  what it holds. In a search's query, and only there, a PubMed record number
+  (up to nine digits written straight before `[uid]` or `[pmid]`, continuing
+  no other number) is set aside as `PMID 40123456` is in any text, so a search
+  for records by their numbers is not read as a phone number. The sentence on what
   communities reported that the pages may one day show (owner decision 4a) is
   not collected: no schema accepts it, and nothing stores it.
 - In `save_research_findings`, only after a paid-private user says yes to that
@@ -1176,8 +1179,9 @@ evidence under decision 4a (a finding with no DOI, PMID, PMCID or NCT source is
 refused, and one that also rested on audited comments needs the owner's confirm),
 the numbers the AI declares against the wording, the providers' records and
 retraction notices (a retracted source is bound as context only, after the
-owner's confirm), the privacy screen and a guard against any `ARF-` reference
-over every text an intent would store (from Atlas phase 3 the topic's key too,
+owner's confirm), the privacy screen and a guard against any card reference
+(`ARF-` and four digits or more, as a card's id is written, so a gene such as
+ARF-6 passes) over every text an intent would store (from Atlas phase 3 the topic's key too,
 read as words as at the final check), the exact re-check key, and the rules for
 links. The topic, the numbers and the links are the AI's declarations; the owner
 accepts or rejects. From Atlas phase 3 (built, not yet released) a card's topic,

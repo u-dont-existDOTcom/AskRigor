@@ -7,7 +7,13 @@ import {
 } from "@askrigor/evidence-repository";
 
 import type { PrivacyScreenReasonCode } from "../lessons/privacy-screen.js";
-import { normalizedFindingsText, screenFindingsText, type StoredFinding, type VerifiedBasis } from "./card.js";
+import {
+  normalizedFindingsText,
+  screenFindingsText,
+  withoutPubMedRecordNumbers,
+  type StoredFinding,
+  type VerifiedBasis,
+} from "./card.js";
 import type { FindingsRecord } from "./service.js";
 import { parseAtlasSource } from "./source-checks.js";
 
@@ -124,11 +130,12 @@ export interface AtlasTextProblem {
   reasonCode: AtlasTextReason;
 }
 
-// A card's public id as publicFindingsCardId writes it, ARF- and digits, read after normalizedFindingsText (so in any
-// case and width, with invisible characters and extra spaces gone), with any dash, and digits of any script.
-const CARD_REFERENCE = /arf ?[-‐-―−] ?\p{Nd}/u;
+// A card's public id as publicFindingsCardId writes it, ARF- and four digits or more (ARF-0042), read after
+// normalizedFindingsText (so in any case and width, with invisible characters and extra spaces gone), with any dash,
+// and digits of any script. A shorter number is no card's, so a gene such as ARF-6 passes (review finding 11).
+const CARD_REFERENCE = /arf ?[-‐-―−] ?\p{Nd}{4}/u;
 
-/** Whether a text names a findings card: ARF- followed by digits. */
+/** Whether a text names a findings card: ARF- followed by four digits or more. */
 export function containsCardReference(text: string): boolean {
   return CARD_REFERENCE.test(normalizedFindingsText(text));
 }
@@ -137,13 +144,18 @@ export function containsCardReference(text: string): boolean {
  * The privacy screen on every text an accept or edit would store (design section 2): the findings card's screen, which
  * sets aside the forms a study summary carries and then applies the lesson queue's screen (whose first-person and
  * address rules read English, as for cards), and a guard that no text names a card, since canonical rows never hold an
- * ARF number. Each field is named with every rule it breaks; an undefined text is skipped.
+ * ARF number. Each field is named with every rule it breaks; an undefined text is skipped. A field named in
+ * searchQueries is a search's query, which the screen reads as the card's screen does, with its PubMed record numbers
+ * set aside (review finding 11); the guard against a card reference reads it as it is written.
  */
-export function screenAtlasTexts(texts: Readonly<Record<string, string | undefined>>): AtlasTextProblem[] {
+export function screenAtlasTexts(
+  texts: Readonly<Record<string, string | undefined>>,
+  searchQueries: ReadonlySet<string> = new Set(),
+): AtlasTextProblem[] {
   const problems: AtlasTextProblem[] = [];
   for (const [field, text] of Object.entries(texts)) {
     if (text === undefined) continue;
-    const reasonCode = screenFindingsText(text);
+    const reasonCode = screenFindingsText(searchQueries.has(field) ? withoutPubMedRecordNumbers(text) : text);
     if (reasonCode !== undefined) problems.push({ field, reasonCode });
     if (containsCardReference(text)) problems.push({ field, reasonCode: "card_reference" });
   }

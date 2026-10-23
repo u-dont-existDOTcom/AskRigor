@@ -340,14 +340,18 @@ describe("the privacy screen on the texts the Atlas would store", () => {
     expect(withoutStudyForms("PMID 40123456 and NCT01234567, odds ratio 1.23")).toBe("SOURCE and SOURCE, odds ratio N");
   });
 
-  it("refuses ARF- followed by digits in any case, width, dash or script of digits", () => {
+  it("refuses ARF- followed by four or more digits in any case, width, dash or script of digits", () => {
     for (const text of [
-      "ARF-0142", "as card arf-12 showed", "(Arf-0001)", "ＡＲＦ－０１４２", "ARF‑142", "ARF – 142",
-      "ARF-١٤٢", "AR​F-0142", "AR­F-0142"
+      "ARF-0142", "as card arf-0012 showed", "(Arf-0001)", "ＡＲＦ－０１４２", "ARF‑0142", "ARF – 0142", "ARF-10042",
+      "ARF-١٤٢٠", "AR​F-0142", "AR­F-0142"
     ]) {
       expect(containsCardReference(text), text).toBe(true);
     }
     for (const text of ["ARF6 inhibitors", "ARF stands for acute renal failure", "ARF-", "F-1007", "scarf - wool"]) {
+      expect(containsCardReference(text), text).toBe(false);
+    }
+    // A card's id always has four digits or more (ARF-0042), so a gene such as ARF-6 is no card (review finding 11).
+    for (const text of ["ARF-6 and ARF-1 GTPases", "the p14ARF-1 axis", "arf-12", "ARF‑142", "ARF – 142", "ARF-١٤٢"]) {
       expect(containsCardReference(text), text).toBe(false);
     }
     // An invisible character is also markup to the lesson screen.
@@ -355,6 +359,25 @@ describe("the privacy screen on the texts the Atlas would store", () => {
       { field: "wording", reasonCode: "control_or_markup" },
       { field: "wording", reasonCode: "card_reference" }
     ]);
+  });
+
+  it("reads a PubMed record number in a search query as a record, not a phone number (review finding 11)", () => {
+    const queries = new Set(["searchScope[0].query"]);
+    const query = (text: string) => screenAtlasTexts({ "searchScope[0].query": text }, queries);
+    for (const text of ["40123456[uid]", "zentarine AND (40123456[UID] OR 40123457[pmid])", "(40123456[Pmid])"]) {
+      expect(query(text), text).toEqual([]);
+    }
+    // Only a record number: a longer run, one that continues another number, one set apart from its tag, or one
+    // before another field's tag is read as before.
+    const flagged = [{ field: "searchScope[0].query", reasonCode: "direct_identifier" }];
+    for (const text of ["5551234567[uid]", "555 123 4567[uid]", "555-123-4567[pmid]", "40123456 [uid]", "40123456[tw]"]) {
+      expect(query(text), text).toEqual(flagged);
+    }
+    // In a search query only: another text reads the same number as before.
+    expect(screenAtlasTexts({ wording: "Searched as 40123456[uid]." }))
+      .toEqual([{ field: "wording", reasonCode: "direct_identifier" }]);
+    // The guard against a card reference reads the query as it is written.
+    expect(query("ARF-0142[uid]")).toEqual([{ field: "searchScope[0].query", reasonCode: "card_reference" }]);
   });
 });
 

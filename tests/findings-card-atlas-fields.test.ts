@@ -424,6 +424,21 @@ describe("the new texts' privacy and storage", () => {
       expect.stringMatching(/^findings_card\.topic\.key looks like it holds contact details/u)]);
   });
 
+  it("reads a PubMed record number in a search query as a record, not a phone number (review finding 11)", () => {
+    const screened = (query: string) => screenFindingsCard(findingsCardSchema.parse(withFinding(1, {
+      searches: [{ database: "pubmed", query }] })));
+    for (const query of ["40123456[uid]", "zentarine AND (40123456[UID] OR 40123457[pmid])"]) {
+      expect(screened(query), query).toEqual([]);
+    }
+    const flagged = [{ field: "findings[1].searches[0].query", reasonCode: "direct_identifier" }];
+    for (const query of ["5551234567[uid]", "555 123 4567[uid]", "40123456 [uid]", "40123456[tw]"]) {
+      expect(screened(query), query).toEqual(flagged);
+    }
+    // In a search query only.
+    expect(screenFindingsCard(findingsCardSchema.parse(withFinding(1, { why_not_usual: "Searched as 40123456[uid]." }))))
+      .toEqual([{ field: "findings[1].why_not_usual", reasonCode: "direct_identifier" }]);
+  });
+
   it("stores no YouTube link in any new text, and keeps a field the card leaves out out", () => {
     const link = "https://youtu.be/aaaaaaaaaaa";
     const linked = {

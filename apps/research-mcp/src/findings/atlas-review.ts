@@ -2464,8 +2464,12 @@ function intentTexts(payload: unknown): Record<string, string | undefined> {
   }
 }
 
+// The fields contentTexts names for the searches' queries, which the screen reads as search queries (review finding 11).
+const SEARCH_QUERY_FIELD = /^searchScope\[\d+\]\.query$/u;
+
 function screenTexts(texts: Readonly<Record<string, string | undefined>>): Array<{ field: string; reasonCode: string }> {
-  return screenAtlasTexts(texts).map(({ field, reasonCode }) => ({ field, reasonCode }));
+  const searchQueries = new Set(Object.keys(texts).filter((field) => SEARCH_QUERY_FIELD.test(field)));
+  return screenAtlasTexts(texts, searchQueries).map(({ field, reasonCode }) => ({ field, reasonCode }));
 }
 
 /** The intent as the review store keeps it, or why it cannot be one: each problem names its field. */

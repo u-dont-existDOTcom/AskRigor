@@ -355,8 +355,12 @@ Where the build settles what the sections above leave open:
   only some. A finding accepted before this release has none until a correction or wording fix declares all four.
 - **The topic's label** from the card goes with the card's key only; another key that is new to the Atlas needs
   `topicLabel`, and `topicLabel` without `topicKey` is refused as input.
-- **The privacy screen at acceptance** is the save's screen plus a refusal of any `ARF-` reference. A search query is
-  screened there too (`searchScope[i].query`) and, since it must match its receipt, cannot be reworded.
+- **The privacy screen at acceptance** is the save's screen plus a refusal of any card reference: `ARF-` and four
+  digits or more, as a card's id is written, so a gene such as ARF-6 passes; the storage's own guard reads the same
+  form (review finding 11). A search query is screened there too (`searchScope[i].query`) and, since it must match its
+  receipt, cannot be reworded. In a query only, at the final check and at acceptance, a PubMed record number (up to nine
+  digits written straight before `[uid]` or `[pmid]`, continuing no other number) is set aside as `PMID 40123456` is in
+  any text, so a search for records by their numbers is not read as a phone number (review finding 11).
 - **`inspect_finding`** shows each card item's fields, the size of its numbers block and its searches, and the card's
   topic, and says what `accept_finding` will take from the card or needs the call to declare.
 - **Migration 0018's check** tests the kind for NULL before it admits searches, since a CHECK passes on NULL, and reads

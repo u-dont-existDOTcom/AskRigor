@@ -853,6 +853,27 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
       searchScope: [{ database: "pubmed", query: ATLAS_ERASED_TEXT, dateRange: range }] } });
   });
 
+  it("saves and accepts a search for PubMed records by their numbers, which name records, not people (review finding 11)", async () => {
+    await stubProviders();
+    const h = harness();
+    const query = "zentarine AND (40123456[uid] OR 40123457[pmid])";
+    const saved = await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query }] }] }, ["full_text_audit", "none"]);
+    expect(saved.status).toBe("saved");
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.checks.privacy).toEqual([]);
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2,
+      cardSha256: inspect.structured.card.cardSha256 });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ content: { searchScope: [{ database: "pubmed", query }] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    // The same number in a wording is read as before.
+    const edit = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      wording: "No trial of zentarine for the voice tremor was found, as 40123456[uid] showed." });
+    expect(edit.structured.checks.privacy).toEqual([{ field: "wording", reasonCode: "direct_identifier" }]);
+  });
+
   it("corrects a finding's fields after acceptance, all four or none, and keeps its searches only as nothing_found", async () => {
     await stubProviders();
     const h = harness();

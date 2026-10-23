@@ -114,7 +114,9 @@ export const ATLAS_ERASED_TEXT = "[wording removed]";
 export const ATLAS_ERASED_KEY = "0".repeat(64);
 
 const PUBLIC_NUMBER = /^F-[1-9][0-9]{3,}$/u;
-const ARF_REFERENCE = /ARF-\d/iu;
+// A findings card's id as the library writes it, ARF- and four digits or more (ARF-0042), so a gene such as ARF-6 is
+// no card (review finding 11).
+const ARF_REFERENCE = /ARF-\d{4}/iu;
 const YOUTUBE_REFERENCE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
 const CONTROL_CHARACTER = /\p{Cc}/u;
 
@@ -135,7 +137,7 @@ const instantSchema = z.iso.datetime({ offset: true }).refine(
 );
 
 /**
- * A text the Atlas stores. Never a card reference (ARF- followed by digits) or a YouTube link (4a), and no control
+ * A text the Atlas stores. Never a card reference (ARF- and four digits or more) or a YouTube link (4a), and no control
  * characters. Whether a text could identify a person is the owner's judgment, and the privacy screen's before this.
  */
 const atlasText = (max: number) => z.string().trim().min(1).max(max)

@@ -543,8 +543,9 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
         [`findings[${index}].numbers[${at}].comparator`, entry.comparator],
         [`findings[${index}].numbers[${at}].follow_up`, entry.follow_up]
       ]),
+      // A search's query as the screen reads a search query, with its PubMed record numbers set aside.
       ...(finding.searches ?? []).map((search, at): [string, string] =>
-        [`findings[${index}].searches[${at}].query`, search.query])
+        [`findings[${index}].searches[${at}].query`, withoutPubMedRecordNumbers(search.query)])
     ]),
     ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
     ...(declared?.what_it_changes === undefined ? []
@@ -569,6 +570,20 @@ const YEAR_RANGE = /(?<!\d)(?:1[89]|20)\d{2} ?- ?(?:1[89]|20)\d{2}(?!\d)/gu;
 const APOSTROPHE_IN_WORD = /(?<=\p{L})['’](?=\p{L})/gu;
 const WRAPPING_QUOTE = /["'\p{Pi}\p{Pf}]/u;
 const PLACEHOLDER = "SOURCE";
+// A PubMed record number in a search query: one to nine digits written straight before the bracketed field tag that
+// names a record, [uid] or [pmid] in any case, and continuing no other number (no digit before it, through the spaces,
+// dots, brackets and dashes a phone number runs through).
+const PUBMED_RECORD_NUMBER = /(?<!\d[ .()-]*)\d{1,9}\[(?:uid|pmid)\]/giu;
+
+/**
+ * A search query as the privacy screen reads it, in search queries only: each PubMed record number becomes "SOURCE",
+ * as "PMID 40123456" does in any text, so a search for records by their numbers ("40123456[uid]") is not read as a
+ * phone number, while "555 123 4567[uid]", a longer run and a number before another field's tag still are (review
+ * finding 11). Exact and structural.
+ */
+export function withoutPubMedRecordNumbers(query: string): string {
+  return query.replace(PUBMED_RECORD_NUMBER, PLACEHOLDER);
+}
 
 /**
  * A text with the forms a study summary legitimately carries set aside for the privacy screen: links to a study's or
