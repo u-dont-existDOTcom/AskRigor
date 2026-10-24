@@ -21,6 +21,14 @@ import {
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
 import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import {
+  advanceCheckRound,
+  CHECK_ROUND_LIMIT,
+  ROUND_TOKEN_MAX_CHARACTERS,
+  roundBinding,
+  stoppedCheckBugReport,
+  type CheckStep
+} from "./check-rounds.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import {
   toolListNotice, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
@@ -829,6 +837,8 @@ export const finalizeResearchInputSchema = z.object({
     .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
     .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+  round_token: z.string().max(ROUND_TOKEN_MAX_CHARACTERS).optional()
+    .describe(`The round_token of this turn's previous finalize_research result, passed back exactly; left out on the turn's first call. A turn has at most ${CHECK_ROUND_LIMIT} rounds.`),
   // Owner request (2026-10-22), and the 22 Oct regressions: with it, a missing declaration says whether this app's
   // tools are out of date rather than asking the model to guess. The published schema's description gives the
   // surface's version (finalizeResearchConnectorInputSchema).
@@ -1018,7 +1028,7 @@ export function parseFinalizeResearchInput(rawInput: unknown) {
   return finalizeResearchInputSchema.safeParse(input);
 }
 
-function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions): FinalizeResearchOutput {
+function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, rawInput: unknown): FinalizeResearchOutput {
   const pathOf = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) =>
     typeof part === "number" ? `${text}[${part}]` : `${text}${text === "" ? "" : "."}${String(part)}`, "") || "inputs";
   const nextSteps = ["The call's inputs have problems, so the final check did not run. Fix each one and call again:"];
@@ -1046,9 +1056,39 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
   // A second reading of no answer finds nothing, so every step here is about the inputs.
   const secondReading = options.secondReading === undefined
     ? undefined : checkSecondReading(undefined, options.secondReading, nextSteps);
+  // Owner answer 172a: inputs that fail count as rounds too. The list counts as one step, since its first line repeats.
+  const raw = (key: string): string | undefined => {
+    const value = rawInput !== null && typeof rawInput === "object" && !Array.isArray(rawInput)
+      ? (rawInput as Record<string, unknown>)[key] : undefined;
+    return typeof value === "string" ? value : undefined;
+  };
+  const checkRound = options.secret === undefined ? undefined : advanceCheckRound(
+    nextSteps.map((text) => ({ kind: "input_invalid" as const, text })),
+    {
+      token: raw("round_token"),
+      secret: options.secret,
+      bind: roundBinding(raw("carried_state"), raw("research_target")?.trim()),
+      now: options.now?.() ?? new Date(),
+      wholeList: true
+    }
+  );
+  const stopped = checkRound?.status === "stopped" ? checkRound : undefined;
+  const steps = stopped === undefined ? nextSteps : [];
+  const report = stopped === undefined ? undefined : stoppedCheckBugReport(stopped);
   return {
-    contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: nextSteps,
-    next_step_kinds: nextSteps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
+    contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
+    next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
+    ...(checkRound === undefined ? {} : { round: { number: checkRound.round, limit: CHECK_ROUND_LIMIT } }),
+    ...(checkRound?.status === "open" ? { round_token: checkRound.token } : {}),
+    ...(stopped === undefined ? {} : {
+      stopped: {
+        reason: stopped.reason,
+        could_not: stopped.couldNot.map(({ kind, text }) => ({ kind, step: text })),
+        next_turn: [],
+        short_reason: "the check could not run"
+      }
+    }),
+    ...(report === undefined ? {} : { bug_report: report }),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
@@ -1110,15 +1150,30 @@ export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
   new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
 
-export function uncheckedLine(kinds: readonly NextStepKind[]): string {
+// Owner answer 172a: research the check stopped asking for, because it came back unchanged three rounds running, is
+// reported as failing rather than unfinished.
+function uncheckedReasons(kinds: readonly NextStepKind[], researchStuck: boolean): string[] {
   const open = new Set(kinds);
-  const reasons = [
+  return [
     ...(open.has("input_invalid") ? ["the check could not run"] : []),
     ...(open.has("research") ? ["research this answer needs is unfinished"] : []),
+    ...(researchStuck ? ["a research step kept failing"] : []),
     ...(open.has("receipt_rejected") ? ["some of its research records did not verify"] : []),
     ...([...open].some((kind) => UNCHECKED_ANSWER_KINDS.has(kind)) ? ["some of its statements were not checked"] : [])
   ];
+}
+
+export function uncheckedLine(kinds: readonly NextStepKind[], researchStuck = false): string {
+  const reasons = uncheckedReasons(kinds, researchStuck);
   return reasons.length === 0 ? `${UNCHECKED_LINE_START}.` : `${UNCHECKED_LINE_START}: ${listOf(reasons, "and")}.`;
+}
+
+/** The kinds a check left open, research it stopped asking for counted apart, for the reasons it gives. */
+function roundReasonKinds(open: readonly CheckStep[], stuck: readonly CheckStep[]): { kinds: NextStepKind[]; researchStuck: boolean } {
+  return {
+    kinds: [...new Set([...open, ...stuck.filter(({ kind }) => kind !== "research")].map(({ kind }) => kind))],
+    researchStuck: stuck.some(({ kind }) => kind === "research")
+  };
 }
 
 const MAX_CARRIED_OBSERVATIONS = 30;
@@ -1220,8 +1275,10 @@ const finalizationStatusSchema = z.enum([
   "ready",
   "ready_with_limits",
   "not_ready",
+  "stopped",
   "receipts_unavailable"
 ]);
+const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string() }).strict();
 
 export const finalizeResearchOutputSchema = z.object({
   contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
@@ -1234,7 +1291,7 @@ export const finalizeResearchOutputSchema = z.object({
       "answer_draft, the draft does not yet say, show or link what it must; carried_state, the conversation's " +
       "carried state; second_reading, a sentence a second reading found; tool_list, the connector-refresh hint."),
   unchecked_line: z.string().optional()
-    .describe("When not_ready: the line an answer given before this check passes ends with, saying why it is unchecked. " +
+    .describe("When not_ready or stopped: the line an answer given before this check passes ends with, saying why it is unchecked. " +
       "Such an answer also says at its start that it is partial, and gives no ranking or verdict that a step still " +
       "open could change."),
   previous_check: z.object({
@@ -1243,6 +1300,28 @@ export const finalizeResearchOutputSchema = z.object({
   }).strict().optional()
     .describe("When the carried state shows that the previous final check in this conversation did not pass: the " +
       "kinds of step it left open. An answer given after it went out unchecked."),
+  round: z.object({
+    number: z.number().int().min(1).max(CHECK_ROUND_LIMIT),
+    limit: z.literal(CHECK_ROUND_LIMIT)
+  }).strict().optional()
+    .describe("When the check did not pass: which of this turn's rounds this call was, and the limit."),
+  round_token: z.string().optional()
+    .describe("When not_ready: passed back exactly as round_token in this turn's next finalize_research call."),
+  stuck_steps: z.array(roundStepSchema).optional()
+    .describe("When not_ready: steps that came back unchanged three rounds running, which the check stopped asking " +
+      "for. An answer given now names them as what AskRigor could not do."),
+  stopped: z.object({
+    reason: z.enum(["limit", "stuck"]),
+    could_not: z.array(roundStepSchema),
+    next_turn: z.array(roundStepSchema),
+    short_reason: z.string()
+  }).strict().optional()
+    .describe("When stopped: why the check stopped (the round limit, or only steps that kept coming back were left), " +
+      "what AskRigor could not do this turn, what the next turn can do, and the short reason the answer's last line " +
+      "and the result panel give."),
+  bug_report: z.string().optional()
+    .describe("When stopped with steps AskRigor could not do: a short general bug report the answer shows before " +
+      "asking whether AskRigor may send it."),
   limits: z.array(z.string()),
   caveats: z.array(z.string())
     .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
@@ -1406,7 +1485,7 @@ export function finalizeResearch(
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
   const parsed = parseFinalizeResearchInput(rawInput);
-  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options);
+  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, rawInput);
   const input = parsed.data;
   if (options.secret === undefined) {
     const nextSteps: string[] = [];
@@ -3060,6 +3139,8 @@ export function finalizeResearch(
     text(receipt.claims.acct) === mapAccount && receiptOrder(receipt) > researchBegan);
   // Whether the paid private offer also asks to file it, which the finalization receipt then signs.
   let mapOffered = false;
+  // The save offer's sentence, which a stopped check takes back: with no finalization receipt there is nothing to save.
+  let saveOfferCaveat: string | undefined;
   // What this research did that a quick answer cannot, counted as a card's work is, for the free reminder.
   const researchWork: VerifiedWork = {
     studies: new Set([...validatedIds].map(paperKey)).size,
@@ -3148,7 +3229,8 @@ export function finalizeResearch(
           // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
           // one was filed already, so one yes saves the card and files the map.
           mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
-          caveats.push(mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work)));
+          saveOfferCaveat = mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work));
+          caveats.push(saveOfferCaveat);
         }
       }
     }
@@ -3321,11 +3403,39 @@ export function finalizeResearch(
 
   const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
 
-  const status = nextSteps.length > 0
-    ? "not_ready"
-    : limits.length > 0
-      ? "ready_with_limits"
-      : "ready";
+  // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
+  // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
+  const checkRound = nextSteps.length === 0 ? undefined : advanceCheckRound(
+    nextSteps.map((text, index) => ({ kind: stepKinds[index]!, text })),
+    {
+      token: input.round_token,
+      secret: options.secret,
+      bind: roundBinding(input.carried_state, input.research_target),
+      now: options.now?.() ?? new Date()
+    }
+  );
+  const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
+  // Every step this check leaves open, asked for or not, for the carried state's open kinds.
+  const openSteps: CheckStep[] = checkRound === undefined ? []
+    : checkRound.status === "open" ? [...checkRound.open, ...checkRound.stuck]
+      : [...checkRound.couldNot, ...checkRound.nextTurn];
+  if (checkRound !== undefined) {
+    nextSteps.splice(0, nextSteps.length, ...roundOpen.map(({ text }) => text));
+    stepKinds.splice(0, stepKinds.length, ...roundOpen.map(({ kind }) => kind));
+  }
+  const status = checkRound?.status === "stopped"
+    ? "stopped"
+    : nextSteps.length > 0
+      ? "not_ready"
+      : limits.length > 0
+        ? "ready_with_limits"
+        : "ready";
+  const passed = status === "ready" || status === "ready_with_limits";
+  if (status === "stopped" && saveOfferCaveat !== undefined) {
+    const at = caveats.indexOf(saveOfferCaveat);
+    if (at >= 0) caveats.splice(at, 1);
+    mapOffered = false;
+  }
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
@@ -3357,7 +3467,30 @@ export function finalizeResearch(
   if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
   else if (status === "ready_with_limits") {
     output.check_line = "Checked with AskRigor's final check, with the limits above.";
-  } else output.unchecked_line = uncheckedLine(stepKinds);
+  } else if (checkRound === undefined) output.unchecked_line = uncheckedLine(stepKinds);
+  else {
+    // A stopped check's research the next turn can do is unfinished; the research it could not do kept failing.
+    const { kinds, researchStuck } = checkRound.status === "open"
+      ? roundReasonKinds(checkRound.open, checkRound.stuck)
+      : roundReasonKinds(checkRound.nextTurn, checkRound.couldNot);
+    output.unchecked_line = uncheckedLine(kinds, researchStuck);
+    output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
+    const entry = ({ kind, text }: CheckStep) => ({ kind, step: text });
+    if (checkRound.status === "open") {
+      output.round_token = checkRound.token;
+      if (checkRound.stuck.length > 0) output.stuck_steps = checkRound.stuck.map(entry);
+    } else {
+      const reasons = output.unchecked_line.slice(UNCHECKED_LINE_START.length).replace(/^: /u, "").replace(/\.$/u, "");
+      output.stopped = {
+        reason: checkRound.reason,
+        could_not: checkRound.couldNot.map(entry),
+        next_turn: checkRound.nextTurn.map(entry),
+        short_reason: reasons === "" ? "the check stopped before it passed" : reasons
+      };
+      const report = stoppedCheckBugReport(checkRound);
+      if (report !== undefined) output.bug_report = report;
+    }
+  }
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
   // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
   if (carried?.last_status === "not_ready") {
@@ -3371,7 +3504,7 @@ export function finalizeResearch(
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
-    if (status !== "not_ready" && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
+    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
   }
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
@@ -3383,7 +3516,7 @@ export function finalizeResearch(
       output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
     }
   }
-  if (status !== "not_ready") {
+  if (passed) {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
       community: input.community_evidence,
@@ -3417,8 +3550,11 @@ export function finalizeResearch(
     });
   }
   // A carried state that does not verify gets no replacement: the model passes the last good one again.
+  // A stopped check is carried as one that did not pass, with every kind it left open, asked for or not.
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
-    status, open: [...new Set(stepKinds)], caveats
+    status: status === "stopped" ? "not_ready" : status,
+    open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
+    caveats
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);

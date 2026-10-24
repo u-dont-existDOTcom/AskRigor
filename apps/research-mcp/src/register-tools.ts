@@ -218,6 +218,7 @@ import {
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
+import { CHECK_ROUND_LIMIT, STOPPED_CHECK_REPORT_OFFER, STUCK_AFTER_ROUNDS } from "./check-rounds.js";
 import {
   COMMUNITY_SKIP_CAVEAT_START,
   HARM_NOT_CHECKED_CAVEAT_START,
@@ -840,6 +841,41 @@ export const YOUTUBE_FINDINGS_NOT_SAVED = "not saved: its findings all rest on Y
   "not store until YouTube confirms it may";
 export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
   "save_research_findings does not save them";
+
+/**
+ * What an answer given before the check passes says (AskRigor#354, #359), and owner answer 172a: why the check did not
+ * pass, in two kinds. What AskRigor could not do (a step that kept coming back, or at the limit one the AI and the
+ * check could not settle) comes with a bug report and the question whether AskRigor may send it; what the next turn
+ * can do comes with how to continue. A stopped check is the turn's final result.
+ */
+export function uncheckedAnswerInstructions(result: FinalizeResearchOutput): string {
+  if (result.unchecked_line === undefined) return "";
+  const stopped = result.stopped;
+  const couldNot = stopped === undefined ? (result.stuck_steps ?? []).length : stopped.could_not.length;
+  const nextTurn = stopped === undefined ? result.next_steps.length : stopped.next_turn.length;
+  const reasons = [
+    ...(couldNot === 0 ? [] : [
+      `what AskRigor could not do (${stopped === undefined ? "stuck_steps" : "stopped.could_not"}), then a short ` +
+        "general bug report with no personal details" +
+        (result.bug_report === undefined ? "" : `, such as ${JSON.stringify(result.bug_report)}`) +
+        `, and asks, as written: "${STOPPED_CHECK_REPORT_OFFER}"`
+    ]),
+    ...(nextTurn === 0 ? [] : [
+      `what the next turn can do (${stopped === undefined ? "the steps still open" : "stopped.next_turn"}) and how ` +
+        "to continue, such as \"Say “continue” and I'll read the two studies I couldn't open yet.\""
+    ])
+  ];
+  return (stopped === undefined ? "" :
+    `\nThe final check stopped: ${stopped.reason === "limit"
+      ? `this turn reached its limit of ${CHECK_ROUND_LIMIT} rounds`
+      : `the only steps left came back unchanged ${STUCK_AFTER_ROUNDS} rounds running`}. This is the turn's final ` +
+      "result: do not call finalize_research again in this turn, and give the answer now.") +
+    "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or verdict " +
+    "that a step still open could change, " +
+    (reasons.length === 0 ? "" : `says before its last line, in plain words, ${reasons.join("; and ")}; `) +
+    "and ends with this line, as written (in the answer's language when the answer is not in English): " +
+    result.unchecked_line;
+}
 
 function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
@@ -2228,11 +2264,15 @@ function defineResearchOperations(
         "each key study, and the caveats, " +
         "and is not stored; once the other checks pass, a second model may read the answer for harm " +
         "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
-        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened. Result: " +
+        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
+        "and after a not_ready result in this turn, its round_token. Result: " +
         "second_reading, whether it ran; " +
         "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
-        "hint when a required declaration is missing, each step's kind (next_step_kinds) and the line an answer given " +
-        "before a pass ends with (unchecked_line); previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer " +
+        "hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given " +
+        "before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, " +
+        `and steps that came back unchanged ${STUCK_AFTER_ROUNDS} rounds running, which it stopped asking for ` +
+        `(stuck_steps); stopped, the turn's final result, after ${CHECK_ROUND_LIMIT} rounds or when only such steps ` +
+        "are left, with what AskRigor could not do, what the next turn can do and a bug report; previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer " +
         "(each as its own sentence and as written, in the answer's language when answer_language and " +
         "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
         "when ready, check_line, the line the answer ends with; or " +
@@ -2388,10 +2428,7 @@ function defineResearchOperations(
           // AskRigor#354: the server never sees which answer the user gets, so an answer given before a pass says so.
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
-          (result.unchecked_line === undefined ? "" :
-            "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or " +
-              "verdict that a step still open could change, and ends with this line, as written (in the answer's " +
-              `language when the answer is not in English): ${result.unchecked_line}`) +
+          uncheckedAnswerInstructions(result) +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
@@ -2432,7 +2469,11 @@ function defineResearchOperations(
               ".") +
           (result.carry_forward === undefined
             ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
-            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`),
+            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`) +
+          // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
+          (result.round_token === undefined || result.round === undefined ? "" :
+            `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +
+              `in this turn's next finalize_research call: ${result.round_token}`),
         result as unknown as Record<string, unknown>
       );
       return toolResult;

@@ -30,7 +30,8 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // words. The limits are in the answer itself, which the check made sure of.
 // A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
 // usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
-// completion check failed"). An answer given before the check passed says so in its own last line.
+// completion check failed"). An answer given before the check passed says so in its own last line. A stopped check is
+// the turn's final result (owner answer 172a), so its line says it was not checked, and why.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
@@ -43,6 +44,10 @@ function renderFinalCheck(doc, structuredContent) {
     line = "\u2713 Checked by AskRigor's final check. The answer states its " + limits + (limits === 1 ? " limit." : " limits.");
   }
   if (result.status === "not_ready") line = "AskRigor's final check asked for more work on this draft.";
+  if (result.status === "stopped") {
+    const reason = result.stopped && typeof result.stopped.short_reason === "string" ? result.stopped.short_reason : "";
+    line = reason === "" ? "Not checked by AskRigor's final check." : "Not checked: " + reason + ".";
+  }
   const paragraph = doc.createElement("p");
   paragraph.textContent = line;
   root.appendChild(paragraph);

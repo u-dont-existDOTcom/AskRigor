@@ -194,6 +194,10 @@ describe("rendered final check result", () => {
     [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
     [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
     [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft."],
+    // Owner answer 172a: a stopped check is the turn's final result, so the panel says it was not checked, and why.
+    [{ status: "stopped", stopped: { short_reason: "research this answer needs is unfinished" } },
+      "Not checked: research this answer needs is unfinished."],
+    [{ status: "stopped" }, "Not checked by AskRigor's final check."],
     [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
     [{ status: "unknown" }, "AskRigor's final check could not run here."],
     [undefined, "AskRigor's final check could not run here."],
