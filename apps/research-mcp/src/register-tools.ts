@@ -835,6 +835,9 @@ const FINDINGS_SAVE_DEADLINE_MILLISECONDS = 10_000;
 // 2026-10-22): a free contributor's is not saved, and a paid private answer offers no save.
 export const PERSONAL_ONLY_NOT_SAVED = "not saved: its findings are declared personal only, so they stay out of " +
   "AskRigor's findings library";
+/** Owner answer 170 (24 Oct): AskRigor stores no finding drawn from YouTube comments until YouTube confirms it may. */
+export const YOUTUBE_FINDINGS_NOT_SAVED = "not saved: its findings all rest on YouTube comments, which AskRigor does " +
+  "not store until YouTube confirms it may";
 export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
   "save_research_findings does not save them";
 
@@ -2398,7 +2401,8 @@ function defineResearchOperations(
               (card.saved !== undefined
                 ? `; ${
                   card.saved.status === "not_saved"
-                    ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED : "not saved"
+                    ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED
+                      : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
                       : `saved for review as ${card.saved.card_id}`

@@ -433,18 +433,28 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
 
 /**
  * The card without YouTube video IDs or links, which AskRigor does not store
- * while its YouTube API compliance review is open: each finding keeps the
- * number of its videos, and a link keeps its text. The gate still checked the
- * videos; the saved record keeps the digest it signed.
+ * while its YouTube API compliance review is open: a link keeps its text. The
+ * gate still checked the videos; the saved record keeps the digest it signed.
+ * A finding drawn from YouTube comments (a YouTube video among its sources, or
+ * community_checked, or a comment audit among the bases the receipt signed for
+ * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
+ * that AskRigor stores no YouTube-derived records until YouTube clarifies
+ * (owner answer 170, 24 Oct). `kept` gives the original index of each finding
+ * kept, and `findingsLeftOut` how many were left out; a card left with no
+ * finding is not saved.
  */
-export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCard; omitted: boolean } {
+export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
+  card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
+} {
   let omitted = false;
   const text = (value: string): string => {
     const stored = value.replace(YOUTUBE_LINK, "$1 (YouTube video)").replace(YOUTUBE_URL, "(YouTube video)");
     if (stored !== value) omitted = true;
     return stored;
   };
-  const findings = card.findings.map(({ sources, ...finding }): StoredFinding => {
+  const kept = card.findings.flatMap(({ sources, tags }, index) =>
+    sources.some(isYouTubeVideoId) || tags.includes("community_checked") || drawnFromComments.has(index) ? [] : [index]);
+  const findings = kept.map((index) => card.findings[index]!).map(({ sources, ...finding }): StoredFinding => {
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
     return {
@@ -489,7 +499,9 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
       ...(card.topic === undefined ? {} : { topic: { ...card.topic, label: text(card.topic.label) } }),
       open_leads: card.open_leads.map(text)
     },
-    omitted
+    omitted,
+    kept,
+    findingsLeftOut: card.findings.length - kept.length
   };
 }
 

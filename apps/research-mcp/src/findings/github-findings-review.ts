@@ -48,6 +48,7 @@ import {
   type GitHubFindingsRefile,
   type OccurrenceMetadata,
 } from "./github-findings.js";
+import { STORED_WITHOUT } from "./contracts.js";
 import type { FindingsRecord } from "./service.js";
 
 /**
@@ -121,7 +122,8 @@ const storedRecordSchema = z.object({
     open_leads: z.array(text(200)).max(6),
   }).strict(),
   card_sha256: z.string().regex(HEX_64),
-  stored_without: z.tuple([z.literal("youtube_video_ids_and_links")]).optional(),
+  stored_without: z.array(z.enum(STORED_WITHOUT)).min(1).max(STORED_WITHOUT.length)
+    .refine((items) => new Set(items).size === items.length).optional(),
   stamp: z.object({
     saved_at: z.iso.datetime(),
     askrigor_version: text(100),
@@ -188,7 +190,9 @@ export function parseFindingsRecordBody(
   if (stored.stamp.saved_at !== metadata.saved_at) return "tampered";
   const linkReplaced = stored.stored_without !== undefined && [stored.card.question,
     ...stored.card.findings.map(({ claim }) => claim)].some((value) => value.includes(YOUTUBE_PLACEHOLDER));
-  if (!linkReplaced && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
+  // Findings left out (owner answer 170) change the claims the fingerprint was taken of, as a replaced link does.
+  const findingsLeftOut = stored.stored_without?.includes("youtube_comment_findings") === true;
+  if (!linkReplaced && !findingsLeftOut && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
   if (stored.stored_without === undefined) {
     const checked = {
       ...stored.card,

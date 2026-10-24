@@ -66,6 +66,14 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         result,
         true,
       );
+    // Owner answer 170 (24 Oct): no finding drawn from YouTube comments is stored until YouTube confirms it may.
+    case "youtube_findings_only":
+      return receipt(
+        "Not saved: every finding on the card rests on YouTube comments, which AskRigor does not store until YouTube " +
+          "confirms it may.",
+        result,
+        true,
+      );
     // Owner answer 156a (2026-10-22): personal-only findings are never saved for the Atlas, even when the user asks.
     case "personal_only":
       return receipt(

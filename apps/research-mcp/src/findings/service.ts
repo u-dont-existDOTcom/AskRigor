@@ -16,7 +16,8 @@ import {
   findingsSaveInputSchema,
   findingsSaveResultSchema,
   type FindingsSaveReason,
-  type FindingsSaveResult
+  type FindingsSaveResult,
+  type StoredWithout
 } from "./contracts.js";
 import { publicFindingsCardId, type GitHubFindingsQueue } from "./github-findings.js";
 
@@ -64,7 +65,7 @@ export interface FindingsRecord {
   /** The digest finalize_research signed, of the card as it was checked. */
   card_sha256: string;
   /** What the stored card leaves out of the checked card. */
-  stored_without?: ["youtube_video_ids_and_links"];
+  stored_without?: StoredWithout[];
   stamp: FindingsStamp;
 }
 
@@ -138,20 +139,30 @@ export class FindingsSaveService {
         });
       }
 
-      const stored = withoutYouTubeData(input.findings_card);
-      // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c); a receipt from before
-      // bases were signed stamps none.
-      const bases = findingBasesFromReceipt(receipt.claims.bases, stored.card.findings.length);
+      // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c), by the finding's place
+      // in the checked card; a receipt from before bases were signed stamps none.
+      const bases = findingBasesFromReceipt(receipt.claims.bases, input.findings_card.findings.length);
+      const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
+        signed.includes("comment_audit") ? [index] : []));
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
+      // Owner answer 170 (24 Oct): a card whose findings all rest on YouTube comments has nothing AskRigor stores.
+      if (stored.card.findings.length === 0) return result({ status: "youtube_findings_only", retryable: false });
       const card: StoredFindingsCard = bases === undefined ? stored.card : {
         ...stored.card,
-        findings: stored.card.findings.map((finding, index) =>
-          bases[index]!.length === 0 ? finding : { ...finding, verified_bases: bases[index]! }),
+        findings: stored.card.findings.map((finding, index) => {
+          const signed = bases[stored.kept[index]!]!;
+          return signed.length === 0 ? finding : { ...finding, verified_bases: signed };
+        }),
       };
+      const without: StoredWithout[] = [
+        ...(stored.omitted ? ["youtube_video_ids_and_links" as const] : []),
+        ...(stored.findingsLeftOut > 0 ? ["youtube_comment_findings" as const] : []),
+      ];
       const record: FindingsRecord = {
         schema: "askrigor.findings-card.v1",
         card,
         card_sha256: cardSha256,
-        ...(stored.omitted ? { stored_without: ["youtube_video_ids_and_links"] } : {}),
+        ...(without.length === 0 ? {} : { stored_without: without }),
         stamp: {
           saved_at: now.toISOString(),
           askrigor_version: this.options.version,

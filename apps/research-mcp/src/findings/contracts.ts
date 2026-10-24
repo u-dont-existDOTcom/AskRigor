@@ -33,6 +33,10 @@ export const findingsSaveInputSchema = z.object({
 
 export type FindingsSaveInput = z.output<typeof findingsSaveInputSchema>;
 
+/** YouTube video IDs and links, and findings drawn from YouTube comments (owner answer 170). */
+export const STORED_WITHOUT = ["youtube_video_ids_and_links", "youtube_comment_findings"] as const;
+export type StoredWithout = typeof STORED_WITHOUT[number];
+
 export const FINDINGS_SAVE_STATUSES = [
   "saved",
   "existing_card",
@@ -41,6 +45,8 @@ export const FINDINGS_SAVE_STATUSES = [
   "card_not_checked",
   // Owner answer 156a (2026-10-22): the checked card declares its findings personal only, so nothing is saved.
   "personal_only",
+  // Owner answer 170 (24 Oct): every finding rests on YouTube comments, which AskRigor does not store yet.
+  "youtube_findings_only",
   "queue_unavailable"
 ] as const;
 

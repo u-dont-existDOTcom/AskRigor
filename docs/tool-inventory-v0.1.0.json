@@ -19179,6 +19179,7 @@
               "rate_limited",
               "card_not_checked",
               "personal_only",
+              "youtube_findings_only",
               "queue_unavailable"
             ]
           },

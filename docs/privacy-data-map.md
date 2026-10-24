@@ -1091,11 +1091,15 @@ numbers block and searches as the checked card gave them, each text through the
 same YouTube stripping as the others, and the readable copy shows them under
 each finding and the topic at the top; a card saved before them has none. The
 stored card holds no YouTube video
-ID or link while AskRigor's YouTube API compliance review is open: each finding
-keeps only the number of videos whose audited comments backed it, and a link
-keeps its text (`stored_without` records this; the SHA-256 is still the checked
-card's). A finding may still summarize what public communities reported,
-without posts, commenter names, links or video IDs. The version stamp holds the
+ID or link: a link keeps its text. It also holds no finding drawn from YouTube
+comments (a YouTube video among its sources, `community_checked`, or a comment
+audit among the bases its receipt signed): on 29 August 2026 the owner told
+YouTube that AskRigor stores no YouTube-derived records until YouTube
+clarifies, so such a finding is left out whole, and a card whose findings all
+rest on YouTube comments is not saved (`youtube_findings_only`; owner answer
+170, 24 October 2026). `stored_without` records what was left out; the SHA-256
+is still the checked card's. A finding may still summarize what other public
+communities reported, without posts, commenter names or links. The version stamp holds the
 save time; the AskRigor version and build commit, or `unknown`; the HRP and
 Universal names, versions and SHA-256; a SHA-256 of the tool catalog; the
 endpoint, `/mcp` or `/mcp/claude`; the model name as reported, marked

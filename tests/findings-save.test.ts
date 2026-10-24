@@ -299,14 +299,14 @@ describe("findings library save", () => {
     const [issue] = github.issues;
     expect(issue).toMatchObject({ title: CARD.question, labels: [{ name: "findings-card" }, { name: "pending-review" }] });
     const record = storedRecord(issue!.body);
-    // The library stores no YouTube video IDs or links: the finding keeps its study and a count of its videos.
+    // A card with no YouTube data is stored whole, as it was checked.
     const { card: storedCard } = withoutYouTubeData(parsedCard());
-    expect(storedCard.findings[0]).toMatchObject({ sources: ["10.1002/art.41142"], youtube_videos: 1 });
+    expect(storedCard.findings[0]).toMatchObject({ sources: ["10.1002/art.41142"] });
+    expect(storedCard.findings[0]).not.toHaveProperty("youtube_videos");
     expect(record).toEqual({
       schema: "askrigor.findings-card.v1",
       card: storedCard,
       card_sha256: findingsCardDigest(parsedCard()),
-      stored_without: ["youtube_video_ids_and_links"],
       stamp: {
         saved_at: "2026-09-30T12:00:00.000Z",
         askrigor_version: "0.1.0",
@@ -341,16 +341,45 @@ describe("findings library save", () => {
     expect(issue!.body).toMatch(/\n<!-- askrigor-findings-card:[A-Za-z0-9_-]+ -->$/u);
   });
 
+  // Owner answer 170 (24 Oct): the owner told YouTube on 29 Aug that AskRigor stores no YouTube-derived records until
+  // YouTube clarifies, so a finding drawn from YouTube comments is left out of the stored card.
+  it("leaves out a finding drawn from YouTube comments and saves the rest, with their bases in place", async () => {
+    const youtubeFinding = { ...CARD.findings[0], claim: "Commenters on two videos reported less hip pain after months of exercise.",
+      sources: ["10.1002/art.41142", "aaaaaaaaaaa"], tags: ["community_checked"] };
+    const fromAudit = { ...CARD.findings[0], claim: "Supervised programs lasted longer than home programs in the trials." };
+    const card = { ...CARD, findings: [youtubeFinding, CARD.findings[0], fromAudit] };
+    const github = new FakeGitHub();
+    await expect(service(github).save(saveInput({ findings_card: card, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(card)),
+      bases: ["comment_audit", "full_text_audit", "full_text_audit.comment_audit"],
+    }) }), CONTEXT)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    const record = storedRecord(github.issues[0]!.body);
+    // The first finding lists a video and the third rests on a comment audit, as the receipt signed: both stay out.
+    expect(record.card.findings).toHaveLength(1);
+    expect(record.card.findings[0]).toMatchObject({ claim: CARD.findings[0]!.claim, verified_bases: ["full_text_audit"] });
+    expect(record.stored_without).toEqual(["youtube_comment_findings"]);
+    expect(github.issues[0]!.body).not.toContain("Commenters on two videos");
+  });
+
+  it("saves nothing when every finding rests on YouTube comments", async () => {
+    const card = { ...CARD, findings: [{ ...CARD.findings[0], sources: ["aaaaaaaaaaa"], tags: ["community_checked"] }] };
+    const github = new FakeGitHub();
+    await expect(service(github).save(saveInput({ findings_card: card, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(card)),
+    }) }), CONTEXT)).resolves.toEqual({ status: "youtube_findings_only", retryable: false });
+    expect(github.writes).toEqual([]);
+  });
+
   // Owner answer 139c (2026-10-20): the owner reviews first the cards whose findings rest on work a quick answer can't do.
   it("stamps each finding's work beyond a quick answer as its receipt signed it, and labels the card", async () => {
     const github = new FakeGitHub();
     const save = service(github);
-    await expect(save.save(saveInput({ finalization_receipt: finalization({ bases: ["full_text_audit.comment_audit"] }) }), CONTEXT))
+    await expect(save.save(saveInput({ finalization_receipt: finalization({ bases: ["full_text_audit.research_correction"] }) }), CONTEXT))
       .resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
     const [issue] = github.issues;
     expect(issue!.labels).toEqual([{ name: "findings-card" }, { name: "pending-review" }, { name: "beyond-quick-answer" }]);
-    expect(storedRecord(issue!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit", "comment_audit"] });
-    expect(issue!.body).toContain("- Beyond a quick answer, as the receipts show: full\\_text\\_audit, comment\\_audit");
+    expect(storedRecord(issue!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit", "research_correction"] });
+    expect(issue!.body).toContain("- Beyond a quick answer, as the receipts show: full\\_text\\_audit, research\\_correction");
 
     // No basis, a list that does not fit the card, or a name the library does not know: nothing is stamped.
     for (const bases of [["none"], ["none", "full_text_audit"], ["full_text_read"], ["comment_audit.comment_audit"]]) {
@@ -379,7 +408,7 @@ describe("findings library save", () => {
     // A card already labeled is not labeled again.
     const writes = github.writes.length;
     await save.save(saveInput({
-      contributor: "3".repeat(64), finalization_receipt: finalization({ receipts: 9, bases: ["comment_audit"] }),
+      contributor: "3".repeat(64), finalization_receipt: finalization({ receipts: 9, bases: ["research_correction"] }),
     }), CONTEXT);
     expect(github.writes.slice(writes).map(({ url }) => url.replace(/^.*\/issues/u, ""))).toEqual(["/42/comments"]);
   });

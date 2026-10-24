@@ -395,7 +395,7 @@ describe("what binds a decision to the card the owner inspected", () => {
   it("refuses a stale hash, a later save, a missing card or item, and a decision already made", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const cardSha256 = await inspected(h, "ARF-0042", 2);
     const accept = (input: Record<string, unknown> = {}) => h.call({ action: "accept_finding", card: "ARF-0042",
       finding: 2, cardSha256, topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [], ...input });
@@ -431,7 +431,7 @@ describe("what binds a decision to the card the owner inspected", () => {
   it("rejects an item with the owner's private reason, and posts no reason to GitHub", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const reply = await h.call({ action: "reject_finding", card: "ARF-0042", finding: 2,
       reason: "Too speculative for the Atlas." });
     expect(reply.structured).toMatchObject({ ok: true, outcome: "finding_rejected" });
@@ -462,7 +462,7 @@ describe("the checks before acceptance", () => {
   it("names each problem with the numbers, the privacy screen, the topic and community evidence, and records nothing", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const cardSha256 = await inspected(h, "ARF-0042", 1);
     const accept = (input: Record<string, unknown>) => h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
       cardSha256, topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [TREMOR, NAUSEA], ...input });
@@ -488,15 +488,11 @@ describe("the checks before acceptance", () => {
       topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [],
       wording: "I was diagnosed with Velmor syndrome and zentarine helped me." });
     expect(edited.structured.checks.privacy).toEqual([{ field: "wording", reasonCode: "personal_narrative" }]);
-    // A finding whose only kept source is the audited comments' video is held under 4a.
-    await h.save({ ...LOW_DOSE_CARD, question: "Does zentarine help in daily life?",
+    // A card whose only finding rests on the audited comments' video is not stored at all (owner answer 170), so it never
+    // reaches the review; the community_only check stays for cards stored before.
+    expect(await h.save({ ...LOW_DOSE_CARD, question: "Does zentarine help in daily life?",
       findings: [{ ...LOW_DOSE_CARD.findings[0]!, sources: ["zentarineV1"], tags: ["community_checked"] }] },
-      ["comment_audit"]);
-    const communitySha = await inspected(h, "ARF-0043", 1);
-    const held = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1, cardSha256: communitySha,
-      topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [LOW_DOSE] });
-    expect(held.structured.checks).toMatchObject({ community: "community_only", wouldBecome: "community_only",
-      problems: [expect.objectContaining({ code: "community_only" })] });
+      ["comment_audit"])).toMatchObject({ status: "youtube_findings_only" });
     expect(await h.review.inspectIntents(null)).toEqual([]);
     expect(await h.review.inspectCards([42, 43])).toEqual([]);
   });
@@ -1041,7 +1037,7 @@ describe("list_findings", () => {
     const h = harness();
     await h.save(DOI_CARD, ["none"]);
     h.later(1);
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const listed = await h.call({ action: "list_findings" });
     expect(listed.structured.findings).toMatchObject({ refused: [], waitingForWriter: 0, nextCursor: null,
       unreadableCards: [] });

@@ -94,9 +94,10 @@ export const VELMOR_CARD = {
     certainty: "moderate",
     applies_to: "Adults with Velmor syndrome",
     answer_quote: "In the invented trial, zentarine 20 mg halved the tremor score for 1 in 10 more adults than placebo.",
-    sources: [DOI_A, VIDEO],
+    // A study only: a finding drawn from YouTube comments is left out of the stored card (owner answer 170).
+    sources: [DOI_A],
     why_not_usual: "Quick answers call it gentle and miss the trial's numbers, harms included.",
-    tags: ["full_text_read", "community_checked"],
+    tags: ["full_text_read"],
     what_would_change_it: "A second trial of similar size with a different result.",
     kind: "effect",
     subject: "zentarine",
@@ -265,7 +266,7 @@ export async function runAtlasScenario(
   globalThis.fetch = await providerFetch();
   try {
     // 1. A free contributor's checked card is saved for review.
-    const savedA = await save(VELMOR_CARD, ALICE, "0123456789ab", ["full_text_audit.comment_audit", "none"]);
+    const savedA = await save(VELMOR_CARD, ALICE, "0123456789ab", ["full_text_audit", "none"]);
     assert.deepEqual(savedA, { status: "saved", retryable: false, card_id: "ARF-0042", occurrence_count: 1 });
     report.steps.push("saved ARF-0042");
 
@@ -284,12 +285,12 @@ export async function runAtlasScenario(
     assert.equal(inspected.structured.outcome, "finding_inspected");
     const cardSha256 = (inspected.structured.card as { cardSha256: string }).cardSha256;
     assert.match(cardSha256, /^[a-f0-9]{64}$/u);
-    assert.deepEqual((inspected.structured.checks as Record<string, unknown>).community, "mixed");
+    // A finding drawn from YouTube comments is no longer stored (owner answer 170), so no confirmation under 4a is asked;
+    // that check stays for cards stored before (atlas-acceptance-checks.test.ts).
+    assert.deepEqual((inspected.structured.checks as Record<string, unknown>).community, "none");
     // Atlas phase 3: the card's topic, numbers block, kind, subject, subject type and direction, by default.
     const accept1 = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 };
-    const flagged = await call("accept 1 unconfirmed", accept1);
-    assert.equal(flagged.structured.outcome, "needs_confirmation", "audited comments need the owner's confirm (4a)");
-    const accepted1 = await call("accept 1", { ...accept1, confirm: true });
+    const accepted1 = await call("accept 1", accept1);
     assert.equal(accepted1.structured.outcome, "finding_queued");
     assert.ok(accepted1.text.startsWith("Accepted ARF-0042 finding 1 as F-1001, a checked finding, of kind effect, " +
       "direction benefit, about zentarine (supplement), filed under Velmor syndrome (new topic), the card's topic. The " +
