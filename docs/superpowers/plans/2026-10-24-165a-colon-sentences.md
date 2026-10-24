@@ -64,7 +64,7 @@ Field names in braces below are the AI's declarations unless marked as server va
 - Current: `The reported figures in {marker} don't match the study's own data, so its results stay unreliable until they are reconciled.`
 - Inserted: AI: `marker`, which is `key_sources[].answer_marker` (3–80 characters), or the source's identifier when that
   is missing (gate:2323).
-- 23 Oct: **broken**. Of 25 occurrences, most labels have no article or start with a capital: *"The reported figures in
+- 23 Oct: **broken**. In about 12 of 25 occurrences the label has no article or starts with a capital: *"The reported figures in
   2026 pilot don't match the study's own data…"* (o354-changed-after-check). Others: "in Occipital-stimulation study",
   "in supervised keto with ongoing medication and psychotherapy", "in published example".
 - Proposed: `A study whose reported figures don't match its own data, so its results stay unreliable until they are reconciled: {marker}.`
@@ -251,7 +251,7 @@ would also start the sentence in lowercase.
 **C7. No firsthand report of the exact exposure.** `gate:5087` (`requireLimit` at 5085)
 - Current: `In {community}, no one described their own use of {exposure}, so its reports are not evidence about it.`
 - Inserted: AI: `community` and `report_identity[].exposure` (up to 200 characters).
-- 23 Oct: **broken**, about 10 of 26: *"In r/Rebounding, no one described their own use of Two-minute floor bouncing for fascia
+- 23 Oct: **broken**, 9 of 26 with a capital, and some that misread: *"In r/Rebounding, no one described their own use of Two-minute floor bouncing for fascia
   hydration and mobility; nine selected outcome-bearing reports about adjacent mini-trampoline routines informed the
   discussion, so its reports are not evidence about it."* (s359-t3). Others: "use of Copper(I)" (l30), "use of The
   unnamed botanical treatment" (l24), "use of wrist-applied menthol balm and measured memory performance" (l34).
