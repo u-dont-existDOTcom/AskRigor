@@ -2,7 +2,8 @@
 
 Status: proposal for the owner (owner answer "165a", 23 Oct 2026: the server's words first, then a colon, then the
 AI's phrase, and the sentence stays exact). Nothing is built until the owner has seen this list. Drafted by a Claude
-helper from the code at c9e7c15a and the 23 Oct answers, checked by the maintainer session.
+helper from the code at c9e7c15a and the 23 Oct answers, checked by the maintainer session, which revised 19 rows
+(A1, A3, R1–R3, C1–C4, C6–C11, U4, U5, P1, P3) so that the words just before each colon name what follows (rule 2).
 
 Code: this repository at c9e7c15a (the build branch on 24 Oct). File paths below are relative to it, and
 `gate` means `apps/research-mcp/src/research-finalization-gate.ts`.
@@ -42,8 +43,10 @@ which holds only server words. Every template below therefore produced the 23 Oc
    (as with "。") and adds "." otherwise. For the exported starts (harm and option classes), put the colon inside the
    constant, as `COMMUNITY_SKIP_CAVEAT_START` already does. Then `completedCaveat`, the descriptions written as
    `"${START} [harm]."` and the 10 test sites built from the constants all stay valid unchanged.
-2. **Any rest of the old sentence** moves before the colon or into a following sentence of server words, so the AI's
-   phrase always ends its sentence.
+2. **Any rest of the old sentence** moves into a following sentence of server words, so the words just before the
+   colon name the phrase, as in question 165's two examples ("Not tested as described in any study I found: {label}.").
+   It stays before the colon only where the words just before the colon still name the phrase (A2, H1, H4, H5,
+   U1–U3). Either way the AI's phrase ends its sentence.
 3. **Two phrases of the same kind** (two options compared, two studies, several community names) share one colon and
    are separated by "; ". AI phrases contain commas and "and" ("Earth Clinic insomnia and topical remedy pages"), which
    makes today's ", … and …" join ambiguous.
@@ -67,7 +70,7 @@ Field names in braces below are the AI's declarations unless marked as server va
 - 23 Oct: **broken**. In about 12 of 25 occurrences the label has no article or starts with a capital: *"The reported figures in
   2026 pilot don't match the study's own data…"* (o354-changed-after-check). Others: "in Occipital-stimulation study",
   "in supervised keto with ongoing medication and psychotherapy", "in published example".
-- Proposed: `A study whose reported figures don't match its own data, so its results stay unreliable until they are reconciled: {marker}.`
+- Proposed: `A study whose reported figures don't match its own data: {marker}. Its results stay unreliable until they are reconciled.`
 - Delicate: `tests/study-audit-reported-figures.test.ts:209`.
 
 **A2. A value impossible as printed.** `gate:2340` (2339)
@@ -84,7 +87,7 @@ Field names in braces below are the AI's declarations unless marked as server va
   starts with an AI phrase.
 - Inserted: AI: two markers, or both identifiers when the two labels are equal (gate:2348–2349).
 - 23 Oct: not seen.
-- Proposed: `Two studies that report identical results, so they are counted once, not as independent replication: {a}; {b}.`
+- Proposed: `Two studies that report identical results: {a}; {b}. They are counted once, not as independent replication.`
 - Delicate: `tests/study-audit-reported-figures.test.ts:190`.
 
 **A4–A7. The named target no key study tested as described.** Helper `namedTargetCaveat` at `gate:247–265`, called at
@@ -167,9 +170,9 @@ the start of the sentence), `open_inputs` (up to 300) and `longest_follow_up` (u
 
 | Row | Line | Current | 23 Oct | Proposed |
 |---|---|---|---|---|
-| R1, safety unresolved | 2894 | `{Intervention} needs a clinician's review of {open} before it could be recommended for you.` | not seen | `Needs a clinician's review before it could be recommended for you: {intervention}. What the review covers: {open}.` |
-| R2, safety conditional | 2895 | `{Intervention} depends on {open}, which a clinician should confirm first.` | seen 16 times, reads correctly, because the intervention starts the sentence ("SSRI treatment depends on medical-history and interaction screening, which a clinician should confirm first.", o355-best-ocd) | `Depends on something a clinician should confirm first: {intervention}. What to confirm: {open}.` |
-| R3, long-term use, shorter evidence | 2916–2918 | `The evidence on {intervention} followed people for {longest_follow_up}, so its benefits and harms over years of use, and how easily people stop it, aren't established.` | **broken**, 3 of 11: *"The evidence on Specialist medication augmentation followed people for eight weeks in the directly audited risperidone comparison…"* and "followed people for continuation studies lasting up to one year" (o355-supplement-table); "for six months in cited STRIVE trial" (q137) | `Its benefits and harms over years of use, and how easily people stop it, aren't established, because its evidence is shorter than its use: {intervention}. Longest follow-up in that evidence: {longest_follow_up}.` |
+| R1, safety unresolved | 2894 | `{Intervention} needs a clinician's review of {open} before it could be recommended for you.` | not seen | `An option that needs a clinician's review before it could be recommended for you: {intervention}. What the review covers: {open}.` |
+| R2, safety conditional | 2895 | `{Intervention} depends on {open}, which a clinician should confirm first.` | seen 16 times, reads correctly, because the intervention starts the sentence ("SSRI treatment depends on medical-history and interaction screening, which a clinician should confirm first.", o355-best-ocd) | `An option that depends on something a clinician should confirm first: {intervention}. What to confirm: {open}.` |
+| R3, long-term use, shorter evidence | 2916–2918 | `The evidence on {intervention} followed people for {longest_follow_up}, so its benefits and harms over years of use, and how easily people stop it, aren't established.` | **broken**, 3 of 11: *"The evidence on Specialist medication augmentation followed people for eight weeks in the directly audited risperidone comparison…"* and "followed people for continuation studies lasting up to one year" (o355-supplement-table); "for six months in cited STRIVE trial" (q137) | `An option for long-term use whose evidence followed people for less time: {intervention}. Longest follow-up in that evidence: {longest_follow_up}. Its benefits and harms over years of use, and how easily people stop it, aren't established.` |
 
 - Delicate:
   - Tests: `tests/finalize-recommendations-and-lesson-checks.test.ts:62` (R1), `:67` (R2) and `:81` (R3), and
@@ -232,12 +235,12 @@ would also start the sentence in lowercase.
 
 | Row | Line | Current | 23 Oct | Proposed |
 |---|---|---|---|---|
-| C1, no_web_search | 4787 | `I could not search {name} from this app, so reports there are not included.` | not seen | `A community I could not search from this app, so reports there are not included: {name}.` |
-| C2, login_required | 4788 | `{name} needs a login to read, so reports there are not included.` | not seen | `A community that needs a login to read, so reports there are not included: {name}.` |
-| C3, blocked | 4789 | `{name} blocked access, so reports there are not included.` | not seen | `A community that blocked access, so reports there are not included: {name}.` |
-| C4, retrieval_failed | 4790 | `Pages from {name} could not be retrieved, so reports there are not included.` | **broken**, 1 of 6: *"Pages from iHerb individual written Bacopa reviews could not be retrieved, so reports there are not included."* (r324) | `A community whose pages could not be retrieved, so reports there are not included: {name}.` |
+| C1, no_web_search | 4787 | `I could not search {name} from this app, so reports there are not included.` | not seen | `A community I could not search from this app: {name}. Reports there are not included.` |
+| C2, login_required | 4788 | `{name} needs a login to read, so reports there are not included.` | not seen | `A community that needs a login to read: {name}. Reports there are not included.` |
+| C3, blocked | 4789 | `{name} blocked access, so reports there are not included.` | not seen | `A community that blocked access: {name}. Reports there are not included.` |
+| C4, retrieval_failed | 4790 | `Pages from {name} could not be retrieved, so reports there are not included.` | **broken**, 1 of 6: *"Pages from iHerb individual written Bacopa reviews could not be retrieved, so reports there are not included."* (r324) | `A community whose pages could not be retrieved: {name}. Reports there are not included.` |
 | C5, no_relevant_results | 4791 | `A search of {name} turned up no relevant reports.` | **broken**, 2 of 11: *"A search of MyFitnessPal public fitness forum turned up no relevant reports."* (s359-t5); "A search of OCD-UK public forum…" (o356-ssris-years) | `A community where a search turned up no relevant reports: {name}.` |
-| C6, not_found | 4792 | `I could not find {name}, so reports there are not included.` | **broken**, 2 of 5: *"I could not find Unidentified practitioner's publication and its comments, so reports there are not included."* and "I could not find Comments on the unidentified practitioner's publication…" (l24) | `A community I could not find, so reports there are not included: {name}.` |
+| C6, not_found | 4792 | `I could not find {name}, so reports there are not included.` | **broken**, 2 of 5: *"I could not find Unidentified practitioner's publication and its comments, so reports there are not included."* and "I could not find Comments on the unidentified practitioner's publication…" (l24) | `A community I could not find: {name}. Reports there are not included.` |
 
 - Delicate:
   - Tests: C1 has only the fragment `toContain("could not search")` at `finalize-next-steps-contract.test.ts:375`; the
@@ -255,7 +258,7 @@ would also start the sentence in lowercase.
   hydration and mobility; nine selected outcome-bearing reports about adjacent mini-trampoline routines informed the
   discussion, so its reports are not evidence about it."* (s359-t3). Others: "use of Copper(I)" (l30), "use of The
   unnamed botanical treatment" (l24), "use of wrist-applied menthol balm and measured memory performance" (l34).
-- Proposed: `No one in this community described their own use of it, so the community's reports are not evidence about it: {exposure}. Community: {community}.`
+- Proposed: `No one in this community described their own use of what was asked about, so its reports are not evidence about it. Community: {community}. Asked about: {exposure}.`
 - Delicate: `tests/finalize-community-report-identity.test.ts:83`. The limit at `:123` is addressed to the AI and pinned too,
   if it is changed to match.
 
@@ -264,7 +267,7 @@ would also start the sentence in lowercase.
 - Inserted: AI: `community`. Server: `chosen`, from `PARTIAL_THREAD_SELECTIONS` (gate:94–98).
 - 23 Oct: **broken**, 1–2 of 100: *"The Earth Clinic insomnia and topical remedy pages threads that I read were found by
   searching for outcomes…"* (l35). Subreddit names read correctly.
-- Proposed: `The threads I read in this community were {chosen}, so they show which experiences people report, not how common each one is: {community}.`
+- Proposed: `The threads I read in this community were {chosen}, so they show which experiences people report, not how common each one is. Community: {community}.`
 - Delicate: `tests/research-finalization-gate.test.ts:507`.
 
 **C9. How the reviews read were chosen.** `gate:5114–5115` (5111)
@@ -273,7 +276,7 @@ would also start the sentence in lowercase.
   `PARTIAL_REVIEW_SELECTIONS` (gate:83–87).
 - 23 Oct: **broken**, 1 of 3: *"The iHerb reviews displayed on Vitacost reviews of Nature's Answer gotu kola 475mg
   capsule listing that I read were a partial set…"* (r326-continue).
-- Proposed: `The reviews I read here were {chosen}, so they show which experiences people report, not how common each one is. Product: {product}. Site: {community}.`
+- Proposed: `The reviews I read on this site were {chosen}, so they show which experiences people report, not how common each one is. Product: {product}. Site: {community}.`
 - Delicate: `tests/research-finalization-gate.test.ts:1253`.
 
 **C10. Reports from the AI's own web search.** `gate:5150` (5147). The names are joined with `joinNames`, ", … and …"
@@ -282,8 +285,8 @@ would also start the sentence in lowercase.
 - Inserted: AI: one or more community names.
 - 23 Oct: seen 27 times. They read correctly, though "The reports from Earth Clinic insomnia and topical remedy pages
   come from my own web search…" (l35) shows how an "and" inside a name blurs the list.
-- Proposed, for one name: `This community's reports come from my own web search, which AskRigor could not verify: {name}.` For several:
-  `These communities' reports come from my own web search, which AskRigor could not verify: {name}; {name}.`
+- Proposed, for one name: `Reports from this community come from my own web search, which AskRigor could not verify. Community: {name}.` For several:
+  `Reports from these communities come from my own web search, which AskRigor could not verify. Communities: {name}; {name}.`
 - Delicate:
   - Tests: `tests/research-finalization-gate.test.ts:91` (in CLEAN_DRAFT), `:95` (FORUM_CAVEAT), `:577`, `:603`,
     `:644`, `:888`, `:1019`, `:1126` and `:1175`.
@@ -296,9 +299,9 @@ would also start the sentence in lowercase.
 - Inserted: AI: subreddit names. Their format is checked as `r/<name>` (`SUBREDDIT_NAME`, gate:4454), so they cannot
   hold spaces, capitals as prose or "and".
 - 23 Oct: seen 46 times, all reading correctly.
-- Proposed, for one: `Reddit confirms that the threads linked here from this subreddit exist, but what they report is my own reading, which AskRigor could not verify: {r/name}.`
-  For several: the same with "from these subreddits" and the names joined with "and", which stays unambiguous for
-  `r/` names.
+- Proposed, for one: `Reddit confirms that the threads linked here from this subreddit exist, but what they report is my own reading, which AskRigor could not verify. Subreddit: {r/name}.`
+  For several: the same with "from these subreddits" and "Subreddits:", the names joined with "; " as in every other
+  list.
 - Delicate: `tests/research-finalization-gate.test.ts:1075` and `:1127`.
 
 ## U. The user's reports and community comparisons
@@ -322,8 +325,8 @@ a dose.
 
 | Row | Line | Current | 23 Oct | Proposed |
 |---|---|---|---|---|
-| U4, uncertain | 1528 | `A report its source is no longer sure of counts neither for nor against an effect ({observation}).` | **broken**, 2 of 2, with a doubled stop: *"…counts neither for nor against an effect (Friend reported feeling drowsy after temple peppermint oil rub; repeatability, formulation identity and amount unspecified.)."* (l33 turn 2) | `A report that counts neither for nor against an effect, because its source is no longer sure of it: {observation}.` |
-| U5, withdrawn | 1531 | `A report its source has taken back counts neither for nor against an effect ({observation}).` | seen once, acceptable ("(No established personal indoor versus outdoor sleep comparison)", q120 turn 2) | `A report that counts neither for nor against an effect, because its source has taken it back: {observation}.` |
+| U4, uncertain | 1528 | `A report its source is no longer sure of counts neither for nor against an effect ({observation}).` | **broken**, 2 of 2, with a doubled stop: *"…counts neither for nor against an effect (Friend reported feeling drowsy after temple peppermint oil rub; repeatability, formulation identity and amount unspecified.)."* (l33 turn 2) | `A report its source is no longer sure of: {observation}. It counts neither for nor against an effect.` |
+| U5, withdrawn | 1531 | `A report its source has taken back counts neither for nor against an effect ({observation}).` | seen once, acceptable ("(No established personal indoor versus outdoor sleep comparison)", q120 turn 2) | `A report its source has taken back: {observation}. It counts neither for nor against an effect.` |
 
 - Delicate: tests `tests/finalize-carried-state.test.ts:171` (U4) and `:33` (U5). Building these with `completedCaveat`
   also removes the ".)." defect.
@@ -332,9 +335,9 @@ a dose.
 
 | Row | Line | Current | Inserted | 23 Oct | Proposed |
 |---|---|---|---|---|---|
-| P1, product not traced | 4707 (`requireLimit` at 4706) | `The exact product tested in {label} was not traced to a current product, so this answer does not present it as something to buy.` | AI: `intervention_identity.interventions[].label` (up to 200) | **broken**, most of 7: *"The exact product tested in crocin capsules was not traced to a current product…"* (o355-saffron-fluvoxamine); "in Standardized Petasites hybridus root extract", "in Liquid CoQ10 MSE 2001/guttaQuinon" (q137) | `Tested in a key study but not traced to a current product, so this answer does not present it as something to buy: {label}.` |
+| P1, product not traced | 4707 (`requireLimit` at 4706) | `The exact product tested in {label} was not traced to a current product, so this answer does not present it as something to buy.` | AI: `intervention_identity.interventions[].label` (up to 200) | **broken**, most of 7: *"The exact product tested in crocin capsules was not traced to a current product…"* (o355-saffron-fluvoxamine); "in Standardized Petasites hybridus root extract", "in Liquid CoQ10 MSE 2001/guttaQuinon" (q137) | `Tested in a key study but not traced to a current product: {label}. This answer does not present it as something to buy.` |
 | P2, no live offer | 4743 (4742) | `No seller with a live offer for {destination} was found for {product}.` | AI: `shopping.destination` (up to 200) and `commercial_review_applicability.products[]` (up to 200) | not seen | `No seller with a live offer was found for this product: {product}. Destination: {destination}.` |
-| P3, reviews a preview | 4676 (`requireLimit(preview, preview)` at 4677) | `On {community}, the reviews of {product} could not be searched for the outcome, so the {n} read are a preview, not a measure of how often it helps or harms.` | AI: `community` and `review_corpora[].product`; server: `n`, the number read | not seen | `Reviews that could not be searched for the outcome, so the {n} read are a preview, not a measure of how often it helps or harms. Product: {product}. Site: {community}.` |
+| P3, reviews a preview | 4676 (`requireLimit(preview, preview)` at 4677) | `On {community}, the reviews of {product} could not be searched for the outcome, so the {n} read are a preview, not a measure of how often it helps or harms.` | AI: `community` and `review_corpora[].product`; server: `n`, the number read | not seen | `The reviews on this site could not be searched for the outcome, so the {n} read are a preview, not a measure of how often it helps or harms. Product: {product}. Site: {community}.` |
 
 - Delicate:
   - Tests: `tests/finalize-product-identity-and-shopping.test.ts:69` (P1) and `:70` (P2), and
