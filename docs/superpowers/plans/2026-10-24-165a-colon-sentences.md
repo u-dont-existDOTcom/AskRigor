@@ -1,9 +1,11 @@
 # Decision 165a: answer sentences built from AskRigor's words plus a phrase the AI declared
 
-Status: proposal for the owner (owner answer "165a", 23 Oct 2026: the server's words first, then a colon, then the
-AI's phrase, and the sentence stays exact). Nothing is built until the owner has seen this list. Drafted by a Claude
-helper from the code at c9e7c15a and the 23 Oct answers, checked by the maintainer session, which revised 19 rows
-(A1, A3, R1–R3, C1–C4, C6–C11, U4, U5, P1, P3) so that the words just before each colon name what follows (rule 2).
+Status: built on branch `claude/165a-colon-sentences-20261024` after owner answer "174: a" (24 Oct 2026: build all 43
+sentences as listed). Every row is built word for word as proposed, the 19 revised rows included; optional point 6 was
+not built. The proposal answered owner answer "165a" (23 Oct 2026: the server's words first, then a colon, then the
+AI's phrase, and the sentence stays exact). Drafted by a Claude helper from the code at c9e7c15a and the 23 Oct
+answers, checked by the maintainer session, which revised 19 rows (A1, A3, R1–R3, C1–C4, C6–C11, U4, U5, P1, P3) so
+that the words just before each colon name what follows (rule 2).
 
 Code: this repository at c9e7c15a (the build branch on 24 Oct). File paths below are relative to it, and
 `gate` means `apps/research-mcp/src/research-finalization-gate.ts`.

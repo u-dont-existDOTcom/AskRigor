@@ -30,7 +30,7 @@ describe("conversation state carried between final checks", () => {
     expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
     const withdrawn = check({ carried_state: token, user_observations: [{ ...observation, response: "withdrawn" }] });
     expect(withdrawn.next_steps.join("\n")).not.toContain("user_observations leaves out");
-    expect(withdrawn.caveats).toContain(`A report its source has taken back counts neither for nor against an effect (${observation.observation}).`);
+    expect(withdrawn.caveats).toContain(`A report its source has taken back: ${observation.observation}. It counts neither for nor against an effect.`);
     // The call that left it out still carries it, so its token cannot shed it.
     expect(check({ carried_state: token }).carried!.observations).toEqual([observation]);
     const added = { ...observation, observation: "a new observation" };
@@ -168,7 +168,10 @@ describe("observation, test and correction declarations (109)", () => {
   });
   it("requires uncertainty and unblinded caveats, checks repetition indexes and exact difference quotes", () => {
     const result = check({ user_observations: [{ ...observation, response: "uncertain" }], proposed_tests: [{ quote: "Try again.", repeats: 0, blinded: false }, { quote: "Different test.", repeats: 5, difference: "Different timing.", blinded: true }] });
-    expect(result.caveats).toContain(`A report its source is no longer sure of counts neither for nor against an effect (${observation.observation}).`);
+    expect(result.caveats).toContain(`A report its source is no longer sure of: ${observation.observation}. It counts neither for nor against an effect.`);
+    // An observation that ends its own sentence keeps its stop, with no second one (the 23 Oct ".)." of l33).
+    expect(check({ user_observations: [{ ...observation, observation: "a friend's drowsiness; amount unspecified.", response: "uncertain" }] }).caveats)
+      .toContain("A report its source is no longer sure of: a friend's drowsiness; amount unspecified. It counts neither for nor against an effect.");
     expect(result.caveats).toContain("A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
     expect(result.next_steps.join("\n")).toContain("proposed_tests[0] repeats what the user already tried"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].repeats names user_observations[5]"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].difference");
     expect(check({ answer_draft: "Try again. Different timing.", user_observations: [observation], proposed_tests: [{ quote: "Try again.", repeats: 0, difference: "Different timing.", blinded: true }] }).next_steps.join("\n")).not.toContain("proposed_tests");

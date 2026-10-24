@@ -59,12 +59,13 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
   });
 
   it("has an unresolved or conditional safety check say so, and asks what is still open", () => {
-    const unresolved = "The medicine needs a clinician's review of a past severe reaction to a nerve-acting medicine " +
-      "before it could be recommended for you.";
+    const unresolved = "An option that needs a clinician's review before it could be recommended for you: the " +
+      "medicine. What the review covers: a past severe reaction to a nerve-acting medicine.";
     const open = recommend({ safety_check: "unresolved", open_inputs: "a past severe reaction to a nerve-acting medicine" });
     expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([SKIP, unresolved]);
     expect(check({ answer_draft: draft(unresolved), recommendations: [open] }).status).toBe("ready_with_limits");
-    const conditional = "The medicine depends on normal kidney function, which a clinician should confirm first.";
+    const conditional = "An option that depends on something a clinician should confirm first: the medicine. What to " +
+      "confirm: normal kidney function.";
     expect(check({
       answer_draft: draft(), recommendations: [recommend({ safety_check: "conditional", open_inputs: "normal kidney function." })]
     }).caveats).toEqual([SKIP, conditional]);
@@ -78,8 +79,9 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
       long_term_use: true, longest_follow_up: "12 weeks", follow_up_matches_use: true, stopping_covered: true, ...overrides
     });
     expect(check({ answer_draft: draft(), recommendations: [longTerm({})] }).status).toBe("ready_with_limits");
-    const shorter = "The evidence on the medicine followed people for 12 weeks, so its benefits and harms over years of " +
-      "use, and how easily people stop it, aren't established.";
+    const shorter = "An option for long-term use whose evidence followed people for less time: the medicine. Longest " +
+      "follow-up in that evidence: 12 weeks. Its benefits and harms over years of use, and how easily people stop it, " +
+      "aren't established.";
     expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).caveats)
       .toEqual([SKIP, shorter]);
     expect(check({ answer_draft: draft(shorter), recommendations: [longTerm({ follow_up_matches_use: false })] }).status)
@@ -118,7 +120,8 @@ describe("finalize_research safety_claims: a share of selected reports (owner qu
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [{ ...claim, direction: "safety" }]
     }).caveats).toEqual([
-      SKIP, "That figure is a share of selected reports, not of people, so it doesn't show how safe compound A is."
+      SKIP, "That figure is a share of selected reports, not of people, so it doesn't show how safe this exposure is: " +
+        "compound A."
     ]);
   });
 
@@ -141,7 +144,7 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
   };
 
   it("has an animal finding say it was not tested in people", () => {
-    const caveat = "This finding comes from animal experiments in Rat study; it was not tested in people.";
+    const caveat = "This finding comes from animal experiments; it was not tested in people. Source: Rat study.";
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([SKIP, caveat]);
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${caveat}`, mechanism_claims: [mechanism] }).status)
       .toBe("ready_with_limits");
@@ -151,9 +154,10 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [{ ...mechanism, evidence_route: "in_vitro" }]
     }).caveats).toEqual([
-      SKIP, "This finding comes from test-tube experiments in Rat study; use by mouth was not tested for it."
+      SKIP, "This finding comes from test-tube experiments; use by mouth was not tested for it. Source: Rat study."
     ]);
-    const tissue = "This finding was measured in the brain's cortex in Rat study, not in the skin.";
+    const tissue = "This finding was measured in a different tissue from the one this answer applies it to. Measured " +
+      "in: the brain's cortex. Applied here to: the skin. Source: Rat study.";
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
       mechanism_claims: [{ ...mechanism, evidence_in: "people", tissue: { measured: "the brain's cortex", claimed: "the skin." } }]
