@@ -473,9 +473,23 @@ let contract: {
   known: ReadonlySet<string>;
 } | undefined;
 
+/**
+ * zod 4.6 writes a nullable primitive, or a union of primitives, as one node with a list of types; the readers below
+ * take the anyOf form zod wrote before, one branch per type, so each list becomes that form.
+ */
+function typeListsAsAnyOf(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(typeListsAsAnyOf);
+  if (!isJsonObject(node)) return node;
+  const copy = Object.fromEntries(Object.entries(node).map(([key, value]) => [key, typeListsAsAnyOf(value)]));
+  if (!Array.isArray(copy.type)) return copy;
+  const { type: types, ...rest } = copy;
+  return { anyOf: (types as string[]).map((type) => type === "null" ? { type: "null" } : { ...rest, type }) };
+}
+
 function contractJson() {
   if (contract !== undefined) return contract;
-  const toJson = (schema: z.ZodType) => z.toJSONSchema(schema, { target: "draft-7", io: "input" }) as JsonNode;
+  const toJson = (schema: z.ZodType) =>
+    typeListsAsAnyOf(z.toJSONSchema(schema, { target: "draft-7", io: "input" })) as JsonNode;
   const envelope = toJson(researchContributionProposalInputSchema);
   const kinds = {
     RESEARCH_FRONTIER: toJson(researchFrontierContributionSchema),
