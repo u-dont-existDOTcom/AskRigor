@@ -68,6 +68,20 @@ GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
 ) TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.purge_expired_held_youtube_findings()
   TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_participant(text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_display_name(text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_vote(text, text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.post_atlas_comment(text, text, text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.delete_atlas_comment(text, text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.report_atlas_comment(text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_participant(text, timestamptz)
+  TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_access SET search_path = living_evidence, pg_catalog;

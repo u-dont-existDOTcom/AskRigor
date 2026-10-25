@@ -13,6 +13,7 @@ import {
   AtlasCardPublisher,
   accountPublicationProblems,
   cardPublicationProblems,
+  decidedPublicationDraft,
   decidedPublicationState,
   drawnFromYouTubeComments,
   planCardPublication,
@@ -410,6 +411,88 @@ describe("keeping a card's publications in line with its decisions", () => {
       store, cardNumber: 42, decisions: [decision(1, "accepted", "F-1001"), decision(2, "rejected", null)],
       intentsOf: async () => intents, at: "2026-11-05T09:00:00.000Z",
     })).toEqual([]);
+  });
+});
+
+describe("publishing an accepted finding whose card has no publication of it", () => {
+  const AT = "2026-11-05T09:00:00.000Z";
+  const decision = (itemNumber: number, decided: "accepted" | "accepted_as_lead" | "rejected", publicNumber: string | null) => ({
+    cardNumber: 42, itemKind: "finding" as const, itemNumber, decision: decided, publicNumber, cardSha256: "d".repeat(64),
+    ownerReason: null, intentId: null, decidedAt: NOW.toISOString(), intent: null,
+  });
+  const edited = [{ intentKind: "accept", publicNumber: "F-1002", status: "PENDING",
+    payload: { kind: "accept", editedAtAcceptance: true } }] as unknown as AtlasIntentView[];
+  const rows = async (store: InMemoryAtlasPublicationStore) => (await store.inspect({}))
+    .map(({ publicationNumber, cardNumber, cardSha256, findingNumber, state, atlasNumber, published }) =>
+      [publicationNumber, cardNumber, cardSha256, findingNumber, state, atlasNumber, published?.claim ?? null]);
+
+  it("publishes it in its decided state, accepted or edited with its F number, and nothing for a rejection", async () => {
+    // A paid private card, or one of the owner's older cards, which nothing published at its save.
+    const record = recordOf(VELMOR_CARD, [["full_text_audit"], []]);
+    const store = new InMemoryAtlasPublicationStore();
+    const decisions = [decision(1, "accepted", "F-1001"), decision(2, "accepted", "F-1002")];
+    const changed = await reconcileCardPublications({
+      store, cardNumber: 42, decisions, intentsOf: async () => edited, at: AT, card: { record, setAside: false },
+    });
+    expect(changed.map(({ publicationNumber, state, atlasNumber }) => [publicationNumber, state, atlasNumber]))
+      .toEqual([["P-1001", "accepted", "F-1001"], ["P-1002", "edited", "F-1002"]]);
+    expect(await rows(store)).toEqual([
+      ["P-1002", 42, record.card_sha256, 2, "edited", "F-1002", VELMOR_CARD.findings[1]!.claim],
+      ["P-1001", 42, record.card_sha256, 1, "accepted", "F-1001", VELMOR_CARD.findings[0]!.claim],
+    ]);
+    // Published once: the next read of the card changes nothing.
+    expect(await reconcileCardPublications({
+      store, cardNumber: 42, decisions, intentsOf: async () => edited, at: AT, card: { record, setAside: false },
+    })).toEqual([]);
+
+    // A rejection publishes nothing; a lead accepted as one is published, and its page shows it as a lead.
+    const other = new InMemoryAtlasPublicationStore();
+    expect(await reconcileCardPublications({
+      store: other, cardNumber: 42, decisions: [decision(1, "rejected", null), decision(2, "accepted_as_lead", "F-1003")],
+      intentsOf: async () => [], at: AT, card: { record, setAside: false },
+    })).toMatchObject([{ publicationNumber: "P-1001", findingNumber: 2, state: "accepted", atlasNumber: "F-1003" }]);
+    expect((await other.inspect({})).map(({ findingNumber }) => findingNumber)).toEqual([2]);
+  });
+
+  it("publishes nothing for a set-aside card, a finding drawn from YouTube comments, one with a publication in any state, or without the card", async () => {
+    const record = recordOf(VELMOR_CARD, [["full_text_audit"], []], NOW.toISOString(),
+      [{ ...recordOf(VELMOR_CARD).card.findings[0]!, claim: "Backed by video comments.", youtube_videos: 2 }]);
+    const decisions = [decision(3, "accepted", "F-1009")];
+    const store = new InMemoryAtlasPublicationStore();
+    // The third finding rests on YouTube comments, which are never published (owner answers 170 and 173).
+    expect(await reconcileCardPublications({
+      store, cardNumber: 42, decisions, intentsOf: async () => [], at: AT, card: { record, setAside: false },
+    })).toEqual([]);
+    // A set-aside card stays off the pages, and without the card nothing is published.
+    for (const card of [{ record, setAside: true }, undefined]) {
+      expect(await reconcileCardPublications({
+        store, cardNumber: 42, decisions: [decision(1, "accepted", "F-1001")], intentsOf: async () => [], at: AT,
+        ...(card === undefined ? {} : { card }),
+      })).toEqual([]);
+    }
+    expect(await store.inspect({})).toEqual([]);
+    // A finding the owner unpublished stays unpublished when it is accepted.
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } });
+    await store.publish({ cardNumber: 42, cardSha256: record.card_sha256, findings: plan.drafts, publishedAt: AT,
+      revive: false });
+    await store.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1001"], ownerReason: "Wrong.",
+      withdrawnAt: AT });
+    expect(await reconcileCardPublications({
+      store, cardNumber: 42, decisions: [decision(1, "accepted", "F-1001")], intentsOf: async () => [], at: AT,
+      card: { record, setAside: false },
+    })).toEqual([]);
+    expect((await store.inspect({ publicationNumbers: ["P-1001"] }))[0]).toMatchObject({ state: "withdrawn",
+      withdrawnBecause: "owner_unpublished" });
+  });
+
+  it("drafts a decided finding's publication only for an accepted or edited one that can be published", () => {
+    const record = recordOf(VELMOR_CARD, [["full_text_audit"], []]);
+    expect(decidedPublicationDraft(record, 1, { state: "accepted", atlasNumber: "F-1001" })).toMatchObject({
+      findingNumber: 1, state: "accepted", atlasNumber: "F-1001", heldBecause: null,
+      published: { claim: VELMOR_CARD.findings[0]!.claim },
+    });
+    expect(decidedPublicationDraft(record, 1, { state: "rejected", atlasNumber: null })).toBeUndefined();
+    expect(decidedPublicationDraft(record, 9, { state: "accepted", atlasNumber: "F-1001" })).toBeUndefined();
   });
 });
 

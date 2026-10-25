@@ -336,11 +336,7 @@ export class ResearchContributorAccessService {
   }
 
   accountKeyForSubject(subject: string): string {
-    const normalized = normalizeOAuthSubject(subject);
-    return createHmac("sha256", this.identitySecret)
-      .update("askrigor:research-use-account:v1\0", "utf8")
-      .update(normalized, "utf8")
-      .digest("hex");
+    return researchAccountKeyForSubject(this.identitySecret, subject);
   }
 
   async inspect(subject: string): Promise<ResearchAccessView> {
@@ -1281,6 +1277,19 @@ function walkStrings(
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     walkStrings(child, [...path, key], inspect);
   }
+}
+
+/**
+ * The account key the connector derives from a signed-in subject: an HMAC of the subject under the research identity
+ * secret. The Atlas's web sign-in (decision 171, section 4D) derives the same key, so a person is one account in both.
+ */
+export function researchAccountKeyForSubject(identitySecret: Uint8Array, subject: string): string {
+  if (identitySecret.byteLength < 32) throw new Error("RESEARCH_IDENTITY_SECRET_TOO_SHORT");
+  const normalized = normalizeOAuthSubject(subject);
+  return createHmac("sha256", Buffer.from(identitySecret))
+    .update("askrigor:research-use-account:v1\0", "utf8")
+    .update(normalized, "utf8")
+    .digest("hex");
 }
 
 function normalizeOAuthSubject(subject: string): string {

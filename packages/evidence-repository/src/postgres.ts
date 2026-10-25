@@ -214,6 +214,7 @@ export class PostgresEvidenceRepository {
       "0019_held_youtube_findings",
       "0020_research_use_notice_v4",
       "0021_atlas_publications",
+      "0022_atlas_votes_comments",
       "0023_research_findings_save_switch",
     ].map(async (migrationId) => ({
       migrationId,

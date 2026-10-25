@@ -8,6 +8,7 @@ import {
   type AtlasChangesModel,
   type AtlasContestedPair,
   type AtlasFindingModel,
+  type AtlasFindingParticipationView,
   type AtlasHomeModel,
   type AtlasOwnerPick,
   type AtlasTopicModel,
@@ -418,15 +419,94 @@ function source(identifiers: AtlasPageSourceIdentifiers): SafeHtml | "" {
 `;
 }
 
-/**
- * Votes and comments (decision 171, section 4E) render here once part E is built. The model carries nothing for them
- * yet, so this renders nothing, and the page sets no cookie.
- */
-function participation(_model: AtlasFindingModel["participation"]): "" {
-  return "";
+// The terms' approved words for comments (decision 171, section 1), shown by the comment form.
+const COMMENT_RULES = "Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments " +
+  "are not medical advice. Don't post contact details, personal information about anyone else, advertising or harassment.";
+
+function hiddenFields(token: string, returnPath: string): SafeHtml {
+  return html`<input type="hidden" name="csrf" value="${token}"><input type="hidden" name="return" value="${returnPath}">`;
 }
 
-export function renderAtlasFinding(model: AtlasFindingModel): string {
+/**
+ * Votes and comments (decision 171, section 4E): the totals and the comments that show, a report button on each, and,
+ * for a signed-in reader, the vote, comment, delete, display-name, sign-out and delete-everything forms; for anyone
+ * else, the sign-in link. Every form posts to this origin with its token. Nothing renders while votes and comments are
+ * switched off.
+ */
+function participation(publicationNumber: string, view: AtlasFindingParticipationView | undefined): SafeHtml | "" {
+  if (view === undefined) return "";
+  const path = findingPath(publicationNumber);
+  const viewer = view.viewer;
+  const votes = html`<section aria-labelledby="votes">
+<h2 id="votes">Votes</h2>
+<p class="totals">Agree: <strong>${view.totals.agree}</strong> · Disagree: <strong>${view.totals.disagree}</strong></p>
+${viewer === null ? html`<p><a href="${view.signInHref}">Sign in with your AskRigor account</a> to vote or comment.</p>`
+    : html`<form method="post" action="${path}/vote" class="vote-form">
+${hiddenFields(viewer.tokens.vote, path)}
+<button type="submit" name="vote" value="agree">Agree</button>
+<button type="submit" name="vote" value="disagree">Disagree</button>
+${viewer.vote === null ? "" : html`<button type="submit" name="vote" value="clear" class="quiet">Withdraw my vote</button>
+`}</form>
+<p class="meta">${viewer.vote === null ? "You have not voted on this finding." : html`Your vote: ${viewer.vote}.`}</p>`}
+</section>
+`;
+  const comments = html`<section aria-labelledby="comments">
+<h2 id="comments">Comments</h2>
+${view.comments.length === 0 ? html`<p>No comments yet.</p>` : html`<ol class="comment-list">
+${view.comments.map((comment) => html`<li class="comment" id="${comment.publicId}">
+<p class="meta"><strong>${comment.displayName}</strong> · ${day(comment.postedAt)}</p>
+<p class="comment-body">${comment.body}</p>
+<div class="comment-actions">
+${comment.deleteToken === null ? "" : html`<form method="post" action="/atlas/comments/${comment.publicId}/delete">
+${hiddenFields(comment.deleteToken, path)}
+<button type="submit" class="quiet">Delete my comment</button>
+</form>
+`}<form method="post" action="/atlas/comments/${comment.publicId}/report">
+${hiddenFields(comment.reportToken, path)}
+<button type="submit" class="quiet">Report</button>
+</form>
+</div>
+</li>
+`)}</ol>`}
+${viewer === null ? "" : viewer.stopped ? html`<p class="error-line">Your account can't comment in the Atlas.</p>`
+    : html`<form method="post" action="${path}/comments" class="comment-form">
+${hiddenFields(viewer.tokens.comment, path)}
+${viewer.displayName !== null ? "" : html`<p><label for="display-name">Your display name, shown with your comments</label>
+<input id="display-name" name="displayName" maxlength="40" required autocomplete="nickname" value="${view.draft?.displayName ?? ""}"></p>
+`}<p><label for="comment-body">Your comment</label>
+<textarea id="comment-body" name="body" rows="5" maxlength="2000" required>${view.draft?.body ?? ""}</textarea></p>
+<p class="aside">${COMMENT_RULES} See the <a href="${CANONICAL_ORIGIN}/terms">terms</a>.</p>
+<button type="submit">Post comment</button>
+</form>`}
+${viewer === null ? "" : html`<div class="account">
+${viewer.displayName === null ? "" : html`<form method="post" action="/atlas/account/name" class="name-form">
+${hiddenFields(viewer.tokens.name, path)}
+<label for="new-name">Your display name</label>
+<input id="new-name" name="displayName" maxlength="40" required autocomplete="nickname" value="${viewer.displayName}">
+<button type="submit" class="quiet">Save name</button>
+</form>
+`}<form method="post" action="/atlas/auth/logout">
+${hiddenFields(viewer.tokens.signOut, path)}
+<button type="submit" class="quiet">Sign out</button>
+</form>
+<form method="post" action="/atlas/account/delete" class="forget-form">
+${hiddenFields(viewer.tokens.forget, path)}
+<p><input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>
+<label for="forget-confirm">Delete everything I hold in the Atlas: my votes, my comments and my reports</label></p>
+<button type="submit" class="quiet">Delete them all</button>
+</form>
+</div>`}
+</section>
+`;
+  return html`<div class="participation">
+${view.notice === null ? "" : html`<p class="notice-line" role="status">${view.notice}</p>
+`}${view.tenantSignOutHref === null ? "" : html`<p class="aside">The AskRigor login itself may still remember you in this browser: <a href="${view.tenantSignOutHref}">sign out of it too</a>, so that the next sign-in asks for your password.</p>
+`}${view.error === null ? "" : html`<p class="error-line" role="alert">${view.error}</p>
+`}${votes}${comments}</div>
+`;
+}
+
+export function renderAtlasFinding(model: AtlasFindingModel, participationView?: AtlasFindingParticipationView): string {
   const finding = model.finding;
   const status = finding.status;
   const facts: SafeHtml[] = [];
@@ -482,7 +562,7 @@ ${finding.searches.map(search)}</ul>
 <ul class="source-list">
 ${sources}</ul>
 </section>
-`}${participation(model.participation)}`;
+`}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
@@ -561,6 +641,18 @@ export function renderAtlasUnavailable(): string {
     description: "The Atlas is unavailable right now.",
     body: html`<h1>The Atlas is unavailable right now</h1>
 <p>Please try again in a few minutes.</p>`,
+  });
+}
+
+/** A short page answering a form or a sign-in that could not go ahead, with the way back. */
+export function renderAtlasMessage(title: string, message: string, back: { href: string; text: string }): string {
+  return page({
+    path: null,
+    title: `${title} | AskRigor Atlas`,
+    description: title,
+    body: html`<h1>${title}</h1>
+<p>${message}</p>
+<p><a href="${back.href}">${back.text}</a></p>`,
   });
 }
 
@@ -756,6 +848,58 @@ code {
   border-radius: 0.2rem;
   overflow-wrap: anywhere;
 }
+
+.participation { margin-top: 2.5rem; border-top: 1px solid var(--line); }
+.totals { font-size: 1.05rem; }
+.notice-line, .error-line {
+  margin: 1.25rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.35rem;
+  border-left: 0.3rem solid var(--checked);
+  background: var(--checked-surface);
+}
+.error-line { border-color: var(--contested); background: var(--contested-surface); }
+.comment-list { margin: 0; padding: 0; list-style: none; }
+.comment {
+  margin: 0.9rem 0;
+  padding: 0.85rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.comment-body { white-space: pre-wrap; margin: 0.4rem 0; }
+.comment-actions, .vote-form, .account { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.comment-actions form, .account form { margin: 0; }
+.comment-form, .account { margin-top: 1.25rem; }
+.name-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+label { display: block; font-weight: 700; margin-bottom: 0.25rem; }
+.name-form label { display: inline; margin: 0; }
+input[type="text"], input:not([type]), textarea {
+  width: 100%;
+  max-width: 72ch;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.name-form input { width: auto; flex: 1 1 12rem; }
+.account .forget-form { flex-basis: 100%; margin-top: 0.75rem; }
+.forget-form p { margin: 0 0 0.4rem; }
+.forget-form label { display: inline; font-weight: 400; }
+button {
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.35rem;
+  background: var(--accent);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+button.quiet { background: transparent; color: var(--accent); }
+button:hover, button:focus-visible { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--surface); }
 
 @media (max-width: 40rem) {
   .masthead, .footer-row { align-items: flex-start; flex-direction: column; gap: 0.5rem; }

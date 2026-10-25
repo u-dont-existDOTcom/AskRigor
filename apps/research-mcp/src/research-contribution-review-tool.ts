@@ -30,6 +30,7 @@ import {
   type AtlasReviewRequest,
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
+import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
@@ -41,7 +42,8 @@ export const researchContributionReviewInputSchema = z.object({
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
       "findings: list_youtube_findings, move_youtube_findings or delete_youtube_findings. Publications in the Atlas: " +
-      "list_publications, unpublish_finding, publish_cards or set_aside_cards."),
+      "list_publications, unpublish_finding, publish_cards or set_aside_cards. Comments and the home page: " +
+      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -184,6 +186,8 @@ export const researchContributionReviewOutputSchema = z.object({
   heldWithoutCard: atlasHeldWithoutCardSchema.optional(),
   // Decision 171: the publications listed or changed, and what each card named became.
   publications: atlasPublicationsSchema.optional(),
+  // Decision 171: the comments listed or moderated, the commenter changed, the home page's picks set.
+  participation: atlasParticipationSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
   canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
@@ -448,6 +452,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.youtubeFindings === undefined ? {} : { youtubeFindings: result.youtubeFindings }),
     ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     ...(result.publications === undefined ? {} : { publications: result.publications }),
+    ...(result.participation === undefined ? {} : { participation: result.participation }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

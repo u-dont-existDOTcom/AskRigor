@@ -49,6 +49,7 @@ import {
   type AtlasNumberEntry,
   type AtlasPublicationState,
   type AtlasPublicationStore,
+  type AtlasModerationStore,
   type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
@@ -78,6 +79,14 @@ import {
   type AtlasPublications,
 } from "../atlas/publication-review.js";
 import { reconcileCardPublications } from "../atlas/publication.js";
+import {
+  ATLAS_PARTICIPATION_ACTIONS,
+  ATLAS_PARTICIPATION_ERROR_CODES,
+  ATLAS_PARTICIPATION_OUTCOMES,
+  AtlasParticipationReview,
+  type AtlasParticipation,
+  type AtlasParticipationAction,
+} from "../atlas/participation-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -158,6 +167,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   "delete_youtube_findings",
   // Decision 171 (sections 4B and 4F): the publications.
   ...ATLAS_PUBLICATION_ACTIONS,
+  // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
+  ...ATLAS_PARTICIPATION_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -184,6 +195,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "youtube_findings_moved",
   "youtube_findings_deleted",
   ...ATLAS_PUBLICATION_OUTCOMES,
+  ...ATLAS_PARTICIPATION_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -198,6 +210,7 @@ export const ATLAS_REVIEW_ERROR_CODES = [
   "card_unreadable",
   "atlas_review_closed",
   ...ATLAS_PUBLICATION_ERROR_CODES,
+  ...ATLAS_PARTICIPATION_ERROR_CODES,
 ] as const;
 export type AtlasReviewErrorCode = typeof ATLAS_REVIEW_ERROR_CODES[number] | "invalid_request" |
   "review_service_unavailable";
@@ -302,7 +315,7 @@ export const atlasReviewInputShape = {
     .describe("link_findings with contradicts: what the two disagree on."),
   rationale: ownerText(500).optional().describe("link_findings: why the link holds, public."),
   cursor: z.string().regex(/^[A-Za-z0-9_-]{1,400}$/u).optional()
-    .describe("list_findings, list_publications: the nextCursor it returned."),
+    .describe("list_findings, list_publications, list_comments: the nextCursor it returned."),
   // Decision 171 (sections 4B and 4F): the publications.
   includeSetAside: z.boolean().optional()
     .describe("list_findings: true to list the set-aside cards too, which it leaves out by default."),
@@ -315,6 +328,19 @@ export const atlasReviewInputShape = {
     .describe("set_aside_cards: the first card of a range, such as ARF-0116, with cardsTo."),
   cardsTo: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
     .describe("set_aside_cards: the last card of the range, such as ARF-0239, with cardsFrom."),
+  // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
+  reported: z.boolean().optional().describe("list_comments: true to list only the comments someone reported."),
+  comment: z.string().trim().regex(/^[Cc]-[1-9][0-9]{3,}$/u).optional()
+    .describe("hide_comment, show_comment (it also clears the comment's reports), remove_comment: the comment's id, " +
+      "such as C-1003."),
+  commenter: z.string().trim().regex(/^[Uu]-[a-fA-F0-9]{12}$/u).optional()
+    .describe("stop_commenter, restore_commenter: the commenter's tag that list_comments shows, such as U-1a2b3c4d5e6f."),
+  picks: z.array(z.object({
+    publication: z.string().trim().regex(/^[Pp]-[1-9][0-9]{3,}$/u).describe("A publication, such as P-1003."),
+    reason: ownerText(300).describe("Why it matters now, shown with it on the home page."),
+  }).strict()).max(5).optional()
+    .describe("set_picks: the home page's most important findings now, up to 5 in order, each with your public reason; " +
+      "an empty list clears them."),
 };
 
 type AtlasFieldName = keyof typeof atlasReviewInputShape | "reason" | "proposalId" | "expectedPayloadSha256";
@@ -357,6 +383,10 @@ export interface AtlasReviewRequest {
   publication?: string;
   cardsFrom?: string;
   cardsTo?: string;
+  reported?: boolean;
+  comment?: string;
+  commenter?: string;
+  picks?: Array<{ publication: string; reason: string }>;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -392,6 +422,14 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   unpublish_finding: ["publication", "reason"],
   publish_cards: ["cards"],
   set_aside_cards: ["cards", "cardsFrom", "cardsTo"],
+  // Decision 171: the comments and the home page's picks.
+  list_comments: ["reported", "cursor"],
+  hide_comment: ["comment"],
+  show_comment: ["comment"],
+  remove_comment: ["comment"],
+  stop_commenter: ["commenter"],
+  restore_commenter: ["commenter"],
+  set_picks: ["picks"],
 };
 
 /**
@@ -527,6 +565,20 @@ export function refineAtlasReviewInput(
       }
       return;
     }
+    case "list_comments":
+      return;
+    case "hide_comment":
+    case "show_comment":
+    case "remove_comment":
+      if (!has("comment")) issue(`${action} needs comment, such as C-1003`, "comment");
+      return;
+    case "stop_commenter":
+    case "restore_commenter":
+      if (!has("commenter")) issue(`${action} needs commenter, the tag list_comments shows`, "commenter");
+      return;
+    case "set_picks":
+      if (!has("picks")) issue("set_picks needs picks: up to 5 publications with your reasons, or [] to clear them", "picks");
+      return;
     case "link_findings":
       if (!has("atlasNumber")) issue("link_findings needs atlasNumber", "atlasNumber");
       if (!has("relation")) issue("link_findings needs relation", "relation");
@@ -842,6 +894,8 @@ export interface AtlasReviewResult {
   heldWithoutCard?: AtlasHeldWithoutCard;
   /** Decision 171: the publications listed or changed. */
   publications?: AtlasPublications;
+  /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
+  participation?: AtlasParticipation;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -874,6 +928,11 @@ export interface AtlasReviewDependencies {
    * answer that the publications are not configured, and the others work as before.
    */
   publications?: AtlasPublicationStore;
+  /**
+   * Votes and comments (decision 171, section 4E), through the review role's moderation functions: the owner's comment
+   * actions and the home page's picks need them; without them those actions answer that they are not configured.
+   */
+  participation?: AtlasModerationStore;
 }
 
 // Plain words for the writer's failure codes --------------------------------------------------------------------------
@@ -999,6 +1058,14 @@ export class AtlasReview {
         case "publish_cards":
         case "set_aside_cards":
           return await this.publicationAction(request.action, request);
+        case "list_comments":
+        case "hide_comment":
+        case "show_comment":
+        case "remove_comment":
+        case "stop_commenter":
+        case "restore_commenter":
+        case "set_picks":
+          return await this.participationAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1037,12 +1104,42 @@ export class AtlasReview {
     };
   }
 
+  // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async participationAction(action: AtlasParticipationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const moderation = this.deps.participation;
+    if (moderation === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas's comments are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasParticipationReview({ moderation, now: this.now }).run({
+      action,
+      ...(request.comment === undefined ? {} : { comment: request.comment }),
+      ...(request.commenter === undefined ? {} : { commenter: request.commenter }),
+      ...(request.reported === undefined ? {} : { reported: request.reported }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+      ...(request.picks === undefined ? {} : { picks: request.picks }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.participation === undefined ? {} : { participation: result.participation }),
+    };
+  }
+
   /**
    * Brings a card's publications in line with the decisions on it (accept, edit, reject) and the erasures of its F
-   * numbers. It never holds back the review: a store error leaves them for the next call, and the card's decisions
-   * stand either way.
+   * numbers; given the card, an accepted or edited finding that has no publication gets one in its decided state (a
+   * paid private card's, or one of the owner's older cards that publish_cards has not published). It never holds back
+   * the review: a store error leaves them for the next call, and the card's decisions stand either way.
    */
-  private async syncPublications(cardNumber: number, decisions: readonly AtlasDecisionView[]): Promise<AtlasPublicationView[]> {
+  private async syncPublications(
+    cardNumber: number,
+    decisions: readonly AtlasDecisionView[],
+    card?: FindingsCardRead,
+  ): Promise<AtlasPublicationView[]> {
     const publications = this.deps.publications;
     if (publications === undefined) return [];
     try {
@@ -1052,6 +1149,7 @@ export class AtlasReview {
         decisions,
         intentsOf: (numbers) => this.deps.store.inspectIntents(numbers),
         at: this.now().toISOString(),
+        ...(card === undefined ? {} : { card: { record: card.record, setAside: isSetAside(card.labels) } }),
       });
     } catch {
       return [];
@@ -1621,7 +1719,7 @@ export class AtlasReview {
       recheckedPublicNumber: recheckOf ?? null,
     });
     const sync = await this.syncCard(loaded, stored);
-    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored));
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     const publicNumber = stored.publicNumber!;
     const status: AtlasStatus = {
       atlasNumber: publicNumber,
@@ -2045,7 +2143,7 @@ export class AtlasReview {
       recheckedPublicNumber: null,
     });
     const sync = await this.syncCard(loaded, stored);
-    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored));
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     return {
       ok: true,
       outcome: "finding_rejected",
@@ -2474,8 +2572,9 @@ export class AtlasReview {
     const decisions = await this.deps.store.inspectCards([cardNumber]);
     const sync = await reconcileFindingsCard(this.deps.inbox, { ...card, findings: card.record.card.findings.length },
       decisions);
-    // Decision 171: the card's publications follow its decisions; one a decision's own call did not move moves now.
-    await this.syncPublications(cardNumber, decisions);
+    // Decision 171: the card's publications follow its decisions; one a decision's own call did not move moves now,
+    // and an accepted finding without a publication gets one.
+    await this.syncPublications(cardNumber, decisions, card);
     const reconciled: FindingsCardRead = sync.synced
       ? {
           ...card,
@@ -3766,8 +3865,12 @@ function withDecision(decisions: readonly AtlasDecisionView[], decision: AtlasDe
  */
 function publicationSentence(changed: readonly AtlasPublicationView[], kind: "moved" | "erased" = "moved"): string {
   if (changed.length === 0) return "";
+  const created = (row: AtlasPublicationView) => "outcome" in row && row.outcome === "published";
   const words = (row: AtlasPublicationView) => kind === "erased"
     ? "has its published fields erased"
+    : created(row) ? row.state === "edited"
+      ? `is published with ${row.atlasNumber} in its latest version, once the writer has stored it`
+      : `is published as ${row.atlasNumber}, without the label, once the writer has stored it`
     : row.state === "accepted" ? `is accepted as ${row.atlasNumber}, without the label`
       : row.state === "edited" ? `is edited: the pages show ${row.atlasNumber} in its latest version`
         : row.state === "rejected" ? "is rejected: it leaves the Atlas pages"

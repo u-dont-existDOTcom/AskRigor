@@ -1,11 +1,16 @@
 import {
+  PostgresAtlasModerationStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
-import { announcingPublicationStore, announcingReviewStore } from "../atlas/change-signal.js";
+import {
+  announcingModerationStore,
+  announcingPublicationStore,
+  announcingReviewStore,
+} from "../atlas/change-signal.js";
 import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
@@ -170,6 +175,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       })),
       // Decision 171: the publications, in the same database through the same role's functions.
       publications: announcingPublicationStore(new PostgresAtlasPublicationStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // Decision 171, section 4E: the comments' moderation and the home page's picks, through the same role's functions.
+      participation: announcingModerationStore(new PostgresAtlasModerationStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,

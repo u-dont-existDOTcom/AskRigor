@@ -1,4 +1,9 @@
-import type { AtlasPublicationStore, AtlasReviewStore } from "@askrigor/evidence-repository";
+import type {
+  AtlasModerationStore,
+  AtlasParticipationStore,
+  AtlasPublicationStore,
+  AtlasReviewStore,
+} from "@askrigor/evidence-repository";
 
 /**
  * The Atlas pages cache rendered pages briefly (decision 171, section 4C) and drop them whenever a publication or an
@@ -69,5 +74,39 @@ export function announcingReviewStore(
     recordIntents: (inputs) => announcing(signal, () => store.recordIntents(inputs)),
     inspectIntents: (publicNumbers) => store.inspectIntents(publicNumbers),
     forgetCards: (cardNumbers, forgottenAt) => announcing(signal, () => store.forgetCards(cardNumbers, forgottenAt)),
+  };
+}
+
+/** Votes, comments and reports (section 4E), announcing each write: a page shows them within the cache's life. */
+export function announcingParticipationStore(
+  store: AtlasParticipationStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasParticipationStore {
+  return {
+    inspectParticipant: (participantKey) => store.inspectParticipant(participantKey),
+    setDisplayName: (participantKey, displayName, at) =>
+      announcing(signal, () => store.setDisplayName(participantKey, displayName, at)),
+    setVote: (participantKey, publicationNumber, vote, at) =>
+      announcing(signal, () => store.setVote(participantKey, publicationNumber, vote, at)),
+    postComment: (participantKey, publicationNumber, body, at, firstDisplayName) =>
+      announcing(signal, () => store.postComment(participantKey, publicationNumber, body, at, firstDisplayName)),
+    deleteComment: (participantKey, publicId) => announcing(signal, () => store.deleteComment(participantKey, publicId)),
+    reportComment: (reporterKey, publicId, at) => announcing(signal, () => store.reportComment(reporterKey, publicId, at)),
+    forgetParticipant: (participantKey, at) => announcing(signal, () => store.forgetParticipant(participantKey, at)),
+  };
+}
+
+/** The owner's moderation and picks (section 4E), announcing each write. */
+export function announcingModerationStore(
+  store: AtlasModerationStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasModerationStore {
+  return {
+    inspectComments: (query) => store.inspectComments(query),
+    moderateComment: (publicId, moderation, at) => announcing(signal, () => store.moderateComment(publicId, moderation, at)),
+    setCommenterStopped: (commenterTag, stopped, at) =>
+      announcing(signal, () => store.setCommenterStopped(commenterTag, stopped, at)),
+    setHomePicks: (picks, at) => announcing(signal, () => store.setHomePicks(picks, at)),
+    inspectHomePicks: () => store.inspectHomePicks(),
   };
 }

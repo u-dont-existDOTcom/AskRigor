@@ -327,10 +327,34 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
 }
 
 /**
+ * The publication an accepted or edited finding gets when its card has none for it (a paid private card, whose
+ * findings are published only after the owner accepts them, or one of the owner's own older cards that publish_cards
+ * has not published): its decided state and F number, with the card's published fields, which its page does not show
+ * (an accepted publication shows its F number's latest version). Undefined for a rejection, for a finding drawn from
+ * YouTube comments (owner answers 170 and 173: never published), and for one whose stored fields do not make a
+ * publication.
+ */
+export function decidedPublicationDraft(
+  record: FindingsRecord,
+  findingNumber: number,
+  target: DecidedPublicationState,
+): AtlasPublicationDraft | undefined {
+  if (target.state === "rejected" || target.atlasNumber === null) return undefined;
+  const finding = record.card.findings[findingNumber - 1];
+  if (finding === undefined || drawnFromYouTubeComments(finding)) return undefined;
+  const published = publishedFindingOf(record, findingNumber);
+  return published === undefined ? undefined
+    : { findingNumber, state: target.state, atlasNumber: target.atlasNumber, heldBecause: null, published };
+}
+
+/**
  * Brings a card's publications in line with the owner's decisions (accept, edit, reject) and erasures: each publication
  * of a decided finding that is not withdrawn takes its decided state, and one whose F number has a recorded erasure has
- * its published fields erased. The review calls it after each decision and on each read of the card, so a state the
- * decision's own call did not move (the store answered with an error) is moved by the next one. Returns what changed.
+ * its published fields erased. Given the stored card, an accepted or edited finding of which the card has no
+ * publication at all is published in its decided state (decidedPublicationDraft), unless the card is set aside; a
+ * finding with a publication in any state, withdrawn or rejected included, gets no other. The review calls it after
+ * each decision and on each read of the card, so a state the decision's own call did not move (the store answered with
+ * an error) is moved, or a publication it did not make is made, by the next one. Returns what changed.
  */
 export async function reconcileCardPublications(input: {
   store: AtlasPublicationStore;
@@ -338,14 +362,36 @@ export async function reconcileCardPublications(input: {
   decisions: readonly AtlasDecisionView[];
   intentsOf: (publicNumbers: readonly string[]) => Promise<readonly AtlasIntentView[]>;
   at: string;
+  /** The stored card, when the caller read it, so a decided finding without a publication gets one. */
+  card?: { record: FindingsRecord; setAside: boolean };
 }): Promise<AtlasPublicationView[]> {
   const rows = await input.store.inspect({ cardNumbers: [input.cardNumber], limit: 100 });
   const live = rows.filter((row) => row.state !== "withdrawn" && row.cardForgottenAt === null);
   const findingDecisions = input.decisions.filter((decision) => decision.itemKind === "finding");
-  if (live.length === 0 || findingDecisions.length === 0) return [];
+  const unpublished = findingDecisions.filter((decision) => decision.decision !== "rejected" &&
+    !rows.some((row) => row.findingNumber === decision.itemNumber));
+  const creates = input.card !== undefined && !input.card.setAside && unpublished.length > 0;
+  if ((live.length === 0 && !creates) || findingDecisions.length === 0) return [];
   const numbers = [...new Set(findingDecisions.flatMap(({ publicNumber }) => publicNumber === null ? [] : [publicNumber]))];
   const intents = numbers.length === 0 ? [] : await input.intentsOf(numbers);
   const changed: AtlasPublicationView[] = [];
+  if (creates) {
+    const drafts = unpublished.flatMap((decision) => {
+      const target = decidedPublicationState(decision, intents);
+      const draft = target === undefined ? undefined
+        : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
+      return draft === undefined ? [] : [draft];
+    });
+    if (drafts.length > 0) {
+      changed.push(...(await input.store.publish({
+        cardNumber: input.cardNumber,
+        cardSha256: input.card!.record.card_sha256,
+        findings: drafts,
+        publishedAt: input.at,
+        revive: false,
+      })).filter(({ outcome }) => outcome === "published"));
+    }
+  }
   for (const decision of findingDecisions) {
     const target = decidedPublicationState(decision, intents);
     if (target === undefined) continue;

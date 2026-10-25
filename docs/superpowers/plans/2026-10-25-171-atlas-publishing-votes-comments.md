@@ -106,6 +106,9 @@ eligibility and the projection (`apps/research-mcp/src/atlas/publication.ts`); t
 `unpublish_finding`, `publish_cards` and `set_aside_cards` (`list_findings` leaves set-aside cards out unless
 `includeSetAside`); accept, edit and reject move the state, an erasure erases the published fields, and `forget_card`
 withdraws and erases what is not accepted. The backfill is `publish_cards`, after the owner accepts version 4.
+Accepting or editing a finding that has no publication (a paid private card's, or one of the owner's older cards' not
+yet chosen with `publish_cards`) publishes it in that state (`reconcileCardPublications`), so every accepted finding has
+a page once the timer writes its F number; a rejection publishes nothing, and a set-aside card stays off the pages.
 
 **C. The pages.** Served by the research server at `https://askrigor.com/atlas`, which the apex site's Caddy
 reverse-proxies there; rendered on the server from the database, with no client script and the site's strict content
@@ -130,6 +133,19 @@ The session is a signed, encrypted, HttpOnly, Secure, SameSite=Lax cookie on `/a
 sign-in; sign-out clears it. **Owner action:** create the Auth0 application (or let the session create it) and put its
 client secret into the server's runtime settings; the session never types a secret.
 
+Status (25 Oct): D is built on `claude/171c-pages-20261025`, not released, and switched off until
+`ASKRIGOR_ATLAS_PARTICIPATION=enabled` with every part configured (`apps/research-mcp/src/atlas/sign-in.ts`,
+`participation.ts`, `pages-http.ts`): `/atlas/auth/login` (code flow with PKCE S256 and `scope=openid`; the state,
+nonce and verifier in a 10-minute encrypted cookie on `/atlas/auth`; sign-in always starts on the public origin), the
+callback (state checked, the code exchanged with the client secret and the verifier, the ID token verified against the
+tenant's keys for issuer, audience, nonce and expiry), the participant key (an HMAC under
+`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL` of the account key `researchAccountKeyForSubject` derives), the
+AES-256-GCM session cookie on `/atlas` (30 days, no server-side store) and sign-out by form post, after which the page
+offers the tenant's own sign-out as a plain link. Settings: `ASKRIGOR_ATLAS_AUTH0_CLIENT_ID`,
+`ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET`, `ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`,
+`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL` and `ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, with the connector's issuer and keys;
+tested against a fake tenant. Creating the Auth0 application stays the owner's step (infra README).
+
 **E. Votes and comments** (migration 0022, with D's sign-in):
 
 - a vote: one per account and finding, `agree` or `disagree`, changeable or withdrawn; pages show totals only;
@@ -142,6 +158,20 @@ client secret into the server's runtime settings; the session never types a secr
   stop an account from commenting (the terms' wording);
 - rate limits per account and per address, and request-size limits, as the evidence-gap intake has;
 - forms carry a CSRF token tied to the session.
+
+Status (25 Oct): E and F's comment actions are built on `claude/171c-pages-20261025`, not released, behind the same
+switch. Migration `0022_atlas_votes_comments` (after 0021, the publications, and before 0023, G's save switch, since
+the merge into the build on 25 Oct) holds participants, votes, comments, reports and the home page's
+picks, with seven participation functions for the research-access role and five moderation functions for the review
+role (`packages/evidence-repository/src/atlas-participation.ts`). A finding page shows the vote totals and the comments,
+with forms to vote or withdraw a vote, comment (the display name comes with the first comment), delete one's own
+comment, report a comment (anyone; a reader who is not signed in with a token for the day), change one's display name
+and delete everything one holds; each form posts to the same origin, passes the Origin check and carries a token bound
+to the session and the form's purpose, within the design's limits. The contact-details-and-links check refuses a
+comment or a display name with the design's reason. `review_research_contribution` (still 33 tools) takes
+`list_comments`, `hide_comment`, `show_comment` (which also clears the comment's reports), `remove_comment`,
+`stop_commenter`, `restore_commenter` and `set_picks`, which fills the home page's picks lane. Tests:
+`tests/atlas-participation.test.ts`; the PostgreSQL acceptance covers 0022.
 
 **F. The review tool and the inbox.** Owner actions join `review_research_contribution` (the connector stays at 33
 tools): list and unpublish publications, set cards aside, list recent and reported comments, hide, show and remove a
@@ -165,7 +195,7 @@ Migration numbers (25 Oct, the merge of owner answer 173's held YouTube findings
 goes to production first with `0019_held_youtube_findings`, unchanged, so this build's migrations follow it:
 notice version 4 is `0020_research_use_notice_v4` and the publications `0021_atlas_publications` (0019 and 0020
 before the merge). Parts D and E (sign-in, votes and comments) take migration 0022, and G's save switch takes
-0023.
+0023; both are merged into the build (25 Oct), and every migrate applies 0019 to 0023 in that order.
 
 1. A (wording and consent), with its tests and the site checks.
 2. B (publications) and F's publication actions, with migration 0021's publication table.

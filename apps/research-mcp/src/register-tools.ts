@@ -832,15 +832,20 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "up to 20) publishes cards you choose, such as your own research saved before publishing began, never a paid " +
   "private card; set_aside_cards (cards, or cardsFrom and cardsTo) labels cards set-aside, which list_findings then " +
   "leaves out unless includeSetAside, and withdraws their publications. A paid private card's findings are published " +
-  "only after you accept them. Held YouTube findings: the findings drawn from YouTube comments that a saved card " +
-  "leaves out are kept apart from it for 30 days, then deleted, and so are those of a card whose findings all rest on " +
-  "them, which is not saved as a card; inspect_finding on a card lists its held findings with the day each is " +
-  "deleted, list_youtube_findings lists those with no card (newest first, each with its question and topic), " +
-  "delete_youtube_findings deletes a card's (card) or a card-less save's (cardSha256) now, and move_youtube_findings " +
-  "(cards, such as [\"ARF-0007\"]) moves those of cards stored before into that hold, rewriting each card as one " +
-  "saved today would read. They are never decided, accepted or published. An accepted decision is a hash-bound " +
-  "intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 " +
-  "minutes.";
+  "only after you accept them. Accepting or editing a finding that has no publication, such as a paid private card's " +
+  "or one of your older cards', publishes it in that state. Comments, from people signed in to the Atlas: " +
+  "list_comments lists the newest (reported: true for those reported), with each commenter's tag; hide_comment, " +
+  "show_comment (which also clears its reports) and remove_comment (comment C-1003) moderate one; stop_commenter and " +
+  "restore_commenter (commenter U-...) stop a commenter or let them comment again; set_picks (picks: up to 5 " +
+  "publications, each with your public reason) sets the home page's most important findings now. Held YouTube " +
+  "findings: the findings drawn from YouTube comments that a saved card leaves out are kept apart from it for 30 " +
+  "days, then deleted, and so are those of a card whose findings all rest on them, which is not saved as a card; " +
+  "inspect_finding on a card lists its held findings with the day each is deleted, list_youtube_findings lists those " +
+  "with no card (newest first, each with its question and topic), delete_youtube_findings deletes a card's (card) or " +
+  "a card-less save's (cardSha256) now, and move_youtube_findings (cards, such as [\"ARF-0007\"]) moves those of cards " +
+  "stored before into that hold, rewriting each card as one saved today would read. They are never decided, accepted " +
+  "or published. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a " +
+  "separate one-shot writer applies it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer
 // goes ahead and the save, which carries on, is reported unconfirmed.
