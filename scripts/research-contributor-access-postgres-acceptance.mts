@@ -49,8 +49,11 @@ const NOW = "2026-09-01T02:00:00.000Z";
 const FREE_SUBJECT = "auth0|synthetic-postgres-free-user";
 const PAID_SUBJECT = "auth0|synthetic-postgres-paid-user";
 const REVIEW_SUBJECT = "auth0|synthetic-postgres-review-user";
-const NOTICE_V2_SUBJECT = "auth0|synthetic-postgres-notice-v2-user";
-const NOTICE_V2 = "free-contributor-v2-2026-09-30";
+const EARLIER_NOTICES = [
+  "free-contributor-v1-2026-09-01",
+  "free-contributor-v2-2026-09-30",
+  "free-contributor-v3-2026-10-22",
+] as const;
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
 );
@@ -82,7 +85,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0018_atlas_card_fields",
+      migration: "0019_research_use_notice_v4",
     })}\n`);
     return;
   }
@@ -312,48 +315,50 @@ async function verify(
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
 
-    // Owner answers 159 (1b and 7) and 160b: the third free contributor notice. The account table admits the three
-    // versions and nothing else, and an account that accepted v2 before this release accepts v3 before free research.
-    const noticeV3MigrationRows = await admin.query<{ migration_id: string }>(
+    // Owner answer 171: v4 joins the earlier three notices, each of which requires reacceptance before research.
+    const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
-       WHERE migration_id = '0016_research_use_notice_v3'`,
+       WHERE migration_id = '0019_research_use_notice_v4'`,
     );
-    assert(noticeV3MigrationRows.rowCount === 1, "MIGRATION_0016_NOT_APPLIED");
-    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v3-2026-10-22", "NOTICE_V3_NOT_CURRENT");
-    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
-    const noticeV2Key = service.accountKeyForSubject(NOTICE_V2_SUBJECT);
-    // The row as an account that accepted v2 before this release holds it.
-    await admin.query(
-      `UPDATE ${SCHEMA}.research_use_accounts
-          SET notice_version = $2,
-              agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
-        WHERE account_key = $1`,
-      [noticeV2Key, NOTICE_V2],
-    );
-    const noticeV2View = await service.inspect(NOTICE_V2_SUBJECT);
-    assert(
-      noticeV2View.status === "UNENROLLED" && noticeV2View.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
-      "NOTICE_V2_ACCOUNT_NOT_SHOWN_V3",
-    );
-    await expectCode(() => service.requireActive(NOTICE_V2_SUBJECT), "RESEARCH_ACCESS_REQUIRED");
-    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
-    assert(await service.requireActive(NOTICE_V2_SUBJECT) === "FREE_CONTRIBUTOR", "NOTICE_V3_NOT_ACCEPTED");
-    const noticeV3Row = await admin.query<{ notice_version: string; agreement_json: { noticeVersion?: unknown } }>(
-      `SELECT notice_version, agreement_json FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
-      [noticeV2Key],
-    );
-    assert(
-      noticeV3Row.rows[0]?.notice_version === RESEARCH_USE_NOTICE_VERSION &&
-        noticeV3Row.rows[0]?.agreement_json.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
-      "NOTICE_V3_ROW_MISMATCH",
-    );
-    await expectPgErrorMessage(() => admin.query(
-      `UPDATE ${SCHEMA}.research_use_accounts
-          SET notice_version = 'free-contributor-v4-2026-12-31'
-        WHERE account_key = $1`,
-      [noticeV2Key],
-    ), "research_use_accounts_free_notice_check");
-    checks.push("notice_v3_admitted_and_a_v2_account_accepts_it_before_research");
+    assert(noticeV4MigrationRows.rowCount === 1, "MIGRATION_0019_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v4-2026-10-25", "NOTICE_V4_NOT_CURRENT");
+    for (const earlier of EARLIER_NOTICES) {
+      const subject = `auth0|synthetic-postgres-${earlier}-user`;
+      await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+      const earlierKey = service.accountKeyForSubject(subject);
+      // A row as an account that accepted an earlier version before this release holds it.
+      await admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts
+            SET notice_version = $2,
+                agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
+          WHERE account_key = $1`,
+        [earlierKey, earlier],
+      );
+      const earlierView = await service.inspect(subject);
+      assert(
+        earlierView.status === "UNENROLLED" && earlierView.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+        "EARLIER_ACCOUNT_NOT_SHOWN_V4",
+      );
+      await expectCode(() => service.requireActive(subject), "RESEARCH_ACCESS_REQUIRED");
+      await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+      assert(await service.requireActive(subject) === "FREE_CONTRIBUTOR", "NOTICE_V4_NOT_ACCEPTED");
+      const noticeV4Row = await admin.query<{ notice_version: string; agreement_json: { noticeVersion?: unknown } }>(
+        `SELECT notice_version, agreement_json FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+        [earlierKey],
+      );
+      assert(
+        noticeV4Row.rows[0]?.notice_version === RESEARCH_USE_NOTICE_VERSION &&
+          noticeV4Row.rows[0]?.agreement_json.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+        "NOTICE_V4_ROW_MISMATCH",
+      );
+      await expectPgErrorMessage(() => admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts
+            SET notice_version = 'free-contributor-v5-2026-12-31'
+          WHERE account_key = $1`,
+        [earlierKey],
+      ), "research_use_accounts_free_notice_check");
+    }
+    checks.push("notice_v4_admitted_and_v1_v2_v3_accounts_accept_it_before_research");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -1482,8 +1487,8 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
 }
 
 /**
- * Migrations 0017 and 0018 (Atlas phase 3): applied, a second migrate changes nothing, and a database at 0016 holding
- * data upgrades to them and then takes an Atlas finding.
+ * Migrations 0017, 0018 and 0019 (Atlas fields and notice v4): applied, a second migrate changes nothing, and a
+ * database at 0016 holding data upgrades to them and then takes an Atlas finding.
  */
 export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const { adminUrl, schema, checks } = context;
@@ -1491,9 +1496,9 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
   try {
     const applied = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${schema}.schema_migrations
-        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields')`,
+        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields', '0019_research_use_notice_v4')`,
     );
-    assert(applied.rowCount === 2, "MIGRATION_0017_OR_0018_NOT_APPLIED");
+    assert(applied.rowCount === 3, "MIGRATION_0017_0018_OR_0019_NOT_APPLIED");
     const before = await atlasMigrationSnapshot(admin, schema);
     const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
     try {
@@ -1502,7 +1507,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
       await again.close();
     }
     assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
-    checks.push("migrations_0017_and_0018_applied_and_a_second_migrate_changes_nothing");
+    checks.push("migrations_0017_0018_and_0019_applied_and_a_second_migrate_changes_nothing");
 
     // A database at 0016, as production holds it before this release, with canonical and account rows in it.
     const upgrade = `${schema}_atlas_upgrade`;
@@ -1552,8 +1557,8 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
         "ATLAS_UPGRADE_BASELINE_MISMATCH");
       await upgradeRepository.migrate();
       const upgraded = await counted();
-      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 18,
-        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_OR_0018");
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 19,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_0018_OR_0019");
       const prepared = prepareAtlasFindingIntent(atlasAccept({
         wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
         bases: ["full_text_audit"],
@@ -1574,7 +1579,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     } finally {
       await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
     }
-    checks.push("an_0016_database_with_data_upgrades_to_0018_keeps_its_rows_and_takes_a_finding");
+    checks.push("an_0016_database_with_data_upgrades_to_0019_keeps_its_rows_and_takes_a_finding");
   } finally {
     await admin.end();
   }
@@ -1682,11 +1687,11 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       };
       const [phase2] = await contentOf("F-1001");
       assert(
-        migrations === 18 && phase2 !== undefined &&
+        migrations === 19 && phase2 !== undefined &&
           ["kind", "subject", "subjectType", "direction", "searchScope"].every((field) => !(field in phase2)),
         "ATLAS_CARD_FIELDS_UPGRADE_CHANGED_A_PHASE_2_FINDING",
       );
-      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_0018_and_reads_it_without_the_new_fields");
+      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_0019_and_reads_it_without_the_new_fields");
 
       // The writer stores an effect's fields and a search that found nothing's where the design puts them.
       const decide = async (cardNumber: number, payload: unknown) => {

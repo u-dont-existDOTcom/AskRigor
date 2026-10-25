@@ -198,8 +198,8 @@ reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it and accepts no detailed report, so a
 rollback needs no step.
 
-Owner answers 159 (1b and 7) and 160b (2026-10-22): the free contributor
-notice's third version, `free-contributor-v3-2026-10-22`, says that findings
+Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
+contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a
 findings card removes and what stays. Migration `0016_research_use_notice_v3`
 replaces the account table's notice check, under the name 0011 gave it
@@ -227,6 +227,43 @@ real PostgreSQL in Docker. The rollback's order, with migration 0017, is at the
 end of the Atlas section below. A rollback to an image that reads only v1 also
 runs `research-use-notice-v2-hold.sql`, and later its restore; the two holds
 move different rows, so their order does not matter.
+
+Owner answer 171 (2026-10-25; approved, built, not yet released): the free
+contributor notice's fourth version, `free-contributor-v4-2026-10-25`, says free
+cards publish on save, written without the person and marked "Not checked by
+supervisors yet" until review, with votes and comments by signed-in accounts.
+Deleting a card removes it from the Atlas unless its findings were accepted;
+an accepted finding stays while valid. Paid private findings still publish
+only after acceptance. Migration `0019_research_use_notice_v4` admits v1 to v4
+under the same `research_use_accounts_free_notice_check`, without new columns
+or grants, and is safe to run again. Run the one-shot admin `migrate` before
+an image offering v4 serves. Earlier accounts accept v4 before free research.
+
+For an image rollback below v4:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. As the migrator, run `research-use-notice-v4-hold.sql` before swapping images.
+   It copies v4 rows unchanged into `research_use_notice_v4_hold`, removes all
+   non-owner grants and marks those accounts revoked. The person may accept
+   the earlier image's notice or activate an entitled paid private account.
+3. Restore the selector and runtime settings from this release's rollback
+   folder, recreate only `research-mcp` with the earlier reviewed image and
+   check its health.
+4. Run the v4 hold once more to catch acceptance between the first hold and
+   the image swap, then re-enable the timer against the restored image.
+
+Undo no migration: 0019 stays and widens only the notice check. Settings,
+entitlements, proposals and Atlas rows stay unchanged. For a target below v3,
+also use the v3 pair above; for a target below v2 use the v2 pair. Each hold
+moves only its own notice version. To serve v4 again, run this release's
+`migrate`, swap to its image, then as the migrator run
+`research-use-notice-v4-restore.sql` only after that image serves. It restores
+only accounts still exactly in the held state, keeps newer account choices,
+and empties the hold table; both scripts are idempotent. The table stores only
+the account fields already held, and only the migrator can read it.
+`npm run contributor-access:notice-v4-rollback-acceptance` checks the scripts
+with real PostgreSQL in Docker, including v1, v2 and v3 accounts, changed
+accounts, settings and every other table. It is not part of the hermetic gate.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
@@ -457,9 +494,9 @@ machine JSON.
   code rollback.
 - An image rollback below a free contributor notice that accounts have
   accepted holds that notice's account rows first and restores them once the
-  newer image serves again: `research-use-notice-v3-hold.sql` and
-  `research-use-notice-v3-restore.sql` in the order at the end of the Atlas
-  section above, and the v2 pair as well for an image that reads only v1.
+  newer image serves again: `research-use-notice-v4-hold.sql` and
+  `research-use-notice-v4-restore.sql` in the v4 order above, plus the v3 pair
+  for a target reading only v1 and v2, and the v2 pair for one reading only v1.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.

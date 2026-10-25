@@ -211,6 +211,7 @@ export class PostgresEvidenceRepository {
       "0016_research_use_notice_v3",
       "0017_atlas_findings",
       "0018_atlas_card_fields",
+      "0019_research_use_notice_v4",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

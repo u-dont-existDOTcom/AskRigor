@@ -210,6 +210,15 @@ describe("production living-evidence deployment", () => {
     expect(noticeV3.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
     expect(noticeV3).toContain("IF NOT EXISTS");
     expect(noticeV3).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    // Owner answer 171: the same constraint now admits exactly v1 to v4, under the same idempotence guard.
+    const noticeV4 = await read("packages/evidence-repository/migrations/0019_research_use_notice_v4.sql");
+    expect(noticeV4).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22', 'free-contributor-v4-2026-10-25')",
+    );
+    expect(noticeV4).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v4-2026-10-25%'");
+    expect(noticeV4.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV4).toContain("IF NOT EXISTS");
+    expect(noticeV4).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts"))
       .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n      "0017_atlas_findings",\n');
     expect(provision).not.toMatch(
@@ -220,6 +229,37 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toContain("analysis_versions");
     expect(provision).not.toContain("frontier_contributions");
     expect(provision).not.toContain("set -x");
+  });
+
+  it("ships the v4 hold/restore pair and its disposable PostgreSQL acceptance", async () => {
+    const hold = await read("infra/living-evidence-production/research-use-notice-v4-hold.sql");
+    const restore = await read("infra/living-evidence-production/research-use-notice-v4-restore.sql");
+    expect(hold).toContain("CREATE TABLE IF NOT EXISTS research_use_notice_v4_hold");
+    expect(hold).toContain("REVOKE ALL ON TABLE research_use_notice_v4_hold FROM PUBLIC");
+    expect(hold).toContain("acl.grantee <> class.relowner");
+    expect(hold).toContain("ON CONFLICT (account_key) DO NOTHING");
+    expect(hold).toContain("WHERE notice_version = 'free-contributor-v4-2026-10-25'");
+    expect(hold).toContain("AND account.notice_version = 'free-contributor-v4-2026-10-25'");
+    expect(hold).toContain("GREATEST(now(), created_at, updated_at)");
+    expect(hold).toContain("SET status = 'REVOKED'");
+    expect(hold).not.toMatch(/DELETE FROM|UPDATE research_contribution_proposals|UPDATE atlas_/u);
+    for (const guard of [
+      "account.status = 'REVOKED'", "account.mode IS NULL", "account.notice_version IS NULL",
+      "account.revoked_at = hold.held_at", "account.updated_at = hold.held_at",
+    ]) expect(restore).toContain(guard);
+    expect(restore).toContain("DELETE FROM research_use_notice_v4_hold");
+    expect(restore).toContain("\\if :hold_exists");
+    const runner = await read("scripts/run-research-use-notice-v4-rollback-acceptance.sh");
+    expect(runner).toContain("phase seed\nrun_sql \"$hold\"\nrun_sql \"$hold\"\nphase after-hold\nphase reenroll-v3\nrun_sql \"$restore\"\nrun_sql \"$restore\"\nphase after-restore");
+    const acceptance = await read("scripts/research-use-notice-v4-rollback-acceptance.mts");
+    expect(acceptance).toContain("[V1, V2, V3]");
+    expect(acceptance).toContain('const V4 = "free-contributor-v4-2026-10-25"');
+    for (const check of ["NEWER_ROW_OVERWRITTEN", "NOT_RESTORED_EXACTLY", "HOLD_NOT_EMPTIED", "SETTINGS_CHANGED",
+      "HOLD_READABLE_BY_RUNTIME_ROLE", "HOLD_READABLE_BY_READER", "OTHER_TABLE_CHANGED_"]) {
+      expect(acceptance).toContain(check);
+    }
+    expect(await read("package.json")).toContain('"contributor-access:notice-v4-rollback-acceptance": "bash scripts/run-research-use-notice-v4-rollback-acceptance.sh"');
+    expect(await read("infra/living-evidence-production/README.md")).toContain("Undo no migration: 0019 stays");
   });
 
   it("separates the public reader from the one-shot writer and declares rollback", async () => {
@@ -243,9 +283,9 @@ describe("production living-evidence deployment", () => {
     const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
 
-    // 0017 runs after 0016 on every migrate, and 0018 (Atlas phase 3) after it, last.
+    // Atlas migrations follow 0016, then 0019 widens the notice constraint for v4.
     expect(repository).toContain(
-      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n    ]');
+      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      "0019_research_use_notice_v4",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -283,7 +323,7 @@ describe("production living-evidence deployment", () => {
       .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql"))
       .map((name) => name.slice(0, -".sql".length))
       .sort();
-    expect(migrateList.length).toBeGreaterThanOrEqual(18);
+    expect(migrateList.length).toBeGreaterThanOrEqual(19);
     expect(pinned).toEqual(migrateList);
     expect(files).toEqual(migrateList);
   });

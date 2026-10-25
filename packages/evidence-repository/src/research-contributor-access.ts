@@ -44,7 +44,7 @@ import {
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v3-2026-10-22" as const;
+  "free-contributor-v4-2026-10-25" as const;
 
 /**
  * Notices free accounts accepted before the current one, oldest first. Such an
@@ -52,11 +52,13 @@ export const RESEARCH_USE_NOTICE_VERSION =
  * each finished answer's findings card joined what free use saves (owner
  * decision Q11, 2026-09-30), v3 when findings the owner accepts may be
  * published in the public Atlas and the notice says what deleting a card
- * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22).
+ * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22),
+ * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25).
  */
 export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
+  "free-contributor-v3-2026-10-22",
 ] as const;
 
 const researchUseNoticeVersionSchema = z.enum([
@@ -66,20 +68,17 @@ const researchUseNoticeVersionSchema = z.enum([
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
 
-// Version 3 (owner answers 159, 1b and 7, and 160b, 2026-10-22), word for word as drafted for the owner's approval:
-// findings the owner accepts may be published in AskRigor's public Atlas, deleting a card removes everything that
-// ties it to the person, and a published finding stays while it is valid. A finished answer's card is saved only when
-// its findings would help other people (owner answer 156a). The other sentences are version 2's, which the owner
-// approved (question 11, 2026-09-30, with the correction that paid private findings and lessons are saved when the
-// user accepts saving them for that answer).
+// Version 4 (owner answer 171, 2026-10-25), word for word: free cards publish on save, with the unreviewed label,
+// votes and comments; deleting a card removes it from the Atlas unless its findings were already accepted. An
+// accepted finding stays while it is valid. All other sentences remain version 3's.
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
   "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
-  "Findings that AskRigor's owner accepts may be published in AskRigor's public Atlas, written without you.",
-  "If you ask to delete a findings card, everything that ties it to you is removed, and no reason is needed.",
-  "A published finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.",
+  "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
+  "If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.",
+  "An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.",
   "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
 ].join(" ");
 
