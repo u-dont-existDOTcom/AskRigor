@@ -31,6 +31,7 @@ import {
   ResearchContributionRejectedError,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
+  atlasCommenterMarker,
   atlasCommenterTag,
   atlasCurrentLabels,
   atlasSessionKeyHash,
@@ -2813,7 +2814,9 @@ export async function verifyAtlasParticipation(context: {
         isDeepStrictEqual(read.comments.map(({ publicId, displayName }) => [publicId, displayName]),
           [[first, "Jane"], [second, "Jane D"], [annComment, "Ann"]]) &&
         read.viewer?.displayName === "Jane D" && read.viewer.vote === "disagree" && !read.viewer.stopped &&
-        isDeepStrictEqual(read.viewer.ownComments, [first, second]),
+        isDeepStrictEqual(read.viewer.ownComments, [first, second]) &&
+        isDeepStrictEqual(read.comments.map(({ marker }) => marker),
+          [atlasCommenterMarker(jane), atlasCommenterMarker(jane), atlasCommenterMarker(ann)]),
       `ATLAS_PARTICIPATION_READ_MISMATCH ${JSON.stringify(read)}`,
     );
     const model = await loadAtlasFinding(source, shown, { participation: { participantKey: null } });

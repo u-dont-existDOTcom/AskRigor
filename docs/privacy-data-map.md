@@ -1628,8 +1628,14 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   and all.
 - **The display name**: up to 40 characters, chosen with the first comment and
   changeable; refused, and not stored, when it holds contact details or a link
-  (the structural check of `apps/research-mcp/src/atlas/contact-check.ts`) or a
-  findings card's number. Each comment keeps the name it was posted with.
+  (the structural check of `apps/research-mcp/src/atlas/contact-check.ts`), a
+  findings card's number, a text-direction control, AskRigor's own name (in any
+  case or width) or anything the pages' last check would refuse. Each comment
+  keeps the name it was posted with, and shows after it a mark of six
+  hexadecimal characters, the start of the commenter's tag: the same on all of
+  one person's comments, so two people who chose one name can be told apart,
+  which links a person's comments to each other as a distinct display name
+  would.
 - **Votes** (`atlas_votes`): one `agree` or `disagree` per participant and
   publication, with its time, changeable and withdrawable. Pages show only the
   totals, and to a signed-in voter their own vote.

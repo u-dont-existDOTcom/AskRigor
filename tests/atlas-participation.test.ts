@@ -111,7 +111,7 @@ describe("the votes and comments store", () => {
     expect(await store.deleteComment(key("a"), "C-1002")).toBe(true);
     await store.setDisplayName(key("a"), "Jane D", at);
     expect(store.pageParticipation("P-1001", null).comments).toEqual([
-      { publicId: "C-1001", displayName: "Jane", body: "First.", postedAt: at },
+      { publicId: "C-1001", displayName: "Jane", body: "First.", postedAt: at, marker: atlasCommenterTag(key("a")).slice(2, 8) },
     ]);
     expect(await store.deleteComment(key("b"), first)).toBe(false);
     const tag = atlasCommenterTag(key("a"));
@@ -263,7 +263,8 @@ describe("the votes and comments stores in PostgreSQL", () => {
         calls.push({ sql: normalized, values });
         if (normalized.includes("count(*) FILTER")) return { rows: [{ agree: "3", disagree: "1" }] };
         if (normalized.includes("shown.comment_number")) {
-          return { rows: [{ comment_number: "1001", display_name: "Jane", body: "Hi.", posted_at: new Date("2026-11-05T09:00:00Z") }] };
+          return { rows: [{ comment_number: "1001", display_name: "Jane", body: "Hi.", posted_at: new Date("2026-11-05T09:00:00Z"),
+            marker: "0123ab" }] };
         }
         if (normalized.includes("FROM atlas_participants viewer")) return { rows: [{ display_name: "Ann", stopped: false }] };
         if (normalized.includes("SELECT own.vote")) return { rows: [{ vote: "agree" }] };
@@ -280,14 +281,18 @@ describe("the votes and comments stores in PostgreSQL", () => {
       picks: await reads.listHomePicks(),
     }));
     expect(read.anonymous).toEqual({ agree: 3, disagree: 1, viewer: null,
-      comments: [{ publicId: "C-1001", displayName: "Jane", body: "Hi.", postedAt: "2026-11-05T09:00:00.000Z" }] });
+      comments: [{ publicId: "C-1001", displayName: "Jane", body: "Hi.", postedAt: "2026-11-05T09:00:00.000Z",
+        marker: "0123ab" }] });
     expect(read.viewer.viewer).toEqual({ displayName: "Ann", stopped: false, vote: "agree", ownComments: ["C-1001"] });
     expect(read.picks).toEqual([{ slot: 1, publicationNumber: "P-1001", reason: "Why." }]);
     const shownComments = calls.find(({ sql }) => sql.includes("shown.comment_number"))!;
-    expect(shownComments.sql).not.toContain("participant_key");
+    // The key is joined on, never selected: the marker is the start of the commenter's tag.
+    const selected = shownComments.sql.slice(0, shownComments.sql.indexOf(" FROM "));
+    expect(selected).toContain("substr(author.commenter_tag, 3, 6) AS marker");
+    expect(selected.replace("substr(author.commenter_tag, 3, 6) AS marker", "")).not.toMatch(/participant_key|commenter_tag/u);
     expect(shownComments.sql).toContain("shown.state = 'shown'");
     for (const { sql } of calls) {
-      expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|atlas_comment_reports|reporter_key|commenter_tag/u);
+      expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|atlas_comment_reports|reporter_key/u);
     }
     expect(calls.filter(({ values }) => values?.includes("b".repeat(64)))).toHaveLength(3);
     await expect(source.read((reads) => reads.readParticipation("P-1001", "not a key"))).rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
@@ -533,8 +538,9 @@ describe("votes and comments on a finding page", () => {
     // Readers who are not signed in see it, with a report button and no delete button.
     const anonymous = (await f.get("/atlas/findings/P-1001")).body;
     expect(anonymous).toContain('<li class="comment" id="C-1001">');
-    expect(anonymous).toContain("<strong>Jane</strong>");
-    expect(anonymous).toContain('<p class="comment-body">It helped me after two weeks.\nNo nausea.</p>');
+    expect(anonymous).toContain(`<strong><bdi>Jane</bdi></strong> <span class="marker" title="The same mark on all of one ` +
+      `commenter's comments">#${atlasCommenterTag(participantKeyFor(f.settings, SUBJECT)).slice(2, 8)}</span>`);
+    expect(anonymous).toContain('<p class="comment-body" dir="auto">It helped me after two weeks.\nNo nausea.</p>');
     expect(anonymous).toContain('action="/atlas/comments/C-1001/report"');
     expect(anonymous).not.toContain('action="/atlas/comments/C-1001/delete"');
     // The author sees a delete button, and the comment form no longer asks for a name, which can now be changed.

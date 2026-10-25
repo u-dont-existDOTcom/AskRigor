@@ -350,8 +350,11 @@ const VOTE_TOTALS_SQL = `SELECT count(*) FILTER (WHERE counted.vote = 'agree') A
        count(*) FILTER (WHERE counted.vote = 'disagree') AS disagree
   FROM atlas_votes counted
  WHERE counted.publication_number = $1`;
-const SHOWN_COMMENTS_SQL = `SELECT shown.comment_number, shown.display_name, shown.body, shown.posted_at
+// A commenter's marker is the start of their tag; the key itself is only joined on, never read out.
+const SHOWN_COMMENTS_SQL = `SELECT shown.comment_number, shown.display_name, shown.body, shown.posted_at,
+       substr(author.commenter_tag, 3, 6) AS marker
   FROM atlas_comments shown
+  JOIN atlas_participants author ON author.participant_key = shown.participant_key
  WHERE shown.publication_number = $1 AND shown.state = 'shown'
  ORDER BY shown.comment_number
  LIMIT $2`;
@@ -465,7 +468,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       const totals = (await client.query<{ agree: string | number; disagree: string | number }>(VOTE_TOTALS_SQL,
         [publicationNumber])).rows[0];
       const comments = (await client.query<{ comment_number: string | number; display_name: string; body: string;
-        posted_at: Date | string }>(SHOWN_COMMENTS_SQL, [publicationNumber, ATLAS_COMMENTS_PER_PAGE])).rows;
+        posted_at: Date | string; marker: string }>(SHOWN_COMMENTS_SQL, [publicationNumber, ATLAS_COMMENTS_PER_PAGE])).rows;
       let viewer: AtlasPageParticipation["viewer"] = null;
       if (participantKey !== null) {
         const [own] = (await client.query<{ display_name: string | null; stopped: boolean }>(VIEWER_SQL,
@@ -488,6 +491,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           displayName: row.display_name,
           body: row.body,
           postedAt: instant(row.posted_at),
+          marker: z.string().regex(/^[a-f0-9]{6}$/u).parse(row.marker),
         })),
         viewer,
       };

@@ -159,6 +159,8 @@ export interface AtlasFindingParticipationView {
     displayName: string;
     body: string;
     postedAt: string;
+    /** Six hexadecimal characters that tell apart commenters who chose the same name. */
+    marker: string;
     /** The report form's token: the session's, or for a reader not signed in, the day's. */
     reportToken: string;
     /** The viewer's own comment's delete token; null for another's. */

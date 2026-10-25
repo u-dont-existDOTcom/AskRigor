@@ -383,7 +383,8 @@ export function normalizedDisplayName(value: string | null): string {
 
 /**
  * Why a display name cannot be used, or undefined: empty, longer than 40 characters, a control character, contact
- * details or a link, a findings card's number, or anything else the pages' last check would find in it.
+ * details or a link, a findings card's number, AskRigor's own name, or anything else the pages' last check would find
+ * in it.
  */
 export function displayNameProblem(name: string): string | undefined {
   if (name.length === 0) return "Choose a display name first.";
@@ -393,6 +394,10 @@ export function displayNameProblem(name: string): string | undefined {
   if (hasDirectionControl(name)) return "A display name can't hold text-direction control characters.";
   if (contactDetailKinds(name).length > 0 || linkKinds(name).length > 0) return DISPLAY_NAME_REFUSAL;
   if (containsCardReference(name)) return "Display names can't name a findings card.";
+  // No one comments as AskRigor: its name in any case or width, with any spacing or punctuation inside, is refused.
+  if (name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "").includes("askrigor")) {
+    return "Display names can't use AskRigor's name.";
+  }
   return pageProblem(name, { link: DISPLAY_NAME_REFUSAL, card: "Display names can't name a findings card.",
     other: "A display name can't hold that text." });
 }

@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { InMemoryAtlasPageSource, InMemoryAtlasParticipation, atlasSessionKeyHash } from "@askrigor/evidence-repository";
+import {
+  InMemoryAtlasPageSource,
+  InMemoryAtlasParticipation,
+  atlasCommenterTag,
+  atlasSessionKeyHash,
+} from "@askrigor/evidence-repository";
 
 import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
 import {
@@ -280,6 +285,30 @@ describe("the session cookie (review issue 6)", () => {
     expect(refused.status).toBe(403);
     expect(f.store.snapshot().votes).toBe(0);
     expect((await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: session })).status).toBe(303);
+  });
+});
+
+describe("display names (review issue 7)", () => {
+  it("refuses AskRigor's own name in any case or width", () => {
+    for (const name of ["AskRigor", "askrigor", "ASKRIGOR team", "Ask Rigor", "ＡｓｋＲｉｇｏｒ"]) {
+      expect(displayNameProblem(name), name).toBeDefined();
+    }
+    expect(displayNameProblem("Rigorous Ann")).toBeUndefined();
+  });
+
+  it("shows a short mark after each name, the same for one commenter and different between two of the same name", async () => {
+    const f = await fixture();
+    await f.store.postComment(keyOf(21), "P-1001", "First Jane.", AT, "Jane");
+    await f.store.postComment(keyOf(22), "P-1001", "Second Jane.", AT, "Jane");
+    await f.store.postComment(keyOf(21), "P-1001", "First Jane again.", AT, "Jane");
+    const body = (await f.get("/atlas/findings/P-1001")).body;
+    const marks = [...body.matchAll(/<strong><bdi>Jane<\/bdi><\/strong> <span class="marker"[^>]*>#([a-f0-9]{6})<\/span>/gu)]
+      .map((match) => match[1]);
+    expect(marks).toHaveLength(3);
+    expect(new Set(marks).size).toBe(2);
+    expect(marks).toContain(atlasCommenterTag(keyOf(21)).slice(2, 8));
+    expect(body).not.toContain(keyOf(21));
+    expect(body).not.toContain(atlasCommenterTag(keyOf(21)));
   });
 });
 

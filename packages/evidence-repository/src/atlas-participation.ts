@@ -156,6 +156,11 @@ export function atlasCommenterTag(participantKey: string): string {
   return `U-${createHash("sha256").update(`askrigor-atlas-commenter:v1:${participantKey}`, "utf8").digest("hex").slice(0, 12)}`;
 }
 
+/** The mark a page shows after a commenter's name: six hexadecimal characters of their tag. */
+export function atlasCommenterMarker(participantKey: string): string {
+  return atlasCommenterTag(participantKey).slice(2, 8);
+}
+
 /** The public id of a comment number, and the number of a public id. */
 export const atlasCommentId = (commentNumber: number) => `C-${commentNumber}`;
 export const atlasCommentNumber = (publicId: string) => Number(publicId.slice(2));
@@ -224,8 +229,12 @@ interface StoredComment {
 export interface AtlasPageParticipation {
   agree: number;
   disagree: number;
-  /** The comments that show, oldest first. */
-  comments: Array<{ publicId: string; displayName: string; body: string; postedAt: string }>;
+  /**
+   * The comments that show, oldest first. marker is six hexadecimal characters of the commenter's tag (the start of
+   * the U- tag the owner's review names them by): the same on all their comments, so two people who chose one name can
+   * be told apart.
+   */
+  comments: Array<{ publicId: string; displayName: string; body: string; postedAt: string; marker: string }>;
   /** The signed-in viewer's own state; null without a viewer. */
   viewer: { displayName: string | null; stopped: boolean; vote: AtlasVote | null; ownComments: string[] } | null;
 }
@@ -535,7 +544,7 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
         .sort((left, right) => left.commentNumber - right.commentNumber)
         .slice(0, ATLAS_COMMENTS_PER_PAGE)
         .map((comment) => ({ publicId: atlasCommentId(comment.commentNumber), displayName: comment.displayName,
-          body: comment.body, postedAt: comment.postedAt })),
+          body: comment.body, postedAt: comment.postedAt, marker: atlasCommenterMarker(comment.participantKey) })),
       viewer: participantKey === null ? null : {
         displayName: participant?.displayName ?? null,
         stopped: participant?.stoppedAt !== null && participant?.stoppedAt !== undefined,

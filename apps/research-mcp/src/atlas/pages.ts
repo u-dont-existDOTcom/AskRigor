@@ -448,8 +448,8 @@ ${viewer.vote === null ? "" : html`<button type="submit" name="vote" value="clea
 <h2 id="comments">Comments</h2>
 ${view.comments.length === 0 ? html`<p>No comments yet.</p>` : html`<ol class="comment-list">
 ${view.comments.map((comment) => html`<li class="comment" id="${comment.publicId}">
-<p class="meta"><strong>${comment.displayName}</strong> · ${day(comment.postedAt)}</p>
-<p class="comment-body">${comment.body}</p>
+<p class="meta"><strong><bdi>${comment.displayName}</bdi></strong> <span class="marker" title="The same mark on all of one commenter's comments">#${comment.marker}</span> · ${day(comment.postedAt)}</p>
+<p class="comment-body" dir="auto">${comment.body}</p>
 <div class="comment-actions">
 ${comment.deleteToken === null ? "" : html`<form method="post" action="/atlas/comments/${comment.publicId}/delete">
 ${hiddenFields(comment.deleteToken, path)}
@@ -849,6 +849,7 @@ code {
   border-radius: 0.5rem;
 }
 .comment-body { white-space: pre-wrap; margin: 0.4rem 0; }
+.marker { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .comment-actions, .vote-form, .account { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .comment-actions form, .account form { margin: 0; }
 .comment-form, .account { margin-top: 1.25rem; }

@@ -401,6 +401,7 @@ export {
   PostgresAtlasParticipationStore,
   atlasCommentId,
   atlasCommentNumber,
+  atlasCommenterMarker,
   atlasCommenterTag,
   atlasSessionKeyHash,
   type AtlasCommentModerationView,
