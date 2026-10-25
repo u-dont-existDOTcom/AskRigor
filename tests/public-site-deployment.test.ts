@@ -15,9 +15,9 @@ const bash = (script: string) => spawnSync("bash", ["-c", script], {
   encoding: "utf8"
 });
 
-/** The Caddyfile's `handle /atlas* { ... }` block, through its matching closing brace. */
+/** The Caddyfile's `handle @atlas { ... }` block, through its matching closing brace. */
 function atlasHandle(caddyfile: string): string {
-  const start = caddyfile.indexOf("handle /atlas* {");
+  const start = caddyfile.indexOf("handle @atlas {");
   if (start < 0) throw new Error("no /atlas handle");
   let depth = 0;
   for (let at = start; at < caddyfile.length; at += 1) {
@@ -60,9 +60,10 @@ describe("public-site deployment packet", () => {
     expect(caddy).toContain("/support/index.html");
     expect(caddy).toContain("path /assets/*");
     expect(caddy).toContain("respond 404");
-    // The packet adds no site of its own beside the apex: mcp.askrigor.com is only the Atlas pages' upstream.
+    // The packet adds no site of its own beside the apex, and never names mcp.askrigor.com: the Atlas pages go straight
+    // to the research server's container.
     expect(caddy.match(/^\S.*\{$/gmu)).toEqual(["askrigor.com {"]);
-    expect(caddy.replace(atlasHandle(caddy), "")).not.toContain("mcp.askrigor.com");
+    expect(caddy).not.toContain("mcp.askrigor.com");
     expect(caddy).not.toContain("includeSubDomains");
     expect(caddy).not.toContain("preload");
   });
@@ -70,9 +71,14 @@ describe("public-site deployment packet", () => {
   it("proxies /atlas to the research server with the pages' own headers, before the final 404", () => {
     const atlas = atlasHandle(caddy);
     const rest = caddy.replace(atlas, "");
-    // Decision 171, section 4C: the research server renders the pages; Caddy proxies to it by its public name.
-    expect(atlas).toContain("reverse_proxy https://mcp.askrigor.com {");
-    expect(atlas).toContain("header_up Host mcp.askrigor.com");
+    // Exactly /atlas and the paths below it, never /atlasx.
+    expect(caddy).toContain("\t@atlas path /atlas /atlas/*\n\thandle @atlas {");
+    expect(caddy).not.toMatch(/\/atlas\*/u);
+    // Decision 171, sections 4C to 4E (review 171, issue 2): straight to the research server's container, the upstream
+    // the installer checks and puts in; the Host stays askrigor.com, and the reader's address comes from the connection.
+    expect(atlas).toContain("reverse_proxy {$ASKRIGOR_ATLAS_UPSTREAM} {");
+    expect(atlas).toContain("header_up X-AskRigor-Client-IP {remote_host}");
+    expect(atlas).not.toMatch(/header_up Host|https:\/\//u);
     // The pages' policy, in place of the site's: forms post to this origin, and still no script.
     expect(atlas).toContain(`Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; ` +
       `form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"`);
@@ -82,13 +88,67 @@ describe("public-site deployment packet", () => {
     }
     expect(atlas).not.toMatch(/script-src|unsafe-|form-action 'none'/u);
     // The site's headers skip /atlas, so its form-action 'none' never joins the pages' policy.
-    expect(rest).toContain("@site not path /atlas*");
+    expect(rest).toContain("@site not path /atlas /atlas/*");
     expect(rest.match(/^\s*header\b.*$/gmu)).toEqual(["\theader @site {"]);
     expect(rest).toContain("form-action 'none'");
     // The /atlas handle comes after the site's own routes and before the final 404, which answers every other path.
-    expect(caddy.indexOf("handle /atlas* {")).toBeGreaterThan(caddy.indexOf("handle @assets {"));
-    expect(caddy.indexOf("handle /atlas* {")).toBeLessThan(caddy.lastIndexOf("handle {"));
+    expect(caddy.indexOf("handle @atlas {")).toBeGreaterThan(caddy.indexOf("handle @assets {"));
+    expect(caddy.indexOf("handle @atlas {")).toBeLessThan(caddy.lastIndexOf("handle {"));
     expect(caddy.slice(caddy.lastIndexOf("handle {"))).toMatch(/^handle \{\s+respond 404\s+\}\s+\}\s*$/u);
+  });
+
+  it("puts in the Atlas upstream only after checking it against the production Caddyfile", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-atlas-upstream-"));
+    try {
+      const production = join(temporary, "Caddyfile");
+      await writeFile(production, "mcp.askrigor.com {\n\treverse_proxy research-mcp:3000 {\n\t\tflush_interval -1\n\t}\n}\n");
+      const check = (upstream: string) => bash(`
+        source "${installerScript}"
+        validate_atlas_upstream '${upstream}' "${production}"
+      `);
+      expect(check("research-mcp:3000").status, check("research-mcp:3000").stderr).toBe(0);
+      for (const [upstream, message] of [
+        ["research-mcp:3001", "not an upstream the production Caddyfile proxies to"],
+        ["mcp.askrigor.com:443", "not a public site"],
+        ["https://research-mcp:3000", "must be host:port"],
+        ["", "must be host:port"],
+        ["research-mcp:70000", "port out of range"],
+        ["research mcp:3000", "must be host:port"],
+      ] as const) {
+        const refused = check(upstream);
+        expect(refused.status, upstream).not.toBe(0);
+        expect(refused.stderr, upstream).toContain(message);
+      }
+
+      const combined = join(temporary, "combined");
+      const rendered = bash(`
+        source "${installerScript}"
+        : >"${combined}"
+        render_packet_caddyfile "${resolve(root, "ops/public-site/Caddyfile.site")}" research-mcp:3000 "${combined}"
+      `);
+      expect(rendered.status, rendered.stderr).toBe(0);
+      const output = await readFile(combined, "utf8");
+      expect(output).toContain("\t\treverse_proxy research-mcp:3000 {\n\t\t\theader_up X-AskRigor-Client-IP {remote_host}");
+      expect(output).not.toContain("{$ASKRIGOR_");
+
+      const bare = join(temporary, "bare");
+      await writeFile(bare, "askrigor.com {\n\trespond 200\n}\n");
+      const missing = bash(`
+        source "${installerScript}"
+        render_packet_caddyfile "${bare}" research-mcp:3000 "${combined}"
+      `);
+      expect(missing.status).not.toBe(0);
+      expect(missing.stderr).toContain("lacks the Atlas upstream placeholder");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+    // The installer checks the upstream before it writes anything, and renders the packet before validating it.
+    expect(installer).toContain("atlas_upstream=${ASKRIGOR_ATLAS_UPSTREAM:-}");
+    expect(installer.indexOf('validate_atlas_upstream "$atlas_upstream" "$production_caddyfile"'))
+      .toBeLessThan(installer.indexOf('ensure_secure_directory "$site_root"'));
+    expect(installer.indexOf('render_packet_caddyfile "$packet_caddyfile" "$atlas_upstream"'))
+      .toBeLessThan(installer.indexOf("validate --config /etc/caddy/Caddyfile"));
+    expect(installer).not.toContain('cat -- "$packet_caddyfile"');
   });
 
   it("overlays only the two read-only Caddy mounts", () => {

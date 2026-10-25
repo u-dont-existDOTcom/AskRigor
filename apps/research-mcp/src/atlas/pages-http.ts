@@ -14,7 +14,12 @@ import {
   livingEvidenceReuseConfigFromEnv,
   researchContributorAccessConfigFromEnv,
 } from "../config.js";
-import { createTokenBucketLimiter, type TokenBucketLimiter } from "../rate-limit.js";
+import {
+  addressLimitKey,
+  createTokenBucketLimiter,
+  normalizeClientIp,
+  type TokenBucketLimiter,
+} from "../rate-limit.js";
 import { announcingParticipationStore, atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
 import {
   loadAtlasChanges,
@@ -84,7 +89,10 @@ import {
  * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/changes and /atlas/atlas.css; any other /atlas path answers
  * 404, and every path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. Every /atlas response carries the pages' own
  * content policy and headers. Nothing about a reader is logged; a reader who does not sign in gets no cookie, and the
- * per-address rate limit keeps a counter in memory, as the evidence-gap page's does. Rendered pages are cached in
+ * per-address rate limit keeps a counter in memory, as the evidence-gap page's does, counting an IPv6 address by its
+ * /64. The apex site's Caddy proxies /atlas here with the Host askrigor.com and the reader's address, taken from the
+ * connection, in X-AskRigor-Client-IP; that header is believed only on a request whose Host is the public origin's,
+ * which only that proxy sends, never on one that reached mcp.askrigor.com directly. Rendered pages are cached in
  * memory for 60 seconds for readers who are not signed in, bounded in number and size, and dropped whenever a
  * publication, an accepted finding, a vote or a comment changes in this process (change-signal.ts).
  *
@@ -104,6 +112,9 @@ export const ATLAS_PAGE_HEADERS = Object.freeze({
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-Frame-Options": "DENY",
 });
+
+/** The header the apex site's Caddy sets to the reader's address, from the connection. */
+export const ATLAS_CLIENT_IP_HEADER = "x-askrigor-client-ip";
 
 /** Per address, as the evidence-gap page limits its routes: a burst of 60 pages, then one a second. */
 export const ATLAS_PAGES_RATE_LIMIT = {
@@ -313,6 +324,12 @@ export interface AtlasParticipationRuntime {
 export interface CreateAtlasPagesHandlerOptions {
   /** ASKRIGOR_ATLAS_PAGES=enabled. */
   enabled: boolean;
+  /**
+   * Where readers reach the pages (ASKRIGOR_ATLAS_PUBLIC_ORIGIN, https://askrigor.com by default): a request whose Host
+   * is its host came through the apex site's proxy, whose X-AskRigor-Client-IP gives the reader's address. Null when it
+   * is not usable: then no forwarded address is believed.
+   */
+  publicOrigin?: string | null;
   /** What the pages read; undefined while enabled means they are not configured, and answer 503. */
   source?: AtlasPageSource;
   rateLimiter?: TokenBucketLimiter;
@@ -375,8 +392,32 @@ const NOTICES: Readonly<Record<string, string>> = {
 
 const queryOf = (request: IncomingMessage) => new URL(request.url ?? "/", "http://atlas.invalid").searchParams;
 
+/**
+ * The reader's address: the apex proxy's X-AskRigor-Client-IP on a request whose Host is the public origin's host,
+ * else the address the server resolved for the connection.
+ */
+export function atlasReaderAddress(request: IncomingMessage, publicHost: string | null, connectionAddress: string): string {
+  const host = request.headers.host;
+  const forwarded = request.headers[ATLAS_CLIENT_IP_HEADER];
+  if (publicHost !== null && typeof host === "string" && host.toLowerCase() === publicHost && typeof forwarded === "string") {
+    const address = normalizeClientIp(forwarded);
+    if (address !== undefined) return address;
+  }
+  return connectionAddress;
+}
+
+function hostOf(origin: string | null | undefined): string | null {
+  if (origin === null) return null;
+  try {
+    return new URL(origin ?? "https://askrigor.com").host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions): AtlasPagesHandler {
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(ATLAS_PAGES_RATE_LIMIT);
+  const publicHost = hostOf(options.publicOrigin);
   const cache = new AtlasPageCache({ ...ATLAS_PAGE_CACHE_LIMITS, ...options.cache, now: options.now });
   if (options.enabled) (options.signal ?? atlasChanges).subscribe(() => cache.clear());
   const participation = options.participation;
@@ -516,7 +557,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
 
   /** The forms: each from these pages only, with its token, within its limits. */
   const formRoute = async (route: FormRoute, request: IncomingMessage, response: ServerResponse,
-    runtime: AtlasParticipationRuntime, source: AtlasPageSource, clientIp: string, now: Date) => {
+    runtime: AtlasParticipationRuntime, source: AtlasPageSource, addressKey: string, now: Date) => {
     const settings = runtime.settings;
     if (!sameSitePost(request, settings.publicOrigin)) {
       message(response, 403, "Form refused", "The form did not come from the Atlas pages, so nothing was changed.", "/atlas");
@@ -546,7 +587,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       const valid = validReportToken(settings, route.publicId, form.get("csrf"), now) ||
         (session !== undefined && validCsrfToken(settings, session, `report:${route.publicId}`, form.get("csrf")));
       if (!valid) return expired();
-      const reporter = reporterKeyFor(reportSalt, session?.participantKey ?? null, clientIp, now);
+      const reporter = reporterKeyFor(reportSalt, session?.participantKey ?? null, addressKey, now);
       if (!limits.reports.consume(reporter)) return tooMany();
       const outcome = await runtime.store.reportComment(reporter, route.publicId, now.toISOString());
       if (outcome === "not_found") {
@@ -674,7 +715,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         return true;
       }
-      if (!rateLimiter.consume(dispatchOptions.clientIp)) {
+      const addressKey = addressLimitKey(atlasReaderAddress(request, publicHost, dispatchOptions.clientIp));
+      if (!rateLimiter.consume(addressKey)) {
         write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60" });
         return true;
       }
@@ -703,7 +745,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           return true;
         }
         if (participation !== undefined && FORM_KINDS.has(route.kind)) {
-          await formRoute(route as FormRoute, request, response, participation, source, dispatchOptions.clientIp, now);
+          await formRoute(route as FormRoute, request, response, participation, source, addressKey, now);
           return true;
         }
         const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
@@ -800,5 +842,10 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     source = undefined;
   }
   const participation = atlasParticipationFromEnv(env);
-  return createAtlasPagesHandler({ enabled: true, source, ...(participation === undefined ? {} : { participation }) });
+  return createAtlasPagesHandler({
+    enabled: true,
+    publicOrigin: publicOriginFrom(env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN) ?? null,
+    source,
+    ...(participation === undefined ? {} : { participation }),
+  });
 }

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 usage() {
-  printf 'Usage: %s <archive.tar.gz> <archive.sha256> <revision>\n' "${0##*/}" >&2
+  printf 'Usage: ASKRIGOR_ATLAS_UPSTREAM=<host:port> %s <archive.tar.gz> <archive.sha256> <revision>\n' "${0##*/}" >&2
 }
 
 die() {
@@ -152,6 +152,43 @@ extract_public_caddy_environment() {
     die "malformed ASKRIGOR_DIRECT_DNS_ONLY"
   [[ "$caddy_direct_dns_only" == true ]] ||
     die "unexpected ASKRIGOR_DIRECT_DNS_ONLY"
+}
+
+# The Atlas pages' upstream (decision 171): the research server's container, which the apex block reaches directly so
+# that the Host stays askrigor.com and the reader's address comes from the connection. Given at install time as
+# ASKRIGOR_ATLAS_UPSTREAM, it must be a plain host:port, never a public name, and one the production Caddyfile already
+# proxies to (the MCP site's own upstream).
+validate_atlas_upstream() {
+  local upstream=$1
+  local caddyfile=$2
+  local port
+  [[ "$upstream" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*:[0-9]{1,5}$ ]] ||
+    { die "ASKRIGOR_ATLAS_UPSTREAM must be host:port, such as research-mcp:3000"; return 1; }
+  port=${upstream##*:}
+  (( 10#$port >= 1 && 10#$port <= 65535 )) || { die "ASKRIGOR_ATLAS_UPSTREAM has a port out of range"; return 1; }
+  case "$upstream" in
+    *askrigor.com:*)
+      die "ASKRIGOR_ATLAS_UPSTREAM must name the research server's container, not a public site"
+      return 1
+      ;;
+  esac
+  awk '($1 == "reverse_proxy" || $1 == "to") { for (field = 2; field <= NF; field += 1) print $field }' "$caddyfile" |
+    sed -e 's#^http://##' | grep -Fxq -- "$upstream" ||
+    { die "ASKRIGOR_ATLAS_UPSTREAM is not an upstream the production Caddyfile proxies to"; return 1; }
+}
+
+# The packet's Caddyfile with the checked upstream in place of its placeholder, appended to the combined Caddyfile.
+render_packet_caddyfile() {
+  local packet=$1
+  local upstream=$2
+  local output=$3
+  local placeholder='{$ASKRIGOR_ATLAS_UPSTREAM}'
+  local content
+  content=$(<"$packet")
+  [[ "$content" == *"$placeholder"* ]] || { die "packet Caddyfile lacks the Atlas upstream placeholder"; return 1; }
+  content=${content//"$placeholder"/"$upstream"}
+  [[ "$content" != *'{$ASKRIGOR_'* ]] || { die "packet Caddyfile keeps an unrendered placeholder"; return 1; }
+  printf '%s\n' "$content" >>"$output"
 }
 
 discover_live_caddy_container() {
@@ -314,6 +351,7 @@ main() {
   input_archive=$1
   input_checksum=$2
   revision=$3
+  atlas_upstream=${ASKRIGOR_ATLAS_UPSTREAM:-}
 
 [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
   die "revision must be a safe nonempty release name"
@@ -355,6 +393,7 @@ assert_root_owned_secure_parent_chain "$https_releases_root/release"
 resolve_https_release "$https_release_link" "$https_releases_root"
 https_compose=$resolved_https_compose
 production_caddyfile=$resolved_production_caddyfile
+validate_atlas_upstream "$atlas_upstream" "$production_caddyfile"
 select_live_compose_config_files \
   "$base_compose" "$https_compose" "$state_root/compose.site.yaml"
 discover_live_caddy_container "$live_compose_config_files"
@@ -486,7 +525,7 @@ packet_overlay="$release_path/ops/public-site/compose.site.yaml"
 staged_combined_caddyfile="$staging_path/Caddyfile.combined"
 cp --reflink=never -- "$production_caddyfile" "$staged_combined_caddyfile"
 printf '\n' >>"$staged_combined_caddyfile"
-cat -- "$packet_caddyfile" >>"$staged_combined_caddyfile"
+render_packet_caddyfile "$packet_caddyfile" "$atlas_upstream" "$staged_combined_caddyfile"
 chown root:root -- "$staged_combined_caddyfile"
 chmod 0400 -- "$staged_combined_caddyfile"
 

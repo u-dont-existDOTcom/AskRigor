@@ -1549,8 +1549,11 @@ The pages (section 4C) are built, not yet released, and switched off until
   link is not served. Nothing about a reader who does not sign in is stored,
   logged or set as a cookie: the pages set them no cookie and keep no request
   log; the per-address rate limit holds, in memory only, a counter per address
-  (at most 10,000, each dropped after 15 minutes without a request), as the
-  evidence-gap page's does; and the 60-second page cache holds rendered pages
+  (an IPv6 address counted by its /64; at most 10,000, each dropped after 15
+  minutes without a request), as the evidence-gap page's does, with the address
+  the apex site's proxy forwards from the connection in `X-AskRigor-Client-IP`,
+  believed only on requests for askrigor.com; and the 60-second page cache holds
+  rendered pages
   for readers who are not signed in, never who asked for them. Signing in to
   vote or comment is mapped in "Atlas votes and comments" below.
 - **Stated limits.** The contact-details check is structural: a phone number
@@ -1630,10 +1633,11 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   author's key or tag; a hidden comment shows nowhere, to its author neither.
 - **Reports** (`atlas_comment_reports`): one per comment and reporter, with its
   time. A signed-in reporter is their participant key (`p:`); anyone else is an
-  HMAC of their address under a random salt the server draws for each UTC day
-  and keeps in memory only (`a:`), so the address is never stored and, once the
-  day's salt is dropped, no secret can trace a stored hash back to it. The owner
-  sees how many reports a comment has, never who made them.
+  HMAC of their address (the one the apex proxy forwards; an IPv6 address by its
+  /64) under a random salt the server draws for each UTC day and keeps in memory
+  only (`a:`), so the address is never stored and, once the day's salt is
+  dropped, no secret can trace a stored hash back to it. The owner sees how many
+  reports a comment has, never who made them.
 - **The owner's actions** (owner-only, on `review_research_contribution`,
   under the Atlas actions' switch): list the newest comments, or the reported
   ones, with each commenter's tag; hide a comment (it leaves the pages and
@@ -1661,10 +1665,7 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   participant key or reporter key (each dropped after two hours without a
   request) and by address (after 15 minutes). Nothing is logged about a
   reader, a voter or a commenter.
-- **Stated limits.** Behind the apex proxy, without a trusted client-address
-  header, every reader who reports without signing in has the same address
-  hash, so their reports count once per comment a day and five an hour among
-  them all. Votes and comments on a publication that later leaves the pages
+- **Stated limits.** Votes and comments on a publication that later leaves the pages
   (rejected, withdrawn or held) stay stored and shown nowhere, until the author
   deletes everything they hold or the owner removes the comments, and show
   again if the owner publishes the finding again. The contact check is

@@ -1,4 +1,4 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import { request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
@@ -27,6 +27,7 @@ import {
 } from "../../apps/research-mcp/src/atlas/pages-http.js";
 import { planCardPublication } from "../../apps/research-mcp/src/atlas/publication.js";
 import { findingsCardDigest, findingsCardSchema, withoutYouTubeData } from "../../apps/research-mcp/src/findings/card.js";
+import type { TokenBucketLimiter } from "../../apps/research-mcp/src/rate-limit.js";
 import type { FindingsRecord, FindingsSaveAccount } from "../../apps/research-mcp/src/findings/service.js";
 import { createAskRigorHttpServer } from "../../apps/research-mcp/src/server.js";
 import { LOW_DOSE_CARD, VELMOR_CARD } from "./atlas-scenario.js";
@@ -141,6 +142,7 @@ export interface Fixture {
 
 export async function fixture(options: {
   limiters?: AtlasParticipationRuntime["limiters"];
+  rateLimiter?: TokenBucketLimiter;
   participation?: boolean;
   now?: () => number;
 } = {}): Promise<Fixture> {
@@ -159,6 +161,7 @@ export async function fixture(options: {
       source: new InMemoryAtlasPageSource({ publications: published, participation: store }),
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
+      ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
       ...(options.participation === false ? {} : {
         participation: {
           settings,
@@ -197,6 +200,23 @@ export async function fixture(options: {
     return cookiePart(callback.response, ATLAS_SESSION_COOKIE)!;
   };
   return { base, settings, tenant, store, publications: published, signal, signIn, get, post };
+}
+
+/** A raw request with headers fetch() cannot set, such as Host. */
+export function rawRequest(base: string, path: string, options: { method?: string; headers?: Record<string, string>;
+  body?: string } = {}): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+  const url = new URL(path, base);
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({ host: url.hostname, port: url.port, path: `${url.pathname}${url.search}`,
+      method: options.method ?? "GET", headers: options.headers ?? {} }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      response.on("end", () => resolve({ status: response.statusCode ?? 0, headers: response.headers,
+        body: Buffer.concat(chunks).toString("utf8") }));
+    });
+    request.on("error", reject);
+    request.end(options.body);
+  });
 }
 
 /** The name=value part of a response's Set-Cookie for a cookie, as a request's Cookie header carries it. */

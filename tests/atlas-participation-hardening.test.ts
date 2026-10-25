@@ -10,11 +10,13 @@ import {
   participantKeyFor,
 } from "../apps/research-mcp/src/atlas/participation.js";
 import { atlasPageProblems, escapeHtml } from "../apps/research-mcp/src/atlas/pages.js";
-import { createAtlasPagesHandler } from "../apps/research-mcp/src/atlas/pages-http.js";
+import { ATLAS_CLIENT_IP_HEADER, atlasReaderAddress, createAtlasPagesHandler } from "../apps/research-mcp/src/atlas/pages-http.js";
+import { addressLimitKey, createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import {
   SUBJECT,
   closeAtlasServers,
   fixture,
+  rawRequest,
   serve,
   tokenFor,
 } from "./helpers/atlas-participation-fixture.js";
@@ -121,5 +123,70 @@ describe("the contact-details and links check (review issue 3)", () => {
     for (const text of ["e.g. this", "i.e. that", "M.Sc and B.Sc", "Fig.3 shows it", "approx. 12.5 mg"]) {
       expect(commentProblem(text), text).toBeUndefined();
     }
+  });
+});
+
+describe("the reader's address behind the apex proxy (review issue 2)", () => {
+  const onePage = () => createTokenBucketLimiter({ capacity: 1, refillTokensPerMinute: 0, maxKeys: 100, idleTtlMs: 60_000 });
+
+  it("believes X-AskRigor-Client-IP only on requests for the public origin's host, and counts IPv6 by its /64", async () => {
+    const f = await fixture({ rateLimiter: onePage() });
+    const publicHost = new URL(f.base).host;
+    const page = async (host: string, address: string) => (await rawRequest(f.base, "/atlas/findings/P-1001",
+      { headers: { host, [ATLAS_CLIENT_IP_HEADER]: address } })).status;
+    expect(await page(publicHost, "203.0.113.1")).toBe(200);
+    expect(await page(publicHost, "203.0.113.1")).toBe(429);
+    expect(await page(publicHost, "203.0.113.2")).toBe(200);
+    expect(await page(publicHost, "2001:db8:0:1::1")).toBe(200);
+    expect(await page(publicHost, "2001:db8:0:1:ffff:ffff:ffff:2")).toBe(429);
+    expect(await page(publicHost, "2001:db8:0:2::1")).toBe(200);
+    // A request that reached the server under another name (mcp.askrigor.com directly) cannot choose its address: the
+    // connection's counts, whatever the header says.
+    expect(await page("mcp.askrigor.example", "198.51.100.1")).toBe(200);
+    expect(await page("mcp.askrigor.example", "198.51.100.2")).toBe(429);
+  });
+
+  it("keys a report from a reader who is not signed in by the forwarded address", async () => {
+    const f = await fixture();
+    await f.store.postComment("e".repeat(64), "P-1001", "A comment.", AT, "Erin");
+    const publicHost = new URL(f.base).host;
+    const html = (await f.get("/atlas/findings/P-1001")).body;
+    const report = async (address: string) => (await rawRequest(f.base, "/atlas/comments/C-1001/report", {
+      method: "POST",
+      headers: { host: publicHost, origin: f.base, "content-type": "application/x-www-form-urlencoded",
+        [ATLAS_CLIENT_IP_HEADER]: address },
+      body: new URLSearchParams({ csrf: tokenFor(html, "/atlas/comments/C-1001/report"), return: "/atlas/findings/P-1001" })
+        .toString(),
+    })).status;
+    expect(await report("203.0.113.7")).toBe(303);
+    expect(await report("203.0.113.8")).toBe(303);
+    expect(await report("203.0.113.7")).toBe(303);
+    expect((await f.store.inspectComments({ reportedOnly: true, limit: 5 }))[0]!.reportCount).toBe(2);
+    expect(JSON.stringify(f.store.snapshot())).not.toMatch(/203\.0\.113/u);
+  });
+
+  it("reads the forwarded address exactly, falling back to the connection's", () => {
+    const request = (headers: Record<string, string>) => ({ headers }) as never;
+    expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: " 203.0.113.9 " }), "askrigor.com",
+      "10.0.0.2")).toBe("203.0.113.9");
+    expect(atlasReaderAddress(request({ host: "ASKRIGOR.COM", [ATLAS_CLIENT_IP_HEADER]: "::ffff:203.0.113.9" }),
+      "askrigor.com", "10.0.0.2")).toBe("203.0.113.9");
+    for (const [host, value] of [["mcp.askrigor.com", "203.0.113.9"], ["askrigor.com", "203.0.113.9, 10.0.0.1"],
+      ["askrigor.com", "not an address"], ["askrigor.com", "fe80::1%eth0"]] as const) {
+      expect(atlasReaderAddress(request({ host, [ATLAS_CLIENT_IP_HEADER]: value }), "askrigor.com", "10.0.0.2"),
+        `${host} ${value}`).toBe("10.0.0.2");
+    }
+    expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: "203.0.113.9" }), null, "10.0.0.2"))
+      .toBe("10.0.0.2");
+  });
+
+  it("counts an IPv6 address by its /64 and an IPv4 address as it is", () => {
+    expect(addressLimitKey("203.0.113.9")).toBe("203.0.113.9");
+    expect(addressLimitKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(addressLimitKey("2001:db8:0:1:2:3:4:5")).toBe("2001:db8:0:1::/64");
+    expect(addressLimitKey("2001:DB8:0:1::ffff")).toBe("2001:db8:0:1::/64");
+    expect(addressLimitKey("::1")).toBe("0:0:0:0::/64");
+    expect(addressLimitKey("64:ff9b::192.0.2.1")).toBe("64:ff9b:0:0::/64");
+    expect(addressLimitKey("unknown")).toBe("unknown");
   });
 });

@@ -3,7 +3,7 @@ askrigor.com {
 	encode zstd gzip
 
 	# Every response but the Atlas pages', which set their own headers below.
-	@site not path /atlas*
+	@site not path /atlas /atlas/*
 	header @site {
 		Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; connect-src 'none'; upgrade-insecure-requests"
 		X-Frame-Options DENY
@@ -39,9 +39,10 @@ askrigor.com {
 		file_server
 	}
 
-	# The public Atlas pages (decision 171, section 4C), rendered by the research server. Their policy lets forms post
-	# to this origin (form-action 'self') where the site's allows none, and still allows no script.
-	handle /atlas* {
+	# The public Atlas pages (decision 171, sections 4C to 4E), rendered by the research server. Their policy lets forms
+	# post to this origin (form-action 'self') where the site's allows none, and still allows no script.
+	@atlas path /atlas /atlas/*
+	handle @atlas {
 		header {
 			Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
 			X-Content-Type-Options nosniff
@@ -51,8 +52,13 @@ askrigor.com {
 			Strict-Transport-Security "max-age=31536000"
 			-Server
 		}
-		reverse_proxy https://mcp.askrigor.com {
-			header_up Host mcp.askrigor.com
+		# Straight to the research server's container: the installer puts in ASKRIGOR_ATLAS_UPSTREAM (host:port) after
+		# checking that the production Caddyfile already proxies to it. The Host stays askrigor.com, and the reader's
+		# address comes from this connection, replacing any value a client sent; the research server believes it only on
+		# requests for askrigor.com. Behind a CDN, use {client_ip} instead, with the CDN's ranges as trusted_proxies in the
+		# global server options.
+		reverse_proxy {$ASKRIGOR_ATLAS_UPSTREAM} {
+			header_up X-AskRigor-Client-IP {remote_host}
 		}
 	}
 

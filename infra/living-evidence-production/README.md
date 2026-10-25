@@ -565,26 +565,39 @@ frame-ancestors 'none'; base-uri 'none'; object-src 'none'`,
 strict-origin-when-cross-origin` and `X-Frame-Options: DENY`, and none sets a
 cookie. Rendered pages are cached in memory for 60 seconds (at most 256 pages
 and 8 MiB) and dropped on every publication or review write the process makes;
-each address may load 60 pages at once, then one a second.
+each address may load 60 pages at once, then one a second (an IPv6 address is
+counted by its /64).
 
-The apex site's Caddy (`../../ops/public-site/Caddyfile.site`) proxies
-`askrigor.com/atlas*` to `https://mcp.askrigor.com` with `Host:
-mcp.askrigor.com`, and sets the pages' headers there in place of the site's
-(whose `form-action 'none'` would otherwise join their policy); the site's own
-headers skip `/atlas`.
+The apex site's Caddy (`../../ops/public-site/Caddyfile.site`) proxies exactly
+`askrigor.com/atlas` and the paths below it (`@atlas path /atlas /atlas/*`)
+straight to the research server's container, keeping `Host: askrigor.com`, and
+sets the pages' headers there in place of the site's (whose `form-action
+'none'` would otherwise join their policy); the site's own headers skip those
+paths. The block also sets `X-AskRigor-Client-IP` to the reader's address from
+the connection (`{remote_host}`), replacing any value a client sent. The
+research server believes that header only on a request whose Host is the public
+origin's host (`ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, `https://askrigor.com` by
+default), which only this block sends, so a request that reaches
+`mcp.askrigor.com` directly cannot choose its address; every other request is
+counted by its connection's address. If a CDN is ever put in front of the apex,
+use `{client_ip}` in the block instead, with the CDN's address ranges as
+`trusted_proxies` in Caddy's global server options.
+
+The installer needs the upstream: run it as
+`ASKRIGOR_ATLAS_UPSTREAM=<host:port> install-public-site.sh ...`, with the
+research server's container as the production Caddyfile already proxies to it
+(for example `research-mcp:3000`). It refuses anything that is not a plain
+host:port, a public name, or an upstream the production Caddyfile does not
+already use, and puts the checked value in place of `{$ASKRIGOR_ATLAS_UPSTREAM}`
+before Caddy validates the combined file. Read the production Caddyfile's
+`mcp.askrigor.com` block (read-only) at release to confirm the value.
 
 Its release needs no migration and no grant: the reader can already select
-`atlas_publications` (0021 above). Before switching the pages on, look
-read-only on the server that the production `mcp.askrigor.com` block passes
-`/atlas*` to `research-mcp` (the repository holds no copy of that block) and
-that the Caddy container reaches `https://mcp.askrigor.com` itself. Then, when
-the owner says so, add `ASKRIGOR_ATLAS_PAGES=enabled` to `runtime.env`,
-recreate `research-mcp`, check that `https://mcp.askrigor.com/atlas` answers
-200 with the headers above, and install the public-site packet, after which
-`https://askrigor.com/atlas` answers the same. Behind the proxy the research
-server sees the proxy's address unless `ASKRIGOR_TRUSTED_CLIENT_IP_HEADER` names
-a header the edge sets, and then the per-address limit counts every reader
-together; check which applies before relying on it.
+`atlas_publications` (0021 above). When the owner says so, add
+`ASKRIGOR_ATLAS_PAGES=enabled` to `runtime.env`, recreate `research-mcp`, check
+that `https://mcp.askrigor.com/atlas` answers 200 with the headers above, and
+install the public-site packet with the upstream, after which
+`https://askrigor.com/atlas` answers the same.
 
 Rollback: remove the `ASKRIGOR_ATLAS_PAGES=enabled` line and recreate
 `research-mcp`, and every `/atlas` path answers 404 again; the Caddy route can
@@ -650,13 +663,12 @@ catalog, where `review_research_contribution` takes the comment actions and
 participation on, check that a finding page shows the vote totals and the
 sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
 with `scope=openid`, `code_challenge_method=S256` and the callback above, and,
-signed in, that a vote, a comment and its deletion round-trip. Behind the apex
-proxy the research server sees the proxy's address unless
-`ASKRIGOR_TRUSTED_CLIENT_IP_HEADER` names a header the edge sets; without it,
-every reader who reports a comment without signing in shares one address hash,
-so they can report each comment once a day and five comments an hour among them
-all (signed-in reports, votes and comments are limited per participant and are
-unaffected). Check which applies before relying on anonymous reports.
+signed in, that a vote, a comment and its deletion round-trip. A reader who
+reports a comment without signing in is counted by the address the apex block
+forwards (an IPv6 address by its /64); a public-site packet from before this
+change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every
+such reader would share one address hash: install the current packet before
+relying on anonymous reports.
 
 Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
 `research-mcp`; the forms, the sign-in link and the routes go, and the pages
