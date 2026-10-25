@@ -1191,9 +1191,23 @@ that".
   YouTube comments, each with its own save's time, and then rewrites the card and
   each later save exactly as one saved today without them would read (no card is
   changed unless the database holds each of its findings first); a later save
-  left with no finding is deleted. It changes nothing on a card whose
-  findings all rest on YouTube comments, or where a decision names a finding the
-  move would remove or renumber. It also changes nothing if the card has any
+  left with no finding is deleted. Owner answer 179a: when the card and every
+  later save have only findings drawn from YouTube comments, all are held with
+  no card number, each save with its own checked card SHA-256, save time,
+  research question and topic (through `heldYouTubeCardTextsOf`). Only after
+  every finding is reported held are all issue comments deleted and the issue
+  tombstoned and locked, using `forget_card`'s inbox operations: title replaced,
+  labels removed, closed as not planned. The existing forgotten marker records
+  only that issue number in `cards`, the removal time in `forgotten_at`, and
+  `reason: "youtube_findings_held_without_card"`; it holds no card wording,
+  digest or contributor/thread key. Card reads and listings treat it as gone.
+  The owner deletes the issue in GitHub to remove its edit history too, as the
+  reply instructs. A retry holds no duplicates and finishes an unlocked
+  tombstone; no migration is needed. It changes nothing if any save cannot be
+  read, a later save has a finding to keep when the whole card would go
+  (`later_save_kept_findings`, naming its comment), or a decision names a
+  finding the move would remove or renumber (any finding when the whole card
+  goes). It also changes nothing if the card has any
   publication, including withdrawn ones, unless that publication's card was
   forgotten; publications also name findings by place. GitHub keeps each rewritten
   card's earlier text in its edit history until the owner deletes those revisions,

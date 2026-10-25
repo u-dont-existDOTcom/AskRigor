@@ -843,7 +843,7 @@ export type AtlasForget = z.infer<typeof atlasForgetSchema>;
 export const atlasYoutubeFindingsSchema = z.object({
   cards: z.array(z.object({
     card: cardIdSchema,
-    status: z.enum(["moved", "nothing_to_move", "not_found", "unreadable", "every_finding_youtube",
+    status: z.enum(["moved", "moved_without_card", "nothing_to_move", "not_found", "unreadable", "later_save_kept_findings",
       "decisions_in_the_way", "published_in_the_way", "incomplete", "deleted"]),
     /** The findings now held, each with the day its save was made. */
     held: z.array(z.object({
@@ -860,6 +860,8 @@ export const atlasYoutubeFindingsSchema = z.object({
     decidedFindings: z.array(z.number().int().min(1).max(5)).max(5),
     /** published_in_the_way: the published findings, unless their card was forgotten. */
     publishedFindings: z.array(z.number().int().min(1).max(5)).max(5),
+    /** later_save_kept_findings: the occurrence comment whose save has findings to keep. */
+    laterSave: z.number().int().positive().optional(),
   }).strict()).max(MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL),
   ownerSteps: z.array(z.string()).max(10),
   /** delete_all_youtube_findings: how many held findings it deleted, of every card and every save with no card. */
@@ -2442,11 +2444,12 @@ export class AtlasReview {
     const reports: YouTubeFindingsMoveReport[] = [];
     for (const cardNumber of numbers) {
       reports.push(await moveYouTubeFindings({
-        inbox: this.deps.inbox, store: this.deps.store, held,
+        inbox: this.deps.inbox, store: this.deps.store, held, now: this.now,
         ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }),
       }, cardNumber));
     }
     const rewritten = reports.filter((report) => report.cardRewritten || report.laterSavesRewritten > 0);
+    const removed = reports.filter(({ status }) => status === "moved_without_card");
     const youtubeFindings: AtlasYoutubeFindings = {
       cards: reports.map((report) => ({
         card: publicFindingsCardId(report.card),
@@ -2458,12 +2461,17 @@ export class AtlasReview {
         laterSavesDeleted: report.laterSavesDeleted,
         decidedFindings: report.decidedFindings,
         publishedFindings: report.publishedFindings,
+        ...(report.laterSave === undefined ? {} : { laterSave: report.laterSave }),
       })),
-      ownerSteps: rewritten.length === 0 ? [] : [
+      ownerSteps: [...(rewritten.length === 0 ? [] : [
         "GitHub keeps each rewritten card's earlier text in its edit history. On each card below, open the edited " +
           "menu at the top of the description (and of each rewritten later save), and delete every earlier revision " +
           `from the history: ${rewritten.map(({ card }) => this.deps.inbox.issueUrl(card)).join(", ")}.`,
-      ],
+      ]), ...(removed.length === 0 ? [] : [
+        "Delete each stripped issue in GitHub; deleting the issue also removes its edit history: " +
+          `${removed.map(({ card }) => this.deps.inbox.issueUrl(card)).join(", ")}. ` +
+          "Its findings are held with no card number for your review.",
+      ])],
     };
     return {
       ok: true,
@@ -3790,6 +3798,10 @@ function moveSentence(report: YouTubeFindingsMoveReport): string {
         ...(report.laterSavesDeleted === 0 ? [] : [`${counted(report.laterSavesDeleted, "later save")} that rested ` +
           `only on YouTube comments ${report.laterSavesDeleted === 1 ? "was" : "were"} deleted.`]),
       ].join(" ");
+    case "moved_without_card":
+      return `${id}: ${done.length === 0 ? "its findings are already held" : done.join(" and ")} with no card ` +
+        "number, each save with its own research question and topic. Its comments are deleted and its issue is " +
+        "tombstoned and locked; it is no longer a findings card.";
     case "nothing_to_move":
       return `${id} holds no finding drawn from YouTube comments; nothing was changed.`;
     case "not_found":
@@ -3797,9 +3809,9 @@ function moveSentence(report: YouTubeFindingsMoveReport): string {
     case "unreadable":
       return `${id}'s record, or a later save's, does not read as the library saved it (it may have been edited in ` +
         "GitHub); nothing was changed.";
-    case "every_finding_youtube":
-      return `Every finding on ${id} rests on YouTube comments, so a card saved today would not be saved as a card; ` +
-        "nothing was changed. forget_card removes the card, or delete its issue in GitHub.";
+    case "later_save_kept_findings":
+      return `${id}'s later save in comment ${report.laterSave} has findings that do not rest on YouTube comments, ` +
+        "so the whole card cannot be removed; nothing was changed.";
     case "decisions_in_the_way":
       return `${id} has decisions on ${report.decidedFindings.length === 1 ? "finding" : "findings"} ` +
         `${listed(report.decidedFindings.map(String))}, which moving its findings drawn from YouTube comments would ` +

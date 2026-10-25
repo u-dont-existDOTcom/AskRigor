@@ -500,7 +500,23 @@ Its release, in this order, before the new image serves:
 4. The owner moves the findings drawn from YouTube comments of the cards stored
    before (ARF-0007, ARF-0012 and ARF-0209) with `move_youtube_findings`, and
    then deletes the earlier revisions GitHub keeps in each rewritten card's edit
-   history, as the reply lists them.
+   history, as the reply lists them. Owner answer 179a: if every finding of a
+   card and its later saves rests on YouTube comments, the move instead holds
+   each save's findings with no card number, its own checked card SHA-256,
+   save time, research question and topic. Only after every finding is reported
+   held does it delete all comments, tombstone the issue (title replaced,
+   labels removed, closed as not planned) and lock it. Its forgotten marker
+   records `cards: [issue number]`, `forgotten_at` (removal time) and
+   `reason: "youtube_findings_held_without_card"`, with no card text or thread
+   key. It reads as gone; the owner then deletes the stripped issue in GitHub,
+   which removes its edit history too. Every read and check comes first: an
+   unreadable save, any finding decision on a card that would go, a publication
+   whose card was not forgotten (withdrawn ones included), or a later save
+   with a finding to keep prevents removal and changes nothing. The latter
+   reports `later_save_kept_findings` and the save's comment; success reports
+   `moved_without_card` and each held finding's save day. Retrying finishes any
+   failed step without duplicate holds, including locking a tombstone. No new
+   migration is required.
 
 An image that serves before step 2 holds nothing (its holds fail, and each card
 is saved as before), and its owner's card view says the held findings cannot be
