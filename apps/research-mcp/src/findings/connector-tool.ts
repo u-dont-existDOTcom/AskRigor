@@ -66,11 +66,12 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         result,
         true,
       );
-    // Owner answer 170 (24 Oct): no finding drawn from YouTube comments is stored until YouTube confirms it may.
+    // Owner answers 170 and 173: a card whose findings all rest on YouTube comments is not saved as a card; its
+    // findings are held for the owner's review and deleted after 30 days.
     case "youtube_findings_only":
       return receipt(
-        "Not saved: every finding on the card rests on YouTube comments, which AskRigor does not store until YouTube " +
-          "confirms it may.",
+        "Not saved as a card: its findings all rest on YouTube comments, which AskRigor keeps only for its owner's " +
+          "review and deletes after 30 days.",
         result,
         true,
       );

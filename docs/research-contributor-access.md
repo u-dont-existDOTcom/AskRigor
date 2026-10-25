@@ -56,7 +56,7 @@ Atlas or what deleting a card removes. The third,
 `free-contributor-v3-2026-10-22`, described publication after acceptance. An
 account that accepted any of them inspects as `UNENROLLED`, and research tools
 refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v4. Migration
-`0019_research_use_notice_v4` widens the same constraint as 0011 and 0016 to
+`0020_research_use_notice_v4` widens the same constraint as 0011 and 0016 to
 admit all four versions, safely on repeated runs. The one-shot admin `migrate`
 applies it before an image offering v4 serves.
 
@@ -381,7 +381,24 @@ of 33 tools. They are flat fields with one rule set per action:
   accepted from the cards stay while they are valid. The App cannot delete an
   issue, so the reply links each stripped issue for the owner to delete; the
   same call again answers `card_forgotten` once GitHub answers 404 or 410 for
-  every one, and `card_forget_waiting_for_owner` until then.
+  every one, and `card_forget_waiting_for_owner` until then. It also deletes
+  the cards' held YouTube findings (below).
+- Held YouTube findings (owner answer 173, built, not yet released): the
+  findings drawn from YouTube comments that a saved card leaves out are held for
+  30 days apart from the card, then deleted; so are those of a card whose
+  findings all rest on them, which is not saved as a card, with its question and
+  topic. `inspect_finding` on a card lists its held findings
+  (`card.heldYoutubeFindings`) with the day each is deleted, and
+  `list_youtube_findings` lists those with no card (`heldWithoutCard`), newest
+  first; they are never items, so no decision takes one.
+  `delete_youtube_findings` with `card` deletes a card's now, and with
+  `cardSha256` a save's with no card. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
+  moves those of cards stored before into the hold, each from its own save's
+  time, deletes one already past 30 days, and rewrites the card and its later
+  saves as saved today without them; it changes nothing on a card whose
+  findings all rest on YouTube comments or where a decision names a finding the
+  move would remove or renumber, and lists the GitHub edit histories for the
+  owner to clear.
 
 Each decision on a card item carries the `cardSha256` from its inspect: when
 the card or its later saves changed since, the call answers `card_changed` and
@@ -498,7 +515,14 @@ lists what each holds. Migration `0018_atlas_card_fields.sql` (Atlas phase 3)
 adds three nullable columns to `atlas_finding_versions` (kind, subject type and
 the searches that found nothing), and new bodies for `atlas_redaction_permits`
 and `erase_atlas_wording` that erase the searches' queries too; the review
-role's grants are unchanged.
+role's grants are unchanged. Migration `0019_held_youtube_findings.sql` (owner
+answer 173) adds the private `held_youtube_findings` table and six
+security-definer functions: the research-access role may execute
+`hold_youtube_findings` (at a save) and `purge_expired_held_youtube_findings`;
+the review role those two, `inspect_held_youtube_findings`,
+`inspect_cardless_held_youtube_findings`, `delete_held_youtube_findings` and
+`delete_cardless_held_youtube_findings`. Neither has a direct privilege on the
+table, and the reader's default-privilege SELECT on it is removed.
 
 ## Runtime and failure behavior
 

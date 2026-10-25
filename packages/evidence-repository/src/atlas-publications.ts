@@ -20,7 +20,7 @@ import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
 // docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md): the findings of a card saved in free
 // contributor mode are published in the Atlas as soon as the card is saved, one row per finding, marked "Not checked by
-// supervisors yet" until the owner reviews them. Migration 0020's six review-role functions write the rows; this module
+// supervisors yet" until the owner reviews them. Migration 0021's six review-role functions write the rows; this module
 // holds what a row may contain, and the store in PostgreSQL and in memory with the same semantics. Code checks only
 // exact things here: shapes, closed vocabularies, numbers and states. Which findings are eligible, and what is
 // published of each, is decided in the research server (apps/research-mcp/src/atlas/publication.ts).
@@ -218,7 +218,7 @@ export type AtlasPublicationWithdrawal =
   | { reason: "card_forgotten" | "card_set_aside" | "card_replaced"; cardNumbers: readonly number[]; withdrawnAt: string }
   | { reason: "owner_unpublished"; publicationNumbers: readonly string[]; ownerReason: string; withdrawnAt: string };
 
-/** Migration 0020's six review-role functions, in TypeScript. */
+/** Migration 0021's six review-role functions, in TypeScript. */
 export interface AtlasPublicationStore {
   /** Publishes a card's findings, idempotently by the card's digest and each finding's place. */
   publish(input: AtlasPublishInput): Promise<AtlasPublishedRow[]>;
@@ -331,7 +331,7 @@ const later = (left: string, right: string) => Date.parse(left) >= Date.parse(ri
 const iso = (value: string) => new Date(value).toISOString();
 
 /**
- * The publication store in memory, with the semantics of migration 0020's functions, for tests and the hermetic
+ * The publication store in memory, with the semantics of migration 0021's functions, for tests and the hermetic
  * scenarios.
  */
 export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {

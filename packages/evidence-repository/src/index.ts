@@ -312,6 +312,27 @@ export {
   PostgresAtlasWriter,
 } from "./atlas-postgres.js";
 export {
+  HELD_YOUTUBE_FINDING_BASES,
+  HELD_YOUTUBE_FINDING_TAGS,
+  HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL,
+  HELD_YOUTUBE_FINDINGS_DAYS,
+  HELD_YOUTUBE_FINDINGS_MILLISECONDS,
+  HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN,
+  HeldYouTubeFindingsError,
+  InMemoryHeldYouTubeFindingsStore,
+  PostgresHeldYouTubeFindingsStore,
+  heldYouTubeFindingExpiry,
+  heldYouTubeFindingSchema,
+  heldYouTubeTopicSchema,
+  holdYouTubeFindingsInputSchema,
+  type HeldYouTubeFinding,
+  type HeldYouTubeFindingContent,
+  type HeldYouTubeFindingHold,
+  type HeldYouTubeFindingKey,
+  type HeldYouTubeFindingsStore,
+  type HoldYouTubeFindingsInput,
+} from "./held-youtube-findings.js";
+export {
   ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_LIVE_STATES,

@@ -29,6 +29,7 @@ import { AtlasReview } from "./atlas-review.js";
 import type { FindingsSaveResult } from "./contracts.js";
 import { GitHubFindingsReview } from "./github-findings-review.js";
 import { GitHubFindingsQueue } from "./github-findings.js";
+import { heldYouTubeFindingsStoresFromEnv } from "./held-youtube-findings.js";
 import {
   FindingsSaveService,
   type FindingsSaveContext,
@@ -114,6 +115,8 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       ...(publications === undefined ? {} : {
         publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
       }),
+      // Owner answer 173: the findings a saved card leaves out are held for 30 days, through the research-access role.
+      held: heldYouTubeFindingsStoresFromEnv().access,
     });
   } catch {
     throw new Error(CONFIGURATION_ERROR);
@@ -145,8 +148,9 @@ export function createAtlasPublicationStoreFromEnv(
 /**
  * The owner's findings actions for the Atlas, from the environment (Atlas phase 2 design, section 3): decisions and
  * intents through the review role's functions (the research review database), the canonical Atlas through the public
- * runtime's read-only reader, and the cards through the findings library's GitHub App. Undefined, with nothing
- * connected, when any of them is not configured; the tool then answers that the review is not configured.
+ * runtime's read-only reader, and the cards through the findings library's GitHub App; the held YouTube findings
+ * through the review role too (owner answer 173). Undefined, with nothing connected, when any of the first three is not
+ * configured; the tool then answers that the review is not configured.
  */
 export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): AtlasReview | undefined {
   try {
@@ -194,6 +198,9 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       build: askrigorBuildCommitFromEnv(env.ASKRIGOR_BUILD_COMMIT),
       protocols: protocolIdentities,
       now,
+      // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
+      // moved out of cards stored before, and deleted with a forgotten card.
+      held: heldYouTubeFindingsStoresFromEnv(env).review,
     });
   } catch {
     return undefined;

@@ -45,7 +45,8 @@ export const FINDINGS_SAVE_STATUSES = [
   "card_not_checked",
   // Owner answer 156a (2026-10-22): the checked card declares its findings personal only, so nothing is saved.
   "personal_only",
-  // Owner answer 170 (24 Oct): every finding rests on YouTube comments, which AskRigor does not store yet.
+  // Owner answers 170 and 173: every finding rests on YouTube comments, so no card is saved; the findings are held for
+  // the owner's review and deleted after 30 days.
   "youtube_findings_only",
   "queue_unavailable"
 ] as const;

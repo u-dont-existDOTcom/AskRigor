@@ -490,7 +490,7 @@ the owner already accepted its findings; no reason is needed. An accepted
 finding stays while valid, is corrected or taken down when shown wrong, and
 rewritten or removed if it could identify anyone. Accounts accepting v1, v2 or
 v3 accept v4 before free research continues (migration
-`0019_research_use_notice_v4`). The privacy page and terms distinguish free
+`0020_research_use_notice_v4`). The privacy page and terms distinguish free
 publication on save from paid publication after acceptance and carry the
 approved comments wording; the release sets their effective dates. A paid
 private answer's save offer keeps "Saved findings that AskRigor's owner accepts

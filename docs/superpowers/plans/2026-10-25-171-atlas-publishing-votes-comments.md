@@ -66,12 +66,13 @@ A new section, "Votes and comments in the Atlas":
 - **YouTube:** nothing derived from YouTube appears on any page, not even a count of videos read (default 6 and the
   23 Oct quota grant). Owner answer 173 (25 Oct) keeps findings drawn from YouTube comments for 30 days apart from
   the card, for the owner's review only, then deletes them (branch `claude/release-167-youtube-30-days-20261025`,
-  migration 0019 there); they are never published, so the publication rules above still leave them out.
+  migration 0019 there, merged into this build on 25 Oct); they are never published, so the publication rules above
+  still leave them out.
 
 ## 4. How it is built (the session's design; method within the owner's decisions)
 
 **A. Wording and consent.** As phase 1 did for version 3 (`4e90274d`, migration 0016, rollback step `20287bdb`):
-the notice version constant becomes version 4, migration 0019 admits it, the notice text takes the three changes,
+the notice version constant becomes version 4, migration 0020 admits it, the notice text takes the three changes,
 the privacy page and the terms take theirs (and their effective date), and the rollback step sets accepted version 4
 accounts aside safely if the release is undone. The paid save offer keeps its sentence: paid cards still publish only
 after acceptance. Free accounts accept version 4 once, through `manage_research_access`; today that is the owner.
@@ -90,7 +91,7 @@ to, kind, subject and direction; the numbers block, with rates, NNT and NNH work
 the searches; its sources as links; why it isn't the usual view and what would change it; the date it was saved; and
 the AskRigor version. Never the ARF number, the account, the contributor, the answer quote, the chat or the surface.
 
-Storage: a publications table in the Atlas database (migration 0020), one row per published finding, with a public
+Storage: a publications table in the Atlas database (migration 0021), one row per published finding, with a public
 number (P-1001 upward, never an ARF number), the card's digest and finding index, the published fields, and its state:
 `unreviewed`, `accepted` (with its F-number), `edited`, `rejected`, `withdrawn` (card deleted) or `held` (failed the
 contact check). The save path writes the rows right after a confirmed save, idempotently by card digest; a backfill
@@ -99,7 +100,7 @@ leave the pages; accepted ones stay (version 4's wording). Accepting, editing an
 they now also move the publication's state.
 
 Status (25 Oct): B and F's publication actions are built on `claude/171b-publications-20261025`, not released.
-Migration `0020_atlas_publications` (table, P-number sequence, six review-role functions) and its store; the exact
+Migration `0021_atlas_publications` (table, P-number sequence, six review-role functions) and its store; the exact
 eligibility and the projection (`apps/research-mcp/src/atlas/publication.ts`); the contact-details and links check
 (`atlas/contact-check.ts`); publishing right after a confirmed free save, in the background; `list_publications`,
 `unpublish_finding`, `publish_cards` and `set_aside_cards` (`list_findings` leaves set-aside cards out unless
@@ -129,7 +130,7 @@ The session is a signed, encrypted, HttpOnly, Secure, SameSite=Lax cookie on `/a
 sign-in; sign-out clears it. **Owner action:** create the Auth0 application (or let the session create it) and put its
 client secret into the server's runtime settings; the session never types a secret.
 
-**E. Votes and comments** (migration 0020, with the publications):
+**E. Votes and comments** (migration 0022, with D's sign-in):
 
 - a vote: one per account and finding, `agree` or `disagree`, changeable or withdrawn; pages show totals only;
 - a comment: up to 2,000 characters with the author's display name (up to 40, checked like comments), shown at once
@@ -160,12 +161,18 @@ in 4B's actions), after reading them; some come from the sessions behind the own
 
 ## 5. Order and checks
 
+Migration numbers (25 Oct, the merge of owner answer 173's held YouTube findings into this build): that release
+goes to production first with `0019_held_youtube_findings`, unchanged, so this build's migrations follow it:
+notice version 4 is `0020_research_use_notice_v4` and the publications `0021_atlas_publications` (0019 and 0020
+before the merge). Parts D and E (sign-in, votes and comments) take migration 0022, and G's save switch takes
+0023.
+
 1. A (wording and consent), with its tests and the site checks.
-2. B (publications) and F's publication actions, with migration 0020's publication table.
+2. B (publications) and F's publication actions, with migration 0021's publication table.
 3. C (pages, read-only), with the Caddy route and the site-deploy checks.
 4. D and E (sign-in, votes, comments) and F's comment actions; the Auth0 application is the owner's step.
 5. G, the privacy data map's new rows (publications, votes, comments, display names, sessions, reports), the release
-   record, the Docker database acceptance with migrations 0019 and 0020, the full gate, and the release question.
+   record, the Docker database acceptance with migrations 0019 to 0023, the full gate, and the release question.
 
 The release question names the build. If the Auth0 application isn't ready when the rest is, the question offers to
 release with votes and comments switched off until it is.

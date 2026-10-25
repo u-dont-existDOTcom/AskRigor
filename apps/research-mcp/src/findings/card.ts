@@ -8,7 +8,8 @@ import {
   ATLAS_SEARCHES_PER_FINDING,
   ATLAS_SUBJECT_MAX_CHARACTERS,
   ATLAS_SUBJECT_TYPES,
-  type AtlasNumberEntry
+  type AtlasNumberEntry,
+  type HeldYouTubeFindingContent
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -439,9 +440,11 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
  * community_checked, or a comment audit among the bases the receipt signed for
  * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
  * that AskRigor stores no YouTube-derived records until YouTube clarifies
- * (owner answer 170, 24 Oct). `kept` gives the original index of each finding
- * kept, and `findingsLeftOut` how many were left out; a card left with no
- * finding is not saved.
+ * (owner answer 170, 24 Oct); since owner answer 173 (25 Oct) each finding left
+ * out is held for 30 days apart from the card, for the owner's review. `kept`
+ * gives the original index of each finding kept, and `findingsLeftOut` how many
+ * were left out; a card left with no finding is not saved as a card, and its
+ * findings are held with its question and topic.
  */
 export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
@@ -503,6 +506,97 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     kept,
     findingsLeftOut: card.findings.length - kept.length
   };
+}
+
+/**
+ * A stored card as a card saved today would store it (owner answer 173, 25 Oct): withoutYouTubeData leaves out each
+ * finding drawn from YouTube comments, which a stored finding shows by the YouTube videos it counted in place of their
+ * IDs, by community_checked, or by a comment audit among the bases its receipt signed; the findings kept keep their
+ * signed bases. For a card stored before findings were left out (owner answer 170). `kept` gives the stored index of
+ * each finding kept.
+ */
+export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
+  card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
+} {
+  const drawnFromComments = new Set(card.findings.flatMap((finding, index) =>
+    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ? [index] : []));
+  // withoutYouTubeData reads a checked card: a stored finding's sources hold no video ID, and its tags come with it.
+  const checked = {
+    ...card,
+    findings: card.findings.map(({ youtube_videos: _videos, verified_bases: _bases, ...finding }) => finding),
+  } as FindingsCard;
+  const stored = withoutYouTubeData(checked, drawnFromComments);
+  return {
+    ...stored,
+    card: {
+      ...stored.card,
+      findings: stored.card.findings.map((finding, index) => {
+        const bases = card.findings[stored.kept[index]!]!.verified_bases;
+        return bases === undefined ? finding : { ...finding, verified_bases: [...bases] };
+      }),
+    },
+  };
+}
+
+/**
+ * A finding left out of a stored card as the held YouTube findings keep it (owner answer 173): its claim, certainty,
+ * whom it applies to, why the usual answer misses it and what would change it, its kind, subject and direction when the
+ * card declared them, and its tags and verified bases. Never its sources, which are YouTube video IDs, its answer quote,
+ * or any link: a link keeps its text, a link to a YouTube video reads "(YouTube video)", any other bare link "(link)",
+ * and each of the card's video IDs "(video)". Each text stays within its field's length.
+ */
+export function heldYouTubeFindingOf(
+  finding: Pick<StoredFinding, "claim" | "certainty" | "applies_to" | "why_not_usual" | "what_would_change_it" |
+    "kind" | "subject" | "direction" | "tags">,
+  findingNumber: number,
+  bases: readonly VerifiedBasis[],
+  videoIds: readonly string[] = [],
+): HeldYouTubeFindingContent {
+  const text = (value: string) => heldText(value, videoIds);
+  return {
+    findingNumber,
+    claim: text(finding.claim),
+    certainty: finding.certainty,
+    appliesTo: text(finding.applies_to),
+    whyNotUsual: text(finding.why_not_usual),
+    whatWouldChangeIt: text(finding.what_would_change_it),
+    ...(finding.kind === undefined ? {} : { kind: finding.kind }),
+    ...(finding.subject === undefined ? {} : { subject: text(finding.subject) }),
+    ...(finding.direction === undefined ? {} : { direction: finding.direction }),
+    tags: FINDING_TAGS.filter((tag) => finding.tags.includes(tag)),
+    verifiedBases: VERIFIED_BASES.filter((basis) => bases.includes(basis)),
+  };
+}
+
+/**
+ * What the held YouTube findings keep of a card whose findings all rest on YouTube comments, which is not saved as a
+ * card (owner answer 173): its own general wording of the research question and its topic, when it declared one, with
+ * no link or video ID, as for its findings' texts.
+ */
+export function heldYouTubeCardTextsOf(
+  card: Pick<FindingsCard, "question" | "topic">,
+  videoIds: readonly string[] = [],
+): { question: string; topic?: { key: string; label: string } } {
+  return {
+    question: heldText(card.question, videoIds),
+    ...(card.topic === undefined ? {} : { topic: { key: card.topic.key, label: heldText(card.topic.label, videoIds) } }),
+  };
+}
+
+/** A text with no link and none of the given video IDs; never longer than it was, and never empty. */
+function heldText(value: string, videoIds: readonly string[]): string {
+  let held = value
+    .replace(YOUTUBE_LINK, "$1 (YouTube video)")
+    .replace(MARKDOWN_LINK, "$1")
+    .replace(YOUTUBE_URL, "(YouTube video)")
+    // A sentence's last mark after a bare link stays, as the privacy screen reads it.
+    .replace(BARE_URL, (url) => `(link)${url.slice(url.replace(/[.,;:!?]+$/u, "").length)}`);
+  for (const id of videoIds) {
+    if (!YOUTUBE_VIDEO_ID.test(id)) continue;
+    // An ID is 11 of A-Z, a-z, 0-9, _ and -, none of them special in a pattern outside a class.
+    held = held.replace(new RegExp(`(?<![A-Za-z0-9_-])${id}(?![A-Za-z0-9_-])`, "gu"), "(video)");
+  }
+  return held.trim() === "" ? "(link)" : held;
 }
 
 /** A YouTube video ID, as a card's source: 11 URL-safe characters that are not a study identifier. */

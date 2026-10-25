@@ -367,7 +367,8 @@ export class GitHubFindingsQueue {
   }
 }
 
-function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
+/** A card's issue body: its readable copy, then its record and marker; also what a rewritten card holds (owner answer 173). */
+export function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(CARD_MARKER, metadata)}`;
   // A re-filed save says where it came from (decision 7): a request that names the forgotten card finds it.
   const refiled = metadata.refiled_from === undefined ? "" : `${section("Re-filed", `Re-filed from ` +
@@ -378,7 +379,8 @@ function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   return boundedBody(full, tail);
 }
 
-function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
+/** A later save's comment, with its record and marker; also what a rewritten later save holds (owner answer 173). */
+export function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(OCCURRENCE_MARKER, metadata)}`;
   // The card's own copy shows its first save's bases; a later save's, which may have labeled the card, show here.
   const bases = beyondQuickAnswer(record)

@@ -15,7 +15,7 @@ import {
   type AtlasPublishedFinding,
 } from "@askrigor/evidence-repository";
 
-// Decision 171, section 4B: the publications store, in memory with migration 0020's semantics, and in PostgreSQL through
+// Decision 171, section 4B: the publications store, in memory with migration 0021's semantics, and in PostgreSQL through
 // the review role's six functions (checked here by the calls it makes; the Docker acceptance runs them against
 // PostgreSQL).
 
@@ -314,9 +314,9 @@ describe("the PostgreSQL publication store", () => {
   });
 });
 
-describe("migration 0020", () => {
+describe("migration 0021", () => {
   it("keeps its closed lists in step with the store's vocabularies", async () => {
-    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0020_atlas_publications.sql",
+    const migration = await readFile(new URL("../packages/evidence-repository/migrations/0021_atlas_publications.sql",
       import.meta.url), "utf8");
     const listOf = (constraint: string) => {
       const start = migration.indexOf(`ADD CONSTRAINT ${constraint} CHECK (`);

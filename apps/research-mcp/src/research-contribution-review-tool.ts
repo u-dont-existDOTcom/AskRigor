@@ -18,9 +18,11 @@ import {
   atlasChecksSchema,
   atlasFindingsListSchema,
   atlasForgetSchema,
+  atlasHeldWithoutCardSchema,
   atlasRetrySchema,
   atlasReviewInputShape,
   atlasStatusSchema,
+  atlasYoutubeFindingsSchema,
   isAtlasReviewAction,
   refineAtlasReviewInput,
   type AtlasProviderConfig,
@@ -37,8 +39,9 @@ const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
 export const researchContributionReviewInputSchema = z.object({
   action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
-      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Publications in " +
-      "the Atlas: list_publications, unpublish_finding, publish_cards or set_aside_cards."),
+      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
+      "findings: list_youtube_findings, move_youtube_findings or delete_youtube_findings. Publications in the Atlas: " +
+      "list_publications, unpublish_finding, publish_cards or set_aside_cards."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -175,6 +178,10 @@ export const researchContributionReviewOutputSchema = z.object({
   retry: atlasRetrySchema.optional(),
   // forget_card (decision 7): what was removed, and the steps left for the owner.
   forget: atlasForgetSchema.optional(),
+  // move_youtube_findings and delete_youtube_findings (owner answer 173): each card's outcome, and the owner's steps.
+  youtubeFindings: atlasYoutubeFindingsSchema.optional(),
+  // list_youtube_findings, and delete_youtube_findings with cardSha256: the held findings with no card.
+  heldWithoutCard: atlasHeldWithoutCardSchema.optional(),
   // Decision 171: the publications listed or changed, and what each card named became.
   publications: atlasPublicationsSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
@@ -438,6 +445,8 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.checks === undefined ? {} : { checks: result.checks }),
     ...(result.retry === undefined ? {} : { retry: result.retry }),
     ...(result.forget === undefined ? {} : { forget: result.forget }),
+    ...(result.youtubeFindings === undefined ? {} : { youtubeFindings: result.youtubeFindings }),
+    ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     ...(result.publications === undefined ? {} : { publications: result.publications }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),

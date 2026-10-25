@@ -41,7 +41,9 @@ import {
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
   SET_ASIDE_LABEL,
+  cardIssueBody,
   marker,
+  occurrenceComment,
   parseCardMetadata,
   parseMarker,
   parseOccurrenceMetadata,
@@ -430,6 +432,15 @@ export interface FindingsCardInbox {
   issueStatus(cardNumber: number): Promise<FindingsIssueStatus>;
   /** The issue's page on GitHub, for the owner. */
   issueUrl(cardNumber: number): string;
+  // Moving findings drawn from YouTube comments out of stored cards (owner answer 173), within the App's issues: write.
+  /**
+   * Replaces a card's record with the one given, under the card's own marker, as the library writes a card's body,
+   * after checking that the new body reads back as the library wrote it. GitHub keeps the earlier body in the issue's
+   * edit history.
+   */
+  rewriteCard(cardNumber: number, record: FindingsRecord): Promise<void>;
+  /** Replaces a later save's record the same way, under the marker its comment holds. */
+  rewriteLaterSave(commentId: number, record: FindingsRecord, metadata: OccurrenceMetadata): Promise<void>;
 }
 
 export interface GitHubFindingsReviewOptions {
@@ -664,6 +675,36 @@ export class GitHubFindingsReview implements FindingsCardInbox {
 
   issueUrl(cardNumber: number): string {
     return `https://github.com/${repositoryFullName(this.options.repository)}/issues/${cardNumber}`;
+  }
+
+  async rewriteCard(cardNumber: number, record: FindingsRecord): Promise<void> {
+    if (!isPositiveInteger(cardNumber)) throw new GitHubApiError("github_service_unavailable", false);
+    const issue = await this.request(`${this.issuesPath}/${cardNumber}`, { method: "GET" });
+    if (!isRecord(issue) || "pull_request" in issue || issue.number !== cardNumber || typeof issue.body !== "string") {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const metadata = parseMarker(issue.body.replace(/\r\n/gu, "\n"), CARD_MARKER, parseCardMetadata);
+    if (metadata === undefined) throw new Error("FINDINGS_CARD_MARKER_MISSING");
+    const body = cardIssueBody(record, metadata);
+    const readBack = parseFindingsRecordBody(body, "card");
+    if (readBack === undefined || readBack === "tampered") throw new Error("FINDINGS_REWRITE_UNREADABLE");
+    const edited = await this.request(`${this.issuesPath}/${cardNumber}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    });
+    if (!isRecord(edited) || edited.number !== cardNumber) throw new GitHubApiError("github_service_unavailable", true);
+  }
+
+  async rewriteLaterSave(commentId: number, record: FindingsRecord, metadata: OccurrenceMetadata): Promise<void> {
+    if (!isPositiveInteger(commentId)) throw new GitHubApiError("github_service_unavailable", false);
+    const body = occurrenceComment(record, metadata);
+    const readBack = parseFindingsRecordBody(body, "occurrence");
+    if (readBack === undefined || readBack === "tampered") throw new Error("FINDINGS_REWRITE_UNREADABLE");
+    const edited = await this.request(`${this.issuesPath}/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    });
+    if (!isRecord(edited) || edited.id !== commentId) throw new GitHubApiError("github_service_unavailable", true);
   }
 
   private async request(

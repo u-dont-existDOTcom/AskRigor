@@ -11,7 +11,7 @@ const ATLAS_REVIEW_FUNCTIONS = [
   "inspect_atlas_cards", "decide_atlas_card_item", "record_atlas_finding_intent", "inspect_atlas_finding_intents",
   "forget_atlas_cards",
 ];
-// Decision 171, section 4B: migration 0020's six functions for the Atlas publications, in the grant script's order.
+// Decision 171, section 4B: migration 0021's six functions for the Atlas publications, in the grant script's order.
 const ATLAS_PUBLICATION_FUNCTIONS = [
   "inspect_atlas_publications", "publish_atlas_findings", "decide_atlas_publications", "edit_atlas_publications",
   "withdraw_atlas_publications", "erase_atlas_publication_texts",
@@ -133,9 +133,10 @@ describe("production living-evidence deployment", () => {
     expect(provision).toContain(
       "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
     );
-    // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2) and migration 0020's
-    // six publication functions (decision 171).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(14);
+    // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
+    // six held YouTube findings functions (owner answer 173) and migration 0021's six publication functions
+    // (decision 171).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(20);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -217,7 +218,7 @@ describe("production living-evidence deployment", () => {
     expect(noticeV3).toContain("IF NOT EXISTS");
     expect(noticeV3).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
     // Owner answer 171: the same constraint now admits exactly v1 to v4, under the same idempotence guard.
-    const noticeV4 = await read("packages/evidence-repository/migrations/0019_research_use_notice_v4.sql");
+    const noticeV4 = await read("packages/evidence-repository/migrations/0020_research_use_notice_v4.sql");
     expect(noticeV4).toContain(
       "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22', 'free-contributor-v4-2026-10-25')",
     );
@@ -265,7 +266,7 @@ describe("production living-evidence deployment", () => {
       expect(acceptance).toContain(check);
     }
     expect(await read("package.json")).toContain('"contributor-access:notice-v4-rollback-acceptance": "bash scripts/run-research-use-notice-v4-rollback-acceptance.sh"');
-    expect(await read("infra/living-evidence-production/README.md")).toContain("Undo no migration: 0019 stays");
+    expect(await read("infra/living-evidence-production/README.md")).toContain("Undo no migration: 0020 stays");
   });
 
   it("separates the public reader from the one-shot writer and declares rollback", async () => {
@@ -289,9 +290,11 @@ describe("production living-evidence deployment", () => {
     const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
 
-    // Atlas migrations follow 0016; 0019 widens the notice constraint for v4, and 0020 adds the publications.
+    // Atlas migrations follow 0016; 0019 holds the findings drawn from YouTube comments (owner answer 173), 0020
+    // widens the notice constraint for v4, and 0021 adds the publications.
     expect(repository).toContain(
-      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      "0019_research_use_notice_v4",\n      "0020_atlas_publications",\n    ]');
+      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
+      '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -351,7 +354,8 @@ describe("production living-evidence deployment", () => {
     }
     const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
     expect(granted.filter((name) => name!.includes("atlas"))).toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS]);
-    expect(granted).toHaveLength(14);
+    // With the three contribution functions and migration 0019's six (owner answer 173).
+    expect(granted).toHaveLength(20);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -509,16 +513,125 @@ describe("production living-evidence deployment", () => {
     expect(migration).not.toContain("reject_living_evidence_mutation");
   });
 
-  it("ships migration 0020's publications with exactly the six review-role functions it grants (decision 171)", async () => {
-    const migration = await read("packages/evidence-repository/migrations/0020_atlas_publications.sql");
+  // Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held for 30
+  // days, then deleted (YouTube Developer Policies III.E.4). Insert at a save (the research-access role), read and
+  // delete for the owner's review (the review role), and purge for both; no table grant to anyone. A card whose findings
+  // all rest on YouTube comments is not saved as a card, and its findings are held with no card number, with the card's
+  // question and topic.
+  it("ships migration 0019's held YouTube findings, reached only through six functions the two roles get exactly", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0019_held_youtube_findings.sql");
+    const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const runbook = (await read("infra/living-evidence-production/README.md")).replace(/\s+/gu, " ");
+
+    // 0019 runs right after 0018; the build's 0020 (notice version 4) and 0021 (publications) follow it.
+    expect(repository).toContain('"0018_atlas_card_fields",\n      "0019_held_youtube_findings",\n      ' +
+      '"0020_research_use_notice_v4",\n      "0021_atlas_publications",\n    ].map(');
+    // Safe to run again, as every migration runs on each start.
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS held_youtube_findings (");
+    expect(migration).toContain("CREATE INDEX IF NOT EXISTS held_youtube_findings_expiry_idx");
+    expect(migration).not.toMatch(/DROP TABLE|DROP COLUMN|CREATE ROLE|CREATE SEQUENCE|GRANT /u);
+    // Only AskRigor's texts and fixed values: no column for a source, a link, the answer quote, a thread or account,
+    // or any comment, name, channel or video.
+    const start = migration.indexOf("CREATE TABLE IF NOT EXISTS held_youtube_findings (");
+    const table = migration.slice(start, migration.indexOf("\n);", start));
+    const columns = [...table.matchAll(/^ {2}([a-z][a-z0-9_]*) /gmu)].map(([, column]) => column);
+    expect(columns).toEqual([
+      "card_number", "card_sha256", "finding_number", "question", "topic_key", "topic_label", "claim", "certainty",
+      "applies_to", "why_not_usual", "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases",
+      "saved_at", "expires_at",
+    ]);
+    expect(table).not.toMatch(/source|link|url|quote|thread|account|contributor|comment_text|author|channel|video_id/iu);
+    // Exactly 30 days of 24 hours after the save, whatever the session's time zone.
+    expect(table).toContain("CHECK (expires_at = saved_at + interval '720 hours')");
+    // A saved card names its findings; a card not saved as a card brings its question, and its whole topic or none.
+    expect(table).toContain("card_number integer CHECK (card_number IS NULL OR card_number > 0),");
+    expect(table).toContain("(card_number IS NOT NULL AND question IS NULL AND topic_key IS NULL AND topic_label IS NULL)\n" +
+      "    OR (card_number IS NULL AND question IS NOT NULL AND (topic_key IS NULL) = (topic_label IS NULL))");
+    // One row per finding of one save, with or without a card (no card has number 0).
+    expect(migration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS held_youtube_findings_key\n" +
+      "  ON held_youtube_findings ((coalesce(card_number, 0)), card_sha256, finding_number);");
+    // Nothing else reads it: every grant but its owner's goes, the reader's default-privilege SELECT included.
+    expect(migration).toContain("REVOKE ALL ON TABLE held_youtube_findings FROM PUBLIC;");
+    expect(migration).toContain("EXECUTE format('REVOKE ALL ON TABLE held_youtube_findings FROM %s', grantee_role);");
+    expect(migration).toContain("AND acl.grantee <> class.relowner");
+
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")),
+      header: chunk.slice(0, chunk.indexOf("AS $")),
+      body: chunk.slice(chunk.indexOf("AS $function$"), chunk.indexOf("$function$;")),
+    }));
+    expect(functions.map(({ name }) => name)).toEqual([
+      "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
+    ]);
+    for (const { name, header } of functions) {
+      expect(header).toContain("SECURITY DEFINER");
+      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog");
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+    }
+    const body = (name: string) => functions.find((candidate) => candidate.name === name)!.body;
+    // A read never returns a row past its expiry; the purge takes no time from its caller, so no caller deletes early.
+    expect(body("inspect_held_youtube_findings")).toContain("AND held.expires_at > now()");
+    expect(body("inspect_cardless_held_youtube_findings")).toContain(
+      "WHERE held.card_number IS NULL\n     AND held.expires_at > now()\n   ORDER BY held.saved_at DESC");
+    // A card-less save's deletion never deletes a saved card's findings, nor a card's a card-less one's.
+    expect(body("delete_cardless_held_youtube_findings")).toContain("WHERE held.card_number IS NULL");
+    expect(body("delete_held_youtube_findings")).toContain("WHERE held.card_number = ANY(target_card_numbers)");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION purge_expired_held_youtube_findings()\nRETURNS integer");
+    expect(body("purge_expired_held_youtube_findings")).toContain("WHERE held.expires_at <= now();");
+    // A hold refuses any other key, never holds a finding past its 30 days, and never refreshes one held before.
+    expect(body("hold_youtube_findings")).toContain("WHERE supplied_key.name NOT IN ('finding_number', 'claim'");
+    expect(body("hold_youtube_findings")).toContain("stored_saved_at := LEAST(saved_time, now());");
+    expect(body("hold_youtube_findings")).toContain("IF stored_saved_at + interval '720 hours' > now() THEN");
+    expect(body("hold_youtube_findings")).toContain("ON CONFLICT DO NOTHING");
+    expect(body("hold_youtube_findings")).toContain("OR (target_card_number IS NULL AND card_question IS NULL)");
+
+    // The grants: the research-access role holds at a save and purges; the review role holds moved findings, reads,
+    // deletes early and purges. Neither gets the table, and each grant names the function's exact signature.
+    const granted = (script: string) =>
+      [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name!);
+    expect(granted(access).filter((name) => name.includes("youtube"))).toEqual([
+      "hold_youtube_findings", "purge_expired_held_youtube_findings",
+    ]);
+    expect(granted(review).filter((name) => name.includes("youtube"))).toEqual([
+      "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
+    ]);
+    const signature = (text: string, prefix: string) => {
+      const from = text.indexOf(prefix) + prefix.length;
+      return text.slice(from, text.indexOf(")", from)).replace(/\s+/gu, " ").trim();
+    };
+    for (const [script, names] of [
+      [access, ["hold_youtube_findings", "purge_expired_held_youtube_findings"]],
+      [review, functions.map(({ name }) => name)],
+    ] as const) {
+      for (const name of names) {
+        expect(signature(script, `GRANT EXECUTE ON FUNCTION living_evidence.${name}(`))
+          .toBe(signature(migration, `REVOKE ALL ON FUNCTION ${name}(`));
+      }
+      expect(script).not.toContain("held_youtube_findings TO");
+      expect(script).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|ALL)\s+ON\s+(?:TABLE\s+)?living_evidence\.held/iu);
+    }
+    expect(granted(access)).toHaveLength(3);
+    // The release: migrate first, then both provisioning scripts, before the image serves.
+    expect(runbook).toContain("Migration `0019_held_youtube_findings` adds");
+    expect(runbook).toContain("re-run `/usr/local/bin/provision-research-access-role` and " +
+      "`/usr/local/bin/provision-research-review-role`");
+  });
+
+  it("ships migration 0021's publications with exactly the six review-role functions it grants (decision 171)", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0021_atlas_publications.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
     const provision = await read("infra/living-evidence-production/provision-research-review-role.sh");
 
-    // 0020 runs after 0018 on every migrate (0019, notice version 4, goes between them on the build branch).
+    // 0021 runs after 0018 on every migrate (0019, the held YouTube findings, and 0020, notice version 4, go between
+    // them).
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
-    expect(order.indexOf("0020_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
-    expect(order.at(-1)).toBe("0020_atlas_publications");
+    expect(order.indexOf("0021_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
+    expect(order.at(-1)).toBe("0021_atlas_publications");
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");

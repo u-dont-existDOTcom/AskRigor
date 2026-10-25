@@ -156,14 +156,21 @@ describe("AskRigor MCP tools", () => {
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
-        "forget_card", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards"]);
+        "forget_card", "list_youtube_findings", "move_youtube_findings", "delete_youtube_findings", "list_publications",
+        "unpublish_finding", "publish_cards", "set_aside_cards"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
+      // Owner answer 173: the held YouTube findings ride on the same tool, so the catalog stays at 33 tools.
+      expect(review.description).toContain("the findings drawn from YouTube comments that a saved card leaves out are " +
+        "kept apart from it for 30 days, then deleted");
+      expect(review.description).toContain("They are never decided, accepted or published.");
+      expect(review.description).toContain("list_youtube_findings lists those with no card (newest first, each with its " +
+        "question and topic)");
       // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
-        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
+        "cards", "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
         "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
         "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
-        "cursor", "includeSetAside", "publicationState", "publication", "cards", "cardsFrom", "cardsTo"]);
+        "cursor", "includeSetAside", "publicationState", "publication", "cardsFrom", "cardsTo"]);
       for (const field of ["kind", "subjectType", "direction"]) {
         expect(input.properties[field]!.type, field).toBe("string");
         expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
@@ -178,7 +185,8 @@ describe("AskRigor MCP tools", () => {
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
       expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
-        "retry", "forget", "publications", "canonicalEvidenceChangedByThisCall", "error"]);
+        "retry", "forget", "youtubeFindings", "heldWithoutCard", "publications", "canonicalEvidenceChangedByThisCall",
+        "error"]);
     } finally {
       await server.close();
     }

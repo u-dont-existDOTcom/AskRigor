@@ -1,5 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
+import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { verifyResearchReceipt } from "../research-receipts.js";
@@ -7,10 +9,15 @@ import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldYouTubeCardTextsOf,
+  heldYouTubeFindingOf,
   isSafeReportedModel,
+  isYouTubeVideoId,
   screenFindingsCard,
   withoutYouTubeData,
-  type StoredFindingsCard
+  type FindingsCard,
+  type StoredFindingsCard,
+  type VerifiedBasis
 } from "./card.js";
 import {
   findingsSaveInputSchema,
@@ -115,6 +122,11 @@ export interface FindingsSaveServiceOptions {
   now?: () => Date;
   /** The Atlas publisher (decision 171); without it nothing is published at the save. */
   publisher?: FindingsCardPublisher;
+  /**
+   * Where the findings a saved card leaves out are held for 30 days (owner answer 173): the database, through the
+   * research-access role. Without it they are not kept.
+   */
+  held?: Pick<HeldYouTubeFindingsStore, "hold">;
 }
 
 /**
@@ -130,6 +142,7 @@ export class FindingsSaveService {
   private readonly now: () => Date;
   /** Publications started after a save and not finished yet. */
   private readonly publishing = new Set<Promise<void>>();
+  private readonly holds = new Set<Promise<void>>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
@@ -138,6 +151,11 @@ export class FindingsSaveService {
   /** Resolves once every publication started so far has finished, whatever its outcome: for tests and shutdown. */
   async publicationsSettled(): Promise<void> {
     await Promise.allSettled([...this.publishing]);
+  }
+
+  /** Resolves once every hold this service started has ended, held or not; for tests. */
+  async heldSettled(): Promise<void> {
+    await Promise.all([...this.holds]);
   }
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
@@ -189,8 +207,12 @@ export class FindingsSaveService {
       const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
         signed.includes("comment_audit") ? [index] : []));
       const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
-      // Owner answer 170 (24 Oct): a card whose findings all rest on YouTube comments has nothing AskRigor stores.
-      if (stored.card.findings.length === 0) return result({ status: "youtube_findings_only", retryable: false });
+      // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
+      // held for 30 days, with its question and topic, for the owner's review (owner answer 173).
+      if (stored.card.findings.length === 0) {
+        this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
+        return result({ status: "youtube_findings_only", retryable: false });
+      }
       const card: StoredFindingsCard = bases === undefined ? stored.card : {
         ...stored.card,
         findings: stored.card.findings.map((finding, index) => {
@@ -227,8 +249,13 @@ export class FindingsSaveService {
         ...(publisher?.accountPublishes(context.account) === true ? { atlasPublish: true } : {}),
         ...(context.account?.mode === "PAID_PRIVATE" ? { paidPrivate: true } : {}),
       });
+      // Owner answer 173: the findings the stored card leaves out are held apart from it, in the background.
+      if (stored.findingsLeftOut > 0) {
+        this.holdLeftOut(queued.issueNumber, cardSha256, now, input.findings_card, stored.kept, bases);
+      }
       // Decision 171, section 4B: the card's findings are published right after the confirmed save. The answer never
-      // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards.
+      // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards. The
+      // publisher reads the stored card, so a finding held above is never among them.
       if (publisher !== undefined) {
         this.publishAfterSave(publisher, {
           record,
@@ -258,6 +285,45 @@ export class FindingsSaveService {
       .catch(() => undefined)
       .finally(() => this.publishing.delete(started));
     this.publishing.add(started);
+  }
+
+  /**
+   * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held for 30 days in the
+   * database, apart from the card, for the owner's review: its texts and fixed values only (heldYouTubeFindingOf), under
+   * the card's issue number, the checked card's digest and its place on that card, from the save time. A card none of
+   * whose findings is kept is not saved as a card, so its findings are held with no issue number, with the card's own
+   * general wording of the research question and its topic (heldYouTubeCardTextsOf). In the background: the save's
+   * result never waits for it, so a held store that fails or is slow never fails or delays the save, and then the
+   * findings are simply not kept.
+   */
+  private holdLeftOut(
+    issueNumber: number | undefined,
+    cardSha256: string,
+    savedAt: Date,
+    card: FindingsCard,
+    kept: readonly number[],
+    bases: VerifiedBasis[][] | undefined,
+  ): void {
+    const held = this.options.held;
+    if (held === undefined) return;
+    let work: Promise<unknown>;
+    try {
+      const keptIndexes = new Set(kept);
+      const videoIds = [...new Set(card.findings.flatMap(({ sources }) => sources.filter(isYouTubeVideoId)))];
+      work = held.hold({
+        ...(issueNumber === undefined ? heldYouTubeCardTextsOf(card, videoIds) : { cardNumber: issueNumber }),
+        cardSha256,
+        savedAt: savedAt.toISOString(),
+        findings: card.findings.flatMap((finding, index) => keptIndexes.has(index)
+          ? []
+          : [heldYouTubeFindingOf(finding, index + 1, bases?.[index] ?? [], videoIds)]),
+      });
+    } catch {
+      return;
+    }
+    const settled = Promise.resolve(work).then(() => undefined, () => undefined);
+    this.holds.add(settled);
+    void settled.then(() => this.holds.delete(settled));
   }
 }
 

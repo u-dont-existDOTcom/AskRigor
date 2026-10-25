@@ -45,11 +45,11 @@ Status: design for building parts C, D and E of `2026-10-25-171-atlas-publishing
 
 ## E. Votes and comments
 
-- **Migration 0021** (the Atlas schema): participants (participant key, display name, whether stopped from commenting,
-  times), votes (publication number, participant key, `agree` or `disagree`, time; one per pair), comments (id, public
-  id, publication number, participant key, the display name at posting, body of at most 2,000 characters, time, state
-  `shown` or `hidden`, report count) and reports (comment id, a reporter key or a daily-salted hash of the address,
-  time; one per pair).
+- **Migration 0022** (the Atlas schema; 0021 before the held YouTube findings took 0019): participants (participant
+  key, display name, whether stopped from commenting, times), votes (publication number, participant key, `agree` or
+  `disagree`, time; one per pair), comments (id, public id, publication number, participant key, the display name at
+  posting, body of at most 2,000 characters, time, state `shown` or `hidden`, report count) and reports (comment id, a
+  reporter key or a daily-salted hash of the address, time; one per pair).
 - **Forms,** all `POST` to the same origin, each with a CSRF token derived from the session and the form's purpose,
   and refused when `Origin` names another site: vote or clear a vote; post a comment (asking for a display name the
   first time); delete one's own comment; report a comment (anyone, rate-limited); change one's display name.
@@ -71,4 +71,4 @@ Rendering (escaping, labels, the numbers, no person or ARF number on any page, n
 the Caddy block (the site-deploy test), the login round trip against a fake tenant (state, nonce, PKCE, a forged or
 expired token, an outside return path), the session cookie (tampering, expiry), CSRF and Origin checks, every form, the
 contact-and-links check on comments and names in several languages, the limits, the off switch, the owner actions and
-their access checks, and the PostgreSQL acceptance with migration 0021.
+their access checks, and the PostgreSQL acceptance with migration 0022.
