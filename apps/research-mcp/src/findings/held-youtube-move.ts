@@ -20,10 +20,10 @@ import type { FindingsRecord } from "./service.js";
  * 30 days have already ended is deleted, not moved.
  *
  * Every read and check comes first; nothing is changed for a card that does not read, whose findings all rest on
- * YouTube comments (a card saved today would not be saved), or where a decision is recorded on a finding that the move
- * would remove or renumber (decisions name findings by their place). The findings are held before GitHub is changed, so
- * a call that fails part way is called again: a finding held already keeps its expiry, and a rewritten save has nothing
- * left to move.
+ * YouTube comments (a card saved today would not be saved as a card), or where a decision is recorded on a finding
+ * that the move would remove or renumber (decisions name findings by their place). The findings are held before GitHub
+ * is changed, so a call that fails part way is called again: a finding held already keeps its expiry, and a rewritten
+ * save has nothing left to move.
  */
 
 export type YouTubeFindingsMoveStatus =

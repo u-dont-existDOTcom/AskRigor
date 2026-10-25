@@ -15,20 +15,26 @@ import {
  * YouTube's Developer Policies call Non-Authorized Data; their section III.E.4 lets an API client keep a limited amount
  * for no longer than 30 calendar days, then delete or refresh it. A findings card is stored without its findings drawn
  * from YouTube comments (owner answer 170); each one left out is held here instead, apart from the card, for the owner's
- * review, and deleted 30 days after it was saved, with no refreshing. A held finding holds only what AskRigor wrote:
- * its claim, certainty, whom it applies to, why the usual answer misses it, what would change it, its kind, subject and
- * direction when the card declared them, and its tags and verified bases, which are fixed values. Never a source, a
- * link, the answer quote, a contributor or thread key, or any comment text, name, channel, comment or video ID: there is
- * no field for them, here or in migration 0019's table. The card is named by its ARF issue number and the checked card's
- * SHA-256, the finding by its place on that card, from 1. Held findings are never published, accepted into the Atlas or
- * offered anywhere else; only the owner's review reads them.
+ * review, and deleted 30 days after it was saved, with no refreshing. A card whose findings all rest on YouTube comments
+ * is not saved as a card, and its findings are held the same way, with no card number, together with the card's own
+ * general wording of the research question and its topic.
+ *
+ * A held finding holds only what AskRigor wrote: its claim, certainty, whom it applies to, why the usual answer misses
+ * it, what would change it, its kind, subject and direction when the card declared them, and its tags and verified
+ * bases, which are fixed values; and for a card not saved, its question and topic. Never a source, a link, the answer
+ * quote, a contributor or thread key, or any comment text, name, channel, comment or video ID: there is no field for
+ * them, here or in migration 0019's table. A saved card's finding is named by the card's ARF issue number, the checked
+ * card's SHA-256 and its place on that card, from 1; a finding of a card not saved by the SHA-256 and its place. Held
+ * findings are never published, accepted into the Atlas or offered anywhere else; only the owner's review reads them.
  */
 
 export const HELD_YOUTUBE_FINDINGS_DAYS = 30;
 /** Thirty days of 24 hours after a finding's save: PostgreSQL's interval '720 hours', the same in every time zone. */
 export const HELD_YOUTUBE_FINDINGS_MILLISECONDS = HELD_YOUTUBE_FINDINGS_DAYS * 24 * 60 * 60 * 1_000;
-/** The most cards one read or deletion names, as for forget_atlas_cards. */
+/** The most cards, or saves not made as cards, one read or deletion names, as for forget_atlas_cards. */
 export const HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL = 100;
+/** The most held findings of cards not saved that one read returns, newest save first. */
+export const HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN = 500;
 /** A card finding's tags, community_checked included (the findings card's FINDING_TAGS; a test holds the two equal). */
 export const HELD_YOUTUBE_FINDING_TAGS = [
   "full_text_read", "community_checked", "contradicts_common_answer", "overlooked_study", "documented_absence",
@@ -40,6 +46,7 @@ export const HELD_YOUTUBE_FINDING_BASES = [
 
 const heldText = (max: number) => z.string().min(1).max(max);
 const distinct = (values: readonly unknown[]) => new Set(values).size === values.length;
+const SHA256 = /^[a-f0-9]{64}$/u;
 
 /** One held finding as it is kept: AskRigor's texts and fixed values, and nothing else. */
 export const heldYouTubeFindingSchema = z.object({
@@ -58,22 +65,39 @@ export const heldYouTubeFindingSchema = z.object({
 }).strict();
 export type HeldYouTubeFindingContent = z.output<typeof heldYouTubeFindingSchema>;
 
-/** The findings one save left out of one card, with the time it was saved. */
+/** A card's topic, as its key and label: the card's own, AskRigor's text. */
+export const heldYouTubeTopicSchema = z.object({
+  key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
+  label: heldText(200),
+}).strict();
+
+/**
+ * The findings one save left out of one card, with the time it was saved: under the saved card's number, or, for a
+ * card whose findings all rest on YouTube comments, which is not saved as a card, with no number and the card's
+ * question and its topic when it declared one.
+ */
 export const holdYouTubeFindingsInputSchema = z.object({
-  /** The card's ARF issue number. */
-  cardNumber: z.number().int().min(1).max(2_147_483_647),
+  /** The saved card's ARF issue number; absent for a card not saved as a card. */
+  cardNumber: z.number().int().min(1).max(2_147_483_647).optional(),
   /** The SHA-256 of the checked card, which its finalization receipt signed. */
-  cardSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  cardSha256: z.string().regex(SHA256),
   /** When the card holding them was saved: the 30 days count from it. */
   savedAt: z.string().refine((value) => Number.isFinite(Date.parse(value))),
+  /** A card not saved: its own general wording of the research question. */
+  question: heldText(300).optional(),
+  /** A card not saved: its topic, when it declared one. */
+  topic: heldYouTubeTopicSchema.optional(),
   findings: z.array(heldYouTubeFindingSchema).min(1).max(5)
     .refine((findings) => distinct(findings.map(({ findingNumber }) => findingNumber))),
-}).strict();
+}).strict().refine((input) => input.cardNumber === undefined
+  ? input.question !== undefined
+  : input.question === undefined && input.topic === undefined);
 export type HoldYouTubeFindingsInput = z.output<typeof holdYouTubeFindingsInputSchema>;
 
 /** Where a held finding comes from and when it goes. */
 export interface HeldYouTubeFindingKey {
-  cardNumber: number;
+  /** The saved card's ARF issue number; null for a card not saved as a card. */
+  cardNumber: number | null;
   cardSha256: string;
   findingNumber: number;
   savedAt: string;
@@ -86,7 +110,11 @@ export interface HeldYouTubeFindingHold extends HeldYouTubeFindingKey {
   heldNow: boolean;
 }
 
-export type HeldYouTubeFinding = HeldYouTubeFindingContent & HeldYouTubeFindingKey;
+export type HeldYouTubeFinding = HeldYouTubeFindingContent & HeldYouTubeFindingKey & {
+  /** A card not saved: its question, and its topic when it declared one. */
+  question?: string;
+  topic?: z.output<typeof heldYouTubeTopicSchema>;
+};
 
 export class HeldYouTubeFindingsError extends Error {
   constructor(readonly code: "INPUT_INVALID") {
@@ -101,20 +129,27 @@ export function heldYouTubeFindingExpiry(savedAt: string | Date): string {
   return new Date(saved + HELD_YOUTUBE_FINDINGS_MILLISECONDS).toISOString();
 }
 
-/** Migration 0019's four functions, in TypeScript. */
+/** Migration 0019's six functions, in TypeScript. */
 export interface HeldYouTubeFindingsStore {
   /**
    * Holds the findings of one save until 30 days after savedAt (a save time ahead of the store's clock counts from
-   * now). A finding already past its 30 days is not held. A finding of the same card, checked card and place held
-   * before keeps its own save time and expiry: holding it again changes nothing. Returns each of the call's findings
-   * that is held after it.
+   * now). A finding already past its 30 days is not held. A finding of the same card (or of no card), checked card and
+   * place held before keeps its own save time and expiry: holding it again changes nothing. Returns each of the call's
+   * findings that is held after it.
    */
   hold(input: HoldYouTubeFindingsInput): Promise<HeldYouTubeFindingHold[]>;
-  /** The held findings of these cards whose 30 days have not ended, by card, then oldest save first. */
+  /** The held findings of these saved cards whose 30 days have not ended, by card, then oldest save first. */
   inspect(cardNumbers: readonly number[]): Promise<HeldYouTubeFinding[]>;
-  /** Deletes every held finding of these cards now, before their 30 days end; returns how many. */
+  /**
+   * The held findings of cards not saved as cards whose 30 days have not ended, newest save first, at most
+   * HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN.
+   */
+  inspectWithoutCard(): Promise<HeldYouTubeFinding[]>;
+  /** Deletes every held finding of these saved cards now, before their 30 days end; returns how many. */
   deleteForCards(cardNumbers: readonly number[]): Promise<number>;
-  /** Deletes every held finding whose 30 days have ended; returns how many. */
+  /** Deletes every held finding of these cards not saved, by their checked cards' SHA-256, now; returns how many. */
+  deleteWithoutCard(cardSha256s: readonly string[]): Promise<number>;
+  /** Deletes every held finding whose 30 days have ended, of a saved card or not; returns how many. */
   purgeExpired(): Promise<number>;
 }
 
@@ -132,12 +167,24 @@ function validCards(cardNumbers: readonly number[]): number[] {
   return [...cardNumbers];
 }
 
-const keyOf = (cardNumber: number, cardSha256: string, findingNumber: number) =>
-  `${cardNumber}\u0000${cardSha256}\u0000${findingNumber}`;
+function validDigests(cardSha256s: readonly string[]): string[] {
+  if (cardSha256s.length < 1 || cardSha256s.length > HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL ||
+    cardSha256s.some((digest) => typeof digest !== "string" || !SHA256.test(digest))) {
+    throw new HeldYouTubeFindingsError("INPUT_INVALID");
+  }
+  return [...cardSha256s];
+}
+
+const keyOf = (cardNumber: number | null, cardSha256: string, findingNumber: number) =>
+  `${cardNumber ?? "none"}\u0000${cardSha256}\u0000${findingNumber}`;
 
 const compareHeld = (left: HeldYouTubeFinding, right: HeldYouTubeFinding) =>
-  left.cardNumber - right.cardNumber || Date.parse(left.savedAt) - Date.parse(right.savedAt) ||
+  (left.cardNumber ?? 0) - (right.cardNumber ?? 0) || Date.parse(left.savedAt) - Date.parse(right.savedAt) ||
   left.cardSha256.localeCompare(right.cardSha256) || left.findingNumber - right.findingNumber;
+
+const newestFirst = (left: HeldYouTubeFinding, right: HeldYouTubeFinding) =>
+  Date.parse(right.savedAt) - Date.parse(left.savedAt) || left.cardSha256.localeCompare(right.cardSha256) ||
+  left.findingNumber - right.findingNumber;
 
 /** The store in memory, with migration 0019's semantics and an injected clock, for tests and hermetic scenarios. */
 export class InMemoryHeldYouTubeFindingsStore implements HeldYouTubeFindingsStore {
@@ -151,11 +198,12 @@ export class InMemoryHeldYouTubeFindingsStore implements HeldYouTubeFindingsStor
   async hold(raw: HoldYouTubeFindingsInput): Promise<HeldYouTubeFindingHold[]> {
     const input = validHold(raw);
     const now = this.now().getTime();
+    const cardNumber = input.cardNumber ?? null;
     const savedAt = new Date(Math.min(Date.parse(input.savedAt), now)).toISOString();
     const expiresAt = heldYouTubeFindingExpiry(savedAt);
     const held: HeldYouTubeFindingHold[] = [];
     for (const finding of [...input.findings].sort((left, right) => left.findingNumber - right.findingNumber)) {
-      const key = keyOf(input.cardNumber, input.cardSha256, finding.findingNumber);
+      const key = keyOf(cardNumber, input.cardSha256, finding.findingNumber);
       const before = this.rows.get(key);
       // A finding of the same save held before and expired since is deleted first, so it is held anew.
       if (before !== undefined && Date.parse(before.expiresAt) <= now) this.rows.delete(key);
@@ -167,8 +215,10 @@ export class InMemoryHeldYouTubeFindingsStore implements HeldYouTubeFindingsStor
       if (Date.parse(expiresAt) <= now) continue;
       const row: HeldYouTubeFinding = {
         ...structuredClone(finding),
-        cardNumber: input.cardNumber,
+        cardNumber,
         cardSha256: input.cardSha256,
+        ...(input.question === undefined ? {} : { question: input.question }),
+        ...(input.topic === undefined ? {} : { topic: { ...input.topic } }),
         savedAt,
         expiresAt,
       };
@@ -182,36 +232,48 @@ export class InMemoryHeldYouTubeFindingsStore implements HeldYouTubeFindingsStor
     const cards = new Set(validCards(cardNumbers));
     const now = this.now().getTime();
     return [...this.rows.values()]
-      .filter((row) => cards.has(row.cardNumber) && Date.parse(row.expiresAt) > now)
+      .filter((row) => row.cardNumber !== null && cards.has(row.cardNumber) && Date.parse(row.expiresAt) > now)
       .sort(compareHeld)
+      .map((row) => structuredClone(row));
+  }
+
+  async inspectWithoutCard(): Promise<HeldYouTubeFinding[]> {
+    const now = this.now().getTime();
+    return [...this.rows.values()]
+      .filter((row) => row.cardNumber === null && Date.parse(row.expiresAt) > now)
+      .sort(newestFirst)
+      .slice(0, HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN)
       .map((row) => structuredClone(row));
   }
 
   async deleteForCards(cardNumbers: readonly number[]): Promise<number> {
     const cards = new Set(validCards(cardNumbers));
-    let deleted = 0;
-    for (const [key, row] of this.rows) {
-      if (!cards.has(row.cardNumber)) continue;
-      this.rows.delete(key);
-      deleted += 1;
-    }
-    return deleted;
+    return this.deleteWhere((row) => row.cardNumber !== null && cards.has(row.cardNumber));
+  }
+
+  async deleteWithoutCard(cardSha256s: readonly string[]): Promise<number> {
+    const digests = new Set(validDigests(cardSha256s));
+    return this.deleteWhere((row) => row.cardNumber === null && digests.has(row.cardSha256));
   }
 
   async purgeExpired(): Promise<number> {
     const now = this.now().getTime();
-    let purged = 0;
-    for (const [key, row] of this.rows) {
-      if (Date.parse(row.expiresAt) > now) continue;
-      this.rows.delete(key);
-      purged += 1;
-    }
-    return purged;
+    return this.deleteWhere((row) => Date.parse(row.expiresAt) <= now);
   }
 
   /** Every row as stored, expired ones included, for tests. */
   snapshot(): HeldYouTubeFinding[] {
     return [...this.rows.values()].sort(compareHeld).map((row) => structuredClone(row));
+  }
+
+  private deleteWhere(matches: (row: HeldYouTubeFinding) => boolean): number {
+    let deleted = 0;
+    for (const [key, row] of this.rows) {
+      if (!matches(row)) continue;
+      this.rows.delete(key);
+      deleted += 1;
+    }
+    return deleted;
   }
 }
 
@@ -226,7 +288,7 @@ function keyFields(row: HeldYouTubeFindingKey): HeldYouTubeFindingKey {
 }
 
 interface HoldRow {
-  card_number: number;
+  card_number: number | null;
   card_sha256: string;
   finding_number: number;
   saved_at: Date | string;
@@ -235,9 +297,12 @@ interface HoldRow {
 }
 
 interface HeldRow {
-  card_number: number;
+  card_number: number | null;
   card_sha256: string;
   finding_number: number;
+  question: string | null;
+  topic_key: string | null;
+  topic_label: string | null;
   claim: string;
   certainty: HeldYouTubeFindingContent["certainty"];
   applies_to: string;
@@ -275,6 +340,28 @@ function heldColumns(finding: HeldYouTubeFindingContent): Record<string, unknown
   };
 }
 
+function heldFromRow(row: HeldRow): HeldYouTubeFinding {
+  return {
+    cardNumber: row.card_number === null ? null : Number(row.card_number),
+    cardSha256: row.card_sha256,
+    findingNumber: Number(row.finding_number),
+    ...(row.question === null ? {} : { question: row.question }),
+    ...(row.topic_key === null || row.topic_label === null ? {} : { topic: { key: row.topic_key, label: row.topic_label } }),
+    claim: row.claim,
+    certainty: row.certainty,
+    appliesTo: row.applies_to,
+    whyNotUsual: row.why_not_usual,
+    whatWouldChangeIt: row.what_would_change_it,
+    ...(row.kind === null ? {} : { kind: row.kind }),
+    ...(row.subject === null ? {} : { subject: row.subject }),
+    ...(row.direction === null ? {} : { direction: row.direction }),
+    tags: row.tags,
+    verifiedBases: row.verified_bases,
+    savedAt: instant(row.saved_at),
+    expiresAt: instant(row.expires_at),
+  };
+}
+
 /**
  * The store through migration 0019's SECURITY DEFINER functions; it reads no table directly. The research-access role
  * holds and purges; the review role holds, reads, deletes and purges. Each function decides what has expired by the
@@ -299,11 +386,16 @@ export class PostgresHeldYouTubeFindingsStore implements HeldYouTubeFindingsStor
   async hold(raw: HoldYouTubeFindingsInput): Promise<HeldYouTubeFindingHold[]> {
     const input = validHold(raw);
     const result = await this.call<HoldRow>(
-      `SELECT * FROM ${this.schema}.hold_youtube_findings($1::integer, $2::text, $3::timestamptz, $4::jsonb)`,
-      [input.cardNumber, input.cardSha256, input.savedAt, JSON.stringify(input.findings.map(heldColumns))],
+      `SELECT * FROM ${this.schema}.hold_youtube_findings(
+         $1::integer, $2::text, $3::timestamptz, $4::jsonb, $5::text, $6::text, $7::text
+       )`,
+      [
+        input.cardNumber ?? null, input.cardSha256, input.savedAt, JSON.stringify(input.findings.map(heldColumns)),
+        input.question ?? null, input.topic?.key ?? null, input.topic?.label ?? null,
+      ],
     );
     return result.rows.map((row) => ({
-      cardNumber: Number(row.card_number),
+      cardNumber: row.card_number === null ? null : Number(row.card_number),
       cardSha256: row.card_sha256,
       findingNumber: Number(row.finding_number),
       savedAt: instant(row.saved_at),
@@ -317,29 +409,29 @@ export class PostgresHeldYouTubeFindingsStore implements HeldYouTubeFindingsStor
       `SELECT * FROM ${this.schema}.inspect_held_youtube_findings($1::integer[])`,
       [validCards(cardNumbers)],
     );
-    return result.rows.map((row) => ({
-      cardNumber: Number(row.card_number),
-      cardSha256: row.card_sha256,
-      findingNumber: Number(row.finding_number),
-      claim: row.claim,
-      certainty: row.certainty,
-      appliesTo: row.applies_to,
-      whyNotUsual: row.why_not_usual,
-      whatWouldChangeIt: row.what_would_change_it,
-      ...(row.kind === null ? {} : { kind: row.kind }),
-      ...(row.subject === null ? {} : { subject: row.subject }),
-      ...(row.direction === null ? {} : { direction: row.direction }),
-      tags: row.tags,
-      verifiedBases: row.verified_bases,
-      savedAt: instant(row.saved_at),
-      expiresAt: instant(row.expires_at),
-    }));
+    return result.rows.map(heldFromRow);
+  }
+
+  async inspectWithoutCard(): Promise<HeldYouTubeFinding[]> {
+    const result = await this.call<HeldRow>(
+      `SELECT * FROM ${this.schema}.inspect_cardless_held_youtube_findings()`,
+      [],
+    );
+    return result.rows.map(heldFromRow);
   }
 
   async deleteForCards(cardNumbers: readonly number[]): Promise<number> {
     const result = await this.call<{ deleted: number }>(
       `SELECT ${this.schema}.delete_held_youtube_findings($1::integer[]) AS deleted`,
       [validCards(cardNumbers)],
+    );
+    return Number(result.rows[0]?.deleted ?? 0);
+  }
+
+  async deleteWithoutCard(cardSha256s: readonly string[]): Promise<number> {
+    const result = await this.call<{ deleted: number }>(
+      `SELECT ${this.schema}.delete_cardless_held_youtube_findings($1::text[]) AS deleted`,
+      [validDigests(cardSha256s)],
     );
     return Number(result.rows[0]?.deleted ?? 0);
   }

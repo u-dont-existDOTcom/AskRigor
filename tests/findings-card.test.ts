@@ -114,7 +114,8 @@ describe("findings card", () => {
 });
 
 describe("findings card as the library stores it", () => {
-  // Owner answer 170 (24 Oct): no finding drawn from YouTube comments is stored until YouTube confirms it may.
+  // Owner answer 170 (24 Oct): no finding drawn from YouTube comments is stored on the card (since owner answer 173 it
+  // is held for 30 days apart from it).
   it("leaves out a finding drawn from YouTube comments, and keeps no YouTube video IDs or links in the rest", () => {
     const card = findingsCardSchema.parse({
       ...CARD,

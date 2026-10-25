@@ -488,8 +488,9 @@ describe("the checks before acceptance", () => {
       topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [],
       wording: "I was diagnosed with Velmor syndrome and zentarine helped me." });
     expect(edited.structured.checks.privacy).toEqual([{ field: "wording", reasonCode: "personal_narrative" }]);
-    // A card whose only finding rests on the audited comments' video is not stored at all (owner answer 170), so it never
-    // reaches the review; the community_only check stays for cards stored before.
+    // A card whose only finding rests on the audited comments' video is not saved as a card (owner answer 170; its
+    // finding is held apart, owner answer 173), so it never reaches the review as a card; the community_only check
+    // stays for cards stored before.
     expect(await h.save({ ...LOW_DOSE_CARD, question: "Does zentarine help in daily life?",
       findings: [{ ...LOW_DOSE_CARD.findings[0]!, sources: ["zentarineV1"], tags: ["community_checked"] }] },
       ["comment_audit"])).toMatchObject({ status: "youtube_findings_only" });

@@ -60,7 +60,7 @@ GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution
   text, timestamptz
 ) TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
-  integer, text, timestamptz, jsonb
+  integer, text, timestamptz, jsonb, text, text, text
 ) TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.purge_expired_held_youtube_findings()
   TO askrigor_research_access;

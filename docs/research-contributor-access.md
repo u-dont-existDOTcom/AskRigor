@@ -385,10 +385,14 @@ of 33 tools. They are flat fields with one rule set per action:
   the cards' held YouTube findings (below).
 - Held YouTube findings (owner answer 173, built, not yet released): the
   findings drawn from YouTube comments that a saved card leaves out are held for
-  30 days apart from the card, then deleted. `inspect_finding` on a card lists
-  them (`card.heldYoutubeFindings`) with the day each is deleted; they are never
-  items, so no decision takes one. `delete_youtube_findings` with `card` deletes
-  a card's now. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
+  30 days apart from the card, then deleted; so are those of a card whose
+  findings all rest on them, which is not saved as a card, with its question and
+  topic. `inspect_finding` on a card lists its held findings
+  (`card.heldYoutubeFindings`) with the day each is deleted, and
+  `list_youtube_findings` lists those with no card (`heldWithoutCard`), newest
+  first; they are never items, so no decision takes one.
+  `delete_youtube_findings` with `card` deletes a card's now, and with
+  `cardSha256` a save's with no card. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
   moves those of cards stored before into the hold, each from its own save's
   time, deletes one already past 30 days, and rewrites the card and its later
   saves as saved today without them; it changes nothing on a card whose
@@ -512,12 +516,13 @@ adds three nullable columns to `atlas_finding_versions` (kind, subject type and
 the searches that found nothing), and new bodies for `atlas_redaction_permits`
 and `erase_atlas_wording` that erase the searches' queries too; the review
 role's grants are unchanged. Migration `0019_held_youtube_findings.sql` (owner
-answer 173) adds the private `held_youtube_findings` table and four
+answer 173) adds the private `held_youtube_findings` table and six
 security-definer functions: the research-access role may execute
 `hold_youtube_findings` (at a save) and `purge_expired_held_youtube_findings`;
-the review role those two, `inspect_held_youtube_findings` and
-`delete_held_youtube_findings`. Neither has a direct privilege on the table, and
-the reader's default-privilege SELECT on it is removed.
+the review role those two, `inspect_held_youtube_findings`,
+`inspect_cardless_held_youtube_findings`, `delete_held_youtube_findings` and
+`delete_cardless_held_youtube_findings`. Neither has a direct privilege on the
+table, and the reader's default-privilege SELECT on it is removed.
 
 ## Runtime and failure behavior
 

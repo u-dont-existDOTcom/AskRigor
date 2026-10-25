@@ -7,8 +7,9 @@ import { researchContributionReviewConfigFromEnv, researchContributorAccessConfi
 
 /**
  * The research server's held YouTube findings (owner answer 173, 25 Oct): the findings drawn from YouTube comments that
- * a saved findings card leaves out, held in the living-evidence database for 30 days, for the owner's review, and then
- * deleted (YouTube Developer Policies III.E.4; no refreshing). The save path holds them through the research-access
+ * a saved findings card leaves out, or of a card whose findings all rest on them, which is not saved as a card, held in
+ * the living-evidence database for 30 days, for the owner's review, and then deleted (YouTube Developer Policies
+ * III.E.4; no refreshing). The save path holds them through the research-access
  * role; the owner's review tool reads them, deletes a card's early and moves the findings of cards stored before
  * through the review role; and this process purges them at start and then every hour, through each.
  */

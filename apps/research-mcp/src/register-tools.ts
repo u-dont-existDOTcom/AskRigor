@@ -825,10 +825,12 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and its held YouTube " +
   "findings and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they " +
   "are valid. Held YouTube findings: the findings drawn from YouTube comments that a saved card leaves out are kept " +
-  "apart from it for 30 days, then deleted; inspect_finding on a card lists them with the day each is deleted, " +
-  "delete_youtube_findings (card) deletes a card's now, and move_youtube_findings (cards, such as [\"ARF-0007\"]) " +
-  "moves those of cards stored before into that hold, rewriting each card as one saved today would read. They are " +
-  "never decided, accepted or published. Nothing from " +
+  "apart from it for 30 days, then deleted, and so are those of a card whose findings all rest on them, which is not " +
+  "saved as a card; inspect_finding on a card lists its held findings with the day each is deleted, " +
+  "list_youtube_findings lists those with no card (newest first, each with its question and topic), " +
+  "delete_youtube_findings deletes a card's (card) or a card-less save's (cardSha256) now, and move_youtube_findings " +
+  "(cards, such as [\"ARF-0007\"]) moves those of cards stored before into that hold, rewriting each card as one " +
+  "saved today would read. They are never decided, accepted or published. Nothing from " +
   "a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted " +
   "decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies " +
   "it within about 5 minutes.";
@@ -841,9 +843,12 @@ const FINDINGS_SAVE_DEADLINE_MILLISECONDS = 10_000;
 // 2026-10-22): a free contributor's is not saved, and a paid private answer offers no save.
 export const PERSONAL_ONLY_NOT_SAVED = "not saved: its findings are declared personal only, so they stay out of " +
   "AskRigor's findings library";
-/** Owner answer 170 (24 Oct): AskRigor stores no finding drawn from YouTube comments until YouTube confirms it may. */
-export const YOUTUBE_FINDINGS_NOT_SAVED = "not saved: its findings all rest on YouTube comments, which AskRigor does " +
-  "not store until YouTube confirms it may";
+/**
+ * A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are held
+ * for the owner's review and deleted after 30 days (owner answer 173).
+ */
+export const YOUTUBE_FINDINGS_NOT_SAVED = "not saved as a card: its findings all rest on YouTube comments, which " +
+  "AskRigor keeps only for its owner's review and deletes after 30 days";
 export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
   "save_research_findings does not save them";
 

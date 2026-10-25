@@ -18,6 +18,7 @@ import {
   atlasChecksSchema,
   atlasFindingsListSchema,
   atlasForgetSchema,
+  atlasHeldWithoutCardSchema,
   atlasRetrySchema,
   atlasReviewInputShape,
   atlasStatusSchema,
@@ -38,7 +39,7 @@ export const researchContributionReviewInputSchema = z.object({
   action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
-      "findings: move_youtube_findings or delete_youtube_findings."),
+      "findings: list_youtube_findings, move_youtube_findings or delete_youtube_findings."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
@@ -176,6 +177,8 @@ export const researchContributionReviewOutputSchema = z.object({
   forget: atlasForgetSchema.optional(),
   // move_youtube_findings and delete_youtube_findings (owner answer 173): each card's outcome, and the owner's steps.
   youtubeFindings: atlasYoutubeFindingsSchema.optional(),
+  // list_youtube_findings, and delete_youtube_findings with cardSha256: the held findings with no card.
+  heldWithoutCard: atlasHeldWithoutCardSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
   canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
@@ -438,6 +441,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.retry === undefined ? {} : { retry: result.retry }),
     ...(result.forget === undefined ? {} : { forget: result.forget }),
     ...(result.youtubeFindings === undefined ? {} : { youtubeFindings: result.youtubeFindings }),
+    ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

@@ -4,25 +4,31 @@ SET search_path TO __SCHEMA__, public;
 -- YouTube's Developer Policies call Non-Authorized Data; their section III.E.4 lets an API client keep a limited amount
 -- for no longer than 30 calendar days, then delete or refresh it. A findings card is stored without its findings drawn
 -- from YouTube comments (owner answer 170); each one left out is kept here instead, apart from the card, for the owner's
--- review, and deleted 30 days after it was saved, with no refreshing.
+-- review, and deleted 30 days after it was saved, with no refreshing. A card whose findings all rest on YouTube comments
+-- is not saved as a card; its findings are kept here the same way, with no card number.
 --
 -- A row holds only what AskRigor wrote, each in a column of its own: the claim, the certainty, whom it applies to, why
 -- the usual answer misses it, what would change it, the kind, subject and direction when the card declared them, and
--- its tags and verified bases (fixed values). No column holds a source (a YouTube video ID), a link, the answer quote,
--- a contributor or thread key, or any comment text, name, channel, comment or video ID. The card is named by its ARF
--- issue number and the checked card's SHA-256, the finding by its place on that card, from 1. A row is deleted 30 days
--- (720 hours, whatever the time zone) after the save that left it out; until the purge deletes it, no read returns it.
+-- its tags and verified bases (fixed values); and, for a card not saved as a card, the card's own general wording of
+-- the research question and its topic's key and label. No column holds a source (a YouTube video ID), a link, the
+-- answer quote, a contributor or thread key, or any comment text, name, channel, comment or video ID. A saved card's
+-- finding is named by the card's ARF issue number, the checked card's SHA-256 and its place on that card, from 1; one of
+-- a card not saved by the SHA-256 and its place. A row is deleted 30 days (720 hours, whatever the time zone) after the
+-- save that left it out; until the purge deletes it, no read returns it.
 --
--- The research server reaches the table only through the four SECURITY DEFINER functions below, each revoked from
+-- The research server reaches the table only through the six SECURITY DEFINER functions below, each revoked from
 -- PUBLIC: the research-access role holds findings at a save and purges (provision-research-access-role.sh); the review
--- role holds the findings moved out of stored cards, reads, deletes a card's early, and purges
+-- role holds the findings moved out of stored cards, reads, deletes early, and purges
 -- (provision-research-review-role.sh). Every other grant on the table is removed, the public reader's default-privilege
 -- SELECT included, so nothing else reads it. Safe to run again: every migration runs on each start, in one transaction.
 
 CREATE TABLE IF NOT EXISTS held_youtube_findings (
-  card_number integer NOT NULL CHECK (card_number > 0),
+  card_number integer CHECK (card_number IS NULL OR card_number > 0),
   card_sha256 char(64) NOT NULL CHECK (card_sha256 ~ '^[a-f0-9]{64}$'),
   finding_number smallint NOT NULL CHECK (finding_number BETWEEN 1 AND 5),
+  question text CHECK (question IS NULL OR length(question) BETWEEN 1 AND 300),
+  topic_key text CHECK (topic_key IS NULL OR topic_key ~ '^[a-z0-9][a-z0-9._-]{0,199}$'),
+  topic_label text CHECK (topic_label IS NULL OR length(topic_label) BETWEEN 1 AND 200),
   claim text NOT NULL CHECK (length(claim) BETWEEN 1 AND 500),
   certainty text NOT NULL CHECK (certainty IN ('high', 'moderate', 'low', 'very_low')),
   applies_to text NOT NULL CHECK (length(applies_to) BETWEEN 1 AND 300),
@@ -43,14 +49,23 @@ CREATE TABLE IF NOT EXISTS held_youtube_findings (
   ),
   saved_at timestamptz NOT NULL,
   expires_at timestamptz NOT NULL,
-  CONSTRAINT held_youtube_findings_pkey PRIMARY KEY (card_number, card_sha256, finding_number),
-  CONSTRAINT held_youtube_findings_v1_expiry_check CHECK (expires_at = saved_at + interval '720 hours')
+  CONSTRAINT held_youtube_findings_v1_expiry_check CHECK (expires_at = saved_at + interval '720 hours'),
+  -- A saved card names its findings; a card not saved as a card brings its question, and its topic or none.
+  CONSTRAINT held_youtube_findings_v1_card_check CHECK (
+    (card_number IS NOT NULL AND question IS NULL AND topic_key IS NULL AND topic_label IS NULL)
+    OR (card_number IS NULL AND question IS NOT NULL AND (topic_key IS NULL) = (topic_label IS NULL))
+  )
 );
+
+-- One row per finding of one save: of a card, by its number, the checked card's SHA-256 and the place; of no card, by
+-- the SHA-256 and the place (no card has number 0).
+CREATE UNIQUE INDEX IF NOT EXISTS held_youtube_findings_key
+  ON held_youtube_findings ((coalesce(card_number, 0)), card_sha256, finding_number);
 
 CREATE INDEX IF NOT EXISTS held_youtube_findings_expiry_idx ON held_youtube_findings (expires_at);
 
 COMMENT ON TABLE held_youtube_findings IS
-  'Findings drawn from YouTube comments that a saved findings card leaves out, held for the owner''s review and deleted 30 days after the save (YouTube Developer Policies III.E.4; owner answer 173). AskRigor''s texts and fixed values only: never a source, link, answer quote, contributor or thread key, or comment text, name, channel, comment or video ID. Reached only through hold_youtube_findings, inspect_held_youtube_findings, delete_held_youtube_findings and purge_expired_held_youtube_findings.';
+  'Findings drawn from YouTube comments that a saved findings card leaves out, or of a card whose findings all rest on them and which is not saved as a card, held for the owner''s review and deleted 30 days after the save (YouTube Developer Policies III.E.4; owner answer 173). AskRigor''s texts and fixed values only, with the question and topic of a card not saved: never a source, link, answer quote, contributor or thread key, or comment text, name, channel, comment or video ID. Reached only through hold_youtube_findings, inspect_held_youtube_findings, inspect_cardless_held_youtube_findings, delete_held_youtube_findings, delete_cardless_held_youtube_findings and purge_expired_held_youtube_findings.';
 
 REVOKE ALL ON TABLE held_youtube_findings FROM PUBLIC;
 
@@ -72,18 +87,22 @@ BEGIN
 END
 $revoke$;
 
--- The four functions (SECURITY DEFINER; the provisioning scripts grant exactly these) --------------------------------
+-- The six functions (SECURITY DEFINER; the provisioning scripts grant exactly these) ---------------------------------
 
--- Holds the findings one save left out of one card. A save time ahead of this database's clock counts from now, so no
--- row outlives 30 days by this clock; a finding whose 30 days have already ended is not held. A finding of the same
--- card, checked card and place held before keeps its own save time and expiry (no refreshing), unless it has expired,
--- when it is deleted and held anew. Returns each of the call's findings held after the call, with whether this call
--- held it.
+-- Holds the findings one save left out of one card: under the saved card's number, or, for a card not saved as a card,
+-- with no number and the card's question and its topic (both its key and label, or neither). A save time ahead of this
+-- database's clock counts from now, so no row outlives 30 days by this clock; a finding whose 30 days have already
+-- ended is not held. A finding of the same card (or of no card), checked card and place held before keeps its own save
+-- time and expiry (no refreshing), unless it has expired, when it is deleted and held anew. Returns each of the call's
+-- findings held after the call, with whether this call held it.
 CREATE OR REPLACE FUNCTION hold_youtube_findings(
   target_card_number integer,
   target_card_sha256 text,
   saved_time timestamptz,
-  held_findings jsonb
+  held_findings jsonb,
+  card_question text,
+  card_topic_key text,
+  card_topic_label text
 )
 RETURNS TABLE (
   card_number integer,
@@ -104,10 +123,14 @@ DECLARE
   inserted_numbers smallint[] := ARRAY[]::smallint[];
   stored_saved_at timestamptz;
 BEGIN
-  IF target_card_number IS NULL OR target_card_number < 1
+  IF (target_card_number IS NOT NULL AND target_card_number < 1)
      OR target_card_sha256 IS NULL OR target_card_sha256 !~ '^[a-f0-9]{64}$'
      OR saved_time IS NULL
      OR held_findings IS NULL OR jsonb_typeof(held_findings) IS DISTINCT FROM 'array'
+     OR (target_card_number IS NOT NULL
+         AND (card_question IS NOT NULL OR card_topic_key IS NOT NULL OR card_topic_label IS NOT NULL))
+     OR (target_card_number IS NULL AND card_question IS NULL)
+     OR ((card_topic_key IS NULL) <> (card_topic_label IS NULL))
   THEN
     RAISE EXCEPTION 'HELD_YOUTUBE_FINDINGS_INPUT_INVALID';
   END IF;
@@ -157,24 +180,25 @@ BEGIN
 
   stored_saved_at := LEAST(saved_time, now());
   DELETE FROM held_youtube_findings held
-   WHERE held.card_number = target_card_number
-     AND held.card_sha256 = target_card_sha256
+   WHERE held.card_number IS NOT DISTINCT FROM target_card_number
+     AND held.card_sha256::text = target_card_sha256
      AND held.finding_number = ANY(requested_numbers)
      AND held.expires_at <= now();
   IF stored_saved_at + interval '720 hours' > now() THEN
     BEGIN
       WITH inserted AS (
         INSERT INTO held_youtube_findings AS held
-          (card_number, card_sha256, finding_number, claim, certainty, applies_to, why_not_usual,
-           what_would_change_it, kind, subject, direction, tags, verified_bases, saved_at, expires_at)
+          (card_number, card_sha256, finding_number, question, topic_key, topic_label, claim, certainty, applies_to,
+           why_not_usual, what_would_change_it, kind, subject, direction, tags, verified_bases, saved_at, expires_at)
         SELECT target_card_number, target_card_sha256, (element.value ->> 'finding_number')::smallint,
+               card_question, card_topic_key, card_topic_label,
                element.value ->> 'claim', element.value ->> 'certainty', element.value ->> 'applies_to',
                element.value ->> 'why_not_usual', element.value ->> 'what_would_change_it',
                element.value ->> 'kind', element.value ->> 'subject', element.value ->> 'direction',
                element.value -> 'tags', element.value -> 'verified_bases',
                stored_saved_at, stored_saved_at + interval '720 hours'
           FROM jsonb_array_elements(held_findings) AS element
-        ON CONFLICT ON CONSTRAINT held_youtube_findings_pkey DO NOTHING
+        ON CONFLICT DO NOTHING
         RETURNING held.finding_number
       )
       SELECT coalesce(array_agg(inserted.finding_number), ARRAY[]::smallint[]) INTO inserted_numbers FROM inserted;
@@ -188,23 +212,26 @@ BEGIN
   SELECT held.card_number, held.card_sha256::text, held.finding_number, held.saved_at, held.expires_at,
          held.finding_number = ANY(inserted_numbers)
     FROM held_youtube_findings held
-   WHERE held.card_number = target_card_number
-     AND held.card_sha256 = target_card_sha256
+   WHERE held.card_number IS NOT DISTINCT FROM target_card_number
+     AND held.card_sha256::text = target_card_sha256
      AND held.finding_number = ANY(requested_numbers)
      AND held.expires_at > now()
    ORDER BY held.finding_number;
 END
 $function$;
 
-REVOKE ALL ON FUNCTION hold_youtube_findings(integer, text, timestamptz, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION hold_youtube_findings(integer, text, timestamptz, jsonb, text, text, text) FROM PUBLIC;
 
--- The held findings of the given cards whose 30 days have not ended by this database's clock, by card, then oldest
--- save first: what the owner's card view lists. A row past its expiry is never returned, purged yet or not.
+-- The held findings of the given saved cards whose 30 days have not ended by this database's clock, by card, then
+-- oldest save first: what the owner's card view lists. A row past its expiry is never returned, purged yet or not.
 CREATE OR REPLACE FUNCTION inspect_held_youtube_findings(target_card_numbers integer[])
 RETURNS TABLE (
   card_number integer,
   card_sha256 text,
   finding_number smallint,
+  question text,
+  topic_key text,
+  topic_label text,
   claim text,
   certainty text,
   applies_to text,
@@ -233,9 +260,9 @@ BEGIN
     RAISE EXCEPTION 'HELD_YOUTUBE_FINDINGS_INPUT_INVALID';
   END IF;
   RETURN QUERY
-  SELECT held.card_number, held.card_sha256::text, held.finding_number, held.claim, held.certainty, held.applies_to,
-         held.why_not_usual, held.what_would_change_it, held.kind, held.subject, held.direction, held.tags,
-         held.verified_bases, held.saved_at, held.expires_at
+  SELECT held.card_number, held.card_sha256::text, held.finding_number, held.question, held.topic_key,
+         held.topic_label, held.claim, held.certainty, held.applies_to, held.why_not_usual, held.what_would_change_it,
+         held.kind, held.subject, held.direction, held.tags, held.verified_bases, held.saved_at, held.expires_at
     FROM held_youtube_findings held
    WHERE held.card_number = ANY(target_card_numbers)
      AND held.expires_at > now()
@@ -245,7 +272,48 @@ $function$;
 
 REVOKE ALL ON FUNCTION inspect_held_youtube_findings(integer[]) FROM PUBLIC;
 
--- Deletes every held finding of the given cards now, before their 30 days end: the owner's early deletion, and
+-- The held findings of cards not saved as cards whose 30 days have not ended by this database's clock, newest save
+-- first, at most 500: what the owner's list of held findings with no card shows. A row past its expiry is never
+-- returned.
+CREATE OR REPLACE FUNCTION inspect_cardless_held_youtube_findings()
+RETURNS TABLE (
+  card_number integer,
+  card_sha256 text,
+  finding_number smallint,
+  question text,
+  topic_key text,
+  topic_label text,
+  claim text,
+  certainty text,
+  applies_to text,
+  why_not_usual text,
+  what_would_change_it text,
+  kind text,
+  subject text,
+  direction text,
+  tags jsonb,
+  verified_bases jsonb,
+  saved_at timestamptz,
+  expires_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT held.card_number, held.card_sha256::text, held.finding_number, held.question, held.topic_key,
+         held.topic_label, held.claim, held.certainty, held.applies_to, held.why_not_usual, held.what_would_change_it,
+         held.kind, held.subject, held.direction, held.tags, held.verified_bases, held.saved_at, held.expires_at
+    FROM held_youtube_findings held
+   WHERE held.card_number IS NULL
+     AND held.expires_at > now()
+   ORDER BY held.saved_at DESC, held.card_sha256, held.finding_number
+   LIMIT 500
+$function$;
+
+REVOKE ALL ON FUNCTION inspect_cardless_held_youtube_findings() FROM PUBLIC;
+
+-- Deletes every held finding of the given saved cards now, before their 30 days end: the owner's early deletion, and
 -- forget_card's. Returns how many rows it deleted.
 CREATE OR REPLACE FUNCTION delete_held_youtube_findings(target_card_numbers integer[])
 RETURNS integer
@@ -271,9 +339,37 @@ $function$;
 
 REVOKE ALL ON FUNCTION delete_held_youtube_findings(integer[]) FROM PUBLIC;
 
--- Deletes every held finding whose 30 days have ended by this database's clock: the research server runs it at start
--- and then every hour. It takes no time from the caller, so no caller can delete a finding before its 30 days end
--- through it. Returns how many rows it deleted.
+-- Deletes every held finding of the given cards not saved as cards, by their checked cards' SHA-256, now: the owner's
+-- early deletion. A saved card's findings are never deleted through it. Returns how many rows it deleted.
+CREATE OR REPLACE FUNCTION delete_cardless_held_youtube_findings(target_card_sha256s text[])
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+DECLARE
+  removed integer;
+BEGIN
+  IF target_card_sha256s IS NULL
+     OR cardinality(target_card_sha256s) NOT BETWEEN 1 AND 100
+     OR EXISTS (SELECT 1 FROM unnest(target_card_sha256s) requested(digest) WHERE requested.digest IS NULL
+                OR requested.digest !~ '^[a-f0-9]{64}$')
+  THEN
+    RAISE EXCEPTION 'HELD_YOUTUBE_FINDINGS_INPUT_INVALID';
+  END IF;
+  DELETE FROM held_youtube_findings held
+   WHERE held.card_number IS NULL
+     AND held.card_sha256::text = ANY(target_card_sha256s);
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  RETURN removed;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION delete_cardless_held_youtube_findings(text[]) FROM PUBLIC;
+
+-- Deletes every held finding whose 30 days have ended by this database's clock, of a saved card or not: the research
+-- server runs it at start and then every hour. It takes no time from the caller, so no caller can delete a finding
+-- before its 30 days end through it. Returns how many rows it deleted.
 CREATE OR REPLACE FUNCTION purge_expired_held_youtube_findings()
 RETURNS integer
 LANGUAGE plpgsql

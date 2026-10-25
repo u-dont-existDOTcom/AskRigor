@@ -440,9 +440,11 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
  * community_checked, or a comment audit among the bases the receipt signed for
  * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
  * that AskRigor stores no YouTube-derived records until YouTube clarifies
- * (owner answer 170, 24 Oct). `kept` gives the original index of each finding
- * kept, and `findingsLeftOut` how many were left out; a card left with no
- * finding is not saved.
+ * (owner answer 170, 24 Oct); since owner answer 173 (25 Oct) each finding left
+ * out is held for 30 days apart from the card, for the owner's review. `kept`
+ * gives the original index of each finding kept, and `findingsLeftOut` how many
+ * were left out; a card left with no finding is not saved as a card, and its
+ * findings are held with its question and topic.
  */
 export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
@@ -563,6 +565,21 @@ export function heldYouTubeFindingOf(
     ...(finding.direction === undefined ? {} : { direction: finding.direction }),
     tags: FINDING_TAGS.filter((tag) => finding.tags.includes(tag)),
     verifiedBases: VERIFIED_BASES.filter((basis) => bases.includes(basis)),
+  };
+}
+
+/**
+ * What the held YouTube findings keep of a card whose findings all rest on YouTube comments, which is not saved as a
+ * card (owner answer 173): its own general wording of the research question and its topic, when it declared one, with
+ * no link or video ID, as for its findings' texts.
+ */
+export function heldYouTubeCardTextsOf(
+  card: Pick<FindingsCard, "question" | "topic">,
+  videoIds: readonly string[] = [],
+): { question: string; topic?: { key: string; label: string } } {
+  return {
+    question: heldText(card.question, videoIds),
+    ...(card.topic === undefined ? {} : { topic: { key: card.topic.key, label: heldText(card.topic.label, videoIds) } }),
   };
 }
 

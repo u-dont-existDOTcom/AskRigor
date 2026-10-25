@@ -1357,10 +1357,10 @@ const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
   "inspect_research_contribution_proposal",
 ] as const;
-// Migration 0019 (owner answer 173): the review role's four held YouTube findings functions, and the access role's two.
+// Migration 0019 (owner answer 173): the review role's six held YouTube findings functions, and the access role's two.
 const HELD_REVIEW_FUNCTIONS = [
-  "delete_held_youtube_findings", "hold_youtube_findings", "inspect_held_youtube_findings",
-  "purge_expired_held_youtube_findings",
+  "delete_cardless_held_youtube_findings", "delete_held_youtube_findings", "hold_youtube_findings",
+  "inspect_cardless_held_youtube_findings", "inspect_held_youtube_findings", "purge_expired_held_youtube_findings",
 ] as const;
 const HELD_ACCESS_FUNCTIONS = ["hold_youtube_findings", "purge_expired_held_youtube_findings"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
@@ -1984,10 +1984,12 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
 /**
  * Owner answer 173 (2026-10-25): migration 0019, the held YouTube findings. The table holds only AskRigor's texts and
  * fixed values, and nothing but the migrator reads or writes it directly: the research-access role executes exactly
- * hold and purge, the review role hold, inspect, delete and purge, and the reader none. A finding is held exactly 30
- * days from its save and never refreshed; one already past its 30 days is never held; no read returns an expired row,
- * purged yet or not; the purge deletes expired rows and nothing else; the owner deletes a card's early; and a second
- * migrate changes neither the table, its grants nor the functions' grants.
+ * hold and purge, the review role hold, both reads, both deletions and purge, and the reader none. A finding is held
+ * exactly 30 days from its save and never refreshed; one already past its 30 days is never held; no read returns an
+ * expired row, purged yet or not; the purge deletes expired rows and nothing else; the owner deletes a card's early. A
+ * card whose findings all rest on YouTube comments, not saved as a card, has its findings held with no card number,
+ * with its question and topic, listed apart, deleted early by its checked card's SHA-256 and purged the same way. A
+ * second migrate changes neither the table, its grants nor the functions' grants.
  */
 export async function verifyHeldYouTubeFindings(context: {
   adminUrl: string;
@@ -2016,8 +2018,9 @@ export async function verifyHeldYouTubeFindings(context: {
       [schema],
     );
     assert(columns.rows.map(({ column_name: name }) => name).join() === [
-      "card_number", "card_sha256", "finding_number", "claim", "certainty", "applies_to", "why_not_usual",
-      "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases", "saved_at", "expires_at",
+      "card_number", "card_sha256", "finding_number", "question", "topic_key", "topic_label", "claim", "certainty",
+      "applies_to", "why_not_usual", "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases",
+      "saved_at", "expires_at",
     ].join(), `HELD_YOUTUBE_FINDINGS_COLUMNS_MISMATCH ${columns.rows.map(({ column_name: name }) => name).join()}`);
     for (const role of ["askrigor_reader", "askrigor_research_access", "askrigor_research_review"]) {
       const open = await admin.query<{ open: boolean }>(
@@ -2033,6 +2036,9 @@ export async function verifyHeldYouTubeFindings(context: {
     await expectPermissionDenied(() => reviewPool.query(`DELETE FROM ${schema}.held_youtube_findings`));
     await expectPermissionDenied(() => accessPool.query(`SELECT * FROM ${schema}.inspect_held_youtube_findings(ARRAY[1])`));
     await expectPermissionDenied(() => accessPool.query(`SELECT ${schema}.delete_held_youtube_findings(ARRAY[1])`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT * FROM ${schema}.inspect_cardless_held_youtube_findings()`));
+    await expectPermissionDenied(() => accessPool.query(
+      `SELECT ${schema}.delete_cardless_held_youtube_findings(ARRAY['${"a".repeat(64)}'])`));
     await expectPermissionDenied(() => readerPool.query(`SELECT ${schema}.purge_expired_held_youtube_findings()`));
     const executable = async (role: string) => (await admin.query<{ proname: string }>(
       `SELECT DISTINCT proc.proname FROM pg_proc proc
@@ -2079,7 +2085,7 @@ export async function verifyHeldYouTubeFindings(context: {
     assert(stale.length === 0, "HELD_YOUTUBE_FINDING_PAST_30_DAYS_HELD");
     // Nothing but AskRigor's fields: a source, or a value no column takes, is refused by the function itself.
     const direct = (finding: Record<string, unknown>) => accessPool.query(
-      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb)`,
+      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb, NULL, NULL, NULL)`,
       [card + 2, sha, JSON.stringify([{
         finding_number: 1, claim: "A summary.", certainty: "low", applies_to: "Adults", why_not_usual: "Missed.",
         what_would_change_it: "More reports.", tags: [], verified_bases: [], ...finding,
@@ -2122,6 +2128,67 @@ export async function verifyHeldYouTubeFindings(context: {
     assert(await review.deleteForCards([card]) === 1, "HELD_YOUTUBE_FINDINGS_EARLY_DELETE_MISMATCH");
     assert((await review.inspect([card])).length === 0, "HELD_YOUTUBE_FINDINGS_NOT_DELETED");
     checks.push("held_youtube_findings_held_30_days_never_refreshed_expired_rows_unread_purged_and_deleted_early");
+
+    // A card whose findings all rest on YouTube comments, not saved as a card: held with no card number, with its
+    // question and topic, through the access role; listed apart through the review role, never by a card's read, and
+    // never deleted by a card's deletion; deleted early by its checked card's SHA-256; and, expired, unread and purged.
+    const cardless = createHash("sha256").update("synthetic-held-youtube-cardless").digest("hex");
+    const question = "Does home exercise ease hip osteoarthritis pain?";
+    const topic = { key: "hip-osteoarthritis", label: "Hip osteoarthritis" };
+    const heldCardless = await access.hold({
+      cardSha256: cardless, savedAt: new Date(Date.now() - 60_000).toISOString(), question, topic, findings: [content],
+    });
+    assert(heldCardless.length === 1 && heldCardless[0]!.cardNumber === null && heldCardless[0]!.heldNow,
+      "HELD_YOUTUBE_CARDLESS_FINDING_NOT_HELD");
+    const againCardless = await access.hold({
+      cardSha256: cardless, savedAt: new Date().toISOString(), question, topic, findings: [content],
+    });
+    assert(againCardless.length === 1 && !againCardless[0]!.heldNow &&
+      againCardless[0]!.expiresAt === heldCardless[0]!.expiresAt, "HELD_YOUTUBE_CARDLESS_FINDING_REFRESHED");
+    const listedCardless = await review.inspectWithoutCard();
+    assert(listedCardless.length === 1 && isDeepStrictEqual(listedCardless[0], {
+      ...content, cardNumber: null, cardSha256: cardless, question, topic, savedAt: heldCardless[0]!.savedAt,
+      expiresAt: heldCardless[0]!.expiresAt,
+    }), "HELD_YOUTUBE_CARDLESS_FINDING_READ_MISMATCH");
+    const plainFinding = JSON.stringify([{
+      finding_number: 1, claim: "A summary.", certainty: "low", applies_to: "Adults", why_not_usual: "Missed.",
+      what_would_change_it: "More reports.", tags: [], verified_bases: [],
+    }]);
+    // A card-less save brings its question, and a whole topic; a saved card's carries neither.
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, NULL, NULL, NULL)`,
+      [cardless, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, 'A question?', 'hip', NULL)`,
+      [cardless, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb, 'A question?', NULL, NULL)`,
+      [card + 4, sha, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, $3::text, NULL, NULL)`,
+      [cardless, plainFinding, "x".repeat(301)]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    // The same checked card saved as a card is another row; a card's read and deletion never touch the card-less.
+    await access.hold({ cardNumber: card + 5, cardSha256: cardless, savedAt: new Date().toISOString(), findings: [content] });
+    assert((await review.inspect([card + 5])).every(({ cardNumber, question: asked }) =>
+      cardNumber === card + 5 && asked === undefined), "HELD_YOUTUBE_CARD_READ_RETURNED_A_CARDLESS_ROW");
+    assert(await review.deleteForCards([card + 5]) === 1, "HELD_YOUTUBE_CARD_DELETE_MISMATCH");
+    assert((await review.inspectWithoutCard()).length === 1, "HELD_YOUTUBE_CARD_DELETE_TOOK_A_CARDLESS_ROW");
+    assert(await review.deleteWithoutCard([cardless]) === 1, "HELD_YOUTUBE_CARDLESS_EARLY_DELETE_MISMATCH");
+    assert((await review.inspectWithoutCard()).length === 0, "HELD_YOUTUBE_CARDLESS_NOT_DELETED");
+    await admin.query(
+      `INSERT INTO ${schema}.held_youtube_findings
+         (card_number, card_sha256, finding_number, question, topic_key, topic_label, claim, certainty, applies_to,
+          why_not_usual, what_would_change_it, kind, subject, direction, tags, verified_bases, saved_at, expires_at)
+       VALUES (NULL, $1, 1, 'An expired question?', NULL, NULL, 'An expired summary.', 'low', 'Adults', 'Missed.',
+               'More reports.', NULL, NULL, NULL, '[]'::jsonb, '[]'::jsonb, $2::timestamptz,
+               $2::timestamptz + interval '720 hours')`,
+      [cardless, expiredSaved],
+    );
+    await expectPgCode(() => admin.query(
+      `UPDATE ${schema}.held_youtube_findings SET question = NULL WHERE card_number IS NULL`), "23514");
+    assert((await review.inspectWithoutCard()).length === 0, "HELD_YOUTUBE_CARDLESS_EXPIRED_ROW_LISTED");
+    assert(await access.purgeExpired() === 1, "HELD_YOUTUBE_CARDLESS_PURGE_MISMATCH");
+    checks.push("held_youtube_findings_of_a_card_not_saved_held_with_its_question_listed_apart_deleted_early_and_purged");
 
     // Every migrate runs 0019 again: the table, its grants and the functions' grants stay as they are.
     await access.hold({ cardNumber: card + 3, cardSha256: sha, savedAt: new Date().toISOString(), findings: [content] });

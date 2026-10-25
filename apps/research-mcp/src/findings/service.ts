@@ -9,6 +9,7 @@ import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldYouTubeCardTextsOf,
   heldYouTubeFindingOf,
   isSafeReportedModel,
   isYouTubeVideoId,
@@ -162,8 +163,12 @@ export class FindingsSaveService {
       const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
         signed.includes("comment_audit") ? [index] : []));
       const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
-      // Owner answer 170 (24 Oct): a card whose findings all rest on YouTube comments has nothing AskRigor stores.
-      if (stored.card.findings.length === 0) return result({ status: "youtube_findings_only", retryable: false });
+      // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
+      // held for 30 days, with its question and topic, for the owner's review (owner answer 173).
+      if (stored.card.findings.length === 0) {
+        this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
+        return result({ status: "youtube_findings_only", retryable: false });
+      }
       const card: StoredFindingsCard = bases === undefined ? stored.card : {
         ...stored.card,
         findings: stored.card.findings.map((finding, index) => {
@@ -215,12 +220,14 @@ export class FindingsSaveService {
   /**
    * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held for 30 days in the
    * database, apart from the card, for the owner's review: its texts and fixed values only (heldYouTubeFindingOf), under
-   * the card's issue number, the checked card's digest and its place on that card, from the save time. In the
-   * background: the save's result never waits for it, so a held store that fails or is slow never fails or delays the
-   * save, and then the findings are simply not kept.
+   * the card's issue number, the checked card's digest and its place on that card, from the save time. A card none of
+   * whose findings is kept is not saved as a card, so its findings are held with no issue number, with the card's own
+   * general wording of the research question and its topic (heldYouTubeCardTextsOf). In the background: the save's
+   * result never waits for it, so a held store that fails or is slow never fails or delays the save, and then the
+   * findings are simply not kept.
    */
   private holdLeftOut(
-    issueNumber: number,
+    issueNumber: number | undefined,
     cardSha256: string,
     savedAt: Date,
     card: FindingsCard,
@@ -234,7 +241,7 @@ export class FindingsSaveService {
       const keptIndexes = new Set(kept);
       const videoIds = [...new Set(card.findings.flatMap(({ sources }) => sources.filter(isYouTubeVideoId)))];
       work = held.hold({
-        cardNumber: issueNumber,
+        ...(issueNumber === undefined ? heldYouTubeCardTextsOf(card, videoIds) : { cardNumber: issueNumber }),
         cardSha256,
         savedAt: savedAt.toISOString(),
         findings: card.findings.flatMap((finding, index) => keptIndexes.has(index)

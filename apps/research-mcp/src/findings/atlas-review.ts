@@ -24,6 +24,7 @@ import {
   AtlasReviewError,
   HELD_YOUTUBE_FINDING_BASES,
   HELD_YOUTUBE_FINDING_TAGS,
+  HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN,
   atlasLabelOf,
   atlasNumbersSchema,
   atlasQuestionUse,
@@ -117,10 +118,12 @@ import {
  * finding whose wording the owner judges could identify a person.
  *
  * Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held for 30 days
- * in the database, apart from the card. inspect_finding on a card lists them with the day each is deleted;
- * delete_youtube_findings deletes a card's now; move_youtube_findings moves those of cards stored before into the hold
- * (held-youtube-move.ts); forget_card deletes them with the card. They are never items of a card, so no decision takes
- * one: nothing publishes them, accepts them into the Atlas or offers them anywhere else.
+ * in the database, apart from the card, and so are those of a card whose findings all rest on them, which is not saved
+ * as a card. inspect_finding on a card lists its held findings with the day each is deleted; list_youtube_findings lists
+ * those with no card, newest first, with each card's question and topic; delete_youtube_findings deletes a card's, or a
+ * card-less save's, now; move_youtube_findings moves those of cards stored before into the hold (held-youtube-move.ts);
+ * forget_card deletes a card's with it. They are never items of a card, so no decision takes one: nothing publishes
+ * them, accepts them into the Atlas or offers them anywhere else.
  */
 
 export const ATLAS_REVIEW_ACTIONS = [
@@ -133,6 +136,7 @@ export const ATLAS_REVIEW_ACTIONS = [
   "link_findings",
   "forget_card",
   // Owner answer 173: the held YouTube findings.
+  "list_youtube_findings",
   "move_youtube_findings",
   "delete_youtube_findings",
 ] as const;
@@ -155,7 +159,9 @@ export const ATLAS_REVIEW_OUTCOMES = [
   // forget_card (decision 7): GitHub answers 404 or 410 for every card forgotten, or still holds the stripped issues.
   "card_forgotten",
   "card_forget_waiting_for_owner",
-  // Owner answer 173: move_youtube_findings reports each card's outcome; delete_youtube_findings deleted what it held.
+  // Owner answer 173: list_youtube_findings lists those with no card; move_youtube_findings reports each card's outcome;
+  // delete_youtube_findings deleted what was held.
+  "youtube_findings_listed",
   "youtube_findings_moved",
   "youtube_findings_deleted",
 ] as const;
@@ -204,7 +210,8 @@ const ownerText = (max: number) => z.string().trim().min(1).max(max);
 export const atlasReviewInputShape = {
   card: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
     .describe("Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its " +
-      "contributor asked to delete. delete_youtube_findings: the card whose held YouTube findings go now."),
+      "contributor asked to delete. delete_youtube_findings: the card whose held YouTube findings go now (or " +
+      "cardSha256 for a held save with no card)."),
   cards: z.array(z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u)).min(1).max(20).optional()
     .describe("move_youtube_findings: the stored cards whose findings drawn from YouTube comments move out of the " +
       "card into the 30-day hold, such as [\"ARF-0007\", \"ARF-0012\"]."),
@@ -212,7 +219,8 @@ export const atlasReviewInputShape = {
   lead: z.number().int().min(1).max(6).optional().describe("Findings actions: the card's open lead, from 1."),
   atlasNumber: publicNumberInput.optional().describe("Findings actions: an accepted finding's number, such as F-1007."),
   cardSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
-    .describe("accept_finding, edit_finding: the cardSha256 inspect_finding returned for the card."),
+    .describe("accept_finding, edit_finding: the cardSha256 inspect_finding returned for the card. " +
+      "delete_youtube_findings: a held save with no card, by the cardSha256 list_youtube_findings shows."),
   version: z.number().int().min(1).optional()
     .describe("edit_finding after acceptance, withdraw_finding: the finding's latest version, as inspect_finding last " +
       "showed it."),
@@ -331,8 +339,9 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   // Decision 7: no reason is asked for or kept; the card's decision rows go, the owner's private reasons with them.
   forget_card: ["card", "confirm"],
   // Owner answer 173.
+  list_youtube_findings: [],
   move_youtube_findings: ["cards"],
-  delete_youtube_findings: ["card"],
+  delete_youtube_findings: ["card", "cardSha256"],
 };
 
 /**
@@ -425,11 +434,16 @@ export function refineAtlasReviewInput(
     case "forget_card":
       if (!has("card")) issue("forget_card needs card, such as ARF-0142", "card");
       return;
+    case "list_youtube_findings":
+      return;
     case "move_youtube_findings":
       if (!has("cards")) issue("move_youtube_findings needs cards, such as [\"ARF-0007\"]", "cards");
       return;
     case "delete_youtube_findings":
-      if (!has("card")) issue("delete_youtube_findings needs card, such as ARF-0007", "card");
+      if (has("card") === has("cardSha256")) {
+        issue("delete_youtube_findings names a card, such as ARF-0007, or a held save with no card by the cardSha256 " +
+          "list_youtube_findings shows", "card");
+      }
       return;
     case "link_findings":
       if (!has("atlasNumber")) issue("link_findings needs atlasNumber", "atlasNumber");
@@ -701,6 +715,28 @@ export const atlasYoutubeFindingsSchema = z.object({
 }).strict();
 export type AtlasYoutubeFindings = z.infer<typeof atlasYoutubeFindingsSchema>;
 
+/**
+ * list_youtube_findings, and delete_youtube_findings with cardSha256 (owner answer 173): the held findings of cards
+ * whose findings all rest on YouTube comments, which are not saved as cards, by save, newest first, each with the
+ * card's own question and topic and the day it is deleted.
+ */
+export const atlasHeldWithoutCardSchema = z.object({
+  saves: z.array(z.object({
+    /** The checked card's SHA-256, which names the save for delete_youtube_findings. */
+    cardSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    question: z.string(),
+    topic: z.object({ key: z.string(), label: z.string() }).strict().nullable(),
+    savedOn: daySchema,
+    deletedOn: daySchema,
+    findings: z.array(heldYoutubeFindingViewSchema).max(5),
+  }).strict()).max(500),
+  /** Whether more are held than the newest shown. */
+  moreNotShown: z.boolean(),
+  /** delete_youtube_findings with cardSha256: how many held findings it deleted; null when listing. */
+  deleted: z.number().int().nonnegative().nullable(),
+}).strict();
+export type AtlasHeldWithoutCard = z.infer<typeof atlasHeldWithoutCardSchema>;
+
 export interface AtlasReviewResult {
   ok: boolean;
   text: string;
@@ -713,6 +749,7 @@ export interface AtlasReviewResult {
   retry?: z.infer<typeof atlasRetrySchema>;
   forget?: AtlasForget;
   youtubeFindings?: AtlasYoutubeFindings;
+  heldWithoutCard?: AtlasHeldWithoutCard;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -856,6 +893,7 @@ export class AtlasReview {
         case "withdraw_finding": return await this.withdraw(request);
         case "link_findings": return await this.link(request);
         case "forget_card": return await this.forget(request);
+        case "list_youtube_findings": return await this.listYouTube();
         case "move_youtube_findings": return await this.moveYouTube(request);
         case "delete_youtube_findings": return await this.deleteYouTube(request);
       }
@@ -2121,9 +2159,65 @@ export class AtlasReview {
     };
   }
 
+  private async listYouTube(): Promise<AtlasReviewResult> {
+    const held = this.deps.held;
+    if (held === undefined) return heldNotConfigured("Nothing was read");
+    const rows = await held.inspectWithoutCard();
+    const saves: AtlasHeldWithoutCard["saves"] = [];
+    for (const row of rows) {
+      const save = saves.find(({ cardSha256 }) => cardSha256 === row.cardSha256);
+      if (save !== undefined) {
+        save.findings.push(heldView(row));
+        continue;
+      }
+      saves.push({
+        cardSha256: row.cardSha256,
+        question: row.question ?? "",
+        topic: row.topic === undefined ? null : { key: row.topic.key, label: row.topic.label },
+        savedOn: row.savedAt.slice(0, 10),
+        deletedOn: row.expiresAt.slice(0, 10),
+        findings: [heldView(row)],
+      });
+    }
+    const moreNotShown = rows.length >= HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN;
+    const lines = saves.length === 0
+      ? ["No YouTube findings are held without a card."]
+      : [
+        "Held YouTube findings with no card: each card's findings all rested on YouTube comments, so it was not saved " +
+          "as a card. Newest first; never decided, accepted or published, and deleted 30 days after their save.",
+        ...saves.map((save) => `${save.cardSha256}, saved ${decisionDate(`${save.savedOn}T00:00:00.000Z`)}, deleted on ` +
+          `${decisionDate(`${save.deletedOn}T00:00:00.000Z`)}: ${clip(save.question, 160)}` +
+          `${save.topic === null ? "" : ` [${save.topic.label} (${save.topic.key})]`}\n` +
+          save.findings.map((finding) => `  Finding ${finding.finding}: ${clip(finding.claim, 160)} ` +
+            `(${finding.certainty})`).join("\n")),
+        "delete_youtube_findings with a save's cardSha256 deletes its held findings now.",
+        ...(moreNotShown ? [`Only the newest ${HELD_YOUTUBE_FINDINGS_WITHOUT_CARD_SHOWN} are shown.`] : []),
+      ];
+    return {
+      ok: true,
+      outcome: "youtube_findings_listed",
+      heldWithoutCard: { saves, moreNotShown, deleted: null },
+      text: lines.join("\n"),
+    };
+  }
+
   private async deleteYouTube(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const held = this.deps.held;
     if (held === undefined) return heldNotConfigured("Nothing was deleted");
+    if (request.cardSha256 !== undefined) {
+      // A held save with no card, by its checked card's SHA-256.
+      const deleted = await held.deleteWithoutCard([request.cardSha256]);
+      return {
+        ok: true,
+        outcome: "youtube_findings_deleted",
+        heldWithoutCard: { saves: [], moreNotShown: false, deleted },
+        text: deleted === 0
+          ? `No YouTube findings are held without a card under ${request.cardSha256}: none were held, or their 30 days ` +
+            "ended, or they were deleted already. Nothing was deleted."
+          : `Deleted the ${deleted === 1 ? "held YouTube finding" : `${deleted} held YouTube findings`} with no card ` +
+            `under ${request.cardSha256} now, before ${deleted === 1 ? "its" : "their"} 30 days ended.`,
+      };
+    }
     const cardNumber = findingsCardNumber(request.card!)!;
     const id = publicFindingsCardId(cardNumber);
     const deleted = await held.deleteForCards([cardNumber]);
@@ -3337,7 +3431,7 @@ function moveSentence(report: YouTubeFindingsMoveReport): string {
       return `${id}'s record, or a later save's, does not read as the library saved it (it may have been edited in ` +
         "GitHub); nothing was changed.";
     case "every_finding_youtube":
-      return `Every finding on ${id} rests on YouTube comments, so a card saved today would not be saved at all; ` +
+      return `Every finding on ${id} rests on YouTube comments, so a card saved today would not be saved as a card; ` +
         "nothing was changed. forget_card removes the card, or delete its issue in GitHub.";
     case "decisions_in_the_way":
       return `${id} has decisions on ${report.decidedFindings.length === 1 ? "finding" : "findings"} ` +

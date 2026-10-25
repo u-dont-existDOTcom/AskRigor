@@ -129,8 +129,8 @@ describe("production living-evidence deployment", () => {
       "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
     );
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), then migration
-    // 0019's four held YouTube findings functions (owner answer 173).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(12);
+    // 0019's six held YouTube findings functions (owner answer 173).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(14);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -306,8 +306,8 @@ describe("production living-evidence deployment", () => {
     }
     const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
     expect(granted.filter((name) => name!.includes("atlas"))).toEqual(ATLAS_REVIEW_FUNCTIONS);
-    // With the three contribution functions and migration 0019's four (owner answer 173).
-    expect(granted).toHaveLength(12);
+    // With the three contribution functions and migration 0019's six (owner answer 173).
+    expect(granted).toHaveLength(14);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -467,8 +467,10 @@ describe("production living-evidence deployment", () => {
 
   // Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held for 30
   // days, then deleted (YouTube Developer Policies III.E.4). Insert at a save (the research-access role), read and
-  // delete for the owner's review (the review role), and purge for both; no table grant to anyone.
-  it("ships migration 0019's held YouTube findings, reached only through four functions the two roles get exactly", async () => {
+  // delete for the owner's review (the review role), and purge for both; no table grant to anyone. A card whose findings
+  // all rest on YouTube comments is not saved as a card, and its findings are held with no card number, with the card's
+  // question and topic.
+  it("ships migration 0019's held YouTube findings, reached only through six functions the two roles get exactly", async () => {
     const migration = await read("packages/evidence-repository/migrations/0019_held_youtube_findings.sql");
     const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
@@ -486,13 +488,20 @@ describe("production living-evidence deployment", () => {
     const table = migration.slice(start, migration.indexOf("\n);", start));
     const columns = [...table.matchAll(/^ {2}([a-z][a-z0-9_]*) /gmu)].map(([, column]) => column);
     expect(columns).toEqual([
-      "card_number", "card_sha256", "finding_number", "claim", "certainty", "applies_to", "why_not_usual",
-      "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases", "saved_at", "expires_at",
+      "card_number", "card_sha256", "finding_number", "question", "topic_key", "topic_label", "claim", "certainty",
+      "applies_to", "why_not_usual", "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases",
+      "saved_at", "expires_at",
     ]);
     expect(table).not.toMatch(/source|link|url|quote|thread|account|contributor|comment_text|author|channel|video_id/iu);
     // Exactly 30 days of 24 hours after the save, whatever the session's time zone.
     expect(table).toContain("CHECK (expires_at = saved_at + interval '720 hours')");
-    expect(table).toContain("CONSTRAINT held_youtube_findings_pkey PRIMARY KEY (card_number, card_sha256, finding_number)");
+    // A saved card names its findings; a card not saved as a card brings its question, and its whole topic or none.
+    expect(table).toContain("card_number integer CHECK (card_number IS NULL OR card_number > 0),");
+    expect(table).toContain("(card_number IS NOT NULL AND question IS NULL AND topic_key IS NULL AND topic_label IS NULL)\n" +
+      "    OR (card_number IS NULL AND question IS NOT NULL AND (topic_key IS NULL) = (topic_label IS NULL))");
+    // One row per finding of one save, with or without a card (no card has number 0).
+    expect(migration).toContain("CREATE UNIQUE INDEX IF NOT EXISTS held_youtube_findings_key\n" +
+      "  ON held_youtube_findings ((coalesce(card_number, 0)), card_sha256, finding_number);");
     // Nothing else reads it: every grant but its owner's goes, the reader's default-privilege SELECT included.
     expect(migration).toContain("REVOKE ALL ON TABLE held_youtube_findings FROM PUBLIC;");
     expect(migration).toContain("EXECUTE format('REVOKE ALL ON TABLE held_youtube_findings FROM %s', grantee_role);");
@@ -504,8 +513,8 @@ describe("production living-evidence deployment", () => {
       body: chunk.slice(chunk.indexOf("AS $function$"), chunk.indexOf("$function$;")),
     }));
     expect(functions.map(({ name }) => name)).toEqual([
-      "hold_youtube_findings", "inspect_held_youtube_findings", "delete_held_youtube_findings",
-      "purge_expired_held_youtube_findings",
+      "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
     ]);
     for (const { name, header } of functions) {
       expect(header).toContain("SECURITY DEFINER");
@@ -515,13 +524,19 @@ describe("production living-evidence deployment", () => {
     const body = (name: string) => functions.find((candidate) => candidate.name === name)!.body;
     // A read never returns a row past its expiry; the purge takes no time from its caller, so no caller deletes early.
     expect(body("inspect_held_youtube_findings")).toContain("AND held.expires_at > now()");
+    expect(body("inspect_cardless_held_youtube_findings")).toContain(
+      "WHERE held.card_number IS NULL\n     AND held.expires_at > now()\n   ORDER BY held.saved_at DESC");
+    // A card-less save's deletion never deletes a saved card's findings, nor a card's a card-less one's.
+    expect(body("delete_cardless_held_youtube_findings")).toContain("WHERE held.card_number IS NULL");
+    expect(body("delete_held_youtube_findings")).toContain("WHERE held.card_number = ANY(target_card_numbers)");
     expect(migration).toContain("CREATE OR REPLACE FUNCTION purge_expired_held_youtube_findings()\nRETURNS integer");
     expect(body("purge_expired_held_youtube_findings")).toContain("WHERE held.expires_at <= now();");
     // A hold refuses any other key, never holds a finding past its 30 days, and never refreshes one held before.
     expect(body("hold_youtube_findings")).toContain("WHERE supplied_key.name NOT IN ('finding_number', 'claim'");
     expect(body("hold_youtube_findings")).toContain("stored_saved_at := LEAST(saved_time, now());");
     expect(body("hold_youtube_findings")).toContain("IF stored_saved_at + interval '720 hours' > now() THEN");
-    expect(body("hold_youtube_findings")).toContain("ON CONFLICT ON CONSTRAINT held_youtube_findings_pkey DO NOTHING");
+    expect(body("hold_youtube_findings")).toContain("ON CONFLICT DO NOTHING");
+    expect(body("hold_youtube_findings")).toContain("OR (target_card_number IS NULL AND card_question IS NULL)");
 
     // The grants: the research-access role holds at a save and purges; the review role holds moved findings, reads,
     // deletes early and purges. Neither gets the table, and each grant names the function's exact signature.
@@ -531,8 +546,8 @@ describe("production living-evidence deployment", () => {
       "hold_youtube_findings", "purge_expired_held_youtube_findings",
     ]);
     expect(granted(review).filter((name) => name.includes("youtube"))).toEqual([
-      "hold_youtube_findings", "inspect_held_youtube_findings", "delete_held_youtube_findings",
-      "purge_expired_held_youtube_findings",
+      "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
     ]);
     const signature = (text: string, prefix: string) => {
       const from = text.indexOf(prefix) + prefix.length;

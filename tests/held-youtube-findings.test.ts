@@ -17,6 +17,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
+import { findingsSaveToolResult } from "../apps/research-mcp/src/findings/connector-tool.js";
 import {
   FINDING_TAGS,
   VERIFIED_BASES,
@@ -44,6 +45,7 @@ import {
 } from "../apps/research-mcp/src/findings/held-youtube-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import { FindingsSaveService, findingsThreadKey, type FindingsRecord } from "../apps/research-mcp/src/findings/service.js";
+import { YOUTUBE_FINDINGS_NOT_SAVED } from "../apps/research-mcp/src/register-tools.js";
 import {
   createResearchContributionReviewHandler,
   researchContributionReviewOutputSchema,
@@ -107,6 +109,15 @@ const HELD_CONTENT: HeldYouTubeFindingContent = {
 /** A card whose first finding rests on YouTube comments and whose second on a full-text audit. */
 const MIXED_CARD = { ...CARD, findings: [YOUTUBE_FINDING, STUDY] };
 const MIXED_BASES = ["comment_audit", "full_text_audit"];
+/** A card whose only finding rests on YouTube comments, which is not saved as a card; its question holds a video's link. */
+const YOUTUBE_ONLY_CARD = {
+  ...CARD,
+  question: "Does home exercise ease hip osteoarthritis pain, as in https://youtu.be/bbbbbbbbbbb?",
+  findings: [YOUTUBE_FINDING],
+};
+/** What the held findings keep of that card: its question without the link, and its topic. */
+const YOUTUBE_ONLY_QUESTION = "Does home exercise ease hip osteoarthritis pain, as in (YouTube video)?";
+const TOPIC = { key: "hip-osteoarthritis", label: "Hip osteoarthritis" };
 
 afterEach(() => {
   vi.useRealTimers();
@@ -272,6 +283,47 @@ describe("the held YouTube findings store (migration 0019's semantics)", () => {
       .toEqual([[12, 1], [12, 3]]);
   });
 
+  it("holds a card-less save's findings with its question and topic for 30 days, apart from every saved card's", async () => {
+    let now = Date.parse("2026-10-07T10:00:00.000Z");
+    const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date(now) });
+    const older = { cardSha256: "a".repeat(64), savedAt: new Date(now).toISOString(), question: "Does home exercise help?",
+      topic: TOPIC, findings: [held(), held({ findingNumber: 2 })] };
+    expect(await store.hold(older)).toEqual([
+      expect.objectContaining({ cardNumber: null, findingNumber: 1, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: true }),
+      expect.objectContaining({ cardNumber: null, findingNumber: 2, heldNow: true }),
+    ]);
+    // The same checked card saved as card 7 is another row; the card's reads and deletions never touch the card-less.
+    await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: new Date(now).toISOString(), findings: [held()] });
+    now += DAY;
+    await store.hold({ cardSha256: "b".repeat(64), savedAt: new Date(now).toISOString(), question: "Does walking help?",
+      findings: [held()] });
+    // No refreshing: the same save held again keeps its first expiry.
+    expect(await store.hold({ ...older, savedAt: new Date(now).toISOString() })).toEqual([
+      expect.objectContaining({ findingNumber: 1, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: false }),
+      expect.objectContaining({ findingNumber: 2, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: false }),
+    ]);
+    expect((await store.inspectWithoutCard()).map(({ cardSha256, findingNumber, question, topic }) =>
+      [cardSha256.charAt(0), findingNumber, question, topic ?? null])).toEqual([
+      ["b", 1, "Does walking help?", null],
+      ["a", 1, "Does home exercise help?", TOPIC],
+      ["a", 2, "Does home exercise help?", TOPIC],
+    ]);
+    expect((await store.inspect([7])).map(({ cardNumber, question }) => [cardNumber, question ?? null])).toEqual([[7, null]]);
+    // Deleted early by the save's checked card, and only that save's: never the saved card's row of the same checked
+    // card, which the card's own deletion takes, leaving the card-less rows.
+    expect(await store.deleteWithoutCard(["a".repeat(64)])).toBe(2);
+    expect(await store.deleteWithoutCard(["a".repeat(64)])).toBe(0);
+    expect((await store.inspect([7])).map(({ cardNumber }) => cardNumber)).toEqual([7]);
+    expect(await store.deleteForCards([7])).toBe(1);
+    expect((await store.inspectWithoutCard()).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["b"]);
+    // Past its 30 days no read returns it, and the purge deletes it.
+    now = Date.parse("2026-11-07T10:00:00.000Z");
+    expect(await store.inspectWithoutCard()).toEqual([]);
+    expect(store.snapshot()).toHaveLength(1);
+    expect(await store.purgeExpired()).toBe(1);
+    expect(store.snapshot()).toEqual([]);
+  });
+
   it("takes only AskRigor's texts and fixed values: any other field, or a malformed call, is refused before the database", async () => {
     const memory = new InMemoryHeldYouTubeFindingsStore();
     // A store that never connects: the checks run before any query.
@@ -289,6 +341,15 @@ describe("the held YouTube findings store (migration 0019's semantics)", () => {
         { ...valid, findings: [1, 2, 3, 4, 5, 6].map((findingNumber) => held({ findingNumber: findingNumber % 5 + 1 })) },
         { ...valid, cardSha256: "A".repeat(64) },
         { ...valid, savedAt: "not a time" },
+        // A saved card's findings carry no question or topic; a card-less save's carry its question, and a whole topic.
+        { ...valid, question: "Does home exercise help?" },
+        { ...valid, topic: TOPIC },
+        { cardSha256: "a".repeat(64), savedAt: valid.savedAt, findings: [held()] },
+        { cardSha256: "a".repeat(64), savedAt: valid.savedAt, question: "x".repeat(301), findings: [held()] },
+        { cardSha256: "a".repeat(64), savedAt: valid.savedAt, question: "Q?", topic: { key: "Hip OA", label: "Hip" },
+          findings: [held()] },
+        { cardSha256: "a".repeat(64), savedAt: valid.savedAt, question: "Q?", topic: { key: "hip" }, findings: [held()] },
+        { cardSha256: "a".repeat(64), savedAt: valid.savedAt, question: "Q?", findings: [held()], thread: "f".repeat(64) },
       ]) {
         for (const store of [memory, postgres]) {
           await expect(store.hold(invalid as never)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
@@ -298,6 +359,11 @@ describe("the held YouTube findings store (migration 0019's semantics)", () => {
         for (const store of [memory, postgres]) {
           await expect(store.inspect(cards)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
           await expect(store.deleteForCards(cards)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
+        }
+      }
+      for (const digests of [[], ["A".repeat(64)], ["a".repeat(63)], Array.from({ length: 101 }, () => "a".repeat(64))]) {
+        for (const store of [memory, postgres]) {
+          await expect(store.deleteWithoutCard(digests)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
         }
       }
     } finally {
@@ -358,13 +424,34 @@ describe("the save path holds the findings a saved card leaves out", () => {
     }
   });
 
-  it("holds nothing when no finding is left out, and nothing when no card is saved", async () => {
+  it("holds nothing when no finding is left out", async () => {
     const h = harness();
     await expect(h.save(CARD, ["full_text_audit"])).resolves.toMatchObject({ status: "saved" });
-    const onlyYouTube = { ...CARD, findings: [YOUTUBE_FINDING] };
-    await expect(h.save(onlyYouTube, ["comment_audit"])).resolves.toEqual({ status: "youtube_findings_only", retryable: false });
     await h.library.heldSettled();
     expect(h.store.snapshot()).toEqual([]);
+  });
+
+  it("saves no card when every finding rests on YouTube comments, and holds its findings with no card, its question and topic", async () => {
+    const h = harness({ start: "2026-10-25T09:30:00.000Z" });
+    await expect(h.save(YOUTUBE_ONLY_CARD, ["comment_audit"]))
+      .resolves.toEqual({ status: "youtube_findings_only", retryable: false });
+    await h.library.heldSettled();
+    expect(h.github.writes).toEqual([]);
+    expect(h.store.snapshot()).toEqual([{
+      ...HELD_CONTENT,
+      cardNumber: null,
+      cardSha256: findingsCardDigest(findingsCardSchema.parse(YOUTUBE_ONLY_CARD)),
+      question: YOUTUBE_ONLY_QUESTION,
+      topic: TOPIC,
+      savedAt: "2026-10-25T09:30:00.000Z",
+      expiresAt: "2026-11-24T09:30:00.000Z",
+    }]);
+    // Never a source, link, video ID, the answer quote, the contributor or the thread key.
+    const stored = JSON.stringify(h.store.snapshot());
+    for (const never of [ALICE, findingsThreadKey(SECRET, ALICE, "0123456789ab"), VIDEO, OTHER_VIDEO, "http", "youtu",
+      YOUTUBE_FINDING.answer_quote, CARD.usual_answer, CARD.public_value.who_else]) {
+      expect(stored).not.toContain(never);
+    }
   });
 
   it("does not refresh: the same findings saved again, from another thread, keep their first expiry", async () => {
@@ -400,6 +487,14 @@ describe("the save path holds the findings a saved card leaves out", () => {
       expect(hold).toHaveBeenCalledTimes(1);
       expect(storedRecordOf(h.github.issue(42).body)).toEqual(expected);
       expect(h.store.snapshot()).toEqual([]);
+      // A card not saved as a card answers as before too.
+      const unsaved = await Promise.race([
+        h.save(YOUTUBE_ONLY_CARD, ["comment_audit"]),
+        new Promise((resolve) => { timer = setTimeout(() => resolve("timed out"), 1_000); }),
+      ]);
+      clearTimeout(timer);
+      expect(unsaved).toEqual({ status: "youtube_findings_only", retryable: false });
+      expect(hold).toHaveBeenCalledTimes(2);
     }
   });
 });
@@ -554,12 +649,69 @@ describe("the owner's review of held YouTube findings", () => {
     expect(h.store.snapshot()).toEqual([]);
   });
 
+  it("lists the held findings with no card, newest first, with each card's question, topic and deletion day, and deletes one early", async () => {
+    const h = harness({ start: "2026-10-25T09:30:00.000Z" });
+    await h.save(YOUTUBE_ONLY_CARD, ["comment_audit"]);
+    h.later(2 * DAY);
+    const { topic: _topic, ...withoutTopic } = YOUTUBE_ONLY_CARD;
+    const later = { ...withoutTopic, question: "Does walking ease knee osteoarthritis pain?" };
+    await h.save(later, ["comment_audit"]);
+    await h.library.heldSettled();
+    const listed = await h.call({ action: "list_youtube_findings" });
+    expect(listed.isError).toBe(false);
+    const older = findingsCardDigest(findingsCardSchema.parse(YOUTUBE_ONLY_CARD));
+    const newer = findingsCardDigest(findingsCardSchema.parse(later));
+    const view = (savedOn: string, deletedOn: string) => ({
+      finding: 1, claim: HELD_CONTENT.claim, certainty: "moderate", appliesTo: HELD_CONTENT.appliesTo,
+      whyNotUsual: HELD_CONTENT.whyNotUsual, whatWouldChangeIt: HELD_CONTENT.whatWouldChangeIt, kind: "effect",
+      subject: "Home exercise", direction: "benefit", tags: ["community_checked"], bases: ["comment_audit"], savedOn,
+      deletedOn,
+    });
+    expect(listed.structured).toMatchObject({ ok: true, outcome: "youtube_findings_listed" });
+    expect(listed.structured.heldWithoutCard).toEqual({
+      saves: [
+        { cardSha256: newer, question: "Does walking ease knee osteoarthritis pain?", topic: null, savedOn: "2026-10-27",
+          deletedOn: "2026-11-26", findings: [view("2026-10-27", "2026-11-26")] },
+        { cardSha256: older, question: YOUTUBE_ONLY_QUESTION, topic: TOPIC, savedOn: "2026-10-25", deletedOn: "2026-11-24",
+          findings: [view("2026-10-25", "2026-11-24")] },
+      ],
+      moreNotShown: false,
+      deleted: null,
+    });
+    expect(listed.text).toContain(`${newer}, saved 27 Oct 2026, deleted on 26 Nov 2026: Does walking ease knee ` +
+      "osteoarthritis pain?");
+    expect(listed.text).toContain(`${older}, saved 25 Oct 2026, deleted on 24 Nov 2026: ${YOUTUBE_ONLY_QUESTION} ` +
+      "[Hip osteoarthritis (hip-osteoarthritis)]");
+    expect(listed.text).toContain("  Finding 1: Commenters on two videos reported less hip pain");
+    // They are no card's, so no card view or list of cards shows them.
+    expect((await h.call({ action: "list_findings" })).structured.findings.cards).toEqual([]);
+
+    const deleted = await h.call({ action: "delete_youtube_findings", cardSha256: older });
+    expect(deleted.structured).toMatchObject({ ok: true, outcome: "youtube_findings_deleted",
+      heldWithoutCard: { saves: [], moreNotShown: false, deleted: 1 } });
+    expect(deleted.text).toBe(`Deleted the held YouTube finding with no card under ${older} now, before its 30 days ended.`);
+    expect((await h.call({ action: "list_youtube_findings" })).structured.heldWithoutCard.saves
+      .map(({ cardSha256 }: { cardSha256: string }) => cardSha256)).toEqual([newer]);
+    // Past its 30 days, before any purge, it is listed no more; the purge then deletes it.
+    h.later(30 * DAY);
+    const expired = await h.call({ action: "list_youtube_findings" });
+    expect(expired.structured.heldWithoutCard.saves).toEqual([]);
+    expect(expired.text).toBe("No YouTube findings are held without a card.");
+    expect(h.store.snapshot()).toHaveLength(1);
+    expect(await h.store.purgeExpired()).toBe(1);
+    const gone = await h.call({ action: "delete_youtube_findings", cardSha256: newer });
+    expect(gone.text).toBe(`No YouTube findings are held without a card under ${newer}: none were held, or their 30 days ` +
+      "ended, or they were deleted already. Nothing was deleted.");
+  });
+
   it("checks the owner and the switch on every held-findings action, and each action's input", async () => {
     const h = harness();
     await h.save(MIXED_CARD, MIXED_BASES);
     await h.library.heldSettled();
     for (const input of [
       { action: "delete_youtube_findings", card: "ARF-0042" },
+      { action: "delete_youtube_findings", cardSha256: "a".repeat(64) },
+      { action: "list_youtube_findings" },
       { action: "move_youtube_findings", cards: ["ARF-0042"] },
     ]) {
       expect((await h.call(input, {})).structured.error?.code).toBe("authorization_required");
@@ -580,6 +732,10 @@ describe("the owner's review of held YouTube findings", () => {
       { action: "move_youtube_findings", cards: ["F-1001"] },
       { action: "move_youtube_findings", cards: ["ARF-0042"], confirm: true },
       { action: "forget_card", cards: ["ARF-0042"] },
+      { action: "delete_youtube_findings", card: "ARF-0042", cardSha256: "a".repeat(64) },
+      { action: "delete_youtube_findings", cardSha256: "not a digest" },
+      { action: "list_youtube_findings", card: "ARF-0042" },
+      { action: "list_youtube_findings", cursor: "abc" },
     ]) {
       const refused = await h.call(input);
       expect(refused.structured.error?.code, JSON.stringify(input)).toBe("invalid_request");
@@ -824,7 +980,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     expect(moved.text).toContain("ARF-0008 has decisions on finding 2, which moving its findings drawn from YouTube " +
       "comments would remove or renumber; nothing was changed.");
     expect(moved.text).toContain("Every finding on ARF-0010 rests on YouTube comments, so a card saved today would not " +
-      "be saved at all; nothing was changed.");
+      "be saved as a card; nothing was changed.");
     expect([8, 10].map((number) => h.github.issue(number).body)).toEqual(before);
     expect(h.store.snapshot().map(({ cardNumber }) => cardNumber)).toEqual([9]);
     expect(onlyYouTube.record.card.findings).toHaveLength(1);
@@ -856,5 +1012,22 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }], cardRewritten: true,
     });
     expect(h.store.snapshot()).toHaveLength(1);
+  });
+});
+
+// Owner answer 173: a card whose findings all rest on YouTube comments is not saved as a card, and the user is told
+// that AskRigor keeps those findings only for its owner's review and deletes them after 30 days, not that it stores
+// nothing until YouTube confirms it may.
+describe("what the user is told of a card whose findings all rest on YouTube comments", () => {
+  it("says it is not saved as a card, and that its findings are kept for the owner's review and deleted after 30 days", () => {
+    const saved = findingsSaveToolResult({ status: "youtube_findings_only", retryable: false });
+    expect(saved.isError).toBe(true);
+    expect(saved.content).toEqual([{ type: "text", text: "Not saved as a card: its findings all rest on YouTube " +
+      "comments, which AskRigor keeps only for its owner's review and deletes after 30 days." }]);
+    expect(YOUTUBE_FINDINGS_NOT_SAVED).toBe("not saved as a card: its findings all rest on YouTube comments, which " +
+      "AskRigor keeps only for its owner's review and deletes after 30 days");
+    for (const text of [JSON.stringify(saved.content), YOUTUBE_FINDINGS_NOT_SAVED]) {
+      expect(text).not.toContain("until YouTube confirms");
+    }
   });
 });
