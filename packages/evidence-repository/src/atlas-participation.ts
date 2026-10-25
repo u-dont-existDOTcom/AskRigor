@@ -26,6 +26,7 @@ export const ATLAS_PICK_REASON_MAX_CHARACTERS = 300;
 export const ATLAS_COMMENTS_PER_INSPECT = 200;
 export const ATLAS_COMMENTS_PER_PAGE = 50;
 export const ATLAS_OWN_COMMENTS_PER_PAGE = 50;
+export const ATLAS_OWN_VOTES_PER_PAGE = 50;
 
 const PARTICIPANT_KEY = /^[a-f0-9]{64}$/u;
 const REPORTER_KEY = /^[pa]:[a-f0-9]{64}$/u;
@@ -161,6 +162,15 @@ export interface AtlasModerationStore {
 /** The tag the owner's review names a commenter by, as migration 0022 derives it from the participant's key. */
 export function atlasCommenterTag(participantKey: string): string {
   return `U-${createHash("sha256").update(`askrigor-atlas-commenter:v1:${participantKey}`, "utf8").digest("hex").slice(0, 12)}`;
+}
+
+/** One of a reader's own votes, as their own page lists it: on any publication, shown or not. */
+export interface AtlasPageOwnVote {
+  publicationNumber: string;
+  vote: AtlasVote;
+  votedAt: string;
+  /** Whether its publication is unreviewed, accepted or edited, so its page may show. */
+  publicationListed: boolean;
 }
 
 /** One of a reader's own comments, as their own comments page lists it: in any state, on any publication. */
@@ -611,6 +621,18 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
         postedAt: comment.postedAt,
         publicationListed: this.open(comment.publicationNumber),
       }));
+  }
+
+  /** A reader's own votes on every publication, the newest publication first (the reader's view in PostgreSQL). */
+  ownVotes(participantKey: string, before: number | undefined, limit: number): AtlasPageOwnVote[] {
+    const number = (publicationNumber: string) => Number(publicationNumber.slice(2));
+    return [...this.votes.values()]
+      .filter((vote) => vote.participantKey === participantKey &&
+        (before === undefined || number(vote.publicationNumber) < before))
+      .sort((left, right) => number(right.publicationNumber) - number(left.publicationNumber))
+      .slice(0, limit)
+      .map((vote) => ({ publicationNumber: vote.publicationNumber, vote: vote.vote, votedAt: vote.votedAt,
+        publicationListed: this.open(vote.publicationNumber) }));
   }
 
   /** Every stored row, as text, for tests that scan what is kept. */

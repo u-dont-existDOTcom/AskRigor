@@ -1643,7 +1643,9 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   change or a return.
 - **Votes** (`atlas_votes`): one `agree` or `disagree` per participant and
   publication, with its time, changeable and withdrawable. Pages show only the
-  totals, and to a signed-in voter their own vote.
+  totals, and to a signed-in voter their own vote; their own page
+  (`/atlas/account/comments`) lists every vote of theirs, on findings that
+  left the pages too, each with a button to withdraw it.
 - **Comments** (`atlas_comments`): a public number (C-1001 onward), the
   publication, the participant key, the display name at posting, the body (up
   to 2,000 characters), the state `shown` or `hidden`, how many reports it has,
@@ -1672,7 +1674,8 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   their tag, from commenting, or restore them; and set the home page's picks
   (`atlas_home_picks`: up to five publications that show, each with the owner's
   public reason, which passes the comments' check).
-- **How each is deleted.** A vote: withdrawn by its voter, deleted outright. A
+- **How each is deleted.** A vote: withdrawn by its voter from its finding
+  page or their own page, deleted outright. A
   comment: deleted by its author from its finding page or their own comments
   page (hidden, older or on a finding that left the pages included), or removed
   by the owner, each with its reports. Everything a participant holds: "Delete everything I hold
@@ -1694,9 +1697,9 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   reader, a voter or a commenter.
 - **Stated limits.** Votes and comments on a publication that later leaves the
   pages (rejected, withdrawn or held) stay stored and shown nowhere but on
-  their author's own comments page, until the author deletes them (a vote only
-  with everything they hold) or the owner removes the comments, and show again
-  if the owner publishes the finding again. The contact check is
+  their author's own page, until the author withdraws or deletes them or the
+  owner removes the comments, and show again if the owner publishes the
+  finding again. The contact check is
   structural, with the limits stated for publications above. The reader role
   can read every column of these tables, as of every table; the pages select
   only what they show. PostgreSQL keeps deleted row versions until vacuum and

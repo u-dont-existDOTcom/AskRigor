@@ -2831,6 +2831,9 @@ export async function verifyAtlasParticipation(context: {
     );
     const older = await source.read((reads) => reads.readParticipation(shown, null, Number(second.slice(2))));
     const own = await source.read((reads) => reads.listOwnComments(jane, undefined, 10));
+    const ownVotes = await source.read((reads) => reads.listOwnVotes(jane, undefined, 10));
+    assert(isDeepStrictEqual(ownVotes.map(({ publicationNumber, vote, publicationListed }) =>
+      [publicationNumber, vote, publicationListed]), [[shown, "disagree", true]]), "ATLAS_OWN_VOTES_MISMATCH");
     assert(
       isDeepStrictEqual(older.comments.map(({ publicId }) => publicId), [first]) &&
         isDeepStrictEqual(own.map(({ publicId, state, publicationListed }) => [publicId, state, publicationListed]),

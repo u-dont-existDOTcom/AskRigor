@@ -418,7 +418,8 @@ describe("a reader's own comments (review issue 8)", () => {
     expect(anonymous.body).toContain(`${f.base}/atlas/auth/login?return=%2Fatlas%2Faccount%2Fcomments`);
     expect(anonymous.body).not.toContain("Later comment");
     // The finding page links to it for a signed-in reader.
-    expect((await f.get("/atlas/findings/P-1001", session)).body).toContain('<a href="/atlas/account/comments">Your comments</a>');
+    expect((await f.get("/atlas/findings/P-1001", session)).body)
+      .toContain('<a href="/atlas/account/comments">Your votes and comments</a>');
   });
 });
 
@@ -475,5 +476,38 @@ describe("an older-comments cursor (review follow-up, item 5)", () => {
     expect(commentCursor("C-9007199254740991")).toBe(9_007_199_254_740_991);
     expect(commentCursor("C-9007199254740993")).toBeUndefined();
     expect(commentCursor(null)).toBeUndefined();
+  });
+});
+
+describe("a reader's own votes (review follow-up, item 6)", () => {
+  it("lists every vote of theirs on the account page, on findings that left the pages too, each withdrawable", async () => {
+    const f = await fixture();
+    const session = await f.signIn();
+    const key = participantKeyFor(f.settings, SUBJECT);
+    await f.store.setVote(key, "P-1001", "agree", AT);
+    await f.store.setVote(key, "P-1003", "disagree", AT);
+    await f.store.setVote(keyOf(51), "P-1003", "agree", AT);
+    await f.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1003"], ownerReason: "No.",
+      withdrawnAt: AT });
+    const page = (await f.get("/atlas/account/comments", session)).body;
+    expect(page).toContain("<h2 id=\"votes\">Your votes</h2>");
+    expect(page).toContain("P-1003, no longer on the pages · disagree");
+    expect(page).toContain('<a href="/atlas/findings/P-1001">P-1001</a> · agree');
+    expect(page.indexOf('id="vote-P-1003"')).toBeLessThan(page.indexOf('id="vote-P-1001"'));
+    const withdrawn = await f.post("/atlas/findings/P-1003/vote", { csrf: tokenFor(page, "/atlas/findings/P-1003/vote"),
+      vote: "clear", return: "/atlas/account/comments" }, { cookie: session });
+    expect(withdrawn.status).toBe(303);
+    expect(withdrawn.headers.get("location")).toBe("/atlas/account/comments?done=vote-cleared#votes");
+    expect(f.store.ownVotes(key, undefined, 10).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+    // Another reader's vote on the same finding stays.
+    expect(f.store.ownVotes(keyOf(51), undefined, 10)).toHaveLength(1);
+    const after = (await f.get("/atlas/account/comments?done=vote-cleared", session)).body;
+    expect(after).toContain("Your vote is withdrawn.");
+    expect(after).not.toContain('id="vote-P-1003"');
+    // A vote withdrawn from its finding page still returns to the finding.
+    const findingPage = (await f.get("/atlas/findings/P-1001", session)).body;
+    const fromFinding = await f.post("/atlas/findings/P-1001/vote", { csrf: tokenFor(findingPage, "/atlas/findings/P-1001/vote"),
+      vote: "clear", return: "/atlas/findings/P-1001" }, { cookie: session });
+    expect(fromFinding.headers.get("location")).toBe("/atlas/findings/P-1001?done=vote-cleared#votes");
   });
 });

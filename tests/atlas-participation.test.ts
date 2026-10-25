@@ -274,6 +274,10 @@ describe("the votes and comments stores in PostgreSQL", () => {
         }
         if (normalized.includes("FROM atlas_participants viewer")) return { rows: [{ display_name: "Ann", stopped: false }] };
         if (normalized.includes("SELECT own.vote")) return { rows: [{ vote: "agree" }] };
+        if (normalized.includes("own.publication_number, own.vote, own.voted_at")) {
+          return { rows: [{ publication_number: "P-1003", vote: "disagree", voted_at: new Date("2026-11-05T09:00:00Z"),
+            publication_listed: false }] };
+        }
         if (normalized.includes("own.publication_number, own.display_name")) {
           return { rows: [{ comment_number: "1001", publication_number: "P-1001", display_name: "Ann", body: "Mine.",
             state: "hidden", posted_at: new Date("2026-11-05T09:00:00Z"), publication_listed: true }] };
@@ -290,7 +294,13 @@ describe("the votes and comments stores in PostgreSQL", () => {
       viewer: await reads.readParticipation("P-1001", "b".repeat(64)),
       picks: await reads.listHomePicks(),
       own: await reads.listOwnComments("b".repeat(64), 1_005, 51),
+      votes: await reads.listOwnVotes("b".repeat(64), 1_004, 51),
     }));
+    expect(read.votes).toEqual([{ publicationNumber: "P-1003", vote: "disagree", votedAt: "2026-11-05T09:00:00.000Z",
+      publicationListed: false }]);
+    const votesCall = calls.find(({ sql }) => sql.includes("own.publication_number, own.vote, own.voted_at"))!;
+    expect(votesCall.values).toEqual(["b".repeat(64), 1_004, 51]);
+    expect(votesCall.sql.slice(0, votesCall.sql.indexOf(" FROM "))).not.toContain("participant_key");
     expect(read.own).toEqual([{ publicId: "C-1001", publicationNumber: "P-1001", displayName: "Ann", body: "Mine.",
       state: "hidden", postedAt: "2026-11-05T09:00:00.000Z", publicationListed: true }]);
     const ownCall = calls.find(({ sql }) => sql.includes("own.publication_number, own.display_name"))!;
@@ -311,7 +321,7 @@ describe("the votes and comments stores in PostgreSQL", () => {
     for (const { sql } of calls) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|atlas_comment_reports|reporter_key/u);
     }
-    expect(calls.filter(({ values }) => values?.includes("b".repeat(64)))).toHaveLength(4);
+    expect(calls.filter(({ values }) => values?.includes("b".repeat(64)))).toHaveLength(5);
     await expect(source.read((reads) => reads.readParticipation("P-1001", "not a key"))).rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
   });
 });

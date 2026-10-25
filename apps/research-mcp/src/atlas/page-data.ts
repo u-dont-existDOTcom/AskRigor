@@ -3,6 +3,7 @@ import type {
   AtlasFindingKind,
   AtlasLabel,
   AtlasPageOwnComment,
+  AtlasPageOwnVote,
   AtlasPageParticipation,
   AtlasPageChangeKind,
   AtlasPageFinding,
@@ -14,7 +15,7 @@ import type {
   AtlasPublishedFinding,
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
-import { ATLAS_OWN_COMMENTS_PER_PAGE } from "@askrigor/evidence-repository";
+import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { passesPageGuard } from "./page-guard.js";
 
@@ -586,17 +587,28 @@ export async function loadAtlasFinding(
   });
 }
 
-/** A signed-in reader's own comments page: their comments in every state, newest first, and whether older ones remain. */
+/**
+ * A signed-in reader's own page: their votes on every publication (the newest publication first) and their comments in
+ * every state (newest first), each list a page at a time, with whether more remain.
+ */
 export interface AtlasOwnCommentsModel {
   comments: AtlasPageOwnComment[];
   more: boolean;
+  votes: AtlasPageOwnVote[];
+  moreVotes: boolean;
 }
 
-export async function loadAtlasOwnComments(source: AtlasPageSource, participantKey: string, before?: number):
-  Promise<AtlasOwnCommentsModel> {
+export async function loadAtlasOwnComments(source: AtlasPageSource, participantKey: string, before?: number,
+  votesBefore?: number): Promise<AtlasOwnCommentsModel> {
   return await source.read(async (reads) => {
     const rows = await reads.listOwnComments(participantKey, before, ATLAS_OWN_COMMENTS_PER_PAGE + 1);
-    return { comments: rows.slice(0, ATLAS_OWN_COMMENTS_PER_PAGE), more: rows.length > ATLAS_OWN_COMMENTS_PER_PAGE };
+    const votes = await reads.listOwnVotes(participantKey, votesBefore, ATLAS_OWN_VOTES_PER_PAGE + 1);
+    return {
+      comments: rows.slice(0, ATLAS_OWN_COMMENTS_PER_PAGE),
+      more: rows.length > ATLAS_OWN_COMMENTS_PER_PAGE,
+      votes: votes.slice(0, ATLAS_OWN_VOTES_PER_PAGE),
+      moreVotes: votes.length > ATLAS_OWN_VOTES_PER_PAGE,
+    };
   });
 }
 

@@ -416,7 +416,16 @@ const queryOf = (request: IncomingMessage) => new URL(request.url ?? "/", "http:
  * numbers a page can read, is ignored: the page shows the newest comments.
  */
 export function commentCursor(value: string | null): number | undefined {
-  const match = value === null ? null : /^C-([1-9][0-9]{3,15})$/u.exec(value);
+  return cursorOf(value, "C");
+}
+
+/** The own page's votes cursor, ?votes=P-1234: only a publication's number, read as commentCursor reads a comment's. */
+export function voteCursor(value: string | null): number | undefined {
+  return cursorOf(value, "P");
+}
+
+function cursorOf(value: string | null, prefix: "C" | "P"): number | undefined {
+  const match = value === null ? null : new RegExp(`^${prefix}-([1-9][0-9]{3,15})$`, "u").exec(value);
   const number = match === null ? undefined : Number(match[1]);
   return number !== undefined && Number.isSafeInteger(number) ? number : undefined;
 }
@@ -606,7 +615,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       return;
     }
     const query = queryOf(request);
-    const model = await loadAtlasOwnComments(source, session.participantKey, commentCursor(query.get("before")));
+    const model = await loadAtlasOwnComments(source, session.participantKey, commentCursor(query.get("before")),
+      voteCursor(query.get("votes")));
     const fitting: typeof model.comments = [];
     let bytes = 0;
     for (const comment of model.comments) {
@@ -615,7 +625,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       fitting.push(comment);
     }
     const last = fitting.at(-1);
+    const lastVote = model.votes.at(-1);
     const html = renderAtlasOwnComments({
+      votes: model.votes.map((vote) => ({
+        ...vote,
+        // The finding page's own vote form, withdrawing back to this page: its token is the vote form's.
+        withdrawToken: csrfToken(runtime.settings, session, `vote:${vote.publicationNumber}`),
+      })),
+      olderVotesHref: model.moreVotes && lastVote !== undefined ? `${OWN_COMMENTS_PATH}?votes=${lastVote.publicationNumber}` : null,
       comments: fitting.map((comment) => ({
         publicId: comment.publicId,
         publicationNumber: comment.publicationNumber,
@@ -690,8 +707,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       return;
     }
     const { session, clear } = await currentSession(request, runtime, now);
-    const back = route.kind === "vote" || route.kind === "comment" ? findingPath(route.publicationNumber)
-      : safeReturnPath(form.get("return"));
+    // A vote withdrawn from the reader's own page goes back there; every other vote and comment to its finding.
+    const back = route.kind === "vote" && route.publicationNumber !== undefined &&
+        safeReturnPath(form.get("return")) === OWN_COMMENTS_PATH ? OWN_COMMENTS_PATH
+      : route.kind === "vote" || route.kind === "comment" ? findingPath(route.publicationNumber)
+        : safeReturnPath(form.get("return"));
     const expired = () => message(response, 403, "This form has expired",
       "The page was open too long, or you signed in or out since. Nothing was changed: reload the page and try again.", back,
       clear);
