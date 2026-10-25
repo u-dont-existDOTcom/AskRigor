@@ -4,7 +4,7 @@ import type { IncomingMessage } from "node:http";
 import { researchAccountKeyForSubject } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
-import { contactDetailKinds, linkKinds } from "./contact-check.js";
+import { contactDetailKinds, hasDirectionControl, linkKinds } from "./contact-check.js";
 import { pageGuardProblems } from "./page-guard.js";
 
 /**
@@ -26,6 +26,9 @@ export const ATLAS_LOGIN_SECONDS = 10 * 60;
 export const ATLAS_FORM_MAX_BYTES = 16 * 1_024;
 /** The refusal the design words for a comment or a display name that holds contact details or links. */
 export const CONTACT_REFUSAL = "Comments can't include contact details or links.";
+/** Said after the refusal when a bare domain is all the check found: often a full stop with no space after it. */
+export const BARE_DOMAIN_HINT = "A full stop with a word right after it, as in \u201cended.It\u201d, reads as a web address: " +
+  "put a space after it.";
 export const DISPLAY_NAME_REFUSAL = "Display names can't include contact details or links.";
 
 export interface AtlasParticipationSettings {
@@ -330,7 +333,14 @@ export function commentProblem(body: string): string | undefined {
   if (body.length === 0) return "Write a comment first.";
   if ([...body].length > 2_000) return "A comment can be at most 2,000 characters.";
   if (CONTROL.test(body)) return "A comment can't hold control characters.";
-  if (contactDetailKinds(body).length > 0 || linkKinds(body).length > 0) return CONTACT_REFUSAL;
+  // Direction controls can show reversed characters as an address or a link that the checks below never see.
+  if (hasDirectionControl(body)) return "A comment can't hold text-direction control characters.";
+  const contacts = contactDetailKinds(body);
+  const links = linkKinds(body);
+  if (contacts.length === 0 && links.length === 1 && links[0] === "bare_domain") {
+    return `${CONTACT_REFUSAL} ${BARE_DOMAIN_HINT}`;
+  }
+  if (contacts.length > 0 || links.length > 0) return CONTACT_REFUSAL;
   // The pages never show a findings card's number (ARF- and four digits or more), whoever writes it.
   if (containsCardReference(body)) return "Comments can't name a findings card.";
   return pageProblem(body, { link: CONTACT_REFUSAL, card: "Comments can't name a findings card.",
@@ -358,6 +368,7 @@ export function displayNameProblem(name: string): string | undefined {
   // Characters as the store and PostgreSQL count them: code points.
   if ([...name].length > 40) return "A display name can be at most 40 characters.";
   if (CONTROL.test(name)) return "A display name can't hold control characters.";
+  if (hasDirectionControl(name)) return "A display name can't hold text-direction control characters.";
   if (contactDetailKinds(name).length > 0 || linkKinds(name).length > 0) return DISPLAY_NAME_REFUSAL;
   if (containsCardReference(name)) return "Display names can't name a findings card.";
   return pageProblem(name, { link: DISPLAY_NAME_REFUSAL, card: "Display names can't name a findings card.",

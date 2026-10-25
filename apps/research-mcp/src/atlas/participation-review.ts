@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
-import { contactDetailKinds, linkKinds } from "./contact-check.js";
+import { contactDetailKinds, hasDirectionControl, linkKinds } from "./contact-check.js";
 import { passesPageGuard } from "./page-guard.js";
 
 /**
@@ -202,10 +202,10 @@ export class AtlasParticipationReview {
     const picks = requested.map(({ publication, reason }) => ({ publicationNumber: publication.toUpperCase(), reason }));
     // The reasons show on the home page: the comments' check applies to them too, and so does the pages' last check.
     const unfit = picks.find(({ reason }) => contactDetailKinds(reason).length > 0 || linkKinds(reason).length > 0 ||
-      containsCardReference(reason) || !passesPageGuard(reason));
+      containsCardReference(reason) || !passesPageGuard(reason) || hasDirectionControl(reason));
     if (unfit !== undefined) {
-      const message = `The reason for ${unfit.publicationNumber} holds contact details, a link, a YouTube address or a ` +
-        "findings card's number, which the pages never show; nothing was changed.";
+      const message = `The reason for ${unfit.publicationNumber} holds contact details, a link, a YouTube address, a ` +
+        "findings card's number or a text-direction control, which the pages never show; nothing was changed.";
       return { ok: false, error: { code: "invalid_request", message }, text: message };
     }
     if (new Set(picks.map(({ publicationNumber }) => publicationNumber)).size !== picks.length) {

@@ -377,7 +377,7 @@ describe("the participant key, the cookies and the tokens", () => {
       "See example.com for the trial",
       "Messages me on t.me/someone",
     ]) {
-      expect(commentProblem(refused), refused).toBe(CONTACT_REFUSAL);
+      expect(commentProblem(refused), refused).toMatch(/^Comments can't include contact details or links\./u);
     }
     expect(commentProblem("It helped my mother; the card ARF-0042 said so.")).toBe("Comments can't name a findings card.");
     for (const fine of ["Bei mir hat es nach zwei Wochen geholfen.", "Trial NCT01234567 enrolled 240 adults (PMID 40123456).",
@@ -886,6 +886,7 @@ describe("the owner's comment actions and picks", () => {
       ["a link in a reason", [{ publication: "P-1001", reason: "See example.com." }], "invalid_request"],
       ["a YouTube address the page check would refuse", [{ publication: "P-1001", reason: "The talk is on YOUTU.BE." }],
         "invalid_request"],
+      ["a text-direction control", [{ publication: "P-1001", reason: "Dose \u202Ematters." }], "invalid_request"],
       ["the same publication twice", [{ publication: "P-1001", reason: "A." }, { publication: "P-1001", reason: "B." }],
         "invalid_request"],
     ] as const) {

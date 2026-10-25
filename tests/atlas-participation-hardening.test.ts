@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryAtlasPageSource } from "@askrigor/evidence-repository";
 
 import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
-import { CONTACT_REFUSAL, participantKeyFor } from "../apps/research-mcp/src/atlas/participation.js";
+import {
+  CONTACT_REFUSAL,
+  commentProblem,
+  displayNameProblem,
+  participantKeyFor,
+} from "../apps/research-mcp/src/atlas/participation.js";
 import { atlasPageProblems, escapeHtml } from "../apps/research-mcp/src/atlas/pages.js";
 import { createAtlasPagesHandler } from "../apps/research-mcp/src/atlas/pages-http.js";
 import {
@@ -21,6 +26,7 @@ afterEach(closeAtlasServers);
 
 const AT = "2026-11-05T09:00:00.000Z";
 const keyOf = (index: number) => index.toString(16).padStart(64, "0");
+const reverse = (text: string) => [...text].reverse().join("");
 
 describe("what the page's last check refuses never reaches a page (review issue 1)", () => {
   it("refuses a comment, a display name or a draft the last check would refuse, with a 422 that echoes none of it", async () => {
@@ -84,5 +90,36 @@ describe("what the page's last check refuses never reaches a page (review issue 
     const body = await home.text();
     expect(body).toContain("Why it is here: A lower dose may not help.");
     expect(atlasPageProblems(body)).toEqual([]);
+  });
+});
+
+describe("the contact-details and links check (review issue 3)", () => {
+  it("refuses text-direction controls, which can show reversed text as an address, in comments and names", () => {
+    for (const text of [
+      `Mail me: ‮${reverse("jane@example.com")}‬`,
+      `‮${reverse("https://scam-pharmacy.example.com")}`,
+      `‮${reverse("@jane_doe")}`,
+      `A plain sentence with an isolate ⁦inside⁩.`,
+      `Marks ‎ and ‏ and ؜.`,
+    ]) {
+      expect(commentProblem(text), JSON.stringify(text)).toBeDefined();
+      expect(displayNameProblem(text.slice(0, 40)), JSON.stringify(text)).toBeDefined();
+    }
+    // Joiners stay: emoji sequences and Persian words need them.
+    for (const text of ["\u{1F469}‍⚕️", "می‌خواهم"]) {
+      expect(commentProblem(text), JSON.stringify(text)).toBeUndefined();
+      expect(displayNameProblem(text), JSON.stringify(text)).toBeUndefined();
+    }
+  });
+
+  it("reads a domain under any top-level domain of the root zone, in any case", () => {
+    for (const text of ["Order at PHARMA-DEALS.TO", "order at pharma-deals.icu", "See Example.DE", "CHEAP-PILLS.RU",
+      "cheap-pills.icu", "best-clinic.Pharmacy", "Visit example.xn--p1ai"]) {
+      expect(commentProblem(text), text).toMatch(/^Comments can't include contact details or links\./u);
+    }
+    // Ordinary abbreviations stay out.
+    for (const text of ["e.g. this", "i.e. that", "M.Sc and B.Sc", "Fig.3 shows it", "approx. 12.5 mg"]) {
+      expect(commentProblem(text), text).toBeUndefined();
+    }
   });
 });

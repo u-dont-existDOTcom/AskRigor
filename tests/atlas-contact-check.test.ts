@@ -4,8 +4,11 @@ import {
   CONTACT_DETAIL_KINDS,
   LINK_KINDS,
   contactDetailKinds,
+  hasDirectionControl,
   linkKinds,
+  withoutDirectionControls,
 } from "../apps/research-mcp/src/atlas/contact-check.js";
+import { IANA_TLD_LIST_VERSION, IANA_TOP_LEVEL_DOMAINS } from "../apps/research-mcp/src/atlas/iana-tlds.js";
 
 // Decision 171, sections 4B and 4E: the contact-details and links check a finding's published text passes, and comments
 // will. Exact, structural patterns in any language and script; the result names kinds, never the matched text.
@@ -137,6 +140,39 @@ describe("the contact-details check", () => {
 });
 
 describe("the links check", () => {
+  it("reads bare domains under any top-level domain of IANA's root zone list, in any case (review 171, issue 3)", () => {
+    for (const text of ["Order at PHARMA-DEALS.TO", "order at pharma-deals.icu", "See Example.DE", "CHEAP-PILLS.RU",
+      "best-clinic.Pharmacy", "Visit example.XN--P1AI", "the trial ended.It showed"]) {
+      expect(linkKinds(text), text).toEqual(["bare_domain"]);
+    }
+    // A word under no top-level domain is no domain, nor a two-letter one after a number or a lone letter.
+    for (const text of ["Dr.Smith said so", "the file.txt", "1.In the morning", "an M.Sc graduate", "e.g. this"]) {
+      expect(linkKinds(text), text).toEqual([]);
+    }
+  });
+
+  it("holds a snapshot of IANA's list: unique, sorted, in lower case and in IANA's form", () => {
+    const list = [...IANA_TOP_LEVEL_DOMAINS];
+    expect(IANA_TLD_LIST_VERSION).toMatch(/^\d{10}$/u);
+    expect(list.length).toBeGreaterThan(1_400);
+    expect(list).toEqual([...list].sort());
+    expect(list.every((tld) => /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/u.test(tld))).toBe(true);
+    for (const tld of ["com", "org", "de", "to", "icu", "pharmacy", "xn--p1ai"]) expect(IANA_TOP_LEVEL_DOMAINS.has(tld), tld).toBe(true);
+    for (const word of ["txt", "pdf", "smith", "local"]) expect(IANA_TOP_LEVEL_DOMAINS.has(word), word).toBe(false);
+  });
+
+  it("finds and removes the text-direction controls, and keeps the joiners", () => {
+    for (const control of ["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069",
+      "\u200E", "\u200F", "\u061C"]) {
+      expect(hasDirectionControl(`a${control}b`), control.codePointAt(0)!.toString(16)).toBe(true);
+      expect(withoutDirectionControls(`a${control}b`)).toBe("ab");
+    }
+    expect(hasDirectionControl("\u{1F469}\u200D\u2695\uFE0F \u0645\u06CC\u200C\u062E")).toBe(false);
+    // Twice in a row, the same answer: no state is left behind between calls.
+    expect(hasDirectionControl("x\u202Ey")).toBe(true);
+    expect(hasDirectionControl("x\u202Ey")).toBe(true);
+  });
+
   it("names URLs and bare domains, in any case for the generic domains", () => {
     expect(linkKinds("see https://example.com/page for more")).toEqual(["url"]);
     expect(linkKinds("voir www.exemple.fr")).toEqual(["url", "bare_domain"]);
@@ -159,7 +195,6 @@ describe("the links check", () => {
       "the file.txt",
       "version v2.0",
       "3.5mg daily",
-      "the trial ended.It showed",
       "write to jane@example.com",
       "Supervised exercise reduced pain (0.45, 95% CI 0.21-0.69).",
       "例えば。これは文です。",

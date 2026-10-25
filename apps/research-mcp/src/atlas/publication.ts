@@ -21,7 +21,7 @@ import type {
   FindingsSaveAccount,
   SavedFindingsCard,
 } from "../findings/service.js";
-import { contactDetailKinds } from "./contact-check.js";
+import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js";
 
 /**
  * Publishing saved findings cards in the Atlas (decision 171, section 4B; owner answers 168a and "171 approved", 24 Oct
@@ -109,43 +109,45 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
  * counts and follow-up; rates, NNT and NNH are worked out when the pages render), searches, source identifiers,
  * why_not_usual and what_would_change_it; its verified bases; the day the card was saved; and the AskRigor version from
  * its stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface, the
- * reported model, a YouTube video id or count. Undefined when the card has no such finding or its fields do not make a
- * publication.
+ * reported model, a YouTube video id or count. Every text is written without text-direction controls, which could show
+ * reversed characters as an address the contact-details check never sees (contact-check.ts). Undefined when the card has
+ * no such finding or its fields do not make a publication.
  */
 export function publishedFindingOf(record: FindingsRecord, findingNumber: number): AtlasPublishedFinding | undefined {
   const finding = record.card.findings[findingNumber - 1];
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
   const topic = record.card.topic;
+  const plain = withoutDirectionControls;
   const parsed = atlasPublishedFindingSchema.safeParse({
     schema: ATLAS_PUBLICATION_SCHEMA,
-    topic: topic === undefined ? null : { key: topic.key, label: topic.label },
-    claim: finding.claim,
+    topic: topic === undefined ? null : { key: topic.key, label: plain(topic.label) },
+    claim: plain(finding.claim),
     certainty: finding.certainty,
-    applies_to: finding.applies_to,
+    applies_to: plain(finding.applies_to),
     kind: finding.kind ?? null,
-    subject: finding.subject ?? null,
+    subject: finding.subject === undefined ? null : plain(finding.subject),
     subject_type: finding.subject_type ?? null,
     direction: finding.direction ?? null,
     numbers: finding.numbers === undefined ? null : finding.numbers.map((entry) => ({
-      outcome: entry.outcome,
+      outcome: plain(entry.outcome),
       better: entry.better,
-      option: entry.option,
+      option: plain(entry.option),
       option_events: entry.option_events,
       option_total: entry.option_total,
-      comparator: entry.comparator,
+      comparator: plain(entry.comparator),
       comparator_events: entry.comparator_events,
       comparator_total: entry.comparator_total,
-      follow_up: entry.follow_up,
+      follow_up: plain(entry.follow_up),
       ...(entry.harms_none_found === undefined ? {} : { harms_none_found: entry.harms_none_found }),
     })),
     searches: finding.searches === undefined ? null : finding.searches.map((search) => ({
       database: search.database,
-      query: search.query,
+      query: plain(search.query),
       ...(search.date_range === undefined ? {} : { date_range: { start: search.date_range.start, end: search.date_range.end } }),
     })),
     sources: finding.sources.filter((source) => !isYouTubeVideoId(source)),
-    why_not_usual: finding.why_not_usual,
-    what_would_change_it: finding.what_would_change_it,
+    why_not_usual: plain(finding.why_not_usual),
+    what_would_change_it: plain(finding.what_would_change_it),
     verified_bases: ATLAS_VERIFIED_BASES.filter((basis) => (finding.verified_bases ?? []).includes(basis)),
     saved_on: record.stamp.saved_at.slice(0, 10),
     askrigor_version: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u.test(record.stamp.askrigor_version)

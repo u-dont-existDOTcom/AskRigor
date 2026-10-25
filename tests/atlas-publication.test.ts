@@ -131,6 +131,17 @@ describe("what the Atlas publishes of a finding", () => {
   });
 });
 
+describe("what the Atlas publishes of a finding's texts (review 171, issue 3)", () => {
+  it("writes them without text-direction controls, which could show reversed text as an address no check reads", () => {
+    const reversed = [..."jane@example.com"].reverse().join("");
+    const card = structuredClone(VELMOR_CARD) as typeof VELMOR_CARD & { findings: Array<{ claim: string }> };
+    card.findings[0]!.claim = `${card.findings[0]!.claim} Write \u202E${reversed}\u202C.`;
+    const published = publishedFindingOf(recordOf(card), 1)!;
+    expect(published.claim.endsWith(` Write ${reversed}.`)).toBe(true);
+    expect(published.claim).not.toMatch(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/u);
+  });
+});
+
 describe("which findings and cards are published", () => {
   const finding = (overrides: Partial<StoredFinding> = {}): StoredFinding => ({
     ...recordOf(VELMOR_CARD).card.findings[0]!,

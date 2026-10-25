@@ -1,4 +1,5 @@
 import { withAsciiDigits } from "../unicode-numbers.js";
+import { IANA_TOP_LEVEL_DOMAINS } from "./iana-tlds.js";
 
 /**
  * Contact details and links in a text (decision 171, sections 4B and 4E): the check a finding's published text passes
@@ -23,14 +24,40 @@ import { withAsciiDigits } from "../unicode-numbers.js";
  * The links check, which comments use and card publication does not (cards name sites such as ClinicalTrials.gov):
  *
  * - a URL: a scheme (http, https, ftp) with :// or www. and a domain;
- * - a bare domain: labels of ASCII letters, digits and hyphens and a top-level domain, either a common generic one in
- *   any case (com, org, net, gov ...) or a two-letter country code written in lower case (example.fr, bbc.co.uk), whose
- *   label before it is longer than one character, so "e.g." and "M.Sc" are no domain. A domain written in another
- *   script is read only with its scheme, as a URL, or in punycode (xn--).
+ * - a bare domain: labels of ASCII letters, digits and hyphens and a top-level domain of the DNS root zone, in any case
+ *   (the committed snapshot of IANA's list, iana-tlds.ts: example.com, PHARMA-DEALS.TO, pharma-deals.icu, bbc.co.uk),
+ *   or any in punycode (xn--). A two-letter one after a one-character label or a number alone is no domain, so "e.g.",
+ *   "M.Sc" and "1.In" stay out. A domain written in another script is read only with its scheme, as a URL, or in
+ *   punycode.
  *
  * The limits are stated: a phone number written as words, an address spelled out ("name at example dot com"), or a
- * plain digit run with no separator passes; and a list of numbers spaced like a phone number may be read as one.
+ * plain digit run with no separator passes; a list of numbers spaced like a phone number may be read as one; and a full
+ * stop with a word right after it that is also a top-level domain ("ended.It", "better.Today") is read as a domain.
+ *
+ * Text-direction controls (DIRECTION_CONTROLS) can make reversed characters display as an address, a link or a handle
+ * while the text holds something else. The rules read the text without them; comments and display names that hold one
+ * are refused (participation.ts), and a card's published texts are written without them (publication.ts).
  */
+
+/**
+ * The text-direction controls: the embeddings and overrides (U+202A to U+202E), the isolates (U+2066 to U+2069), the
+ * left-to-right and right-to-left marks (U+200E, U+200F) and the Arabic letter mark (U+061C). The zero-width joiner and
+ * non-joiner (U+200D, U+200C) are not among them: emoji sequences and words in several scripts need them.
+ */
+export const DIRECTION_CONTROLS = /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/gu;
+
+/** Whether a text holds a text-direction control. */
+export function hasDirectionControl(text: string): boolean {
+  DIRECTION_CONTROLS.lastIndex = 0;
+  const found = DIRECTION_CONTROLS.test(text);
+  DIRECTION_CONTROLS.lastIndex = 0;
+  return found;
+}
+
+/** A text without its text-direction controls. */
+export function withoutDirectionControls(text: string): string {
+  return text.replace(DIRECTION_CONTROLS, "");
+}
 
 export const CONTACT_DETAIL_KINDS = ["email_address", "phone_number", "messaging_handle"] as const;
 export type ContactDetailKind = typeof CONTACT_DETAIL_KINDS[number];
@@ -237,28 +264,23 @@ function count(text: string, character: string): number {
 
 const URL_WITH_SCHEME = /(?<![\p{L}\p{N}])(?:https?|ftp):\/\/[^\s/?#]+/iu;
 const WWW_URL = /(?<![\p{L}\p{N}.-])www\.[\p{L}\p{N}-]+\.[\p{L}\p{N}-]/iu;
-// The common generic top-level domains, read in any case.
-const GENERIC_TLDS = [
-  "com", "org", "net", "edu", "gov", "mil", "int", "info", "biz", "io", "co", "me", "app", "dev", "ai", "ly", "gl",
-  "gg", "tv", "fm", "xyz", "online", "site", "website", "store", "shop", "blog", "news", "health", "care", "clinic",
-  "doctor", "med", "bio", "life", "link", "page", "top", "club", "live", "pro", "eu", "asia", "nyc", "tech",
-] as const;
 const BARE_DOMAIN = new RegExp(
   "(?<![\\p{L}\\p{N}@./-])((?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+)" +
-    "([A-Za-z]{2,63}|xn--[a-z0-9-]{1,59})(?![\\p{L}\\p{N}-])",
+    "([A-Za-z]{2,63}|[Xx][Nn]--[A-Za-z0-9-]{1,59})(?![\\p{L}\\p{N}-])",
   "gu",
 );
 
 function hasBareDomain(text: string): boolean {
   for (const match of text.matchAll(BARE_DOMAIN)) {
     const labels = match[1]!.slice(0, -1).split(".");
-    const tld = match[2]!;
+    const tld = match[2]!.toLowerCase();
     const last = labels.at(-1)!;
-    if (tld.startsWith("xn--")) return true;
-    if ((GENERIC_TLDS as readonly string[]).includes(tld.toLowerCase())) return true;
-    // A two-letter country code in lower case, after a label longer than one character, or under a second level such
-    // as co.uk.
-    if (/^[a-z]{2}$/u.test(tld) && (last.length > 1 || labels.length > 1) && !/^\d+$/u.test(last)) return true;
+    // Any top-level domain of the root zone, in any case, or any in punycode.
+    if (!IANA_TOP_LEVEL_DOMAINS.has(tld) && !tld.startsWith("xn--")) continue;
+    // A two-letter one after a number alone (1.In) or, at the first level, after a single character (M.Sc, e.g.) is an
+    // abbreviation or a numbered item; under a second level such as co.uk it is a domain.
+    if (tld.length === 2 && (/^\d+$/u.test(last) || (labels.length === 1 && last.length === 1))) continue;
+    return true;
   }
   return false;
 }
