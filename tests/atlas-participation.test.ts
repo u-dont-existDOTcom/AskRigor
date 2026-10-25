@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   AtlasParticipationError,
+  atlasCommenterMarker,
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPageSource,
   InMemoryAtlasParticipation,
@@ -72,6 +73,10 @@ import {
 
 afterEach(closeAtlasServers);
 
+/** A participant's mark salt, as the in-memory store holds it. */
+const saltOf = (store: InMemoryAtlasParticipation, participantKey: string) =>
+  store.snapshot().participants.find((participant) => participant.participantKey === participantKey)!.markSalt;
+
 
 // The store's semantics -----------------------------------------------------------------------------------------------
 
@@ -111,7 +116,8 @@ describe("the votes and comments store", () => {
     expect(await store.deleteComment(key("a"), "C-1002")).toBe(true);
     await store.setDisplayName(key("a"), "Jane D", at);
     expect(store.pageParticipation("P-1001", null).comments).toEqual([
-      { publicId: "C-1001", displayName: "Jane", body: "First.", postedAt: at, marker: atlasCommenterTag(key("a")).slice(2, 8) },
+      { publicId: "C-1001", displayName: "Jane", body: "First.", postedAt: at,
+        marker: atlasCommenterMarker(key("a"), saltOf(store, key("a")), "Jane") },
     ]);
     expect(await store.deleteComment(key("b"), first)).toBe(false);
     const tag = atlasCommenterTag(key("a"));
@@ -298,8 +304,9 @@ describe("the votes and comments stores in PostgreSQL", () => {
     const shownComments = calls.find(({ sql }) => sql.includes("shown.comment_number"))!;
     // The key is joined on, never selected: the marker is the start of the commenter's tag.
     const selected = shownComments.sql.slice(0, shownComments.sql.indexOf(" FROM "));
-    expect(selected).toContain("substr(author.commenter_tag, 3, 6) AS marker");
-    expect(selected.replace("substr(author.commenter_tag, 3, 6) AS marker", "")).not.toMatch(/participant_key|commenter_tag/u);
+    const mark = selected.slice(selected.indexOf("substr(encode(sha256("), selected.indexOf(" AS marker") + " AS marker".length);
+    expect(mark).toContain("author.participant_key || ':' || author.mark_salt || ':' || shown.display_name");
+    expect(selected.replace(mark, "")).not.toMatch(/participant_key|mark_salt|commenter_tag/u);
     expect(shownComments.sql).toContain("shown.state = 'shown'");
     for (const { sql } of calls) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|atlas_comment_reports|reporter_key/u);
@@ -548,8 +555,9 @@ describe("votes and comments on a finding page", () => {
     // Readers who are not signed in see it, with a report button and no delete button.
     const anonymous = (await f.get("/atlas/findings/P-1001")).body;
     expect(anonymous).toContain('<li class="comment" id="C-1001">');
-    expect(anonymous).toContain(`<strong><bdi>Jane</bdi></strong> <span class="marker" title="The same mark on all of one ` +
-      `commenter's comments">#${atlasCommenterTag(participantKeyFor(f.settings, SUBJECT)).slice(2, 8)}</span>`);
+    const janeKey = participantKeyFor(f.settings, SUBJECT);
+    expect(anonymous).toContain(`<strong><bdi>Jane</bdi></strong> <span class="marker" title="The same mark on one ` +
+      `commenter's comments under this name">#${atlasCommenterMarker(janeKey, saltOf(f.store, janeKey), "Jane")}</span>`);
     expect(anonymous).toContain('<p class="comment-body" dir="auto">It helped me after two weeks.\nNo nausea.</p>');
     expect(anonymous).toContain('action="/atlas/comments/C-1001/report"');
     expect(anonymous).not.toContain('action="/atlas/comments/C-1001/delete"');

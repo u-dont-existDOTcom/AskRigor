@@ -1621,9 +1621,9 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   participant, but the Atlas tables never hold their research account's key,
   and the research tables hold nothing of the Atlas.
 - **A participant's row** (`atlas_participants`, migration
-  `0022_atlas_votes_comments`): the key, the tag, the display name chosen with
-  the first comment, whether and since when the owner stopped them from
-  commenting, and its times. It exists only while it holds a vote, a comment
+  `0022_atlas_votes_comments`): the key, the tag, the random salt of their
+  comments' marks, the display name chosen with the first comment, whether and
+  since when the owner stopped them from commenting, and its times. It exists only while it holds a vote, a comment
   or the owner's stop: deleting the last of them deletes the row, display name
   and all.
 - **The display name**: up to 40 characters, chosen with the first comment and
@@ -1632,10 +1632,13 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   findings card's number, a text-direction control, AskRigor's own name (in any
   case or width) or anything the pages' last check would refuse. Each comment
   keeps the name it was posted with, and shows after it a mark of six
-  hexadecimal characters, the start of the commenter's tag: the same on all of
-  one person's comments, so two people who chose one name can be told apart,
-  which links a person's comments to each other as a distinct display name
-  would.
+  hexadecimal characters: a hash of the author's participant key, a random
+  salt kept in their row (`mark_salt`, drawn when the row is made and again
+  when they delete everything) and that name. Two people who chose one name
+  get different marks; one person's comments under one name share a mark, as
+  their name already shows; a new display name gives a new mark, and after
+  deleting everything the mark is new, so it links no comments across a name
+  change or a return.
 - **Votes** (`atlas_votes`): one `agree` or `disagree` per participant and
   publication, with its time, changeable and withdrawable. Pages show only the
   totals, and to a signed-in voter their own vote.

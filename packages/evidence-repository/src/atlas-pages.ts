@@ -356,9 +356,11 @@ const VOTE_TOTALS_SQL = `SELECT count(*) FILTER (WHERE counted.vote = 'agree') A
        count(*) FILTER (WHERE counted.vote = 'disagree') AS disagree
   FROM atlas_votes counted
  WHERE counted.publication_number = $1`;
-// A commenter's marker is the start of their tag; the key itself is only joined on, never read out.
+// A comment's mark: six hexadecimal characters of a hash of the author's key, their row's random salt and the name the
+// comment was posted under, so it is read out and the key never is.
 const SHOWN_COMMENTS_SQL = `SELECT shown.comment_number, shown.display_name, shown.body, shown.posted_at,
-       substr(author.commenter_tag, 3, 6) AS marker
+       substr(encode(sha256(convert_to('askrigor-atlas-mark:v2:' || author.participant_key || ':' || author.mark_salt || ':' ||
+         shown.display_name, 'UTF8')), 'hex'), 1, 6) AS marker
   FROM atlas_comments shown
   JOIN atlas_participants author ON author.participant_key = shown.participant_key
  WHERE shown.publication_number = $1 AND shown.state = 'shown' AND ($2::bigint IS NULL OR shown.comment_number < $2)

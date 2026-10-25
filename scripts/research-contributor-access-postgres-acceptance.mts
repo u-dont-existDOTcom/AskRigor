@@ -2809,6 +2809,10 @@ export async function verifyAtlasParticipation(context: {
     const annComment = await participation.postComment(ann, shown, "Not for me.", tick(), "Ann");
     assert(await participation.deleteComment(ann, first) === false, "ATLAS_COMMENT_DELETED_BY_ANOTHER");
     const read = await source.read((reads) => reads.readParticipation(shown, jane));
+    const salts = new Map((await admin.query<{ participant_key: string; mark_salt: string }>(
+      `SELECT participant_key, mark_salt FROM ${schema}.atlas_participants WHERE participant_key = ANY($1::text[])`,
+      [[jane, ann]],
+    )).rows.map((row) => [row.participant_key, row.mark_salt]));
     assert(
       read.agree === 0 && read.disagree === 2 &&
         // Newest first.
@@ -2816,8 +2820,13 @@ export async function verifyAtlasParticipation(context: {
           [[annComment, "Ann"], [second, "Jane D"], [first, "Jane"]]) && read.more === false &&
         read.viewer?.displayName === "Jane D" && read.viewer.vote === "disagree" && !read.viewer.stopped &&
         isDeepStrictEqual(read.viewer.ownComments, [first, second]) &&
-        isDeepStrictEqual(read.comments.map(({ marker }) => marker),
-          [atlasCommenterMarker(ann), atlasCommenterMarker(jane), atlasCommenterMarker(jane)]),
+        // Each mark follows the author's key, their row's salt and the name the comment was posted under: Jane's two
+        // comments, under two names, have two marks.
+        isDeepStrictEqual(read.comments.map(({ marker }) => marker), [
+          atlasCommenterMarker(ann, salts.get(ann)!, "Ann"),
+          atlasCommenterMarker(jane, salts.get(jane)!, "Jane D"),
+          atlasCommenterMarker(jane, salts.get(jane)!, "Jane"),
+        ]) && read.comments[1]!.marker !== read.comments[2]!.marker,
       `ATLAS_PARTICIPATION_READ_MISMATCH ${JSON.stringify(read)}`,
     );
     const older = await source.read((reads) => reads.readParticipation(shown, null, Number(second.slice(2))));

@@ -25,6 +25,9 @@ CREATE SEQUENCE IF NOT EXISTS atlas_comment_number_seq AS bigint START WITH 1001
 CREATE TABLE IF NOT EXISTS atlas_participants (
   participant_key text PRIMARY KEY CHECK (participant_key ~ '^[a-f0-9]{64}$'),
   commenter_tag text NOT NULL UNIQUE CHECK (commenter_tag ~ '^U-[a-f0-9]{12}$'),
+  -- A random salt for the mark the pages show after a comment's name (with the key and that name): new with each row,
+  -- and drawn again when the participant deletes everything, so the mark links their comments under one name only.
+  mark_salt text NOT NULL DEFAULT replace(gen_random_uuid()::text, '-', '') CHECK (mark_salt ~ '^[a-f0-9]{32}$'),
   display_name text CHECK (
     display_name IS NULL OR (display_name = btrim(display_name) AND length(display_name) BETWEEN 1 AND 40)
   ),
@@ -488,6 +491,7 @@ BEGIN
   GET DIAGNOSTICS report_rows = ROW_COUNT;
   UPDATE atlas_participants stored
      SET display_name = NULL,
+         mark_salt = replace(gen_random_uuid()::text, '-', ''),
          updated_at = greatest(forget_time, stored.updated_at)
    WHERE stored.participant_key = target_participant_key
      AND stored.stopped_at IS NOT NULL;

@@ -301,20 +301,38 @@ describe("display names (review issue 7)", () => {
     expect(displayNameProblem("Rigorous Ann")).toBeUndefined();
   });
 
-  it("shows a short mark after each name, the same for one commenter and different between two of the same name", async () => {
-    const f = await fixture();
-    await f.store.postComment(keyOf(21), "P-1001", "First Jane.", AT, "Jane");
-    await f.store.postComment(keyOf(22), "P-1001", "Second Jane.", AT, "Jane");
-    await f.store.postComment(keyOf(21), "P-1001", "First Jane again.", AT, "Jane");
-    const body = (await f.get("/atlas/findings/P-1001")).body;
-    const marks = [...body.matchAll(/<strong><bdi>Jane<\/bdi><\/strong> <span class="marker"[^>]*>#([a-f0-9]{6})<\/span>/gu)]
-      .map((match) => match[1]);
-    expect(marks).toHaveLength(3);
-    expect(new Set(marks).size).toBe(2);
-    expect(marks).toContain(atlasCommenterTag(keyOf(21)).slice(2, 8));
-    expect(body).not.toContain(keyOf(21));
-    expect(body).not.toContain(atlasCommenterTag(keyOf(21)));
-  });
+  it("shows a mark after each name that links one person's comments under one name only (review follow-up, item 1)",
+    async () => {
+      const f = await fixture();
+      // The store is written to directly here, so the pages' cache is told of each change.
+      const marksOf = async (name: string) => { f.signal.announce(); return marksIn(name); };
+      const marksIn = async (name: string) => [...(await f.get("/atlas/findings/P-1001")).body.matchAll(
+        new RegExp(`<strong><bdi>${name}</bdi></strong> <span class="marker"[^>]*>#([a-f0-9]{6})</span>`, "gu"))]
+        .map((match) => match[1]!);
+      await f.store.postComment(keyOf(21), "P-1001", "First Jane.", AT, "Jane");
+      await f.store.postComment(keyOf(22), "P-1001", "Second Jane.", AT, "Jane");
+      await f.store.postComment(keyOf(21), "P-1001", "First Jane again.", AT, "Jane");
+      const janes = await marksOf("Jane");
+      expect(janes).toHaveLength(3);
+      // Newest first: the first Jane twice (same mark), the second Jane once (another mark).
+      expect(janes[0]).toBe(janes[2]);
+      expect(janes[1]).not.toBe(janes[0]);
+      // A new name makes a new mark: the comments under each name do not link to each other.
+      await f.store.setDisplayName(keyOf(21), "J. Doe", AT);
+      await f.store.postComment(keyOf(21), "P-1001", "Under the new name.", AT);
+      const renamed = await marksOf("J. Doe");
+      expect(renamed).toHaveLength(1);
+      expect(janes).not.toContain(renamed[0]);
+      // Deleting everything draws a new salt: coming back under the old name gives a new mark.
+      await f.store.forgetParticipant(keyOf(21), AT);
+      await f.store.postComment(keyOf(21), "P-1001", "Back again.", AT, "Jane");
+      const back = await marksOf("Jane");
+      expect(back).toHaveLength(2);
+      expect(back[0]).not.toBe(janes[0]);
+      const body = (await f.get("/atlas/findings/P-1001")).body;
+      expect(body).not.toContain(keyOf(21));
+      expect(body).not.toContain(atlasCommenterTag(keyOf(21)));
+    });
 });
 
 describe("page size (review issues 8 and 9)", () => {

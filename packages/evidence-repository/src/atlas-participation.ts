@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import type { Pool } from "pg";
 import { z } from "zod";
@@ -169,10 +169,18 @@ export interface AtlasPageOwnComment {
   publicationListed: boolean;
 }
 
-/** The mark a page shows after a commenter's name: six hexadecimal characters of their tag. */
-export function atlasCommenterMarker(participantKey: string): string {
-  return atlasCommenterTag(participantKey).slice(2, 8);
+/**
+ * The mark a page shows after a comment's name: six hexadecimal characters of a hash of the author's key, the random salt
+ * of their row and the display name the comment was posted under, as migration 0022's reads compute it. It is the same
+ * on one person's comments under one name, changes with the name, and is new after they delete everything.
+ */
+export function atlasCommenterMarker(participantKey: string, markSalt: string, displayName: string): string {
+  return createHash("sha256").update(`askrigor-atlas-mark:v2:${participantKey}:${markSalt}:${displayName}`, "utf8")
+    .digest("hex").slice(0, 6);
 }
+
+/** A participant row's random mark salt: 16 bytes in hexadecimal, as gen_random_uuid() gives them in PostgreSQL. */
+const newMarkSalt = () => randomBytes(16).toString("hex");
 
 /** The public id of a comment number, and the number of a public id. */
 export const atlasCommentId = (commentNumber: number) => `C-${commentNumber}`;
@@ -220,6 +228,7 @@ const later = (left: string, right: string) => Date.parse(left) >= Date.parse(ri
 interface StoredParticipant {
   participantKey: string;
   commenterTag: string;
+  markSalt: string;
   displayName: string | null;
   stoppedAt: string | null;
   createdAt: string;
@@ -244,8 +253,8 @@ export interface AtlasPageParticipation {
   disagree: number;
   /**
    * The comments that show, newest first, at most ATLAS_COMMENTS_PER_PAGE, older than the page's cursor when it has
-   * one. marker is six hexadecimal characters of the commenter's tag (the start of the U- tag the owner's review names
-   * them by): the same on all their comments, so two people who chose one name can be told apart.
+   * one. marker (atlasCommenterMarker) tells apart two people who chose one name: it is the same on one person's
+   * comments under one name, changes with the name, and is new after they delete everything.
    */
   comments: Array<{ publicId: string; displayName: string; body: string; postedAt: string; marker: string }>;
   /** Whether older comments that show remain beyond these. */
@@ -281,8 +290,8 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
   private ensureParticipant(participantKey: string, at: string): StoredParticipant {
     let participant = this.participants.get(participantKey);
     if (participant === undefined) {
-      participant = { participantKey, commenterTag: atlasCommenterTag(participantKey), displayName: null, stoppedAt: null,
-        createdAt: at, updatedAt: at };
+      participant = { participantKey, commenterTag: atlasCommenterTag(participantKey), markSalt: newMarkSalt(),
+        displayName: null, stoppedAt: null, createdAt: at, updatedAt: at };
       this.participants.set(participantKey, participant);
     }
     return participant;
@@ -444,6 +453,7 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
     const participant = this.participants.get(participantKey);
     if (participant !== undefined && participant.stoppedAt !== null) {
       participant.displayName = null;
+      participant.markSalt = newMarkSalt();
       participant.updatedAt = later(iso(at), participant.updatedAt);
     }
     this.forgetIdle(participantKey);
@@ -564,7 +574,9 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
       ...this.totals(publicationNumber),
       comments: shown.slice(0, ATLAS_COMMENTS_PER_PAGE)
         .map((comment) => ({ publicId: atlasCommentId(comment.commentNumber), displayName: comment.displayName,
-          body: comment.body, postedAt: comment.postedAt, marker: atlasCommenterMarker(comment.participantKey) })),
+          body: comment.body, postedAt: comment.postedAt,
+          marker: atlasCommenterMarker(comment.participantKey, this.participants.get(comment.participantKey)!.markSalt,
+            comment.displayName) })),
       more: shown.length > ATLAS_COMMENTS_PER_PAGE,
       viewer: participantKey === null ? null : {
         displayName: participant?.displayName ?? null,

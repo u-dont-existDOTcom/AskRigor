@@ -448,7 +448,7 @@ ${viewer.vote === null ? "" : html`<button type="submit" name="vote" value="clea
 <h2 id="comments">Comments</h2>
 ${view.comments.length === 0 ? html`<p>No comments yet.</p>` : html`<ol class="comment-list">
 ${view.comments.map((comment) => html`<li class="comment" id="${comment.publicId}">
-<p class="meta"><strong><bdi>${comment.displayName}</bdi></strong> <span class="marker" title="The same mark on all of one commenter's comments">#${comment.marker}</span> · ${day(comment.postedAt)}</p>
+<p class="meta"><strong><bdi>${comment.displayName}</bdi></strong> <span class="marker" title="The same mark on one commenter's comments under this name">#${comment.marker}</span> · ${day(comment.postedAt)}</p>
 <p class="comment-body" dir="auto">${comment.body}</p>
 <div class="comment-actions">
 ${comment.deleteToken === null ? "" : html`<form method="post" action="/atlas/comments/${comment.publicId}/delete">
