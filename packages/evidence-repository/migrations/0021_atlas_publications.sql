@@ -129,7 +129,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 BEGIN
@@ -186,7 +186,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 DECLARE
@@ -300,7 +300,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 BEGIN
@@ -358,7 +358,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 BEGIN
@@ -420,7 +420,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 BEGIN
@@ -520,7 +520,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 #variable_conflict use_column
 BEGIN

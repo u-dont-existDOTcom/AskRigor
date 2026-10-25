@@ -269,9 +269,13 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
 
   constructor(private readonly publications: InMemoryAtlasPublicationStore) {}
 
+  /**
+   * Whether a publication shows, as far as memory can tell: an unreviewed one with its published fields, or an accepted
+   * or edited one (PostgreSQL also asks that its F number be written, not withdrawn and not erased).
+   */
   private open(publicationNumber: string): boolean {
     return this.publications.allRows().some((row) => row.publicationNumber === publicationNumber &&
-      (row.state === "unreviewed" || row.state === "accepted" || row.state === "edited"));
+      ((row.state === "unreviewed" && row.published !== null) || row.state === "accepted" || row.state === "edited"));
   }
 
   private ensureParticipant(participantKey: string, at: string): StoredParticipant {

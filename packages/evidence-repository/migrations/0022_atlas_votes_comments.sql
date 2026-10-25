@@ -96,17 +96,30 @@ COMMENT ON TABLE atlas_participants IS
 COMMENT ON TABLE atlas_comment_reports IS
   'Reports of Atlas comments: a participant key (p:) or a daily-salted hash of the reporter''s address (a:), never the address; deleted with the comment, when the owner shows it, or when the reporter deletes everything they hold.';
 
--- Whether a publication shows on the pages, as far as this database can tell: unreviewed, accepted or edited.
+-- Whether a publication shows on the pages, as the pages decide it (apps/research-mcp/src/atlas/page-data.ts): an
+-- unreviewed one with its published fields, or an accepted or edited one whose F number the writer has written, whose
+-- latest version is not withdrawn and whose wording no redaction erased (erase_atlas_wording records one per version).
 CREATE OR REPLACE FUNCTION atlas_publication_open(target_publication_number text)
 RETURNS boolean
 LANGUAGE sql
 STABLE
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   SELECT EXISTS (
     SELECT 1 FROM atlas_publications stored
      WHERE stored.publication_number = target_publication_number
-       AND stored.state IN ('unreviewed', 'accepted', 'edited')
+       AND (
+         (stored.state = 'unreviewed' AND stored.published_json IS NOT NULL)
+         OR (stored.state IN ('accepted', 'edited') AND EXISTS (
+           SELECT 1 FROM atlas_finding_current current_finding
+            WHERE current_finding.public_number = stored.atlas_number
+              AND current_finding.label IS DISTINCT FROM 'withdrawn'
+              AND NOT EXISTS (
+                SELECT 1 FROM atlas_redactions redaction
+                 WHERE redaction.claim_version_id = current_finding.latest_claim_version_id
+              )
+         ))
+       )
   )
 $function$;
 
@@ -116,7 +129,7 @@ REVOKE ALL ON FUNCTION atlas_publication_open(text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION atlas_forget_idle_participant(target_participant_key text)
 RETURNS void
 LANGUAGE sql
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   DELETE FROM atlas_participants stored
    WHERE stored.participant_key = target_participant_key
@@ -132,7 +145,7 @@ CREATE OR REPLACE FUNCTION atlas_session_key_hash(target_participant_key text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   SELECT encode(sha256(convert_to('askrigor-atlas-sessions:v1:' || target_participant_key, 'UTF8')), 'hex')
 $function$;
@@ -143,7 +156,7 @@ REVOKE ALL ON FUNCTION atlas_session_key_hash(text) FROM PUBLIC;
 CREATE OR REPLACE FUNCTION atlas_end_sessions(target_participant_key text, end_time timestamptz)
 RETURNS void
 LANGUAGE sql
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < end_time;
   INSERT INTO atlas_session_ends AS stored (session_key_hash, ended_at, keep_until)
@@ -163,7 +176,7 @@ RETURNS TABLE (participant_display_name text, participant_stopped boolean)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' THEN
@@ -188,7 +201,7 @@ CREATE OR REPLACE FUNCTION set_atlas_display_name(
 RETURNS TABLE (participant_display_name text, participant_stopped boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$'
@@ -225,7 +238,7 @@ CREATE OR REPLACE FUNCTION set_atlas_vote(
 RETURNS TABLE (agree_count bigint, disagree_count bigint)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$'
@@ -279,7 +292,7 @@ CREATE OR REPLACE FUNCTION post_atlas_comment(
 RETURNS TABLE (comment_public_id text)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   author atlas_participants%ROWTYPE;
@@ -337,7 +350,7 @@ CREATE OR REPLACE FUNCTION delete_atlas_comment(target_participant_key text, tar
 RETURNS TABLE (comment_deleted boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   removed integer;
@@ -363,7 +376,7 @@ CREATE OR REPLACE FUNCTION report_atlas_comment(target_reporter_key text, target
 RETURNS TABLE (report_outcome text)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   target_number bigint;
@@ -401,7 +414,7 @@ CREATE OR REPLACE FUNCTION end_atlas_sessions(target_participant_key text, end_t
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' OR end_time IS NULL THEN
@@ -423,7 +436,7 @@ CREATE OR REPLACE FUNCTION atlas_session_current(
 RETURNS TABLE (session_current boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$'
@@ -450,7 +463,7 @@ CREATE OR REPLACE FUNCTION forget_atlas_participant(target_participant_key text,
 RETURNS TABLE (votes_deleted bigint, comments_deleted bigint, reports_deleted bigint)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   vote_rows bigint;
@@ -505,7 +518,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
   IF reported_only IS NULL OR row_limit IS NULL OR row_limit NOT BETWEEN 1 AND 200
@@ -546,7 +559,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   target atlas_comments%ROWTYPE;
@@ -600,7 +613,7 @@ CREATE OR REPLACE FUNCTION set_atlas_commenter_stopped(target_commenter_tag text
 RETURNS TABLE (commenter_tag_now text, commenter_stopped_now boolean, commenter_comment_count bigint)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   target atlas_participants%ROWTYPE;
@@ -632,7 +645,7 @@ CREATE OR REPLACE FUNCTION set_atlas_home_picks(new_picks jsonb, pick_time times
 RETURNS TABLE (pick_slot smallint, pick_publication_number text, pick_reason text, pick_set_at timestamptz)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 DECLARE
   pick jsonb;
@@ -683,7 +696,7 @@ RETURNS TABLE (pick_slot smallint, pick_publication_number text, pick_reason tex
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = __SCHEMA__, pg_catalog
+SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
   SELECT stored.slot, stored.publication_number, stored.reason, stored.set_at
     FROM atlas_home_picks stored

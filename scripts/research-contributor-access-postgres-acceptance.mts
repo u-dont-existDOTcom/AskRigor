@@ -2811,13 +2811,22 @@ export async function verifyAtlasParticipation(context: {
     const read = await source.read((reads) => reads.readParticipation(shown, jane));
     assert(
       read.agree === 0 && read.disagree === 2 &&
+        // Newest first.
         isDeepStrictEqual(read.comments.map(({ publicId, displayName }) => [publicId, displayName]),
-          [[first, "Jane"], [second, "Jane D"], [annComment, "Ann"]]) &&
+          [[annComment, "Ann"], [second, "Jane D"], [first, "Jane"]]) && read.more === false &&
         read.viewer?.displayName === "Jane D" && read.viewer.vote === "disagree" && !read.viewer.stopped &&
         isDeepStrictEqual(read.viewer.ownComments, [first, second]) &&
         isDeepStrictEqual(read.comments.map(({ marker }) => marker),
-          [atlasCommenterMarker(jane), atlasCommenterMarker(jane), atlasCommenterMarker(ann)]),
+          [atlasCommenterMarker(ann), atlasCommenterMarker(jane), atlasCommenterMarker(jane)]),
       `ATLAS_PARTICIPATION_READ_MISMATCH ${JSON.stringify(read)}`,
+    );
+    const older = await source.read((reads) => reads.readParticipation(shown, null, Number(second.slice(2))));
+    const own = await source.read((reads) => reads.listOwnComments(jane, undefined, 10));
+    assert(
+      isDeepStrictEqual(older.comments.map(({ publicId }) => publicId), [first]) &&
+        isDeepStrictEqual(own.map(({ publicId, state, publicationListed }) => [publicId, state, publicationListed]),
+          [[second, "shown", true], [first, "shown", true]]),
+      "ATLAS_PAGED_OR_OWN_COMMENTS_MISMATCH",
     );
     const model = await loadAtlasFinding(source, shown, { participation: { participantKey: null } });
     assert(model?.participation?.viewer === null && model.participation.comments.length === 3,
@@ -2941,6 +2950,35 @@ export async function verifyAtlasParticipation(context: {
       "ATLAS_PICKS_MISMATCH",
     );
     checks.push("atlas_home_picks_name_only_publications_that_show_and_the_home_page_shows_them_with_their_reasons");
+
+    // A vote or a comment goes only where the pages show (review 171, hardening): an accepted publication shows once
+    // its F number is written, and not when that finding was withdrawn.
+    const canonical = (await admin.query<{ public_number: string; label: string }>(
+      `SELECT public_number, label FROM ${schema}.atlas_finding_current WHERE entry_kind = 'finding' ORDER BY public_number`,
+    )).rows;
+    const writtenChecked = canonical.find(({ label }) => label === "checked")?.public_number;
+    const writtenWithdrawn = canonical.find(({ label }) => label === "withdrawn")?.public_number;
+    assert(writtenChecked !== undefined && writtenWithdrawn !== undefined, "ATLAS_OPEN_FIXTURE_MISSING");
+    const decidedRows = await publications.publish({
+      cardNumber: 7302,
+      cardSha256: atlasHex("synthetic-participation-decided-card"),
+      findings: [1, 2, 3].map((findingNumber) => ({ findingNumber, state: "unreviewed" as const, atlasNumber: null,
+        heldBecause: null, published: published(`PARTICIPATION-DECIDED ${findingNumber}.`) })),
+      publishedAt: tick(),
+      revive: false,
+    });
+    const decidedNumbers = decidedRows.map(({ publicationNumber }) => publicationNumber) as [string, string, string];
+    for (const [findingNumber, atlasNumber] of [[1, writtenChecked], [2, writtenWithdrawn], [3, "F-9999"]] as const) {
+      await publications.decide({ cardNumber: 7302, findingNumber, state: "accepted", atlasNumber, decidedAt: tick() });
+    }
+    assert(isDeepStrictEqual(await participation.setVote(sam, decidedNumbers[0], "agree", tick()), { agree: 1, disagree: 0 }),
+      "ATLAS_VOTE_ON_A_SHOWN_ACCEPTED_FINDING_REFUSED");
+    await expectParticipation(() => participation.setVote(sam, decidedNumbers[1], "agree", tick()), "NOT_SHOWN");
+    await expectParticipation(() => participation.setVote(sam, decidedNumbers[2], "agree", tick()), "NOT_SHOWN");
+    await expectParticipation(() => participation.postComment(sam, decidedNumbers[2], "Not yet shown.", tick(), "Sam"),
+      "NOT_SHOWN");
+    await participation.setVote(sam, decidedNumbers[0], null, tick());
+    checks.push("atlas_votes_and_comments_go_only_where_the_pages_show_an_accepted_finding");
 
     // The tables' checks refuse what no row may hold, whoever writes.
     const valid = "c".repeat(64);

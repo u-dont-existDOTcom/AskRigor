@@ -681,7 +681,7 @@ describe("production living-evidence deployment", () => {
     expect(functions.map(({ name }) => name)).toEqual(ATLAS_PUBLICATION_FUNCTIONS);
     for (const { name, header } of functions) {
       expect(header).toContain("SECURITY DEFINER");
-      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog");
+      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog, pg_temp");
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
     }
     const signature = (text: string, prefix: string) => {
@@ -726,7 +726,7 @@ describe("production living-evidence deployment", () => {
     expect(functions.filter(({ header }) => header.includes("SECURITY DEFINER")).map(({ name }) => name))
       .toEqual([...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS]);
     for (const { name, header } of functions) {
-      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog");
+      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog, pg_temp");
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
     }
     const signature = (text: string, prefix: string) => {
