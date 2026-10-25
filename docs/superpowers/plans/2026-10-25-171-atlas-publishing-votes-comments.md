@@ -64,7 +64,9 @@ A new section, "Votes and comments in the Atlas":
 - **People appear on pages, by choice:** a comment shows the display name its author chose. Still never an account, an
   ARF number, a chat, an answer quote or a contributor.
 - **YouTube:** nothing derived from YouTube appears on any page, not even a count of videos read (default 6 and the
-  23 Oct quota grant; see the YouTube memory of the project).
+  23 Oct quota grant). Owner answer 173 (25 Oct) keeps findings drawn from YouTube comments for 30 days apart from
+  the card, for the owner's review only, then deletes them (branch `claude/release-167-youtube-30-days-20261025`,
+  migration 0019 there); they are never published, so the publication rules above still leave them out.
 
 ## 4. How it is built (the session's design; method within the owner's decisions)
 
