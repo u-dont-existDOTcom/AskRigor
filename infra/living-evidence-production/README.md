@@ -194,11 +194,19 @@ Owner question 154 (2026-10-21): an account's connector lessons carry a
 detailed report only when the user turned detailed lesson reports on. Migration
 `0015_research_detailed_lesson_reports` adds each account's setting
 (`detailed_lesson_reports`, off by default; never a report, which is stored only
-in the private lessons repository); the access role's existing table grant
+in the private lessons repository); the access role's account-settings grant
 covers it. Apply it with the one-shot admin `migrate` before an image that
 reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it and accepts no detailed report, so a
 rollback needs no step.
+
+Owner answer 171, default 5: migration `0023_research_findings_save_switch` adds the account's `findings_save`
+setting, on by default. Only a dev account may change it through `manage_research_access`. The access role's
+column-level UPDATE grant covers this setting, the plain-answer note, detailed lesson reports, and the columns
+used for enrollment and revocation; it cannot update the account key or creation time. Apply the migration and
+reprovision the access role before serving the image that reads the setting. The regression harness turns saving
+off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
+requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
 
 Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
 contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings

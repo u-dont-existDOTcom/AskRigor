@@ -21,9 +21,10 @@ How each case runs:
   While the runs go, a one-line `~/.codex/AGENTS.override.md` ("No personal instructions apply in this session.")
   stands in for the owner's personal Codex file, and it is removed when they end (owner answer 144a); on 21 October no
   run ran a shell command or fetched the owner's development repository, against 38 of 39 runs on 20 October.
-- **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
-  mode, so a run whose final check passes still saves its findings card for the owner's review, unless the card
-  declares its findings personal only (owner answer 156a); the release record names those runs. The prompts say to
+- **Saves:** the prompts ask for no save, submission or lesson report. Before a run, the harness switches the
+  owner's dev account's card saving off through `manage_research_access` (`set_findings_save`, `findingsSave: false`)
+  and switches it back on after the run (`findingsSave: true`); the release record shows both (owner answer 171,
+  default 5). A passing final check saves no findings card while it is off. The prompts still say to
   give `finalize_research` the findings card it asks for, and to write no notes about the test: on 20 and 21 October,
   "send nothing" led runs to withhold the card, which held their checks `not_ready` for that alone (r325, r331, l36),
   and several answers added a "release-test note".

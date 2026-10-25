@@ -1819,7 +1819,10 @@ function defineResearchOperations(
         "checked answer in a note, and set_plain_answer_note turns that note off or on. " +
         // Owner question 154 (2026-10-21): detailed lesson reports, off unless the user turns them on.
         "When the user asks, set_detailed_lesson_reports turns this account's detailed lesson reports on or off (off " +
-        "by default; inspect shows which): only with them on may a lesson carry a detailed report. Each call also returns " +
+        "by default; inspect shows which): only with them on may a lesson carry a detailed report. " +
+        "For dev accounts only, set_findings_save turns findings-card saving off or on (on by default; inspect shows " +
+        "which), so regression runs can turn saving off before a run and back on after it; the final check, its " +
+        "caveats and the answer stay the same. Each call also returns " +
         "accountReference, this account's reference, which the user can give AskRigor's owner (for example to be " +
         "listed as a dev account); give it only when the user asks for it.",
       inputSchema: manageResearchAccessInputSchemaFor(options.toolListVersion),
@@ -1831,6 +1834,7 @@ function defineResearchOperations(
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
+      devAccountKeys: () => devAccountKeysFromEnv(),
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
@@ -2364,6 +2368,11 @@ function defineResearchOperations(
         result = finalizeResearch(input, { ...finalizeOptions, secondReading });
       }
       if (
+        account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"
+      ) {
+        // Owner answer 171, default 5: regression runs still pass the same final check, but save no findings card.
+        result.findings_card.saved = { status: "not_saved", reason: "dev_account_saving_off" };
+      } else if (
         account?.mode === "FREE_CONTRIBUTOR" && result.findings_card.status === "checked" &&
         result.findings_card.public_value === "personal_only"
       ) {
@@ -2448,6 +2457,7 @@ function defineResearchOperations(
                 ? `; ${
                   card.saved.status === "not_saved"
                     ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED
+                      : card.saved.reason === "dev_account_saving_off" ? "not saved: this dev account's card saving is off"
                       : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
