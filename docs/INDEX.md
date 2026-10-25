@@ -129,6 +129,11 @@ complete XML protocol.
   - the plugin receipt without a reinstall, the 217 test cards set aside, and the email to YouTube;
   - what waits: the move of cards 7, 12 and 209, the owner's app refresh and notice acceptance, the regressions, and
     the Auth0 secret.
+- `audits/2026-10-25-security-updates-and-atlas-votes-production-release.md`: the evening of 25 October, on owner
+  answers 177a and 178a: votes and comments switched on with the Atlas app's client secret moved to the server unseen,
+  the move of cards 7 and 209's YouTube findings (card 12 left for question 179), and the release of #372 (zod 4.6.7,
+  body-parser 2.4.0 and fast-uri 3.1.9 for Dependabot alerts 25 to 33, with zod 4.6's JSON Schema form), its
+  acceptance, the plugin check and the regression poller on the new build.
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
