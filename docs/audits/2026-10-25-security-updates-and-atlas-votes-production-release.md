@@ -1,4 +1,4 @@
-# Production release, 2026-10-25 evening (security updates; votes and comments on)
+# Production release, 2026-10-25 evening (security updates; votes and comments on; the sign-in fix)
 
 - **Owner decisions:** "177a 178a" (read at 20:52 UTC on 25 Oct, owner questions page). 177a: the Atlas app's client
   secret goes to the server from a file the owner saved, moved by a script without anyone seeing it, and votes and
@@ -44,3 +44,23 @@
     `ea672a38` (restarted 21:04 UTC; until about 23:04).
   - **Rollback:** recreate `research-mcp` with `askrigor-research:rollback-pre-ea672a386aac` and the rollback folder's
     selector and `runtime.env` (the image of #367, which takes the same database).
+- **The sign-in fix (#373), on the owner's "180: a" (read at 23:07 UTC):**
+  - **What failed:** the owner's three sign-ins (22:02 and 22:11 UTC) came back from Auth0 with an error ("The sign-in
+    was cancelled or refused"). Auth0's log, read with the read-only log key (date, type, description, client and
+    scope only), gave the reason each time: client `QQrMGutU5AG0P4rEASDWMp6HWiTNGm39` "is not authorized to access
+    resource server `https://mcp.askrigor.com/mcp`". The tenant's default audience is the MCP API, so an authorize
+    request naming no audience asks for it, and it admits only the connectors' applications.
+  - **Fix:** the Atlas authorize request names Auth0's own userinfo audience (`1a5aa03f`); nothing else in the sign-in
+    changes. #373 passed all seven checks on `6fb9f6e3` and merged as
+    `7621883d8fd99072e37d9f6f9dad82bf4c93df10` onto main `ea672a38`; the merge tree equals the PR head tree.
+  - **Image:** ID `sha256:a3cf5f1ff71ee7f1f45930492bfaf52fa7995442fdaa468fbc80270b98d6f8f9`; source archive
+    `e871e05cf5fe00d2...`; image archive `1f886f3e6a18f91c...`, 124,203,509 bytes; the no-secret candidate passed.
+  - **Stages:** stage B as for #372 (migrate unchanged, both roles' rights exact, only the build line; `pg_dump`
+    4,271,687 bytes, `91d52134bee25a6f...`; rollback folder `pre-7621883d8fd99072e37d9f6f9dad82bf4c93df10`, prior
+    image tagged `askrigor-research:rollback-pre-7621883d8fd9`); `research-mcp` recreated at 23:10:05 UTC, healthy;
+    stage C passed (version and build, 33 tools, the pages, the probes with participation configured, the promotion
+    run and the timer). The live sign-in link now carries
+    `audience=https://askrigor-prod.us.auth0.com/userinfo` with the code flow, PKCE and `scope=openid`.
+  - **During the regression run:** the restart at 23:10:05 UTC fell within the owner's regression run (started 22:12);
+    the judgment checks the cases running then and reruns any it disturbed. The tool list is unchanged, so the
+    ChatGPT app's copy stays current.
