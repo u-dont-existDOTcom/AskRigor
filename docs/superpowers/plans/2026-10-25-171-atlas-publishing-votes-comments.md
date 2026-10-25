@@ -130,8 +130,14 @@ asked for them.
 
 **G. Regression runs (default 5).** A dev-account setting through `manage_research_access` turns card saving off; the
 regression harness switches it off before a run and back on after, and the run record shows both. With the safety net
-in B, a forgotten switch still publishes nothing. The test cards ARF-0116 to ARF-0239 get the set-aside label before
-anything is published.
+in B, a forgotten switch still publishes nothing. Before anything is published, every test card gets the set-aside
+label: the 211 cards saved during the regression runs of 15 to 23 Oct (ARF-0016 to ARF-0239, checked against each
+run's start and end in its progress log), the planted-error test of 21 Oct (ARF-0111 to ARF-0115) and the synthetic
+release test ARF-0001, 217 in all. The owner's question named ARF-0116 to ARF-0239 because it counted only the last two
+runs; the default's intent, that test cards are not published, covers them all. The owner's own earlier cards
+(ARF-0005 to ARF-0013, ARF-0039 to ARF-0041, ARF-0044 to ARF-0048, ARF-0240) are not published automatically: they
+were saved before version 4, from what is now a dev account. The owner picks which to publish ("publish chosen cards"
+in 4B's actions), after reading them; some come from the sessions behind the owner's bug reports #39 to #42.
 
 ## 5. Order and checks
 
