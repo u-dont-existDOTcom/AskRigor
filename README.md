@@ -480,20 +480,24 @@ neither saved for a free contributor nor offered to a paid private one, and
 `save_research_findings` refuses it; the rest are saved or offered as before,
 and the owner's review shows each card's declaration.
 
-Owner answers 159 (1b and 7) and 160b (2026-10-22; built, not yet released,
-the sentences waiting for the owner's word-for-word approval): the free
-contributor notice moves to `free-contributor-v3-2026-10-22`. It adds that
-findings AskRigor's owner accepts may be published in AskRigor's public Atlas,
-written without the person; that asking to delete a findings card removes
-everything that ties it to the person, with no reason needed; and that a
-published finding stays while it is valid, is corrected or taken down when
-someone shows it is wrong, and is rewritten or removed if it could identify
-anyone. Accounts that accepted v1 or v2 accept v3 before free research
-continues (migration `0016_research_use_notice_v3`). A paid private answer's
-save offer ends with "Saved findings that AskRigor's owner accepts may be
-published in AskRigor's public Atlas, written without you.", and the privacy
-page and the terms say the same three points. Nothing is accepted or published
-yet; the build plan is `docs/superpowers/plans/2026-10-22-public-atlas-build.md`.
+Owner answer 171 (2026-10-25; exact wording approved, built, not yet released):
+the free contributor notice moves to `free-contributor-v4-2026-10-25`. Free
+findings cards publish in AskRigor's public Atlas as soon as they are saved,
+written without the person and marked "Not checked by supervisors yet" until
+the owner reviews them; signed-in people can vote and comment. Deleting a card
+removes everything tying it to the person and removes it from the Atlas unless
+the owner already accepted its findings; no reason is needed. An accepted
+finding stays while valid, is corrected or taken down when shown wrong, and
+rewritten or removed if it could identify anyone. Accounts accepting v1, v2 or
+v3 accept v4 before free research continues (migration
+`0019_research_use_notice_v4`). The privacy page and terms distinguish free
+publication on save from paid publication after acceptance and carry the
+approved comments wording; the release sets their effective dates. A paid
+private answer's save offer keeps "Saved findings that AskRigor's owner accepts
+may be published in AskRigor's public Atlas, written without you." The v4 hold
+and restore scripts support image rollback; the runbook gives their order.
+This slice changes wording and consent; publications, votes and comments are
+built separately under `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
 
 Atlas phase 3 (built, not yet released; it goes out in the release after the
 one carrying phases 1 and 2; design

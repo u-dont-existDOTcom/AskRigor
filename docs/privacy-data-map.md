@@ -33,12 +33,15 @@ findings card to a private GitHub review queue; a paid-private answer offers the
 save, and its card is saved only after the user says yes to that save. It moves
 the free contributor notice to a second version that says so. A card whose
 findings the AI declares personal only is neither saved nor offered (owner
-answer 156a, 2026-10-22). The notice's third version (owner answers 159 and
-160b, 2026-10-22; built, not yet released) adds that findings AskRigor's owner
-accepts may be published in AskRigor's public Atlas, written without the
-person, and says what deleting a card removes and what stays; the privacy page
-and the terms say the same, and the paid save offer says the first. It is
-described under "Findings library" below.
+answer 156a, 2026-10-22). The notice's fourth version (owner answer 171,
+2026-10-25; approved, built, not yet released) says free cards publish on save,
+written without the person, with the unreviewed label, votes and comments;
+deleting a card removes it from the Atlas unless its findings were accepted.
+An accepted finding stays while it is valid. The public pages distinguish
+free cards from paid private findings, which still publish only after
+acceptance; the paid save offer keeps its acceptance sentence. See "Findings
+library" below. Publication, votes and comments storage is a separate build
+slice of decision 171; these notice changes do not implement that storage.
 The owner approved the public wording on
 2026-09-30; `https://askrigor.com/privacy` and `/terms` take it, with that day's
 effective date, when the library goes live, and the library stays closed until
@@ -291,11 +294,11 @@ AskRigor has deliberately separate processing paths:
   answer offers the save, and the connector's `save_research_findings` saves
   the checked card only after the user says yes to that save. A card whose
   findings the AI declares personal only is neither saved nor offered (owner
-  answer 156a). Findings the owner accepts from a saved card may be published
-  in AskRigor's public Atlas, written without the person, as notice v3, the
-  paid save offer and the public pages say (owner answers 159 and 160b; built,
-  not yet released); no finding is accepted or published yet. See "Findings
-  library" below.
+  answer 156a). Under notice v4 (owner answer 171; built, not yet released),
+  free cards publish on save, written without the person and marked "Not checked
+  by supervisors yet" until review; signed-in people can vote and comment. Paid
+  private findings still publish only after acceptance. See "Findings library"
+  below and the separate publications build in the decision 171 plan.
 - **Automated Gemini-candidate path:** a public read-only Action and the
   `scout_gemini_youtube_candidates` MCP tool (behind the research-access guard)
   share one implementation and accept only a
@@ -666,7 +669,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings, with the audit's declared headline figures (as printed, recomputed, its plausibility call and source block) and each program's route; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
 | Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open publication/index windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The canonical lookup role remains SELECT-only; catalog lookup runs in a read-only transaction. The distinct proposal role can insert only pending strict proposals, not canonical rows. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
 | Owner-accepted topic link | Link UUID and idempotency key; the run's protocol manifests, times and provenance note; the two canonical topics' IDs and keys; one relation (`same`, `narrower`, `broader` or `related`); the model's deidentified rationale (at most 2,000 characters); the payload as reviewed and its SHA-256; how many aliases and edges it wrote. For `same`, each topic's label written as the other's alias; otherwise one topic edge under the link's UUID (owner answer 138b, 2026-10-20) | Written only by the canonical writer, under its lock, from the exact TOPIC_LINK proposal the owner accepted; the writer repeats the intake's exact checks (both topics exist under the IDs and keys named, no stored link contradicts or repeats it, no third topic holds the alias, the UUID is new) and otherwise ends the promotion `FAILED` with its code. It never moves, changes or deletes either topic, its aliases, edges or anything filed under it; update and delete fail. Whether two wordings name one topic is the model's declaration and the owner's judgment, not a server check. The canonical lookup role reads it SELECT-only, the catalog search reads the aliases, and the repository export includes the rows. No account key, chat, prompt, person's details or source content. |
-| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps (the notice version accepted, now `free-contributor-v3-2026-10-22`, or v1 or v2, whose account accepts v3 before free research continues; migration `0016_research_use_notice_v3`, owner answers 159 and 160b); the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
+| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps (the notice version accepted, now `free-contributor-v4-2026-10-25`, or v1, v2 or v3, whose account accepts v4 before free research continues; migration `0019_research_use_notice_v4`, owner answer 171); the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
 | Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. A study a free contributor read from the operator's library (owner answer 157a) is held the same way: its locator is the public page that gave its public basis (or the canonical family's own), never the library's link. The contribution itself is the same data a pending proposal already stores. Owner answer 138b (2026-10-20): each audit is its own analysis, keyed by the audit and its protocols; when the source's identifiers name one canonical source family with no conflicting identifier, the public runtime's read-only canonical reader supplies that family's ID, title, version of the same bytes and freshness policy, which the contribution then carries instead of the document's; a new source version records no retrieval time. An audit the canonical store already holds under the same protocols, or one this account already filed (pending, accepted or rejected), is not filed again. |
 | Owner-accepted contribution promotion | Promotion UUID; proposal UUID, strict kind and reviewed payload SHA-256; creation time; `PENDING`, `COMPLETED` or `FAILED` state; for `COMPLETED`, the completion time and the stable receipt (canonical identifiers and the writer's receipt) with its SHA-256; for `FAILED`, one failure code from a closed list of canonical conflict codes (never free text or payload content) and the failure time. The owner's decision, reason and review time stay on the proposal row. No claim, attempt count or error text is stored. | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance; the review role reads a failed intent's code through one more security-definer function, which returns no account key. That function also gives the owner's review the supersession links and the other proposals pending review or queued for promotion that share one of the proposal's identities (topic key or ID, frontier, question, source family, or a candidate or source identifier), by proposal ID, kind, state and the kinds of identity shared only: never an account key or another proposal's content. The review also reads the canonical store through the public runtime's read-only reader for the canonical records sharing those identities (IDs only) and a promotion preflight, a dry run of the writer's identity checks that stores nothing and names each conflict by its fixed code and payload path; neither is stored or sent anywhere but to the owner. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and promotes at most one accepted intent per activation; an intent whose canonical write conflicts deterministically ends `FAILED` with its code and the activation moves to the next (at most 20 per activation), while a transient error leaves it `PENDING` (owner answer 138b, 2026-10-20). The static unit accepts no user input and logs only the bounded operation receipt, including each failed intent's UUIDs, kind and code; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
 
@@ -876,35 +879,38 @@ and research tools refused it (`RESEARCH_ACCESS_REQUIRED`), until it accepted
 v2. Migration `0011_research_use_notice_v2` let the account table hold either
 version.
 
-The notice is now version `free-contributor-v3-2026-10-22` (owner answers 159,
-1b and 7, and 160b, 2026-10-22; built, not yet released, its sentences waiting
-for the owner's word-for-word approval with the release question). It keeps
-v2's sentences, saves a card only for an answer whose findings would help other
-people (owner answer 156a), and adds three: findings AskRigor's owner accepts
-may be published in AskRigor's public Atlas, written without the person; asking
-to delete a findings card removes everything that ties it to the person, with
-no reason needed; and a published finding stays while it is valid, is
-corrected or taken down when someone shows it is wrong, and is rewritten or
-removed if it could identify anyone. A free account that accepted v1 or v2 is
-shown as not yet enrolled, and research tools refuse it, until it accepts v3
-through `manage_research_access`; today that is the owner's account alone, so
-older cards count as the owner's (decision 1b). Migration
-`0016_research_use_notice_v3` replaces 0011's check, under the same name, with
-one that admits v1, v2 and v3; the service admits only the current version. The
-account row stores nothing new: the version accepted and the agreement's fields,
-as before. Nothing is published yet: no tool accepts a finding, and no Atlas
-page exists (the build plan is
-`docs/superpowers/plans/2026-10-22-public-atlas-build.md`).
+The notice is now version `free-contributor-v4-2026-10-25` (owner answer 171,
+2026-10-25; exact wording approved, built, not yet released). All other v3
+sentences stay, and the three changed sentences are:
 
-An image rollback to a version that reads only v1 and v2 first runs
-`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
-each v3 account row, unchanged, into `research_use_notice_v3_hold` and marks
-the account revoked, so the earlier version reads it and the person can accept
-v2. `research-use-notice-v3-restore.sql` puts back each account still in that
-state once a v3 version serves, and empties the table. Like the v2 table below,
-it holds no new kind of data, only the migrator role can read it, and it is
-empty except during such a rollback. Neither script changes another table:
-entitlements, proposals and Atlas rows stay as they are.
+> Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.
+
+> If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.
+
+> An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.
+
+A free account accepting v1, v2 or v3 is shown as not yet enrolled, and research
+tools refuse it until it accepts v4 through `manage_research_access`. Migration
+`0019_research_use_notice_v4` widens 0011's same-named check to all four versions;
+the service admits only the current one. The account stores the version and
+agreement fields as before. The privacy page and terms carry the approved
+free/paid publication distinction and comments paragraphs. Their effective
+dates are left for the release. This slice implements consent only; the
+publication and interaction storage is built separately under
+`docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
+
+An image rollback below v4 first runs
+`infra/living-evidence-production/research-use-notice-v4-hold.sql`. Each v4
+account row is copied unchanged into `research_use_notice_v4_hold`, and the
+account is marked revoked so the earlier image can read it and the person can
+accept its notice. `research-use-notice-v4-restore.sql` restores accounts still
+exactly in that state only once an image reading v4 serves, then empties the
+table; changed accounts keep their newer rows. Only the migrator can read the
+hold table, which stores no new kind of data and is empty outside rollback.
+Neither script changes settings, entitlements, proposals or Atlas rows.
+The v3 hold/restore pair remains for a target reading only v1 and v2, with
+`research_use_notice_v3_hold` under the same privacy boundary. The v4 Docker
+acceptance mirrors v3 and preserves both earlier versions and v3 accounts.
 
 An image rollback to a version that reads only v1 also runs
 `infra/living-evidence-production/research-use-notice-v2-hold.sql`. It copies
@@ -1129,10 +1135,11 @@ fingerprint. Because a stored card carries no account
 identity, revoking research access does not withdraw it; its deletion is
 requested with its `ARF-####` id.
 
-Deleting a card (owner answer 159, rule 7, as notice v3 and the public pages
+Deleting a card (owner answer 159, rule 7, as notice v4 and the public pages
 say it; owner decision 7): a request names the card's `ARF-####` id and needs no
-reason; asking why is optional. It removes the card and everything that ties it
-to the person: the stored issue, with its readable copy, record, version stamp
+reason; asking why is optional. Under v4 the card also leaves the Atlas unless
+its findings were already accepted. It removes the card and everything that ties
+it to the person: the stored issue, with its readable copy, record, version stamp
 and hidden marker, which holds the research thread key, the person's later
 saves on other cards, and the owner's decision rows on the card. What stays is
 only what is written without the person: a finding from the card that the
@@ -1164,10 +1171,11 @@ subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
 `reject_finding`, `withdraw_finding`, `link_findings` and `forget_card`. They are closed unless
 `ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
 0017, the review role's grants and the promotion timer are verified; while
-closed they answer `atlas_review_closed` and read and record nothing. Nothing
-from a card is public until the owner accepts it, and nothing is public until
-the Atlas pages exist. The owner's call never writes canonical evidence: it
-records a decision and a hash-bound intent through the review role's
+closed they answer `atlas_review_closed` and read and record nothing. This phase
+2 path publishes accepted findings. Decision 171 adds free-card publication on
+save separately, under notice v4; paid private findings still wait for acceptance.
+Nothing is public until the Atlas pages exist. The owner's call never writes
+canonical evidence: it records a decision and a hash-bound intent through the review role's
 functions, and the existing one-shot timer job writes the canonical rows within
 about 5 minutes.
 

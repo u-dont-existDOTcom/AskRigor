@@ -12,10 +12,11 @@ AskRigor has two research-use modes:
   finished research answer's findings card is saved to AskRigor's private
   findings library for review (owner decision Q11, 2026-09-30; see
   `docs/privacy-data-map.md`), unless the AI declares its findings personal
-  only (owner answer 156a, 2026-10-22). Findings AskRigor's owner accepts may
-  be published in AskRigor's public Atlas, written without the person (owner
-  answers 159 and 160b, 2026-10-22; built, not yet released). This is the free
-  product.
+  only (owner answer 156a, 2026-10-22). Under notice v4 (owner answer 171,
+  2026-10-25; built, not yet released), free cards publish on save in AskRigor's
+  public Atlas, written without the person and marked "Not checked by supervisors
+  yet" until the owner reviews them. Signed-in people can vote and comment.
+  This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. The answer's offer to save its findings ends with "Saved findings
@@ -30,51 +31,50 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v3-2026-10-22` (owner answers 159, 1b and 7,
-and 160b, 2026-10-22; built, not yet released, its sentences waiting for the
-owner's word-for-word approval). The server returns the complete notice from
-`RESEARCH_USE_NOTICE`. Free mode activates only when all four versioned
-agreement fields are literal `true`. Silence, inferred consent, a different
-notice version, or a partially checked agreement is rejected.
+The version is `free-contributor-v4-2026-10-25` (owner answer 171,
+2026-10-25; exact wording approved, built, not yet released). The server returns
+the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only when
+all four versioned agreement fields are literal `true`. Silence, inferred
+consent, a different notice version, or a partially checked agreement is rejected.
 
-The notice says, in eight sentences: what AskRigor learns from free research is
-saved for its research library; that includes deidentified structured research
-progress and, for each finished research answer whose findings would help
-other people, a findings card; what is never saved; that saved research is
-reviewed and gains no authority by being saved or repeated; that findings
-AskRigor's owner accepts may be published in AskRigor's public Atlas, written
-without the person; that asking to delete a findings card removes everything
-that ties it to the person, with no reason needed; that a published finding
-stays while it is valid, is corrected or taken down when someone shows it is
-wrong, and is rewritten or removed if it could identify anyone; and what paid
-private access saves. The privacy page and the terms say the same three new
-points, and the paid save offer the first.
+Version 4 keeps every other sentence of v3 and makes exactly these three changes:
+
+> Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.
+
+> If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.
+
+> An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.
+
+The privacy page and terms distinguish free cards published on save from paid
+private findings published only after acceptance, and give the approved votes
+and comments wording. The paid save offer keeps its own acceptance sentence.
+The pages' effective dates are left for the release.
 
 The first version, `free-contributor-v1-2026-09-01`, did not mention findings
 cards; the second, `free-contributor-v2-2026-09-30`, did not mention the public
-Atlas or what deleting a card removes. A free account that accepted either
-inspects as `UNENROLLED`, and research tools refuse it with
-`RESEARCH_ACCESS_REQUIRED`, until it accepts the current version. Migration
-`0011_research_use_notice_v2` let `research_use_accounts` hold v1 or v2;
-migration `0016_research_use_notice_v3` replaces that check, under the same
-name, with one that admits v1, v2 and v3. The one-shot admin `migrate` applies
-it at release, before an image that offers v3 serves.
+Atlas or what deleting a card removes. The third,
+`free-contributor-v3-2026-10-22`, described publication after acceptance. An
+account that accepted any of them inspects as `UNENROLLED`, and research tools
+refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v4. Migration
+`0019_research_use_notice_v4` widens the same constraint as 0011 and 0016 to
+admit all four versions, safely on repeated runs. The one-shot admin `migrate`
+applies it before an image offering v4 serves.
 
-An image that reads only v1 and v2 fails the access check of an account whose
-row carries v3, so an image rollback below v3 first runs
-`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
-each v3 account row, unchanged, into `research_use_notice_v3_hold`, which only
-the migrator can read, and marks the account revoked: the earlier image reads
-that state, and the person leaves it by accepting v2, that image's notice, or
-by activating an entitled paid private account. `research-use-notice-v3-restore.sql`,
-run once an image that reads v3 serves again, puts back each account still
-exactly in that state and empties the table; an account the person changed
-meanwhile keeps its newer row and is asked to accept v3 as usual. The hold is
-not a revocation: pending proposals stay pending, and neither script changes
-an entitlement, a proposal or an Atlas row. The v2 scripts
-(`research-use-notice-v2-{hold,restore}.sql`) do the same for v2 rows, for an
-image that reads only v1. The order, with migration 0017, is in
-`infra/living-evidence-production/README.md`.
+An image that reads only v1 to v3 fails the access check of an account whose
+row carries v4, so an image rollback below v4 first runs
+`infra/living-evidence-production/research-use-notice-v4-hold.sql`. It copies
+each v4 account row unchanged into `research_use_notice_v4_hold`, which only
+the migrator can read, and marks the account revoked. The person can accept
+that image's notice (v3) or activate an entitled paid private account.
+`research-use-notice-v4-restore.sql`, run only once an image reading v4 serves
+again, restores each account still exactly in the held state and empties the
+table. An account changed meanwhile keeps its newer row and is asked to accept
+v4 as usual. The hold is not a revocation: pending proposals stay pending;
+entitlements, proposals, Atlas rows and account settings stay unchanged.
+The v3 pair remains available for a target reading only v1 and v2, and the v2
+pair for one reading only v1. The runbook gives the hold/image/hold and
+migrate/image/restore order, and the Docker acceptance is
+`npm run contributor-access:notice-v4-rollback-acceptance`.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,

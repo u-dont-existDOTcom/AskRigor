@@ -623,7 +623,7 @@ async function main(): Promise<void> {
       );
       if (
         migrations.rows.map(({ migration_id: id }) => id).join(",") !==
-        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake,0009_research_contributor_access,0010_research_contribution_review,0011_research_use_notice_v2,0012_research_contribution_merging,0013_research_plain_answer_note,0014_research_map_consent,0015_research_detailed_lesson_reports,0016_research_use_notice_v3,0017_atlas_findings,0018_atlas_card_fields"
+        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake,0009_research_contributor_access,0010_research_contribution_review,0011_research_use_notice_v2,0012_research_contribution_merging,0013_research_plain_answer_note,0014_research_map_consent,0015_research_detailed_lesson_reports,0016_research_use_notice_v3,0017_atlas_findings,0018_atlas_card_fields,0019_research_use_notice_v4"
       ) {
         throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
       }
