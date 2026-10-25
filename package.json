@@ -70,7 +70,7 @@
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.32.1",
     "fast-xml-parser": "5.11.2",
-    "jose": "6.2.12",
+    "jose": "6.2.13",
     "zod": "4.6.7"
   },
   "devDependencies": {
