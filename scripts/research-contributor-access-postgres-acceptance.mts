@@ -15,6 +15,7 @@ import {
   PostgresAtlasReviewStore,
   PostgresAtlasWriter,
   PostgresEvidenceRepository,
+  PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
@@ -33,6 +34,7 @@ import {
   type AtlasFindingPromotionRun,
   type AtlasIntentView,
   type ContributionPrivacyBoundary,
+  type HeldYouTubeFindingContent,
   type LivingEvidenceContribution,
 } from "../packages/evidence-repository/src/index.js";
 import { readAtlasStateWith } from "../packages/evidence-repository/src/atlas-postgres.js";
@@ -82,7 +84,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0018_atlas_card_fields",
+      migration: "0019_held_youtube_findings",
     })}\n`);
     return;
   }
@@ -572,6 +574,7 @@ async function verify(
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
+    await verifyHeldYouTubeFindings({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1354,6 +1357,12 @@ const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
   "inspect_research_contribution_proposal",
 ] as const;
+// Migration 0019 (owner answer 173): the review role's four held YouTube findings functions, and the access role's two.
+const HELD_REVIEW_FUNCTIONS = [
+  "delete_held_youtube_findings", "hold_youtube_findings", "inspect_held_youtube_findings",
+  "purge_expired_held_youtube_findings",
+] as const;
+const HELD_ACCESS_FUNCTIONS = ["hold_youtube_findings", "purge_expired_held_youtube_findings"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -1552,8 +1561,9 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
         "ATLAS_UPGRADE_BASELINE_MISMATCH");
       await upgradeRepository.migrate();
       const upgraded = await counted();
-      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 18,
-        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_OR_0018");
+      // 0017 and 0018, and 0019 (the held YouTube findings) after them.
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 19,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_0018_OR_0019");
       const prepared = prepareAtlasFindingIntent(atlasAccept({
         wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
         bases: ["full_text_audit"],
@@ -1574,7 +1584,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     } finally {
       await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
     }
-    checks.push("an_0016_database_with_data_upgrades_to_0018_keeps_its_rows_and_takes_a_finding");
+    checks.push("an_0016_database_with_data_upgrades_to_0019_keeps_its_rows_and_takes_a_finding");
   } finally {
     await admin.end();
   }
@@ -1682,11 +1692,11 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       };
       const [phase2] = await contentOf("F-1001");
       assert(
-        migrations === 18 && phase2 !== undefined &&
+        migrations === 19 && phase2 !== undefined &&
           ["kind", "subject", "subjectType", "direction", "searchScope"].every((field) => !(field in phase2)),
         "ATLAS_CARD_FIELDS_UPGRADE_CHANGED_A_PHASE_2_FINDING",
       );
-      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_0018_and_reads_it_without_the_new_fields");
+      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_0019_and_reads_it_without_the_new_fields");
 
       // The writer stores an effect's fields and a search that found nothing's where the design puts them.
       const decide = async (cardNumber: number, payload: unknown) => {
@@ -1968,6 +1978,175 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
     }
   } finally {
     await admin.end();
+  }
+}
+
+/**
+ * Owner answer 173 (2026-10-25): migration 0019, the held YouTube findings. The table holds only AskRigor's texts and
+ * fixed values, and nothing but the migrator reads or writes it directly: the research-access role executes exactly
+ * hold and purge, the review role hold, inspect, delete and purge, and the reader none. A finding is held exactly 30
+ * days from its save and never refreshed; one already past its 30 days is never held; no read returns an expired row,
+ * purged yet or not; the purge deletes expired rows and nothing else; the owner deletes a card's early; and a second
+ * migrate changes neither the table, its grants nor the functions' grants.
+ */
+export async function verifyHeldYouTubeFindings(context: {
+  adminUrl: string;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, accessUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const accessPool = new Pool({ connectionString: accessUrl, max: 1 });
+  const reviewPool = new Pool({ connectionString: reviewUrl, max: 1 });
+  const readerPool = new Pool({ connectionString: readerUrl, max: 1 });
+  const access = new PostgresHeldYouTubeFindingsStore({ connectionString: accessUrl, schema });
+  const review = new PostgresHeldYouTubeFindingsStore({ connectionString: reviewUrl, schema });
+  const DAY = 24 * 60 * 60 * 1_000;
+  try {
+    const applied = await admin.query(
+      `SELECT migration_id FROM ${schema}.schema_migrations WHERE migration_id = '0019_held_youtube_findings'`,
+    );
+    assert(applied.rowCount === 1, "MIGRATION_0019_NOT_APPLIED");
+    const columns = await admin.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'held_youtube_findings' ORDER BY ordinal_position`,
+      [schema],
+    );
+    assert(columns.rows.map(({ column_name: name }) => name).join() === [
+      "card_number", "card_sha256", "finding_number", "claim", "certainty", "applies_to", "why_not_usual",
+      "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases", "saved_at", "expires_at",
+    ].join(), `HELD_YOUTUBE_FINDINGS_COLUMNS_MISMATCH ${columns.rows.map(({ column_name: name }) => name).join()}`);
+    for (const role of ["askrigor_reader", "askrigor_research_access", "askrigor_research_review"]) {
+      const open = await admin.query<{ open: boolean }>(
+        `SELECT has_table_privilege($1, $2, 'SELECT') OR has_table_privilege($1, $2, 'INSERT')
+             OR has_table_privilege($1, $2, 'UPDATE') OR has_table_privilege($1, $2, 'DELETE')
+             OR has_table_privilege($1, $2, 'TRUNCATE') AS open`,
+        [role, `${schema}.held_youtube_findings`],
+      );
+      assert(open.rows[0]?.open === false, `HELD_YOUTUBE_FINDINGS_TABLE_OPEN_TO ${role}`);
+    }
+    await expectPermissionDenied(() => readerPool.query(`SELECT count(*) FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT count(*) FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => reviewPool.query(`DELETE FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT * FROM ${schema}.inspect_held_youtube_findings(ARRAY[1])`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT ${schema}.delete_held_youtube_findings(ARRAY[1])`));
+    await expectPermissionDenied(() => readerPool.query(`SELECT ${schema}.purge_expired_held_youtube_findings()`));
+    const executable = async (role: string) => (await admin.query<{ proname: string }>(
+      `SELECT DISTINCT proc.proname FROM pg_proc proc
+         JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
+        WHERE namespace.nspname = $1 AND proc.proname LIKE '%youtube%'
+          AND has_function_privilege($2, proc.oid, 'EXECUTE')
+        ORDER BY proc.proname`,
+      [schema, role],
+    )).rows.map(({ proname }) => proname).join();
+    assert(await executable("askrigor_research_access") === [...HELD_ACCESS_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_ACCESS_FUNCTIONS_MISMATCH");
+    assert(await executable("askrigor_research_review") === [...HELD_REVIEW_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_REVIEW_FUNCTIONS_MISMATCH");
+    assert(await executable("askrigor_reader") === "", "HELD_YOUTUBE_FINDINGS_READER_EXECUTES_A_FUNCTION");
+    checks.push("held_youtube_findings_reached_only_through_functions_each_role_executes_exactly_its_own");
+
+    // At a save, through the research-access role: held exactly 30 days from the save, and never refreshed.
+    const card = 9_301;
+    const sha = createHash("sha256").update("synthetic-held-youtube-card").digest("hex");
+    const content: HeldYouTubeFindingContent = {
+      findingNumber: 1,
+      claim: "Commenters reported less pain after months of home exercise.",
+      certainty: "low",
+      appliesTo: "Adults exercising at home",
+      whyNotUsual: "Quick answers leave out what people who kept exercising report.",
+      whatWouldChangeIt: "Commenters reporting no change.",
+      kind: "effect",
+      subject: "Home exercise",
+      direction: "benefit",
+      tags: ["community_checked"],
+      verifiedBases: ["comment_audit"],
+    };
+    const savedAt = new Date(Date.now() - 60_000).toISOString();
+    const first = await access.hold({ cardNumber: card, cardSha256: sha, savedAt, findings: [content] });
+    assert(first.length === 1 && first[0]!.heldNow && first[0]!.savedAt === savedAt &&
+      Date.parse(first[0]!.expiresAt) - Date.parse(savedAt) === 30 * DAY, "HELD_YOUTUBE_FINDING_NOT_HELD_FOR_30_DAYS");
+    const again = await access.hold({ cardNumber: card, cardSha256: sha, savedAt: new Date().toISOString(), findings: [content] });
+    assert(again.length === 1 && !again[0]!.heldNow && again[0]!.expiresAt === first[0]!.expiresAt,
+      "HELD_YOUTUBE_FINDING_REFRESHED");
+    // One already past its 30 days is never held, through either role.
+    const stale = await review.hold({
+      cardNumber: card + 1, cardSha256: sha, savedAt: new Date(Date.now() - 31 * DAY).toISOString(), findings: [content],
+    });
+    assert(stale.length === 0, "HELD_YOUTUBE_FINDING_PAST_30_DAYS_HELD");
+    // Nothing but AskRigor's fields: a source, or a value no column takes, is refused by the function itself.
+    const direct = (finding: Record<string, unknown>) => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb)`,
+      [card + 2, sha, JSON.stringify([{
+        finding_number: 1, claim: "A summary.", certainty: "low", applies_to: "Adults", why_not_usual: "Missed.",
+        what_would_change_it: "More reports.", tags: [], verified_bases: [], ...finding,
+      }])],
+    );
+    await expectMessage(() => direct({ sources: ["aaaaaaaaaaa"] }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ answer_quote: "A quoted sentence." }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ certainty: "certain" }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ tags: ["a_tag_no_card_has"] }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ claim: "x".repeat(501) }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    // The review role reads back AskRigor's texts and fixed values, exactly.
+    const read = await review.inspect([card]);
+    assert(read.length === 1 && isDeepStrictEqual(read[0], {
+      ...content, cardNumber: card, cardSha256: sha, savedAt, expiresAt: first[0]!.expiresAt,
+    }), "HELD_YOUTUBE_FINDING_READ_MISMATCH");
+
+    // A row past its 30 days (written as the migrator; no role can): no read returns it before any purge, the check
+    // refuses any other expiry, and the purge deletes it and nothing else.
+    const expiredSaved = new Date(Date.now() - 31 * DAY).toISOString();
+    await admin.query(
+      `INSERT INTO ${schema}.held_youtube_findings
+         (card_number, card_sha256, finding_number, claim, certainty, applies_to, why_not_usual, what_would_change_it,
+          kind, subject, direction, tags, verified_bases, saved_at, expires_at)
+       VALUES ($1, $2, 1, 'An expired summary.', 'low', 'Adults', 'Missed.', 'More reports.', NULL, NULL, NULL,
+               '[]'::jsonb, '[]'::jsonb, $3::timestamptz, $3::timestamptz + interval '720 hours')`,
+      [card, "e".repeat(64), expiredSaved],
+    );
+    assert((await review.inspect([card])).map(({ cardSha256 }) => cardSha256).join() === sha,
+      "HELD_YOUTUBE_FINDING_EXPIRED_ROW_RETURNED");
+    await expectPgCode(() => admin.query(
+      `UPDATE ${schema}.held_youtube_findings SET expires_at = expires_at + interval '1 day' WHERE card_number = $1`,
+      [card],
+    ), "23514");
+    assert(await access.purgeExpired() === 1, "HELD_YOUTUBE_FINDINGS_PURGE_MISMATCH");
+    const left = await admin.query<{ card_sha256: string }>(
+      `SELECT card_sha256::text FROM ${schema}.held_youtube_findings WHERE card_number = $1`, [card]);
+    assert(left.rows.map(({ card_sha256: kept }) => kept).join() === sha, "HELD_YOUTUBE_FINDINGS_PURGE_DELETED_A_LIVE_ROW");
+    assert(await review.purgeExpired() === 0, "HELD_YOUTUBE_FINDINGS_SECOND_PURGE_DELETED_SOMETHING");
+    // The owner deletes a card's held findings early, through the review role.
+    assert(await review.deleteForCards([card]) === 1, "HELD_YOUTUBE_FINDINGS_EARLY_DELETE_MISMATCH");
+    assert((await review.inspect([card])).length === 0, "HELD_YOUTUBE_FINDINGS_NOT_DELETED");
+    checks.push("held_youtube_findings_held_30_days_never_refreshed_expired_rows_unread_purged_and_deleted_early");
+
+    // Every migrate runs 0019 again: the table, its grants and the functions' grants stay as they are.
+    await access.hold({ cardNumber: card + 3, cardSha256: sha, savedAt: new Date().toISOString(), findings: [content] });
+    const snapshot = async () => JSON.stringify((await admin.query(
+      `SELECT (SELECT coalesce(relacl::text, '') FROM pg_class WHERE oid = '${schema}.held_youtube_findings'::regclass) AS acl,
+              (SELECT array_agg(pg_get_constraintdef(oid) ORDER BY conname) FROM pg_constraint
+                WHERE conrelid = '${schema}.held_youtube_findings'::regclass) AS constraints,
+              (SELECT array_agg(proname || ':' || coalesce(proacl::text, '') ORDER BY proname) FROM pg_proc
+                WHERE pronamespace = '${schema}'::regnamespace AND proname LIKE '%youtube%') AS functions,
+              (SELECT count(*)::int FROM ${schema}.held_youtube_findings) AS held`,
+    )).rows);
+    const before = await snapshot();
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+    assert(await snapshot() === before, "HELD_YOUTUBE_FINDINGS_SECOND_MIGRATE_CHANGED_SOMETHING");
+    assert((await executable("askrigor_research_access")) === [...HELD_ACCESS_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_GRANTS_LOST_ON_MIGRATE");
+    checks.push("migration_0019_run_again_changes_nothing_and_keeps_every_grant");
+  } finally {
+    await Promise.allSettled([access.close(), review.close(), accessPool.end(), reviewPool.end(), readerPool.end(),
+      admin.end()]);
   }
 }
 
@@ -2659,7 +2838,7 @@ export async function verifyAtlasStorage(context: {
     );
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
-        [...ATLAS_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
+        [...ATLAS_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

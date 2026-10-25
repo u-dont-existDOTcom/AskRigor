@@ -59,6 +59,11 @@ GRANT SELECT, INSERT ON TABLE living_evidence.research_contribution_proposals
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
+  integer, text, timestamptz, jsonb
+) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.purge_expired_held_youtube_findings()
+  TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_access SET search_path = living_evidence, pg_catalog;

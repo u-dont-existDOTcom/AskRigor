@@ -142,6 +142,24 @@ describe("AskRigor public site", () => {
     expect(terms).toContain("agree to be bound by the YouTube Terms of Service");
   });
 
+  // Owner answer 173 (2026-10-25): AskRigor keeps the summary it wrote of what YouTube commenters said, for its owner's
+  // review, for the 30 days YouTube's Developer Policies allow (III.E.4), then deletes it. Its words await the owner's
+  // approval with the release (question 175), in the page's typographic apostrophes; the effective date stays.
+  it("says in its YouTube storage section what is kept of what commenters said, and that it goes after 30 days", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const paragraph = "<p>When a finished research answer reports what YouTube commenters said, AskRigor may keep " +
+      "the summary it wrote of that, with the answer\u2019s research question, for its owner\u2019s review: no comment " +
+      "text, commenter names, channel, comment or video IDs, or links. It is never published and is deleted 30 days " +
+      "after it was saved, or sooner on request.</p>";
+    const start = privacy.indexOf("<section><h2>YouTube refresh, storage, and deletion</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section.endsWith(paragraph)).toBe(true);
+    expect(privacy.split(paragraph)).toHaveLength(2);
+    expect(privacy).not.toContain("answer's research question");
+    expect(privacy).not.toContain("owner's review");
+    expect(privacy).toContain("Effective October 22, 2026");
+  });
+
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [

@@ -312,6 +312,25 @@ export {
   PostgresAtlasWriter,
 } from "./atlas-postgres.js";
 export {
+  HELD_YOUTUBE_FINDING_BASES,
+  HELD_YOUTUBE_FINDING_TAGS,
+  HELD_YOUTUBE_FINDINGS_CARDS_PER_CALL,
+  HELD_YOUTUBE_FINDINGS_DAYS,
+  HELD_YOUTUBE_FINDINGS_MILLISECONDS,
+  HeldYouTubeFindingsError,
+  InMemoryHeldYouTubeFindingsStore,
+  PostgresHeldYouTubeFindingsStore,
+  heldYouTubeFindingExpiry,
+  heldYouTubeFindingSchema,
+  holdYouTubeFindingsInputSchema,
+  type HeldYouTubeFinding,
+  type HeldYouTubeFindingContent,
+  type HeldYouTubeFindingHold,
+  type HeldYouTubeFindingKey,
+  type HeldYouTubeFindingsStore,
+  type HoldYouTubeFindingsInput,
+} from "./held-youtube-findings.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

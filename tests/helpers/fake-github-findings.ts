@@ -126,6 +126,18 @@ export class FakeGitHub {
       return new Response(null, { status: 204 });
     }
     const commentMatch = COMMENT.exec(url);
+    if (commentMatch !== null && method === "PATCH") {
+      // A comment's body replaced (owner answer 173: a later save rewritten without its YouTube findings).
+      this.writes.push({ method, url, body });
+      for (const list of this.comments.values()) {
+        const comment = list.find(({ id }) => id === Number(commentMatch[1]));
+        if (comment !== undefined) {
+          comment.body = String(body.body);
+          return json(comment);
+        }
+      }
+      return json({ message: "Not Found" }, 404);
+    }
     if (commentMatch !== null && method === "DELETE") {
       this.writes.push({ method, url, body });
       for (const list of this.comments.values()) {

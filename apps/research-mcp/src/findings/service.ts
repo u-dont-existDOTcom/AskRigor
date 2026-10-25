@@ -1,5 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
+import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { verifyResearchReceipt } from "../research-receipts.js";
@@ -7,10 +9,14 @@ import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldYouTubeFindingOf,
   isSafeReportedModel,
+  isYouTubeVideoId,
   screenFindingsCard,
   withoutYouTubeData,
-  type StoredFindingsCard
+  type FindingsCard,
+  type StoredFindingsCard,
+  type VerifiedBasis
 } from "./card.js";
 import {
   findingsSaveInputSchema,
@@ -78,6 +84,11 @@ export interface FindingsSaveServiceOptions {
   version: string;
   build: string;
   now?: () => Date;
+  /**
+   * Where the findings a saved card leaves out are held for 30 days (owner answer 173): the database, through the
+   * research-access role. Without it they are not kept.
+   */
+  held?: Pick<HeldYouTubeFindingsStore, "hold">;
 }
 
 /**
@@ -91,9 +102,15 @@ export interface FindingsSaveServiceOptions {
  */
 export class FindingsSaveService {
   private readonly now: () => Date;
+  private readonly holds = new Set<Promise<void>>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** Resolves once every hold this service started has ended, held or not; for tests. */
+  async heldSettled(): Promise<void> {
+    await Promise.all([...this.holds]);
   }
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
@@ -180,6 +197,9 @@ export class FindingsSaveService {
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
         thread: findingsThreadKey(secret, input.contributor, target),
       });
+      if (stored.findingsLeftOut > 0) {
+        this.holdLeftOut(queued.issueNumber, cardSha256, now, input.findings_card, stored.kept, bases);
+      }
       return result({
         status: queued.kind === "created" ? "saved" : "existing_card",
         retryable: false,
@@ -190,6 +210,43 @@ export class FindingsSaveService {
     } catch (error) {
       return queueUnavailable(error);
     }
+  }
+
+  /**
+   * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held for 30 days in the
+   * database, apart from the card, for the owner's review: its texts and fixed values only (heldYouTubeFindingOf), under
+   * the card's issue number, the checked card's digest and its place on that card, from the save time. In the
+   * background: the save's result never waits for it, so a held store that fails or is slow never fails or delays the
+   * save, and then the findings are simply not kept.
+   */
+  private holdLeftOut(
+    issueNumber: number,
+    cardSha256: string,
+    savedAt: Date,
+    card: FindingsCard,
+    kept: readonly number[],
+    bases: VerifiedBasis[][] | undefined,
+  ): void {
+    const held = this.options.held;
+    if (held === undefined) return;
+    let work: Promise<unknown>;
+    try {
+      const keptIndexes = new Set(kept);
+      const videoIds = [...new Set(card.findings.flatMap(({ sources }) => sources.filter(isYouTubeVideoId)))];
+      work = held.hold({
+        cardNumber: issueNumber,
+        cardSha256,
+        savedAt: savedAt.toISOString(),
+        findings: card.findings.flatMap((finding, index) => keptIndexes.has(index)
+          ? []
+          : [heldYouTubeFindingOf(finding, index + 1, bases?.[index] ?? [], videoIds)]),
+      });
+    } catch {
+      return;
+    }
+    const settled = Promise.resolve(work).then(() => undefined, () => undefined);
+    this.holds.add(settled);
+    void settled.then(() => this.holds.delete(settled));
   }
 }
 

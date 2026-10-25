@@ -11380,7 +11380,7 @@
     },
     {
       "name": "review_research_contribution",
-      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256 and, by default, the card's topic, numbers, kind, subject, subject type and direction: send topicKey (with topicLabel for a new topic), numbers, kind, subject, subjectType or direction to change one, and all of them for a card saved before these fields; confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it or its fields with a dated note; reject_finding, withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
+      "description": "Owner-only review. Proposals: inspect one deidentified pending research contribution's exact payload and hash, then accept or reject it with a reason; inspect also shows, by ID only, the other pending proposals and canonical records that share its topic, question, frontier or identifiers, and a promotion preflight naming any conflict by its code. Findings for the Atlas: list_findings shows the findings cards that wait; inspect_finding runs every exact check on a card item (card ARF-0142 with finding or lead) and returns its cardSha256, or shows an accepted finding (atlasNumber F-1007) with its versions, label, links and write status; accept_finding takes that cardSha256 and, by default, the card's topic, numbers, kind, subject, subject type and direction: send topicKey (with topicLabel for a new topic), numbers, kind, subject, subjectType or direction to change one, and all of them for a card saved before these fields; confirm: true only after the owner said to accept what the checks flagged; edit_finding accepts with the owner's wording, or after acceptance (with version) corrects it or its fields with a dated note; reject_finding, withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and its held YouTube findings and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Held YouTube findings: the findings drawn from YouTube comments that a saved card leaves out are kept apart from it for 30 days, then deleted; inspect_finding on a card lists them with the day each is deleted, delete_youtube_findings (card) deletes a card's now, and move_youtube_findings (cards, such as [\"ARF-0007\"]) moves those of cards stored before into that hold, rewriting each card as one saved today would read. They are never decided, accepted or published. Nothing from a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies it within about 5 minutes.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11398,9 +11398,11 @@
               "reject_finding",
               "withdraw_finding",
               "link_findings",
-              "forget_card"
+              "forget_card",
+              "move_youtube_findings",
+              "delete_youtube_findings"
             ],
-            "description": "Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card."
+            "description": "Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube findings: move_youtube_findings or delete_youtube_findings."
           },
           "proposalId": {
             "description": "Proposals: the proposal's ID.",
@@ -11420,9 +11422,19 @@
             "maxLength": 2000
           },
           "card": {
-            "description": "Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its contributor asked to delete.",
+            "description": "Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its contributor asked to delete. delete_youtube_findings: the card whose held YouTube findings go now.",
             "type": "string",
             "pattern": "^[Aa][Rr][Ff]-[0-9]{1,9}$"
+          },
+          "cards": {
+            "description": "move_youtube_findings: the stored cards whose findings drawn from YouTube comments move out of the card into the 30-day hold, such as [\"ARF-0007\", \"ARF-0012\"].",
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[Aa][Rr][Ff]-[0-9]{1,9}$"
+            }
           },
           "finding": {
             "description": "Findings actions: the card's finding, from 1.",
@@ -11731,7 +11743,9 @@
               "checks_not_passed",
               "try_again_later",
               "card_forgotten",
-              "card_forget_waiting_for_owner"
+              "card_forget_waiting_for_owner",
+              "youtube_findings_moved",
+              "youtube_findings_deleted"
             ]
           },
           "proposal": {
@@ -12944,6 +12958,142 @@
               },
               "githubSynced": {
                 "type": "boolean"
+              },
+              "heldYoutubeFindings": {
+                "anyOf": [
+                  {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "finding": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5
+                        },
+                        "claim": {
+                          "type": "string"
+                        },
+                        "certainty": {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "moderate",
+                            "low",
+                            "very_low"
+                          ]
+                        },
+                        "appliesTo": {
+                          "type": "string"
+                        },
+                        "whyNotUsual": {
+                          "type": "string"
+                        },
+                        "whatWouldChangeIt": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "effect",
+                                "harm",
+                                "overlooked_option",
+                                "correction",
+                                "nothing_found",
+                                "tested_vs_sold"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subject": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "direction": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "benefit",
+                                "harm",
+                                "no_effect",
+                                "mixed",
+                                "descriptive"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "full_text_read",
+                              "community_checked",
+                              "contradicts_common_answer",
+                              "overlooked_study",
+                              "documented_absence"
+                            ]
+                          }
+                        },
+                        "bases": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "full_text_audit",
+                              "comment_audit",
+                              "bounded_absence",
+                              "research_correction"
+                            ]
+                          }
+                        },
+                        "savedOn": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "deletedOn": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "finding",
+                        "claim",
+                        "certainty",
+                        "appliesTo",
+                        "whyNotUsual",
+                        "whatWouldChangeIt",
+                        "kind",
+                        "subject",
+                        "direction",
+                        "tags",
+                        "bases",
+                        "savedOn",
+                        "deletedOn"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -12958,7 +13108,8 @@
               "beyondQuickAnswer",
               "topic",
               "items",
-              "githubSynced"
+              "githubSynced",
+              "heldYoutubeFindings"
             ],
             "additionalProperties": false
           },
@@ -14019,6 +14170,11 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "youtubeFindingsDeleted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -14031,6 +14187,118 @@
               "findingsAlsoElsewhere",
               "laterSavesDeletedOn",
               "refiled",
+              "ownerSteps"
+            ],
+            "additionalProperties": false
+          },
+          "youtubeFindings": {
+            "type": "object",
+            "properties": {
+              "cards": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "card": {
+                      "type": "string",
+                      "pattern": "^ARF-[0-9]{4,}$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "moved",
+                        "nothing_to_move",
+                        "not_found",
+                        "unreadable",
+                        "every_finding_youtube",
+                        "decisions_in_the_way",
+                        "incomplete",
+                        "deleted"
+                      ]
+                    },
+                    "held": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "finding": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "save": {
+                            "type": "string",
+                            "enum": [
+                              "card",
+                              "later_save"
+                            ]
+                          },
+                          "deletedOn": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          }
+                        },
+                        "required": [
+                          "finding",
+                          "save",
+                          "deletedOn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "deleted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "cardRewritten": {
+                      "type": "boolean"
+                    },
+                    "laterSavesRewritten": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "laterSavesDeleted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "decidedFindings": {
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                      }
+                    }
+                  },
+                  "required": [
+                    "card",
+                    "status",
+                    "held",
+                    "deleted",
+                    "cardRewritten",
+                    "laterSavesRewritten",
+                    "laterSavesDeleted",
+                    "decidedFindings"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "ownerSteps": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "cards",
               "ownerSteps"
             ],
             "additionalProperties": false

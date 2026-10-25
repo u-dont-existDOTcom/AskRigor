@@ -69,6 +69,15 @@ GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_finding_intents(text[])
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_cards(integer[], timestamptz)
   TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
+  integer, text, timestamptz, jsonb
+) TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_held_youtube_findings(integer[])
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.delete_held_youtube_findings(integer[])
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.purge_expired_held_youtube_findings()
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

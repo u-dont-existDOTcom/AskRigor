@@ -41,11 +41,13 @@ only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
-permissions documented below. The research-review role can execute only the
+permissions documented below, and executes two held YouTube findings functions
+of migration 0019 (hold and purge). The research-review role can execute only the
 three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012) and the five Atlas review functions of migration 0017 (inspect
+migration 0012), the five Atlas review functions of migration 0017 (inspect
 cards, decide a card item, record an intent, inspect intents, and forget
-cards), and has no direct table or sequence privileges. The
+cards) and the four held YouTube findings functions of migration 0019 (hold,
+inspect, delete and purge), and has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -90,7 +92,9 @@ placed in Compose.
    function. It cannot grant entitlements, review proposals, or write canonical
    evidence.
    Verify migration identity and query the catalog as the migrator to prove
-   askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view,
+   askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view
+   except `held_youtube_findings` (migration 0019) and the notice rollback hold
+   tables, which only the migrator reads,
    has no INSERT/UPDATE/DELETE/TRUNCATE privileges, and defaults to read-only
    transactions. Separately connect as `askrigor_evidence_gap_intake` and prove
    that it can select/insert/update the intake table but cannot delete from it,
@@ -159,7 +163,8 @@ schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
 the hash-bound inspect/decide functions, the read-only review context
-function and the five Atlas review functions, and cannot read tables directly.
+function, the five Atlas review functions and the four held YouTube findings
+functions, and cannot read tables directly.
 
 Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
 a plain answer before research, and their checked answers end with a note
@@ -376,6 +381,72 @@ and puts back 0017's bodies of `atlas_redaction_permits` and
 image serves, recreate `research-mcp` with that image, have each user refresh
 the app's tool list once more, and only then put the
 `ASKRIGOR_ATLAS_REVIEW=enabled` line back and open the owner's Atlas actions.
+
+Held YouTube findings (owner answer 173, 2026-10-25; YouTube Developer Policies,
+section III.E.4, for Non-Authorized Data): the findings drawn from YouTube
+comments that a saved findings card leaves out (owner answer 170) are kept in
+this database for 30 days, apart from the card, for the owner's review, and then
+deleted, with no refreshing. Migration `0019_held_youtube_findings` adds:
+
+- the private table `held_youtube_findings`: for each held finding, the card's
+  ARF issue number, the checked card's SHA-256 and the finding's place on that
+  card, AskRigor's texts (the claim, whom it applies to, why the usual answer
+  misses it, what would change it, and the subject when the card declared one),
+  its certainty, kind and direction, its tags and verified bases, the save time
+  and the expiry, which a check holds at exactly 720 hours later. No column holds
+  a source, a link, the answer quote, a contributor or thread key, or any comment
+  text, name, channel, comment or video ID. Each `migrate` removes every grant on
+  it but the migrator's own, the reader's default-privilege SELECT included;
+- four SECURITY DEFINER functions, each revoked from PUBLIC:
+  `hold_youtube_findings` (a save's findings, never one already past its 30
+  days, and never refreshing one held before), `inspect_held_youtube_findings`
+  (a card's findings whose 30 days have not ended), `delete_held_youtube_findings`
+  (a card's, early) and `purge_expired_held_youtube_findings` (every row past its
+  expiry by the database's clock; it takes no time from its caller, so no caller
+  deletes a finding early through it).
+
+The research server holds a saved card's left-out findings through the
+research-access role, in the background: a failure never fails or delays the
+save, and the findings are then not kept. It purges expired rows at start and
+then every hour, from its own process, through both roles. The owner's review
+tool reads, deletes early and moves findings through the review role, and
+`forget_card` deletes a card's held findings with it. No read returns a row past
+its expiry, purged yet or not. `npm run contributor-access:postgres-acceptance`
+checks the table, the functions, the grants, holding, expiry and the purge
+against real PostgreSQL in Docker.
+
+Its release, in this order, before the new image serves:
+
+1. Run the one-shot admin `migrate`, which applies 0019.
+2. Inside the PostgreSQL service, re-run `/usr/local/bin/provision-research-access-role` and
+   `/usr/local/bin/provision-research-review-role`: the access role gets
+   `hold_youtube_findings` and `purge_expired_held_youtube_findings`, and the
+   review role those two with `inspect_held_youtube_findings` and
+   `delete_held_youtube_findings`. Prove the boundary as step 6 above says: each
+   role executes its functions, neither reads, writes or deletes the table
+   directly, and the reader cannot read it.
+3. Recreate only `research-mcp` with the new image, and check the 33-tool
+   catalog: `review_research_contribution` takes two new actions
+   (`move_youtube_findings` and `delete_youtube_findings`) and one new field
+   (`cards`), so the owner refreshes each connector's tool list.
+4. The owner moves the findings drawn from YouTube comments of the cards stored
+   before (ARF-0007, ARF-0012 and ARF-0209) with `move_youtube_findings`, and
+   then deletes the earlier revisions GitHub keeps in each rewritten card's edit
+   history, as the reply lists them.
+
+An image that serves before step 2 holds nothing (its holds fail, and each card
+is saved as before), and its owner's card view says the held findings cannot be
+read.
+
+An image rollback below this release recreates only `research-mcp` with the
+earlier image, which stores cards without their findings drawn from YouTube
+comments, as before, and never holds, reads or purges held findings. Undo no
+migration. Since nothing purges them while it serves, delete the held rows as
+the migrator, so none outlives its 30 days: `DELETE FROM
+living_evidence.held_youtube_findings;` (or, for a rollback of a few days,
+`SELECT living_evidence.purge_expired_held_youtube_findings();` once a day until
+this release serves again). If the earlier image's `migrate` runs, it ignores
+0019's row in `schema_migrations` and leaves the table and functions in place.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

@@ -822,8 +822,13 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "dated note; reject_finding, " +
   "withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also " +
   "erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to " +
-  "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its " +
-  "GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from " +
+  "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and its held YouTube " +
+  "findings and strips its GitHub issue, which the owner then deletes, and findings accepted from it stay while they " +
+  "are valid. Held YouTube findings: the findings drawn from YouTube comments that a saved card leaves out are kept " +
+  "apart from it for 30 days, then deleted; inspect_finding on a card lists them with the day each is deleted, " +
+  "delete_youtube_findings (card) deletes a card's now, and move_youtube_findings (cards, such as [\"ARF-0007\"]) " +
+  "moves those of cards stored before into that hold, rewriting each card as one saved today would read. They are " +
+  "never decided, accepted or published. Nothing from " +
   "a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted " +
   "decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies " +
   "it within about 5 minutes.";
