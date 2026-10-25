@@ -195,6 +195,21 @@ describe("one rejection class at a time: path, expectation, example, and no valu
     expect(store.allProposals()).toHaveLength(0);
   });
 
+  it("contact patterns in a free name and in its value are both reported", async () => {
+    const payload = sourceAnalysis();
+    payload.receipts[0].details = { "sentinel.person@example.com": "Call +1 (555) 010-9999 tomorrow" };
+    const error = await rejection(payload);
+    expect(error.code).toBe("CONTRIBUTION_PRIVACY_REJECTED");
+    expect(error.total).toBe(2);
+    expect(error.problems.map(({ path, rule, expected }) => [path, rule, expected])).toEqual([
+      ["payload.receipts[0].details.*", "contact_pattern", "a deidentified name: this name matches an email address. " +
+        "Contact details, street addresses and credentials are never stored; rename it"],
+      ["payload.receipts[0].details.*", "contact_pattern", "deidentified text: this text matches a phone number. " +
+        "Contact details, street addresses and credentials are never stored; remove it"],
+    ]);
+    expect(everything(error)).not.toMatch(/sentinel\.person@example\.com|010-9999/u);
+  });
+
   it.each([
     ["an email address", "Write to sentinel.person@example.com about it", "sentinel.person@example.com"],
     ["a phone number", "Call +1 (555) 010-9999 tomorrow", "010-9999"],

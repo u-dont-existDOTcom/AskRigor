@@ -53,8 +53,9 @@ const supplements: OptionClass = {
 };
 const notResearched: OptionClass = { option_class: "brain stimulation", state: "not_researched" };
 const outOfReach: OptionClass = { option_class: "intensive residential programs", state: "inaccessible" };
-const NOT_RESEARCHED = "This answer did not research brain stimulation.";
-const OUT_OF_REACH = "This answer could not reach the research on intensive residential programs.";
+const NOT_RESEARCHED = "A class of treatment this answer did not research: brain stimulation.";
+const OUT_OF_REACH = "A class of treatment whose research this answer could not reach: intensive residential " +
+  "programs.";
 const NOT_RESEARCHED_LIMIT = "A plausible class of treatment, brain stimulation, was not researched: say so in the " +
   "answer, as the caveat does.";
 const OUT_OF_REACH_LIMIT = "The research on a plausible class of treatment, intensive residential programs, was out " +

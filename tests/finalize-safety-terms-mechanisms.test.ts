@@ -75,17 +75,18 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
     const cases: Array<[Partial<SafetyClaim>, string]> = [
       [{ basis: "case_reports" }, "Case reports show that this harm can happen, not how often it happens."],
       [{ basis: "hazard_measurement", exposure: "wild seaweed eaten as food", measured_exposure: "alginate extracted in a laboratory." },
-        "This warning rests on measurements of alginate extracted in a laboratory, not on harm observed in people using " +
-          "wild seaweed eaten as food, so how often it would cause harm wasn't measured."],
+        "This warning rests on measurements, not on harm observed in people, so how often it would cause harm wasn't " +
+          "measured. What was measured: alginate extracted in a laboratory. What people would use: wild seaweed eaten " +
+          "as food."],
       [{ basis: "not_quantified", measured_exposure: undefined, studies: undefined },
         "How often this happens wasn't quantified in the sources found here."],
       [{ direction: "safety", basis: "hazard_measurement", exposure: "the thiolated gum", measured_exposure: "one acute high-dose rat test" },
-        "This rests on one acute high-dose rat test, not on observed safety in people using the thiolated gum, so " +
-          "long-term or rare harms are unmeasured."],
+        "This rests on a measurement or an animal test, not on observed safety in people, so long-term or rare harms " +
+          "are unmeasured. What it rests on: one acute high-dose rat test. What people would use: the thiolated gum."],
       [{ direction: "safety", basis: "case_reports", exposure: "the gum" },
-        "Case reports can show that a harm happens, but not that the gum is safe."],
+        "Case reports can show that a harm happens, but not that this exposure is safe: the gum."],
       [{ direction: "safety", basis: "not_quantified", exposure: "the gum", measured_exposure: undefined, studies: undefined },
-        "How often harms occur with the gum wasn't quantified in the sources found here."]
+        "How often harms occur wasn't quantified in the sources found here for this exposure: the gum."]
     ];
     for (const [overrides, caveat] of cases) {
       const quote = "The sentence the model declared.";
@@ -186,8 +187,8 @@ describe("finalize_research key_terms (owner question 86, issue #328)", () => {
 
 describe("finalize_research mechanism_claims (owner question 88, issue #330)", () => {
   const QUOTE = "The gum did not suppress acid secretion.";
-  const CAVEAT = "This finding comes from injection into the abdomen in animals in Rat study; use by mouth in people " +
-    "was not tested for it.";
+  const CAVEAT = "This finding comes from injection into the abdomen in animals; use by mouth in people was not " +
+    "tested for it. Source: Rat study.";
   it("asks for the route caveat when the use and the evidence used different routes", () => {
     const mechanism = {
       quote: QUOTE, use_route: "oral" as const, evidence_route: "intraperitoneal" as const, evidence_in: "animals" as const,

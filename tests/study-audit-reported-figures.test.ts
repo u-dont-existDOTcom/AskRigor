@@ -136,6 +136,55 @@ describe("study audit reported_figures", () => {
     }] })).toThrow("Study audit cited an unknown source block");
   });
 
+  // Owner answer 166a (2026-10-23): a figure worked out from printed numbers is checked, not refused.
+  it("checks a worked-out figure's printed inputs and redoes its arithmetic, recording a mismatch instead of refusing", async () => {
+    const { index, table, audit } = await submission({}, "<td>40</td><td>60</td><td>1,500</td><td>0</td>");
+    const worked = (label: string, reported: string, operation: "sum" | "difference" | "ratio" | "percentage",
+      printed: string[], block = table) => ({
+      label, evidence_block_id: table, reported, recomputation: `The ${operation} of the printed numbers.`,
+      plausibility: "consistent" as const,
+      worked_out: { operation, inputs: printed.map((value) => ({ evidence_block_id: block, printed: value })) }
+    });
+    const checkOf = (...figures: ReturnType<typeof worked>[]) =>
+      validateStudyMethodAudit(index, { ...audit, reported_figures: figures }).reported_figures_check;
+    // Not printed in the block, so a printed figure of 100 would be refused; worked out, it is checked.
+    expect(checkOf(
+      worked("analyzed participants", "100", "sum", ["40", "60"]),
+      worked("difference between arms", "20", "difference", ["40", "60"]),
+      worked("treated share", "4%", "percentage", ["60", "1,500"]),
+      worked("responder share", "66.7%", "percentage", ["40", "60"]),
+      worked("rate ratio", "0.67", "ratio", ["40", "60"]),
+      worked("grouped total", "1,540", "sum", ["1,500", "40"])
+    )).toEqual({
+      status: "consistent", mismatched: [], impossible_as_printed: [], values: [],
+      worked_out: ["analyzed participants", "difference between arms", "treated share", "responder share", "rate ratio",
+        "grouped total"]
+    });
+    // Arithmetic that gives another value is recorded as not matching; the paper's own status does not change.
+    expect(checkOf(
+      worked("analyzed participants", "110", "sum", ["40", "60"]),
+      worked("responder share", "66.6%", "percentage", ["40", "60"]),
+      worked("per zero", "5", "ratio", ["40", "0"])
+    )).toEqual({
+      status: "consistent", mismatched: [], impossible_as_printed: [], values: [],
+      worked_out_mismatched: [
+        { label: "analyzed participants", computed: 100 },
+        { label: "responder share", computed: 66.6667 },
+        { label: "per zero", computed: null }
+      ]
+    });
+    // An input must be printed in its block, as a printed figure must.
+    expect(() => checkOf(worked("analyzed participants", "100", "sum", ["40", "70"])))
+      .toThrow("Study audit reported figure \"analyzed participants\" has an input that is not in its cited source block");
+    // A difference, ratio or percentage has exactly two inputs, each with a printed number.
+    expect(studyMethodAuditSubmissionSchema.safeParse({
+      ...audit, reported_figures: [worked("three-way difference", "10", "difference", ["40", "60", "1,500"])]
+    }).success).toBe(false);
+    expect(studyMethodAuditSubmissionSchema.safeParse({
+      ...audit, reported_figures: [worked("unnumbered", "100", "sum", ["forty", "60"])]
+    }).success).toBe(false);
+  });
+
   it("separates an audit that lists no figures from one that never declared them", async () => {
     const { index, audit } = await submission();
     const { reported_figures: _figures, ...undeclared } = audit;
@@ -187,7 +236,8 @@ describe("finalize_research reads each key study's figures check", () => {
     ],
     absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: `${draft}\n\n${SKIP}`
   } satisfies FinalizeResearchInput, { secret: SECRET }));
-  const IDENTICAL = "Paper 2017 and Paper 2018 report identical results, so they are counted once, not as independent replication.";
+  const IDENTICAL = "Two studies that report identical results: Paper 2017; Paper 2018. They are counted once, not as " +
+    "independent replication.";
 
   it("asks a new audit without figures to declare them, and leaves audits signed before the check alone", () => {
     const missing = check([sign({ id: A, fig: "not_declared" }), sign({ id: B, fig: "none_reported" })]);
@@ -196,7 +246,8 @@ describe("finalize_research reads each key study's figures check", () => {
       `The study audit of ${A} lists no reported_figures: validate it again with reported_figures, each headline ` +
         "result (not a dose or group size) as the paper prints it with its source block, recomputed from the " +
         "paper's own tables or with why that isn't possible, or with an empty list and reported_figures_none_reason " +
-        "when it reports no numeric result; pass the research_receipt it returns.",
+        "when it reports no numeric result; a figure worked out from printed numbers, such as the analyzed group " +
+        "behind a rate, is listed with worked_out, its printed inputs and how; pass the research_receipt it returns.",
       TOOL_LIST_REFRESH_HINT
     ]);
     expect(check([sign({ id: A }), sign({ id: B })]).status).toBe("ready_with_limits");
@@ -206,9 +257,9 @@ describe("finalize_research reads each key study's figures check", () => {
   });
 
   it("carries a study's inconsistency and its impossible values into the answer as caveats", () => {
-    const inconsistent = "The reported figures in Paper 2017 don't match the study's own data, so its results stay " +
+    const inconsistent = "A study whose reported figures don't match its own data: Paper 2017. Its results stay " +
       "unreliable until they are reconciled.";
-    const impossible = "The value 96 mmol/g in Paper 2018 is physically impossible as printed, so it is not used.";
+    const impossible = "A value that is physically impossible as printed, so it is not used: 96 mmol/g. Study: Paper 2018.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];
     expect(check(receipts).caveats).toEqual([SKIP, inconsistent, impossible]);

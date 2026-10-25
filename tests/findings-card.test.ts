@@ -22,6 +22,7 @@ describe("findings card", () => {
     expect(canonicalJson({ b: [2, { d: 1, c: undefined, a: "x" }], a: null })).toBe('{"a":null,"b":[2,{"a":"x","d":1}]}');
     const reordered = findingsCardSchema.parse({
       open_leads: CARD.open_leads,
+      topic: Object.fromEntries(Object.entries(CARD.topic).reverse()),
       public_value: Object.fromEntries(Object.entries(CARD.public_value).reverse()),
       findings: CARD.findings.map((finding) => Object.fromEntries(Object.entries(finding).reverse())),
       usual_answer: `  ${CARD.usual_answer}  `,
@@ -113,7 +114,9 @@ describe("findings card", () => {
 });
 
 describe("findings card as the library stores it", () => {
-  it("keeps no YouTube video IDs or links, only how many videos backed a finding", () => {
+  // Owner answer 170 (24 Oct): no finding drawn from YouTube comments is stored on the card (since owner answer 173 it
+  // is held apart from it, for the owner's review).
+  it("leaves out a finding drawn from YouTube comments, and keeps no YouTube video IDs or links in the rest", () => {
     const card = findingsCardSchema.parse({
       ...CARD,
       findings: [{
@@ -121,22 +124,24 @@ describe("findings card as the library stores it", () => {
         claim: "Viewers of [a physiotherapist's talk](https://www.youtube.com/watch?v=aaaaaaaaaaa) and of " +
           "https://youtu.be/bbbbbbbbbbb?t=42 reported less pain after eight weeks.",
         sources: ["10.1002/art.41142", "aaaaaaaaaaa", "bbbbbbbbbbb"]
+      }, {
+        ...CARD.findings[0],
+        why_not_usual: "Quick answers skip [the trial's talk](https://youtu.be/ccccccccccc) of its methods."
       }]
     });
-    const { card: stored, omitted } = withoutYouTubeData(card);
-    expect(omitted).toBe(true);
-    expect(stored.findings[0]).toMatchObject({
-      claim: "Viewers of a physiotherapist's talk (YouTube video) and of (YouTube video) reported less pain after " +
-        "eight weeks.",
-      sources: ["10.1002/art.41142"],
-      youtube_videos: 2
-    });
-    expect(JSON.stringify(stored)).not.toMatch(/aaaaaaaaaaa|bbbbbbbbbbb|youtube\.com|youtu\.be/u);
+    const stored = withoutYouTubeData(card);
+    expect(stored).toMatchObject({ omitted: true, kept: [1], findingsLeftOut: 1 });
+    expect(stored.card.findings).toHaveLength(1);
+    expect(stored.card.findings[0]).toMatchObject({ claim: CARD.findings[0]!.claim, sources: ["10.1002/art.41142"],
+      why_not_usual: "Quick answers skip the trial's talk (YouTube video) of its methods." });
+    expect(JSON.stringify(stored.card)).not.toMatch(/aaaaaaaaaaa|bbbbbbbbbbb|ccccccccccc|youtube\.com|youtu\.be/u);
+    // A finding the receipt signs as resting on a comment audit is left out too.
+    expect(withoutYouTubeData(card, new Set([1]))).toMatchObject({ kept: [], findingsLeftOut: 2 });
   });
 
   it("stores a card without YouTube data as it was checked", () => {
     const card = findingsCardSchema.parse({ ...CARD, findings: [{ ...CARD.findings[0], sources: ["10.1002/art.41142"] }] });
-    expect(withoutYouTubeData(card)).toEqual({ card, omitted: false });
+    expect(withoutYouTubeData(card)).toEqual({ card, omitted: false, kept: [0], findingsLeftOut: 0 });
   });
 });
 

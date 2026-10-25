@@ -295,15 +295,14 @@ describe("research contributor access", () => {
     expect(store.allProposals()).toHaveLength(1);
   });
 
-  // Owner decision Q11 (2026-09-30) made free use save each finished answer's findings card (v2). Owner answers 159
-  // (1b and 7) and 160b (2026-10-22) add that findings the owner accepts may be published in the public Atlas, what
-  // deleting a card removes and that a published finding stays while it is valid (v3), word for word as drafted for
-  // the owner's approval.
-  it("pins the third free contributor notice, word for word, after the two earlier versions", () => {
-    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v3-2026-10-22");
+  // Owner answer 171 (2026-10-25): the three approved changes to the free notice, word for word.
+  // All other sentences stay as in v3, and every earlier account accepts v4 before free research.
+  it("pins the fourth free contributor notice, word for word, after the three earlier versions", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v4-2026-10-25");
     expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual([
       "free-contributor-v1-2026-09-01",
       "free-contributor-v2-2026-09-30",
+      "free-contributor-v3-2026-10-22",
     ]);
     expect(RESEARCH_USE_NOTICE).toBe([
       "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
@@ -315,9 +314,9 @@ describe("research contributor access", () => {
         "raw source or provider bodies.",
       "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because " +
         "it was saved or repeated.",
-      "Findings that AskRigor's owner accepts may be published in AskRigor's public Atlas, written without you.",
-      "If you ask to delete a findings card, everything that ties it to you is removed, and no reason is needed.",
-      "A published finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, " +
+      "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
+      "If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.",
+      "An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, " +
         "and rewritten or removed if it could identify anyone.",
       "Paid private access saves research findings or lesson feedback only when you accept saving them for that " +
         "answer, and requires an active verified entitlement.",
@@ -378,11 +377,13 @@ describe("research contributor access", () => {
     expect(store.allAccounts()).toEqual([]);
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false, findingsSave: true,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false, findingsSave: true,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
     await service.acceptFreeContributor(SUBJECT, agreement());
@@ -409,7 +410,8 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: false });
     await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true, findingsSave: true,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Each setting changes only itself.
     await service.setPlainAnswerNote(SUBJECT, false);
@@ -427,6 +429,34 @@ describe("research contributor access", () => {
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
       "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
       "plainAnswerNote", "revokedAt", "status", "updatedAt"
+    ]);
+  });
+
+  it("stores findings-card saving on by default, preserves it through save and revocation, and changes only itself", async () => {
+    const { store, service } = fixture();
+    await expect(service.setFindingsSave(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: true });
+    await service.setPlainAnswerNote(SUBJECT, false);
+    await service.setDetailedLessonReports(SUBJECT, true);
+    await expect(service.setFindingsSave(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({
+      findingsSave: false, plainAnswerNote: false, detailedLessonReports: true,
+    });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: false });
+    await service.revoke(SUBJECT);
+    await expect(service.setFindingsSave(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: false });
+    await expect(service.setFindingsSave(SUBJECT, true)).resolves.toBe(true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({
+      findingsSave: true, plainAnswerNote: false, detailedLessonReports: true,
+    });
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt",
     ]);
   });
 

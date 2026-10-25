@@ -21,11 +21,12 @@ import { issueResearchReceipt } from "../../apps/research-mcp/src/research-recei
 import { FakeGitHub } from "./fake-github-findings.js";
 
 // The hermetic Atlas phase 2 scenario (design section 7), on the organization draft's invented example: Velmor
-// syndrome, zentarine, both trials and every number are synthetic, and 10.0000/ marks synthetic identifiers. It runs
-// in process with the real findings library save, real signed receipts, the owner's tool as the connector calls it, an
-// in-memory GitHub and a fetch that answers the providers from the recorded fixtures, so no request leaves the process.
-// The review store, the canonical reader and the promotion runner are given: in memory (tests/atlas-acceptance-end-to-
-// end.test.ts) or PostgreSQL (the Docker acceptance). It needs no test runner.
+// syndrome, zentarine, both trials and every number are synthetic, and 10.0000/ marks synthetic identifiers. Its cards
+// declare Atlas phase 3's fields, which acceptance takes by default and the store keeps (phase 3 design, section 5).
+// It runs in process with the real findings library save, real signed receipts, the owner's tool as the connector calls
+// it, an in-memory GitHub and a fetch that answers the providers from the recorded fixtures, so no request leaves the
+// process. The review store, the canonical reader and the promotion runner are given: in memory
+// (tests/atlas-acceptance-end-to-end.test.ts) or PostgreSQL (the Docker acceptance). It needs no test runner.
 
 export interface AtlasScenarioStores {
   /** The review role's five functions. */
@@ -62,7 +63,27 @@ const VIDEO = "zentarineV1";
 const DOI_A = "10.0000/synthetic-velmor-a";
 const DOI_B = "10.0000/synthetic-velmor-b";
 
-/** The first card: finding 1 rests on a full-text audit (and audited comments), finding 2 on nothing beyond. */
+const TREMOR = {
+  outcome: "tremor score halved", better: "more" as const, option: "zentarine 20 mg", option_events: 30,
+  option_total: 120, comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+};
+const NAUSEA = {
+  outcome: "nausea", better: "fewer" as const, option: "zentarine 20 mg", option_events: 12, option_total: 120,
+  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+};
+const LOW_DOSE = {
+  outcome: "tremor score halved", better: "more" as const, option: "zentarine 5 mg", option_events: 20,
+  option_total: 100, comparator: "placebo", comparator_events: 19, comparator_total: 100, follow_up: "12 weeks",
+};
+
+/** The topic both cards declare (Atlas phase 3). */
+export const VELMOR_TOPIC = { key: "velmor-syndrome", label: "Velmor syndrome" };
+
+/**
+ * The first card: finding 1 rests on a full-text audit (and audited comments), finding 2 on nothing beyond. Both
+ * declare the Atlas fields, as a card saved from this release does: finding 1 an effect with its numbers block,
+ * finding 2 a search that found nothing, with the search it made.
+ */
 export const VELMOR_CARD = {
   question: "Does zentarine ease the hand tremor of Velmor syndrome in adults, and what are its side effects?",
   usual_answer: "Zentarine is a gentle supplement that eases the tremor and is well tolerated.",
@@ -73,10 +94,16 @@ export const VELMOR_CARD = {
     certainty: "moderate",
     applies_to: "Adults with Velmor syndrome",
     answer_quote: "In the invented trial, zentarine 20 mg halved the tremor score for 1 in 10 more adults than placebo.",
-    sources: [DOI_A, VIDEO],
+    // A study only: a finding drawn from YouTube comments is left out of the stored card (owner answer 170).
+    sources: [DOI_A],
     why_not_usual: "Quick answers call it gentle and miss the trial's numbers, harms included.",
-    tags: ["full_text_read", "community_checked"],
+    tags: ["full_text_read"],
     what_would_change_it: "A second trial of similar size with a different result.",
+    kind: "effect",
+    subject: "zentarine",
+    subject_type: "supplement",
+    direction: "benefit",
+    numbers: [TREMOR, NAUSEA],
   }, {
     claim: "Zentarine may also ease the voice tremor of Velmor syndrome, though no trial measured it.",
     certainty: "very_low",
@@ -86,12 +113,18 @@ export const VELMOR_CARD = {
     why_not_usual: "Quick answers do not tell the hand tremor from the voice tremor.",
     tags: [],
     what_would_change_it: "A trial that measures the voice tremor.",
+    kind: "nothing_found",
+    subject: "zentarine",
+    subject_type: "supplement",
+    direction: "descriptive",
+    searches: [{ database: "pubmed", query: "zentarine voice tremor" }],
   }],
   public_value: {
     scope: "public",
     who_else: "Adults with Velmor syndrome weighing zentarine",
     what_it_changes: "It gives the trial's numbers, harms included, instead of calling it gentle.",
   },
+  topic: VELMOR_TOPIC,
   open_leads: ["Doses above 20 mg"],
 };
 
@@ -109,27 +142,21 @@ export const LOW_DOSE_CARD = {
     why_not_usual: "Quick answers treat every dose as the same.",
     tags: ["full_text_read"],
     what_would_change_it: "A trial of 5 mg with a clear benefit.",
+    kind: "effect",
+    subject: "zentarine",
+    subject_type: "supplement",
+    direction: "no_effect",
+    numbers: [LOW_DOSE],
   }],
   public_value: {
     scope: "public",
     who_else: "Adults with Velmor syndrome offered a low dose",
     what_it_changes: "It shows the low dose may not help, so the dose matters.",
   },
+  topic: VELMOR_TOPIC,
   open_leads: [],
 };
 
-const TREMOR = {
-  outcome: "tremor score halved", better: "more" as const, option: "zentarine 20 mg", option_events: 30,
-  option_total: 120, comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
-};
-const NAUSEA = {
-  outcome: "nausea", better: "fewer" as const, option: "zentarine 20 mg", option_events: 12, option_total: 120,
-  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
-};
-const LOW_DOSE = {
-  outcome: "tremor score halved", better: "more" as const, option: "zentarine 5 mg", option_events: 20,
-  option_total: 100, comparator: "placebo", comparator_events: 19, comparator_total: 100, follow_up: "12 weeks",
-};
 
 type Respond = () => Response | Promise<Response>;
 
@@ -239,7 +266,7 @@ export async function runAtlasScenario(
   globalThis.fetch = await providerFetch();
   try {
     // 1. A free contributor's checked card is saved for review.
-    const savedA = await save(VELMOR_CARD, ALICE, "0123456789ab", ["full_text_audit.comment_audit", "none"]);
+    const savedA = await save(VELMOR_CARD, ALICE, "0123456789ab", ["full_text_audit", "none"]);
     assert.deepEqual(savedA, { status: "saved", retryable: false, card_id: "ARF-0042", occurrence_count: 1 });
     report.steps.push("saved ARF-0042");
 
@@ -248,25 +275,26 @@ export async function runAtlasScenario(
     assert.equal(listed.structured.outcome, "findings_listed");
     assert.deepEqual((listed.structured.findings as { cards: Array<{ items: unknown[] }> }).cards[0]!.items, [
       { item: "finding", number: 1, text: VELMOR_CARD.findings[0]!.claim.slice(0, 159) + "…", certainty: "moderate",
-        wouldBecome: "checked", recheckOf: null },
-      { item: "finding", number: 2, text: VELMOR_CARD.findings[1]!.claim, certainty: "very_low", wouldBecome: "lead",
+        kind: "effect", wouldBecome: "checked", recheckOf: null },
+      { item: "finding", number: 2, text: VELMOR_CARD.findings[1]!.claim, certainty: "very_low", kind: "nothing_found",
+        wouldBecome: "lead", recheckOf: null },
+      { item: "lead", number: 1, text: "Doses above 20 mg", certainty: null, kind: null, wouldBecome: "lead",
         recheckOf: null },
-      { item: "lead", number: 1, text: "Doses above 20 mg", certainty: null, wouldBecome: "lead", recheckOf: null },
     ]);
     const inspected = await call("inspect 1", { action: "inspect_finding", card: "arf-0042", finding: 1 });
     assert.equal(inspected.structured.outcome, "finding_inspected");
     const cardSha256 = (inspected.structured.card as { cardSha256: string }).cardSha256;
     assert.match(cardSha256, /^[a-f0-9]{64}$/u);
-    assert.deepEqual((inspected.structured.checks as Record<string, unknown>).community, "mixed");
-    const accept1 = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256, topicKey: "velmor-syndrome",
-      topicLabel: "Velmor syndrome", numbers: [TREMOR, NAUSEA] };
-    const flagged = await call("accept 1 unconfirmed", accept1);
-    assert.equal(flagged.structured.outcome, "needs_confirmation", "audited comments need the owner's confirm (4a)");
-    const accepted1 = await call("accept 1", { ...accept1, confirm: true });
+    // A finding drawn from YouTube comments is no longer stored (owner answer 170), so no confirmation under 4a is asked;
+    // that check stays for cards stored before (atlas-acceptance-checks.test.ts).
+    assert.deepEqual((inspected.structured.checks as Record<string, unknown>).community, "none");
+    // Atlas phase 3: the card's topic, numbers block, kind, subject, subject type and direction, by default.
+    const accept1 = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 };
+    const accepted1 = await call("accept 1", accept1);
     assert.equal(accepted1.structured.outcome, "finding_queued");
-    assert.ok(accepted1.text.startsWith("Accepted ARF-0042 finding 1 as F-1001, a checked finding, filed under Velmor " +
-      "syndrome (new topic). The Atlas writer stores it within about 5 minutes; nothing is public until the Atlas pages " +
-      "exist."), accepted1.text);
+    assert.ok(accepted1.text.startsWith("Accepted ARF-0042 finding 1 as F-1001, a checked finding, of kind effect, " +
+      "direction benefit, about zentarine (supplement), filed under Velmor syndrome (new topic), the card's topic. The " +
+      "Atlas writer stores it within about 5 minutes; nothing is public until the Atlas pages exist."), accepted1.text);
     later(5);
     await promote("promote F-1001", "F-1001");
     const f1001 = await call("inspect F-1001", { action: "inspect_finding", atlasNumber: "F-1001" });
@@ -277,15 +305,21 @@ export async function runAtlasScenario(
       [[`doi:${DOI_A}`, "supports"]]);
     assert.deepEqual(stored.versions[0]!.content.tags, ["full_text_read"], "community_checked is never stored (4a)");
     assert.deepEqual(stored.versions[0]!.content.verifiedBases, ["full_text_audit"], "comment_audit is no basis (2a)");
+    assert.deepEqual(pick(stored.versions[0]!.content, ["kind", "subject", "subjectType", "direction", "numbers"]), {
+      kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "benefit", numbers: [TREMOR, NAUSEA],
+    }, "the card's fields and numbers block are stored (Atlas phase 3)");
     report.steps.push("accepted and promoted F-1001, checked, bound by DOI");
 
     // 3. Finding 2 has no verified basis: a lead. Every finding then has a decision, so the card is closed as reviewed.
-    const accepted2 = await call("accept 2", { action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256,
-      topicKey: "velmor-syndrome", numbers: [] });
-    assert.ok(accepted2.text.startsWith("Accepted ARF-0042 finding 2 as a lead, F-1002: it has no verified basis."),
+    const accepted2 = await call("accept 2", { action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256 });
+    assert.ok(accepted2.text.startsWith("Accepted ARF-0042 finding 2 as a lead, F-1002, of kind nothing_found, " +
+      "direction descriptive, about zentarine (supplement), with 1 search that found nothing: it has no verified basis."),
       accepted2.text);
     later(5);
     await promote("promote F-1002", "F-1002");
+    const f1002 = finding(await stores.reader.readAtlasState({ publicNumbers: ["F-1002"] }), "F-1002");
+    assert.deepEqual(f1002.versions[0]!.content.searchScope, [{ database: "pubmed", query: "zentarine voice tremor" }],
+      "a search that found nothing keeps the search it made");
     const card42 = github.issue(42);
     assert.equal(card42.state, "closed");
     assert.equal(card42.state_reason, "completed");
@@ -303,9 +337,10 @@ export async function runAtlasScenario(
     const inspectedB = await call("inspect B", { action: "inspect_finding", card: "ARF-0043", finding: 1 });
     const cardB = (inspectedB.structured.card as { cardSha256: string }).cardSha256;
     const acceptedB = await call("accept B", { action: "accept_finding", card: "ARF-0043", finding: 1,
-      cardSha256: cardB, topicKey: "velmor-syndrome", numbers: [LOW_DOSE] });
-    assert.ok(acceptedB.text.startsWith("Accepted ARF-0043 finding 1 as F-1003, a checked finding, filed under Velmor " +
-      "syndrome."), acceptedB.text);
+      cardSha256: cardB });
+    assert.ok(acceptedB.text.startsWith("Accepted ARF-0043 finding 1 as F-1003, a checked finding, of kind effect, " +
+      "direction no_effect, about zentarine (supplement), filed under Velmor syndrome, the card's topic."),
+      acceptedB.text);
     later(5);
     await promote("promote F-1003", "F-1003");
     const f1003 = finding(await stores.reader.readAtlasState({ publicNumbers: ["F-1003"] }), "F-1003");
@@ -334,7 +369,8 @@ export async function runAtlasScenario(
     later(5);
     await promote("promote the correction", "F-1001");
     const f1001v2 = await call("inspect F-1001 v2", { action: "inspect_finding", atlasNumber: "F-1001" });
-    assert.deepEqual(pick(f1001v2.structured.atlas, ["version", "label"]), { version: 2, label: "contested" });
+    assert.deepEqual(pick(f1001v2.structured.atlas, ["version", "label", "kind", "direction"]),
+      { version: 2, label: "contested", kind: "effect", direction: "benefit" }, "the correction keeps the fields");
     report.steps.push("corrected F-1001 to version 2 with a dated note");
 
     // What the final scan looks for, read from the cards before the first one is forgotten and deleted.

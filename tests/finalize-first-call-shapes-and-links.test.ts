@@ -104,7 +104,9 @@ describe("finalize_research inputs ChatGPT's app hides (2026-10-16 probes)", () 
     expect(FINALIZE_RESEARCH_SHAPES_DESCRIPTION).toContain(
       "key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at " +
       "most 200 characters; answer_language is a language tag such as en or pt-BR.");
-    expect(FINALIZE_RESEARCH_SHAPES_DESCRIPTION.length).toBeLessThanOrEqual(2_100);
+    // Atlas phase 3 (2026-10-22) added the findings' fields for the pages and a second finding's example, a search
+    // that found nothing.
+    expect(FINALIZE_RESEARCH_SHAPES_DESCRIPTION.length).toBeLessThanOrEqual(2_700);
     expect(FINALIZE_RESEARCH_SHAPES_DESCRIPTION).not.toMatch(/\b(?:call|must|always|never|do not|don't)\b/iu);
   });
 });

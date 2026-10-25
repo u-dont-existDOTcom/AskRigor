@@ -88,9 +88,9 @@ const UNWATCHED = `I could not watch [this video](${WATCH}), so what this answer
   "title and description.";
 const UNWATCHED_PERSON = `I could not watch [this video](${WATCH}), so what this answer says about it comes from what ` +
   "you said about it, not from watching it.";
-const INDIRECT = "None of the studies I found tested the video's 2-minute fascia routine as described: they differ in " +
-  "the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time " +
-  "horizon, so they are indirect evidence about it.";
+const INDIRECT = "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies " +
+  "differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, " +
+  "and the time horizon, so they are indirect evidence about it.";
 const UNWATCHED_LIMIT = `Video ${VIDEO} was not watched, so what the answer says about it comes only from its title and ` +
   "description: say so, as the caveat does.";
 const UNWATCHED_PERSON_LIMIT = `Video ${VIDEO} was not watched, so what the answer says about it comes from what the ` +
@@ -131,15 +131,18 @@ describe("the named target's sentences", () => {
     expect(unwatchedVideoCaveat(VIDEO, "description_only")).toBe(UNWATCHED);
     expect(unwatchedVideoCaveat(VIDEO, "person")).toBe(UNWATCHED_PERSON);
     expect(namedTargetCaveat("the video's 2-minute fascia routine.", 2, NAMED_TARGET_FIELDS, [])).toBe(INDIRECT);
-    expect(namedTargetCaveat("the routine", 1, ["components"], ["outcome"])).toBe("The study I found did not test the " +
-      "routine as described: it differs in the components, so it is indirect evidence about it.");
-    expect(namedTargetCaveat("the routine", 3, ["components", "outcome"], [])).toBe("None of the studies I found tested " +
-      "the routine as described: they differ in the components and the outcome, so they are indirect evidence about it.");
-    expect(namedTargetCaveat("the routine", 2, [], ["dose_or_intensity", "time_horizon"])).toBe("None of the studies I " +
-      "found is known to have tested the routine as described: the dose or intensity and the time horizon could not be " +
-      "compared, so how directly they apply is not known.");
-    expect(namedTargetCaveat("the routine", 1, [], ["population"])).toBe("The study I found is not known to have tested " +
-      "the routine as described: the population could not be compared, so how directly it applies is not known.");
+    expect(namedTargetCaveat("the routine", 1, ["components"], ["outcome"])).toBe("Not tested as described in the " +
+      "study I found: the routine. The study differs from it in the components, so it is indirect evidence about it.");
+    expect(namedTargetCaveat("the routine", 3, ["components", "outcome"], [])).toBe("Not tested as described in any " +
+      "study I found: the routine. The studies differ from it in the components and the outcome, so they are indirect " +
+      "evidence about it.");
+    // The fields that could not be compared start a sentence of their own.
+    expect(namedTargetCaveat("the routine", 2, [], ["dose_or_intensity", "time_horizon"])).toBe("Not known to have " +
+      "been tested as described in any study I found: the routine. The dose or intensity and the time horizon could " +
+      "not be compared, so how directly the studies apply is not known.");
+    expect(namedTargetCaveat("the routine", 1, [], ["population"])).toBe("Not known to have been tested as described " +
+      "in the study I found: the routine. The population could not be compared, so how directly the study applies is " +
+      "not known.");
     expect([...NAMED_TARGET_FIELDS]).toEqual([
       "components", "dose_or_intensity", "frequency_and_duration", "population", "outcome", "time_horizon"
     ]);
@@ -225,8 +228,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       });
       const lines = `[Bounce trial](https://doi.org/${BOUNCE}) tested the bounce alone.\n\n` +
         `[Lengthening trial](https://doi.org/${STRETCH}) tested lengthening and chest opening alone.`;
-      const componentsOnly = "None of the studies I found tested the video's 2-minute fascia routine as described: " +
-        "they differ in the components, so they are indirect evidence about it.";
+      const componentsOnly = "Not tested as described in any study I found: the video's 2-minute fascia routine. The " +
+        "studies differ from it in the components, so they are indirect evidence about it.";
       const parts = { receipts: [unread, audit(BOUNCE), audit(STRETCH)], key_sources: [bounceOnly, stretchOnly] };
       expect(await call({ ...parts, answer_draft: `${lines}\n\n${UNWATCHED_PERSON} ${componentsOnly}` }))
         .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, componentsOnly] });
@@ -409,8 +412,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       const undescribed = { ...ROUTINE, dose_or_intensity: "Program-Not_Described" };
       const same = source(MATCHED, "Routine trial", { ...matches("same"), target_dose_or_intensity: "not_described" });
       const line = `[Routine trial](https://doi.org/${MATCHED}) tested this routine for a week.`;
-      const caveat = "The study I found is not known to have tested the video's 2-minute fascia routine as described: " +
-        "the dose or intensity could not be compared, so how directly it applies is not known.";
+      const caveat = "Not known to have been tested as described in the study I found: the video's 2-minute fascia " +
+        "routine. The dose or intensity could not be compared, so how directly the study applies is not known.";
       const result = await call({ receipts: [unread, audit(MATCHED)], key_sources: [same], named_target: undescribed,
         answer_draft: `${line}\n\n${UNWATCHED_PERSON} ${caveat}` });
       expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, caveat] });
@@ -423,9 +426,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         `same there or differs there: give ${JUMPS} and ${SNACKS} target_time_horizon not_described.`);
       expect(result.next_step_kinds[0]).toBe("declaration");
       // The caveat counts that field as not compared, whatever the studies declared for it.
-      expect(result.caveats).toEqual([UNWATCHED_PERSON, "None of the studies I found tested the video's 2-minute " +
-        "fascia routine as described: they differ in the components, the dose or intensity, the frequency and " +
-        "duration, the population, and the outcome, so they are indirect evidence about it."]);
+      expect(result.caveats).toEqual([UNWATCHED_PERSON, "Not tested as described in any study I found: the video's " +
+        "2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency " +
+        "and duration, the population, and the outcome, so they are indirect evidence about it."]);
     });
   });
 
@@ -442,7 +445,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         caveat_renderings: [{ caveat, text: french }, { caveat: UNWATCHED_PERSON, text: renderedVideo }],
         answer_draft: `${STUDY_LINES}\n\n${renderedVideo} ${french}` });
       expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, caveat] });
-      expect(caveat).toContain("tested la routine de 2 minutes de la vidéo as described");
+      expect(caveat).toContain("Not tested as described in any study I found: la routine de 2 minutes de la vidéo.");
       // A rendering that drops the video's link is refused.
       expect(await steps({ named_target: { ...ROUTINE, label }, answer_language: "fr",
         caveat_renderings: [{ caveat, text: french }, { caveat: UNWATCHED_PERSON, text: "Je n'ai pas pu regarder cette vidéo." }],

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber, numberReadings
+  extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber, numberReadings, withAsciiDigits
 } from "../apps/research-mcp/src/unicode-numbers.js";
 
 describe("Unicode unsigned numbers", () => {
@@ -42,6 +42,11 @@ describe("Unicode unsigned numbers", () => {
     ["86,5 % against 68.5%", [86.5, 68.5]], ["٤٩٤ من ١٬٢٣٥", [494, 1, 1235, 235]], ["none", []]
   ])("reads every number in %s as firstNumberReadings reads it at its position", (text, readings) => {
     expect(numberReadings(text)).toEqual(readings);
+  });
+
+  it("writes each decimal digit, in any script, as its ASCII digit, and leaves every other character", () => {
+    expect(withAsciiDigits("١٢ أسبوعًا، १२ सप्ताह, １２ weeks, 𝟙𝟚 weeks")).toBe("12 أسبوعًا، 12 सप्ताह, 12 weeks, 12 weeks");
+    expect(withAsciiDigits("Ⅻ weeks, ² and 12.5")).toBe("Ⅻ weeks, ² and 12.5");
   });
 
   it("compares absolute values with a 1e-9 tolerance", () => {

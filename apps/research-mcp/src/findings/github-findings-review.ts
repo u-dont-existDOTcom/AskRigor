@@ -1,6 +1,15 @@
 import { createHash } from "node:crypto";
 
-import { ATLAS_CARD_DECISIONS, type AtlasCardDecision, type AtlasCardItemKind } from "@askrigor/evidence-repository";
+import {
+  ATLAS_CARD_DECISIONS,
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
+  ATLAS_SEARCHES_PER_FINDING,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
+  type AtlasCardDecision,
+  type AtlasCardItemKind,
+} from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import {
@@ -19,6 +28,8 @@ import {
   PUBLIC_VALUE_SCOPES,
   VERIFIED_BASES,
   canonicalJson,
+  findingNumberEntrySchema,
+  findingSearchSchema,
   findingsCardDigest,
   findingsCardFingerprint,
 } from "./card.js";
@@ -29,7 +40,10 @@ import {
   GitHubFindingsQueue,
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
+  SET_ASIDE_LABEL,
+  cardIssueBody,
   marker,
+  occurrenceComment,
   parseCardMetadata,
   parseMarker,
   parseOccurrenceMetadata,
@@ -37,6 +51,7 @@ import {
   type GitHubFindingsRefile,
   type OccurrenceMetadata,
 } from "./github-findings.js";
+import { STORED_WITHOUT } from "./contracts.js";
 import type { FindingsRecord } from "./service.js";
 
 /**
@@ -71,7 +86,8 @@ export function findingsCardNumber(cardId: string): number | undefined {
 }
 
 // The record a card or a later save holds, strictly in the shape the library's save writes (findings/service.ts).
-// Fields added over time (verified bases, the public-value declaration, stored_without) are optional.
+// Fields added over time (verified bases, the public-value declaration, stored_without, and Atlas phase 3's kind,
+// subject, direction, numbers, searches and topic) are optional, so a record saved before each reads as it did.
 const text = (max: number) => z.string().min(1).max(max);
 const storedFindingSchema = z.object({
   claim: text(500),
@@ -82,6 +98,12 @@ const storedFindingSchema = z.object({
   why_not_usual: text(300),
   tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length),
   what_would_change_it: text(300),
+  kind: z.enum(ATLAS_FINDING_KINDS).optional(),
+  subject: text(ATLAS_SUBJECT_MAX_CHARACTERS).optional(),
+  subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
+  numbers: z.array(findingNumberEntrySchema).max(20).optional(),
+  searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional(),
   youtube_videos: z.number().int().min(1).max(10).optional(),
   verified_bases: z.array(z.enum(VERIFIED_BASES)).min(1).max(VERIFIED_BASES.length).optional(),
 }).strict();
@@ -96,10 +118,15 @@ const storedRecordSchema = z.object({
       who_else: text(300).optional(),
       what_it_changes: text(300).optional(),
     }).strict().optional(),
+    topic: z.object({
+      key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
+      label: text(200),
+    }).strict().optional(),
     open_leads: z.array(text(200)).max(6),
   }).strict(),
   card_sha256: z.string().regex(HEX_64),
-  stored_without: z.tuple([z.literal("youtube_video_ids_and_links")]).optional(),
+  stored_without: z.array(z.enum(STORED_WITHOUT)).min(1).max(STORED_WITHOUT.length)
+    .refine((items) => new Set(items).size === items.length).optional(),
   stamp: z.object({
     saved_at: z.iso.datetime(),
     askrigor_version: text(100),
@@ -166,7 +193,9 @@ export function parseFindingsRecordBody(
   if (stored.stamp.saved_at !== metadata.saved_at) return "tampered";
   const linkReplaced = stored.stored_without !== undefined && [stored.card.question,
     ...stored.card.findings.map(({ claim }) => claim)].some((value) => value.includes(YOUTUBE_PLACEHOLDER));
-  if (!linkReplaced && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
+  // Findings left out (owner answer 170) change the claims the fingerprint was taken of, as a replaced link does.
+  const findingsLeftOut = stored.stored_without?.includes("youtube_comment_findings") === true;
+  if (!linkReplaced && !findingsLeftOut && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
   if (stored.stored_without === undefined) {
     const checked = {
       ...stored.card,
@@ -321,11 +350,33 @@ export interface FindingsCommentEntry {
 /** Whether an issue is there, or GitHub answers 404 (no such issue) or 410 (deleted) for it. */
 export type FindingsIssueStatus = "present" | 404 | 410;
 
+/**
+ * What a card's marker says of its save, for the Atlas (decision 171, section 4B): whether the saving account's card is
+ * published as soon as it is saved, and whether it was saved in paid private mode, whose findings are published only
+ * after the owner accepts them. Both are false on a card saved before the marker held them.
+ */
+export interface CardMarks {
+  atlasPublish: boolean;
+  paidPrivate: boolean;
+}
+
+/** The marks of a card's marker. */
+export function cardMarksOf(metadata: CardMetadata): CardMarks {
+  return { atlasPublish: metadata.atlas_publish === true, paidPrivate: metadata.paid_private === true };
+}
+
+/** Whether a card carries the set-aside label (decision 171, default 5). */
+export function isSetAside(labels: readonly string[]): boolean {
+  return labels.includes(SET_ASIDE_LABEL);
+}
+
 /** A card as the owner's review reads it, with its later saves and the decisions its comments record. */
 export interface FindingsCardRead {
   number: number;
   state: "open" | "closed";
   labels: string[];
+  /** What the card's marker says of its save. */
+  marks: CardMarks;
   record: FindingsRecord;
   /** The later saves' records, in the order GitHub lists their comments. */
   occurrences: FindingsRecord[];
@@ -346,6 +397,8 @@ export interface OpenFindingsCard {
   /** The issue's comment count; unknown counts as one, so its comments are read. */
   comments: number;
   record: FindingsRecord | undefined;
+  /** What the card's marker says of its save; undefined with the record. */
+  marks: CardMarks | undefined;
 }
 
 export type FindingsCardComments =
@@ -360,6 +413,8 @@ export interface FindingsCardInbox {
   postDecision(cardNumber: number, decision: FindingsDecisionMarker): Promise<void>;
   /** Labels the card reviewed, without pending-review, and closes it as completed if it is open. */
   markReviewed(card: { number: number; state: "open" | "closed"; labels: readonly string[] }): Promise<void>;
+  /** Adds the set-aside label to a card (decision 171, default 5); a card that has it already keeps it. */
+  setAside(cardNumber: number): Promise<void>;
   // forget_card (decision 7), within the App's issues: write; deleting an issue is the owner's, in GitHub (choice 5a).
   /** Every card, open or closed, and every forgotten card in the repository. */
   repositoryIssues(): Promise<FindingsRepositoryIssue[]>;
@@ -377,6 +432,15 @@ export interface FindingsCardInbox {
   issueStatus(cardNumber: number): Promise<FindingsIssueStatus>;
   /** The issue's page on GitHub, for the owner. */
   issueUrl(cardNumber: number): string;
+  // Moving findings drawn from YouTube comments out of stored cards (owner answer 173), within the App's issues: write.
+  /**
+   * Replaces a card's record with the one given, under the card's own marker, as the library writes a card's body,
+   * after checking that the new body reads back as the library wrote it. GitHub keeps the earlier body in the issue's
+   * edit history.
+   */
+  rewriteCard(cardNumber: number, record: FindingsRecord): Promise<void>;
+  /** Replaces a later save's record the same way, under the marker its comment holds. */
+  rewriteLaterSave(commentId: number, record: FindingsRecord, metadata: OccurrenceMetadata): Promise<void>;
 }
 
 export interface GitHubFindingsReviewOptions {
@@ -415,6 +479,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         number: cardNumber,
         state: issue.state === "closed" ? "closed" : "open",
         labels,
+        marks: cardMarksOf(card.metadata),
         record: card.record,
         occurrences: comments.occurrences,
         decisions: comments.decisions,
@@ -444,6 +509,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
             ? issue.comments
             : 1,
           record: parsed === "tampered" ? undefined : parsed.record,
+          marks: parsed === "tampered" ? undefined : cardMarksOf(parsed.metadata),
         });
       }
       if (response.length < 100) break;
@@ -493,6 +559,17 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         : { labels }),
     });
     if (!isRecord(edited) || (card.state === "open" && edited.state !== "closed")) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+  }
+
+  async setAside(cardNumber: number): Promise<void> {
+    if (!isPositiveInteger(cardNumber)) throw new GitHubApiError("github_service_unavailable", false);
+    const labeled = await this.request(`${this.issuesPath}/${cardNumber}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ labels: [SET_ASIDE_LABEL] }),
+    });
+    if (!Array.isArray(labeled) || !labelNames(labeled).includes(SET_ASIDE_LABEL)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
   }
@@ -598,6 +675,36 @@ export class GitHubFindingsReview implements FindingsCardInbox {
 
   issueUrl(cardNumber: number): string {
     return `https://github.com/${repositoryFullName(this.options.repository)}/issues/${cardNumber}`;
+  }
+
+  async rewriteCard(cardNumber: number, record: FindingsRecord): Promise<void> {
+    if (!isPositiveInteger(cardNumber)) throw new GitHubApiError("github_service_unavailable", false);
+    const issue = await this.request(`${this.issuesPath}/${cardNumber}`, { method: "GET" });
+    if (!isRecord(issue) || "pull_request" in issue || issue.number !== cardNumber || typeof issue.body !== "string") {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const metadata = parseMarker(issue.body.replace(/\r\n/gu, "\n"), CARD_MARKER, parseCardMetadata);
+    if (metadata === undefined) throw new Error("FINDINGS_CARD_MARKER_MISSING");
+    const body = cardIssueBody(record, metadata);
+    const readBack = parseFindingsRecordBody(body, "card");
+    if (readBack === undefined || readBack === "tampered") throw new Error("FINDINGS_REWRITE_UNREADABLE");
+    const edited = await this.request(`${this.issuesPath}/${cardNumber}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    });
+    if (!isRecord(edited) || edited.number !== cardNumber) throw new GitHubApiError("github_service_unavailable", true);
+  }
+
+  async rewriteLaterSave(commentId: number, record: FindingsRecord, metadata: OccurrenceMetadata): Promise<void> {
+    if (!isPositiveInteger(commentId)) throw new GitHubApiError("github_service_unavailable", false);
+    const body = occurrenceComment(record, metadata);
+    const readBack = parseFindingsRecordBody(body, "occurrence");
+    if (readBack === undefined || readBack === "tampered") throw new Error("FINDINGS_REWRITE_UNREADABLE");
+    const edited = await this.request(`${this.issuesPath}/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    });
+    if (!isRecord(edited) || edited.id !== commentId) throw new GitHubApiError("github_service_unavailable", true);
   }
 
   private async request(

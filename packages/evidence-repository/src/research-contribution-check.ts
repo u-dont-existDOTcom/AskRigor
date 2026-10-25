@@ -651,13 +651,13 @@ function privacyFindings(payload: unknown): Found[] {
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
       const keyPattern = contactPatternKind(key);
       if (keyPattern !== undefined) {
+        // Renaming keeps the value, so the value is still read below.
         found.push({
           segments: sanitize(["payload", ...path, key]),
           rule: "contact_pattern",
           expected: `a deidentified name: this name matches ${keyPattern}. Contact details, street addresses and ` +
             "credentials are never stored; rename it",
         });
-        continue;
       }
       if (isProhibitedPersistentKey(key, child)) {
         found.push({

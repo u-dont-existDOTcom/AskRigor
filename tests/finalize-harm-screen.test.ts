@@ -26,8 +26,9 @@ import { SCREENED_HARM_SENTENCE, withHarmScreen } from "./helpers/harm-screen.js
 // allergic reactions after injections tolerated before, and the final check, which cannot see a harm the answer never
 // mentions, did not notice. The final check now asks for each serious harm the screen searched and what it found: a
 // label warning or a reported signal, shown in the answer by its sentence; not found, after a search whose receipt is
-// passed; or not checked, which the answer states as "This answer did not check [harm]." Whether the list is complete
-// is meaning, which stays the model's declaration (the regression case, and later the second reader, cover it).
+// passed; or not checked, which the answer states as "A serious harm this answer did not check: [harm]." (owner answer
+// "165a" gave "This answer did not check [harm]." its colon form). Whether the list is complete is meaning, which stays
+// the model's declaration (the regression case, and later the second reader, cover it).
 const SECRET = "harm-screen-test-secret-0123456789abcdefghij";
 const DOI = "10.1000/hormone-trial";
 const QUERY = "somatropin anaphylaxis";
@@ -87,13 +88,14 @@ const longTerm = (overrides: Partial<Recommendation> = {}): Recommendation => ({
   quote: RANKED, intervention: "the hormone", safety_check: "conditional", open_inputs: "normal blood sugar",
   long_term_use: true, longest_follow_up: "26 weeks", follow_up_matches_use: true, stopping_covered: true, ...overrides
 });
-const CONDITIONAL = "The hormone depends on normal blood sugar, which a clinician should confirm first.";
+const CONDITIONAL = "An option that depends on something a clinician should confirm first: the hormone. What to " +
+  "confirm: normal blood sugar.";
 const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, say whether the question is about " +
   "safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer " +
   "compares options' safety; false otherwise.";
 const NO_DRAFT = "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final " +
   "check reads it.";
-const NOT_CHECKED = "This answer did not check anaphylaxis.";
+const NOT_CHECKED = "A serious harm this answer did not check: anaphylaxis.";
 const NOT_CHECKED_LIMIT = "A serious harm, anaphylaxis, was not checked: say so in the answer, as the caveat does.";
 const BOUNDED = (names: string) => `Where this answer says something was not found, it means the searches made here ` +
   `(${names}) did not find it, and they did not cover older or variant terms, citation chains and grey literature; ` +

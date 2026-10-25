@@ -162,7 +162,9 @@ describe("MCP full-text lead receipts", () => {
     else expect(verifyResearchReceipt(receipt!, { secret: SECRET })).toMatchObject({ ok: true, kind: "full_text_lead", claims: { doi: DOI, state } });
   });
 
-  it.each([403, 404, 429, 503])("counts only a service failure after actual Unpaywall acquisition receives HTTP %i", async (httpStatus) => {
+  // 23 Oct (q137): a 403 blocked every lead and earned no receipt, so the final check's step could never close. A refusal
+  // ends the search there; a service failure earns a retry receipt.
+  it.each([403, 404, 429, 503])("after actual Unpaywall acquisition receives HTTP %i, signs a lead for a refusal and a retry receipt for a service failure", async (httpStatus) => {
     const actual = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
     acquire.mockImplementationOnce((input) => actual.acquireOpenFullText(input, { email: "research@example.test" }, {
       searchEuropePmc: async () => okEnvelope({ provider: "europe_pmc", recordType: "europe_pmc_search_result", accessStatus: "complete", returned: 0, pagination: { exhausted: true }, data: [] }),
@@ -170,10 +172,11 @@ describe("MCP full-text lead receipts", () => {
         accessStatus: httpStatus === 429 ? "rate_limited" : "error", code: "synthetic_upstream_failure", message: "Synthetic failure", httpStatus, retryable: true, data: {} }) }
     }));
     const result = await acquireOnce({ doi: DOI, public_copy_search: { queries: [`${DOI} synthetic exact query`, "synthetic search query"] } });
-    if (httpStatus === 503) expect(verifyResearchReceipt(result.receipt!, { secret: SECRET })).toMatchObject({
-      ok: true, kind: "full_text_route_failure", claims: { doi: DOI, routes: ["unpaywall"], http: ["503"] }
+    if (httpStatus === 503 || httpStatus === 429) expect(verifyResearchReceipt(result.receipt!, { secret: SECRET })).toMatchObject({
+      ok: true, kind: "full_text_route_failure", claims: { doi: DOI, routes: ["unpaywall"], http: [String(httpStatus)] }
     });
-    else expect(result.receipt).toBeUndefined();
+    else expect(verifyResearchReceipt(result.receipt!, { secret: SECRET })).toMatchObject({ ok: true, kind: "full_text_lead",
+      claims: { doi: DOI } });
     expect(result.text).toContain("The public-copy search is declared");
     expect(result.text).not.toContain("paper inaccessible");
   });
@@ -216,7 +219,9 @@ describe("MCP full-text lead receipts", () => {
     if (receipt !== undefined) expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({ kind: "full_text_lead" });
   });
 
-  it.each(["html", "extraction"])("does not sign a service-failure receipt for Unpaywall %s", async (failure) => {
+  // A copy AskRigor could not read leaves no lead, so it earns a retry receipt: two failed attempts a minute apart let
+  // the final check cite the study as a lead instead of asking again forever.
+  it.each(["html", "extraction"])("signs a retry receipt for an unreadable Unpaywall copy (%s)", async (failure) => {
     const bytes = new TextEncoder().encode(failure === "html" ? "<html>Synthetic landing page</html>" : "%PDF-1.4 synthetic");
     await actualAcquisition({ unpaywallRuntime: {
       resolve: async () => openResolution(["https://repository.example.test/paper.pdf"]),
@@ -224,7 +229,10 @@ describe("MCP full-text lead receipts", () => {
         bytes, contentLength: bytes.byteLength, redirects: [] }),
       extractPdf: async () => { throw new Error("Synthetic extraction failure"); }
     } });
-    expect((await acquireOnce({ doi: DOI, public_copy_search: SEARCH })).receipt).toBeUndefined();
+    const { receipt, text } = await acquireOnce({ doi: DOI, public_copy_search: SEARCH });
+    expect(verifyResearchReceipt(receipt!, { secret: SECRET })).toMatchObject({ ok: true, kind: "full_text_route_failure",
+      claims: { doi: DOI, routes: ["unpaywall"], http: ["error"] } });
+    expect(text).toContain("A full-text service failed (Unpaywall: error), and the research_receipt records it.");
   });
 
   it("keeps a service failure even beside an Unpaywall partial-text result", async () => {
@@ -273,6 +281,21 @@ describe("MCP full-text lead receipts", () => {
     expect(verifyResearchReceipt(result.receipt!, { secret: SECRET })).toMatchObject({ ok: true,
       kind: "full_text_route_failure", claims: { doi: DOI, pmcid: PMCID, routes: ["europe_pmc", "unpaywall"],
         http: ["500", "503"], state: "PARTIAL_TEXT_READABLE" } });
+  });
+
+  // q137 of 23 Oct, NEJM: every attempt met an Unpaywall 403 beside a copy AskRigor could not fetch, earned no
+  // receipt, and the final check asked for another attempt each time. The refusal ended the search, so it is a lead.
+  it("signs a lead when an Unpaywall 403 sits beside a copy that could not be fetched", async () => {
+    const base = noOpenText([
+      { route: "europe_pmc", result: "not_found" },
+      { route: "unpaywall", result: "error", identifier: DOI, http_status: 403 },
+      { route: "candidate", result: "fetch_blocked" }
+    ]);
+    acquire.mockResolvedValueOnce({ ...base, data: { ...base.data, acquisition_state: "CANDIDATE_FOUND_FETCH_BLOCKED" } });
+    const { receipt, text } = await acquireOnce();
+    expect(verifyResearchReceipt(receipt!, { secret: SECRET })).toMatchObject({ ok: true, kind: "full_text_lead",
+      claims: { doi: DOI, state: "CANDIDATE_FOUND_FETCH_BLOCKED" } });
+    expect(text).not.toContain("has no receipt");
   });
 
   it("an admitted candidate text still wins over a primary-service failure", async () => {

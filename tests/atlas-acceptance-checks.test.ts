@@ -7,7 +7,7 @@ import {
   type AtlasNumberEntry as AtlasNumber
 } from "@askrigor/evidence-repository";
 
-import { atlasNumbersProblems, binaryContrast } from "../apps/research-mcp/src/binary-results.js";
+import { atlasNumbersProblems, binaryContrast, figureShown } from "../apps/research-mcp/src/binary-results.js";
 import {
   atlasBasesOf,
   atlasLinkProblems,
@@ -159,6 +159,20 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
   const codes = (numbers: AtlasNumber[], wording = WORDING) =>
     atlasNumbersProblems(numbers, wording).map(({ at, code }) => `${at} ${code}`);
 
+  it("reads what a text shows of a figure with the one check the answer's binary_results uses too", () => {
+    expect(figureShown(tremor, WORDING)).toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: true });
+    expect(figureShown({ ...tremor, nnt: 9 }, "Over 12 weeks, the tremor score halved in more on zentarine.")).toEqual({
+      groupsNotShown: [
+        { field: "option", name: "zentarine", events: 30, total: 120, rate: 25 },
+        { field: "comparator", name: "placebo", events: 18, total: 120, rate: 15 },
+      ],
+      numbersNeededNotShown: ["nnt"],
+      followUpShown: true,
+    });
+    expect(figureShown(tremor, "The tremor score halved in 30 of 120 and 18 of 120, a number needed to treat of 10."))
+      .toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: false });
+  });
+
   it("is binary_results' flat entry without its quote", () => {
     expect(atlasNumbersSchema.parse([tremor, nausea])).toEqual([tremor, nausea]);
     expect(atlasNumbersSchema.parse([])).toEqual([]);
@@ -247,6 +261,80 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     const dashed = { ...tremor, follow_up: "12-Week follow-up." };
     const wording = WORDING.replace("Over 12 weeks", "At the *12–week follow‑up*");
     expect(codes([dashed, { ...nausea, follow_up: "12-week follow-up" }], wording)).toEqual([]);
+    // And the quotation marks around a declared follow-up, as the answer's check sets them aside.
+    expect(codes([{ ...tremor, follow_up: "“12 weeks”" }, nausea])).toEqual([]);
+  });
+
+  it("compares the follow-up in digits of any script (review finding 9)", () => {
+    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٣٠ من ١٢٠ بالغًا تناولوا زنتارين و١٨ من ١٢٠ " +
+      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ١٢ من ١٢٠ و٦ من ١٢٠، أي أن عدد من يلزم " +
+      "لحدوث ضرر ٢٠.";
+    // Declared in ASCII digits and shown in Arabic-Indic ones, or declared in Arabic-Indic and Devanagari digits and
+    // shown in ASCII ones; the harm beside the number needed to treat is then over the same follow-up too.
+    const ascii = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "12 أسبوعًا" });
+    expect(codes([ascii(tremor), ascii(nausea)], arabic)).toEqual([]);
+    expect(codes([{ ...tremor, follow_up: "١٢ weeks" }, { ...nausea, follow_up: "१२ weeks" }])).toEqual([]);
+    // Another follow-up is still another, in any script.
+    expect(codes([{ ...tremor, follow_up: "١٣ weeks" }, nausea]))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[0] harms_missing"]);
+  });
+
+  it("finds the follow-up only as its own number, not as part of a longer one, as the answer's check does", () => {
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over 112 weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over 1,12 weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    const weekOne = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "week 1" });
+    expect(codes([weekOne(tremor), weekOne(nausea)], WORDING.replace("Over 12 weeks", "At week 12")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([weekOne(tremor), weekOne(nausea)], WORDING.replace("Over 12 weeks", "At week 1"))).toEqual([]);
+    // Any occurrence that stands as its own number shows it.
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "After 112 weeks of screening and over 12 weeks")))
+      .toEqual([]);
+    // In another script's digits too.
+    expect(codes([tremor, nausea], WORDING.replace("Over 12 weeks", "Over ١١٢ weeks")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    // A link is read by its text, as the answer's check reads one: a follow-up only in a link's target is not shown.
+    const dashed = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "12-week" });
+    expect(codes([dashed(tremor), dashed(nausea)],
+      WORDING.replace("Over 12 weeks", "In [the trial](https://example.org/12-week-trial)")))
+      .toEqual(["numbers[0] follow_up_not_shown", "numbers[1] follow_up_not_shown"]);
+    expect(codes([dashed(tremor), dashed(nausea)], WORDING.replace("Over 12 weeks", "In [the 12-week trial](https://example.org/a)")))
+      .toEqual([]);
+    // Not part of a longer number, the follow-up's numbers are not set aside either: "2 years" in "12 years" is not
+    // the follow-up, so the 2 of "2%" still shows a rate.
+    const strokes: AtlasNumber = {
+      outcome: "stroke", better: "fewer", option: "zentarine", option_events: 6, option_total: 300,
+      comparator: "placebo", comparator_events: 3, comparator_total: 300, follow_up: "2 years"
+    };
+    expect(codes([strokes], "Over 12 years, a stroke in 2% on zentarine and 1% on placebo.")).toEqual([]);
+  });
+
+  it("does not read the follow-up's own numbers as a rate (review finding 10)", () => {
+    // 37 of 300 is 12.3%, which "12 weeks" does not show, while "12% at 12 weeks" does.
+    const entry: AtlasNumber = {
+      outcome: "tremor score halved", better: "more", option: "zentarine", option_events: 37, option_total: 300,
+      comparator: "placebo", comparator_events: 18, comparator_total: 300, follow_up: "12 weeks"
+    };
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 6% on placebo and in more on zentarine."))
+      .toEqual(["numbers[0] group_figure_not_shown"]);
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    expect(codes([entry], "The tremor score halved in 12% on zentarine and 6% on placebo at 12 weeks.")).toEqual([]);
+    // A follow-up of two numbers sets aside one occurrence of each.
+    expect(codes([{ ...entry, follow_up: "6 to 12 weeks" }],
+      "From 6 to 12 weeks, the tremor score halved in more on zentarine than on placebo.")).toEqual([
+      "numbers[0] group_figure_not_shown", "numbers[0] group_figure_not_shown"]);
+    expect(codes([{ ...entry, follow_up: "6 to 12 weeks" }],
+      "From 6 to 12 weeks, the tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    // Natural frequencies are read as before.
+    expect(codes([entry], "Over 12 weeks, the tremor score halved in 37 of 300 on zentarine and 18 of 300 on placebo."))
+      .toEqual([]);
+    // A follow-up the wording does not show sets nothing aside: the wording's numbers are then all its own.
+    expect(codes([entry], "The tremor score halved in 12% on zentarine and 6% on placebo.")).toEqual([]);
+    // In another script too.
+    expect(codes([{ ...entry, follow_up: "١٢ أسبوعًا" }],
+      "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٦٪ ممن تناولوا دواءً وهميًا ولدى عدد أكبر ممن تناولوا زنتارين."))
+      .toEqual(["numbers[0] group_figure_not_shown"]);
   });
 
   it("puts beside a number needed to treat the harms over the same follow-up, or that none were found", () => {
@@ -299,14 +387,18 @@ describe("the privacy screen on the texts the Atlas would store", () => {
     expect(withoutStudyForms("PMID 40123456 and NCT01234567, odds ratio 1.23")).toBe("SOURCE and SOURCE, odds ratio N");
   });
 
-  it("refuses ARF- followed by digits in any case, width, dash or script of digits", () => {
+  it("refuses ARF- followed by four or more digits in any case, width, dash or script of digits", () => {
     for (const text of [
-      "ARF-0142", "as card arf-12 showed", "(Arf-0001)", "ＡＲＦ－０１４２", "ARF‑142", "ARF – 142",
-      "ARF-١٤٢", "AR​F-0142", "AR­F-0142"
+      "ARF-0142", "as card arf-0012 showed", "(Arf-0001)", "ＡＲＦ－０１４２", "ARF‑0142", "ARF – 0142", "ARF-10042",
+      "ARF-١٤٢٠", "AR​F-0142", "AR­F-0142"
     ]) {
       expect(containsCardReference(text), text).toBe(true);
     }
     for (const text of ["ARF6 inhibitors", "ARF stands for acute renal failure", "ARF-", "F-1007", "scarf - wool"]) {
+      expect(containsCardReference(text), text).toBe(false);
+    }
+    // A card's id always has four digits or more (ARF-0042), so a gene such as ARF-6 is no card (review finding 11).
+    for (const text of ["ARF-6 and ARF-1 GTPases", "the p14ARF-1 axis", "arf-12", "ARF‑142", "ARF – 142", "ARF-١٤٢"]) {
       expect(containsCardReference(text), text).toBe(false);
     }
     // An invisible character is also markup to the lesson screen.
@@ -314,6 +406,25 @@ describe("the privacy screen on the texts the Atlas would store", () => {
       { field: "wording", reasonCode: "control_or_markup" },
       { field: "wording", reasonCode: "card_reference" }
     ]);
+  });
+
+  it("reads a PubMed record number in a search query as a record, not a phone number (review finding 11)", () => {
+    const queries = new Set(["searchScope[0].query"]);
+    const query = (text: string) => screenAtlasTexts({ "searchScope[0].query": text }, queries);
+    for (const text of ["40123456[uid]", "zentarine AND (40123456[UID] OR 40123457[pmid])", "(40123456[Pmid])"]) {
+      expect(query(text), text).toEqual([]);
+    }
+    // Only a record number: a longer run, one that continues another number, one set apart from its tag, or one
+    // before another field's tag is read as before.
+    const flagged = [{ field: "searchScope[0].query", reasonCode: "direct_identifier" }];
+    for (const text of ["5551234567[uid]", "555 123 4567[uid]", "555-123-4567[pmid]", "40123456 [uid]", "40123456[tw]"]) {
+      expect(query(text), text).toEqual(flagged);
+    }
+    // In a search query only: another text reads the same number as before.
+    expect(screenAtlasTexts({ wording: "Searched as 40123456[uid]." }))
+      .toEqual([{ field: "wording", reasonCode: "direct_identifier" }]);
+    // The guard against a card reference reads the query as it is written.
+    expect(query("ARF-0142[uid]")).toEqual([{ field: "searchScope[0].query", reasonCode: "card_reference" }]);
   });
 });
 

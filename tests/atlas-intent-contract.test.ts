@@ -129,13 +129,18 @@ describe("Atlas intent payloads", () => {
   it("refuses a card reference in any text, in any case", () => {
     for (const payload of [
       accept({ question: "Does ARF-0142 apply to adults?" }),
-      accept({ content: content("Zentarine helped, as arf-12 found.") }),
+      accept({ content: content("Zentarine helped, as arf-0012 found.") }),
       accept({ topic: { key: "velmor-syndrome", label: "From ARF-0007" } }),
       { ...EVERY_KIND.withdraw, note: "Withdrawn at the request behind ARF-0142." },
-      { ...EVERY_KIND.link, rationale: "Both come from ARF-1." },
+      { ...EVERY_KIND.link, rationale: "Both come from ARF-10001." },
     ]) {
       expect(() => prepareAtlasFindingIntent(payload)).toThrow(/findings card/u);
     }
+    // A card's id always has four digits or more, as ARF-0042, so a gene such as ARF-6 is no card (review finding 11).
+    expect(() => prepareAtlasFindingIntent(accept({ content: content("ARF-6 and ARF-1 activity rose on zentarine.") })))
+      .not.toThrow();
+    expect(() => prepareAtlasFindingIntent({ ...EVERY_KIND.link, rationale: "Both measured ARF-123 levels." }))
+      .not.toThrow();
   });
 
   it("refuses YouTube links and video ids, audited comments and the community tag (4a)", () => {

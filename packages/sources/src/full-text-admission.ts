@@ -229,8 +229,16 @@ export function classifySource(url: string, declared: SourceClass | undefined, p
 export function sourceClassRank(value: SourceClass): number {
   return { publisher: 4, repository: 4, author_copy: 3, researcher_upload: 2, other: 1 }[value];
 }
+/**
+ * A refusal that another attempt would meet again (an HTTP 4xx other than 408 and 429): the route answered, so the
+ * search there ended. It neither blocks a lead nor earns a retry receipt (q137 and r332 of 23 Oct: an Unpaywall 403
+ * blocked every lead and earned no receipt, so the final check's step could never close).
+ */
+function isPermanentRefusal({ http_status }: FullTextDiscoveryAttempt): boolean {
+  return http_status !== undefined && http_status >= 400 && http_status < 500 && http_status !== 408 && http_status !== 429;
+}
 export function hasFailedFullTextAcquisition(body: { discovery_attempts?: readonly FullTextDiscoveryAttempt[]; acquisition_state?: string; candidates?: readonly { state?: string }[] }): boolean {
-  return body.discovery_attempts?.some(({ result }) => result === "error") === true ||
+  return body.discovery_attempts?.some((attempt) => attempt.result === "error" && !isPermanentRefusal(attempt)) === true ||
     [body.acquisition_state, ...(body.candidates ?? []).map(({ state }) => state)]
       .some((state) => state === "PROVIDER_UNAVAILABLE");
 }
@@ -241,12 +249,14 @@ export interface FullTextDiscoveryAttempt {
   http_status?: number;
   failure_kind?: "timeout" | "network";
 }
-/** Only server-chosen routes and genuine service failures can earn a retry receipt. */
+/**
+ * Only server-chosen routes can earn a retry receipt, and every failure that blocks a lead on one of them earns it:
+ * a 5xx, 408 or 429, a timeout or network failure, or an error that names no status (the owner library's, for one).
+ * A supplied candidate's failure earns none; the AI passes that copy's text instead.
+ */
 export function failedPrimaryRoutes(body: { discovery_attempts?: readonly FullTextDiscoveryAttempt[] }): FullTextDiscoveryAttempt[] {
-  return (body.discovery_attempts ?? []).filter(({ route, result, http_status, failure_kind }) =>
-    result === "error" && (route === "europe_pmc" || route === "unpaywall") &&
-      (http_status !== undefined ? http_status >= 500 && http_status < 600
-        : failure_kind === "timeout" || failure_kind === "network"));
+  return (body.discovery_attempts ?? []).filter((attempt) =>
+    attempt.result === "error" && attempt.route !== undefined && attempt.route !== "candidate" && !isPermanentRefusal(attempt));
 }
 export function canSignFullTextLead(body: Parameters<typeof hasFailedFullTextAcquisition>[0] & { public_copy_search?: { status?: string } }): boolean {
   return !hasFailedFullTextAcquisition(body) && body.public_copy_search?.status === "declared";

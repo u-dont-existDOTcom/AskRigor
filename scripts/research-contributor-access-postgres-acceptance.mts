@@ -1,19 +1,28 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import { Pool } from "pg";
 
 import {
+  ATLAS_PUBLICATION_SCHEMA,
   AtlasFindingPromotionRunner,
+  AtlasParticipationError,
+  AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
+  PostgresAtlasModerationStore,
+  PostgresAtlasPageSource,
+  PostgresAtlasParticipationStore,
   PostgresAtlasPromotionStore,
+  PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
   PostgresAtlasWriter,
   PostgresEvidenceRepository,
+  PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
@@ -22,7 +31,10 @@ import {
   ResearchContributionRejectedError,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
+  atlasCommenterMarker,
+  atlasCommenterTag,
   atlasCurrentLabels,
+  atlasSessionKeyHash,
   deterministicUuid,
   prepareAtlasFindingIntent,
   prepareResearchContributionProposal,
@@ -31,11 +43,17 @@ import {
   type AtlasFindingIntent,
   type AtlasFindingPromotionRun,
   type AtlasIntentView,
+  type AtlasPublicationDraft,
+  type AtlasPublishedFinding,
   type ContributionPrivacyBoundary,
+  type HeldYouTubeFindingContent,
   type LivingEvidenceContribution,
 } from "../packages/evidence-repository/src/index.js";
 import { readAtlasStateWith } from "../packages/evidence-repository/src/atlas-postgres.js";
 import { buildStagedAnalysis } from "../apps/research-mcp/src/analysis-staging.js";
+import { NOT_CHECKED_LABEL, loadAtlasFinding, loadAtlasHome } from "../apps/research-mcp/src/atlas/page-data.js";
+import { atlasPageProblems, escapeHtml, renderAtlasFinding, renderAtlasHome } from "../apps/research-mcp/src/atlas/pages.js";
+import { participantKeyFor } from "../apps/research-mcp/src/atlas/participation.js";
 import { validateStudyMethodAudit } from "../apps/research-mcp/src/index.js";
 import {
   livingEvidenceFixture,
@@ -48,8 +66,11 @@ const NOW = "2026-09-01T02:00:00.000Z";
 const FREE_SUBJECT = "auth0|synthetic-postgres-free-user";
 const PAID_SUBJECT = "auth0|synthetic-postgres-paid-user";
 const REVIEW_SUBJECT = "auth0|synthetic-postgres-review-user";
-const NOTICE_V2_SUBJECT = "auth0|synthetic-postgres-notice-v2-user";
-const NOTICE_V2 = "free-contributor-v2-2026-09-30";
+const EARLIER_NOTICES = [
+  "free-contributor-v1-2026-09-01",
+  "free-contributor-v2-2026-09-30",
+  "free-contributor-v3-2026-10-22",
+] as const;
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
 );
@@ -81,7 +102,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0017_atlas_findings",
+      migration: "0023_research_findings_save_switch",
     })}\n`);
     return;
   }
@@ -311,48 +332,89 @@ async function verify(
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
 
-    // Owner answers 159 (1b and 7) and 160b: the third free contributor notice. The account table admits the three
-    // versions and nothing else, and an account that accepted v2 before this release accepts v3 before free research.
-    const noticeV3MigrationRows = await admin.query<{ migration_id: string }>(
+    // Owner answer 171, default 5: only a setting, on by default; the access role can change it, not identity columns.
+    const findingsSaveMigration = await admin.query(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
-       WHERE migration_id = '0016_research_use_notice_v3'`,
+       WHERE migration_id = '0023_research_findings_save_switch'`,
     );
-    assert(noticeV3MigrationRows.rowCount === 1, "MIGRATION_0016_NOT_APPLIED");
-    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v3-2026-10-22", "NOTICE_V3_NOT_CURRENT");
-    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
-    const noticeV2Key = service.accountKeyForSubject(NOTICE_V2_SUBJECT);
-    // The row as an account that accepted v2 before this release holds it.
-    await admin.query(
-      `UPDATE ${SCHEMA}.research_use_accounts
-          SET notice_version = $2,
-              agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
-        WHERE account_key = $1`,
-      [noticeV2Key, NOTICE_V2],
-    );
-    const noticeV2View = await service.inspect(NOTICE_V2_SUBJECT);
-    assert(
-      noticeV2View.status === "UNENROLLED" && noticeV2View.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
-      "NOTICE_V2_ACCOUNT_NOT_SHOWN_V3",
-    );
-    await expectCode(() => service.requireActive(NOTICE_V2_SUBJECT), "RESEARCH_ACCESS_REQUIRED");
-    await service.acceptFreeContributor(NOTICE_V2_SUBJECT, FREE_AGREEMENT);
-    assert(await service.requireActive(NOTICE_V2_SUBJECT) === "FREE_CONTRIBUTOR", "NOTICE_V3_NOT_ACCEPTED");
-    const noticeV3Row = await admin.query<{ notice_version: string; agreement_json: { noticeVersion?: unknown } }>(
-      `SELECT notice_version, agreement_json FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
-      [noticeV2Key],
+    assert(findingsSaveMigration.rowCount === 1, "MIGRATION_0023_NOT_APPLIED");
+    const findingsSaveColumn = await admin.query<{ data_type: string; is_nullable: string; column_default: string }>(
+      `SELECT data_type, is_nullable, column_default FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'research_use_accounts' AND column_name = 'findings_save'`,
+      [SCHEMA],
     );
     assert(
-      noticeV3Row.rows[0]?.notice_version === RESEARCH_USE_NOTICE_VERSION &&
-        noticeV3Row.rows[0]?.agreement_json.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
-      "NOTICE_V3_ROW_MISMATCH",
+      findingsSaveColumn.rows[0]?.data_type === "boolean" && findingsSaveColumn.rows[0]?.is_nullable === "NO" &&
+        findingsSaveColumn.rows[0]?.column_default === "true",
+      "FINDINGS_SAVE_COLUMN_MISMATCH",
     );
-    await expectPgErrorMessage(() => admin.query(
-      `UPDATE ${SCHEMA}.research_use_accounts
-          SET notice_version = 'free-contributor-v4-2026-12-31'
-        WHERE account_key = $1`,
-      [noticeV2Key],
-    ), "research_use_accounts_free_notice_check");
-    checks.push("notice_v3_admitted_and_a_v2_account_accepts_it_before_research");
+    assert((await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_ON_BY_DEFAULT");
+    await service.setFindingsSave(PAID_SUBJECT, false);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_TURNED_OFF");
+    assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_CHANGED_BY_FINDINGS_SAVE");
+    assert(!(await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "LESSON_REPORTS_CHANGED_BY_FINDINGS_SAVE");
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_CHANGED_BY_SAVE");
+    await service.setFindingsSave(PAID_SUBJECT, true);
+    assert((await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_TURNED_ON");
+    await expectCode(() => service.setFindingsSave(FREE_SUBJECT, false), "RESEARCH_ACCESS_REVOKED");
+    const freeFindingsSave = await admin.query<{ findings_save: boolean }>(
+      `SELECT findings_save FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+      [service.accountKeyForSubject(FREE_SUBJECT)],
+    );
+    assert(freeFindingsSave.rows[0]?.findings_save === true, "REVOKED_ACCOUNT_FINDINGS_SAVE_CHANGED");
+    await expectPermissionDenied(() => restricted.query(
+      `UPDATE ${SCHEMA}.research_use_accounts SET account_key = account_key`,
+    ));
+    await expectPermissionDenied(() => restricted.query(
+      `UPDATE ${SCHEMA}.research_use_accounts SET created_at = created_at`,
+    ));
+    checks.push("findings_save_stored_on_by_default_kept_by_save_and_only_account_columns_updatable");
+
+    // Owner answer 171: v4 joins the earlier three notices, each of which requires reacceptance before research.
+    const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0020_research_use_notice_v4'`,
+    );
+    assert(noticeV4MigrationRows.rowCount === 1, "MIGRATION_0020_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v4-2026-10-25", "NOTICE_V4_NOT_CURRENT");
+    for (const earlier of EARLIER_NOTICES) {
+      const subject = `auth0|synthetic-postgres-${earlier}-user`;
+      await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+      const earlierKey = service.accountKeyForSubject(subject);
+      // A row as an account that accepted an earlier version before this release holds it.
+      await admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts
+            SET notice_version = $2,
+                agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
+          WHERE account_key = $1`,
+        [earlierKey, earlier],
+      );
+      const earlierView = await service.inspect(subject);
+      assert(
+        earlierView.status === "UNENROLLED" && earlierView.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+        "EARLIER_ACCOUNT_NOT_SHOWN_V4",
+      );
+      await expectCode(() => service.requireActive(subject), "RESEARCH_ACCESS_REQUIRED");
+      await service.acceptFreeContributor(subject, FREE_AGREEMENT);
+      assert(await service.requireActive(subject) === "FREE_CONTRIBUTOR", "NOTICE_V4_NOT_ACCEPTED");
+      const noticeV4Row = await admin.query<{ notice_version: string; agreement_json: { noticeVersion?: unknown } }>(
+        `SELECT notice_version, agreement_json FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+        [earlierKey],
+      );
+      assert(
+        noticeV4Row.rows[0]?.notice_version === RESEARCH_USE_NOTICE_VERSION &&
+          noticeV4Row.rows[0]?.agreement_json.noticeVersion === RESEARCH_USE_NOTICE_VERSION,
+        "NOTICE_V4_ROW_MISMATCH",
+      );
+      await expectPgErrorMessage(() => admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts
+            SET notice_version = 'free-contributor-v5-2026-12-31'
+          WHERE account_key = $1`,
+        [earlierKey],
+      ), "research_use_accounts_free_notice_check");
+    }
+    checks.push("notice_v4_admitted_and_v1_v2_v3_accounts_accept_it_before_research");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -570,6 +632,11 @@ async function verify(
     await verifyAtlasMigrations({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
+    await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
+    await verifyHeldYouTubeFindings({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasPublications({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasPages({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasParticipation({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1348,10 +1415,33 @@ const ATLAS_REVIEW_FUNCTIONS = [
   "decide_atlas_card_item", "forget_atlas_cards", "inspect_atlas_cards", "inspect_atlas_finding_intents",
   "record_atlas_finding_intent",
 ] as const;
+// Decision 171, section 4B: migration 0021's six functions for the Atlas publications.
+const ATLAS_PUBLICATION_FUNCTIONS = [
+  "decide_atlas_publications", "edit_atlas_publications", "erase_atlas_publication_texts", "inspect_atlas_publications",
+  "publish_atlas_findings", "withdraw_atlas_publications",
+] as const;
+// Decision 171, section 4E: migration 0022's tables, and the functions each role is granted.
+const ATLAS_PARTICIPATION_TABLES = [
+  "atlas_participants", "atlas_votes", "atlas_comments", "atlas_comment_reports", "atlas_home_picks", "atlas_session_ends",
+] as const;
+const ATLAS_MODERATION_FUNCTIONS = [
+  "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
+  "set_atlas_home_picks",
+] as const;
+const ATLAS_PARTICIPATION_FUNCTIONS = [
+  "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
+  "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
+] as const;
 const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
   "inspect_research_contribution_proposal",
 ] as const;
+// Migration 0019 (owner answer 173): the review role's six held YouTube findings functions, and the access role's one.
+const HELD_REVIEW_FUNCTIONS = [
+  "delete_all_held_youtube_findings", "delete_cardless_held_youtube_findings", "delete_held_youtube_findings",
+  "hold_youtube_findings", "inspect_cardless_held_youtube_findings", "inspect_held_youtube_findings",
+] as const;
+const HELD_ACCESS_FUNCTIONS = ["hold_youtube_findings"] as const;
 const MIGRATIONS_BEFORE_ATLAS = [
   "0001_living_evidence", "0002_research_frontier", "0003_community_forum_synthetic_lab",
   "0004_community_forum_composer_frontier_queues", "0005_community_forum_hostile_lifecycle_research",
@@ -1361,6 +1451,17 @@ const MIGRATIONS_BEFORE_ATLAS = [
   "0014_research_map_consent", "0015_research_detailed_lesson_reports", "0016_research_use_notice_v3",
 ] as const;
 const ATLAS_ERASED = "[wording removed]";
+
+/**
+ * The migrations every migrate applies, by their files (down migrations aside), which the deployment test holds equal
+ * to the migrate list: a count that stays right when a migration is added between two others.
+ */
+async function migrationsInForce(): Promise<string[]> {
+  return (await readdir(new URL("../packages/evidence-repository/migrations/", import.meta.url)))
+    .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql"))
+    .map((name) => name.slice(0, -".sql".length))
+    .sort();
+}
 
 const atlasHex = (text: string) => createHash("sha256").update(text).digest("hex");
 const ATLAS_PROTOCOLS = [
@@ -1457,7 +1558,8 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
   const [migrations, sequence, counts, constraints, guard] = await Promise.all([
     pool.query(`SELECT migration_id, migration_sha256 FROM ${schema}.schema_migrations ORDER BY migration_id`),
     pool.query(`SELECT last_value::text, is_called FROM ${schema}.atlas_public_number_seq`),
-    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents"]
+    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents", "atlas_publications",
+      ...ATLAS_PARTICIPATION_TABLES]
       .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`),
     pool.query(
       `SELECT constraint_row.conrelid::regclass::text AS relation, constraint_row.conname,
@@ -1480,17 +1582,21 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
 }
 
 /**
- * Migration 0017: applied, a second migrate changes nothing, and a database at 0016 holding data upgrades to it and
- * then takes an Atlas finding.
+ * Migrations 0017, 0018 (Atlas phase 3), 0019 (the held YouTube findings), 0020 (notice v4), 0021 (decision 171's
+ * publications), 0022 (its votes and comments) and 0023 (the findings save switch): applied, a second migrate changes
+ * nothing, and a database at 0016 holding data upgrades to them and then takes an Atlas finding.
  */
 export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const { adminUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 2 });
   try {
     const applied = await admin.query<{ migration_id: string }>(
-      `SELECT migration_id FROM ${schema}.schema_migrations WHERE migration_id = '0017_atlas_findings'`,
+      `SELECT migration_id FROM ${schema}.schema_migrations
+        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields', '0019_held_youtube_findings',
+          '0020_research_use_notice_v4', '0021_atlas_publications', '0022_atlas_votes_comments',
+          '0023_research_findings_save_switch')`,
     );
-    assert(applied.rowCount === 1, "MIGRATION_0017_NOT_APPLIED");
+    assert(applied.rowCount === 7, "MIGRATION_0017_TO_0023_NOT_APPLIED");
     const before = await atlasMigrationSnapshot(admin, schema);
     const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
     try {
@@ -1499,7 +1605,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
       await again.close();
     }
     assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
-    checks.push("migration_0017_applied_and_a_second_migrate_changes_nothing");
+    checks.push("migrations_0017_to_0023_applied_and_a_second_migrate_changes_nothing");
 
     // A database at 0016, as production holds it before this release, with canonical and account rows in it.
     const upgrade = `${schema}_atlas_upgrade`;
@@ -1549,8 +1655,9 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
         "ATLAS_UPGRADE_BASELINE_MISMATCH");
       await upgradeRepository.migrate();
       const upgraded = await counted();
-      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 17,
-        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017");
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 &&
+        upgraded.migrations === (await migrationsInForce()).length,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_A_MIGRATION");
       const prepared = prepareAtlasFindingIntent(atlasAccept({
         wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
         bases: ["full_text_audit"],
@@ -1571,9 +1678,1479 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     } finally {
       await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
     }
-    checks.push("an_0016_database_with_data_upgrades_to_0017_keeps_its_rows_and_takes_a_finding");
+    checks.push("an_0016_database_with_data_upgrades_to_every_migration_keeps_its_rows_and_takes_a_finding");
   } finally {
     await admin.end();
+  }
+}
+
+/**
+ * Atlas phase 3 (docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md, sections 6 and 9): migration 0018. A
+ * database at 0017 holding a phase 2 finding upgrades to it, and the finding reads back with none of the new fields;
+ * the writer then stores an effect's and a search that found nothing's fields where the design puts them; the columns'
+ * check refuses what no intent may hold, and the append-only guard refuses any change; decision 7's erasure takes the
+ * subject and the searches' queries with the rest of the wording; and a second migrate on the populated database
+ * changes nothing.
+ */
+export async function verifyAtlasCardFields(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
+  const { adminUrl, checks } = context;
+  const schema = `${context.schema}_card_fields`;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  let instant = Date.parse("2026-11-04T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  try {
+    // A database at 0017, as production holds it once phases 1 and 2 are released.
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      for (const migrationId of [...MIGRATIONS_BEFORE_ATLAS, "0017_atlas_findings"]) {
+        const sql = await readFile(
+          new URL(`../packages/evidence-repository/migrations/${migrationId}.sql`, import.meta.url),
+          "utf8",
+        );
+        await client.query(sql.replaceAll("__SCHEMA__", schema));
+        await client.query(
+          `INSERT INTO ${schema}.schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)`,
+          [migrationId, createHash("sha256").update(sql).digest("hex")],
+        );
+      }
+      // A phase 2 finding, F-1001, as 0017's writer leaves it: claim_type other, direction unclear, no subject, and
+      // the version row with 0017's columns only.
+      const runId = deterministicUuid(`card-fields-phase-2-run:${schema}`);
+      const topicId = deterministicUuid(`card-fields-phase-2-topic:${schema}`);
+      const questionId = deterministicUuid(`card-fields-phase-2-question:${schema}`);
+      const claimId = deterministicUuid(`card-fields-phase-2-claim:${schema}`);
+      const findingId = deterministicUuid(`card-fields-phase-2-finding:${schema}`);
+      const versionId = deterministicUuid(`card-fields-phase-2-version:${schema}`);
+      await client.query(
+        `INSERT INTO ${schema}.research_runs (run_id, run_kind, started_at, completed_at, protocol_manifest_sha256s,
+           provenance_note) VALUES ($1, 'live_research', $2, $2, '[]'::jsonb, 'Synthetic phase 2 finding.')`,
+        [runId, "2026-10-23T09:00:00.000Z"],
+      );
+      await client.query(`INSERT INTO ${schema}.topics (topic_id, canonical_key, label) VALUES ($1, $2, $3)`,
+        [topicId, ATLAS_TOPIC.key, ATLAS_TOPIC.label]);
+      await client.query(
+        `INSERT INTO ${schema}.questions (question_id, topic_id, normalized_question, created_by_run_id)
+         VALUES ($1, $2, $3, $4)`,
+        [questionId, topicId, ATLAS_QUESTION, runId],
+      );
+      await client.query(`INSERT INTO ${schema}.claims (claim_id, question_id, claim_type) VALUES ($1, $2, 'other')`,
+        [claimId, questionId]);
+      // Its number comes from the sequence, as decide_atlas_card_item() takes it, so it is F-1001 and the next is F-1002.
+      await client.query(
+        `INSERT INTO ${schema}.atlas_findings (finding_id, public_number, claim_id, entry_kind, lead_origin,
+           created_by_run_id)
+         VALUES ($1, 'F-' || nextval('${schema}.atlas_public_number_seq')::text, $2, 'finding', NULL, $3)`,
+        [findingId, claimId, runId],
+      );
+      await client.query(
+        `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion, population,
+           direction, inference_type, capability_state, uncertainty_and_limitations, status)
+         VALUES ($1, $2, $3, 'Zentarine cut relapse in an invented trial.', 'Adults with Velmor syndrome', 'unclear',
+           'unknown', 'can_support', '[]'::jsonb, 'current')`,
+        [versionId, claimId, runId],
+      );
+      await client.query(
+        `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, certainty,
+           usual_answer, why_not_usual, what_would_change_it, who_else, what_it_changes, tags, verified_bases, numbers,
+           research_checked_on, made_with, card_wording_key, accepted_wording_key, edited_at_acceptance)
+         VALUES ($1, $2, 1, 'moderate', 'A gentle supplement.', 'It misses the dose.', 'A larger trial.', NULL, NULL,
+           '[]'::jsonb, '["full_text_audit"]'::jsonb, '[]'::jsonb, '2026-10-22', $3::jsonb, NULL, NULL, false)`,
+        [versionId, findingId, JSON.stringify(ATLAS_MADE_WITH)],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+    const migrations = (await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.schema_migrations`)).rows[0]!.count;
+    const reader = new PostgresAtlasReader({ connectionString: adminUrl, schema });
+    const review = new PostgresAtlasReviewStore({ connectionString: adminUrl, schema });
+    const runner = new AtlasFindingPromotionRunner(
+      new PostgresAtlasPromotionStore({ connectionString: adminUrl, schema }),
+      { now: () => tick() },
+    );
+    try {
+      const contentOf = async (publicNumber: string) => {
+        const state = await reader.readAtlasState({ publicNumbers: [publicNumber] });
+        return state.findings.find((finding) => finding.publicNumber === publicNumber)!.versions.map(({ content }) => content);
+      };
+      const [phase2] = await contentOf("F-1001");
+      assert(
+        migrations === (await migrationsInForce()).length && phase2 !== undefined &&
+          ["kind", "subject", "subjectType", "direction", "searchScope"].every((field) => !(field in phase2)),
+        "ATLAS_CARD_FIELDS_UPGRADE_CHANGED_A_PHASE_2_FINDING",
+      );
+      checks.push("an_0017_database_with_a_phase_2_finding_upgrades_to_every_migration_and_reads_it_without_the_new_fields");
+
+      // The writer stores an effect's fields and a search that found nothing's where the design puts them.
+      const decide = async (cardNumber: number, payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        const decided = await review.decide({
+          cardNumber, itemKind: "finding", itemNumber: 1, decision: "accepted", cardSha256: atlasCardSha256(cardNumber),
+          ownerReason: null, decidedAt: tick(),
+          intent: { intentId: deterministicUuid(`card-fields-intent:${schema}:${cardNumber}`), ...prepared },
+          recheckedPublicNumber: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted", `ATLAS_CARD_FIELDS_NOT_PROMOTED ${cardNumber}`);
+        return decided.publicNumber!;
+      };
+      const effectFields = { kind: "effect", subject: "Zentarine", subjectType: "supplement", direction: "benefit" };
+      // The first search was restricted to publication dates (review finding 8): the range is kept, and erased with
+      // nothing, since it identifies no one.
+      const searches = [
+        { database: "pubmed", query: "zentarine children", dateRange: { start: "2015-01-01", end: "2026-10-22" } },
+        { database: "ctgov", query: "zentarine" },
+      ];
+      const withoutQueries = searches.map((search) => ({ ...search, query: ATLAS_ERASED }));
+      const nothingFields = {
+        kind: "nothing_found", subject: "Zentarine", subjectType: "supplement", direction: "descriptive",
+        searchScope: searches,
+      };
+      const effect = await decide(9001, {
+        ...atlasAccept({
+          wording: "In an invented trial, zentarine 20 mg halved the tremor score in more adults than placebo.",
+          bases: ["full_text_audit"], sources: [atlasSource("10.0000/synthetic-card-fields-a", tick())],
+        }),
+        content: {
+          ...atlasContent("In an invented trial, zentarine 20 mg halved the tremor score in more adults than placebo.",
+            ["full_text_audit"]),
+          ...effectFields,
+        },
+      });
+      const nothing = await decide(9002, {
+        ...atlasAccept({
+          wording: "No trial of zentarine in people under 18 was found.", bases: ["bounded_absence"],
+          sources: [atlasSource("10.0000/synthetic-card-fields-b", tick())],
+        }),
+        content: { ...atlasContent("No trial of zentarine in people under 18 was found.", ["bounded_absence"]), ...nothingFields },
+      });
+      const stored = await admin.query<{
+        public_number: string; claim_type: string; direction: string; program_or_exposure: string | null;
+        kind: string | null; subject_type: string | null; search_scope: unknown;
+      }>(
+        `SELECT finding.public_number, claim.claim_type, claimed.direction, claimed.program_or_exposure, version.kind,
+                version.subject_type, version.search_scope
+           FROM ${schema}.atlas_findings finding
+           JOIN ${schema}.claims claim ON claim.claim_id = finding.claim_id
+           JOIN ${schema}.atlas_finding_versions version ON version.finding_id = finding.finding_id
+           JOIN ${schema}.claim_versions claimed ON claimed.version_id = version.claim_version_id
+          ORDER BY finding.public_number`,
+      );
+      // jsonb keeps an object's keys in its own order, so the rows are compared as values, whatever their key order.
+      assert(isDeepStrictEqual(stored.rows, [
+        { public_number: "F-1001", claim_type: "other", direction: "unclear", program_or_exposure: null, kind: null,
+          subject_type: null, search_scope: null },
+        { public_number: effect, claim_type: "effect", direction: "benefit", program_or_exposure: "Zentarine",
+          kind: "effect", subject_type: "supplement", search_scope: null },
+        { public_number: nothing, claim_type: "other", direction: "descriptive", program_or_exposure: "Zentarine",
+          kind: "nothing_found", subject_type: "supplement", search_scope: searches },
+      ]), "ATLAS_CARD_FIELDS_STORED_ELSEWHERE");
+      const [effectContent] = await contentOf(effect);
+      const [nothingContent] = await contentOf(nothing);
+      assert(
+        effectContent !== undefined && nothingContent !== undefined &&
+          isDeepStrictEqual({ kind: effectContent.kind, subject: effectContent.subject, subjectType: effectContent.subjectType,
+            direction: effectContent.direction }, effectFields) && !("searchScope" in effectContent) &&
+          isDeepStrictEqual(nothingContent.searchScope, searches),
+        "ATLAS_CARD_FIELDS_READ_BACK_MISMATCH",
+      );
+      checks.push("atlas_writer_stores_kind_subject_direction_and_searches_and_the_claim_type_from_the_kind");
+
+      // The columns' check refuses what no intent may hold, and the append-only guard refuses any change.
+      const nothingVersion = (await admin.query<{ claim_version_id: string; finding_id: string }>(
+        `SELECT version.claim_version_id, version.finding_id FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+          WHERE finding.public_number = $1`,
+        [nothing],
+      )).rows[0]!;
+      const insertedVersion = (fields: string) => async () => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          // A copy of the nothing-found version as version 2, with the fields under test.
+          const version = deterministicUuid(`card-fields-refused:${schema}:${fields}`);
+          await inner.query(
+            `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion,
+               direction, inference_type, capability_state, uncertainty_and_limitations, status,
+               supersedes_claim_version_id)
+             SELECT $1, claimed.claim_id, claimed.created_by_run_id, claimed.normalized_assertion, 'descriptive',
+                    'unknown', 'can_support', '[]'::jsonb, 'current', claimed.version_id
+               FROM ${schema}.claim_versions claimed WHERE claimed.version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, tags,
+               verified_bases, numbers, research_checked_on, made_with, edited_at_acceptance, kind, subject_type,
+               search_scope)
+             SELECT $1, version.finding_id, 2, version.tags, version.verified_bases, version.numbers,
+                    version.research_checked_on, version.made_with, false, ${fields}
+               FROM ${schema}.atlas_finding_versions version WHERE version.claim_version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      };
+      for (const fields of [
+        "'anecdote', NULL, NULL",
+        "'effect', 'person', NULL",
+        `'effect', 'supplement', '${JSON.stringify(searches)}'::jsonb`,
+        `NULL, 'supplement', '${JSON.stringify(searches)}'::jsonb`,
+        "'nothing_found', 'supplement', '[]'::jsonb",
+        "'nothing_found', 'supplement', '{\"database\":\"pubmed\"}'::jsonb",
+        `'nothing_found', 'supplement', '${JSON.stringify(Array.from({ length: 11 }, () => searches[0]))}'::jsonb`,
+      ]) {
+        await expectMessage(insertedVersion(fields), "atlas_finding_versions_card_fields_check");
+      }
+      for (const sql of [
+        `UPDATE ${schema}.atlas_finding_versions SET kind = 'harm' WHERE claim_version_id = $1`,
+        `UPDATE ${schema}.atlas_finding_versions SET search_scope = NULL WHERE claim_version_id = $1`,
+        `UPDATE ${schema}.claim_versions SET direction = 'benefit' WHERE version_id = $1`,
+        `UPDATE ${schema}.claim_versions SET program_or_exposure = 'Another subject' WHERE version_id = $1`,
+        `DELETE FROM ${schema}.atlas_finding_versions WHERE claim_version_id = $1`,
+      ]) {
+        await expectMessage(() => admin.query(sql, [nothingVersion.claim_version_id]), "APPEND_ONLY_TABLE");
+      }
+      checks.push("atlas_card_fields_check_refuses_what_no_intent_may_hold_and_the_guard_refuses_any_change");
+
+      // Under a redaction row, the searches may change only by losing their queries to the marker.
+      const runId = (await admin.query<{ run_id: string }>(
+        `SELECT created_by_run_id AS run_id FROM ${schema}.atlas_findings WHERE finding_id = $1`,
+        [nothingVersion.finding_id],
+      )).rows[0]!.run_id;
+      const underRedaction = async (sql: string) => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          const redaction = deterministicUuid(`card-fields-redaction-probe:${schema}`);
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at,
+               run_id) VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+            [redaction, nothingVersion.finding_id, nothingVersion.claim_version_id, tick(), runId],
+          );
+          await inner.query("SELECT set_config('askrigor.atlas_erasing_redaction', $1, true)", [redaction]);
+          await inner.query(sql, [nothingVersion.claim_version_id]);
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      };
+      for (const scope of [
+        "'[]'::jsonb",
+        `'${JSON.stringify([{ database: "europepmc", query: ATLAS_ERASED }, { database: "ctgov", query: ATLAS_ERASED }])}'::jsonb`,
+        `'${JSON.stringify([{ database: "pubmed", query: "another query" }, searches[1]])}'::jsonb`,
+        // The queries erased, but the range changed or dropped: only the queries may change.
+        `'${JSON.stringify([{ ...withoutQueries[0], dateRange: { start: "2016-01-01", end: "2026-10-22" } },
+          withoutQueries[1]])}'::jsonb`,
+        `'${JSON.stringify([{ database: "pubmed", query: ATLAS_ERASED }, withoutQueries[1]])}'::jsonb`,
+      ]) {
+        await expectMessage(() => underRedaction(
+          `UPDATE ${schema}.atlas_finding_versions SET search_scope = ${scope} WHERE claim_version_id = $1`),
+        "APPEND_ONLY_TABLE");
+      }
+      await expectMessage(() => underRedaction(
+        `UPDATE ${schema}.atlas_finding_versions SET kind = 'harm' WHERE claim_version_id = $1`), "APPEND_ONLY_TABLE");
+      // The marker in place of each query, the databases kept, is what the exception permits (the probe rolls back).
+      await underRedaction(`UPDATE ${schema}.atlas_finding_versions
+         SET search_scope = ${schema}.atlas_search_scope_without_queries(search_scope) WHERE claim_version_id = $1`);
+      // erase_atlas_wording() takes the queries of a version whose searches are the only wording it has left: a
+      // version 2 with no texts and no wording keys (rolled back).
+      const onlySearches = await (async () => {
+        const inner = await admin.connect();
+        try {
+          await inner.query("BEGIN");
+          const version = deterministicUuid(`card-fields-only-searches:${schema}`);
+          const redaction = deterministicUuid(`card-fields-only-searches-redaction:${schema}`);
+          await inner.query(
+            `INSERT INTO ${schema}.claim_versions (version_id, claim_id, created_by_run_id, normalized_assertion,
+               direction, inference_type, capability_state, uncertainty_and_limitations, status,
+               supersedes_claim_version_id)
+             SELECT $1, claimed.claim_id, claimed.created_by_run_id, $3, 'descriptive', 'unknown', 'can_support',
+                    '[]'::jsonb, 'current', claimed.version_id
+               FROM ${schema}.claim_versions claimed WHERE claimed.version_id = $2`,
+            [version, nothingVersion.claim_version_id, ATLAS_ERASED],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_finding_versions (claim_version_id, finding_id, version_number, tags,
+               verified_bases, numbers, research_checked_on, made_with, edited_at_acceptance, kind, subject_type,
+               search_scope)
+             SELECT $1, version.finding_id, 2, version.tags, version.verified_bases, '[]'::jsonb,
+                    version.research_checked_on, version.made_with, false, version.kind, version.subject_type,
+                    version.search_scope
+               FROM ${schema}.atlas_finding_versions version WHERE version.claim_version_id = $2`,
+            [version, nothingVersion.claim_version_id],
+          );
+          await inner.query(
+            `INSERT INTO ${schema}.atlas_redactions (redaction_id, finding_id, claim_version_id, reason_code, decided_at,
+               run_id) VALUES ($1, $2, $3, 'could_identify_a_person', $4, $5)`,
+            [redaction, nothingVersion.finding_id, version, tick(), runId],
+          );
+          await inner.query(`SELECT ${schema}.erase_atlas_wording($1)`, [redaction]);
+          return (await inner.query<{ search_scope: unknown }>(
+            `SELECT search_scope FROM ${schema}.atlas_finding_versions WHERE claim_version_id = $1`, [version],
+          )).rows[0]?.search_scope;
+        } finally {
+          await inner.query("ROLLBACK").catch(() => undefined);
+          inner.release();
+        }
+      })();
+      assert(
+        isDeepStrictEqual(onlySearches, withoutQueries),
+        "ATLAS_CARD_FIELDS_ONLY_SEARCHES_NOT_ERASED",
+      );
+
+      // Decision 7 through the runner: withdraw the search that found nothing and erase every version's wording.
+      const record = async (kind: "withdraw" | "erase", payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        await review.recordIntent({
+          intentId: deterministicUuid(`card-fields-${kind}:${schema}`), intentKind: kind, publicNumber: nothing,
+          payload: prepared.payload, payloadSha256: prepared.payloadSha256, ownerReason: null, createdAt: tick(),
+          retryOfIntentId: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted", `ATLAS_CARD_FIELDS_${kind}_NOT_PROMOTED`);
+      };
+      await record("withdraw", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: nothing, version: 1,
+        note: "Withdrawn: the search terms named a person.", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      await record("erase", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: nothing, version: 2,
+        scope: "all_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      const erasedRows = await admin.query<{
+        version_number: number; program_or_exposure: string; direction: string; kind: string; subject_type: string;
+        search_scope: Array<{ database: string; query: string }>;
+      }>(
+        `SELECT version.version_number, claimed.program_or_exposure, claimed.direction, version.kind,
+                version.subject_type, version.search_scope
+           FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.claim_versions claimed ON claimed.version_id = version.claim_version_id
+          WHERE version.finding_id = $1 ORDER BY version.version_number`,
+        [nothingVersion.finding_id],
+      );
+      assert(
+        erasedRows.rows.length === 2 && erasedRows.rows.every((row) =>
+          row.program_or_exposure === ATLAS_ERASED && row.direction === "descriptive" && row.kind === "nothing_found" &&
+          row.subject_type === "supplement" &&
+          isDeepStrictEqual(row.search_scope, withoutQueries)),
+        "ATLAS_CARD_FIELDS_ERASE_MISMATCH",
+      );
+      const leftover = await admin.query<{ rows: string }>(
+        `SELECT concat_ws(' ', (SELECT json_agg(row_to_json(version))::text FROM ${schema}.atlas_finding_versions version),
+                (SELECT json_agg(intent.payload_json)::text FROM ${schema}.atlas_finding_intents intent
+                  WHERE intent.public_number = $1)) AS rows`,
+        [nothing],
+      );
+      assert(!leftover.rows[0]!.rows.includes("zentarine children"), "ATLAS_CARD_FIELDS_QUERY_LEFT_AFTER_ERASURE");
+      checks.push("atlas_erasure_takes_the_subject_and_the_searches_queries_and_keeps_kind_type_direction_and_databases");
+
+      // A second migrate on the populated database changes nothing.
+      const before = await atlasMigrationSnapshot(admin, schema);
+      const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+      try {
+        await again.migrate();
+      } finally {
+        await again.close();
+      }
+      assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_CARD_FIELDS_SECOND_MIGRATE_CHANGED_SOMETHING");
+      checks.push("migration_0018_on_a_populated_database_changes_nothing_when_run_again");
+    } finally {
+      await Promise.allSettled([reader.close(), review.close(), runner.close()]);
+    }
+  } finally {
+    await admin.end();
+  }
+}
+
+/**
+ * Owner answer 173 (2026-10-25): migration 0019, the held YouTube findings, kept until deleted (the owner's rule, 25
+ * Oct: "don't delete the summaries unless YT tells us to do that"). The table holds only AskRigor's texts and fixed
+ * values, with no expiry, and nothing but the migrator reads or writes it directly: the research-access role executes
+ * exactly hold, the review role hold, both reads, both deletions and the deletion of them all, and the reader none.
+ * A finding is held with its save time, to the millisecond, and never refreshed, however old the save; every read
+ * returns every row, whatever its age; no purge exists; the owner deletes a card's. A card whose findings all rest on
+ * YouTube comments, not saved as a card, has its findings held with no card number, with its question and topic,
+ * listed apart a page of saves at a time, and deleted by its checked card's SHA-256. Deleting them all takes every
+ * row, of both. A second migrate changes neither the table, its grants nor the functions' grants.
+ */
+export async function verifyHeldYouTubeFindings(context: {
+  adminUrl: string;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, accessUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const accessPool = new Pool({ connectionString: accessUrl, max: 1 });
+  const reviewPool = new Pool({ connectionString: reviewUrl, max: 1 });
+  const readerPool = new Pool({ connectionString: readerUrl, max: 1 });
+  const access = new PostgresHeldYouTubeFindingsStore({ connectionString: accessUrl, schema });
+  const review = new PostgresHeldYouTubeFindingsStore({ connectionString: reviewUrl, schema });
+  const DAY = 24 * 60 * 60 * 1_000;
+  try {
+    const applied = await admin.query(
+      `SELECT migration_id FROM ${schema}.schema_migrations WHERE migration_id = '0019_held_youtube_findings'`,
+    );
+    assert(applied.rowCount === 1, "MIGRATION_0019_NOT_APPLIED");
+    const columns = await admin.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'held_youtube_findings' ORDER BY ordinal_position`,
+      [schema],
+    );
+    assert(columns.rows.map(({ column_name: name }) => name).join() === [
+      "card_number", "card_sha256", "finding_number", "question", "topic_key", "topic_label", "claim", "certainty",
+      "applies_to", "why_not_usual", "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases",
+      "saved_at",
+    ].join(), `HELD_YOUTUBE_FINDINGS_COLUMNS_MISMATCH ${columns.rows.map(({ column_name: name }) => name).join()}`);
+    // No purge, and nothing else that deletes by age.
+    const purges = await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM pg_proc
+        WHERE pronamespace = $1::regnamespace AND (proname LIKE '%purge%' OR proname LIKE '%expire%')
+          AND proname LIKE '%youtube%'`,
+      [schema],
+    );
+    assert(purges.rows[0]?.count === 0, "HELD_YOUTUBE_FINDINGS_PURGE_EXISTS");
+    for (const role of ["askrigor_reader", "askrigor_research_access", "askrigor_research_review"]) {
+      const open = await admin.query<{ open: boolean }>(
+        `SELECT has_table_privilege($1, $2, 'SELECT') OR has_table_privilege($1, $2, 'INSERT')
+             OR has_table_privilege($1, $2, 'UPDATE') OR has_table_privilege($1, $2, 'DELETE')
+             OR has_table_privilege($1, $2, 'TRUNCATE') AS open`,
+        [role, `${schema}.held_youtube_findings`],
+      );
+      assert(open.rows[0]?.open === false, `HELD_YOUTUBE_FINDINGS_TABLE_OPEN_TO ${role}`);
+    }
+    await expectPermissionDenied(() => readerPool.query(`SELECT count(*) FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT count(*) FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => reviewPool.query(`DELETE FROM ${schema}.held_youtube_findings`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT * FROM ${schema}.inspect_held_youtube_findings(ARRAY[1])`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT ${schema}.delete_held_youtube_findings(ARRAY[1])`));
+    await expectPermissionDenied(() => accessPool.query(
+      `SELECT * FROM ${schema}.inspect_cardless_held_youtube_findings(NULL, NULL, 1)`));
+    await expectPermissionDenied(() => accessPool.query(
+      `SELECT ${schema}.delete_cardless_held_youtube_findings(ARRAY['${"a".repeat(64)}'])`));
+    await expectPermissionDenied(() => accessPool.query(`SELECT ${schema}.delete_all_held_youtube_findings()`));
+    await expectPermissionDenied(() => readerPool.query(`SELECT ${schema}.delete_all_held_youtube_findings()`));
+    const executable = async (role: string) => (await admin.query<{ proname: string }>(
+      `SELECT DISTINCT proc.proname FROM pg_proc proc
+         JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
+        WHERE namespace.nspname = $1 AND proc.proname LIKE '%youtube%'
+          AND has_function_privilege($2, proc.oid, 'EXECUTE')
+        ORDER BY proc.proname`,
+      [schema, role],
+    )).rows.map(({ proname }) => proname).join();
+    assert(await executable("askrigor_research_access") === [...HELD_ACCESS_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_ACCESS_FUNCTIONS_MISMATCH");
+    assert(await executable("askrigor_research_review") === [...HELD_REVIEW_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_REVIEW_FUNCTIONS_MISMATCH");
+    assert(await executable("askrigor_reader") === "", "HELD_YOUTUBE_FINDINGS_READER_EXECUTES_A_FUNCTION");
+    checks.push("held_youtube_findings_reached_only_through_functions_each_role_executes_exactly_its_own");
+
+    // At a save, through the research-access role: held with its save time, and never refreshed.
+    const card = 9_301;
+    const sha = createHash("sha256").update("synthetic-held-youtube-card").digest("hex");
+    const content: HeldYouTubeFindingContent = {
+      findingNumber: 1,
+      claim: "Commenters reported less pain after months of home exercise.",
+      certainty: "low",
+      appliesTo: "Adults exercising at home",
+      whyNotUsual: "Quick answers leave out what people who kept exercising report.",
+      whatWouldChangeIt: "Commenters reporting no change.",
+      kind: "effect",
+      subject: "Home exercise",
+      direction: "benefit",
+      tags: ["community_checked"],
+      verifiedBases: ["comment_audit"],
+    };
+    const savedAt = new Date(Date.now() - 60_000).toISOString();
+    const first = await access.hold({ cardNumber: card, cardSha256: sha, savedAt, findings: [content] });
+    assert(first.length === 1 && isDeepStrictEqual(first[0], {
+      cardNumber: card, cardSha256: sha, findingNumber: 1, savedAt, heldNow: true,
+    }), "HELD_YOUTUBE_FINDING_NOT_HELD");
+    const again = await access.hold({ cardNumber: card, cardSha256: sha, savedAt: new Date().toISOString(), findings: [content] });
+    assert(again.length === 1 && !again[0]!.heldNow && again[0]!.savedAt === savedAt, "HELD_YOUTUBE_FINDING_REFRESHED");
+    // A save of any age is held, with its own time, through either role; one ahead of the database's clock counts from
+    // now, kept to the millisecond.
+    const oldSave = new Date(Date.now() - 400 * DAY).toISOString();
+    const old = await review.hold({ cardNumber: card + 1, cardSha256: sha, savedAt: oldSave, findings: [content] });
+    assert(old.length === 1 && old[0]!.heldNow && old[0]!.savedAt === oldSave, "HELD_YOUTUBE_FINDING_OF_AN_OLD_SAVE_NOT_HELD");
+    const ahead = await access.hold({
+      cardNumber: card + 6, cardSha256: sha, savedAt: new Date(Date.now() + DAY).toISOString(), findings: [content],
+    });
+    assert(ahead.length === 1 && Date.parse(ahead[0]!.savedAt) <= Date.now() + 1_000, "HELD_YOUTUBE_FINDING_SAVED_AHEAD");
+    const precision = await admin.query<{ whole: boolean }>(
+      `SELECT bool_and(saved_at = date_trunc('milliseconds', saved_at)) AS whole FROM ${schema}.held_youtube_findings`,
+    );
+    assert(precision.rows[0]?.whole === true, "HELD_YOUTUBE_FINDING_SAVE_TIME_FINER_THAN_A_MILLISECOND");
+    // Nothing but AskRigor's fields: a source, or a value no column takes, is refused by the function itself.
+    const direct = (finding: Record<string, unknown>) => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb, NULL, NULL, NULL)`,
+      [card + 2, sha, JSON.stringify([{
+        finding_number: 1, claim: "A summary.", certainty: "low", applies_to: "Adults", why_not_usual: "Missed.",
+        what_would_change_it: "More reports.", tags: [], verified_bases: [], ...finding,
+      }])],
+    );
+    await expectMessage(() => direct({ sources: ["aaaaaaaaaaa"] }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ answer_quote: "A quoted sentence." }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ certainty: "certain" }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ tags: ["a_tag_no_card_has"] }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => direct({ claim: "x".repeat(501) }), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    // The review role reads back AskRigor's texts and fixed values, exactly.
+    const read = await review.inspect([card]);
+    assert(read.length === 1 && isDeepStrictEqual(read[0], {
+      ...content, cardNumber: card, cardSha256: sha, savedAt,
+    }), "HELD_YOUTUBE_FINDING_READ_MISMATCH");
+
+    // A row saved years ago (written as the migrator; no role can choose its time beyond a save's): every read returns
+    // it, oldest save first, and nothing deletes it but a deletion.
+    const yearsAgo = new Date(Date.now() - 3 * 365 * DAY).toISOString();
+    await admin.query(
+      `INSERT INTO ${schema}.held_youtube_findings
+         (card_number, card_sha256, finding_number, claim, certainty, applies_to, why_not_usual, what_would_change_it,
+          kind, subject, direction, tags, verified_bases, saved_at)
+       VALUES ($1, $2, 1, 'An old summary.', 'low', 'Adults', 'Missed.', 'More reports.', NULL, NULL, NULL,
+               '[]'::jsonb, '[]'::jsonb, $3::timestamptz)`,
+      [card, "e".repeat(64), yearsAgo],
+    );
+    assert((await review.inspect([card])).map(({ cardSha256 }) => cardSha256).join() === ["e".repeat(64), sha].join(),
+      "HELD_YOUTUBE_FINDING_OLD_ROW_NOT_RETURNED");
+    // The owner deletes a card's held findings, through the review role, of every age.
+    assert(await review.deleteForCards([card]) === 2, "HELD_YOUTUBE_FINDINGS_DELETE_MISMATCH");
+    assert((await review.inspect([card])).length === 0, "HELD_YOUTUBE_FINDINGS_NOT_DELETED");
+    assert((await review.inspect([card + 1, card + 6])).length === 2, "HELD_YOUTUBE_FINDINGS_DELETE_TOOK_ANOTHER_CARD");
+    checks.push("held_youtube_findings_held_with_their_save_time_never_refreshed_kept_whatever_their_age_and_deleted");
+
+    // A card whose findings all rest on YouTube comments, not saved as a card: held with no card number, with its
+    // question and topic, through the access role; listed apart through the review role, never by a card's read, and
+    // never deleted by a card's deletion; deleted by its checked card's SHA-256.
+    const cardless = createHash("sha256").update("synthetic-held-youtube-cardless").digest("hex");
+    const question = "Does home exercise ease hip osteoarthritis pain?";
+    const topic = { key: "hip-osteoarthritis", label: "Hip osteoarthritis" };
+    const heldCardless = await access.hold({
+      cardSha256: cardless, savedAt: new Date(Date.now() - 60_000).toISOString(), question, topic, findings: [content],
+    });
+    assert(heldCardless.length === 1 && heldCardless[0]!.cardNumber === null && heldCardless[0]!.heldNow,
+      "HELD_YOUTUBE_CARDLESS_FINDING_NOT_HELD");
+    const againCardless = await access.hold({
+      cardSha256: cardless, savedAt: new Date().toISOString(), question, topic, findings: [content],
+    });
+    assert(againCardless.length === 1 && !againCardless[0]!.heldNow &&
+      againCardless[0]!.savedAt === heldCardless[0]!.savedAt, "HELD_YOUTUBE_CARDLESS_FINDING_REFRESHED");
+    const listedCardless = await review.inspectWithoutCard({ saves: 100 });
+    assert(listedCardless.length === 1 && isDeepStrictEqual(listedCardless[0], {
+      ...content, cardNumber: null, cardSha256: cardless, question, topic, savedAt: heldCardless[0]!.savedAt,
+    }), "HELD_YOUTUBE_CARDLESS_FINDING_READ_MISMATCH");
+    const plainFinding = JSON.stringify([{
+      finding_number: 1, claim: "A summary.", certainty: "low", applies_to: "Adults", why_not_usual: "Missed.",
+      what_would_change_it: "More reports.", tags: [], verified_bases: [],
+    }]);
+    // A card-less save brings its question, and a whole topic; a saved card's carries neither.
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, NULL, NULL, NULL)`,
+      [cardless, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, 'A question?', 'hip', NULL)`,
+      [cardless, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings($1::integer, $2::text, now(), $3::jsonb, 'A question?', NULL, NULL)`,
+      [card + 4, sha, plainFinding]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectMessage(() => accessPool.query(
+      `SELECT * FROM ${schema}.hold_youtube_findings(NULL, $1::text, now(), $2::jsonb, $3::text, NULL, NULL)`,
+      [cardless, plainFinding, "x".repeat(301)]), "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    await expectPgCode(() => admin.query(
+      `UPDATE ${schema}.held_youtube_findings SET question = NULL WHERE card_number IS NULL`), "23514");
+    // The same checked card saved as a card is another row; a card's read and deletion never touch the card-less.
+    await access.hold({ cardNumber: card + 5, cardSha256: cardless, savedAt: new Date().toISOString(), findings: [content] });
+    assert((await review.inspect([card + 5])).every(({ cardNumber, question: asked }) =>
+      cardNumber === card + 5 && asked === undefined), "HELD_YOUTUBE_CARD_READ_RETURNED_A_CARDLESS_ROW");
+    assert(await review.deleteForCards([card + 5]) === 1, "HELD_YOUTUBE_CARD_DELETE_MISMATCH");
+    assert((await review.inspectWithoutCard({ saves: 100 })).length === 1, "HELD_YOUTUBE_CARD_DELETE_TOOK_A_CARDLESS_ROW");
+    assert(await review.deleteWithoutCard([cardless]) === 1, "HELD_YOUTUBE_CARDLESS_DELETE_MISMATCH");
+    assert((await review.inspectWithoutCard({ saves: 100 })).length === 0, "HELD_YOUTUBE_CARDLESS_NOT_DELETED");
+
+    // The owner's list pages through the saves with no card, newest first (by save time, then the checked card's
+    // SHA-256), never splitting a save, so paging on returns every one. Two saves share a millisecond; one is years old.
+    const pageSaves = [
+      ["1", new Date(Date.now() - 2 * 365 * DAY).toISOString(), 1],
+      ["2", new Date(Date.now() - 5 * DAY).toISOString(), 3],
+      ["3", new Date(Date.now() - 4 * DAY).toISOString(), 1],
+      ["4", new Date(Date.now() - 3 * DAY).toISOString(), 2],
+      ["5", new Date(Date.now() - 3 * DAY).toISOString(), 1],
+    ] as const;
+    const shared = pageSaves[3][1];
+    for (const [digit, at, count] of pageSaves) {
+      await access.hold({
+        cardSha256: digit.repeat(64), savedAt: digit === "5" ? shared : at, question: `Question ${digit}?`,
+        findings: Array.from({ length: count }, (_, index) => ({ ...content, findingNumber: index + 1 })),
+      });
+    }
+    const pages: string[][] = [];
+    let after: { savedAt: string; cardSha256: string } | undefined;
+    for (let guard = 0; guard < 10; guard += 1) {
+      const page = await review.inspectWithoutCard({ ...(after === undefined ? {} : { after }), saves: 2 });
+      if (page.length === 0) break;
+      pages.push(page.map(({ cardSha256, findingNumber }) => `${cardSha256.charAt(0)}${findingNumber}`));
+      after = { savedAt: page.at(-1)!.savedAt, cardSha256: page.at(-1)!.cardSha256 };
+    }
+    assert(JSON.stringify(pages) === JSON.stringify([["41", "42", "51"], ["31", "21", "22", "23"], ["11"]]),
+      `HELD_YOUTUBE_CARDLESS_PAGES_MISMATCH ${JSON.stringify(pages)}`);
+    for (const [afterTime, afterDigest, limit] of [["NULL", "NULL", "0"], ["NULL", "NULL", "101"], ["NULL", "NULL", "NULL"],
+      ["now()", "NULL", "1"], ["NULL", `'${"a".repeat(64)}'`, "1"], ["now()", "'not a digest'", "1"]]) {
+      await expectMessage(() => reviewPool.query(
+        `SELECT * FROM ${schema}.inspect_cardless_held_youtube_findings(${afterTime}, ${afterDigest}, ${limit})`),
+      "HELD_YOUTUBE_FINDINGS_INPUT_INVALID");
+    }
+    checks.push("held_youtube_findings_of_a_card_not_saved_held_with_its_question_listed_apart_a_page_at_a_time_and_deleted");
+
+    // Every held finding at once, of every card and every save with no card, only through the review role.
+    const everyRow = async () => (await admin.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM ${schema}.held_youtube_findings`)).rows[0]!.count;
+    const heldNow = await everyRow();
+    assert(heldNow === 10, `HELD_YOUTUBE_FINDINGS_COUNT_BEFORE_DELETING_ALL ${heldNow}`);
+    assert(await review.deleteAll() === heldNow, "HELD_YOUTUBE_FINDINGS_DELETE_ALL_MISMATCH");
+    assert(await everyRow() === 0, "HELD_YOUTUBE_FINDINGS_DELETE_ALL_LEFT_ROWS");
+    assert(await review.deleteAll() === 0, "HELD_YOUTUBE_FINDINGS_SECOND_DELETE_ALL_DELETED_SOMETHING");
+    checks.push("held_youtube_findings_all_deleted_at_once_only_through_the_review_role");
+
+    // Every migrate runs 0019 again: the table, its grants and the functions' grants stay as they are.
+    await access.hold({ cardNumber: card + 3, cardSha256: sha, savedAt: new Date().toISOString(), findings: [content] });
+    const snapshot = async () => JSON.stringify((await admin.query(
+      `SELECT (SELECT coalesce(relacl::text, '') FROM pg_class WHERE oid = '${schema}.held_youtube_findings'::regclass) AS acl,
+              (SELECT array_agg(pg_get_constraintdef(oid) ORDER BY conname) FROM pg_constraint
+                WHERE conrelid = '${schema}.held_youtube_findings'::regclass) AS constraints,
+              (SELECT array_agg(indexrelid::regclass::text ORDER BY indexrelid::regclass::text) FROM pg_index
+                WHERE indrelid = '${schema}.held_youtube_findings'::regclass) AS indexes,
+              (SELECT array_agg(proname || ':' || coalesce(proacl::text, '') ORDER BY proname) FROM pg_proc
+                WHERE pronamespace = '${schema}'::regnamespace AND proname LIKE '%youtube%') AS functions,
+              (SELECT count(*)::int FROM ${schema}.held_youtube_findings) AS held`,
+    )).rows);
+    const before = await snapshot();
+    const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await repository.migrate();
+    } finally {
+      await repository.close();
+    }
+    assert(await snapshot() === before, "HELD_YOUTUBE_FINDINGS_SECOND_MIGRATE_CHANGED_SOMETHING");
+    assert((await executable("askrigor_research_access")) === [...HELD_ACCESS_FUNCTIONS].sort().join(),
+      "HELD_YOUTUBE_FINDINGS_GRANTS_LOST_ON_MIGRATE");
+    checks.push("migration_0019_run_again_changes_nothing_and_keeps_every_grant");
+  } finally {
+    await Promise.allSettled([access.close(), review.close(), accessPool.end(), reviewPool.end(), readerPool.end(),
+      admin.end()]);
+  }
+}
+
+/**
+ * Decision 171, section 4B: migration 0021's publications, through the review role's six functions as the public
+ * runtime calls them (the save path and the owner's actions): publishing is idempotent by card digest and finding,
+ * decisions move a publication's state, set-aside, replacement and the owner's unpublishing withdraw it, the owner's
+ * choice publishes a withdrawn one again, forgetting a card withdraws and erases what is not accepted and clears every
+ * row's digest, and erasing an F number's wording erases its publications' fields. The table's checks refuse every
+ * state no publication may hold; the review role reads and writes the table only through its functions, and the
+ * reader reads it and calls none of them.
+ */
+export async function verifyAtlasPublications(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  let instant = Date.parse("2026-11-04T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  const asRole = async <T>(role: string, work: (client: import("pg").PoolClient) => Promise<T>): Promise<T> => {
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL ROLE ${role}`);
+      await client.query(`SET LOCAL search_path TO ${schema}, public`);
+      return await work(client);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  };
+  const published = (claim: string): AtlasPublishedFinding => ({
+    schema: ATLAS_PUBLICATION_SCHEMA,
+    topic: { key: ATLAS_TOPIC.key, label: ATLAS_TOPIC.label },
+    claim,
+    certainty: "moderate",
+    applies_to: "Adults with Velmor syndrome",
+    kind: "effect",
+    subject: "zentarine",
+    subject_type: "supplement",
+    direction: "benefit",
+    numbers: [{
+      outcome: "relapse", better: "fewer", option: "zentarine 20 mg", option_events: 18, option_total: 120,
+      comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks",
+    }],
+    searches: null,
+    sources: ["10.0000/synthetic-velmor-publication"],
+    why_not_usual: "Quick answers miss the dose the trials used.",
+    what_would_change_it: "A larger trial at the lower dose.",
+    verified_bases: ["full_text_audit"],
+    saved_on: "2026-11-04",
+    askrigor_version: "0.1.0",
+  });
+  const draft = (findingNumber: number, overrides: Partial<AtlasPublicationDraft> = {}): AtlasPublicationDraft => ({
+    findingNumber,
+    state: "unreviewed",
+    atlasNumber: null,
+    heldBecause: null,
+    published: published(`Finding ${findingNumber}: zentarine 20 mg cut relapse in an invented trial.`),
+    ...overrides,
+  });
+  const digestA = atlasHex("synthetic-publication-card-a");
+  const digestB = atlasHex("synthetic-publication-card-b");
+  try {
+    const first = await store.publish({ cardNumber: 7001, cardSha256: digestA, findings: [draft(1), draft(2,
+      { state: "held", heldBecause: ["phone_number"] }), draft(3)], publishedAt: tick(), revive: false });
+    const replay = await store.publish({ cardNumber: 7001, cardSha256: digestA, findings: [draft(1), draft(2,
+      { state: "held", heldBecause: ["phone_number"] }), draft(3)], publishedAt: tick(), revive: false });
+    const numbers = first.map(({ publicationNumber }) => publicationNumber);
+    assert(
+      first.every(({ outcome }) => outcome === "published") && first[1]!.state === "held" &&
+        numbers.every((number) => /^P-[1-9][0-9]{3,}$/u.test(number)) && new Set(numbers).size === 3 &&
+        replay.every(({ outcome }, index) => outcome === "existing" && replay[index]!.publicationNumber === numbers[index]) &&
+        isDeepStrictEqual(replay[0]!.published, draft(1).published),
+      "ATLAS_PUBLICATIONS_NOT_IDEMPOTENT_BY_DIGEST_AND_FINDING",
+    );
+    checks.push("atlas_publications_are_numbered_from_their_own_sequence_and_idempotent_by_card_digest_and_finding");
+
+    const [accepted] = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
+      decidedAt: tick() });
+    const [edited] = await store.decide({ cardNumber: 7001, findingNumber: 2, state: "edited", atlasNumber: "F-1002",
+      decidedAt: tick() });
+    const [rejected] = await store.decide({ cardNumber: 7001, findingNumber: 3, state: "rejected", atlasNumber: null,
+      decidedAt: tick() });
+    const again = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
+      decidedAt: tick() });
+    assert(accepted?.state === "accepted" && accepted.atlasNumber === "F-1001" && edited?.state === "edited" &&
+      edited.heldBecause?.[0] === "phone_number" && rejected?.state === "rejected" && again.length === 0,
+      "ATLAS_PUBLICATION_DECISIONS_DID_NOT_MOVE_THE_STATES");
+    checks.push("atlas_publication_decisions_move_accepted_edited_and_rejected_and_change_nothing_twice");
+
+    await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)], publishedAt: tick(),
+      revive: false });
+    const replaced = await store.withdraw({ reason: "card_replaced", cardNumbers: [7002], withdrawnAt: tick() });
+    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)],
+      publishedAt: tick(), revive: true });
+    const [unpublished] = await store.withdraw({ reason: "owner_unpublished",
+      publicationNumbers: [revived[0]!.publicationNumber], ownerReason: "It overstates the trial.", withdrawnAt: tick() });
+    const setAside = await store.withdraw({ reason: "card_set_aside", cardNumbers: [7001, 7002], withdrawnAt: tick() });
+    assert(
+      replaced.length === 2 && replaced.every(({ withdrawnBecause }) => withdrawnBecause === "card_replaced") &&
+        revived.every(({ outcome, state, withdrawnBecause }) => outcome === "revived" && state === "unreviewed" &&
+          withdrawnBecause === null) &&
+        unpublished?.ownerReason === "It overstates the trial." && unpublished.withdrawnBecause === "owner_unpublished" &&
+        // Set aside takes what shows or is held: the accepted, the edited and the other card's unreviewed one.
+        setAside.map(({ publicationNumber }) => publicationNumber).join() ===
+          [numbers[0], numbers[1], revived[1]!.publicationNumber].join(),
+      "ATLAS_PUBLICATION_WITHDRAWALS_MISMATCH",
+    );
+    checks.push("atlas_publications_are_withdrawn_by_replacement_unpublishing_and_set_aside_and_revived_on_the_owners_choice");
+
+    await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
+      findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
+    await store.decide({ cardNumber: 7003, findingNumber: 1, state: "accepted", atlasNumber: "F-1003", decidedAt: tick() });
+    const forgotten = await store.withdraw({ reason: "card_forgotten", cardNumbers: [7003], withdrawnAt: tick() });
+    const forgottenAgain = await store.withdraw({ reason: "card_forgotten", cardNumbers: [7003], withdrawnAt: tick() });
+    const rows = await admin.query<{ state: string; card_sha256: string | null; published_json: unknown;
+      card_forgotten_at: Date | null }>(
+      `SELECT state, card_sha256, published_json, card_forgotten_at FROM ${schema}.atlas_publications
+        WHERE card_number = 7003 ORDER BY finding_number`,
+    );
+    assert(
+      forgotten.length === 2 && forgottenAgain.length === 0 && rows.rows.length === 2 &&
+        rows.rows[0]!.state === "accepted" && rows.rows[0]!.published_json !== null &&
+        rows.rows[1]!.state === "withdrawn" && rows.rows[1]!.published_json === null &&
+        rows.rows.every((row) => row.card_sha256 === null && row.card_forgotten_at !== null),
+      "ATLAS_PUBLICATION_FORGET_MISMATCH",
+    );
+    const erased = await store.eraseTexts("F-1003", tick());
+    const editedAfterForget = await store.markEdited("F-1003", tick());
+    assert(erased.length === 1 && erased[0]!.published === null && editedAfterForget.length === 1 &&
+      editedAfterForget[0]!.state === "withdrawn" && editedAfterForget[0]!.withdrawnBecause === "card_forgotten",
+      "ATLAS_PUBLICATION_ERASE_OR_EDIT_AFTER_FORGET_MISMATCH");
+    checks.push("atlas_publications_of_a_forgotten_card_lose_their_digest_and_all_but_the_accepted_are_withdrawn_and_erased");
+
+    // The table's checks refuse what no publication may hold, whoever writes.
+    const insert = (columns: Record<string, unknown>) => {
+      const row = {
+        publication_number: "P-9999", card_number: 7999, card_sha256: atlasHex("synthetic-publication-card-z"),
+        finding_number: 1, published_json: JSON.stringify(draft(1).published), state: "unreviewed", atlas_number: null,
+        held_because: null, withdrawn_because: null, owner_reason: null, published_at: "2026-11-04T09:00:00.000Z",
+        state_changed_at: "2026-11-04T09:00:00.000Z", card_forgotten_at: null, texts_erased_at: null, ...columns,
+      };
+      const names = Object.keys(row);
+      return admin.query(
+        `INSERT INTO ${schema}.atlas_publications (${names.join(", ")}) VALUES (${names.map((_, index) => `$${index + 1}`).join(", ")})`,
+        Object.values(row),
+      );
+    };
+    for (const columns of [
+      { state: "accepted" },
+      { atlas_number: "F-1001" },
+      { state: "held" },
+      { state: "held", held_because: JSON.stringify(["street_address"]) },
+      { state: "withdrawn" },
+      { withdrawn_because: "card_set_aside" },
+      { state: "withdrawn", withdrawn_because: "card_set_aside", owner_reason: "A reason." },
+      { state: "withdrawn", withdrawn_because: "owner_unpublished" },
+      { state: "withdrawn", withdrawn_because: "lost" },
+      { published_json: null },
+      { texts_erased_at: "2026-11-04T09:00:00.000Z" },
+      { card_sha256: null },
+      { card_sha256: null, card_forgotten_at: "2026-11-04T09:00:00.000Z" },
+      { state_changed_at: "2026-11-03T09:00:00.000Z" },
+      { publication_number: "ARF-0042" },
+      { finding_number: 6 },
+    ]) {
+      await expectCode(() => insert(columns), "23514");
+    }
+    await insert({ publication_number: "P-9998", card_sha256: digestA, finding_number: 4 });
+    await expectCode(() => insert({ publication_number: "P-9997", card_sha256: digestA, finding_number: 4 }), "23505");
+    await admin.query(`DELETE FROM ${schema}.atlas_publications WHERE publication_number = 'P-9998'`);
+    checks.push("atlas_publications_table_checks_refuse_every_state_no_publication_may_hold");
+
+    // The functions refuse what the store refuses; the store maps it to its error.
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.publish_atlas_findings(7004, $1, '[{"findingNumber": 1, "state": "accepted"}]'::jsonb,
+         $2::timestamptz, false)`,
+      [digestA, tick()],
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.withdraw_atlas_publications(ARRAY[7001], NULL, 'owner_unpublished', 'Wrong.',
+         $1::timestamptz)`,
+      [tick()],
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.inspect_atlas_publications(NULL, NULL, NULL, NULL, NULL, 0)`,
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    try {
+      await store.publish({ cardNumber: 7004, cardSha256: digestA, findings: [draft(1, { state: "accepted" })],
+        publishedAt: tick(), revive: false });
+      throw new Error("ATLAS_PUBLICATION_STORE_CHECK_MISSING");
+    } catch (error) {
+      assert(error instanceof AtlasPublicationError, "ATLAS_PUBLICATION_STORE_CHECK_MISSING");
+    }
+    checks.push("atlas_publication_functions_refuse_invalid_input_with_their_code");
+
+    // The review role reaches the table only through its functions; the reader reads it and calls none of them.
+    await asRole("askrigor_research_review", async (client) => {
+      await client.query("SELECT * FROM inspect_atlas_publications(NULL, ARRAY[7001], NULL, NULL, NULL, 10)");
+    });
+    for (const statement of [
+      "SELECT count(*) FROM atlas_publications",
+      "SELECT nextval('atlas_publication_number_seq')",
+      "UPDATE atlas_publications SET state = 'unreviewed'",
+      "DELETE FROM atlas_publications",
+    ]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_review", (client) => client.query(statement)));
+    }
+    const readable = await asRole("askrigor_reader", async (client) =>
+      (await client.query<{ count: number }>("SELECT count(*)::int AS count FROM atlas_publications")).rows[0]!.count);
+    assert(readable >= 7, "ATLAS_PUBLICATIONS_NOT_READABLE_BY_THE_READER");
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      "SELECT * FROM inspect_atlas_publications(NULL, NULL, NULL, NULL, NULL, 10)",
+    )));
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      "UPDATE atlas_publications SET state = 'unreviewed'",
+    )));
+    checks.push("atlas_publications_reach_the_review_role_only_through_its_functions_and_the_reader_reads_them");
+  } finally {
+    await Promise.allSettled([store.close(), admin.end()]);
+  }
+}
+
+/**
+ * Decision 171, section 4C: the public pages read the publications and the accepted findings through the reader role,
+ * in one read-only snapshot. A held or rejected publication is never read; an accepted one shows its F number's latest
+ * version, not the card's wording; one whose F number was withdrawn shows nowhere; and a read selects no column that
+ * names a card or holds the owner's reasons. The pages render from PostgreSQL as they do from memory.
+ */
+export async function verifyAtlasPages(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 1 });
+  const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  const source = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+  let instant = Date.parse("2026-11-06T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  try {
+    const current = (await admin.query<{ public_number: string; label: string; entry_kind: string; topic_key: string }>(
+      `SELECT public_number, label, entry_kind, topic_key FROM ${schema}.atlas_finding_current ORDER BY public_number`,
+    )).rows;
+    const checked = current.find(({ label, entry_kind: kind }) => label === "checked" && kind === "finding");
+    const withdrawn = current.find(({ label }) => label === "withdrawn");
+    assert(checked !== undefined && withdrawn !== undefined, "ATLAS_PAGES_FIXTURE_MISSING");
+    const published = (claim: string): AtlasPublishedFinding => ({
+      schema: ATLAS_PUBLICATION_SCHEMA,
+      topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+      claim,
+      certainty: "low",
+      applies_to: "Adults with an invented condition",
+      kind: null,
+      subject: null,
+      subject_type: null,
+      direction: null,
+      numbers: null,
+      searches: null,
+      sources: ["10.0000/synthetic-pages"],
+      why_not_usual: "Quick answers miss it.",
+      what_would_change_it: "A trial.",
+      verified_bases: [],
+      saved_on: "2026-11-06",
+      askrigor_version: "0.1.0",
+    });
+    const unreviewedDraft = (findingNumber: number, claim: string): AtlasPublicationDraft =>
+      ({ findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: published(claim) });
+    const card = 7201;
+    const digest = atlasHex("synthetic-pages-card");
+    const rows = await store.publish({
+      cardNumber: card,
+      cardSha256: digest,
+      findings: [
+        unreviewedDraft(1, "PAGES-UNREVIEWED claim."),
+        unreviewedDraft(2, "PAGES-CARD-WORDING claim."),
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("PAGES-HELD claim.") },
+        unreviewedDraft(4, "PAGES-REJECTED claim."),
+        unreviewedDraft(5, "PAGES-WITHDRAWN claim."),
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [unreviewed, accepted, held, rejected, withdrawnAfter] = rows.map(({ publicationNumber }) => publicationNumber);
+    assert(rows.length === 5 && rows[2]!.state === "held", "ATLAS_PAGES_PUBLISH_MISMATCH");
+    await store.decide({ cardNumber: card, findingNumber: 2, state: "accepted", atlasNumber: checked.public_number,
+      decidedAt: tick() });
+    await store.decide({ cardNumber: card, findingNumber: 4, state: "rejected", atlasNumber: null, decidedAt: tick() });
+    await store.decide({ cardNumber: card, findingNumber: 5, state: "accepted", atlasNumber: withdrawn.public_number,
+      decidedAt: tick() });
+
+    const read = await source.read(async (reads) => ({
+      listed: await reads.listPublications({ publicationNumbers: rows.map(({ publicationNumber }) => publicationNumber),
+        limit: 10 }),
+      onTopic: await reads.listPublications({ topicKey: "pages-topic", limit: 10 }),
+      canonicalTopic: await reads.listPublications({ topicKey: checked.topic_key, states: ["accepted", "edited"],
+        order: "changed", limit: 500 }),
+      findings: await reads.readFindings([checked.public_number, withdrawn.public_number]),
+      contradictions: await reads.listContradictions(50),
+      changes: await reads.listChanges(50),
+    }));
+    const columns = (row: object) => Object.keys(row).sort().join();
+    assert(
+      read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
+        [unreviewed, accepted, withdrawnAfter].sort().join() &&
+        read.listed.every((row) => columns(row) === "atlasNumber,publicationNumber,published,publishedAt,state,stateChangedAt"),
+      `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
+        ({ publicationNumber, state })))}`,
+    );
+    assert(
+      read.onTopic.map(({ publicationNumber }) => publicationNumber).join() === unreviewed &&
+        read.canonicalTopic.some(({ publicationNumber }) => publicationNumber === accepted),
+      "ATLAS_PAGES_TOPIC_MISMATCH",
+    );
+    const findingOf = (number: string) => read.findings.find(({ atlasNumber }) => atlasNumber === number);
+    const checkedFinding = findingOf(checked.public_number);
+    assert(
+      checkedFinding?.label === "checked" && findingOf(withdrawn.public_number)?.label === "withdrawn" &&
+        checkedFinding.acceptedOn !== null && /^\d{4}-\d{2}-\d{2}$/u.test(checkedFinding.researchCheckedOn) &&
+        checkedFinding.sources.length > 0 && !checkedFinding.erased,
+      "ATLAS_PAGES_FINDINGS_MISMATCH",
+    );
+    assert(
+      read.changes.length > 0 && read.changes.every(({ atlasNumber }) => /^F-[1-9][0-9]{3,}$/u.test(atlasNumber)) &&
+        read.contradictions.every(({ fromNumber, toNumber }) => /^F-[1-9][0-9]{3,}$/u.test(fromNumber) &&
+          /^F-[1-9][0-9]{3,}$/u.test(toNumber)),
+      "ATLAS_PAGES_CHANGES_MISMATCH",
+    );
+
+    // The pages themselves, rendered from PostgreSQL.
+    const acceptedModel = await loadAtlasFinding(source, accepted!);
+    const unreviewedModel = await loadAtlasFinding(source, unreviewed!);
+    const acceptedHtml = acceptedModel === undefined ? "" : renderAtlasFinding(acceptedModel);
+    const unreviewedHtml = unreviewedModel === undefined ? "" : renderAtlasFinding(unreviewedModel);
+    const home = renderAtlasHome(await loadAtlasHome(source));
+    assert(
+      acceptedHtml.includes(escapeHtml(checkedFinding.content.wording)) && !acceptedHtml.includes("PAGES-CARD-WORDING") &&
+        acceptedHtml.includes(`Atlas number ${checked.public_number}`) && !acceptedHtml.includes(NOT_CHECKED_LABEL) &&
+        unreviewedHtml.includes(NOT_CHECKED_LABEL) && unreviewedHtml.includes("PAGES-UNREVIEWED claim.") &&
+        home.includes("PAGES-UNREVIEWED claim.") &&
+        (await loadAtlasFinding(source, held!)) === undefined &&
+        (await loadAtlasFinding(source, rejected!)) === undefined &&
+        (await loadAtlasFinding(source, withdrawnAfter!)) === undefined,
+      "ATLAS_PAGES_RENDERED_MISMATCH",
+    );
+    for (const page of [acceptedHtml, unreviewedHtml, home]) {
+      assert(
+        atlasPageProblems(page).length === 0 && !page.includes("ARF-") && !page.includes(digest) &&
+          !/PAGES-(?:HELD|REJECTED|WITHDRAWN)/u.test(page),
+        "ATLAS_PAGES_SHOW_WHAT_THEY_NEVER_SHOW",
+      );
+    }
+    checks.push("atlas_pages_read_shown_publications_and_accepted_findings_through_the_reader_in_one_read_only_snapshot");
+  } finally {
+    await Promise.allSettled([store.close(), source.close(), admin.end()]);
+  }
+}
+
+/**
+ * Decision 171, section 4E: migration 0022's votes, comments, reports and home-page picks. A participant is a key
+ * derived from the account key the connector derives; the public runtime's access role writes only through its seven
+ * participation functions, the review role moderates only through its five, and the reader reads the tables for the
+ * pages and calls none of them. Votes show as totals and a comment under the name it was posted with; a refused first
+ * comment leaves nothing; a report counts once per reporter, is cleared when the owner shows the comment and goes with
+ * it; deleting everything leaves only an owner's stop; picks name only publications that show; the tables' checks
+ * refuse what no row may hold; and a second migrate keeps every row.
+ */
+export async function verifyAtlasParticipation(context: {
+  adminUrl: string;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, accessUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const publications = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  const participation = new PostgresAtlasParticipationStore({ connectionString: accessUrl, schema });
+  const moderation = new PostgresAtlasModerationStore({ connectionString: reviewUrl, schema });
+  const source = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+  let instant = Date.parse("2026-11-07T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  const asRole = async <T>(role: string, work: (client: import("pg").PoolClient) => Promise<T>): Promise<T> => {
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL ROLE ${role}`);
+      await client.query(`SET LOCAL search_path TO ${schema}, public`);
+      return await work(client);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  };
+  const expectParticipation = async (action: () => Promise<unknown>, code: string) => {
+    try {
+      await action();
+    } catch (error) {
+      if (error instanceof AtlasParticipationError && error.code === code) return;
+      throw error;
+    }
+    throw new Error(`EXPECTED_ATLAS_PARTICIPATION_CODE_MISSING code=${code}`);
+  };
+  const settings = {
+    publicOrigin: "https://askrigor.com",
+    sessionKey: new Uint8Array(32).fill(1),
+    participantSecret: new Uint8Array(32).fill(2),
+    identitySecret: IDENTITY_SECRET,
+  };
+  const jane = participantKeyFor(settings, FREE_SUBJECT);
+  const ann = participantKeyFor(settings, PAID_SUBJECT);
+  const sam = participantKeyFor(settings, REVIEW_SUBJECT);
+  const reportsOn = async (publicId: string) => (await admin.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM ${schema}.atlas_comment_reports WHERE comment_number = $1`,
+    [Number(publicId.slice(2))],
+  )).rows[0]!.count;
+  const published = (claim: string): AtlasPublishedFinding => ({
+    schema: ATLAS_PUBLICATION_SCHEMA,
+    topic: { key: "participation-topic", label: "A topic only the votes and comments check uses" },
+    claim,
+    certainty: "low",
+    applies_to: "Adults with an invented condition",
+    kind: null,
+    subject: null,
+    subject_type: null,
+    direction: null,
+    numbers: null,
+    searches: null,
+    sources: ["10.0000/synthetic-participation"],
+    why_not_usual: "Quick answers miss it.",
+    what_would_change_it: "A trial.",
+    verified_bases: [],
+    saved_on: "2026-11-07",
+    askrigor_version: "0.1.0",
+  });
+  try {
+    const applied = await admin.query(
+      `SELECT 1 FROM ${schema}.schema_migrations WHERE migration_id = '0022_atlas_votes_comments'`,
+    );
+    assert(applied.rowCount === 1, "MIGRATION_0022_NOT_APPLIED");
+    // The participant key follows the account key the connector derives, under a separate secret.
+    const accountKey = new ResearchContributorAccessService({
+      store: {} as never, identitySecret: IDENTITY_SECRET,
+    }).accountKeyForSubject(FREE_SUBJECT);
+    assert(
+      /^[a-f0-9]{64}$/u.test(jane) && jane !== accountKey && new Set([jane, ann, sam]).size === 3 &&
+        participantKeyFor({ ...settings, sessionKey: new Uint8Array(32).fill(9) }, FREE_SUBJECT) === jane &&
+        participantKeyFor({ ...settings, participantSecret: new Uint8Array(32).fill(3) }, FREE_SUBJECT) !== jane,
+      "ATLAS_PARTICIPANT_KEY_MISMATCH",
+    );
+
+    const rows = await publications.publish({
+      cardNumber: 7301,
+      cardSha256: atlasHex("synthetic-participation-card"),
+      findings: [
+        { findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+          published: published("PARTICIPATION-ONE claim.") },
+        { findingNumber: 2, state: "unreviewed", atlasNumber: null, heldBecause: null,
+          published: published("PARTICIPATION-TWO claim.") },
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("PARTICIPATION-HELD claim.") },
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [shown, other, held] = rows.map(({ publicationNumber }) => publicationNumber) as [string, string, string];
+
+    // Votes: one per participant and publication, changeable, shown as totals.
+    assert(
+      isDeepStrictEqual(await participation.setVote(jane, shown, "agree", tick()), { agree: 1, disagree: 0 }) &&
+        isDeepStrictEqual(await participation.setVote(ann, shown, "disagree", tick()), { agree: 1, disagree: 1 }) &&
+        isDeepStrictEqual(await participation.setVote(jane, shown, "disagree", tick()), { agree: 0, disagree: 2 }) &&
+        isDeepStrictEqual(await participation.setVote(sam, shown, "agree", tick()), { agree: 1, disagree: 2 }) &&
+        isDeepStrictEqual(await participation.setVote(sam, shown, null, tick()), { agree: 0, disagree: 2 }),
+      "ATLAS_VOTES_MISMATCH",
+    );
+    assert(await participation.inspectParticipant(sam) === null, "ATLAS_IDLE_PARTICIPANT_KEPT");
+    await expectParticipation(() => participation.setVote(jane, held, "agree", tick()), "NOT_SHOWN");
+    checks.push("atlas_votes_are_one_changeable_vote_per_participant_shown_as_totals_and_an_idle_participant_is_forgotten");
+
+    // Comments: the display name comes with the first; a refused first comment leaves nothing.
+    await expectParticipation(() => participation.postComment(jane, shown, "No name yet.", tick()), "DISPLAY_NAME_REQUIRED");
+    await expectParticipation(() => participation.setDisplayName(sam, "Sam", tick()), "DISPLAY_NAME_REQUIRED");
+    await expectParticipation(() => participation.postComment(sam, held, "On a held one.", tick(), "Sam"), "NOT_SHOWN");
+    assert(await participation.inspectParticipant(sam) === null, "ATLAS_REFUSED_FIRST_COMMENT_LEFT_A_ROW");
+    const first = await participation.postComment(jane, shown, "It helped me after two weeks.", tick(), "Jane");
+    await participation.setDisplayName(jane, "Jane D", tick());
+    const second = await participation.postComment(jane, shown, "Still fine at twelve weeks.", tick(), "Ignored");
+    const annComment = await participation.postComment(ann, shown, "Not for me.", tick(), "Ann");
+    assert(await participation.deleteComment(ann, first) === false, "ATLAS_COMMENT_DELETED_BY_ANOTHER");
+    const read = await source.read((reads) => reads.readParticipation(shown, jane));
+    const salts = new Map((await admin.query<{ participant_key: string; mark_salt: string }>(
+      `SELECT participant_key, mark_salt FROM ${schema}.atlas_participants WHERE participant_key = ANY($1::text[])`,
+      [[jane, ann]],
+    )).rows.map((row) => [row.participant_key, row.mark_salt]));
+    assert(
+      read.agree === 0 && read.disagree === 2 &&
+        // Newest first.
+        isDeepStrictEqual(read.comments.map(({ publicId, displayName }) => [publicId, displayName]),
+          [[annComment, "Ann"], [second, "Jane D"], [first, "Jane"]]) && read.more === false &&
+        read.viewer?.displayName === "Jane D" && read.viewer.vote === "disagree" && !read.viewer.stopped &&
+        isDeepStrictEqual(read.viewer.ownComments, [first, second]) &&
+        // Each mark follows the author's key, their row's salt and the name the comment was posted under: Jane's two
+        // comments, under two names, have two marks.
+        isDeepStrictEqual(read.comments.map(({ marker }) => marker), [
+          atlasCommenterMarker(ann, salts.get(ann)!, "Ann"),
+          atlasCommenterMarker(jane, salts.get(jane)!, "Jane D"),
+          atlasCommenterMarker(jane, salts.get(jane)!, "Jane"),
+        ]) && read.comments[1]!.marker !== read.comments[2]!.marker,
+      `ATLAS_PARTICIPATION_READ_MISMATCH ${JSON.stringify(read)}`,
+    );
+    const older = await source.read((reads) => reads.readParticipation(shown, null, Number(second.slice(2))));
+    const own = await source.read((reads) => reads.listOwnComments(jane, undefined, 10));
+    const ownVotes = await source.read((reads) => reads.listOwnVotes(jane, undefined, 10));
+    assert(isDeepStrictEqual(ownVotes.map(({ publicationNumber, vote, publicationListed }) =>
+      [publicationNumber, vote, publicationListed]), [[shown, "disagree", true]]), "ATLAS_OWN_VOTES_MISMATCH");
+    assert(
+      isDeepStrictEqual(older.comments.map(({ publicId }) => publicId), [first]) &&
+        isDeepStrictEqual(own.map(({ publicId, state, publicationListed }) => [publicId, state, publicationListed]),
+          [[second, "shown", true], [first, "shown", true]]),
+      "ATLAS_PAGED_OR_OWN_COMMENTS_MISMATCH",
+    );
+    const model = await loadAtlasFinding(source, shown, { participation: { participantKey: null } });
+    assert(model?.participation?.viewer === null && model.participation.comments.length === 3,
+      "ATLAS_FINDING_MODEL_PARTICIPATION_MISMATCH");
+    checks.push("atlas_comments_show_at_once_under_the_name_they_were_posted_with_and_a_refused_first_comment_leaves_nothing");
+
+    // Reports: once per reporter; the owner's list names the commenter by tag, never by key.
+    const anonymous = `a:${atlasHex("synthetic-address-hash-1")}`;
+    assert(
+      await participation.reportComment(anonymous, annComment, tick()) === "reported" &&
+        await participation.reportComment(anonymous, annComment, tick()) === "already_reported" &&
+        await participation.reportComment(`p:${jane}`, annComment, tick()) === "reported" &&
+        await participation.reportComment(anonymous, "C-9999", tick()) === "not_found",
+      "ATLAS_REPORTS_MISMATCH",
+    );
+    const reported = await moderation.inspectComments({ reportedOnly: true, limit: 10 });
+    assert(
+      reported.length === 1 && reported[0]!.publicId === annComment && reported[0]!.reportCount === 2 &&
+        reported[0]!.commenterTag === atlasCommenterTag(ann) && !JSON.stringify(reported).includes(ann),
+      "ATLAS_REPORTED_LIST_MISMATCH",
+    );
+    const hidden = await moderation.moderateComment(annComment, "hide", tick());
+    const afterHide = await source.read((reads) => reads.readParticipation(shown, null));
+    assert(
+      hidden?.state === "hidden" && hidden.reportCount === 2 && afterHide.viewer === null &&
+        !afterHide.comments.some(({ publicId }) => publicId === annComment) &&
+        await participation.reportComment(`a:${atlasHex("synthetic-address-hash-2")}`, annComment, tick()) === "not_found",
+      "ATLAS_HIDE_MISMATCH",
+    );
+    const reshown = await moderation.moderateComment(annComment, "show", tick());
+    assert(
+      reshown?.state === "shown" && reshown.reportCount === 0 && await reportsOn(annComment) === 0 &&
+        (await moderation.inspectComments({ reportedOnly: true, limit: 10 })).length === 0,
+      "ATLAS_SHOW_DID_NOT_CLEAR_THE_REPORTS",
+    );
+    await participation.reportComment(anonymous, annComment, tick());
+    const removed = await moderation.moderateComment(annComment, "remove", tick());
+    assert(
+      removed?.state === "removed" && removed.reportCount === 1 && await reportsOn(annComment) === 0 &&
+        await moderation.moderateComment(annComment, "hide", tick()) === null,
+      "ATLAS_REMOVE_MISMATCH",
+    );
+    checks.push("atlas_reports_count_once_per_reporter_are_cleared_when_the_owner_shows_a_comment_and_go_with_a_removed_one");
+
+    // Stopping a commenter by tag; deleting everything a participant holds leaves only a stop.
+    const janeTag = atlasCommenterTag(jane);
+    const stopped = await moderation.setCommenterStopped(janeTag, true, tick());
+    assert(stopped?.stopped === true && stopped.comments === 2, "ATLAS_STOP_MISMATCH");
+    await expectParticipation(() => participation.postComment(jane, shown, "Again.", tick()), "STOPPED");
+    const annSecond = await participation.postComment(ann, other, "Second thought.", tick());
+    await participation.reportComment(`p:${jane}`, annSecond, tick());
+    await participation.setVote(jane, other, "agree", tick());
+    const forgotten = await participation.forgetParticipant(jane, tick());
+    assert(isDeepStrictEqual(forgotten, { votes: 2, comments: 2, reports: 1 }),
+      `ATLAS_FORGET_MISMATCH ${JSON.stringify(forgotten)}`);
+    const left = (await admin.query<{ participant: number; name: number; votes: number; comments: number; reports: number }>(
+      `SELECT (SELECT count(*)::int FROM ${schema}.atlas_participants WHERE participant_key = $1 AND stopped_at IS NOT NULL)
+                AS participant,
+              (SELECT count(*)::int FROM ${schema}.atlas_participants WHERE participant_key = $1 AND display_name IS NOT NULL)
+                AS name,
+              (SELECT count(*)::int FROM ${schema}.atlas_votes WHERE participant_key = $1) AS votes,
+              (SELECT count(*)::int FROM ${schema}.atlas_comments WHERE participant_key = $1) AS comments,
+              (SELECT count(*)::int FROM ${schema}.atlas_comment_reports WHERE reporter_key = 'p:' || $1) AS reports`,
+      [jane],
+    )).rows[0]!;
+    const annSecondNow = (await moderation.inspectComments({ reportedOnly: false, limit: 50 }))
+      .find(({ publicId }) => publicId === annSecond);
+    assert(
+      isDeepStrictEqual(left, { participant: 1, name: 0, votes: 0, comments: 0, reports: 0 }) &&
+        annSecondNow?.reportCount === 0 && await reportsOn(annSecond) === 0,
+      `ATLAS_FORGET_LEFT_ROWS ${JSON.stringify(left)}`,
+    );
+    await expectParticipation(() => participation.postComment(jane, shown, "Back.", tick(), "Jane"), "STOPPED");
+    const restored = await moderation.setCommenterStopped(janeTag, false, tick());
+    assert(
+      restored?.stopped === false && restored.comments === 0 && await participation.inspectParticipant(jane) === null &&
+        await moderation.setCommenterStopped("U-000000000000", true, tick()) === null,
+      "ATLAS_RESTORE_MISMATCH",
+    );
+    checks.push("atlas_commenters_are_stopped_and_restored_by_tag_and_deleting_everything_leaves_only_a_stop");
+
+    // Ending sessions (review 171, issue 5): signing out everywhere and deleting everything end every session signed in
+    // before them; the end is kept by a hash of the key for 30 days, then deleted at the next check.
+    const sessionEnds = async () => (await admin.query<{ session_key_hash: string }>(
+      `SELECT session_key_hash FROM ${schema}.atlas_session_ends ORDER BY session_key_hash`,
+    )).rows.map(({ session_key_hash: hash }) => hash);
+    // The functions take the time from the database's clock (review follow-up, item 4), so these sign-in times are real.
+    const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+    const signedIn = minutesAgo(5);
+    assert(await participation.sessionCurrent(ann, signedIn, tick()), "ATLAS_FRESH_SESSION_NOT_CURRENT");
+    await participation.endSessions(ann, tick());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert(
+      !(await participation.sessionCurrent(ann, signedIn, tick())) &&
+        await participation.sessionCurrent(ann, new Date().toISOString(), tick()) &&
+        // Deleting everything ended Jane's sessions signed in before it.
+        !(await participation.sessionCurrent(jane, minutesAgo(60), tick())) &&
+        (await sessionEnds()).includes(atlasSessionKeyHash(ann)) && !(await sessionEnds()).includes(ann),
+      "ATLAS_SESSION_END_MISMATCH",
+    );
+    // No caller chooses the time: the functions take none, and a check with a session signed in far ahead neither ends
+    // nor purges a record that has not lapsed.
+    const signatures = (await admin.query<{ end_sessions: string | null; session_current: string | null; old: string | null }>(
+      `SELECT to_regprocedure('${schema}.end_atlas_sessions(text)')::text AS end_sessions,
+              to_regprocedure('${schema}.atlas_session_current(text, timestamptz)')::text AS session_current,
+              to_regprocedure('${schema}.atlas_session_current(text, timestamptz, timestamptz)')::text AS old`,
+    )).rows[0]!;
+    assert(signatures.end_sessions !== null && signatures.session_current !== null && signatures.old === null,
+      "ATLAS_SESSION_FUNCTIONS_TAKE_A_TIME");
+    await participation.sessionCurrent(ann, "2099-01-01T00:00:00.000Z", "2099-01-01T00:00:00.000Z");
+    assert((await sessionEnds()).includes(atlasSessionKeyHash(ann)), "ATLAS_SESSION_END_PURGED_BY_A_CALLER");
+    // A lapsed record (30 days over by the database's clock) is deleted at the next check.
+    await admin.query(
+      `UPDATE ${schema}.atlas_session_ends SET ended_at = now() - interval '40 days', keep_until = now() - interval '10 days'
+        WHERE session_key_hash = $1`,
+      [atlasSessionKeyHash(ann)],
+    );
+    assert(await participation.sessionCurrent(ann, signedIn, tick()) && !(await sessionEnds()).includes(atlasSessionKeyHash(ann)),
+      "ATLAS_LAPSED_SESSION_END_KEPT");
+    checks.push("atlas_sessions_end_everywhere_by_a_hash_of_the_key_and_the_end_is_deleted_after_30_days");
+
+    // Picks: only publications that show, in order, each with its public reason, on the home page.
+    await expectParticipation(() => moderation.setHomePicks([{ publicationNumber: held, reason: "Held." }], tick()),
+      "PICK_NOT_PUBLISHED");
+    const picks = await moderation.setHomePicks([
+      { publicationNumber: other, reason: "The second finding matters most." },
+      { publicationNumber: shown, reason: "Harms included." },
+    ], tick());
+    const home = renderAtlasHome(await loadAtlasHome(source));
+    const lane = home.slice(home.indexOf('id="most-important"'), home.indexOf('id="recently-published"'));
+    assert(
+      picks.map(({ slot, publicationNumber }) => `${slot}:${publicationNumber}`).join() === `1:${other},2:${shown}` &&
+        isDeepStrictEqual(await moderation.inspectHomePicks(), picks) &&
+        lane.includes("Why it is here: The second finding matters most.") &&
+        lane.indexOf(`/atlas/findings/${other}`) > -1 &&
+        lane.indexOf(`/atlas/findings/${other}`) < lane.indexOf(`/atlas/findings/${shown}`) &&
+        atlasPageProblems(home).length === 0,
+      "ATLAS_PICKS_MISMATCH",
+    );
+    checks.push("atlas_home_picks_name_only_publications_that_show_and_the_home_page_shows_them_with_their_reasons");
+
+    // A vote or a comment goes only where the pages show (review 171, hardening): an accepted publication shows once
+    // its F number is written, and not when that finding was withdrawn.
+    const canonical = (await admin.query<{ public_number: string; label: string }>(
+      `SELECT public_number, label FROM ${schema}.atlas_finding_current WHERE entry_kind = 'finding' ORDER BY public_number`,
+    )).rows;
+    const writtenChecked = canonical.find(({ label }) => label === "checked")?.public_number;
+    const writtenWithdrawn = canonical.find(({ label }) => label === "withdrawn")?.public_number;
+    assert(writtenChecked !== undefined && writtenWithdrawn !== undefined, "ATLAS_OPEN_FIXTURE_MISSING");
+    const decidedRows = await publications.publish({
+      cardNumber: 7302,
+      cardSha256: atlasHex("synthetic-participation-decided-card"),
+      findings: [1, 2, 3].map((findingNumber) => ({ findingNumber, state: "unreviewed" as const, atlasNumber: null,
+        heldBecause: null, published: published(`PARTICIPATION-DECIDED ${findingNumber}.`) })),
+      publishedAt: tick(),
+      revive: false,
+    });
+    const decidedNumbers = decidedRows.map(({ publicationNumber }) => publicationNumber) as [string, string, string];
+    for (const [findingNumber, atlasNumber] of [[1, writtenChecked], [2, writtenWithdrawn], [3, "F-9999"]] as const) {
+      await publications.decide({ cardNumber: 7302, findingNumber, state: "accepted", atlasNumber, decidedAt: tick() });
+    }
+    assert(isDeepStrictEqual(await participation.setVote(sam, decidedNumbers[0], "agree", tick()), { agree: 1, disagree: 0 }),
+      "ATLAS_VOTE_ON_A_SHOWN_ACCEPTED_FINDING_REFUSED");
+    await expectParticipation(() => participation.setVote(sam, decidedNumbers[1], "agree", tick()), "NOT_SHOWN");
+    await expectParticipation(() => participation.setVote(sam, decidedNumbers[2], "agree", tick()), "NOT_SHOWN");
+    await expectParticipation(() => participation.postComment(sam, decidedNumbers[2], "Not yet shown.", tick(), "Sam"),
+      "NOT_SHOWN");
+    await participation.setVote(sam, decidedNumbers[0], null, tick());
+    checks.push("atlas_votes_and_comments_go_only_where_the_pages_show_an_accepted_finding");
+
+    // The tables' checks refuse what no row may hold, whoever writes.
+    const valid = "c".repeat(64);
+    await admin.query(
+      `INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, display_name, created_at, updated_at)
+       VALUES ($1, 'U-cccccccccccc', 'Check', $2, $2)`,
+      [valid, tick()],
+    );
+    for (const [statement, values] of [
+      [`INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, created_at, updated_at)
+        VALUES ($1, 'U-dddddddddddd', now(), now())`, ["D".repeat(64)]],
+      [`INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, display_name, created_at, updated_at)
+        VALUES ($1, 'U-eeeeeeeeeeee', ' Padded', now(), now())`, ["e".repeat(64)]],
+      [`INSERT INTO ${schema}.atlas_votes (publication_number, participant_key, vote, voted_at) VALUES ($1, $2, 'maybe', now())`,
+        [shown, valid]],
+      [`INSERT INTO ${schema}.atlas_comments (comment_number, publication_number, participant_key, display_name, body, state,
+          posted_at, state_changed_at) VALUES (99001, $1, $2, 'Check', $3, 'shown', now(), now())`,
+        [shown, valid, "x".repeat(2_001)]],
+      [`INSERT INTO ${schema}.atlas_comments (comment_number, publication_number, participant_key, display_name, body, state,
+          posted_at, state_changed_at) VALUES (99002, $1, $2, 'Check', 'Fine.', 'removed', now(), now())`, [shown, valid]],
+      [`INSERT INTO ${schema}.atlas_comment_reports (comment_number, reporter_key, reported_at)
+        VALUES ($1, 'a:203.0.113.7', now())`, [Number(annSecond.slice(2))]],
+      [`INSERT INTO ${schema}.atlas_home_picks (slot, publication_number, reason, set_at) VALUES (6, $1, 'Six.', now())`, [held]],
+    ] as const) {
+      await expectCode(() => admin.query(statement, [...values]), "23514");
+    }
+    await admin.query(`DELETE FROM ${schema}.atlas_participants WHERE participant_key = $1`, [valid]);
+    checks.push("atlas_votes_and_comments_tables_refuse_every_row_no_participant_comment_report_or_pick_may_hold");
+
+    // The access role writes only through its functions; the review role moderates only through its own; the reader
+    // reads the tables and calls none of them.
+    const executableBy = async (role: string) => (await admin.query<{ proname: string }>(
+      `SELECT DISTINCT proc.proname FROM pg_proc proc
+         JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
+        WHERE namespace.nspname = $1 AND has_function_privilege($2, proc.oid, 'EXECUTE')
+        ORDER BY proc.proname`,
+      [schema, role],
+    )).rows.map(({ proname }) => proname);
+    const accessFunctions = await executableBy("askrigor_research_access");
+    // With the pending-withdrawal function and migration 0019's hold (owner answer 173).
+    assert(
+      accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
+        "withdraw_pending_research_contribution_proposals"].sort().join(),
+      `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
+    );
+    const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+      "atlas_forget_idle_participant", "atlas_publication_open", "atlas_session_key_hash", "atlas_end_sessions"];
+    const readerFunctions = (await executableBy("askrigor_reader")).filter((name) => migration0022Functions.includes(name));
+    assert(readerFunctions.length === 0, `ATLAS_READER_EXECUTES_FUNCTIONS ${readerFunctions.join()}`);
+    await asRole("askrigor_research_access", (client) => client.query("SELECT * FROM inspect_atlas_participant($1)", [ann]));
+    await asRole("askrigor_research_review", (client) => client.query("SELECT * FROM inspect_atlas_comments(false, NULL, 10)"));
+    const readable = await asRole("askrigor_reader", async (client) => (await client.query<{ count: number }>(
+      "SELECT (SELECT count(*) FROM atlas_votes) + (SELECT count(*) FROM atlas_comments) AS count")).rows[0]!.count);
+    assert(Number(readable) > 0, "ATLAS_VOTES_AND_COMMENTS_NOT_READABLE_BY_THE_READER");
+    const tableStatements = [
+      ...ATLAS_PARTICIPATION_TABLES.map((table) => `SELECT count(*) FROM ${table}`),
+      "UPDATE atlas_comments SET state = 'shown'",
+      "DELETE FROM atlas_votes",
+      "SELECT nextval('atlas_comment_number_seq')",
+    ];
+    const participationCalls = [
+      `SELECT * FROM set_atlas_vote('${ann}', '${shown}', 'agree', now())`,
+      `SELECT * FROM post_atlas_comment('${ann}', '${shown}', 'Hi.', NULL, now())`,
+      `SELECT * FROM forget_atlas_participant('${ann}', now())`,
+    ];
+    const moderationCalls = [
+      "SELECT * FROM inspect_atlas_comments(false, NULL, 10)",
+      `SELECT * FROM moderate_atlas_comment('${annSecond}', 'hide', now())`,
+      "SELECT * FROM set_atlas_home_picks('[]'::jsonb, now())",
+    ];
+    const helperCalls = [`SELECT atlas_forget_idle_participant('${ann}')`, `SELECT atlas_publication_open('${shown}')`,
+      `SELECT atlas_end_sessions('${ann}')`];
+    for (const statement of [...tableStatements, ...moderationCalls, ...helperCalls]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_access", (client) => client.query(statement)));
+    }
+    for (const statement of [...tableStatements, ...participationCalls, ...helperCalls]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_review", (client) => client.query(statement)));
+    }
+    for (const statement of [...participationCalls, ...moderationCalls, ...helperCalls,
+      "UPDATE atlas_comments SET state = 'shown'", "DELETE FROM atlas_votes",
+      `INSERT INTO atlas_home_picks (slot, publication_number, reason, set_at) VALUES (5, '${shown}', 'No.', now())`]) {
+      await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(statement)));
+    }
+    checks.push("atlas_votes_and_comments_reach_each_role_only_through_its_functions_and_the_reader_reads_them");
+
+    // A second migrate keeps every row.
+    const counted = async () => (await admin.query(`SELECT ${ATLAS_PARTICIPATION_TABLES
+      .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`)).rows[0];
+    const before = await counted();
+    const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await again.migrate();
+    } finally {
+      await again.close();
+    }
+    assert(isDeepStrictEqual(await counted(), before), "ATLAS_SECOND_MIGRATE_CHANGED_VOTES_OR_COMMENTS");
+    checks.push("a_second_migrate_keeps_every_vote_comment_report_and_pick");
+  } finally {
+    await Promise.allSettled([publications.close(), participation.close(), moderation.close(), source.close(), admin.end()]);
   }
 }
 
@@ -2254,8 +3831,9 @@ export async function verifyAtlasStorage(context: {
     }
     checks.push("every_canonical_atlas_table_refuses_update_and_delete");
 
-    // The review role executes the five Atlas functions (and the three contribution ones) and nothing else; it reads
-    // and writes no table. The reader reads the Atlas and writes nothing.
+    // The review role executes the five Atlas functions, the six publication ones and the five moderation ones
+    // (decision 171), the six held YouTube findings ones (owner answer 173) and the three contribution ones, and nothing
+    // else; it reads and writes no table. The reader reads the Atlas and writes nothing.
     const executable = await admin.query<{ proname: string }>(
       `SELECT DISTINCT proc.proname FROM pg_proc proc
          JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
@@ -2265,7 +3843,8 @@ export async function verifyAtlasStorage(context: {
     );
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
-        [...ATLAS_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
+        [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

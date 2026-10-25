@@ -66,8 +66,8 @@ function productPackage(kind: "youtube_video_audit" | "youtube_community_audit" 
 }
 
 const unresolved = { status: "checked" as const, interventions: [{ study_ids: [STUDY], label: "SHL 1046", status: "unresolved" as const }] };
-const interventionCaveat = "The exact product tested in SHL 1046 was not traced to a current product, so this answer does not present it as something to buy.";
-const shoppingCaveat = `No seller with a live offer for Mauritania was found for ${PRODUCT}.`;
+const interventionCaveat = "Tested in a key study but not traced to a current product: SHL 1046. This answer does not present it as something to buy.";
+const shoppingCaveat = `No seller with a live offer was found for this product: ${PRODUCT}. Destination: Mauritania.`;
 type Offer = NonNullable<NonNullable<FinalizeResearchInput["shopping"]>["offers"]>[number];
 const shopping = (offer_state: Offer["offer_state"]) => ({
   status: "buy_options" as const, destination: "Mauritania", offers: [{ product: PRODUCT, url: URL, offer_state, role: "buy_option" as const }]

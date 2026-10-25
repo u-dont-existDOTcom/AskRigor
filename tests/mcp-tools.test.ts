@@ -148,18 +148,44 @@ describe("AskRigor MCP tools", () => {
       const { tools } = await client.listTools();
       const review = tools.find(({ name }) => name === "review_research_contribution")!;
       expect(review.description).toContain("Findings for the Atlas: list_findings shows the findings cards that wait");
-      expect(review.description).toContain("Nothing from a card is public until the owner accepts it");
+      // Decision 171, section 4B: a free contributor's card is published as soon as it is saved; a paid one is not.
+      expect(review.description).toContain("a card saved in free contributor mode is published in the Atlas as soon as " +
+        "it is saved");
+      expect(review.description).toContain("A paid private card's findings are published only after you accept them.");
       expect(review.description).toContain("this call never writes canonical evidence");
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
-        "forget_card"]);
+        "forget_card", "list_youtube_findings", "move_youtube_findings", "delete_youtube_findings",
+        "delete_all_youtube_findings", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards",
+        "list_comments", "hide_comment", "show_comment", "remove_comment", "stop_commenter", "restore_commenter",
+        "set_picks"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
+      // Owner answer 173: the held YouTube findings ride on the same tool, so the catalog stays at 33 tools.
+      // Kept until deleted, on request or if YouTube asks (the owner's rule, 25 Oct): no deletion by age.
+      expect(review.description).toContain("the findings drawn from YouTube comments that a saved card leaves out are " +
+        "kept apart from it for your review");
+      expect(review.description).toContain("they are kept until deleted, on request or if YouTube asks.");
+      expect(review.description).not.toMatch(/30 days|30-day|then deleted/u);
+      expect(review.description).toContain("They are never decided, accepted or published.");
+      expect(review.description).toContain("list_youtube_findings lists those with no card (newest first, each with its " +
+        "question and topic; cursor for the next page)");
+      expect(review.description).toContain("delete_all_youtube_findings deletes every one at once, only with confirm: " +
+        "true after the owner said to (as when YouTube asks)");
+      // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
-        "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "wording", "appliesTo",
-        "whyNotUsual", "whatWouldChangeIt", "question", "sources", "numbers", "note", "correction", "eraseWording",
-        "confirm", "relation", "to", "disagreement", "rationale", "cursor"]);
-      // Flat: the only nested inputs are the lists of source identifiers and of figures, whose entries are flat too.
+        "cards", "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
+        "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
+        "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
+        "cursor", "includeSetAside", "publicationState", "publication", "cardsFrom", "cardsTo", "reported", "comment",
+        "commenter", "picks"]);
+      for (const field of ["kind", "subjectType", "direction"]) {
+        expect(input.properties[field]!.type, field).toBe("string");
+        expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
+      }
+      expect(review.description).toContain("by default, the card's topic, numbers, kind, subject, subject type and direction");
+      // Flat: the only nested inputs are the lists of source identifiers, of figures and of cards, whose entries are
+      // flat too.
       const numbers = input.properties.numbers as unknown as { items: { properties: Record<string, { type?: string }> } };
       expect(Object.values(numbers.items.properties).every(({ type }) => type !== "object" && type !== "array")).toBe(true);
       expect(input.properties.card!.pattern).toBe("^[Aa][Rr][Ff]-[0-9]{1,9}$");
@@ -167,7 +193,11 @@ describe("AskRigor MCP tools", () => {
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
       expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
-        "retry", "forget", "canonicalEvidenceChangedByThisCall", "error"]);
+        "retry", "forget", "youtubeFindings", "heldWithoutCard", "publications", "participation",
+        "canonicalEvidenceChangedByThisCall", "error"]);
+      // Decision 171, section 4E: the picks' entries are flat too.
+      const picks = input.properties.picks as unknown as { items: { properties: Record<string, { type?: string }> } };
+      expect(Object.values(picks.items.properties).every(({ type }) => type === "string")).toBe(true);
     } finally {
       await server.close();
     }
@@ -2504,6 +2534,31 @@ describe("AskRigor MCP tools", () => {
         await server.close();
       }
     };
+
+    it("signs a search's date range with its query, so a card can carry the range it searched (review finding 8)", async () => {
+      stubPubmed(3);
+      const ranged = await call("search_pubmed", { query: "ranged search",
+        date_range: { start: "2015-01-01", end: "2026-10-22" } });
+      expect(ranged.receipt).toMatchObject({ ok: true, kind: "literature_search",
+        claims: { src: "pubmed", dr: "2015-01-01/2026-10-22" } });
+      stubPubmed(3);
+      const open = await call("search_pubmed", { query: "open search" });
+      expect(open.receipt).toMatchObject({ ok: true, kind: "literature_search", claims: { src: "pubmed" } });
+      expect(open.receipt?.ok === true ? open.receipt.claims.dr : "missing").toBeUndefined();
+
+      // Europe PMC echoes the request it answered, the date restriction inside the query; this page echoes the request.
+      const page = JSON.parse(await readFile(new URL("fixtures/europe-pmc/search-page-1.json", import.meta.url), "utf8"));
+      vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+        const url = new URL(String(input));
+        return new Response(JSON.stringify({ ...page, hitCount: 2, request: { ...page.request,
+          queryString: url.searchParams.get("query"), cursorMark: url.searchParams.get("cursorMark"),
+          pageSize: Number(url.searchParams.get("pageSize")) } }), { status: 200 });
+      }));
+      const europe = await call("search_europe_pmc", { query: "ranged search", page_size: 2,
+        date_range: { start: "2020-01-01", end: "2020-12-31" } });
+      expect(europe.receipt).toMatchObject({ ok: true, kind: "literature_search",
+        claims: { src: "europepmc", dr: "2020-01-01/2020-12-31" } });
+    });
 
     it("returns every PubMed record in one call and signs the whole count", async () => {
       const retmaxes = stubPubmed(35);

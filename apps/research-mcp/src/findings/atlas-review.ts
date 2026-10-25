@@ -5,27 +5,40 @@ import {
   ATLAS_DISAGREEMENTS,
   ATLAS_ERASED_KEY,
   ATLAS_ERASED_TEXT,
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
   ATLAS_FINDING_PROMOTION_FAILURE_CODES,
   ATLAS_FINDING_TAGS,
   ATLAS_INTENT_KINDS,
   ATLAS_INTENT_SCHEMA,
   ATLAS_LABELS,
   ATLAS_LINK_RELATIONS,
+  ATLAS_PUBLICATION_STATES,
   ATLAS_RETRACTION_STATUSES,
+  ATLAS_SEARCH_DATABASES,
+  ATLAS_SEARCH_KIND,
   ATLAS_SOURCE_KINDS,
   ATLAS_SOURCE_PROVIDERS,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
   ATLAS_VERIFIED_BASES,
+  AtlasPublicationError,
   AtlasReviewError,
+  HELD_YOUTUBE_FINDING_BASES,
+  HELD_YOUTUBE_FINDING_TAGS,
   atlasLabelOf,
   atlasNumbersSchema,
   atlasQuestionUse,
+  atlasSearchWithoutQuery,
   atlasSourceIdentifierSchema,
   prepareAtlasFindingIntent,
   stableJson,
   type AtlasCardDecision,
   type AtlasCardItemKind,
   type AtlasDecisionView,
+  type AtlasFindingDirection,
   type AtlasFindingIntent,
+  type AtlasFindingKind,
   type AtlasFindingPromotionFailureCode,
   type AtlasIntentKind,
   type AtlasIntentView,
@@ -33,19 +46,46 @@ import {
   type AtlasLinkRelation,
   type AtlasMadeWith,
   type AtlasNumberEntry,
+  type AtlasPublicationState,
+  type AtlasPublicationStore,
+  type AtlasModerationStore,
+  type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
+  type AtlasSearch,
   type AtlasSource,
   type AtlasSourceIdentifier,
   type AtlasState,
   type AtlasStateFinding,
   type AtlasStateReader,
+  type AtlasSubjectType,
   type AtlasVersionContent,
+  type HeldYouTubeFinding,
+  type HeldYouTubeFindingsStore,
   type PreparedAtlasFindingIntent,
 } from "@askrigor/evidence-repository";
 import type { CrossrefConfig, PubmedConfig } from "@askrigor/sources";
 import { z } from "zod";
 
+import {
+  ATLAS_PUBLICATION_ACTIONS,
+  ATLAS_PUBLICATION_ERROR_CODES,
+  ATLAS_PUBLICATION_OUTCOMES,
+  AtlasPublicationReview,
+  PUBLISH_CARDS_PER_CALL,
+  SET_ASIDE_CARDS_PER_CALL,
+  type AtlasPublicationAction,
+  type AtlasPublications,
+} from "../atlas/publication-review.js";
+import { reconcileCardPublications } from "../atlas/publication.js";
+import {
+  ATLAS_PARTICIPATION_ACTIONS,
+  ATLAS_PARTICIPATION_ERROR_CODES,
+  ATLAS_PARTICIPATION_OUTCOMES,
+  AtlasParticipationReview,
+  type AtlasParticipation,
+  type AtlasParticipationAction,
+} from "../atlas/participation-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -64,18 +104,20 @@ import {
   type AtlasLinkState,
 } from "./acceptance-checks.js";
 import { forgetCard, type CardForgetReport } from "./atlas-forget.js";
-import { FINDING_CERTAINTIES, PUBLIC_VALUE_SCOPES, type StoredFinding } from "./card.js";
+import { FINDING_CERTAINTIES, PUBLIC_VALUE_SCOPES, topicKeyText, type StoredFinding } from "./card.js";
 import {
   decisionDate,
   findingsCardNumber,
   findingsCardSha256,
   isBeyondQuickAnswer,
+  isSetAside,
   reconcileFindingsCard,
   type FindingsCardInbox,
   type FindingsCardRead,
   type FindingsDecisionMarker,
 } from "./github-findings-review.js";
 import { publicFindingsCardId } from "./github-findings.js";
+import { moveYouTubeFindings, type YouTubeFindingsMoveReport } from "./held-youtube-move.js";
 import type { FindingsRecord, FindingsStamp, ProtocolIdentity } from "./service.js";
 import {
   ATLAS_RETRACTION_SEVERITY,
@@ -99,6 +141,16 @@ import {
  * Owner decision 7 (part D): forget_card removes what ties a card to its contributor (atlas-forget.ts), and
  * eraseWording, on edit_finding or withdraw_finding, queues an erasure behind the new version or the withdrawal, for a
  * finding whose wording the owner judges could identify a person.
+ *
+ * Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held in the
+ * database, apart from the card, for the owner's review, and so are those of a card whose findings all rest on them,
+ * which is not saved as a card. They are kept until deleted (the owner's rule, 25 Oct: "don't delete the summaries
+ * unless YT tells us to do that"). inspect_finding on a card lists its held findings with the day each was saved;
+ * list_youtube_findings lists those with no card, newest first, a page at a time, with each card's question and topic;
+ * delete_youtube_findings deletes a card's, or a card-less save's; delete_all_youtube_findings deletes every one at
+ * once, for the day YouTube asks, only when the call confirms it; move_youtube_findings moves those of cards stored
+ * before into the held findings (held-youtube-move.ts); forget_card deletes a card's with it. They are never items of a
+ * card, so no decision takes one: nothing publishes them, accepts them into the Atlas or offers them anywhere else.
  */
 
 export const ATLAS_REVIEW_ACTIONS = [
@@ -110,6 +162,15 @@ export const ATLAS_REVIEW_ACTIONS = [
   "withdraw_finding",
   "link_findings",
   "forget_card",
+  // Owner answer 173: the held YouTube findings.
+  "list_youtube_findings",
+  "move_youtube_findings",
+  "delete_youtube_findings",
+  "delete_all_youtube_findings",
+  // Decision 171 (sections 4B and 4F): the publications.
+  ...ATLAS_PUBLICATION_ACTIONS,
+  // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
+  ...ATLAS_PARTICIPATION_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -130,6 +191,13 @@ export const ATLAS_REVIEW_OUTCOMES = [
   // forget_card (decision 7): GitHub answers 404 or 410 for every card forgotten, or still holds the stripped issues.
   "card_forgotten",
   "card_forget_waiting_for_owner",
+  // Owner answer 173: list_youtube_findings lists those with no card; move_youtube_findings reports each card's outcome;
+  // delete_youtube_findings and delete_all_youtube_findings deleted what was held.
+  "youtube_findings_listed",
+  "youtube_findings_moved",
+  "youtube_findings_deleted",
+  ...ATLAS_PUBLICATION_OUTCOMES,
+  ...ATLAS_PARTICIPATION_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -143,6 +211,8 @@ export const ATLAS_REVIEW_ERROR_CODES = [
   // forget_card: a later save on the person's cards does not read, so it cannot be re-filed; nothing is changed.
   "card_unreadable",
   "atlas_review_closed",
+  ...ATLAS_PUBLICATION_ERROR_CODES,
+  ...ATLAS_PARTICIPATION_ERROR_CODES,
 ] as const;
 export type AtlasReviewErrorCode = typeof ATLAS_REVIEW_ERROR_CODES[number] | "invalid_request" |
   "review_service_unavailable";
@@ -158,8 +228,19 @@ export const ATLAS_CHECK_PROBLEM_CODES = [
   "nothing_changed",
   "stamp_without_protocols",
   "intent_invalid",
+  // Atlas phase 3 (design section 5): what an older card does not declare and the call did not either, and the one
+  // exact contradiction between the declared fields.
+  "topic_missing",
+  "numbers_missing",
+  "card_fields_missing",
+  "card_fields_contradict",
 ] as const;
 type CheckProblemCode = typeof ATLAS_CHECK_PROBLEM_CODES[number];
+
+/** The most cards move_youtube_findings takes in one call (owner answer 173), each read and rewritten in GitHub. */
+export const MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL = 20;
+/** The most saves with no card one page of list_youtube_findings shows, each with up to five findings. */
+export const LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE = 25;
 
 // Input fields --------------------------------------------------------------------------------------------------------
 
@@ -170,20 +251,42 @@ const ownerText = (max: number) => z.string().trim().min(1).max(max);
 export const atlasReviewInputShape = {
   card: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
     .describe("Findings actions: a findings card's id, such as ARF-0142, in any case. forget_card: the card its " +
-      "contributor asked to delete."),
+      "contributor asked to delete. delete_youtube_findings: the card whose held YouTube findings it deletes (or " +
+      "cardSha256 for a held save with no card)."),
+  // One field for the actions that name several cards: move_youtube_findings (owner answer 173) and the publications'
+  // publish_cards and set_aside_cards (decision 171); each action's own limit is in the refinement.
+  cards: z.array(z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u)).min(1).max(SET_ASIDE_CARDS_PER_CALL).optional()
+    .describe("move_youtube_findings: the stored cards whose findings drawn from YouTube comments move out of the " +
+      `card into the held findings, such as ["ARF-0007", "ARF-0012"] (at most ${MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL}). ` +
+      `publish_cards (at most ${PUBLISH_CARDS_PER_CALL}), set_aside_cards: findings cards' ids, such as ARF-0142.`),
   finding: z.number().int().min(1).max(5).optional().describe("Findings actions: the card's finding, from 1."),
   lead: z.number().int().min(1).max(6).optional().describe("Findings actions: the card's open lead, from 1."),
   atlasNumber: publicNumberInput.optional().describe("Findings actions: an accepted finding's number, such as F-1007."),
   cardSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
-    .describe("accept_finding, edit_finding: the cardSha256 inspect_finding returned for the card."),
+    .describe("accept_finding, edit_finding: the cardSha256 inspect_finding returned for the card. " +
+      "delete_youtube_findings: a held save with no card, by the cardSha256 list_youtube_findings shows."),
   version: z.number().int().min(1).optional()
     .describe("edit_finding after acceptance, withdraw_finding: the finding's latest version, as inspect_finding last " +
       "showed it."),
   topicKey: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u).optional()
     .describe("accept_finding, edit_finding before acceptance: the topic the finding is filed under, as the topic key " +
-      "format has it (lower case, digits, . _ -), such as velmor-syndrome. You declare it; the reply names it."),
+      "format has it (lower case, digits, . _ -), such as velmor-syndrome. By default the card's topic; send it to " +
+      "change that, or for an older card without one. The reply names it."),
   topicLabel: ownerText(200).optional()
     .describe("With topicKey, when the topic is new: its label, such as Velmor syndrome."),
+  kind: z.enum(ATLAS_FINDING_KINDS).optional()
+    .describe("accept_finding, edit_finding: the finding's kind: effect, harm, overlooked_option, correction, " +
+      "nothing_found (a search that found nothing) or tested_vs_sold. By default the card's; an older card's you " +
+      "declare, with subject, subjectType and direction."),
+  subject: ownerText(ATLAS_SUBJECT_MAX_CHARACTERS).optional()
+    .describe("accept_finding, edit_finding: what the finding is about, as people know it, such as zentarine. By " +
+      "default the card's."),
+  subjectType: z.enum(ATLAS_SUBJECT_TYPES).optional()
+    .describe("accept_finding, edit_finding: the subject's type: condition, symptom, test, treatment, supplement, " +
+      "product, food or practice. By default the card's."),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional()
+    .describe("accept_finding, edit_finding: benefit, harm, no_effect, mixed or descriptive; a search that found " +
+      "nothing is descriptive. By default the card's."),
   wording: ownerText(500).optional().describe("edit_finding: the finding's wording as the owner wants it."),
   appliesTo: ownerText(300).optional().describe("edit_finding: whom or what the finding holds for."),
   whyNotUsual: ownerText(300).optional().describe("edit_finding: why the usual answer misses it."),
@@ -207,7 +310,8 @@ export const atlasReviewInputShape = {
       "rationale, and its question when no other finding uses it."),
   confirm: z.boolean().optional()
     .describe("accept_finding, edit_finding: true only after the owner said to accept anyway what the checks flagged. " +
-      "forget_card: true only after the owner read why the call asked for it."),
+      "forget_card: true only after the owner read why the call asked for it. delete_all_youtube_findings: true only " +
+      "after the owner said to delete every held YouTube finding, as when YouTube asks."),
   relation: z.enum([...ATLAS_LINK_RELATIONS, "unlink"]).optional()
     .describe("link_findings: atlasNumber same_as, narrows, contradicts or replaces the finding named by to; unlink " +
       "withdraws their link."),
@@ -215,7 +319,33 @@ export const atlasReviewInputShape = {
   disagreement: z.enum(ATLAS_DISAGREEMENTS).optional()
     .describe("link_findings with contradicts: what the two disagree on."),
   rationale: ownerText(500).optional().describe("link_findings: why the link holds, public."),
-  cursor: z.string().regex(/^[A-Za-z0-9_-]{1,400}$/u).optional().describe("list_findings: the nextCursor it returned."),
+  cursor: z.string().regex(/^[A-Za-z0-9_-]{1,400}$/u).optional()
+    .describe("list_findings, list_publications, list_comments, list_youtube_findings: the nextCursor it returned."),
+  // Decision 171 (sections 4B and 4F): the publications.
+  includeSetAside: z.boolean().optional()
+    .describe("list_findings: true to list the set-aside cards too, which it leaves out by default."),
+  publicationState: z.enum(ATLAS_PUBLICATION_STATES).optional()
+    .describe("list_publications: only the publications in this state: unreviewed, accepted, edited, rejected, " +
+      "withdrawn or held."),
+  publication: z.string().trim().regex(/^[Pp]-[1-9][0-9]{3,}$/u).optional()
+    .describe("unpublish_finding: the publication's number, such as P-1003."),
+  cardsFrom: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
+    .describe("set_aside_cards: the first card of a range, such as ARF-0116, with cardsTo."),
+  cardsTo: z.string().trim().regex(/^[Aa][Rr][Ff]-[0-9]{1,9}$/u).optional()
+    .describe("set_aside_cards: the last card of the range, such as ARF-0239, with cardsFrom."),
+  // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
+  reported: z.boolean().optional().describe("list_comments: true to list only the comments someone reported."),
+  comment: z.string().trim().regex(/^[Cc]-[1-9][0-9]{3,}$/u).optional()
+    .describe("hide_comment, show_comment (it also clears the comment's reports), remove_comment: the comment's id, " +
+      "such as C-1003."),
+  commenter: z.string().trim().regex(/^[Uu]-[a-fA-F0-9]{12}$/u).optional()
+    .describe("stop_commenter, restore_commenter: the commenter's tag that list_comments shows, such as U-1a2b3c4d5e6f."),
+  picks: z.array(z.object({
+    publication: z.string().trim().regex(/^[Pp]-[1-9][0-9]{3,}$/u).describe("A publication, such as P-1003."),
+    reason: ownerText(300).describe("Why it matters now, shown with it on the home page."),
+  }).strict()).max(5).optional()
+    .describe("set_picks: the home page's most important findings now, up to 5 in order, each with your public reason; " +
+      "an empty list clears them."),
 };
 
 type AtlasFieldName = keyof typeof atlasReviewInputShape | "reason" | "proposalId" | "expectedPayloadSha256";
@@ -224,6 +354,7 @@ const ATLAS_FIELD_NAMES = Object.keys(atlasReviewInputShape) as Array<keyof type
 export interface AtlasReviewRequest {
   action: AtlasReviewAction;
   card?: string;
+  cards?: string[];
   finding?: number;
   lead?: number;
   atlasNumber?: string;
@@ -231,6 +362,10 @@ export interface AtlasReviewRequest {
   version?: number;
   topicKey?: string;
   topicLabel?: string;
+  kind?: AtlasFindingKind;
+  subject?: string;
+  subjectType?: AtlasSubjectType;
+  direction?: AtlasFindingDirection;
   wording?: string;
   appliesTo?: string;
   whyNotUsual?: string;
@@ -248,24 +383,60 @@ export interface AtlasReviewRequest {
   disagreement?: AtlasDisagreement;
   rationale?: string;
   cursor?: string;
+  includeSetAside?: boolean;
+  publicationState?: AtlasPublicationState;
+  publication?: string;
+  cardsFrom?: string;
+  cardsTo?: string;
+  reported?: boolean;
+  comment?: string;
+  commenter?: string;
+  picks?: Array<{ publication: string; reason: string }>;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
+/** The fields a card declares for each finding (Atlas phase 3), which the owner may change at any decision. */
+const CARD_FIELDS = ["kind", "subject", "subjectType", "direction"] as const;
+/**
+ * What makes an edit after acceptance a new version: a text, the sources, the numbers or a declared field. The input
+ * rules and the service read this one list, so an edit the input takes as a new version is never applied as an
+ * erasure alone (review finding 1).
+ */
+const CHANGE_FIELDS = [...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS] as const;
 const CARD_ITEM_DECISION_FIELDS: AtlasFieldName[] = [
-  "card", "finding", "lead", "cardSha256", "topicKey", "topicLabel", "numbers", "confirm", "reason",
+  "card", "finding", "lead", "cardSha256", "topicKey", "topicLabel", "numbers", ...CARD_FIELDS, "confirm", "reason",
 ];
 const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasFieldName[]> = {
-  list_findings: ["cursor"],
+  list_findings: ["cursor", "includeSetAside"],
   inspect_finding: ["card", "finding", "lead", "atlasNumber"],
   accept_finding: CARD_ITEM_DECISION_FIELDS,
   edit_finding: [...CARD_ITEM_DECISION_FIELDS, ...EDIT_TEXTS, "question", "sources"],
-  edit_after: ["atlasNumber", "card", "finding", "lead", "version", ...EDIT_TEXTS, "sources", "numbers", "note",
-    "correction", "eraseWording", "confirm", "reason"],
+  edit_after: ["atlasNumber", "card", "finding", "lead", "version", ...EDIT_TEXTS, "sources", "numbers", ...CARD_FIELDS,
+    "note", "correction", "eraseWording", "confirm", "reason"],
   reject_finding: ["card", "finding", "lead", "cardSha256", "reason"],
   withdraw_finding: ["atlasNumber", "card", "finding", "lead", "version", "note", "eraseWording", "reason"],
   link_findings: ["atlasNumber", "relation", "to", "disagreement", "rationale", "note", "reason"],
   // Decision 7: no reason is asked for or kept; the card's decision rows go, the owner's private reasons with them.
   forget_card: ["card", "confirm"],
+  // Owner answer 173.
+  list_youtube_findings: ["cursor"],
+  move_youtube_findings: ["cards"],
+  delete_youtube_findings: ["card", "cardSha256"],
+  // Every held finding at once, for the day YouTube asks: the service deletes nothing without confirm: true.
+  delete_all_youtube_findings: ["confirm"],
+  // Decision 171: the publications.
+  list_publications: ["publicationState", "cursor"],
+  unpublish_finding: ["publication", "reason"],
+  publish_cards: ["cards"],
+  set_aside_cards: ["cards", "cardsFrom", "cardsTo"],
+  // Decision 171: the comments and the home page's picks.
+  list_comments: ["reported", "cursor"],
+  hide_comment: ["comment"],
+  show_comment: ["comment"],
+  remove_comment: ["comment"],
+  stop_commenter: ["commenter"],
+  restore_commenter: ["commenter"],
+  set_picks: ["picks"],
 };
 
 /**
@@ -312,7 +483,7 @@ export function refineAtlasReviewInput(
     case "edit_finding":
       if (after) {
         findingOrCard();
-        const newText = [...EDIT_TEXTS, "sources", "numbers"].some((field) => has(field as AtlasFieldName));
+        const newText = CHANGE_FIELDS.some((field) => has(field));
         if (!newText && value.eraseWording === true) {
           // Decision 7 alone: the earlier versions' wording is erased and the latest stays as it is.
           for (const field of ["note", "correction", "confirm"] as const) {
@@ -325,7 +496,7 @@ export function refineAtlasReviewInput(
         }
         if (!newText) {
           issue("edit_finding after acceptance needs a new wording, appliesTo, whyNotUsual, whatWouldChangeIt, " +
-            "sources or numbers, or eraseWording", "wording");
+            "sources, numbers, kind, subject, subjectType or direction, or eraseWording", "wording");
         }
         if (value.correction !== false && !has("note")) {
           issue("a correction needs its public note; set correction to false for a wording fix", "note");
@@ -334,9 +505,11 @@ export function refineAtlasReviewInput(
       }
       oneItem();
       if (!has("cardSha256")) issue(`${action} needs cardSha256, from inspect_finding`, "cardSha256");
-      if (!has("topicKey")) issue(`${action} needs topicKey (and topicLabel for a new topic)`, "topicKey");
-      if (!has("numbers")) issue(`${action} needs numbers, an empty list when the wording gives no two-group figure`,
-        "numbers");
+      // Atlas phase 3: the topic and the numbers come from the card by default, so the call names them only to change
+      // them or for an older card; the checks say when one is missing (topic_missing, numbers_missing).
+      if (has("topicLabel") && !has("topicKey")) {
+        issue("topicLabel goes with topicKey: send the topic's key with its label", "topicLabel");
+      }
       if (action === "edit_finding" && ![...EDIT_TEXTS, "question", "sources"].some((field) =>
         has(field as AtlasFieldName))) {
         issue("edit_finding needs a new wording, appliesTo, whyNotUsual, whatWouldChangeIt, question or sources; " +
@@ -355,6 +528,65 @@ export function refineAtlasReviewInput(
       return;
     case "forget_card":
       if (!has("card")) issue("forget_card needs card, such as ARF-0142", "card");
+      return;
+    case "list_youtube_findings":
+      return;
+    case "move_youtube_findings":
+      if (!has("cards")) issue("move_youtube_findings needs cards, such as [\"ARF-0007\"]", "cards");
+      else if ((value.cards as unknown[]).length > MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL) {
+        issue(`move_youtube_findings takes at most ${MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL} cards in one call`, "cards");
+      }
+      return;
+    case "delete_youtube_findings":
+      if (has("card") === has("cardSha256")) {
+        issue("delete_youtube_findings names a card, such as ARF-0007, or a held save with no card by the cardSha256 " +
+          "list_youtube_findings shows", "card");
+      }
+      return;
+    case "delete_all_youtube_findings":
+      return;
+    case "list_publications":
+      return;
+    case "unpublish_finding":
+      if (!has("publication")) issue("unpublish_finding needs publication, such as P-1003", "publication");
+      if (!has("reason")) issue("unpublish_finding needs the owner's reason, which stays private", "reason");
+      return;
+    case "publish_cards":
+      if (!has("cards")) issue("publish_cards needs cards, such as [\"ARF-0142\"]", "cards");
+      else if ((value.cards as unknown[]).length > PUBLISH_CARDS_PER_CALL) {
+        issue(`publish_cards takes at most ${PUBLISH_CARDS_PER_CALL} cards in one call`, "cards");
+      }
+      return;
+    case "set_aside_cards": {
+      const range = has("cardsFrom") || has("cardsTo");
+      if (has("cards") === range) {
+        issue("set_aside_cards names the cards, or a range with cardsFrom and cardsTo", "cards");
+      } else if (range) {
+        const from = typeof value.cardsFrom === "string" ? findingsCardNumber(value.cardsFrom) : undefined;
+        const to = typeof value.cardsTo === "string" ? findingsCardNumber(value.cardsTo) : undefined;
+        if (from === undefined || to === undefined) {
+          issue("a range names both cardsFrom and cardsTo, such as ARF-0116 and ARF-0239", "cardsFrom");
+        } else if (from > to) {
+          issue("cardsFrom comes before cardsTo", "cardsFrom");
+        } else if (to - from + 1 > SET_ASIDE_CARDS_PER_CALL) {
+          issue(`a range holds at most ${SET_ASIDE_CARDS_PER_CALL} cards`, "cardsTo");
+        }
+      }
+      return;
+    }
+    case "list_comments":
+      return;
+    case "hide_comment":
+    case "show_comment":
+    case "remove_comment":
+      if (!has("comment")) issue(`${action} needs comment, such as C-1003`, "comment");
+      return;
+    case "stop_commenter":
+    case "restore_commenter":
+      if (!has("commenter")) issue(`${action} needs commenter, the tag list_comments shows`, "commenter");
+      return;
+    case "set_picks":
+      if (!has("picks")) issue("set_picks needs picks: up to 5 publications with your reasons, or [] to clear them", "picks");
       return;
     case "link_findings":
       if (!has("atlasNumber")) issue("link_findings needs atlasNumber", "atlasNumber");
@@ -379,6 +611,14 @@ const wouldBecomeSchema = z.enum(["checked", "lead", "recheck", "community_only"
 const failureCodeSchema = z.enum(ATLAS_FINDING_PROMOTION_FAILURE_CODES);
 const intentStatusSchema = z.enum(["PENDING", "COMPLETED", "FAILED"]);
 const topicViewSchema = z.object({ key: z.string(), label: z.string(), isNew: z.boolean() }).strict();
+const kindViewSchema = z.enum(ATLAS_FINDING_KINDS).nullable();
+/** A finding's declared fields (Atlas phase 3), each null where the card or the version has none. */
+const cardFieldsView = {
+  kind: kindViewSchema,
+  subject: z.string().nullable(),
+  subjectType: z.enum(ATLAS_SUBJECT_TYPES).nullable(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).nullable(),
+};
 
 const intentViewSchema = z.object({
   intentId: z.string().uuid(),
@@ -405,14 +645,36 @@ export const atlasFindingsListSchema = z.object({
       number: z.number().int().min(1).max(6),
       text: z.string(),
       certainty: z.enum(FINDING_CERTAINTIES).nullable(),
+      kind: kindViewSchema,
       wouldBecome: wouldBecomeSchema,
       recheckOf: publicNumberSchema.nullable(),
     }).strict()).max(11),
   }).strict()).max(10),
   nextCursor: z.string().nullable(),
   unreadableCards: z.array(cardIdSchema).max(1_000),
+  /** Decision 171: the set-aside cards left out of the list (none when includeSetAside lists them). */
+  setAsideLeftOut: z.number().int().nonnegative(),
 }).strict();
 export type AtlasFindingsList = z.infer<typeof atlasFindingsListSchema>;
+
+/**
+ * One held YouTube finding as the card view lists it (owner answer 173): AskRigor's texts and fixed values, its place
+ * on the card as checked, and the day its save was made. It is kept until deleted.
+ */
+const heldYoutubeFindingViewSchema = z.object({
+  finding: z.number().int().min(1).max(5),
+  claim: z.string(),
+  certainty: z.enum(FINDING_CERTAINTIES),
+  appliesTo: z.string(),
+  whyNotUsual: z.string(),
+  whatWouldChangeIt: z.string(),
+  kind: kindViewSchema,
+  subject: z.string().nullable(),
+  direction: z.enum(ATLAS_FINDING_DIRECTIONS).nullable(),
+  tags: z.array(z.enum(HELD_YOUTUBE_FINDING_TAGS)),
+  bases: z.array(z.enum(HELD_YOUTUBE_FINDING_BASES)),
+  savedOn: daySchema,
+}).strict();
 
 /** inspect_finding on a card: its texts, and each item with what it would become and its decision. */
 export const atlasCardViewSchema = z.object({
@@ -429,12 +691,24 @@ export const atlasCardViewSchema = z.object({
   savedOn: daySchema,
   saves: z.number().int().min(1),
   beyondQuickAnswer: z.boolean(),
+  /** The topic the card declares (Atlas phase 3); null on an older card. */
+  topic: z.object({ key: z.string(), label: z.string() }).strict().nullable(),
   items: z.array(z.object({
     item: z.enum(["finding", "lead"]),
     number: z.number().int().min(1).max(6),
     text: z.string(),
     certainty: z.enum(FINDING_CERTAINTIES).nullable(),
     appliesTo: z.string().nullable(),
+    ...cardFieldsView,
+    /** How many two-group figures its numbers block holds; null when the card declares none. */
+    numbers: z.number().int().nonnegative().nullable(),
+    /** A search that found nothing: the searches it made, as the final check bound them. */
+    searches: z.array(z.object({
+      database: z.enum(ATLAS_SEARCH_DATABASES),
+      query: z.string(),
+      /** The publication dates the search was restricted to, when it was (review finding 8). */
+      dateRange: z.object({ start: z.string(), end: z.string() }).strict().optional(),
+    }).strict()).max(10),
     sources: z.array(z.string()).max(10),
     youtubeVideos: z.number().int().nonnegative(),
     save: z.enum(["card", "occurrence"]),
@@ -450,6 +724,11 @@ export const atlasCardViewSchema = z.object({
     }).strict().nullable(),
   }).strict()).max(11),
   githubSynced: z.boolean(),
+  /**
+   * The card's held YouTube findings (owner answer 173), apart from its items: never decided, accepted or published,
+   * and kept until deleted. Null when they cannot be read here.
+   */
+  heldYoutubeFindings: z.array(heldYoutubeFindingViewSchema).max(1_000).nullable(),
 }).strict();
 export type AtlasCardView = z.infer<typeof atlasCardViewSchema>;
 
@@ -462,6 +741,7 @@ export const atlasStatusSchema = z.object({
   version: z.number().int().min(1).nullable(),
   topic: topicViewSchema.nullable(),
   wording: z.string().nullable(),
+  ...cardFieldsView,
   /** The versions whose wording is erased (decision 7): it reads as the fixed marker. */
   wordingRemoved: z.array(z.number().int().min(1)).max(1_000),
   researchCheckedOn: daySchema.nullable(),
@@ -546,9 +826,67 @@ export const atlasForgetSchema = z.object({
   laterSavesDeletedOn: z.array(cardIdSchema).max(1_000),
   /** Other people's later saves on the person's cards, re-filed as cards of their own. */
   refiled: z.array(z.object({ from: cardIdSchema, card: cardIdSchema }).strict()).max(1_000),
+  /** Decision 171: the cards' publications this call withdrew, their published fields erased. */
+  publicationsWithdrawn: z.array(z.string().regex(/^P-[1-9][0-9]{3,}$/u)).max(5_000),
+  /** Decision 171: the cards' accepted publications, which stay (notice version 4). */
+  publicationsKept: z.array(z.string().regex(/^P-[1-9][0-9]{3,}$/u)).max(5_000),
   ownerSteps: z.array(z.string()).max(10),
+  /** The held YouTube findings of the person's cards, deleted with them (owner answer 173); where they are held. */
+  youtubeFindingsDeleted: z.number().int().nonnegative().optional(),
 }).strict();
 export type AtlasForget = z.infer<typeof atlasForgetSchema>;
+
+/**
+ * move_youtube_findings, delete_youtube_findings and delete_all_youtube_findings (owner answer 173): each card's
+ * outcome, and what the owner does next.
+ */
+export const atlasYoutubeFindingsSchema = z.object({
+  cards: z.array(z.object({
+    card: cardIdSchema,
+    status: z.enum(["moved", "nothing_to_move", "not_found", "unreadable", "every_finding_youtube",
+      "decisions_in_the_way", "published_in_the_way", "incomplete", "deleted"]),
+    /** The findings now held, each with the day its save was made. */
+    held: z.array(z.object({
+      finding: z.number().int().min(1).max(5),
+      save: z.enum(["card", "later_save"]),
+      savedOn: daySchema,
+    }).strict()).max(500),
+    /** delete_youtube_findings: the held findings it deleted; 0 for a move, which deletes none. */
+    deleted: z.number().int().nonnegative(),
+    cardRewritten: z.boolean(),
+    laterSavesRewritten: z.number().int().nonnegative(),
+    laterSavesDeleted: z.number().int().nonnegative(),
+    /** decisions_in_the_way: the decided findings the move would remove or renumber. */
+    decidedFindings: z.array(z.number().int().min(1).max(5)).max(5),
+    /** published_in_the_way: the published findings, unless their card was forgotten. */
+    publishedFindings: z.array(z.number().int().min(1).max(5)).max(5),
+  }).strict()).max(MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL),
+  ownerSteps: z.array(z.string()).max(10),
+  /** delete_all_youtube_findings: how many held findings it deleted, of every card and every save with no card. */
+  deletedAll: z.number().int().nonnegative().optional(),
+}).strict();
+export type AtlasYoutubeFindings = z.infer<typeof atlasYoutubeFindingsSchema>;
+
+/**
+ * list_youtube_findings, and delete_youtube_findings with cardSha256 (owner answer 173): the held findings of cards
+ * whose findings all rest on YouTube comments, which are not saved as cards, by save, newest first, a page at a time,
+ * each with the card's own question and topic and the day its save was made.
+ */
+export const atlasHeldWithoutCardSchema = z.object({
+  saves: z.array(z.object({
+    /** The checked card's SHA-256, which names the save for delete_youtube_findings. */
+    cardSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    question: z.string(),
+    topic: z.object({ key: z.string(), label: z.string() }).strict().nullable(),
+    savedOn: daySchema,
+    findings: z.array(heldYoutubeFindingViewSchema).max(5),
+  }).strict()).max(LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE),
+  /** The cursor for the next page, the older saves; null on the last page and when deleting. */
+  nextCursor: z.string().nullable(),
+  /** delete_youtube_findings with cardSha256: how many held findings it deleted; null when listing. */
+  deleted: z.number().int().nonnegative().nullable(),
+}).strict();
+export type AtlasHeldWithoutCard = z.infer<typeof atlasHeldWithoutCardSchema>;
 
 export interface AtlasReviewResult {
   ok: boolean;
@@ -561,6 +899,12 @@ export interface AtlasReviewResult {
   checks?: AtlasChecks;
   retry?: z.infer<typeof atlasRetrySchema>;
   forget?: AtlasForget;
+  youtubeFindings?: AtlasYoutubeFindings;
+  heldWithoutCard?: AtlasHeldWithoutCard;
+  /** Decision 171: the publications listed or changed. */
+  publications?: AtlasPublications;
+  /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
+  participation?: AtlasParticipation;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -585,6 +929,19 @@ export interface AtlasReviewDependencies {
   newIntentId?: () => string;
   /** The source checks' reuse between inspect and accept; the process's own by default. */
   sourceCheckCache?: AtlasSourceCheckCache;
+  /** The held YouTube findings, through the review role (owner answer 173); without it they are not shown or changed. */
+  held?: HeldYouTubeFindingsStore;
+  /**
+   * The Atlas publications (decision 171, section 4B), through the review role's functions: the owner's publication
+   * actions need them, and accepting, editing, rejecting, erasing and forgetting move them. Without them those actions
+   * answer that the publications are not configured, and the others work as before.
+   */
+  publications?: AtlasPublicationStore;
+  /**
+   * Votes and comments (decision 171, section 4E), through the review role's moderation functions: the owner's comment
+   * actions and the home page's picks need them; without them those actions answer that they are not configured.
+   */
+  participation?: AtlasModerationStore;
 }
 
 // Plain words for the writer's failure codes --------------------------------------------------------------------------
@@ -702,9 +1059,138 @@ export class AtlasReview {
         case "withdraw_finding": return await this.withdraw(request);
         case "link_findings": return await this.link(request);
         case "forget_card": return await this.forget(request);
+        case "list_youtube_findings": return await this.listYouTube(request);
+        case "move_youtube_findings": return await this.moveYouTube(request);
+        case "delete_youtube_findings": return await this.deleteYouTube(request);
+        case "delete_all_youtube_findings": return await this.deleteAllYouTube(request);
+        case "list_publications":
+        case "unpublish_finding":
+        case "publish_cards":
+        case "set_aside_cards":
+          return await this.publicationAction(request.action, request);
+        case "list_comments":
+        case "hide_comment":
+        case "show_comment":
+        case "remove_comment":
+        case "stop_commenter":
+        case "restore_commenter":
+        case "set_picks":
+          return await this.participationAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
+    }
+  }
+
+  // The publications (decision 171) -------------------------------------------------------------------------------------
+
+  private async publicationAction(action: AtlasPublicationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasPublicationReview({
+      publications,
+      store: this.deps.store,
+      inbox: this.deps.inbox,
+      now: this.now,
+    }).run({
+      action,
+      ...(request.publicationState === undefined ? {} : { publicationState: request.publicationState }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+      ...(request.publication === undefined ? {} : { publication: request.publication }),
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+      ...(request.cards === undefined ? {} : { cards: request.cards }),
+      ...(request.cardsFrom === undefined ? {} : { cardsFrom: request.cardsFrom }),
+      ...(request.cardsTo === undefined ? {} : { cardsTo: request.cardsTo }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.publications === undefined ? {} : { publications: result.publications }),
+    };
+  }
+
+  // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async participationAction(action: AtlasParticipationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const moderation = this.deps.participation;
+    if (moderation === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas's comments are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasParticipationReview({ moderation, now: this.now }).run({
+      action,
+      ...(request.comment === undefined ? {} : { comment: request.comment }),
+      ...(request.commenter === undefined ? {} : { commenter: request.commenter }),
+      ...(request.reported === undefined ? {} : { reported: request.reported }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+      ...(request.picks === undefined ? {} : { picks: request.picks }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.participation === undefined ? {} : { participation: result.participation }),
+    };
+  }
+
+  /**
+   * Brings a card's publications in line with the decisions on it (accept, edit, reject) and the erasures of its F
+   * numbers; given the card, an accepted or edited finding that has no publication gets one in its decided state (a
+   * paid private card's, or one of the owner's older cards that publish_cards has not published). It never holds back
+   * the review: a store error leaves them for the next call, and the card's decisions stand either way.
+   */
+  private async syncPublications(
+    cardNumber: number,
+    decisions: readonly AtlasDecisionView[],
+    card?: FindingsCardRead,
+  ): Promise<AtlasPublicationView[]> {
+    const publications = this.deps.publications;
+    if (publications === undefined) return [];
+    try {
+      return await reconcileCardPublications({
+        store: publications,
+        cardNumber,
+        decisions,
+        intentsOf: (numbers) => this.deps.store.inspectIntents(numbers),
+        at: this.now().toISOString(),
+        ...(card === undefined ? {} : { card: { record: card.record, setAside: isSetAside(card.labels) } }),
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * An edit of an accepted finding moves its accepted publications to edited, as a sentence for the reply; with an
+   * erasure, their published fields are erased too.
+   */
+  private async publicationsAfterEdit(publicNumber: string, erased: boolean): Promise<string> {
+    const publications = this.deps.publications;
+    if (publications === undefined) return "";
+    let moved: AtlasPublicationView[] = [];
+    try {
+      moved = await publications.markEdited(publicNumber, this.now().toISOString());
+    } catch {
+      // The next read of the card's decisions moves them.
+    }
+    return publicationSentence(moved) +
+      (erased ? publicationSentence(await this.eraseErasedPublications(publicNumber), "erased") : "");
+  }
+
+  /** Decision 7: the published fields of the publications naming an F number whose wording is being erased. */
+  private async eraseErasedPublications(publicNumber: string): Promise<AtlasPublicationView[]> {
+    const publications = this.deps.publications;
+    if (publications === undefined) return [];
+    try {
+      return await publications.eraseTexts(publicNumber, this.now().toISOString());
+    } catch {
+      return [];
     }
   }
 
@@ -713,7 +1199,10 @@ export class AtlasReview {
   private async list(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const after = request.cursor === undefined ? undefined : decodeCursor(request.cursor);
     if (after === null) return errorOf("invalid_request", "The cursor is not one list_findings returned.");
-    const [open, intents] = await Promise.all([this.deps.inbox.openCards(), this.deps.store.inspectIntents(null)]);
+    const [listed, intents] = await Promise.all([this.deps.inbox.openCards(), this.deps.store.inspectIntents(null)]);
+    // Decision 171 (section 4F): a set-aside card waits for no decision, so it is left out unless asked for.
+    const open = request.includeSetAside === true ? listed : listed.filter((card) => !isSetAside(card.labels));
+    const setAsideLeftOut = listed.length - open.length;
     const readable = open.filter((card): card is typeof card & { record: FindingsRecord } => card.record !== undefined);
     const decisions = readable.length === 0 ? [] : await this.deps.store.inspectCards(readable.map(({ number }) => number));
     const decisionsOf = (cardNumber: number) => decisions.filter((decision) => decision.cardNumber === cardNumber);
@@ -786,6 +1275,7 @@ export class AtlasReview {
           number: ref.itemNumber,
           text: clip(item.text, 160),
           certainty: item.certainty,
+          kind: cardFieldsOf(item).kind ?? null,
           wouldBecome: wouldBecome(item, recheckOf),
           recheckOf: recheckOf ?? null,
         });
@@ -802,7 +1292,9 @@ export class AtlasReview {
     }
     const refused = intents.filter(({ status }) => status === "FAILED").map(intentView);
     const waitingForWriter = intents.filter(({ status }) => status === "PENDING").length;
-    const findings: AtlasFindingsList = { refused, waitingForWriter, cards, nextCursor, unreadableCards: unreadable };
+    const findings: AtlasFindingsList = {
+      refused, waitingForWriter, cards, nextCursor, unreadableCards: unreadable, setAsideLeftOut,
+    };
     const lines = [
       ...refused.map((intent) => `The Atlas writer refused ${intent.atlasNumber}'s ${intent.kind} with ` +
         `${intent.failureCode}: ${intent.explanation}.`),
@@ -812,12 +1304,15 @@ export class AtlasReview {
         `${card.card}${card.beyondQuickAnswer ? " (beyond a quick answer)" : ""}, saved ${card.savedOn}: ` +
         `${card.question}${card.publicValue === "public" ? "" : ` [public value ${card.publicValue}]`}\n` +
         card.items.map((item) => `  ${item.item === "finding" ? "Finding" : "Open lead"} ${item.number}: ${item.text}` +
-          `${item.certainty === null ? "" : ` (${item.certainty})`} -> ${wouldBecomeWords(item.wouldBecome, item.recheckOf)}`)
+          `${item.certainty === null ? "" : ` (${item.certainty}${item.kind === null ? "" : `, ${item.kind}`})`} -> ` +
+          wouldBecomeWords(item.wouldBecome, item.recheckOf))
           .join("\n"))),
       ...(nextCursor === null ? [] : ["More cards wait: call list_findings with the nextCursor."]),
       ...(unreadable.length === 0 ? [] : [`${unreadable.join(", ")} cannot be read as the library saved ` +
         `${unreadable.length === 1 ? "it" : "them"}, so ${unreadable.length === 1 ? "it is" : "they are"} left out.`]),
       ...(unsynced === 0 ? [] : ["Some decisions are not on GitHub yet; the next list or inspect posts them."]),
+      ...(setAsideLeftOut === 0 ? [] : [`${setAsideLeftOut} set-aside card${setAsideLeftOut === 1 ? " is" : "s are"} ` +
+        "left out; list_findings with includeSetAside lists them."]),
     ];
     return { ok: true, outcome: "findings_listed", text: lines.join("\n"), findings };
   }
@@ -841,11 +1336,14 @@ export class AtlasReview {
     const sourceChecks = focus === undefined || decision !== undefined || kept.length === 0
       ? undefined
       : await this.checkSources(kept, providers);
-    const state = await this.deps.reader.readAtlasState({
-      wordingKeys: findingItems.map(({ cardWordingKey }) => cardWordingKey),
-      identifiers: sourceChecks === undefined ? [] : checkedIdentifiers(sourceChecks),
-    });
-    const card = cardView(loaded, findingItems, state);
+    const [state, held] = await Promise.all([
+      this.deps.reader.readAtlasState({
+        wordingKeys: findingItems.map(({ cardWordingKey }) => cardWordingKey),
+        identifiers: sourceChecks === undefined ? [] : checkedIdentifiers(sourceChecks),
+      }),
+      this.heldOf(cardNumber),
+    ]);
+    const card = cardView(loaded, findingItems, state, held);
     if (focus === undefined) {
       return {
         ok: true,
@@ -856,6 +1354,7 @@ export class AtlasReview {
             `${clip(item.text, 160)} -> ${item.decision === null
               ? wouldBecomeWords(item.wouldBecome, item.recheckOf)
               : `decided: ${decisionWords(item.decision.decision, item.decision.atlasNumber)}`}`).join("\n") +
+          heldLines(held) +
           (loaded.synced ? "" : "\nGitHub is not up to date with the decisions yet; the next inspect posts them."),
       };
     }
@@ -874,7 +1373,8 @@ export class AtlasReview {
     const community = focus.finding === null ? undefined : communityState({ ...focus.finding, sources: kept });
     const plan = sourceChecks === undefined ? emptySourcePlan() : planSources(sourceChecks, state, false);
     const accepted = acceptedTexts(focus, {});
-    const privacy = screenTexts(itemTexts(focus, accepted, []));
+    const declared = cardFieldsOf(focus);
+    const privacy = screenTexts(itemTexts(focus, accepted, focus.finding?.numbers ?? [], declared));
     const problems = [...plan.problems];
     if (community?.refused === true) problems.push(communityOnlyProblem(focus.name));
     if (madeWithOf(focus.record.stamp).protocols.length === 0) problems.push(stampProblem());
@@ -883,10 +1383,24 @@ export class AtlasReview {
       sourceChecks, privacy, problems, relatedTopics: state.topics,
     });
     const flagged = [...(community?.needsConfirmation === true ? [communityConfirmation()] : []), ...plan.confirmations];
+    // Atlas phase 3: what accept_finding takes from the card, and what an older card leaves for the call to declare.
+    const cardTopic = focus.record.card.topic;
+    const asks = [
+      ...(cardTopic === undefined ? ["a topicKey (and topicLabel for a new topic)"] : []),
+      ...(focus.finding !== null && declared.kind === undefined
+        ? ["the numbers the wording gives (an empty list if none)", "the kind, subject, subjectType and direction you " +
+          "declare"]
+        : []),
+    ];
+    const takes = [
+      ...(cardTopic === undefined ? [] : [`the card's topic (${cardTopic.label})`]),
+      ...(focus.finding !== null && declared.kind !== undefined ? ["its numbers block, kind, subject, subject type " +
+        "and direction"] : []),
+    ];
     const next = recheckOf !== undefined
       ? `accept_finding records it as a re-check of ${recheckOf}`
-      : "accept_finding needs this cardSha256, a topicKey (and topicLabel for a new topic) and the numbers the " +
-        "wording gives (an empty list if none)";
+      : `accept_finding needs this cardSha256${asks.length === 0 ? "" : `, ${listed(asks)}`}` +
+        `${takes.length === 0 ? "" : `; it takes ${listed(takes)} unless you send others`}`;
     return {
       ok: true,
       outcome: "finding_inspected",
@@ -894,7 +1408,15 @@ export class AtlasReview {
       checks,
       text: `${focus.name} (cardSha256 ${loaded.cardSha256}) would be ${wouldBecomeWords(checks.wouldBecome!, recheckOf ?? null)}` +
         ` (${focus.save === "card" ? "the card's own save" : "a later save"}; bases: ` +
-        `${focus.bases.length === 0 ? "none" : focus.bases.join(", ")}).\n${sourcesSentence(plan)}` +
+        `${focus.bases.length === 0 ? "none" : focus.bases.join(", ")}).` +
+        (focus.finding === null ? "" : declared.kind === undefined
+          ? "\nDeclared: nothing, as a card saved before the Atlas fields."
+          : `\nDeclared: ${fieldsWords(declared)}; numbers: ${focus.finding.numbers?.length ?? 0} two-group ` +
+            `${(focus.finding.numbers?.length ?? 0) === 1 ? "figure" : "figures"}` +
+            `${declared.searchScope === undefined ? "" : `; searches: ${declared.searchScope.map(({ database, query,
+              dateRange }) => `${database} "${query}"${dateRange === undefined ? ""
+              : ` (${dateRange.start} to ${dateRange.end})`}`).join(", ")}`}.`) +
+        `\n${sourcesSentence(plan)}` +
         (privacy.length === 0 ? "" : `\nPrivacy: ${privacy.map(({ field, reasonCode }) => `${field} (${reasonCode})`).join(", ")}.`) +
         (problems.length === 0 ? "" : `\n${problems.map(({ message }) => message).join("\n")}`) +
         (flagged.length === 0 ? "" : `\nNeeds the owner's confirmation: ${flagged.join("; ")}.`) +
@@ -939,6 +1461,7 @@ export class AtlasReview {
         version: null,
         topic: payload.topic.label === null ? null : { key: payload.topic.key, label: payload.topic.label, isNew: true },
         wording: payload.content.wording,
+        ...fieldsView(definedFields(payload.content)),
         wordingRemoved: [],
         researchCheckedOn: payload.researchCheckedOn,
         links: [],
@@ -958,6 +1481,7 @@ export class AtlasReview {
       version: latest.versionNumber,
       topic: topic === undefined ? null : { key: topic.canonicalKey, label: topic.label, isNew: false },
       wording: latest.content.wording,
+      ...fieldsView(definedFields(latest.content)),
       wordingRemoved: finding.versions.filter(({ erased }) => erased).map(({ versionNumber }) => versionNumber),
       researchCheckedOn: latest.researchCheckedOn,
       links: state.links
@@ -1025,10 +1549,19 @@ export class AtlasReview {
             `to: leave ${field} out.` });
         }
       }
+      for (const field of CARD_FIELDS) {
+        if (request[field] !== undefined) {
+          problems.push({ code: "open_lead_fields", message: `An open lead holds only its wording and whom it applies ` +
+            `to: leave ${field} out.` });
+        }
+      }
       if ((request.numbers ?? []).length > 0) {
         problems.push({ code: "open_lead_fields", message: "An open lead has no numbers: send numbers as an empty list." });
       }
     }
+    // Atlas phase 3: the topic is the card's unless the owner sends another; an older card declares none.
+    const cardTopic = item.record.card.topic;
+    const topicKey = request.topicKey ?? cardTopic?.key;
     const community = item.finding === null ? undefined : communityState({ ...item.finding, sources: kept });
     if (community?.refused === true) problems.push(communityOnlyProblem(item.name));
     const sourceChecks = item.leadOrigin === "open_lead" || kept.length === 0
@@ -1038,7 +1571,7 @@ export class AtlasReview {
       this.deps.reader.readAtlasState({
         wordingKeys: [item.cardWordingKey],
         identifiers: sourceChecks === undefined ? [] : checkedIdentifiers(sourceChecks),
-        topicKeys: request.topicKey === undefined ? [] : [request.topicKey],
+        topicKeys: topicKey === undefined ? [] : [topicKey],
       }),
       this.deps.store.inspectIntents(null),
     ]);
@@ -1061,28 +1594,54 @@ export class AtlasReview {
     const madeWith = madeWithOf(item.record.stamp);
     if (madeWith.protocols.length === 0) problems.push(stampProblem());
 
-    // What is filed: a re-check of a stored finding, or a new finding or lead under the declared topic.
+    // What is filed: a re-check of a stored finding, or a new finding or lead under the topic, the card's unless the
+    // owner sent another (Atlas phase 3).
     let topic: AtlasChecks["topic"] = null;
     let topicLabel: string | null = null;
-    if (recheckOf === undefined) {
-      const stored = state.topics.find(({ canonicalKey }) => canonicalKey === request.topicKey);
+    const topicFromCard = request.topicKey === undefined && cardTopic !== undefined;
+    if (recheckOf === undefined && topicKey === undefined) {
+      problems.push({ code: "topic_missing", message: `${id} declares no topic, as a card saved before the Atlas ` +
+        "fields: give topicKey, such as velmor-syndrome, and topicLabel for a new topic." });
+    } else if (recheckOf === undefined && topicKey !== undefined) {
+      const stored = state.topics.find(({ canonicalKey }) => canonicalKey === topicKey);
       const queued = intents.find((intent) => intent.status === "PENDING" && intent.payload.kind === "accept" &&
-        intent.payload.topic.key === request.topicKey && intent.payload.topic.label !== null);
+        intent.payload.topic.key === topicKey && intent.payload.topic.label !== null);
       const queuedLabel = queued?.payload.kind === "accept" ? queued.payload.topic.label : null;
+      // The card's label goes with the card's key only; another key takes the owner's label.
+      const label = request.topicLabel ?? (topicKey === cardTopic?.key ? cardTopic.label : undefined);
       if (stored !== undefined) {
         topic = { key: stored.canonicalKey, label: stored.label, isNew: false };
       } else if (queuedLabel !== null && queuedLabel !== undefined) {
         topicLabel = queuedLabel;
-        topic = { key: request.topicKey!, label: queuedLabel, isNew: false };
-      } else if (request.topicLabel !== undefined) {
-        topicLabel = request.topicLabel;
-        topic = { key: request.topicKey!, label: request.topicLabel, isNew: true };
+        topic = { key: topicKey, label: queuedLabel, isNew: false };
+      } else if (label !== undefined) {
+        topicLabel = label;
+        topic = { key: topicKey, label, isNew: true };
       } else {
-        problems.push({ code: "topic_label_missing", message: `${request.topicKey} is not an Atlas topic yet: give ` +
+        problems.push({ code: "topic_label_missing", message: `${topicKey} is not an Atlas topic yet: give ` +
           "topicLabel to create it, or the key of an existing topic." });
       }
     }
-    const numbers = recheckOf === undefined ? request.numbers ?? [] : [];
+    // The numbers block and the finding's fields: the card's unless the owner sent others (design section 5). A card
+    // finding from an older card declares neither, so the call does; an open lead has none; a re-check changes none.
+    const declared = cardFieldsOf(item);
+    const olderCard = item.finding !== null && declared.kind === undefined;
+    let numbers: AtlasNumberEntry[] = [];
+    if (recheckOf === undefined) {
+      if (request.numbers !== undefined || item.finding === null) {
+        numbers = request.numbers ?? [];
+      } else if (!olderCard) {
+        numbers = item.finding.numbers ?? [];
+      } else {
+        problems.push({ code: "numbers_missing", message: `${item.name} is from a card saved before the Atlas ` +
+          "fields, which declares no numbers: give numbers, each two-group yes-or-no figure the wording gives, or " +
+          "an empty list if it gives none." });
+      }
+    }
+    const fields = recheckOf !== undefined || item.finding === null ? {} : decidedFields(request, declared);
+    if (recheckOf === undefined && item.finding !== null) {
+      problems.push(...cardFieldProblems(item.name, fields, { required: true, olderCard }));
+    }
     const numberProblems = recheckOf === undefined ? atlasNumbersProblems(numbers, accepted.wording) : [];
     const keptSet = new Set(kept);
     const editedAtAcceptance = mode === "edit" && (accepted.question !== item.question || accepted.wording !== item.text ||
@@ -1106,9 +1665,9 @@ export class AtlasReview {
           entryKind: item.entryKind,
           leadOrigin: item.leadOrigin,
           editedAtAcceptance,
-          topic: { key: request.topicKey!, label: topicLabel },
+          topic: { key: topicKey!, label: topicLabel },
           question: accepted.question,
-          content: contentOf(item, accepted, numbers),
+          content: contentOf(item, accepted, numbers, fields),
           sources: plan.sources,
           wordingKeys: { card: item.cardWordingKey, accepted: atlasWordingKey(accepted.question, accepted.wording) },
           researchCheckedOn: researchDayOf(item.record.stamp),
@@ -1170,6 +1729,7 @@ export class AtlasReview {
       recheckedPublicNumber: recheckOf ?? null,
     });
     const sync = await this.syncCard(loaded, stored);
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     const publicNumber = stored.publicNumber!;
     const status: AtlasStatus = {
       atlasNumber: publicNumber,
@@ -1181,6 +1741,7 @@ export class AtlasReview {
       version: null,
       topic,
       wording: recheckOf === undefined ? accepted.wording : null,
+      ...fieldsView(fields),
       wordingRemoved: [],
       researchCheckedOn: researchDayOf(item.record.stamp),
       links: [],
@@ -1199,22 +1760,31 @@ export class AtlasReview {
       ? ` Confirmed by the owner: ${confirmations.join("; ")}.`
       : "";
     const retried = existing !== undefined ? " (a retry under the same number, after the writer refused the first)" : "";
+    const filed = `filed under ${topic?.label}${topic?.isNew === true ? " (new topic)" : ""}` +
+      `${topicFromCard ? ", the card's topic" : ""}`;
+    // A re-check keeps the stored finding's fields (design section 5): any sent are named as not taken.
+    const notTaken = recheckOf !== undefined && CARD_FIELDS.some((field) => request[field] !== undefined)
+      ? ` ${publicNumber} keeps its own kind, subject, subject type and direction; change them with edit_finding.`
+      : "";
+    const declaredWords = fieldsWords(fields);
+    const withFields = declaredWords === "" ? "" : `, ${declaredWords}`;
     const text = recheckOf !== undefined
       ? `Recorded ${item.name} as a re-check of ${publicNumber}${retried}, with the research of ` +
         `${researchDayOf(item.record.stamp)}${item.bases.length > 0 ? `, which brings a verified basis (${item.bases.join(", ")})` : ""}. ` +
-        `The Atlas writer stores it within about 5 minutes.`
+        `The Atlas writer stores it within about 5 minutes.${notTaken}`
       : item.entryKind === "finding"
-        ? `Accepted ${item.name} as ${publicNumber}${retried}, a checked finding${editedAtAcceptance ? " with your wording" : ""}, ` +
-          `filed under ${topic!.label}${topic!.isNew ? " (new topic)" : ""}. ${WRITER_SENTENCE}`
-        : `Accepted ${item.name} as a lead, ${publicNumber}${retried}: ${item.leadOrigin === "open_lead"
-          ? "an open lead of the card" : "it has no verified basis"}${editedAtAcceptance ? ", with your wording" : ""}. ` +
-          `Filed under ${topic!.label}${topic!.isNew ? " (new topic)" : ""}. ${WRITER_SENTENCE}`;
+        ? `Accepted ${item.name} as ${publicNumber}${retried}, a checked finding` +
+          `${editedAtAcceptance ? " with your wording" : ""}${withFields}, ${filed}. ${WRITER_SENTENCE}`
+        : `Accepted ${item.name} as a lead, ${publicNumber}${retried}${withFields}: ` +
+          `${item.leadOrigin === "open_lead" ? "an open lead of the card" : "it has no verified basis"}` +
+          `${editedAtAcceptance ? ", with your wording" : ""}. ${filed.charAt(0).toUpperCase()}${filed.slice(1)}. ` +
+          WRITER_SENTENCE;
     return {
       ok: true,
       outcome: outcomeOf(stored.intent?.status ?? "PENDING"),
       atlas: status,
       checks,
-      text: `${text}${confirmed}${syncSentence(sync)}`,
+      text: `${text}${confirmed}${syncSentence(sync)}${publicationSentence(moved)}`,
     };
   }
 
@@ -1244,7 +1814,7 @@ export class AtlasReview {
       return withdrawnConflict(resolved, erase ? " To erase its wording, use withdraw_finding with eraseWording." : "");
     }
     if (request.version !== latest.versionNumber) return versionStale(resolved, latest.versionNumber);
-    if (erase && ![...EDIT_TEXTS, "sources", "numbers"].some((field) => request[field as keyof AtlasReviewRequest] !== undefined)) {
+    if (erase && !CHANGE_FIELDS.some((field) => request[field] !== undefined)) {
       return this.eraseOnly(resolved, context, "earlier_versions", request);
     }
     const accept = intents.find((intent) => intent.intentKind === "accept" && intent.publicNumber === resolved &&
@@ -1257,13 +1827,24 @@ export class AtlasReview {
     const problems: Array<{ code: CheckProblemCode; message: string }> = [];
     const openLead = finding.leadOrigin === "open_lead";
     if (openLead) {
-      for (const field of ["whyNotUsual", "whatWouldChangeIt", "sources"] as const) {
+      for (const field of ["whyNotUsual", "whatWouldChangeIt", "sources", ...CARD_FIELDS] as const) {
         if (request[field] !== undefined) {
           problems.push({ code: "open_lead_fields", message: `An open lead holds only its wording and whom it applies ` +
             `to: leave ${field} out.` });
         }
       }
     }
+    // Atlas phase 3: the latest version's fields unless the owner sends others, all four or none; the searches stay
+    // only while the kind stays nothing_found.
+    const had = definedFields(latest.content);
+    const fields = openLead ? had : decidedFields(request, had);
+    problems.push(...cardFieldProblems(resolved, fields, { required: false, olderCard: false }));
+    // Decision 7 (review finding 2): the general version an erasure follows keeps its searches' databases, and each
+    // query becomes the erasure marker, as in an erased version, since a query can identify a person as a wording can.
+    const queriesErased = erase && fields.searchScope !== undefined;
+    const storedFields = queriesErased
+      ? { ...fields, searchScope: fields.searchScope!.map(atlasSearchWithoutQuery) }
+      : fields;
     // The sources: the families its latest version binds, or the ones the owner keeps of them.
     const bound = [...new Map(latest.bindings.map((binding) => [binding.familyId, binding])).values()]
       .sort((left, right) => left.locator.localeCompare(right.locator));
@@ -1297,18 +1878,19 @@ export class AtlasReview {
       : planFamilySources(sourceChecks, keptFamilies, request.confirm === true);
     problems.push(...plan.problems);
     const content: AtlasVersionContent = {
-      ...latest.content,
+      ...withoutDeclaredFields(latest.content),
       wording: request.wording ?? latest.content.wording,
       appliesTo: request.appliesTo ?? latest.content.appliesTo,
       whyNotUsual: request.whyNotUsual ?? latest.content.whyNotUsual,
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
+      ...storedFields,
     };
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
     if (unchanged) {
       problems.push({ code: "nothing_changed", message: `The edit leaves ${resolved}'s version ${latest.versionNumber} ` +
-        "as it is: send a new text, sources or numbers." });
+        "as it is: send a new text, sources or numbers, or a new kind, subject, subjectType or direction." });
     }
     const numberProblems = atlasNumbersProblems(content.numbers, content.wording);
     const payload = {
@@ -1360,9 +1942,13 @@ export class AtlasReview {
       [{ kind: "revise", prepared }, ...(erasure === undefined ? [] : [{ kind: "erase" as const, prepared: erasure }])],
       resolved, request.reason, intents,
     );
+    // Decision 171: its accepted publications now show the owner's version, and an erasure takes their fields too.
+    const moved = await this.publicationsAfterEdit(resolved, erasure !== undefined);
     const kind = request.correction === false ? "wording fix" : "correction";
+    const fieldsChanged = stableJson(fields) !== stableJson(had);
     const queued = `Queued a ${kind} of ${resolved}: version ${latest.versionNumber + 1}` +
-      `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}`;
+      `${request.note === undefined ? "" : ", with your note, which the Atlas dates"}` +
+      `${fieldsChanged && fields.kind !== undefined ? `, ${fieldsWords(fields)}` : ""}`;
     const atlas: AtlasStatus = {
       ...(await this.statusOf(resolved))!,
       labelAfter: labelsWith(state, [finding.findingId], { bases: { [finding.findingId]: content.verifiedBases } })
@@ -1374,6 +1960,9 @@ export class AtlasReview {
         publicNumber: resolved, finding, state, recorded, checks, atlas,
         erased: finding.versions.filter(({ erased }) => !erased).map(({ versionNumber }) => versionNumber),
         lead: (versions) => `${queued}; then the wording of ${versions} is erased (decision 7)`,
+        tail: (queriesErased ? ` Version ${latest.versionNumber + 1} keeps its searches' databases, and their queries ` +
+          `read as "${ATLAS_ERASED_TEXT}" as an erased version's do: a query can identify a person as a wording can.` : "") +
+          moved,
       });
     }
     return {
@@ -1381,7 +1970,7 @@ export class AtlasReview {
       outcome: outcomeOf(recorded[0]!.status),
       checks,
       atlas,
-      text: `${queued}. The Atlas writer stores it within about 5 minutes.`,
+      text: `${queued}. The Atlas writer stores it within about 5 minutes.${moved}`,
     };
   }
 
@@ -1415,6 +2004,7 @@ export class AtlasReview {
     if (pending !== undefined) return pending;
     const recorded = await this.recordIntents([{ kind: "erase", prepared: erasure }], publicNumber, request.reason,
       intents);
+    const erasedPublications = await this.eraseErasedPublications(publicNumber);
     const checks = checksOf({ item: publicNumber, wouldBecome: null, recheckOf: undefined, privacy: [], problems: [],
       relatedTopics: [] });
     const status = (await this.statusOf(publicNumber))!;
@@ -1424,8 +2014,8 @@ export class AtlasReview {
       erased: erasing.map(({ versionNumber }) => versionNumber),
       lead: (versions) => `Queued the erasure of the wording of ${publicNumber}'s ${versions} (decision 7)` +
         (scope === "all_versions" ? `, which leaves it "withdrawn, wording removed" with the date` : ""),
-      tail: request.note === undefined ? "" : " The note you sent is not stored: the withdrawal keeps its own, which " +
-        "is erased with the rest.",
+      tail: (request.note === undefined ? "" : " The note you sent is not stored: the withdrawal keeps its own, which " +
+        "is erased with the rest.") + publicationSentence(erasedPublications, "erased"),
     });
   }
 
@@ -1563,11 +2153,12 @@ export class AtlasReview {
       recheckedPublicNumber: null,
     });
     const sync = await this.syncCard(loaded, stored);
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     return {
       ok: true,
       outcome: "finding_rejected",
       text: `Rejected ${item.name}; nothing from it is written to the Atlas, and your reason stays private, on the ` +
-        `decision.${syncSentence(sync)}`,
+        `decision.${syncSentence(sync)}${publicationSentence(moved)}`,
     };
   }
 
@@ -1613,6 +2204,7 @@ export class AtlasReview {
       [{ kind: "withdraw", prepared }, ...(erasure === undefined ? [] : [{ kind: "erase" as const, prepared: erasure }])],
       resolved, request.reason, intents,
     );
+    const erasedPublications = erasure === undefined ? [] : await this.eraseErasedPublications(resolved);
     const after = labelsWith(state, partnersOf(state, finding.findingId), { invalidate: finding.findingId });
     const released = partnersOf(state, finding.findingId)
       .filter((id) => id !== finding.findingId && labelsWith(state, [id]).get(id) === "contested" && after.get(id) !== "contested")
@@ -1629,6 +2221,7 @@ export class AtlasReview {
           latest.versionNumber + 1],
         lead: (versions) => `${queued} After it, the wording of ${versions} is erased (decision 7), your note ` +
           `included, which leaves it "withdrawn, wording removed" with the date`,
+        tail: publicationSentence(erasedPublications, "erased"),
       });
     }
     return {
@@ -1739,8 +2332,12 @@ export class AtlasReview {
   private async forget(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const cardNumber = findingsCardNumber(request.card!)!;
     const id = publicFindingsCardId(cardNumber);
-    const outcome = await forgetCard({ store: this.deps.store, inbox: this.deps.inbox }, cardNumber, this.now(),
-      { confirmed: request.confirm === true });
+    const outcome = await forgetCard({
+      store: this.deps.store,
+      inbox: this.deps.inbox,
+      ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }),
+      ...(this.deps.held === undefined ? {} : { held: this.deps.held }),
+    }, cardNumber, this.now(), { confirmed: request.confirm === true });
     switch (outcome.kind) {
       case "not_a_card":
         return errorOf("card_not_found", `${id} is neither a findings card nor a forgotten one; nothing was changed.`);
@@ -1780,7 +2377,8 @@ export class AtlasReview {
         const stripped = report.cards.filter(({ github }) => github === "stripped").length;
         const forget = this.forgetView(report, stripped > 0 ? "waiting_for_owner" : "forgotten");
         // A call that changed nothing finds the stripped issues still waiting for the owner.
-        const lead = report.strippedNow.length > 0 || report.decisions.length > 0 || report.savesDeleted.length > 0
+        const lead = report.strippedNow.length > 0 || report.decisions.length > 0 || report.savesDeleted.length > 0 ||
+            (report.heldDeleted ?? 0) > 0
           ? `Forgot ${id} at its contributor's request (decision 7).`
           : `GitHub still has ${stripped === 1 ? "the stripped issue" : `${stripped} stripped issues`} of ${id} ` +
             "(decision 7).";
@@ -1821,6 +2419,11 @@ export class AtlasReview {
       laterSavesDeletedOn: [...new Set(report.savesDeleted)].sort((left, right) => left - right)
         .map(publicFindingsCardId),
       refiled: report.refiled.map(({ from, card }) => ({ from: publicFindingsCardId(from), card: publicFindingsCardId(card) })),
+      publicationsWithdrawn: report.publications.filter(({ state }) => state === "withdrawn")
+        .map(({ publicationNumber }) => publicationNumber),
+      publicationsKept: report.publications.filter(({ state }) => state === "accepted")
+        .map(({ publicationNumber }) => publicationNumber),
+      ...(report.heldDeleted === undefined ? {} : { youtubeFindingsDeleted: report.heldDeleted }),
       ownerSteps: status !== "waiting_for_owner" || stripped.length === 0 ? [] : [
         `Now delete ${stripped.length === 1 ? "this issue" : "these issues"} in GitHub (Delete issue, at the foot of ` +
           `${stripped.length === 1 ? "the" : "each"} issue's page), which also removes the edit history: ` +
@@ -1828,6 +2431,170 @@ export class AtlasReview {
         `Then call forget_card ${id} again to check that GitHub no longer has ${stripped.length === 1 ? "it" : "them"}.`,
       ],
     };
+  }
+
+  // The held YouTube findings (owner answer 173) -----------------------------------------------------------------------
+
+  private async moveYouTube(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const held = this.deps.held;
+    if (held === undefined) return heldNotConfigured("Nothing was changed");
+    const numbers = [...new Set(request.cards!.map((card) => findingsCardNumber(card)!))];
+    const reports: YouTubeFindingsMoveReport[] = [];
+    for (const cardNumber of numbers) {
+      reports.push(await moveYouTubeFindings({
+        inbox: this.deps.inbox, store: this.deps.store, held,
+        ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }),
+      }, cardNumber));
+    }
+    const rewritten = reports.filter((report) => report.cardRewritten || report.laterSavesRewritten > 0);
+    const youtubeFindings: AtlasYoutubeFindings = {
+      cards: reports.map((report) => ({
+        card: publicFindingsCardId(report.card),
+        status: report.status,
+        held: report.findings.map(({ finding, save, savedAt }) => ({ finding, save, savedOn: savedAt.slice(0, 10) })),
+        deleted: 0,
+        cardRewritten: report.cardRewritten,
+        laterSavesRewritten: report.laterSavesRewritten,
+        laterSavesDeleted: report.laterSavesDeleted,
+        decidedFindings: report.decidedFindings,
+        publishedFindings: report.publishedFindings,
+      })),
+      ownerSteps: rewritten.length === 0 ? [] : [
+        "GitHub keeps each rewritten card's earlier text in its edit history. On each card below, open the edited " +
+          "menu at the top of the description (and of each rewritten later save), and delete every earlier revision " +
+          `from the history: ${rewritten.map(({ card }) => this.deps.inbox.issueUrl(card)).join(", ")}.`,
+      ],
+    };
+    return {
+      ok: true,
+      outcome: "youtube_findings_moved",
+      youtubeFindings,
+      text: [...reports.map(moveSentence), ...youtubeFindings.ownerSteps].join("\n"),
+    };
+  }
+
+  private async listYouTube(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const held = this.deps.held;
+    if (held === undefined) return heldNotConfigured("Nothing was read");
+    const after = request.cursor === undefined ? undefined : decodeHeldCursor(request.cursor);
+    if (after === null) return errorOf("invalid_request", "The cursor is not one list_youtube_findings returned.");
+    // One save more than a page shows: when it comes, a next page holds it.
+    const rows = await held.inspectWithoutCard({
+      ...(after === undefined ? {} : { after }), saves: LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE + 1,
+    });
+    const saves: Array<AtlasHeldWithoutCard["saves"][number] & { savedAt: string }> = [];
+    for (const row of rows) {
+      const save = saves.find(({ cardSha256, savedAt }) => cardSha256 === row.cardSha256 && savedAt === row.savedAt);
+      if (save !== undefined) {
+        save.findings.push(heldView(row));
+        continue;
+      }
+      saves.push({
+        cardSha256: row.cardSha256,
+        question: row.question ?? "",
+        topic: row.topic === undefined ? null : { key: row.topic.key, label: row.topic.label },
+        savedOn: row.savedAt.slice(0, 10),
+        findings: [heldView(row)],
+        savedAt: row.savedAt,
+      });
+    }
+    const shown = saves.slice(0, LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE);
+    const last = shown.at(-1);
+    const nextCursor = saves.length > shown.length && last !== undefined ? encodeHeldCursor(last) : null;
+    const lines = shown.length === 0
+      ? [after === undefined ? "No YouTube findings are held without a card." :
+        "No more YouTube findings are held without a card."]
+      : [
+        "Held YouTube findings with no card: each card's findings all rested on YouTube comments, so it was not saved " +
+          "as a card. Newest first; kept for your review until deleted, and never decided, accepted or published.",
+        ...shown.map((save) => `${save.cardSha256}, saved ${decisionDate(save.savedAt)}: ${clip(save.question, 160)}` +
+          `${save.topic === null ? "" : ` [${save.topic.label} (${save.topic.key})]`}\n` +
+          save.findings.map((finding) => `  Finding ${finding.finding}: ${clip(finding.claim, 160)} ` +
+            `(${finding.certainty})`).join("\n")),
+        "delete_youtube_findings with a save's cardSha256 deletes its held findings.",
+        ...(nextCursor === null ? [] : [`More are held: list_youtube_findings with cursor ${nextCursor} shows the next ` +
+          "page."]),
+      ];
+    return {
+      ok: true,
+      outcome: "youtube_findings_listed",
+      heldWithoutCard: { saves: shown.map(({ savedAt: _savedAt, ...save }) => save), nextCursor, deleted: null },
+      text: lines.join("\n"),
+    };
+  }
+
+  private async deleteYouTube(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const held = this.deps.held;
+    if (held === undefined) return heldNotConfigured("Nothing was deleted");
+    if (request.cardSha256 !== undefined) {
+      // A held save with no card, by its checked card's SHA-256.
+      const deleted = await held.deleteWithoutCard([request.cardSha256]);
+      return {
+        ok: true,
+        outcome: "youtube_findings_deleted",
+        heldWithoutCard: { saves: [], nextCursor: null, deleted },
+        text: deleted === 0
+          ? `No YouTube findings are held without a card under ${request.cardSha256}: none were held, or they were ` +
+            "deleted already. Nothing was deleted."
+          : `Deleted the ${deleted === 1 ? "held YouTube finding" : `${deleted} held YouTube findings`} with no card ` +
+            `under ${request.cardSha256}.`,
+      };
+    }
+    const cardNumber = findingsCardNumber(request.card!)!;
+    const id = publicFindingsCardId(cardNumber);
+    const deleted = await held.deleteForCards([cardNumber]);
+    return {
+      ok: true,
+      outcome: "youtube_findings_deleted",
+      youtubeFindings: {
+        cards: [{
+          card: id, status: "deleted", held: [], deleted, cardRewritten: false, laterSavesRewritten: 0,
+          laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [],
+        }],
+        ownerSteps: [],
+      },
+      text: deleted === 0
+        ? `${id} has no held YouTube findings: none were held, or they were deleted already. Nothing was deleted.`
+        : `Deleted ${id}'s ${deleted === 1 ? "held YouTube finding" : `${deleted} held YouTube findings`}.`,
+    };
+  }
+
+  /**
+   * Every held YouTube finding at once, of every card and every save with no card: for the day YouTube asks AskRigor
+   * to delete them. Nothing is deleted unless the call says so with confirm: true.
+   */
+  private async deleteAllYouTube(request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const held = this.deps.held;
+    if (held === undefined) return heldNotConfigured("Nothing was deleted");
+    if (request.confirm !== true) {
+      return {
+        ok: false,
+        outcome: "needs_confirmation",
+        text: "Nothing was deleted: delete_all_youtube_findings deletes every held YouTube finding at once, of every " +
+          "card and of every save with no card, and none can be restored. Send the same call with confirm: true only " +
+          "when the owner says to delete them all, as when YouTube asks AskRigor to delete them.",
+      };
+    }
+    const deleted = await held.deleteAll();
+    return {
+      ok: true,
+      outcome: "youtube_findings_deleted",
+      youtubeFindings: { cards: [], ownerSteps: [], deletedAll: deleted },
+      text: deleted === 0
+        ? "No YouTube findings were held, so none was deleted."
+        : `Deleted every held YouTube finding at once: ${deleted === 1 ? "1 finding" : `${deleted} findings`}, of ` +
+          "every card and every save with no card. None is held now.",
+    };
+  }
+
+  /** Every held YouTube finding of a card, or why they cannot be shown. */
+  private async heldOf(cardNumber: number): Promise<HeldRead> {
+    if (this.deps.held === undefined) return { status: "not_configured" };
+    try {
+      return { status: "read", findings: await this.deps.held.inspect([cardNumber]) };
+    } catch {
+      return { status: "unavailable" };
+    }
   }
 
   // Shared steps --------------------------------------------------------------------------------------------------------
@@ -1847,6 +2614,9 @@ export class AtlasReview {
     const decisions = await this.deps.store.inspectCards([cardNumber]);
     const sync = await reconcileFindingsCard(this.deps.inbox, { ...card, findings: card.record.card.findings.length },
       decisions);
+    // Decision 171: the card's publications follow its decisions; one a decision's own call did not move moves now,
+    // and an accepted finding without a publication gets one.
+    await this.syncPublications(cardNumber, decisions, card);
     const reconciled: FindingsCardRead = sync.synced
       ? {
           ...card,
@@ -2105,8 +2875,16 @@ function acceptedTexts(item: CardItem, edits: Partial<Pick<AtlasReviewRequest, t
   };
 }
 
-/** The version content an accept stores: an open lead holds only its wording and whom it applies to. */
-function contentOf(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numbers: AtlasNumberEntry[]): AtlasVersionContent {
+/**
+ * The version content an accept stores: an open lead holds only its wording and whom it applies to; a card finding
+ * also its declared fields (Atlas phase 3), each left out when not declared.
+ */
+function contentOf(
+  item: CardItem,
+  texts: ReturnType<typeof acceptedTexts>,
+  numbers: AtlasNumberEntry[],
+  fields: DeclaredFields,
+): AtlasVersionContent {
   const declared = item.record.card.public_value;
   const open = item.leadOrigin === "open_lead";
   return {
@@ -2122,12 +2900,18 @@ function contentOf(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numb
     tags: open || item.finding === null ? [] : ATLAS_FINDING_TAGS.filter((tag) => item.finding!.tags.includes(tag)),
     verifiedBases: item.entryKind === "finding" ? item.bases : [],
     numbers,
+    ...(open ? {} : definedFields(fields)),
   };
 }
 
 /** Every text of an item as an accept would store it, for the dry run's privacy screen. */
-function itemTexts(item: CardItem, texts: ReturnType<typeof acceptedTexts>, numbers: AtlasNumberEntry[]) {
-  return contentTexts(contentOf(item, texts, numbers), { question: texts.question });
+function itemTexts(
+  item: CardItem,
+  texts: ReturnType<typeof acceptedTexts>,
+  numbers: AtlasNumberEntry[],
+  fields: DeclaredFields,
+) {
+  return contentTexts(contentOf(item, texts, numbers, fields), { question: texts.question });
 }
 
 function contentTexts(content: AtlasVersionContent, extra: Record<string, string | null | undefined> = {}) {
@@ -2146,7 +2930,127 @@ function contentTexts(content: AtlasVersionContent, extra: Record<string, string
     texts[`numbers[${index}].comparator`] = entry.comparator;
     texts[`numbers[${index}].follow_up`] = entry.follow_up;
   });
+  // Atlas phase 3: the subject and each search's query are stored texts too, screened like the rest.
+  texts.subject = content.subject;
+  content.searchScope?.forEach((search, index) => {
+    texts[`searchScope[${index}].query`] = search.query;
+  });
   return texts;
+}
+
+// The finding's declared fields (Atlas phase 3, design section 5) ---------------------------------------------------
+
+/** A finding's kind, subject, subject type, direction and searches, as a version's content holds them. */
+type DeclaredFields = Pick<AtlasVersionContent, "kind" | "subject" | "subjectType" | "direction" | "searchScope">;
+
+const orList = (values: readonly string[]) => `${values.slice(0, -1).join(", ")} or ${values.at(-1)}`;
+/** What each field takes, for a problem that asks for it. */
+const FIELD_VALUES: Record<typeof CARD_FIELDS[number], string> = {
+  kind: `kind (${orList(ATLAS_FINDING_KINDS)})`,
+  subject: "subject (what it is about, as people know it, such as zentarine)",
+  subjectType: `subjectType (${orList(ATLAS_SUBJECT_TYPES)})`,
+  direction: `direction (${orList(ATLAS_FINDING_DIRECTIONS)})`,
+};
+
+/** The fields with each undefined one left out, so a content holds only what was declared. */
+function definedFields(fields: DeclaredFields): DeclaredFields {
+  const defined: DeclaredFields = {};
+  if (fields.kind !== undefined) defined.kind = fields.kind;
+  if (fields.subject !== undefined) defined.subject = fields.subject;
+  if (fields.subjectType !== undefined) defined.subjectType = fields.subjectType;
+  if (fields.direction !== undefined) defined.direction = fields.direction;
+  if (fields.searchScope !== undefined) defined.searchScope = fields.searchScope;
+  return defined;
+}
+
+/** The fields a card item declares: a card finding's own (none on an older card); an open lead has none. */
+function cardFieldsOf(item: CardItem): DeclaredFields {
+  const finding = item.finding;
+  if (finding === null) return {};
+  return definedFields({
+    kind: finding.kind,
+    subject: finding.subject,
+    subjectType: finding.subject_type,
+    direction: finding.direction,
+    searchScope: finding.searches === undefined || finding.searches.length === 0
+      ? undefined
+      : finding.searches.map(({ database, query, date_range: range }): AtlasSearch =>
+        ({ database, query, ...(range === undefined ? {} : { dateRange: range }) })),
+  });
+}
+
+/** A version's content without its declared fields, to which a correction's are then added. */
+function withoutDeclaredFields(content: AtlasVersionContent): AtlasVersionContent {
+  const rest = { ...content };
+  delete rest.kind;
+  delete rest.subject;
+  delete rest.subjectType;
+  delete rest.direction;
+  delete rest.searchScope;
+  return rest;
+}
+
+/**
+ * The fields a decision stores: each one the owner sent, else the one the finding had (its card's, or its latest
+ * version's). The searches come only from what it had, bound at the final check, and stay only while the kind stays
+ * nothing_found.
+ */
+function decidedFields(request: Pick<AtlasReviewRequest, typeof CARD_FIELDS[number]>, had: DeclaredFields): DeclaredFields {
+  const kind = request.kind ?? had.kind;
+  return definedFields({
+    kind,
+    subject: request.subject ?? had.subject,
+    subjectType: request.subjectType ?? had.subjectType,
+    direction: request.direction ?? had.direction,
+    searchScope: kind === ATLAS_SEARCH_KIND ? had.searchScope : undefined,
+  });
+}
+
+/**
+ * What the declared fields lack, and their one exact contradiction (the final check's check 10). An accept needs all
+ * four (choice 2); a correction keeps all four or none, so a version never declares only some.
+ */
+function cardFieldProblems(
+  name: string,
+  fields: DeclaredFields,
+  options: { required: boolean; olderCard: boolean },
+): Array<{ code: CheckProblemCode; message: string }> {
+  const problems: Array<{ code: CheckProblemCode; message: string }> = [];
+  const missing = CARD_FIELDS.filter((field) => fields[field] === undefined);
+  if (missing.length > 0 && (options.required || missing.length < CARD_FIELDS.length)) {
+    problems.push({
+      code: "card_fields_missing",
+      message: `${name} has no ${listed(missing)}${options.olderCard ? ", as its card was saved before the Atlas " +
+        "fields" : ""}: declare ${missing.length === 1 ? "it" : "each"}: ${missing.map((field) => FIELD_VALUES[field])
+        .join("; ")}.`,
+    });
+  }
+  if (fields.kind === ATLAS_SEARCH_KIND && fields.direction !== undefined && fields.direction !== "descriptive") {
+    problems.push({
+      code: "card_fields_contradict",
+      message: `${name} is of kind nothing_found with direction ${fields.direction}: a search that found nothing has ` +
+        "direction descriptive. A study that found no difference is of kind effect or harm, with direction no_effect.",
+    });
+  }
+  return problems;
+}
+
+/** The declared fields in words, for a reply; empty when the kind is not declared. */
+function fieldsWords(fields: DeclaredFields): string {
+  if (fields.kind === undefined) return "";
+  const searches = fields.searchScope?.length ?? 0;
+  return `of kind ${fields.kind}, direction ${fields.direction}, about ${fields.subject} (${fields.subjectType})` +
+    (searches === 0 ? "" : `, with ${searches} ${searches === 1 ? "search" : "searches"} that found nothing`);
+}
+
+/** The declared fields for a view, each null when not declared. */
+function fieldsView(fields: DeclaredFields) {
+  return {
+    kind: fields.kind ?? null,
+    subject: fields.subject ?? null,
+    subjectType: fields.subjectType ?? null,
+    direction: fields.direction ?? null,
+  };
 }
 
 /**
@@ -2158,7 +3062,10 @@ function intentTexts(payload: unknown): Record<string, string | undefined> {
   const intent = payload as AtlasFindingIntent;
   switch (intent.kind) {
     case "accept":
-      return contentTexts(intent.content, { topicLabel: intent.topic.label, question: intent.question });
+      // The topic's key is stored for good (topics are never erased), so it is screened too, read as words. The payload
+      // is not parsed yet: with no topic, its key is missing, and the checks name that (topic_missing).
+      return contentTexts(intent.content, { topicLabel: intent.topic.label, question: intent.question,
+        topicKey: typeof intent.topic.key === "string" ? topicKeyText(intent.topic.key) : undefined });
     case "revise":
       return contentTexts(intent.content, { note: intent.note });
     case "withdraw":
@@ -2172,8 +3079,12 @@ function intentTexts(payload: unknown): Record<string, string | undefined> {
   }
 }
 
+// The fields contentTexts names for the searches' queries, which the screen reads as search queries (review finding 11).
+const SEARCH_QUERY_FIELD = /^searchScope\[\d+\]\.query$/u;
+
 function screenTexts(texts: Readonly<Record<string, string | undefined>>): Array<{ field: string; reasonCode: string }> {
-  return screenAtlasTexts(texts).map(({ field, reasonCode }) => ({ field, reasonCode }));
+  const searchQueries = new Set(Object.keys(texts).filter((field) => SEARCH_QUERY_FIELD.test(field)));
+  return screenAtlasTexts(texts, searchQueries).map(({ field, reasonCode }) => ({ field, reasonCode }));
 }
 
 /** The intent as the review store keeps it, or why it cannot be one: each problem names its field. */
@@ -2627,6 +3538,8 @@ function statusSentence(status: AtlasStatus): string {
   return `${status.atlasNumber}: ${status.entryKind === "lead" ? "a lead" : "a finding"}, labeled ${status.label}, ` +
     `version ${status.version}${status.topic === null ? "" : `, filed under ${status.topic.label}`}` +
     `${status.researchCheckedOn === null ? "" : `, research of ${status.researchCheckedOn}`}: "${clip(status.wording ?? "", 200)}"` +
+    `${status.kind === null ? "" : `. It is of kind ${status.kind}, direction ${status.direction}, about ` +
+      `${status.subject} (${status.subjectType})`}` +
     `${removed.length === 0 ? "" : `. Wording removed (decision 7) from ${removed.length === 1 ? "version" : "versions"} ` +
       `${listed(removed.map(String))}`}` +
     `${links.length === 0 ? "" : `. Links: ${links.map((link) => link.direction === "from"
@@ -2695,6 +3608,11 @@ function forgetSentences(forget: AtlasForget, report: CardForgetReport): string[
       ? "1 decision row is removed, with any private reason you gave on it."
       : `${forget.decisionsRemoved} decision rows are removed, with any private reasons you gave on them.`);
   }
+  if ((forget.youtubeFindingsDeleted ?? 0) > 0) {
+    sentences.push(forget.youtubeFindingsDeleted === 1
+      ? "Its 1 held YouTube finding is deleted too."
+      : `Its ${forget.youtubeFindingsDeleted} held YouTube findings are deleted too.`);
+  }
   if (forget.findingsOnlyFromThese.length > 0) {
     const one = forget.findingsOnlyFromThese.length === 1;
     sentences.push(`${listed(forget.findingsOnlyFromThese)} came only from ${others.length === 0 ? "this card" :
@@ -2703,6 +3621,17 @@ function forgetSentences(forget: AtlasForget, report: CardForgetReport): string[
   if (forget.findingsAlsoElsewhere.length > 0) {
     sentences.push(`${listed(forget.findingsAlsoElsewhere)} ${forget.findingsAlsoElsewhere.length === 1 ? "is" : "are"} ` +
       "also named by another card's decision.");
+  }
+  // Decision 171 (notice version 4): the card leaves the Atlas unless the owner has already accepted its findings.
+  if (forget.publicationsWithdrawn.length > 0) {
+    const one = forget.publicationsWithdrawn.length === 1;
+    sentences.push(`${one ? "Its publication" : "Its publications"} ${listed(forget.publicationsWithdrawn)} ` +
+      `${one ? "leaves" : "leave"} the Atlas pages, ${one ? "its" : "their"} published fields erased.`);
+  }
+  if (forget.publicationsKept.length > 0) {
+    const one = forget.publicationsKept.length === 1;
+    sentences.push(`${listed(forget.publicationsKept)}, which you accepted, ${one ? "stays" : "stay"} published, ` +
+      "without anything that ties it to the card.");
   }
   if (forget.refiled.length > 0) {
     sentences.push(`Other people's later saves were re-filed as cards of their own: ${forget.refiled.map(({ from, card }) =>
@@ -2740,7 +3669,7 @@ function listed(items: readonly string[]): string {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
 
-function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState): AtlasCardView {
+function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState, held: HeldRead): AtlasCardView {
   const { card } = loaded;
   const id = publicFindingsCardId(card.number);
   const leads = card.record.card.open_leads.map((_, index) =>
@@ -2760,15 +3689,21 @@ function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState): 
     savedOn: card.record.stamp.saved_at.slice(0, 10),
     saves: 1 + card.occurrences.length,
     beyondQuickAnswer: isBeyondQuickAnswer(card.labels),
+    topic: card.record.card.topic === undefined ? null
+      : { key: card.record.card.topic.key, label: card.record.card.topic.label },
     items: [...findings, ...leads].map((item) => {
       const recheckOf = item.ref.itemKind === "finding" ? recheckTarget(state, item.cardWordingKey) : undefined;
       const decision = decisionFor(loaded.decisions, item.ref);
+      const declared = cardFieldsOf(item);
       return {
         item: item.ref.itemKind === "finding" ? "finding" as const : "lead" as const,
         number: item.ref.itemNumber,
         text: item.text,
         certainty: item.certainty,
         appliesTo: item.appliesTo,
+        ...fieldsView(declared),
+        numbers: declared.kind === undefined ? null : item.finding?.numbers?.length ?? 0,
+        searches: declared.searchScope ?? [],
         sources: item.sources,
         youtubeVideos: item.youtubeVideos,
         save: item.save,
@@ -2785,7 +3720,104 @@ function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState): 
       };
     }),
     githubSynced: loaded.synced,
+    heldYoutubeFindings: held.status === "read" ? held.findings.slice(0, 1_000).map(heldView) : null,
   };
+}
+
+/** A card's held YouTube findings as its view reads them, or why they cannot be shown (owner answer 173). */
+type HeldRead =
+  | { status: "read"; findings: HeldYouTubeFinding[] }
+  | { status: "unavailable" }
+  | { status: "not_configured" };
+
+function heldView(finding: HeldYouTubeFinding): NonNullable<AtlasCardView["heldYoutubeFindings"]>[number] {
+  return {
+    finding: finding.findingNumber,
+    claim: finding.claim,
+    certainty: finding.certainty,
+    appliesTo: finding.appliesTo,
+    whyNotUsual: finding.whyNotUsual,
+    whatWouldChangeIt: finding.whatWouldChangeIt,
+    kind: finding.kind ?? null,
+    subject: finding.subject ?? null,
+    direction: finding.direction ?? null,
+    tags: finding.tags,
+    bases: finding.verifiedBases,
+    savedOn: finding.savedAt.slice(0, 10),
+  };
+}
+
+/** The card view's lines on its held YouTube findings: each with the day its save was made. */
+function heldLines(held: HeldRead): string {
+  if (held.status === "unavailable") return "\nIts held YouTube findings could not be read just now.";
+  if (held.status === "not_configured" || held.findings.length === 0) return "";
+  return "\nHeld YouTube findings, kept apart from the card for your review until deleted: never decided, accepted or " +
+    "published.\n" + held.findings.map((finding) => `  Finding ${finding.findingNumber} of the card as checked, saved ` +
+      `${decisionDate(finding.savedAt)}: ${clip(finding.claim, 160)} (${finding.certainty}).`).join("\n");
+}
+
+/** A page of list_youtube_findings names the last save it showed: its save time in milliseconds and its card's hash. */
+function encodeHeldCursor(save: { savedAt: string; cardSha256: string }): string {
+  return `${Date.parse(save.savedAt)}_${save.cardSha256}`;
+}
+
+/** The save a list_youtube_findings cursor names; null for a cursor it did not make. */
+function decodeHeldCursor(cursor: string): { savedAt: string; cardSha256: string } | null {
+  const match = /^(0|[1-9][0-9]{0,15})_([a-f0-9]{64})$/u.exec(cursor);
+  if (match === null) return null;
+  const saved = new Date(Number(match[1]));
+  return Number.isNaN(saved.getTime()) ? null : { savedAt: saved.toISOString(), cardSha256: match[2]! };
+}
+
+/** What move_youtube_findings did with one card, in a sentence or two. */
+function moveSentence(report: YouTubeFindingsMoveReport): string {
+  const id = publicFindingsCardId(report.card);
+  const counted = (count: number, one: string) => count === 1 ? `1 ${one}` : `${count} ${one}s`;
+  const done = report.findings.length === 0 ? [] : [`moved ${counted(report.findings.length, "finding")} drawn from ` +
+    "YouTube comments into the held findings"];
+  const rewritten = [
+    ...(report.cardRewritten ? ["the card"] : []),
+    ...(report.laterSavesRewritten === 0 ? [] : [counted(report.laterSavesRewritten, "later save")]),
+  ];
+  const which = listed(rewritten);
+  const one = rewritten.length === 1 && (report.cardRewritten || report.laterSavesRewritten === 1);
+  switch (report.status) {
+    case "moved":
+      return [
+        `${id}: ${done.join(" and ")}.`,
+        ...(rewritten.length === 0 ? [] : [`${which.charAt(0).toUpperCase()}${which.slice(1)} now ` +
+          `${one ? "reads" : "read"} as saved today without them.`]),
+        ...(report.laterSavesDeleted === 0 ? [] : [`${counted(report.laterSavesDeleted, "later save")} that rested ` +
+          `only on YouTube comments ${report.laterSavesDeleted === 1 ? "was" : "were"} deleted.`]),
+      ].join(" ");
+    case "nothing_to_move":
+      return `${id} holds no finding drawn from YouTube comments; nothing was changed.`;
+    case "not_found":
+      return `${id} is not a findings card in the library; nothing was changed.`;
+    case "unreadable":
+      return `${id}'s record, or a later save's, does not read as the library saved it (it may have been edited in ` +
+        "GitHub); nothing was changed.";
+    case "every_finding_youtube":
+      return `Every finding on ${id} rests on YouTube comments, so a card saved today would not be saved as a card; ` +
+        "nothing was changed. forget_card removes the card, or delete its issue in GitHub.";
+    case "decisions_in_the_way":
+      return `${id} has decisions on ${report.decidedFindings.length === 1 ? "finding" : "findings"} ` +
+        `${listed(report.decidedFindings.map(String))}, which moving its findings drawn from YouTube comments would ` +
+        "remove or renumber; nothing was changed.";
+    case "published_in_the_way":
+      return `${id} has publications for ${report.publishedFindings.length === 1 ? "finding" : "findings"} ` +
+        `${listed(report.publishedFindings.map(String))}, which name findings by their place on the card, even ` +
+        "after withdrawal; nothing was changed.";
+    case "incomplete":
+      return `${id}: the database or GitHub failed part way${done.length === 0 ? "" : ` after it ${done.join(" and ")}`}` +
+        `${rewritten.length === 0 ? "" : `, and rewrote ${listed(rewritten)}`}. Call move_youtube_findings for it ` +
+        "again; what is done is not redone.";
+  }
+}
+
+function heldNotConfigured(nothing: string): AtlasReviewResult {
+  return errorOf("review_service_unavailable", "The held YouTube findings are not configured: they need the review " +
+    `database's functions of migration 0019. ${nothing}.`);
 }
 
 function checksOf(input: {
@@ -2866,6 +3898,35 @@ function reviewedLabels(labels: readonly string[]): string[] {
   return [...new Set([...labels.filter((label) => label !== "pending-review"), "reviewed"])];
 }
 
+// Publications (decision 171) -------------------------------------------------------------------------------------------
+
+/** The card's decisions with a new one in place of the same item's. */
+function withDecision(decisions: readonly AtlasDecisionView[], decision: AtlasDecisionView): AtlasDecisionView[] {
+  return [...decisions.filter((stored) => stored.itemKind !== decision.itemKind || stored.itemNumber !== decision.itemNumber),
+    decision];
+}
+
+/**
+ * What a call changed of the Atlas's publications, in a sentence: the state each moved to, or, for an erasure, that its
+ * published fields are erased. Empty when it changed none.
+ */
+function publicationSentence(changed: readonly AtlasPublicationView[], kind: "moved" | "erased" = "moved"): string {
+  if (changed.length === 0) return "";
+  const created = (row: AtlasPublicationView) => "outcome" in row && row.outcome === "published";
+  const words = (row: AtlasPublicationView) => kind === "erased"
+    ? "has its published fields erased"
+    : created(row) ? row.state === "edited"
+      ? `is published with ${row.atlasNumber} in its latest version, once the writer has stored it`
+      : `is published as ${row.atlasNumber}, without the label, once the writer has stored it`
+    : row.state === "accepted" ? `is accepted as ${row.atlasNumber}, without the label`
+      : row.state === "edited" ? `is edited: the pages show ${row.atlasNumber} in its latest version`
+        : row.state === "rejected" ? "is rejected: it leaves the Atlas pages"
+          : row.state === "withdrawn" ? "is withdrawn from the Atlas pages" : `is ${row.state}`;
+  const unique = [...new Map(changed.map((row) => [row.publicationNumber, row])).values()];
+  return ` In the Atlas, ${unique.map((row) => `publication ${row.publicationNumber} ` +
+    `(${publicFindingsCardId(row.cardNumber)} finding ${row.findingNumber}) ${words(row)}`).join("; ")}.`;
+}
+
 // Errors ----------------------------------------------------------------------------------------------------------------
 
 function errorOf(code: AtlasReviewErrorCode, message: string): AtlasReviewResult {
@@ -2892,6 +3953,9 @@ function withdrawnConflict(publicNumber: string, hint = ""): AtlasReviewResult {
 }
 
 function errorResult(error: unknown): AtlasReviewResult {
+  if (error instanceof AtlasPublicationError) {
+    return errorOf("invalid_request", "The publication store refused the request as not valid; nothing was changed.");
+  }
   if (error instanceof AtlasReviewError) {
     switch (error.code) {
       case "DECISION_CONFLICT":

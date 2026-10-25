@@ -1,5 +1,16 @@
 import { createHash } from "node:crypto";
 
+import {
+  ATLAS_FINDING_DIRECTIONS,
+  ATLAS_FINDING_KINDS,
+  ATLAS_SEARCH_DATABASES,
+  ATLAS_SEARCH_QUERY_MAX_CHARACTERS,
+  ATLAS_SEARCHES_PER_FINDING,
+  ATLAS_SUBJECT_MAX_CHARACTERS,
+  ATLAS_SUBJECT_TYPES,
+  type AtlasNumberEntry,
+  type HeldYouTubeFindingContent
+} from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import {
@@ -38,6 +49,70 @@ export type PublicValueScope = typeof PUBLIC_VALUE_SCOPES[number];
 
 const cardText = (max: number) => z.string().trim().min(1).max(max);
 
+/**
+ * One figure of a finding's numbers block (Atlas phase 3, design section 1): phase 2's Atlas number entry
+ * (atlasNumberEntrySchema) as the card carries it, in binary_results' flat shape without its quotes. Shape only: that
+ * events never exceed the group's total, and the arithmetic, are the final check's exact checks, so a card that fails
+ * them is reported and never holds back the answer.
+ */
+export const findingNumberEntrySchema = z.object({
+  outcome: cardText(200)
+    .describe("The yes-or-no outcome as the claim names it, such as tremor score halved or nausea."),
+  better: z.enum(["fewer", "more"])
+    .describe("Whether fewer or more people with this outcome is better: fewer for a harm or a relapse, more for a " +
+      "response or a remission."),
+  option: cardText(120).describe("The option the figure is about, as the claim names it."),
+  option_events: z.number().int().nonnegative().describe("How many people in the option's group had the outcome."),
+  option_total: z.number().int().min(1).describe("How many people were in the option's group."),
+  comparator: cardText(120).describe("What the option was compared with, as the claim names it, such as placebo."),
+  comparator_events: z.number().int().nonnegative()
+    .describe("How many people in the comparator's group had the outcome."),
+  comparator_total: z.number().int().min(1).describe("How many people were in the comparator's group."),
+  follow_up: cardText(120)
+    .describe("How long people were followed for this outcome, as the claim writes it, such as 12 weeks."),
+  nnt: z.number().positive().optional()
+    .describe("The number needed to treat the claim gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  nnh: z.number().positive().optional()
+    .describe("The number needed to harm the claim gives for this outcome, if it gives one: 1 divided by the " +
+      "difference in the groups' rates, rounded up."),
+  harms_none_found: z.boolean().optional()
+    .describe("With nnt: true when no harms were found over the same follow-up. Otherwise each harm measured over it " +
+      "is its own entry, with better set to fewer.")
+}).strict();
+export type FindingNumberEntry = z.output<typeof findingNumberEntrySchema>;
+// The card's figure is the Atlas's figure: the same fields, so acceptance takes the card's numbers as they are.
+const FINDING_NUMBERS_ARE_ATLAS_NUMBERS: (entry: FindingNumberEntry) => AtlasNumberEntry = (entry) => entry;
+void FINDING_NUMBERS_ARE_ATLAS_NUMBERS;
+
+/**
+ * A search that found nothing, as a literature_search receipt of the same call names it: its database, its query
+ * and, when the search was restricted to publication dates, that range (review finding 8), which the receipt signs.
+ */
+export const findingSearchSchema = z.object({
+  database: z.enum(ATLAS_SEARCH_DATABASES)
+    .describe("pubmed (search_pubmed), europepmc (search_europe_pmc) or ctgov (search_clinical_trials)."),
+  query: cardText(ATLAS_SEARCH_QUERY_MAX_CHARACTERS)
+    .describe("The exact query that search was made with; its research_receipt is passed in this call."),
+  date_range: z.object({
+    start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u)
+  }).strict().optional()
+    .describe("The search's date_range, exactly as the search took it, when it had one; leave it out otherwise.")
+}).strict();
+export type FindingSearch = z.output<typeof findingSearchSchema>;
+
+/** The new fields' words for ChatGPT's app, which shows a finding's own fields only as "unknown" (Atlas phase 3). */
+const FINDINGS_DESCRIPTION = "One to five findings. Each gives claim, certainty, applies_to, answer_quote, sources, " +
+  "why_not_usual, tags and what_would_change_it, and for the public Atlas: kind (effect, harm, overlooked_option, " +
+  "correction, nothing_found or tested_vs_sold); subject, what it is about as people know it, with subject_type " +
+  "(condition, symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, " +
+  "mixed, or descriptive when it states no effect either way, as nothing_found does); for an effect, harm or " +
+  "overlooked_option, numbers: each two-group yes-or-no figure the claim gives, as binary_results gives it without " +
+  "its quotes (an empty list if none); and for nothing_found, searches: each search that found nothing, by its " +
+  "database (pubmed, europepmc or ctgov) and exact query, with its date_range when it had one, passed here as a " +
+  "literature search.";
+
 export const findingsCardSchema = z.object({
   question: cardText(300).describe("The question in general terms, with no personal details."),
   usual_answer: cardText(400).describe("What a quick, ordinary AI answer would say."),
@@ -54,8 +129,33 @@ export const findingsCardSchema = z.object({
     tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length).default([])
       .describe("full_text_read needs a source read with a full-text method audit here; community_checked, a video " +
         "whose comments were audited here."),
-    what_would_change_it: cardText(300)
-  }).strict()).min(1).max(5),
+    what_would_change_it: cardText(300),
+    // Atlas phase 3 (design section 1): what the pages need, declared while the papers are open. Optional here, so a
+    // call from an app whose tool list predates them still parses; the final check asks for them on a public card.
+    kind: z.enum(ATLAS_FINDING_KINDS).optional()
+      .describe("Which kind of finding: effect (what an option does, in absolute numbers where the studies give " +
+        "them), harm (a harm, with its basis), overlooked_option (an option with real evidence that quick answers " +
+        "leave out), correction (a widely repeated claim the research shows is wrong), nothing_found (something " +
+        "searched for and not found) or tested_vs_sold (what was tested differs from what is sold, such as its dose " +
+        "or form)."),
+    subject: cardText(ATLAS_SUBJECT_MAX_CHARACTERS).optional()
+      .describe("What the finding is about, as people know it, in general terms: the treatment, supplement, " +
+        "product, food, practice, test, condition or symptom, such as zentarine."),
+    subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional().describe("The subject's type."),
+    direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional()
+      .describe("What the finding says the subject does: benefit, harm, no_effect (studies found no difference), " +
+        "mixed (it helps some outcomes or people and not others, or helps and harms), or descriptive (it states no " +
+        "effect either way, as a search that found nothing or what was tested against what is sold)."),
+    numbers: z.array(findingNumberEntrySchema).max(20).optional()
+      .describe("For an effect, harm or overlooked_option, required: each two-group yes-or-no figure the claim " +
+        "gives, an empty list if none. The claim shows each group's events and total, or its rate, and each nnt or " +
+        "nnh with its follow-up; each figure is one binary_results gives for the answer; beside an nnt, a harm " +
+        "(better: fewer) over the same follow-up, or harms_none_found."),
+    searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional()
+      .describe("For nothing_found only, required: each search that found nothing, made in this research with " +
+        "search_pubmed, search_europe_pmc or search_clinical_trials and passed here by its research_receipt. Its " +
+        "sentence is an absence_claims entry of state support_not_located, and its direction is descriptive.")
+  }).strict()).min(1).max(5).describe(FINDINGS_DESCRIPTION),
   // Owner answer 156a (2026-10-22): the library feeds the Atlas, which holds what other people would benefit from, not
   // every answer better than a quick one ("why do I get tired when cooking", traced to the person's childhood, stays
   // out). The model declares, by the owner's four-part test, who else the findings would help and why, or that they
@@ -81,6 +181,15 @@ export const findingsCardSchema = z.object({
     .describe("Whether these findings would help anyone beyond this person. Findings declared personal_only are not " +
       "saved to AskRigor's findings library or offered for it. When the answer holds both kinds, put only the general " +
       "findings on the card, written without the person, and declare them public."),
+  // Atlas phase 3 (design section 1): the card's topic, which the owner's acceptance takes by default and can change.
+  // Optional for the same reason as the findings' new fields.
+  topic: z.object({
+    key: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u)
+      .describe("The topic as a key: lower case letters, digits and . _ -, such as velmor-syndrome."),
+    label: cardText(200).describe("The topic's name in plain words, such as Velmor syndrome.")
+  }).strict().optional()
+    .describe("With public_value public, required: the condition or goal the findings are about, under which the " +
+      "public Atlas would file them; the owner can change it at review."),
   open_leads: z.array(cardText(200)).max(6).default([])
 }).strict();
 
@@ -325,18 +434,30 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
 
 /**
  * The card without YouTube video IDs or links, which AskRigor does not store
- * while its YouTube API compliance review is open: each finding keeps the
- * number of its videos, and a link keeps its text. The gate still checked the
- * videos; the saved record keeps the digest it signed.
+ * while its YouTube API compliance review is open: a link keeps its text. The
+ * gate still checked the videos; the saved record keeps the digest it signed.
+ * A finding drawn from YouTube comments (a YouTube video among its sources, or
+ * community_checked, or a comment audit among the bases the receipt signed for
+ * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
+ * that AskRigor stores no YouTube-derived records until YouTube clarifies
+ * (owner answer 170, 24 Oct); since owner answer 173 (25 Oct) each finding left
+ * out is held apart from the card, for the owner's review. `kept`
+ * gives the original index of each finding kept, and `findingsLeftOut` how many
+ * were left out; a card left with no finding is not saved as a card, and its
+ * findings are held with its question and topic.
  */
-export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCard; omitted: boolean } {
+export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
+  card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
+} {
   let omitted = false;
   const text = (value: string): string => {
     const stored = value.replace(YOUTUBE_LINK, "$1 (YouTube video)").replace(YOUTUBE_URL, "(YouTube video)");
     if (stored !== value) omitted = true;
     return stored;
   };
-  const findings = card.findings.map(({ sources, ...finding }): StoredFinding => {
+  const kept = card.findings.flatMap(({ sources, tags }, index) =>
+    sources.some(isYouTubeVideoId) || tags.includes("community_checked") || drawnFromComments.has(index) ? [] : [index]);
+  const findings = kept.map((index) => card.findings[index]!).map(({ sources, ...finding }): StoredFinding => {
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
     return {
@@ -346,6 +467,20 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
       answer_quote: text(finding.answer_quote),
       why_not_usual: text(finding.why_not_usual),
       what_would_change_it: text(finding.what_would_change_it),
+      // Atlas phase 3: the new texts are treated as every other card text; a field the card leaves out stays out.
+      ...(finding.subject === undefined ? {} : { subject: text(finding.subject) }),
+      ...(finding.numbers === undefined ? {} : {
+        numbers: finding.numbers.map((entry) => ({
+          ...entry,
+          outcome: text(entry.outcome),
+          option: text(entry.option),
+          comparator: text(entry.comparator),
+          follow_up: text(entry.follow_up)
+        }))
+      }),
+      ...(finding.searches === undefined ? {} : {
+        searches: finding.searches.map((search) => ({ ...search, query: text(search.query) }))
+      }),
       sources: sources.filter((source) => !isYouTubeVideoId(source)),
       ...(videos === 0 ? {} : { youtube_videos: videos })
     };
@@ -364,10 +499,104 @@ export function withoutYouTubeData(card: FindingsCard): { card: StoredFindingsCa
           ...(declared.what_it_changes === undefined ? {} : { what_it_changes: text(declared.what_it_changes) })
         }
       }),
+      ...(card.topic === undefined ? {} : { topic: { ...card.topic, label: text(card.topic.label) } }),
       open_leads: card.open_leads.map(text)
     },
-    omitted
+    omitted,
+    kept,
+    findingsLeftOut: card.findings.length - kept.length
   };
+}
+
+/**
+ * A stored card as a card saved today would store it (owner answer 173, 25 Oct): withoutYouTubeData leaves out each
+ * finding drawn from YouTube comments, which a stored finding shows by the YouTube videos it counted in place of their
+ * IDs, by community_checked, or by a comment audit among the bases its receipt signed; the findings kept keep their
+ * signed bases. For a card stored before findings were left out (owner answer 170). `kept` gives the stored index of
+ * each finding kept.
+ */
+export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
+  card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
+} {
+  const drawnFromComments = new Set(card.findings.flatMap((finding, index) =>
+    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ? [index] : []));
+  // withoutYouTubeData reads a checked card: a stored finding's sources hold no video ID, and its tags come with it.
+  const checked = {
+    ...card,
+    findings: card.findings.map(({ youtube_videos: _videos, verified_bases: _bases, ...finding }) => finding),
+  } as FindingsCard;
+  const stored = withoutYouTubeData(checked, drawnFromComments);
+  return {
+    ...stored,
+    card: {
+      ...stored.card,
+      findings: stored.card.findings.map((finding, index) => {
+        const bases = card.findings[stored.kept[index]!]!.verified_bases;
+        return bases === undefined ? finding : { ...finding, verified_bases: [...bases] };
+      }),
+    },
+  };
+}
+
+/**
+ * A finding left out of a stored card as the held YouTube findings keep it (owner answer 173): its claim, certainty,
+ * whom it applies to, why the usual answer misses it and what would change it, its kind, subject and direction when the
+ * card declared them, and its tags and verified bases. Never its sources, which are YouTube video IDs, its answer quote,
+ * or any link: a link keeps its text, a link to a YouTube video reads "(YouTube video)", any other bare link "(link)",
+ * and each of the card's video IDs "(video)". Each text stays within its field's length.
+ */
+export function heldYouTubeFindingOf(
+  finding: Pick<StoredFinding, "claim" | "certainty" | "applies_to" | "why_not_usual" | "what_would_change_it" |
+    "kind" | "subject" | "direction" | "tags">,
+  findingNumber: number,
+  bases: readonly VerifiedBasis[],
+  videoIds: readonly string[] = [],
+): HeldYouTubeFindingContent {
+  const text = (value: string) => heldText(value, videoIds);
+  return {
+    findingNumber,
+    claim: text(finding.claim),
+    certainty: finding.certainty,
+    appliesTo: text(finding.applies_to),
+    whyNotUsual: text(finding.why_not_usual),
+    whatWouldChangeIt: text(finding.what_would_change_it),
+    ...(finding.kind === undefined ? {} : { kind: finding.kind }),
+    ...(finding.subject === undefined ? {} : { subject: text(finding.subject) }),
+    ...(finding.direction === undefined ? {} : { direction: finding.direction }),
+    tags: FINDING_TAGS.filter((tag) => finding.tags.includes(tag)),
+    verifiedBases: VERIFIED_BASES.filter((basis) => bases.includes(basis)),
+  };
+}
+
+/**
+ * What the held YouTube findings keep of a card whose findings all rest on YouTube comments, which is not saved as a
+ * card (owner answer 173): its own general wording of the research question and its topic, when it declared one, with
+ * no link or video ID, as for its findings' texts.
+ */
+export function heldYouTubeCardTextsOf(
+  card: Pick<FindingsCard, "question" | "topic">,
+  videoIds: readonly string[] = [],
+): { question: string; topic?: { key: string; label: string } } {
+  return {
+    question: heldText(card.question, videoIds),
+    ...(card.topic === undefined ? {} : { topic: { key: card.topic.key, label: heldText(card.topic.label, videoIds) } }),
+  };
+}
+
+/** A text with no link and none of the given video IDs; never longer than it was, and never empty. */
+function heldText(value: string, videoIds: readonly string[]): string {
+  let held = value
+    .replace(YOUTUBE_LINK, "$1 (YouTube video)")
+    .replace(MARKDOWN_LINK, "$1")
+    .replace(YOUTUBE_URL, "(YouTube video)")
+    // A sentence's last mark after a bare link stays, as the privacy screen reads it.
+    .replace(BARE_URL, (url) => `(link)${url.slice(url.replace(/[.,;:!?]+$/u, "").length)}`);
+  for (const id of videoIds) {
+    if (!YOUTUBE_VIDEO_ID.test(id)) continue;
+    // An ID is 11 of A-Z, a-z, 0-9, _ and -, none of them special in a pattern outside a class.
+    held = held.replace(new RegExp(`(?<![A-Za-z0-9_-])${id}(?![A-Za-z0-9_-])`, "gu"), "(video)");
+  }
+  return held.trim() === "" ? "(link)" : held;
 }
 
 /** A YouTube video ID, as a card's source: 11 URL-safe characters that are not a study identifier. */
@@ -389,9 +618,20 @@ const STUDY_IDENTIFIER = new RegExp(
 );
 const YOUTUBE_VIDEO_ID = /^[A-Za-z0-9_-]{11}$/u;
 
+/**
+ * A topic key as the privacy screen reads it (review finding 4): the key, then its words, with each . and _, and each
+ * dash not between two digits, read as a space. The Atlas keeps a topic's key for good (topics are never erased), and
+ * one joined token hides from the screen what its parts hold, such as 555_867_5309; a dash between digits stays, so a
+ * year range such as 2019-2024 is still set aside as one, and the key itself stays for the card-reference guard.
+ */
+export function topicKeyText(key: string): string {
+  return `${key} ${key.replace(/[._]|-(?!\p{Nd})|(?<!\p{Nd})-/gu, " ")}`;
+}
+
 function cardTexts(card: FindingsCard): Array<[string, string]> {
   // The public-value declaration's words are stored with a saved card (owner answer 156a), so they are screened too,
-  // whatever its scope.
+  // whatever its scope; so are the Atlas fields' words (phase 3): the subject, each figure's labels, each search's
+  // query, and the topic's label and key (the key read as words).
   const declared = card.public_value;
   return [
     ["question", card.question],
@@ -401,11 +641,25 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
       [`findings[${index}].applies_to`, finding.applies_to],
       [`findings[${index}].answer_quote`, finding.answer_quote],
       [`findings[${index}].why_not_usual`, finding.why_not_usual],
-      [`findings[${index}].what_would_change_it`, finding.what_would_change_it]
+      [`findings[${index}].what_would_change_it`, finding.what_would_change_it],
+      ...(finding.subject === undefined ? [] : [[`findings[${index}].subject`, finding.subject] as [string, string]]),
+      ...(finding.numbers ?? []).flatMap((entry, at): Array<[string, string]> => [
+        [`findings[${index}].numbers[${at}].outcome`, entry.outcome],
+        [`findings[${index}].numbers[${at}].option`, entry.option],
+        [`findings[${index}].numbers[${at}].comparator`, entry.comparator],
+        [`findings[${index}].numbers[${at}].follow_up`, entry.follow_up]
+      ]),
+      // A search's query as the screen reads a search query, with its PubMed record numbers set aside.
+      ...(finding.searches ?? []).map((search, at): [string, string] =>
+        [`findings[${index}].searches[${at}].query`, withoutPubMedRecordNumbers(search.query)])
     ]),
     ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
     ...(declared?.what_it_changes === undefined ? []
       : [["public_value.what_it_changes", declared.what_it_changes] as [string, string]]),
+    ...(card.topic === undefined ? [] : [
+      ["topic.label", card.topic.label] as [string, string],
+      ["topic.key", topicKeyText(card.topic.key)] as [string, string],
+    ]),
     ...card.open_leads.map((lead, index): [string, string] => [`open_leads[${index}]`, lead])
   ];
 }
@@ -422,6 +676,20 @@ const YEAR_RANGE = /(?<!\d)(?:1[89]|20)\d{2} ?- ?(?:1[89]|20)\d{2}(?!\d)/gu;
 const APOSTROPHE_IN_WORD = /(?<=\p{L})['’](?=\p{L})/gu;
 const WRAPPING_QUOTE = /["'\p{Pi}\p{Pf}]/u;
 const PLACEHOLDER = "SOURCE";
+// A PubMed record number in a search query: one to nine digits written straight before the bracketed field tag that
+// names a record, [uid] or [pmid] in any case, and continuing no other number (no digit before it, through the spaces,
+// dots, brackets and dashes a phone number runs through).
+const PUBMED_RECORD_NUMBER = /(?<!\d[ .()-]*)\d{1,9}\[(?:uid|pmid)\]/giu;
+
+/**
+ * A search query as the privacy screen reads it, in search queries only: each PubMed record number becomes "SOURCE",
+ * as "PMID 40123456" does in any text, so a search for records by their numbers ("40123456[uid]") is not read as a
+ * phone number, while "555 123 4567[uid]", a longer run and a number before another field's tag still are (review
+ * finding 11). Exact and structural.
+ */
+export function withoutPubMedRecordNumbers(query: string): string {
+  return query.replace(PUBMED_RECORD_NUMBER, PLACEHOLDER);
+}
 
 /**
  * A text with the forms a study summary legitimately carries set aside for the privacy screen: links to a study's or

@@ -136,7 +136,9 @@ export async function acquireOpenFullText(
       const failures = [result.data.discovery_failure, ...(result.data.attempted_locations ?? [])]
         .filter((failure) => failure !== undefined &&
           (failure.http_status !== undefined || failure.failure_kind !== undefined));
-      attempts.push({ route: "unpaywall", result: resultState, identifier: doi });
+      // An error with its status or kind is recorded once, with them: a bare "error" beside it would count as a
+      // failure of its own and hide that a refusal (a 403, say) ended the search.
+      if (resultState !== "error" || failures.length === 0) attempts.push({ route: "unpaywall", result: resultState, identifier: doi });
       for (const failure of failures) attempts.push({ route: "unpaywall", result: "error", identifier: doi,
         ...responseFailureDetails(failure) });
     } catch (error) { attempts.push({ route: "unpaywall", result: "error", identifier: doi, ...upstreamFailureDetails(error) }); }

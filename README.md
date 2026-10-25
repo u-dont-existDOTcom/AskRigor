@@ -480,20 +480,53 @@ neither saved for a free contributor nor offered to a paid private one, and
 `save_research_findings` refuses it; the rest are saved or offered as before,
 and the owner's review shows each card's declaration.
 
-Owner answers 159 (1b and 7) and 160b (2026-10-22; built, not yet released,
-the sentences waiting for the owner's word-for-word approval): the free
-contributor notice moves to `free-contributor-v3-2026-10-22`. It adds that
-findings AskRigor's owner accepts may be published in AskRigor's public Atlas,
-written without the person; that asking to delete a findings card removes
-everything that ties it to the person, with no reason needed; and that a
-published finding stays while it is valid, is corrected or taken down when
-someone shows it is wrong, and is rewritten or removed if it could identify
-anyone. Accounts that accepted v1 or v2 accept v3 before free research
-continues (migration `0016_research_use_notice_v3`). A paid private answer's
-save offer ends with "Saved findings that AskRigor's owner accepts may be
-published in AskRigor's public Atlas, written without you.", and the privacy
-page and the terms say the same three points. Nothing is accepted or published
-yet; the build plan is `docs/superpowers/plans/2026-10-22-public-atlas-build.md`.
+Owner answer 171 (2026-10-25; exact wording approved, built, not yet released):
+the free contributor notice moves to `free-contributor-v4-2026-10-25`. Free
+findings cards publish in AskRigor's public Atlas as soon as they are saved,
+written without the person and marked "Not checked by supervisors yet" until
+the owner reviews them; signed-in people can vote and comment. Deleting a card
+removes everything tying it to the person and removes it from the Atlas unless
+the owner already accepted its findings; no reason is needed. An accepted
+finding stays while valid, is corrected or taken down when shown wrong, and
+rewritten or removed if it could identify anyone. Accounts accepting v1, v2 or
+v3 accept v4 before free research continues (migration
+`0020_research_use_notice_v4`). The privacy page and terms distinguish free
+publication on save from paid publication after acceptance and carry the
+approved comments wording; the release sets their effective dates. A paid
+private answer's save offer keeps "Saved findings that AskRigor's owner accepts
+may be published in AskRigor's public Atlas, written without you." The v4 hold
+and restore scripts support image rollback; the runbook gives their order.
+This slice changes wording and consent; publications, votes and comments are
+built separately under `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
+
+Decision 171, section 4C (built, not yet released): the research server renders
+the public Atlas pages under `/atlas` (home, topic, finding and what changed),
+which the apex site's Caddy proxies at `askrigor.com/atlas`. An unreviewed
+finding shows its published fields marked "Not checked by supervisors yet"; an
+accepted or edited one shows its Atlas number's current wording. The pages read
+through the SELECT-only reader, run no script, set no cookie, and answer 404
+until `ASKRIGOR_ATLAS_PAGES=enabled`.
+
+Atlas phase 3 (built, not yet released; it goes out in the release after the
+one carrying phases 1 and 2; design
+`docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`): a findings card
+also gives what the Atlas pages need, filled by the AI while the papers are
+open. Each finding gives its kind, its subject and the subject's type, its
+direction, its numbers block (each two-group yes-or-no figure the claim gives)
+and, for a search that found nothing, the searches it made; the card gives its
+topic. The final check requires them on a card declared public and checks only
+what is exact: counts against group sizes, each rate and number needed to treat
+or harm against what the claim states (in digits of any script), each figure
+against the answer's `binary_results`, and each search against the call's own
+search receipts. The kind, subject, subject type, direction and topic are the
+AI's declarations. The owner's `accept_finding` takes them from the card by default,
+and the owner can change any of them; for a card saved before them the AI
+declares them at acceptance. Migration `0018_atlas_card_fields` stores the kind,
+subject type and searches with each Atlas version, the subject and direction in
+the claim model's own columns, and erases the searches' queries with the rest
+of the wording. The sentence on what communities reported (owner decision 4a)
+is designed and switched off: no schema accepts it. The connector stays at 33
+tools.
 
 ## Public-review status
 

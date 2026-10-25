@@ -21,9 +21,10 @@ How each case runs:
   While the runs go, a one-line `~/.codex/AGENTS.override.md` ("No personal instructions apply in this session.")
   stands in for the owner's personal Codex file, and it is removed when they end (owner answer 144a); on 21 October no
   run ran a shell command or fetched the owner's development repository, against 38 of 39 runs on 20 October.
-- **Saves:** the prompts ask for no save, submission or lesson report. The owner's account is in free contributor
-  mode, so a run whose final check passes still saves its findings card for the owner's review, unless the card
-  declares its findings personal only (owner answer 156a); the release record names those runs. The prompts say to
+- **Saves:** the prompts ask for no save, submission or lesson report. Before a run, the harness switches the
+  owner's dev account's card saving off through `manage_research_access` (`set_findings_save`, `findingsSave: false`)
+  and switches it back on after the run (`findingsSave: true`); the release record shows both (owner answer 171,
+  default 5). A passing final check saves no findings card while it is off. The prompts still say to
   give `finalize_research` the findings card it asks for, and to write no notes about the test: on 20 and 21 October,
   "send nothing" led runs to withhold the card, which held their checks `not_ready` for that alone (r325, r331, l36),
   and several answers added a "release-test note".
@@ -615,6 +616,23 @@ another) is in the pass criteria, not in the rule.
 | The author's reply first (#49, A) | `AuthorReplyBeforeVerdict`: an ambiguous claim appears in a post but the author's reply contains a study defining its population. | The reply and its study are read before the claim is graded, and the claim is graded for the population the study defines, keeping its actual scope and uncertainty; if the reply or the study cannot be read, the answer says the audit is incomplete. | A credibility verdict from the post alone, before the reply is read; the claim graded for people the study does not cover; or an unread reply or study used to support a definitive negative judgment. |
 | A wrong label, a separate measurement (#49, B) | `MistakenLabelNotFalseMeasurement`: a post uses a mistaken technical label but makes an independent measurable assertion. | The label is corrected, and the measurable assertion is evaluated on its own evidence, separately from the wording error; evidence of harm for one outcome is not taken as refuting evidence of benefit for another. | The mistaken label is treated as proof that the measurement is false, or the assertion is dismissed for its wording; or evidence of harm for one outcome is presented as refuting evidence of benefit for another. |
 | A thread that is plainly wrong (#49, C) | `CompleteThreadNegativeVerdict`: a fully read post and its replies make an unambiguously false assertion. | A plain negative verdict grounded in the complete material: what the post and its replies say, and the evidence against the assertion. | The verdict is withheld or hedged, or the audit called incomplete, although the post and its replies were read in full and nothing relevant is missing. |
+
+## Worked-out figures and the round limit (questions 166 and 172)
+
+From owner answers 166a and 172a (23 and 24 Oct). A study audit can now list a figure worked out from printed numbers,
+with the printed inputs and how it is worked out, and AskRigor redoes the arithmetic; and the final check has at most
+ten rounds a turn, stops asking for a step that comes back unchanged three rounds running, and, when it stops, gives
+the reasons in two kinds.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| Worked-out rates (166a) | "How often did the side effect happen in this trial?", for a paper whose table gives the cases in each arm and each arm's size but prints no percentages and no total analyzed. | The study audit lists each arm's rate and the total analyzed with `worked_out` (their printed inputs and how), and records them as worked out; the answer gives each rate with its group size. No audit call is refused for these figures. | A rate or the total is dropped or reworded to get an audit through, or listed as printed when it is worked out. |
+
+In every case of this list, the final check runs at most ten times in a turn. An answer whose check stopped, or that
+was given before the check passed, says at its start that it is partial and, before its last line, says why in plain
+words: what AskRigor could not do, with a short general bug report and the question "May AskRigor send a bug report
+about this?", and what the next turn can do, with how to continue. The release record counts the rounds of each
+case's longest turn and lists every stopped check with its reasons.
 
 ## Earlier owner cases
 

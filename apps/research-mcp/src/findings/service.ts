@@ -1,5 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
+import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { verifyResearchReceipt } from "../research-receipts.js";
@@ -7,16 +9,22 @@ import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldYouTubeCardTextsOf,
+  heldYouTubeFindingOf,
   isSafeReportedModel,
+  isYouTubeVideoId,
   screenFindingsCard,
   withoutYouTubeData,
-  type StoredFindingsCard
+  type FindingsCard,
+  type StoredFindingsCard,
+  type VerifiedBasis
 } from "./card.js";
 import {
   findingsSaveInputSchema,
   findingsSaveResultSchema,
   type FindingsSaveReason,
-  type FindingsSaveResult
+  type FindingsSaveResult,
+  type StoredWithout
 } from "./contracts.js";
 import { publicFindingsCardId, type GitHubFindingsQueue } from "./github-findings.js";
 
@@ -26,6 +34,41 @@ export interface FindingsSaveContext {
   surface: string;
   /** sha256 of the server's operation names, sorted, one per line. */
   toolCatalogSha256: string;
+  /**
+   * The saving account, for the Atlas (decision 171, section 4B): a free contributor's card is published as soon as it
+   * is saved when the account accepted the current notice and is not a dev account. Never stored with the card.
+   */
+  account?: FindingsSaveAccount;
+}
+
+/** What the Atlas reads of the saving account, all exact: its mode, the notice it accepted, and its dev listing. */
+export interface FindingsSaveAccount {
+  mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
+  /** The free contributor notice the account accepted; null for a paid private account. */
+  noticeVersion: string | null;
+  /** Whether the account is listed in ASKRIGOR_DEV_ACCOUNT_KEYS. */
+  devAccount: boolean;
+}
+
+/** A confirmed save, as the Atlas publisher reads it. */
+export interface SavedFindingsCard {
+  record: FindingsRecord;
+  issueNumber: number;
+  /** created: the save is the card's own record (a retry of it included); existing: a later save on an open card. */
+  kind: "created" | "existing";
+  /** Whether the card the save landed on carries the set-aside label. */
+  setAside: boolean;
+  /** The cards of the same research thread this save replaced. */
+  replacedCards: number[];
+  account: FindingsSaveAccount | undefined;
+}
+
+/** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
+export interface FindingsCardPublisher {
+  /** Whether a card this account saves is published as soon as it is saved: the account checks alone. */
+  accountPublishes(account: FindingsSaveAccount | undefined): boolean;
+  /** After a confirmed save: publishes what is eligible. It may throw; the save has already been answered. */
+  afterSave(saved: SavedFindingsCard): Promise<void>;
 }
 
 export interface ProtocolIdentity {
@@ -64,7 +107,7 @@ export interface FindingsRecord {
   /** The digest finalize_research signed, of the card as it was checked. */
   card_sha256: string;
   /** What the stored card leaves out of the checked card. */
-  stored_without?: ["youtube_video_ids_and_links"];
+  stored_without?: StoredWithout[];
   stamp: FindingsStamp;
 }
 
@@ -77,6 +120,13 @@ export interface FindingsSaveServiceOptions {
   version: string;
   build: string;
   now?: () => Date;
+  /** The Atlas publisher (decision 171); without it nothing is published at the save. */
+  publisher?: FindingsCardPublisher;
+  /**
+   * Where the findings a saved card leaves out are held for the owner's review (owner answer 173): the database,
+   * through the research-access role. Without it they are not kept.
+   */
+  held?: Pick<HeldYouTubeFindingsStore, "hold">;
 }
 
 /**
@@ -90,9 +140,22 @@ export interface FindingsSaveServiceOptions {
  */
 export class FindingsSaveService {
   private readonly now: () => Date;
+  /** Publications started after a save and not finished yet. */
+  private readonly publishing = new Set<Promise<void>>();
+  private readonly holds = new Set<Promise<void>>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** Resolves once every publication started so far has finished, whatever its outcome: for tests and shutdown. */
+  async publicationsSettled(): Promise<void> {
+    await Promise.allSettled([...this.publishing]);
+  }
+
+  /** Resolves once every hold this service started has ended, held or not; for tests. */
+  async heldSettled(): Promise<void> {
+    await Promise.all([...this.holds]);
   }
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
@@ -138,20 +201,34 @@ export class FindingsSaveService {
         });
       }
 
-      const stored = withoutYouTubeData(input.findings_card);
-      // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c); a receipt from before
-      // bases were signed stamps none.
-      const bases = findingBasesFromReceipt(receipt.claims.bases, stored.card.findings.length);
+      // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c), by the finding's place
+      // in the checked card; a receipt from before bases were signed stamps none.
+      const bases = findingBasesFromReceipt(receipt.claims.bases, input.findings_card.findings.length);
+      const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
+        signed.includes("comment_audit") ? [index] : []));
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
+      // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
+      // held, with its question and topic, for the owner's review (owner answer 173).
+      if (stored.card.findings.length === 0) {
+        this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
+        return result({ status: "youtube_findings_only", retryable: false });
+      }
       const card: StoredFindingsCard = bases === undefined ? stored.card : {
         ...stored.card,
-        findings: stored.card.findings.map((finding, index) =>
-          bases[index]!.length === 0 ? finding : { ...finding, verified_bases: bases[index]! }),
+        findings: stored.card.findings.map((finding, index) => {
+          const signed = bases[stored.kept[index]!]!;
+          return signed.length === 0 ? finding : { ...finding, verified_bases: signed };
+        }),
       };
+      const without: StoredWithout[] = [
+        ...(stored.omitted ? ["youtube_video_ids_and_links" as const] : []),
+        ...(stored.findingsLeftOut > 0 ? ["youtube_comment_findings" as const] : []),
+      ];
       const record: FindingsRecord = {
         schema: "askrigor.findings-card.v1",
         card,
         card_sha256: cardSha256,
-        ...(stored.omitted ? { stored_without: ["youtube_video_ids_and_links"] } : {}),
+        ...(without.length === 0 ? {} : { stored_without: without }),
         stamp: {
           saved_at: now.toISOString(),
           askrigor_version: this.options.version,
@@ -163,12 +240,32 @@ export class FindingsSaveService {
           research: researchStamp(receipt.issued_at, receipt.claims),
         },
       };
+      const publisher = this.options.publisher;
       const queued = await this.options.queue.submit({
         record,
         fingerprint: findingsCardFingerprint(input.findings_card),
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
         thread: findingsThreadKey(secret, input.contributor, target),
+        ...(publisher?.accountPublishes(context.account) === true ? { atlasPublish: true } : {}),
+        ...(context.account?.mode === "PAID_PRIVATE" ? { paidPrivate: true } : {}),
       });
+      // Owner answer 173: the findings the stored card leaves out are held apart from it, in the background.
+      if (stored.findingsLeftOut > 0) {
+        this.holdLeftOut(queued.issueNumber, cardSha256, now, input.findings_card, stored.kept, bases);
+      }
+      // Decision 171, section 4B: the card's findings are published right after the confirmed save. The answer never
+      // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards. The
+      // publisher reads the stored card, so a finding held above is never among them.
+      if (publisher !== undefined) {
+        this.publishAfterSave(publisher, {
+          record,
+          issueNumber: queued.issueNumber,
+          kind: queued.kind,
+          setAside: queued.setAside,
+          replacedCards: queued.replacedCards,
+          account: context.account,
+        });
+      }
       return result({
         status: queued.kind === "created" ? "saved" : "existing_card",
         retryable: false,
@@ -179,6 +276,54 @@ export class FindingsSaveService {
     } catch (error) {
       return queueUnavailable(error);
     }
+  }
+
+  /** Starts the publisher on a confirmed save, without waiting for it; its failure is caught and changes nothing. */
+  private publishAfterSave(publisher: FindingsCardPublisher, saved: SavedFindingsCard): void {
+    const started = Promise.resolve()
+      .then(() => publisher.afterSave(saved))
+      .catch(() => undefined)
+      .finally(() => this.publishing.delete(started));
+    this.publishing.add(started);
+  }
+
+  /**
+   * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held in the database,
+   * apart from the card, for the owner's review, until deleted: its texts and fixed values only (heldYouTubeFindingOf), under
+   * the card's issue number, the checked card's digest and its place on that card, from the save time. A card none of
+   * whose findings is kept is not saved as a card, so its findings are held with no issue number, with the card's own
+   * general wording of the research question and its topic (heldYouTubeCardTextsOf). In the background: the save's
+   * result never waits for it, so a held store that fails or is slow never fails or delays the save, and then the
+   * findings are simply not kept.
+   */
+  private holdLeftOut(
+    issueNumber: number | undefined,
+    cardSha256: string,
+    savedAt: Date,
+    card: FindingsCard,
+    kept: readonly number[],
+    bases: VerifiedBasis[][] | undefined,
+  ): void {
+    const held = this.options.held;
+    if (held === undefined) return;
+    let work: Promise<unknown>;
+    try {
+      const keptIndexes = new Set(kept);
+      const videoIds = [...new Set(card.findings.flatMap(({ sources }) => sources.filter(isYouTubeVideoId)))];
+      work = held.hold({
+        ...(issueNumber === undefined ? heldYouTubeCardTextsOf(card, videoIds) : { cardNumber: issueNumber }),
+        cardSha256,
+        savedAt: savedAt.toISOString(),
+        findings: card.findings.flatMap((finding, index) => keptIndexes.has(index)
+          ? []
+          : [heldYouTubeFindingOf(finding, index + 1, bases?.[index] ?? [], videoIds)]),
+      });
+    } catch {
+      return;
+    }
+    const settled = Promise.resolve(work).then(() => undefined, () => undefined);
+    this.holds.add(settled);
+    void settled.then(() => this.holds.delete(settled));
   }
 }
 

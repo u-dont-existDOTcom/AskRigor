@@ -1,8 +1,20 @@
-import { PostgresAtlasReader, PostgresAtlasReviewStore } from "@askrigor/evidence-repository";
+import {
+  PostgresAtlasModerationStore,
+  PostgresAtlasPublicationStore,
+  PostgresAtlasReader,
+  PostgresAtlasReviewStore,
+} from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
 import {
+  announcingModerationStore,
+  announcingPublicationStore,
+  announcingReviewStore,
+} from "../atlas/change-signal.js";
+import { AtlasCardPublisher } from "../atlas/publication.js";
+import {
   askrigorBuildCommitFromEnv,
+  atlasReviewEnabledFromEnv,
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
   researchContributionReviewConfigFromEnv,
@@ -22,6 +34,7 @@ import { AtlasReview } from "./atlas-review.js";
 import type { FindingsSaveResult } from "./contracts.js";
 import { GitHubFindingsReview } from "./github-findings-review.js";
 import { GitHubFindingsQueue } from "./github-findings.js";
+import { heldYouTubeFindingsStoresFromEnv } from "./held-youtube-findings.js";
 import {
   FindingsSaveService,
   type FindingsSaveContext,
@@ -83,6 +96,9 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
     const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     const repository = findingsRepositoryFromEnv();
     const now = () => new Date();
+    // Decision 171, section 4B: a free contributor's card is published in the Atlas as soon as it is saved, while the
+    // owner's Atlas actions are open to moderate it.
+    const publications = createAtlasPublicationStoreFromEnv();
     const tokenProvider = new GitHubInstallationTokenProvider({
       appId,
       installationId,
@@ -100,6 +116,13 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       version: SERVICE_VERSION,
       build: askrigorBuildCommitFromEnv(),
       now,
+      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C).
+      ...(publications === undefined ? {} : {
+        publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
+      }),
+      // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the
+      // research-access role.
+      held: heldYouTubeFindingsStoresFromEnv().access,
     });
   } catch {
     throw new Error(CONFIGURATION_ERROR);
@@ -107,10 +130,33 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
 }
 
 /**
+ * The Atlas publications (decision 171, section 4B), through the review role's functions in the research review
+ * database: only while the owner's Atlas actions are open (ASKRIGOR_ATLAS_REVIEW=enabled), so nothing is published that
+ * the owner cannot unpublish or set aside. Undefined, with nothing connected, otherwise.
+ */
+export function createAtlasPublicationStoreFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): PostgresAtlasPublicationStore | undefined {
+  if (!atlasReviewEnabledFromEnv(env.ASKRIGOR_ATLAS_REVIEW)) return undefined;
+  try {
+    const review = researchContributionReviewConfigFromEnv(env);
+    if (review === undefined) return undefined;
+    return new PostgresAtlasPublicationStore({
+      connectionString: review.connectionString,
+      schema: review.schema,
+      ssl: review.ssl,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * The owner's findings actions for the Atlas, from the environment (Atlas phase 2 design, section 3): decisions and
  * intents through the review role's functions (the research review database), the canonical Atlas through the public
- * runtime's read-only reader, and the cards through the findings library's GitHub App. Undefined, with nothing
- * connected, when any of them is not configured; the tool then answers that the review is not configured.
+ * runtime's read-only reader, and the cards through the findings library's GitHub App; the held YouTube findings
+ * through the review role too (owner answer 173). Undefined, with nothing connected, when any of the first three is not
+ * configured; the tool then answers that the review is not configured.
  */
 export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): AtlasReview | undefined {
   try {
@@ -120,12 +166,26 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
     const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     const repository = findingsRepositoryFromEnv(env);
     const now = () => new Date();
+    // Every decision, intent and publication write the owner's actions make drops the Atlas pages' cache in this
+    // process (decision 171, section 4C).
     return new AtlasReview({
-      store: new PostgresAtlasReviewStore({
+      store: announcingReviewStore(new PostgresAtlasReviewStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,
-      }),
+      })),
+      // Decision 171: the publications, in the same database through the same role's functions.
+      publications: announcingPublicationStore(new PostgresAtlasPublicationStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // Decision 171, section 4E: the comments' moderation and the home page's picks, through the same role's functions.
+      participation: announcingModerationStore(new PostgresAtlasModerationStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
       reader: new PostgresAtlasReader({
         connectionString: reader.connectionString,
         schema: reader.schema,
@@ -150,6 +210,9 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       build: askrigorBuildCommitFromEnv(env.ASKRIGOR_BUILD_COMMIT),
       protocols: protocolIdentities,
       now,
+      // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
+      // moved out of cards stored before, and deleted with a forgotten card.
+      held: heldYouTubeFindingsStoresFromEnv(env).review,
     });
   } catch {
     return undefined;

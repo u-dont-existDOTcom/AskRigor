@@ -66,6 +66,15 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         result,
         true,
       );
+    // Owner answers 170 and 173: a card whose findings all rest on YouTube comments is not saved as a card; its
+    // findings are held for the owner's review.
+    case "youtube_findings_only":
+      return receipt(
+        "Not saved as a card: its findings all rest on YouTube comments, which AskRigor keeps only for its owner's " +
+          "review.",
+        result,
+        true,
+      );
     // Owner answer 156a (2026-10-22): personal-only findings are never saved for the Atlas, even when the user asks.
     case "personal_only":
       return receipt(

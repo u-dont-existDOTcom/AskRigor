@@ -50,7 +50,11 @@ REVOKE ALL ON SCHEMA living_evidence FROM askrigor_research_access;
 GRANT USAGE ON SCHEMA living_evidence TO askrigor_research_access;
 REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM askrigor_research_access;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA living_evidence FROM askrigor_research_access;
-GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.research_use_accounts
+GRANT SELECT, INSERT ON TABLE living_evidence.research_use_accounts
+  TO askrigor_research_access;
+-- Account writes and settings only; no UPDATE right on the account key or creation time.
+GRANT UPDATE (status, mode, notice_version, agreement_json, activated_at, revoked_at, updated_at,
+  plain_answer_note, detailed_lesson_reports, findings_save) ON TABLE living_evidence.research_use_accounts
   TO askrigor_research_access;
 GRANT SELECT ON TABLE living_evidence.research_private_entitlements
   TO askrigor_research_access;
@@ -59,6 +63,27 @@ GRANT SELECT, INSERT ON TABLE living_evidence.research_contribution_proposals
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
+  integer, text, timestamptz, jsonb, text, text, text
+) TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_participant(text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_display_name(text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_vote(text, text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.post_atlas_comment(text, text, text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.delete_atlas_comment(text, text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.report_atlas_comment(text, text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.end_atlas_sessions(text)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.atlas_session_current(text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_participant(text, timestamptz)
+  TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_access SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_access SET search_path = living_evidence, pg_catalog;

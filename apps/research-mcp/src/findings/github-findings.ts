@@ -26,6 +26,8 @@ export const FINDINGS_CARD_LABEL = "findings-card";
 export const PENDING_REVIEW_LABEL = "pending-review";
 // A card with a finding that rests on work a quick answer cannot do, which the owner reviews first (owner answer 139c).
 export const BEYOND_QUICK_ANSWER_LABEL = "beyond-quick-answer";
+// A card the owner set aside (decision 171, default 5): never published, and left out of the waiting cards' list.
+export const SET_ASIDE_LABEL = "set-aside";
 
 export interface GitHubFindingsSubmission {
   record: FindingsRecord;
@@ -34,6 +36,13 @@ export interface GitHubFindingsSubmission {
   receiptSha256: string;
   /** The research thread's keyed hash (findingsThreadKey). */
   thread: string;
+  /**
+   * Whether the saving account's card is published in the Atlas as soon as it is saved (decision 171, section 4B): a
+   * new card's marker records it, so a card whose publishing failed can be found for the owner to retry.
+   */
+  atlasPublish?: boolean;
+  /** Whether the save was made in paid private mode; a new card's marker records it, as atlasPublish is. */
+  paidPrivate?: boolean;
 }
 
 export interface GitHubFindingsQueueResult {
@@ -42,6 +51,10 @@ export interface GitHubFindingsQueueResult {
   occurrenceCount: number;
   /** How many of the thread's earlier open cards this save replaced. */
   replaced: number;
+  /** The issue numbers of the cards this save replaced, ascending. */
+  replacedCards: number[];
+  /** Whether the card the save landed on carries the set-aside label (only an open card a save joins can). */
+  setAside: boolean;
 }
 
 export interface GitHubFindingsQueueOptions {
@@ -58,6 +71,10 @@ export interface CardMetadata {
   thread?: string;
   /** A re-filed save's: the issue number of the forgotten card it was a later save of (decision 7). */
   refiled_from?: number;
+  /** Decision 171, section 4B: the saving account's card is published in the Atlas as soon as it is saved. */
+  atlas_publish?: true;
+  /** Decision 171: saved in paid private mode, so its findings are published only after the owner accepts them. */
+  paid_private?: true;
 }
 
 /** Another person's later save of a card being forgotten, to file as a card of its own (decision 7). */
@@ -81,6 +98,8 @@ interface OpenCard {
   comments: number;
   /** Whether the issue carries the beyond-quick-answer label. */
   beyondQuickAnswer: boolean;
+  /** Whether the issue carries the set-aside label. */
+  setAside: boolean;
   metadata: CardMetadata;
 }
 
@@ -99,6 +118,9 @@ export function publicFindingsCardId(issueNumber: number): string {
   }
   return `ARF-${String(issueNumber).padStart(4, "0")}`;
 }
+
+/** Where a save landed, before the thread's earlier cards are replaced. */
+type SavedOn = Pick<GitHubFindingsQueueResult, "kind" | "issueNumber" | "occurrenceCount">;
 
 /** A single-writer queue: saves run one at a time in this process, each listing before it writes. */
 export class GitHubFindingsQueue {
@@ -170,17 +192,23 @@ export class GitHubFindingsQueue {
     const saved = same === undefined
       ? await this.createCard(input)
       : await this.addOccurrence(same, input);
-    let replaced = 0;
+    const replacedCards: number[] = [];
     for (const earlier of open) {
       if (earlier.metadata.thread !== input.thread || earlier.number === saved.issueNumber) continue;
       try {
         await this.replace(earlier, saved.issueNumber);
-        replaced += 1;
+        replacedCards.push(earlier.number);
       } catch {
         // The new card is saved; an earlier one left open is the owner's to close.
       }
     }
-    return { ...saved, replaced };
+    replacedCards.sort((left, right) => left - right);
+    return {
+      ...saved,
+      replaced: replacedCards.length,
+      replacedCards,
+      setAside: same?.setAside === true && same.number === saved.issueNumber,
+    };
   }
 
   private async openCards(): Promise<OpenCard[]> {
@@ -202,9 +230,15 @@ export class GitHubFindingsQueue {
             issue.comments >= 0
           ? issue.comments
           : 1;
-        const beyondQuickAnswer = Array.isArray(issue.labels) &&
-          issue.labels.some((label) => isRecord(label) && label.name === BEYOND_QUICK_ANSWER_LABEL);
-        cards.push({ number: issue.number, comments, beyondQuickAnswer, metadata });
+        const labeled = (name: string) => Array.isArray(issue.labels) &&
+          issue.labels.some((label) => isRecord(label) && label.name === name);
+        cards.push({
+          number: issue.number,
+          comments,
+          beyondQuickAnswer: labeled(BEYOND_QUICK_ANSWER_LABEL),
+          setAside: labeled(SET_ASIDE_LABEL),
+          metadata,
+        });
       }
       if (response.length < 100) break;
     }
@@ -237,10 +271,10 @@ export class GitHubFindingsQueue {
   private async addOccurrence(
     open: OpenCard,
     input: GitHubFindingsSubmission,
-  ): Promise<GitHubFindingsQueueResult> {
+  ): Promise<SavedOn> {
     const { number: issueNumber, metadata: card } = open;
     if (card.receipt_sha256 === input.receiptSha256) {
-      return { kind: "created", issueNumber, occurrenceCount: 1, replaced: 0 };
+      return { kind: "created", issueNumber, occurrenceCount: 1 };
     }
     let highestCount = 1;
     let sameThread = card.thread === input.thread;
@@ -255,7 +289,7 @@ export class GitHubFindingsQueue {
         const occurrence = parseMarker(comment.body, OCCURRENCE_MARKER, parseOccurrenceMetadata);
         if (occurrence?.fingerprint !== input.fingerprint) continue;
         if (occurrence.receipt_sha256 === input.receiptSha256) {
-          return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count, replaced: 0 };
+          return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count };
         }
         if (occurrence.thread === input.thread) sameThread = true;
         highestCount = Math.max(highestCount, occurrence.occurrence_count);
@@ -263,7 +297,7 @@ export class GitHubFindingsQueue {
       if (response.length < 100) break;
     }
     // The same person reaching the same findings again is not another occurrence.
-    if (sameThread) return { kind: "existing", issueNumber, occurrenceCount: highestCount, replaced: 0 };
+    if (sameThread) return { kind: "existing", issueNumber, occurrenceCount: highestCount };
     const occurrence: OccurrenceMetadata = {
       fingerprint: input.fingerprint,
       receipt_sha256: input.receiptSha256,
@@ -289,15 +323,17 @@ export class GitHubFindingsQueue {
         // The occurrence is saved; the label only orders the owner's review.
       }
     }
-    return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count, replaced: 0 };
+    return { kind: "existing", issueNumber, occurrenceCount: occurrence.occurrence_count };
   }
 
-  private async createCard(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
+  private async createCard(input: GitHubFindingsSubmission): Promise<SavedOn> {
     const metadata: CardMetadata = {
       fingerprint: input.fingerprint,
       receipt_sha256: input.receiptSha256,
       saved_at: input.record.stamp.saved_at,
       thread: input.thread,
+      ...(input.atlasPublish === true ? { atlas_publish: true as const } : {}),
+      ...(input.paidPrivate === true ? { paid_private: true as const } : {}),
     };
     const response = await this.request(this.issuesPath, {
       method: "POST",
@@ -314,7 +350,7 @@ export class GitHubFindingsQueue {
     if (!isRecord(response) || !isPositiveInteger(response.number)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
-    return { kind: "created", issueNumber: response.number, occurrenceCount: 1, replaced: 0 };
+    return { kind: "created", issueNumber: response.number, occurrenceCount: 1 };
   }
 
   private async request(path: string, init: RequestInit): Promise<unknown> {
@@ -331,7 +367,8 @@ export class GitHubFindingsQueue {
   }
 }
 
-function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
+/** A card's issue body: its readable copy, then its record and marker; also what a rewritten card holds (owner answer 173). */
+export function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(CARD_MARKER, metadata)}`;
   // A re-filed save says where it came from (decision 7): a request that names the forgotten card finds it.
   const refiled = metadata.refiled_from === undefined ? "" : `${section("Re-filed", `Re-filed from ` +
@@ -342,7 +379,8 @@ function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): string {
   return boundedBody(full, tail);
 }
 
-function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
+/** A later save's comment, with its record and marker; also what a rewritten later save holds (owner answer 173). */
+export function occurrenceComment(record: FindingsRecord, metadata: OccurrenceMetadata): string {
   const tail = `## Full record\n\n${fencedJson(record)}\n\n${marker(OCCURRENCE_MARKER, metadata)}`;
   // The card's own copy shows its first save's bases; a later save's, which may have labeled the card, show here.
   const bases = beyondQuickAnswer(record)
@@ -378,6 +416,9 @@ function readableCard(record: FindingsRecord): string {
     section("Question", escapeMarkdown(card.question)),
     section("Usual answer", escapeMarkdown(card.usual_answer)),
     publicValueSection(record, "Public value, as the AI declared it"),
+    // Atlas phase 3: the topic the AI declared, which acceptance takes by default.
+    ...(card.topic === undefined ? [] : [section("Topic, as the AI declared it",
+      `${escapeMarkdown(card.topic.label)} \\(${escapeMarkdown(card.topic.key)}\\)`)]),
     ...card.findings.map((finding, index) => section(`Finding ${index + 1}`, [
       `- Claim: ${escapeMarkdown(finding.claim)}`,
       `- Certainty: ${escapeMarkdown(finding.certainty)}`,
@@ -395,11 +436,38 @@ function readableCard(record: FindingsRecord): string {
         ? "none"
         : finding.verified_bases!.map(escapeMarkdown).join(", ")}`,
       `- What would change it: ${escapeMarkdown(finding.what_would_change_it)}`,
+      ...atlasFieldLines(finding),
     ].join("\n"))),
     ...(card.open_leads.length === 0
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),
   ].join("\n\n");
+}
+
+/**
+ * A finding's Atlas fields, as the AI declared them while the papers were open (Atlas phase 3): its kind, subject,
+ * direction, each figure of its numbers block with the rates code works out, and each search that found nothing. A
+ * field the card leaves out shows no line, so an older card reads as it did.
+ */
+function atlasFieldLines(finding: FindingsRecord["card"]["findings"][number]): string[] {
+  const percent = (events: number, total: number) => `${Number((100 * events / total).toFixed(1))}%`;
+  return [
+    ...(finding.kind === undefined ? [] : [`- Kind: ${escapeMarkdown(finding.kind)}`]),
+    ...(finding.subject === undefined ? [] : [`- Subject: ${escapeMarkdown(finding.subject)}` +
+      `${finding.subject_type === undefined ? "" : ` \\(${escapeMarkdown(finding.subject_type)}\\)`}`]),
+    ...(finding.direction === undefined ? [] : [`- Direction: ${escapeMarkdown(finding.direction)}`]),
+    ...(finding.numbers === undefined ? [] : [`- Numbers: ${finding.numbers.length === 0 ? "none" : finding.numbers
+      .map((entry) => escapeMarkdown(`${entry.outcome} at ${entry.follow_up}: ${entry.option_events} of ` +
+        `${entry.option_total} with ${entry.option} (${percent(entry.option_events, entry.option_total)}) against ` +
+        `${entry.comparator_events} of ${entry.comparator_total} with ${entry.comparator} ` +
+        `(${percent(entry.comparator_events, entry.comparator_total)}), ${entry.better} is better` +
+        `${entry.nnt === undefined ? "" : `, NNT ${entry.nnt}`}${entry.nnh === undefined ? "" : `, NNH ${entry.nnh}`}` +
+        `${entry.harms_none_found === true ? ", no harms found" : ""}`)).join("; ")}`]),
+    ...((finding.searches ?? []).length === 0 ? [] : [`- Searches that found nothing: ${finding.searches!
+      .map((search) => escapeMarkdown(`${search.database}: ${search.query}` +
+        `${search.date_range === undefined ? "" : `, ${search.date_range.start} to ${search.date_range.end}`}`))
+      .join("; ")}`]),
+  ];
 }
 
 /**
@@ -508,6 +576,8 @@ export function parseCardMetadata(value: Record<string, unknown>): CardMetadata 
         saved_at: value.saved_at,
         ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
         ...(isPositiveInteger(value.refiled_from) ? { refiled_from: value.refiled_from } : {}),
+        ...(value.atlas_publish === true ? { atlas_publish: true as const } : {}),
+        ...(value.paid_private === true ? { paid_private: true as const } : {}),
       }
     : undefined;
 }

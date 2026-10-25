@@ -22,12 +22,16 @@ const SAMPLES = [
   "NCT12345678", "nct12345678", "NCT1234567",
   "a".repeat(64), "A".repeat(64), `aft1_${"a".repeat(32)}`, `aft1_${"a".repeat(31)}`,
   "jats_000001_abcdef012345", "pdf_000001_abcdef012345", "direct_000001_abcdef012345",
-  "free-contributor-v2-2026-09-30", "free-contributor-v3-2026-10-22", "hip-oa", "aaaaaaaaaaa",
+  "free-contributor-v2-2026-09-30", "free-contributor-v3-2026-10-22", "free-contributor-v4-2026-10-25", "hip-oa", "aaaaaaaaaaa",
   "123e4567-e89b-42d3-a456-426614174000", "123E4567-E89B-42D3-A456-426614174000",
   "00000000-0000-0000-0000-000000000000", "ffffffff-ffff-ffff-ffff-ffffffffffff",
   "10.1002/", "https://example.org/10.1002/test", "10.123/test", "10.1234567890/test",
   // Atlas phase 2: a findings card's id and an accepted finding's number, in any case.
-  "ARF-0142", "arf-0042", "ARF-1234567890", "ARF-", "F-1007", "f-1001", "F-0999", "F-100"
+  "ARF-0142", "arf-0042", "ARF-1234567890", "ARF-", "F-1007", "f-1001", "F-0999", "F-100",
+  // Decision 171: a publication's number, in any case.
+  "P-1003", "p-1001", "P-0999", "P-100",
+  // Decision 171, section 4E: a comment's number and a commenter's tag, in any case.
+  "C-1003", "c-1001", "C-0999", "C-100", "U-1a2b3c4d5e6f", "u-1A2B3C4D5E6F", "U-1a2b3c4d5e6", "U-1a2b3c4d5e6g"
 ];
 
 type JsonObject = Record<string, unknown>;

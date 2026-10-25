@@ -150,6 +150,33 @@ const externalDomainFindingSchema = z.object({
   }
 });
 
+// Owner answer 166a (2026-10-23): a figure worked out from printed numbers, such as a total, the analyzed group or a
+// percentage, names the printed numbers it comes from and how; AskRigor checks each in its block and redoes the
+// arithmetic, and records a figure whose arithmetic gives another value as not matching, never refusing it.
+const WORKED_OUT_OPERATIONS = ["sum", "difference", "ratio", "percentage"] as const;
+const workedOutSchema = z.object({
+  operation: z.enum(WORKED_OUT_OPERATIONS)
+    .describe("sum: all inputs added; difference: the first minus the second; ratio: the first divided by the " +
+      "second; percentage: 100 times the first divided by the second."),
+  inputs: z.array(z.object({
+    evidence_block_id: blockIdSchema,
+    printed: boundedPlainText(80).describe("One number as the paper prints it in that block.")
+  }).strict()).min(2).max(12)
+}).strict().superRefine((worked, context) => {
+  if (worked.operation !== "sum" && worked.inputs.length !== 2) {
+    context.addIssue({ code: "custom", path: ["inputs"], message: `a ${worked.operation} has exactly two inputs` });
+  }
+  for (const [index, { printed }] of worked.inputs.entries()) {
+    if (extractUnsignedNumbers(printed).length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["inputs", index, "printed"],
+        message: "an input gives its number as the paper prints it"
+      });
+    }
+  }
+});
+
 // Owner questions 87 and 89: the paper's headline figures, each as printed, in
 // its source block, and recomputed from the paper's own tables with its stated
 // method (or why that is not possible), with the auditor's plausibility call.
@@ -160,7 +187,12 @@ const reportedFigureSchema = z.object({
   recomputed: z.number().optional(),
   recomputation: boundedPlainText(1_000),
   plausibility: z.enum(["consistent", "inconsistent_with_own_data", "impossible_as_printed"]),
-  plausibility_reason: boundedPlainText(500).optional()
+  plausibility_reason: boundedPlainText(500).optional(),
+  worked_out: workedOutSchema.optional()
+    .describe("Only for a figure the paper does not print itself but that is worked out from numbers it prints, " +
+      "such as a total, the analyzed group or a percentage: those printed numbers, each with its block, and how it " +
+      "is worked out. reported is then the worked-out value. AskRigor redoes the arithmetic and records the figure " +
+      "as worked out, or as not matching when the arithmetic gives another value.")
 }).strict().superRefine((figure, context) => {
   if (figure.plausibility !== "consistent" && figure.plausibility_reason === undefined) {
     context.addIssue({
@@ -182,7 +214,13 @@ export const reportedFiguresCheckSchema = z.object({
   status: z.enum(["not_declared", "none_reported", "consistent", "internally_inconsistent"]),
   mismatched: z.array(z.string()).max(30),
   impossible_as_printed: z.array(z.string()).max(30),
-  values: z.array(z.number()).max(30)
+  values: z.array(z.number()).max(30),
+  // Owner answer 166a: worked-out figures whose arithmetic matched, and those whose arithmetic gave another value
+  // (null when it cannot be worked out, such as a division by zero). Neither changes the study's own status: a
+  // mismatch here is in the worked-out value, not in the paper.
+  worked_out: z.array(z.string()).max(30).optional(),
+  worked_out_mismatched: z.array(z.object({ label: z.string(), computed: z.number().nullable() }).strict())
+    .max(30).optional()
 }).strict();
 
 export type ReportedFiguresCheck = z.output<typeof reportedFiguresCheckSchema>;
@@ -605,8 +643,30 @@ function checkReportedFigures(
   const blockText = new Map(index.blocks.map(({ block_id, text }) => [block_id, text]));
   const mismatched: string[] = [];
   const values: number[] = [];
+  const workedOut: string[] = [];
+  const workedOutMismatched: Array<{ label: string; computed: number | null }> = [];
   for (const figure of figures) {
     verifyBlocks([figure.evidence_block_id], knownBlockIds, citedBlockIds);
+    if (figure.worked_out !== undefined) {
+      for (const input of figure.worked_out.inputs) {
+        verifyBlocks([input.evidence_block_id], knownBlockIds, citedBlockIds);
+        const inBlock = extractUnsignedNumbers(blockText.get(input.evidence_block_id) ?? "");
+        if (!extractUnsignedNumbers(input.printed).every((value) => includesAbsoluteNumber(inBlock, value))) {
+          throw new Error(`Study audit reported figure "${figure.label}" has an input that is not in its cited source block`);
+        }
+      }
+      const computed = workedOutValues(figure.worked_out);
+      const reported = firstNumberReadings(figure.reported);
+      if (computed.some((value) => reported.some((reading) => withinShownPrecision(value, reading)))) {
+        workedOut.push(figure.label);
+      } else {
+        workedOutMismatched.push({ label: figure.label, computed: computed[0] === undefined ? null : shownValue(computed[0]) });
+      }
+      // A worked-out value is not printed, so it is not compared across papers; the auditor's own call on the paper
+      // still counts.
+      if (figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
+      continue;
+    }
     const printed = extractUnsignedNumbers(figure.reported);
     const inBlock = extractUnsignedNumbers(blockText.get(figure.evidence_block_id) ?? "");
     if (!printed.every((value) => includesAbsoluteNumber(inBlock, value))) {
@@ -624,8 +684,44 @@ function checkReportedFigures(
     mismatched,
     impossible_as_printed: figures.filter(({ plausibility }) => plausibility === "impossible_as_printed")
       .map(({ reported }) => reported),
-    values
+    values,
+    ...(workedOut.length === 0 ? {} : { worked_out: workedOut }),
+    ...(workedOutMismatched.length === 0 ? {} : { worked_out_mismatched: workedOutMismatched })
   };
+}
+
+// At most this many combinations of the inputs' readings ("1,234" reads as 1234 or 1.234) are worked out.
+const MAX_WORKED_OUT_READINGS = 64;
+
+/** Every value the declared arithmetic gives, one for each combination of the inputs' readings; none when undefined. */
+function workedOutValues(worked: z.output<typeof workedOutSchema>): number[] {
+  let combinations: number[][] = [[]];
+  for (const { printed } of worked.inputs) {
+    const readings = firstNumberReadings(printed);
+    combinations = combinations.flatMap((combination) => readings.map((reading) => [...combination, reading]))
+      .slice(0, MAX_WORKED_OUT_READINGS);
+  }
+  return combinations.flatMap(([first, second, ...rest]) => {
+    if (first === undefined || second === undefined) return [];
+    const value = worked.operation === "sum" ? [first, second, ...rest].reduce((total, next) => total + next, 0)
+      : worked.operation === "difference" ? first - second
+        : second === 0 ? Number.NaN
+          : worked.operation === "ratio" ? first / second : 100 * first / second;
+    return Number.isFinite(value) ? [value] : [];
+  });
+}
+
+/**
+ * Whether a worked-out value is the reported one as shown: exact up to the rounding of the reported value's own
+ * decimals ("33.3" is within 0.05, "33" within 0.5). Reported figures are unsigned, so a difference compares its size.
+ */
+function withinShownPrecision(value: number, reported: number): boolean {
+  const decimals = (String(reported).split(".")[1] ?? "").length;
+  return Math.abs(Math.abs(value) - reported) <= 0.5 * 10 ** -decimals + 1e-9;
+}
+
+function shownValue(value: number): number {
+  return Number(value.toPrecision(6));
 }
 
 function verifyBlocks(

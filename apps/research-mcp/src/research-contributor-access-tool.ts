@@ -78,6 +78,7 @@ export const manageResearchAccessInputSchema = z.object({
     "register_plain_answer",
     "set_plain_answer_note",
     "set_detailed_lesson_reports",
+    "set_findings_save",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -88,6 +89,8 @@ export const manageResearchAccessInputSchema = z.object({
   detailedLessonReports: z.boolean().optional()
     .describe("With set_detailed_lesson_reports, when the user asks: true turns this account's detailed lesson " +
       "reports on, false off."),
+  findingsSave: z.boolean().optional()
+    .describe("With set_findings_save, dev accounts only: false turns findings-card saving off, true back on."),
   tool_list_version: toolListVersionField(undefined),
 }).strict();
 
@@ -120,6 +123,7 @@ const researchAccessErrorSchema = z.object({
     "free_contributor_required",
     "contribution_privacy_rejected",
     "plain_answer_not_requested",
+    "dev_account_required",
     "receipts_unavailable",
     "invalid_request",
   ]),
@@ -139,6 +143,8 @@ export const manageResearchAccessOutputSchema = z.object({
   detailedLessonReports: z.boolean().optional()
     .describe("Whether this account's lessons may carry a detailed report: off unless the user turned detailed " +
       "lesson reports on."),
+  findingsSave: z.boolean().optional()
+    .describe("Shown to dev accounts only: whether this account saves findings cards, on by default."),
   research_receipt: z.string().optional(),
   accountReference: z.string().regex(new RegExp(`^[a-f0-9]{${RESEARCH_ACCOUNT_REFERENCE_CHARACTERS}}$`, "u")).optional()
     .describe("This account's reference, the first characters of its pseudonymous key: the user can give it to " +
@@ -256,6 +262,8 @@ export interface ResearchContributorToolOptions {
   researchMap?: ResearchMapOptions;
   /** This surface's tool list version, which a call's tool_list_version is compared with (owner request, 2026-10-22). */
   toolListVersion?: string;
+  /** The dev accounts permitted to change findings-card saving (owner answer 171). */
+  devAccountKeys?: () => ReadonlySet<string>;
 }
 
 export interface ResearchMapOptions {
@@ -312,6 +320,10 @@ export const DETAILED_REPORTS_ON = "Detailed lesson reports are on for this acco
   "report, shown to the user with the lesson before asking.";
 export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this account, so a lesson carries no " +
   "detailed report.";
+
+export const FINDINGS_SAVE_ON = "Findings-card saving is on for this dev account.";
+export const FINDINGS_SAVE_OFF = "Findings-card saving is off for this dev account; its final check still checks " +
+  "the findings card and the answer.";
 
 /** What inspect asks of an account that registers a plain answer, before any research call. */
 export function plainAnswerRequest(note: boolean): string {
@@ -488,6 +500,12 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "detailedLessonReports goes only with action set_detailed_lesson_reports, which needs it.",
         );
       }
+      if ((parsed.action === "set_findings_save") !== (parsed.findingsSave !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "findingsSave goes only with action set_findings_save, which needs it.",
+        );
+      }
       if (parsed.action === "register_plain_answer") {
         return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer);
       }
@@ -496,6 +514,18 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       }
       if (parsed.action === "set_detailed_lesson_reports") {
         return await setDetailedLessonReports(options.service, auth.subject, parsed.detailedLessonReports!);
+      }
+      if (parsed.action === "set_findings_save") {
+        const accountKey = options.service.accountKeyForSubject(auth.subject);
+        if (!isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set())) {
+          return accessError("dev_account_required", "Only a dev account listed in AskRigor's settings may turn " +
+            "findings-card saving off or on; this account is not listed, so its setting was not changed.");
+        }
+        await options.service.setFindingsSave(auth.subject, parsed.findingsSave!);
+        return {
+          content: [{ type: "text", text: parsed.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF }],
+          structuredContent: manageResearchAccessOutputSchema.parse({ ok: true, findingsSave: parsed.findingsSave }),
+        };
       }
       // Consent counts only for the notice the user was shown: an earlier
       // version's terms differ, so it is refused, never upgraded.
@@ -522,6 +552,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       // The account's reference, which the user can give the owner (for example to mark a dev account).
       const accountKey = options.service.accountKeyForSubject(auth.subject);
       const accountReference = researchAccountReference(accountKey);
+      const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
       // An active account's settings, read once: an active paid private or dev account is asked for its plain answer
       // before research (owner answer 140b), and any active account's lessons carry a detailed report only when it
       // turned detailed lesson reports on (owner question 154).
@@ -544,6 +575,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
+            (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessOutputSchema.parse({
@@ -551,6 +583,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           access,
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
+          ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           accountReference,
         }),
       };
@@ -852,9 +885,11 @@ export function createResearchAccessGuard(
  * The caller's active research-use mode and pseudonymous account key, which
  * decide what the findings library does with its research: saved (free
  * contributor) or offered for a yes (paid private); its plain-answer note
- * setting (owner answer 140b); and whether its lessons may carry a detailed
- * report (owner question 154). Undefined for an inactive account, a call
- * without a valid research:use token, or no access service. Never throws.
+ * setting (owner answer 140b); whether its lessons may carry a detailed
+ * report (owner question 154); its findings-card saving setting (owner answer 171); and the free contributor notice it accepted
+ * (decision 171: its cards are published as soon as they are saved under the
+ * current one). Undefined for an inactive account, a call without a valid
+ * research:use token, or no access service. Never throws.
  */
 export async function researchUseAccount(
   extra: ResearchOperationExtra | undefined,
@@ -864,12 +899,21 @@ export async function researchUseAccount(
   accountKey: string;
   plainAnswerNote: boolean;
   detailedLessonReports: boolean;
+  findingsSave: boolean;
+  noticeVersion: string | null;
 } | undefined> {
   const auth = authorizedSubject(extra, undefined);
   if ("error" in auth || service === undefined) return undefined;
   try {
-    const { mode, plainAnswerNote, detailedLessonReports } = await service.activeAccount(auth.subject);
-    return { mode, accountKey: service.accountKeyForSubject(auth.subject), plainAnswerNote, detailedLessonReports };
+    const { mode, plainAnswerNote, detailedLessonReports, findingsSave, noticeVersion } = await service.activeAccount(auth.subject);
+    return {
+      mode,
+      accountKey: service.accountKeyForSubject(auth.subject),
+      plainAnswerNote,
+      detailedLessonReports,
+      findingsSave,
+      noticeVersion,
+    };
   } catch {
     return undefined;
   }

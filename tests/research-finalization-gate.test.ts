@@ -88,11 +88,12 @@ const CLEAN_DRAFT = "[Study](https://doi.org/10.1002/art.41142) reports exercise
   "trying exercise before surgery. On Reddit, members of " +
   "[r/HipOA](https://www.reddit.com/r/HipOA/comments/abc123/avoided_surgery/) reported slow improvement from exercise; " +
   "a few saw no change and none reported side effects, which is consistent with the YouTube comments. " +
-  "The reports from r/HipOA come from my own web search, which AskRigor could not verify.";
+  "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/HipOA.";
 // The default subreddit search carries no receipt, so the answer says so.
 const FORUM_LIMIT = "The reports from r/HipOA come from your own web search, which AskRigor could not verify; say so, " +
   "and link the threads you read.";
-const FORUM_CAVEAT = "The reports from r/HipOA come from my own web search, which AskRigor could not verify.";
+const FORUM_CAVEAT = "Reports from this community come from my own web search, which AskRigor could not verify. " +
+  "Community: r/HipOA.";
 const FORUM_REPORT_LINE = "r/HipOA, exercise: 1 report(s) read; 1 firsthand report(s) of exactly this, 0 with a measurement after the change; 0 that don't say which form or product, 0 about something else and 0 advice or hearsay, not counted.";
 // It also carries every caveat the gate writes, as the answer would, so tests
 // of other checks pass the caveat check; its own tests pass drafts.
@@ -159,13 +160,13 @@ const OFFER_CAVEATS = [
   ...STUDY_FOCUS_CAVEATS,
   "Community focus: Named walking programs. Several were named but none was looked at closely.",
   "Community focus: People who stopped. Few described why they stopped.",
-  `Another pass would take ${PASS_ESTIMATE}; would you like to go deeper into the studies or the communities, and ` +
-    "which focus matters most to you?"
+  `What another pass would take: ${PASS_ESTIMATE}. Would you like to go deeper into the studies or the communities, ` +
+    "and which focus matters most to you?"
 ];
 const STUDIES_OFFER_CAVEATS = [
   ...STUDY_FOCUS_CAVEATS,
-  `Another pass would take ${PASS_ESTIMATE}; would you like to go deeper into the studies, and which focus matters ` +
-    "most to you?"
+  `What another pass would take: ${PASS_ESTIMATE}. Would you like to go deeper into the studies, and which focus ` +
+    "matters most to you?"
 ];
 // How the gate asks for the caveats an answer left out.
 const leftOut = (...caveats: string[]) =>
@@ -504,8 +505,8 @@ describe("finalize_research gate", () => {
     expect(run("all_found").status).toBe("ready_with_limits");
     const chosen = run("outcome_keyword");
     expect(chosen.status).toBe("ready_with_limits");
-    expect(chosen.caveats).toContain("The r/HipOA threads that I read were found by searching for outcomes, so they " +
-      "show which experiences people report, not how common each one is.");
+    expect(chosen.caveats).toContain("The threads I read in this community were found by searching for outcomes, so " +
+      "they show which experiences people report, not how common each one is. Community: r/HipOA.");
   });
 
   it("is ready when community and key studies are backed by receipts", () => {
@@ -573,8 +574,9 @@ describe("finalize_research gate", () => {
     };
     const reported = `${CLEAN_DRAFT} On [r/trt](https://www.reddit.com/r/trt/comments/xyz789/hgh_and_trt_five_years/), ` +
       "most long-term users reported better recovery, several saw no difference from growth hormone, and some " +
-      "reported joint pain and raised blood sugar, which supports naming its side effects first. The reports from " +
-      `r/trt come from my own web search, which AskRigor could not verify. ${OFFER_CAVEATS.join(" ")}`;
+      "reported joint pain and raised blood sugar, which supports naming its side effects first. Reports from this " +
+      "community come from my own web search, which AskRigor could not verify. Community: r/trt. " +
+      OFFER_CAVEATS.join(" ");
     const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
 
     // No map: YouTube alone does not finish the community lane.
@@ -600,7 +602,8 @@ describe("finalize_research gate", () => {
     const searched = gate({ principal_communities: communities, community_searches: [trt], answer_draft: reported });
     expect(searched.status).toBe("ready_with_limits");
     expect(searched.caveats).toEqual([
-      "The reports from r/trt come from my own web search, which AskRigor could not verify.", ...OFFER_CAVEATS
+      "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/trt.",
+      ...OFFER_CAVEATS
     ]);
     // AskRigor cannot see the client's web search: the permit records the subreddit as unverified.
     expect(verifyResearchReceipt(searched.finalization_receipt!, options))
@@ -631,8 +634,8 @@ describe("finalize_research gate", () => {
     // The answer must report it: the model copies the sentences that report each finding, the answer must show
     // them, and a paragraph that reports it links a thread read there.
     const offer = OFFER_CAVEATS.join(" ");
-    const withoutForums = `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} The reports from r/trt come from my own web ` +
-      `search, which AskRigor could not verify. ${offer}`;
+    const withoutForums = `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} Reports from this community come from my ` +
+      `own web search, which AskRigor could not verify. Community: r/trt. ${offer}`;
     const unshown = "For r/trt, answer_quotes gives text the answer does not show (benefit_reports, no_effect_reports, " +
       "adverse_reports, effect_on_answer): report each finding in the answer, and copy the sentence(s) that report " +
       "it exactly, from one paragraph or list item.";
@@ -641,7 +644,8 @@ describe("finalize_research gate", () => {
       answer_draft: `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} ${offer}`
     }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       unshown,
-      leftOut("The reports from r/trt come from my own web search, which AskRigor could not verify.")
+      leftOut("Reports from this community come from my own web search, which AskRigor could not verify. Community: " +
+        "r/trt.")
     ]);
     // Naming the community, as the caveat does, is not reporting what its posters said.
     expect(gate({ principal_communities: communities, community_searches: [trt], answer_draft: withoutForums }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
@@ -672,12 +676,23 @@ describe("finalize_research gate", () => {
     };
     const bounded = gate({ principal_communities: facebook, community_searches: [gated] });
     expect(bounded.status).toBe("ready_with_limits");
-    expect(bounded.caveats).toContain("TRT Facebook group needs a login to read, so reports there are not included.");
+    expect(bounded.caveats).toContain("A community that needs a login to read: TRT Facebook group. Reports there are " +
+      "not included.");
     // A failed fetch is not a site's refusal, and its caveat says what happened (the 2026-10-15 owner regressions).
     const failed = gate({ principal_communities: facebook, community_searches: [{ ...gated, access_boundary: "retrieval_failed" }] });
     expect(failed.status).toBe("ready_with_limits");
-    expect(failed.caveats).toContain("Pages from TRT Facebook group could not be retrieved, so reports there are not included.");
+    expect(failed.caveats).toContain("A community whose pages could not be retrieved: TRT Facebook group. Reports there " +
+      "are not included.");
     expect(failed.caveats.join(" ")).not.toContain("blocked access");
+    const blocked = gate({ principal_communities: facebook, community_searches: [{ ...gated, access_boundary: "blocked" }] });
+    expect(blocked.caveats).toContain("A community that blocked access: TRT Facebook group. Reports there are not " +
+      "included.");
+    // A search that turned up nothing relevant says so, and nothing more.
+    const empty = gate({ principal_communities: facebook, community_searches: [{ ...gated, access_boundary: "no_relevant_results" }] });
+    expect(empty.status).toBe("ready_with_limits");
+    expect(empty.limits).toContain("The search of TRT Facebook group found no relevant reports; say so.");
+    expect(empty.caveats).toContain("A community where a search turned up no relevant reports: TRT Facebook group.");
+    expect(empty.caveats.join(" ")).not.toContain("Reports there are not included");
     // One site is one discussion pool, whatever each entry is called.
     const { platform: _reddit, threads_read: _threads, ...trtFindings } = trt;
     const meso = {
@@ -885,7 +900,8 @@ describe("finalize_research gate", () => {
       answer_quotes: quotesOf(community === "r/Testosterone" ? testosteroneReport : trtReport)
     });
     const both = [read("r/trt", trtThread), read("r/Testosterone", testosteroneThread)];
-    const caveat = "The reports from r/trt and r/Testosterone come from my own web search, which AskRigor could not verify.";
+    const caveat = "Reports from these communities come from my own web search, which AskRigor could not verify. " +
+      "Communities: r/trt; r/Testosterone.";
     const gate = (input: Record<string, unknown>) =>
       finalizeResearch({ ...base, principal_communities: subreddits, ...input }, options);
     const unshown = (community: string) => `For ${community}, answer_quotes gives text the answer does not show ` +
@@ -1015,9 +1031,9 @@ describe("finalize_research gate", () => {
           url: "https://www.facebook.com/groups/trtmen"
         }
       ],
-      answer_draft: `${sections.replace(/\n\nOn \[r\/Testosterone\][\s\S]*$/u, "")}\n\nThe reports from r/trt come ` +
-        "from my own web search, which AskRigor could not verify. TRT Facebook group needs a login to read, so reports " +
-        "there are not included."
+      answer_draft: `${sections.replace(/\n\nOn \[r\/Testosterone\][\s\S]*$/u, "")}\n\nReports from this community ` +
+        "come from my own web search, which AskRigor could not verify. Community: r/trt. A community that needs a " +
+        "login to read: TRT Facebook group. Reports there are not included."
     });
     expect(counted.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(counted.finalization_receipt!, options))
@@ -1072,8 +1088,8 @@ describe("finalize_research gate", () => {
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
     const confirmed = gate(found("trt", "HGH and TRT: five years in"), "hgh and trt - five years in : r/trt");
-    const confirmedCaveat = "Reddit confirms that the r/trt and r/Testosterone threads linked here exist, but what they " +
-      "report is my own reading, which AskRigor could not verify.";
+    const confirmedCaveat = "Reddit confirms that the threads linked here from these subreddits exist, but what they " +
+      "report is my own reading, which AskRigor could not verify. Subreddits: r/trt; r/Testosterone.";
     expect(confirmed.caveats).toContain(confirmedCaveat);
     expect(confirmed.caveats.join(" ")).not.toContain("come from my own web search");
     const draft = `${CLEAN_DRAFT.replace(/\n\nOn Reddit, [\s\S]*$/u, "")}\n\nOn [r/trt](${trtThread}), most reported better ` +
@@ -1123,9 +1139,9 @@ describe("finalize_research gate", () => {
     const unavailable = gate({ state: "unavailable" });
     expect(unavailable.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("Reddit does not have");
     expect(unavailable.caveats).toEqual(expect.arrayContaining([
-      "The reports from r/trt come from my own web search, which AskRigor could not verify.",
-      "Reddit confirms that the r/Testosterone threads linked here exist, but what they report is my own reading, " +
-        "which AskRigor could not verify."
+      "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/trt.",
+      "Reddit confirms that the threads linked here from this subreddit exist, but what they report is my own " +
+        "reading, which AskRigor could not verify. Subreddit: r/Testosterone."
     ]));
   });
 
@@ -1172,7 +1188,8 @@ describe("finalize_research gate", () => {
       answer_draft: "[Study](https://doi.org/10.1002/art.41142) reports trial outcomes. Trials favour testosterone. On [r/trt](https://www.reddit.com/r/trt/comments/abc/x/) and " +
         "[MESO-Rx](https://thinksteroids.com/community/threads/2/), most users reported better recovery, some saw no " +
         "difference, and several reported joint pain as a side effect of growth hormone, consistent with the trials. " +
-        "The reports from r/trt and MESO-Rx come from my own web search, which AskRigor could not verify.",
+        "Reports from these communities come from my own web search, which AskRigor could not verify. Communities: " +
+        "r/trt; MESO-Rx.",
       absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: []
     }, options);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
@@ -1250,8 +1267,8 @@ describe("finalize_research gate", () => {
       `The 8 Amazon review(s) of ${product} you read (of 2400 shown) were the ones the site ranks first; say they ` +
         "show which experiences people report, not how common each is."
     );
-    const partialCaveat = `The Amazon reviews of ${product} that I read were the ones the site ranks first, so they ` +
-      "show which experiences people report, not how common each one is.";
+    const partialCaveat = "The reviews I read on this site were the ones the site ranks first, so they show which " +
+      `experiences people report, not how common each one is. Product: ${product}. Site: Amazon.`;
     expect(first.caveats).toContain(partialCaveat);
     const ready = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...request(topRanked), answer_draft: `${lanes} ${first.caveats.join(" ")}` }, options);
     expect(ready.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
@@ -2543,6 +2560,25 @@ describe("finalize_research gate", () => {
         "could not be checked yet, not that it is thin."
     );
     expect(nothingYet.limits.join(" ")).not.toContain("community evidence on this is thin");
+
+    // A video found another way and read after the quota stopped discovery (s359 T1b, 23 Oct): YouTube evidence was
+    // checked, so the check says the search was incomplete, not that nothing could be checked.
+    const readAnyway = finalizeResearch({
+      ...firstPass,
+      receipts: [stoppedSurvey, videoA, study],
+      material_video_ids: [],
+      no_material_video_reason: "The video read does not show the routine asked about.",
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." },
+        COMMUNITY_FOCUSES[1]
+      ]
+    }, options);
+    expect(readAnyway.limits.join(" ")).not.toContain("No video turned up before");
+    expect(readAnyway.caveats.join(" ")).not.toContain("before any video turned up");
+    expect(readAnyway.caveats).toContain(
+      "YouTube's search limit stopped discovery, so the video read here was found another way, not by a complete search."
+    );
   });
 
   it("sends back an answer that leaves out a caveat the gate wrote", () => {
@@ -2572,8 +2608,8 @@ describe("finalize_research gate", () => {
       "Community focus: Gelatin and collagen for hip pain. Several commenters report it.",
       "Community focus: Named physiotherapy programs. Comments name two programs no search covered."
     ];
-    const passCaveat = "Another pass would take about 20 minutes and 15 YouTube searches; would you like to go deeper " +
-      "into the studies or the communities, and which focus matters most to you?";
+    const passCaveat = "What another pass would take: about 20 minutes and 15 YouTube searches. Would you like to go " +
+      "deeper into the studies or the communities, and which focus matters most to you?";
     const expected = [partialCaveat, ...STUDY_FOCUS_CAVEATS, ...leadCaveats, passCaveat];
     expect(check(CLEAN_DRAFT)).toMatchObject({
       status: "not_ready", caveats: [partialCaveat, FORUM_CAVEAT, ...expected.slice(1)], next_steps: [leftOut(...expected)]
@@ -3059,13 +3095,20 @@ describe("findings card at the final gate", () => {
       sources: ["10.1002/art.41142", "aaaaaaaaaaa"],
       why_not_usual: "Quick answers treat exercise as a stopgap.",
       tags: ["full_text_read", "community_checked"],
-      what_would_change_it: "A large trial finding no benefit over usual care."
+      what_would_change_it: "A large trial finding no benefit over usual care.",
+      // Atlas phase 3: what the pages need; the claim gives no two-group figure.
+      kind: "effect",
+      subject: "Exercise therapy",
+      subject_type: "practice",
+      direction: "benefit",
+      numbers: []
     }],
     public_value: {
       scope: "public",
       who_else: "Adults with hip osteoarthritis considering surgery",
       what_it_changes: "Exercise therapy becomes a first option with real evidence."
-    }
+    },
+    topic: { key: "hip-osteoarthritis", label: "Hip osteoarthritis" }
   };
   const withFinding = (overrides: Record<string, unknown>) => ({ ...CARD, findings: [{ ...CARD.findings[0], ...overrides }] });
   const signedClaim = (claim: string) => (receipt: string | undefined) => {
@@ -3125,7 +3168,9 @@ describe("findings card at the final gate", () => {
   });
 
   it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
-    const pubmedSearch = sign("literature_search", { src: "pubmed", q: "p1p1p1p1p1p1", ret: 0, n: 0 }, options);
+    const absenceQuery = "médicament élimination enfant";
+    const pubmedSearch = sign("literature_search", { src: "pubmed", q: discoveryQueryDigest([absenceQuery]), ret: 0, n: 0 },
+      options);
     const base = {
       receipts: [study, lead, pubmedSearch],
       community_evidence: "not_relevant",
@@ -3150,8 +3195,11 @@ describe("findings card at the final gate", () => {
       absence_claims: [{ quote: "Aucune étude n'a mesuré cet effet chez l'enfant", state: "support_not_located" }],
       corrections: [{ retracted: "Le foie élimine ce médicament en quelques jours.", change: corrected, by_user: false }]
     };
+    // Atlas phase 3 (review finding 3): a sentence the answer declares only as not found is a search that found
+    // nothing, with the search it made.
+    const notFound = { kind: "nothing_found", direction: "descriptive", searches: [{ database: "pubmed", query: absenceQuery }] };
     const check = (overrides: Record<string, unknown>, sources = ["PMC10518852"]) => {
-      const card = { ...CARD, findings: [{ ...finding(absent), sources }, { ...finding(corrected), sources }] };
+      const card = { ...CARD, findings: [{ ...finding(absent), sources, ...notFound }, { ...finding(corrected), sources }] };
       const draft = `${absent} ${corrected}`;
       const first = finalizeResearchRaw({ ...base, ...declarations, findings_card: card, answer_draft: draft, ...overrides }, options);
       return finalizeResearchRaw({
@@ -3165,9 +3213,12 @@ describe("findings card at the final gate", () => {
     // once it is bounded to searches passed here.
     const userCorrected = check({ corrections: [{ ...declarations.corrections[0], by_user: true }] }, LEAD);
     expect(userCorrected.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    // With no search passed here, the search that found nothing is not bound to one, so the card is not saved (before
+    // the Atlas fields, it was saved without the bounded_absence basis).
     const unsearched = check({ receipts: [study, lead] }, LEAD);
     expect(unsearched.status).toBe("not_ready");
-    expect(unsearched.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    expect(unsearched.findings_card).toMatchObject({ status: "rejected",
+      problems: [expect.stringContaining("findings_card.findings[0].searches[0] is not a search passed here")] });
     const leadsOnly = check({}, LEAD);
     expect(basesClaim(leadsOnly.finalization_receipt)).toEqual(["bounded_absence", "research_correction"]);
   });
@@ -3207,7 +3258,9 @@ describe("findings card at the final gate", () => {
     // Owner answer 156a: the step asks for the declaration with the card.
     expect(missing.next_steps[0]).toBe("Give findings_card with answer_draft: this account's research is saved to " +
       "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
-      "and no personal details, and say in public_value whether they would help anyone beyond this person.");
+      "and no personal details, and say in public_value whether they would help anyone beyond this person. A public " +
+      "card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers (for an " +
+      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says.");
     expect(missing.finalization_receipt).toBeUndefined();
     // The card is asked for with the answer, not before it.
     expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);

@@ -115,6 +115,32 @@ export function resolveClientIp(
   return normalizeIp(request.socket.remoteAddress?.trim() ?? "", true) ?? "unknown";
 }
 
+/** A client address in canonical form (an IPv4-mapped IPv6 address as IPv4), or undefined when it is not one. */
+export function normalizeClientIp(value: string): string | undefined {
+  return normalizeIp(value.trim(), false);
+}
+
+/**
+ * The key a per-address limit counts an address under: an IPv4 address as it is, an IPv6 address by its /64 prefix
+ * (such as 2001:db8:0:1::/64), since one subscriber usually holds a whole /64 and could otherwise take a fresh
+ * address for every request.
+ */
+export function addressLimitKey(ip: string): string {
+  if (isIP(ip) !== 6) return ip;
+  let address = ip.toLowerCase();
+  // An IPv4 tail (::ffff:192.0.2.1 is IPv4 already; others such as 64:ff9b::192.0.2.1) as two groups.
+  const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.exec(address);
+  if (tail !== null) {
+    const [a, b, c, d] = tail.slice(1).map(Number) as [number, number, number, number];
+    address = `${address.slice(0, tail.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [left, right] = address.includes("::") ? address.split("::") as [string, string] : [address, undefined];
+  const head = left === "" ? [] : left.split(":");
+  const rest = right === undefined || right === "" ? [] : right.split(":");
+  const groups = right === undefined ? head : [...head, ...Array<string>(8 - head.length - rest.length).fill("0"), ...rest];
+  return `${groups.slice(0, 4).map((group) => Number.parseInt(group, 16).toString(16)).join(":")}::/64`;
+}
+
 function refill(
   bucket: Bucket,
   currentTime: number,

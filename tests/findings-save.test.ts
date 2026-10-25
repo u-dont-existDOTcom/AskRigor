@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CONTRIBUTION_EXAMPLES,
@@ -143,6 +143,7 @@ function storedRecord(body: string): FindingsRecord {
 
 const originalEnvironment = { ...process.env };
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnvironment)) delete process.env[key];
   }
@@ -299,14 +300,14 @@ describe("findings library save", () => {
     const [issue] = github.issues;
     expect(issue).toMatchObject({ title: CARD.question, labels: [{ name: "findings-card" }, { name: "pending-review" }] });
     const record = storedRecord(issue!.body);
-    // The library stores no YouTube video IDs or links: the finding keeps its study and a count of its videos.
+    // A card with no YouTube data is stored whole, as it was checked.
     const { card: storedCard } = withoutYouTubeData(parsedCard());
-    expect(storedCard.findings[0]).toMatchObject({ sources: ["10.1002/art.41142"], youtube_videos: 1 });
+    expect(storedCard.findings[0]).toMatchObject({ sources: ["10.1002/art.41142"] });
+    expect(storedCard.findings[0]).not.toHaveProperty("youtube_videos");
     expect(record).toEqual({
       schema: "askrigor.findings-card.v1",
       card: storedCard,
       card_sha256: findingsCardDigest(parsedCard()),
-      stored_without: ["youtube_video_ids_and_links"],
       stamp: {
         saved_at: "2026-09-30T12:00:00.000Z",
         askrigor_version: "0.1.0",
@@ -341,16 +342,45 @@ describe("findings library save", () => {
     expect(issue!.body).toMatch(/\n<!-- askrigor-findings-card:[A-Za-z0-9_-]+ -->$/u);
   });
 
+  // Owner answer 170 (24 Oct): the owner told YouTube on 29 Aug that AskRigor stores no YouTube-derived records until
+  // YouTube clarifies, so a finding drawn from YouTube comments is left out of the stored card.
+  it("leaves out a finding drawn from YouTube comments and saves the rest, with their bases in place", async () => {
+    const youtubeFinding = { ...CARD.findings[0], claim: "Commenters on two videos reported less hip pain after months of exercise.",
+      sources: ["10.1002/art.41142", "aaaaaaaaaaa"], tags: ["community_checked"] };
+    const fromAudit = { ...CARD.findings[0], claim: "Supervised programs lasted longer than home programs in the trials." };
+    const card = { ...CARD, findings: [youtubeFinding, CARD.findings[0], fromAudit] };
+    const github = new FakeGitHub();
+    await expect(service(github).save(saveInput({ findings_card: card, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(card)),
+      bases: ["comment_audit", "full_text_audit", "full_text_audit.comment_audit"],
+    }) }), CONTEXT)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    const record = storedRecord(github.issues[0]!.body);
+    // The first finding lists a video and the third rests on a comment audit, as the receipt signed: both stay out.
+    expect(record.card.findings).toHaveLength(1);
+    expect(record.card.findings[0]).toMatchObject({ claim: CARD.findings[0]!.claim, verified_bases: ["full_text_audit"] });
+    expect(record.stored_without).toEqual(["youtube_comment_findings"]);
+    expect(github.issues[0]!.body).not.toContain("Commenters on two videos");
+  });
+
+  it("saves nothing when every finding rests on YouTube comments", async () => {
+    const card = { ...CARD, findings: [{ ...CARD.findings[0], sources: ["aaaaaaaaaaa"], tags: ["community_checked"] }] };
+    const github = new FakeGitHub();
+    await expect(service(github).save(saveInput({ findings_card: card, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(card)),
+    }) }), CONTEXT)).resolves.toEqual({ status: "youtube_findings_only", retryable: false });
+    expect(github.writes).toEqual([]);
+  });
+
   // Owner answer 139c (2026-10-20): the owner reviews first the cards whose findings rest on work a quick answer can't do.
   it("stamps each finding's work beyond a quick answer as its receipt signed it, and labels the card", async () => {
     const github = new FakeGitHub();
     const save = service(github);
-    await expect(save.save(saveInput({ finalization_receipt: finalization({ bases: ["full_text_audit.comment_audit"] }) }), CONTEXT))
+    await expect(save.save(saveInput({ finalization_receipt: finalization({ bases: ["full_text_audit.research_correction"] }) }), CONTEXT))
       .resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
     const [issue] = github.issues;
     expect(issue!.labels).toEqual([{ name: "findings-card" }, { name: "pending-review" }, { name: "beyond-quick-answer" }]);
-    expect(storedRecord(issue!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit", "comment_audit"] });
-    expect(issue!.body).toContain("- Beyond a quick answer, as the receipts show: full\\_text\\_audit, comment\\_audit");
+    expect(storedRecord(issue!.body).card.findings[0]).toMatchObject({ verified_bases: ["full_text_audit", "research_correction"] });
+    expect(issue!.body).toContain("- Beyond a quick answer, as the receipts show: full\\_text\\_audit, research\\_correction");
 
     // No basis, a list that does not fit the card, or a name the library does not know: nothing is stamped.
     for (const bases of [["none"], ["none", "full_text_audit"], ["full_text_read"], ["comment_audit.comment_audit"]]) {
@@ -379,7 +409,7 @@ describe("findings library save", () => {
     // A card already labeled is not labeled again.
     const writes = github.writes.length;
     await save.save(saveInput({
-      contributor: "3".repeat(64), finalization_receipt: finalization({ receipts: 9, bases: ["comment_audit"] }),
+      contributor: "3".repeat(64), finalization_receipt: finalization({ receipts: 9, bases: ["research_correction"] }),
     }), CONTEXT);
     expect(github.writes.slice(writes).map(({ url }) => url.replace(/^.*\/issues/u, ""))).toEqual(["/42/comments"]);
   });
@@ -651,10 +681,94 @@ describe("finalize_research, save_research_findings and the findings library", (
       reported_model: "Example Model 2026-08-06",
     });
     const names = RESEARCH_OPERATIONS.map(({ name }) => name).sort().join("\n");
-    expect(context).toEqual({ surface: "/mcp/claude", toolCatalogSha256: createHash("sha256").update(names).digest("hex") });
+    // Decision 171, section 4B: the account checks for publishing the card at its save, never stored with it.
+    expect(context).toEqual({
+      surface: "/mcp/claude",
+      toolCatalogSha256: createHash("sha256").update(names).digest("hex"),
+      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false },
+    });
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);
+  });
+
+  it("shows findings-card saving to dev accounts only, and only they can switch their own setting", async () => {
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const manage = connectorTool("manage_research_access", { researchContributorAccessService: service });
+    const inspected = await manage({ action: "inspect" }, "auth0|free");
+    expect(inspected.structuredContent).toMatchObject({ ok: true, findingsSave: true });
+    expect(JSON.stringify(inspected.content)).toContain("Findings-card saving is on for this dev account.");
+    const off = await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free");
+    expect(off.structuredContent).toEqual({ ok: true, findingsSave: false });
+    expect(off.isError).not.toBe(true);
+    expect(JSON.stringify(off.content)).toContain("Findings-card saving is off for this dev account");
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).toMatchObject({ findingsSave: false });
+    await expect(service.activeAccount("auth0|paid")).resolves.toMatchObject({ findingsSave: true });
+    const on = await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
+    expect(on.structuredContent).toEqual({ ok: true, findingsSave: true });
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).toMatchObject({ findingsSave: true });
+
+    for (const input of [{ action: "set_findings_save" }, { action: "inspect", findingsSave: false }]) {
+      expect((await manage(input, "auth0|free")).structuredContent)
+        .toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    }
+    // A paid private entitlement does not make an account a dev account.
+    for (const subject of ["auth0|paid", "auth0|new"]) {
+      const view = await manage({ action: "inspect" }, subject);
+      expect(view.structuredContent).not.toHaveProperty("findingsSave");
+      expect(JSON.stringify(view.content)).not.toContain("Findings-card saving");
+      const refused = await manage({ action: "set_findings_save", findingsSave: false }, subject);
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toMatchObject({ ok: false, error: { code: "dev_account_required" } });
+      expect(JSON.stringify(refused.content)).toContain("this account is not listed, so its setting was not changed");
+    }
+    // The same free contributor loses the right to change it when removed from the dev list.
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", "");
+    expect((await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "dev_account_required" } });
+    await expect(service.activeAccount("auth0|free")).resolves.toMatchObject({ findingsSave: true });
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    await service.revoke("auth0|free");
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).not.toHaveProperty("findingsSave");
+    expect((await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "research_access_revoked" } });
+  });
+
+  it("skips a dev account's free card save when switched off, keeps the check and caveats, and saves again when on", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const manage = connectorTool("manage_research_access", options);
+    const finalize = connectorTool("finalize_research", options);
+    const before = await finalize(request(), "auth0|free");
+    expect(calls).toHaveLength(1);
+    calls.length = 0;
+    await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free");
+    const off = await finalize(request(), "auth0|free");
+    expect(calls).toEqual([]);
+    expect(off.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      caveats: [SKIP],
+      findings_card: { status: "checked", problems: [], saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+    });
+    expect(off.structuredContent).not.toHaveProperty("saved_line");
+    expect(JSON.stringify(off.content)).toContain("Findings card: checked; not saved: this dev account's card saving is off.");
+    const checked = before.structuredContent!;
+    for (const field of ["status", "caveats", "limits", "next_steps", "check_line", "receipts_verified", "must_report"]) {
+      expect(off.structuredContent?.[field], field).toEqual(checked[field]);
+    }
+    // Turning saving off never relaxes the card requirement or a failing check.
+    const { findings_card: _card, ...withoutCard } = request();
+    expect((await finalize(withoutCard, "auth0|free")).structuredContent)
+      .toMatchObject({ status: "not_ready", findings_card: { status: "absent" } });
+    expect(calls).toEqual([]);
+    await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
+    const on = await finalize(request(), "auth0|free");
+    expect(calls).toHaveLength(1);
+    expect(on.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
   });
 
   it("needs a card from a free contributor's answer, and saves nothing until it has one", async () => {
@@ -1061,8 +1175,10 @@ describe("finalize_research, save_research_findings and the findings library", (
       "In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the " +
         "owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests " +
         "on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. " +
-        // Owner answer 156a (2026-10-22).
-        "A card whose public_value declares its findings personal_only is neither saved nor offered."
+        // Owner answer 156a (2026-10-22), and Atlas phase 3's fields for the pages.
+        "A card whose public_value declares its findings personal_only is neither saved nor offered; a public one " +
+        "gives its topic and, for each finding, its kind, subject, direction, numbers and, for a search that found " +
+        "nothing, its searches."
     );
     expect(save?.description).toContain("A card whose public_value declares its findings personal_only is not saved.");
     // Owner answer 148a: other providers' research tools point to studies; their text is not evidence or answer text.

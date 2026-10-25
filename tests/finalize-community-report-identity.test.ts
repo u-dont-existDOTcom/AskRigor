@@ -80,10 +80,10 @@ const noForum = () => base({
   not_relevant_reason: "Synthetic emergency before triage.",
   principal_communities: undefined, community_searches: undefined
 });
-const zeroCaveat = "In Mineral Forum, no one described their own use of form A, so its reports are not evidence about it.";
+const zeroCaveat = "No one in this community described their own use of what was asked about, so its reports are not evidence about it. Community: Mineral Forum. Asked about: form A.";
 const sumStep = "report_identity for form A in Mineral Forum does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.";
 const doseLimit = "The comparison of form A with form B rests on reports whose doses differ or were not given; say it cannot show which works better.";
-const missingDose = "The reports comparing form A with form B did not give both doses, so they cannot show which works better at the same dose.";
+const missingDose = "Reports comparing two options did not give both doses, so they cannot show which works better at the same dose: form A; form B.";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -182,7 +182,7 @@ describe("comparisons with declared doses", () => {
     const result = checked(base({ comparison_claims: [claim(a, b, unitA, unitB)] }));
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).not.toContain(doseLimit);
-    expect(result.caveats.some((line) => line.startsWith("The reports comparing"))).toBe(false);
+    expect(result.caveats.some((line) => line.startsWith("Reports comparing two options"))).toBe(false);
   });
   it.each([[0.9, 6, "mg", "mg"], [2, 2, "IU", "mg"], [1, 1 + 2e-9, "mg", "mg"]] as const)(
     "requires the exact caveat for different doses %s %s %s %s", (a, b, unitA, unitB) => {
@@ -190,7 +190,7 @@ describe("comparisons with declared doses", () => {
       const first = run(input);
       expect(first.status).toBe("not_ready");
       expect(first.limits).toContain(doseLimit);
-      expect(first.caveats).toContain(`The reports comparing form A with form B changed the dose as well (${a} ${unitA} against ${b} ${unitB}), so they cannot show which works better.`);
+      expect(first.caveats).toContain(`Reports comparing two options changed the dose as well, so they cannot show which works better: form A at ${a} ${unitA}; form B at ${b} ${unitB}.`);
       expect(checked(input).status).toBe("ready_with_limits");
     }
   );
@@ -207,7 +207,7 @@ describe("comparisons with declared doses", () => {
     const result = checked(base({ comparison_claims: [c, c] }));
     expect(result.status).toBe("ready_with_limits");
     expect(result.limits).toContain("The comparison of form A with form B rests on reports from people who did not use both; say so.");
-    const direct = "The reports comparing form A with form B did not come from people who used both, so they are not a direct comparison of the two.";
+    const direct = "Reports comparing two options did not come from people who used both, so they are not a direct comparison of the two: form A; form B.";
     expect(result.caveats.filter((line) => line === direct)).toEqual([direct]);
     expect(result.caveats.filter((line) => line === missingDose)).toEqual([missingDose]);
   });
@@ -257,7 +257,7 @@ describe("communities named by the user and the visible check line", () => {
     input.community_searches!.push(ghost);
     const result = checked(input);
     expect(result.next_steps.join("\n")).not.toMatch(/records an access boundary but no url|The user named Ghost Forum/u);
-    expect(result.caveats).toContain("I could not find Ghost Forum, so reports there are not included.");
+    expect(result.caveats).toContain("A community I could not find: Ghost Forum. Reports there are not included.");
     expect(result.limits).toContain("Ghost Forum could not be found; say so.");
     expect(result.status).toBe("ready_with_limits");
     // Found is not not_found: an address or a thread read contradicts it.

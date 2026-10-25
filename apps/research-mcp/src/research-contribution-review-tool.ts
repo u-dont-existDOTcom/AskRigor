@@ -18,9 +18,11 @@ import {
   atlasChecksSchema,
   atlasFindingsListSchema,
   atlasForgetSchema,
+  atlasHeldWithoutCardSchema,
   atlasRetrySchema,
   atlasReviewInputShape,
   atlasStatusSchema,
+  atlasYoutubeFindingsSchema,
   isAtlasReviewAction,
   refineAtlasReviewInput,
   type AtlasProviderConfig,
@@ -28,6 +30,8 @@ import {
   type AtlasReviewRequest,
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
+import { atlasParticipationSchema } from "./atlas/participation-review.js";
+import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
@@ -36,12 +40,17 @@ const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
 export const researchContributionReviewInputSchema = z.object({
   action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
-      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card."),
+      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
+      "findings: list_youtube_findings, move_youtube_findings, delete_youtube_findings or delete_all_youtube_findings. " +
+      "Publications in the Atlas: " +
+      "list_publications, unpublish_finding, publish_cards or set_aside_cards. Comments and the home page: " +
+      "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
   reason: z.string().trim().min(1).max(2_000).optional()
-    .describe("The owner's private reason: needed to accept or reject a proposal, and to reject a finding."),
+    .describe("The owner's private reason: needed to accept or reject a proposal, to reject a finding, and to " +
+      "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
   if (isAtlasReviewAction(value.action)) {
@@ -172,6 +181,15 @@ export const researchContributionReviewOutputSchema = z.object({
   retry: atlasRetrySchema.optional(),
   // forget_card (decision 7): what was removed, and the steps left for the owner.
   forget: atlasForgetSchema.optional(),
+  // move_youtube_findings, delete_youtube_findings and delete_all_youtube_findings (owner answer 173): each card's
+  // outcome, the owner's steps, and how many delete_all_youtube_findings deleted.
+  youtubeFindings: atlasYoutubeFindingsSchema.optional(),
+  // list_youtube_findings, and delete_youtube_findings with cardSha256: the held findings with no card.
+  heldWithoutCard: atlasHeldWithoutCardSchema.optional(),
+  // Decision 171: the publications listed or changed, and what each card named became.
+  publications: atlasPublicationsSchema.optional(),
+  // Decision 171: the comments listed or moderated, the commenter changed, the home page's picks set.
+  participation: atlasParticipationSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
   canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
@@ -433,6 +451,10 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.checks === undefined ? {} : { checks: result.checks }),
     ...(result.retry === undefined ? {} : { retry: result.retry }),
     ...(result.forget === undefined ? {} : { forget: result.forget }),
+    ...(result.youtubeFindings === undefined ? {} : { youtubeFindings: result.youtubeFindings }),
+    ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
+    ...(result.publications === undefined ? {} : { publications: result.publications }),
+    ...(result.participation === undefined ? {} : { participation: result.participation }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

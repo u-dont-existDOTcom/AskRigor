@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The package the tool imports, so the stores' errors are the classes the tool recognizes.
 import {
+  ATLAS_ERASED_TEXT,
   AtlasFindingPromotionRunner,
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPromotionStore,
@@ -60,6 +61,14 @@ const DOI_CARD = {
   ...LOW_DOSE_CARD,
   findings: [{ ...LOW_DOSE_CARD.findings[0]!, sources: ["10.0000/synthetic-velmor-c"] }],
 };
+/** The same card as one saved before the Atlas fields (phase 3): no topic, and no kind, subject, direction or numbers. */
+const OLDER_CARD = (() => {
+  const { topic: _topic, ...card } = DOI_CARD;
+  const { kind: _kind, subject: _subject, subject_type: _type, direction: _direction, numbers: _numbers, ...finding } =
+    DOI_CARD.findings[0]!;
+  return { ...card, findings: [finding] };
+})();
+const LOW_DOSE_FIELDS = { kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "no_effect" };
 
 type Respond = () => Response | Promise<Response>;
 
@@ -211,7 +220,7 @@ async function acceptedLowDose(h: Harness) {
 }
 
 describe("the findings actions' calls", () => {
-  it("takes the phone flow's short calls: inspect, then accept with the hash, the topic and the numbers", async () => {
+  it("takes the phone flow's short calls: inspect, then accept with the hash, the card giving the topic, numbers and fields", async () => {
     await stubProviders();
     const h = harness();
     await h.save(DOI_CARD);
@@ -219,52 +228,76 @@ describe("the findings actions' calls", () => {
     expect(inspect.structured).toMatchObject({
       ok: true,
       outcome: "finding_inspected",
-      card: { card: "ARF-0042", state: "open", saves: 1, items: [{ item: "finding", number: 1, wouldBecome: "checked",
-        bases: ["full_text_audit"], save: "card", decision: null }] },
+      card: { card: "ARF-0042", state: "open", saves: 1, topic: { key: "velmor-syndrome", label: "Velmor syndrome" },
+        items: [{ item: "finding", number: 1, wouldBecome: "checked", bases: ["full_text_audit"], save: "card",
+          decision: null, kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "no_effect",
+          numbers: 1, searches: [] }] },
       checks: { item: "ARF-0042 finding 1", wouldBecome: "checked", community: "none", sourceStatus: "passed",
         sources: [{ source: "10.0000/synthetic-velmor-c", outcome: "checked", provider: "crossref", retraction: "none_found" }],
         numbers: [], privacy: [], problems: [], needsConfirmation: [] },
     });
     const cardSha256 = inspect.structured.card.cardSha256;
     expect(inspect.text).toContain(`cardSha256 ${cardSha256}`);
-    const accept = await h.call({ action: "accept_finding", card: "arf-0042", finding: 1, cardSha256,
-      topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [LOW_DOSE] });
+    expect(inspect.text).toContain("\nDeclared: of kind effect, direction no_effect, about zentarine (supplement); " +
+      "numbers: 1 two-group figure.\n");
+    expect(inspect.text).toContain("Next: accept_finding needs this cardSha256; it takes the card's topic (Velmor " +
+      "syndrome) and its numbers block, kind, subject, subject type and direction unless you send others.");
+    // Atlas phase 3: the card's topic, numbers block, kind, subject, subject type and direction, by default.
+    const accept = await h.call({ action: "accept_finding", card: "arf-0042", finding: 1, cardSha256 });
     expect(accept.isError).toBe(false);
-    expect(accept.text).toBe("Accepted ARF-0042 finding 1 as F-1001, a checked finding, filed under Velmor syndrome " +
-      "(new topic). The Atlas writer stores it within about 5 minutes; nothing is public until the Atlas pages exist.");
+    expect(accept.text).toBe("Accepted ARF-0042 finding 1 as F-1001, a checked finding, of kind effect, direction " +
+      "no_effect, about zentarine (supplement), filed under Velmor syndrome (new topic), the card's topic. The Atlas " +
+      "writer stores it within about 5 minutes; nothing is public until the Atlas pages exist.");
     expect(accept.structured).toMatchObject({
       ok: true, outcome: "finding_queued",
       atlas: { atlasNumber: "F-1001", entryKind: "finding", labelAfter: "checked",
         topic: { key: "velmor-syndrome", label: "Velmor syndrome", isNew: true },
+        kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "no_effect",
         intent: { kind: "accept", status: "PENDING", failureCode: null } },
     });
     // The intent holds no card reference, hash or quote: the card binding lives on the decision row only.
     const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ topic: { key: "velmor-syndrome", label: "Velmor syndrome" },
+      content: { kind: "effect", subject: "zentarine", subjectType: "supplement", direction: "no_effect",
+        numbers: [LOW_DOSE] } });
+    expect(intent!.payload).not.toHaveProperty("content.searchScope");
     expect(JSON.stringify(intent!.payload)).not.toMatch(/ARF-|answer_quote|cardSha256/u);
     expect(JSON.stringify(intent!.payload)).not.toContain(cardSha256);
     expect(await h.review.inspectCards([42])).toMatchObject([{ decision: "accepted", publicNumber: "F-1001", cardSha256 }]);
     // GitHub shows the decision, and the card, every finding decided, is closed as reviewed.
     expect(h.github.comments.get(42)!.at(-1)!.body).toContain("Finding 1: accepted as F-1001, checked, 4 Nov 2026.");
     expect(h.github.issue(42)).toMatchObject({ state: "closed", state_reason: "completed" });
-    // The same accept again records nothing new.
-    const again = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256,
-      topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [LOW_DOSE] });
+    // The same accept again records nothing new; the queued finding's status names its fields.
+    const again = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 });
     expect(again.structured.outcome).toBe("finding_queued");
+    expect(again.structured.atlas).toMatchObject({ version: null, ...LOW_DOSE_FIELDS });
     expect(again.text).toMatch(/^ARF-0042 finding 1 was already accepted as F-1001, a checked finding, on 4 Nov 2026; nothing new was recorded\./u);
     expect(await h.review.inspectIntents(null)).toHaveLength(1);
   });
 
-  it("refuses a call without cardSha256, topicKey or numbers, naming the field, and any field its action does not take", async () => {
+  it("refuses a call without cardSha256, a topicLabel without its key, and any field its action does not take", async () => {
     const h = harness();
     const base = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256: "a".repeat(64),
       topicKey: "velmor-syndrome", numbers: [] };
-    for (const field of ["cardSha256", "topicKey", "numbers"] as const) {
-      const { [field]: _left, ...without } = base;
-      const reply = await h.call(without);
-      expect(reply.structured).toMatchObject({ ok: false, error: { code: "invalid_request" } });
-      expect(reply.text).toContain(`${field}: accept_finding needs ${field}`);
-    }
+    const { cardSha256: _left, ...without } = base;
+    const reply = await h.call(without);
+    expect(reply.structured).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(reply.text).toContain("cardSha256: accept_finding needs cardSha256");
+    // Atlas phase 3: the topic and the numbers may come from the card, so the call may leave them out; a label alone
+    // names no topic.
+    const { topicKey: _key, numbers: _numbers, ...short } = base;
+    expect(researchContributionReviewInputSchema.safeParse(short).success).toBe(true);
+    const label = await h.call({ ...short, topicLabel: "Velmor syndrome" });
+    expect(label.text).toContain("topicLabel: topicLabel goes with topicKey");
     for (const input of [
+      { action: "withdraw_finding", atlasNumber: "F-1001", version: 1, note: "Wrong.", kind: "effect" },
+      { action: "reject_finding", card: "ARF-0042", finding: 1, reason: "No.", direction: "harm" },
+      { action: "link_findings", atlasNumber: "F-1001", relation: "same_as", to: "F-1002", rationale: "x",
+        subject: "zentarine" },
+      { ...base, kind: "anecdote" },
+      { ...base, subjectType: "person" },
+      { ...base, direction: "unclear" },
+      { ...base, subject: "x".repeat(121) },
       { action: "list_findings", card: "ARF-0042" },
       { action: "inspect_finding", card: "ARF-0042", atlasNumber: "F-1001" },
       { action: "inspect_finding" },
@@ -362,7 +395,7 @@ describe("what binds a decision to the card the owner inspected", () => {
   it("refuses a stale hash, a later save, a missing card or item, and a decision already made", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const cardSha256 = await inspected(h, "ARF-0042", 2);
     const accept = (input: Record<string, unknown> = {}) => h.call({ action: "accept_finding", card: "ARF-0042",
       finding: 2, cardSha256, topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [], ...input });
@@ -379,7 +412,7 @@ describe("what binds a decision to the card the owner inspected", () => {
     expect(changed.text).toContain("changed since it was inspected");
     const fresh = await inspected(h, "ARF-0042", 2);
     const lead = await accept({ cardSha256: fresh });
-    expect(lead.text).toMatch(/^Accepted ARF-0042 finding 2 as a lead, F-1001: it has no verified basis\. Filed under Velmor syndrome \(new topic\)\./u);
+    expect(lead.text).toMatch(/^Accepted ARF-0042 finding 2 as a lead, F-1001, of kind nothing_found, direction descriptive, about zentarine \(supplement\), with 1 search that found nothing: it has no verified basis\. Filed under Velmor syndrome \(new topic\)\./u);
     expect(lead.structured.atlas).toMatchObject({ entryKind: "lead", labelAfter: "lead" });
 
     // A decision is final: rejecting the accepted item, or accepting it with other wording, conflicts.
@@ -398,7 +431,7 @@ describe("what binds a decision to the card the owner inspected", () => {
   it("rejects an item with the owner's private reason, and posts no reason to GitHub", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const reply = await h.call({ action: "reject_finding", card: "ARF-0042", finding: 2,
       reason: "Too speculative for the Atlas." });
     expect(reply.structured).toMatchObject({ ok: true, outcome: "finding_rejected" });
@@ -429,7 +462,7 @@ describe("the checks before acceptance", () => {
   it("names each problem with the numbers, the privacy screen, the topic and community evidence, and records nothing", async () => {
     await stubProviders();
     const h = harness();
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const cardSha256 = await inspected(h, "ARF-0042", 1);
     const accept = (input: Record<string, unknown>) => h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
       cardSha256, topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [TREMOR, NAUSEA], ...input });
@@ -441,8 +474,11 @@ describe("the checks before acceptance", () => {
     expect(wrong.isError).toBe(false);
     expect((await accept({ numbers: [TREMOR] })).structured.checks.numbers.map(({ code }: { code: string }) => code))
       .toEqual(["harms_missing"]);
-    expect((await accept({ topicLabel: undefined })).structured.checks.problems)
+    // A key that is not the card's and not in the Atlas needs its label; the card's key takes the card's label.
+    expect((await accept({ topicKey: "velmor-tremor", topicLabel: undefined })).structured.checks.problems)
       .toEqual([expect.objectContaining({ code: "topic_label_missing" })]);
+    expect((await accept({ topicLabel: undefined, numbers: [{ ...TREMOR, nnt: 9 }, NAUSEA] })).structured.checks.problems)
+      .toEqual([]);
     const privacy = await accept({ topicLabel: "My Velmor diagnosis, see ARF-0042" });
     expect(privacy.structured.checks.privacy).toEqual(expect.arrayContaining([
       { field: "topicLabel", reasonCode: "card_reference" },
@@ -452,15 +488,12 @@ describe("the checks before acceptance", () => {
       topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [],
       wording: "I was diagnosed with Velmor syndrome and zentarine helped me." });
     expect(edited.structured.checks.privacy).toEqual([{ field: "wording", reasonCode: "personal_narrative" }]);
-    // A finding whose only kept source is the audited comments' video is held under 4a.
-    await h.save({ ...LOW_DOSE_CARD, question: "Does zentarine help in daily life?",
+    // A card whose only finding rests on the audited comments' video is not saved as a card (owner answer 170; its
+    // finding is held apart, owner answer 173), so it never reaches the review as a card; the community_only check
+    // stays for cards stored before.
+    expect(await h.save({ ...LOW_DOSE_CARD, question: "Does zentarine help in daily life?",
       findings: [{ ...LOW_DOSE_CARD.findings[0]!, sources: ["zentarineV1"], tags: ["community_checked"] }] },
-      ["comment_audit"]);
-    const communitySha = await inspected(h, "ARF-0043", 1);
-    const held = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1, cardSha256: communitySha,
-      topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome", numbers: [LOW_DOSE] });
-    expect(held.structured.checks).toMatchObject({ community: "community_only", wouldBecome: "community_only",
-      problems: [expect.objectContaining({ code: "community_only" })] });
+      ["comment_audit"])).toMatchObject({ status: "youtube_findings_only" });
     expect(await h.review.inspectIntents(null)).toEqual([]);
     expect(await h.review.inspectCards([42, 43])).toEqual([]);
   });
@@ -551,6 +584,358 @@ describe("the checks before acceptance", () => {
     expect(payload.editedAtAcceptance).toBe(true);
     expect(payload.content.wording).toBe(wording);
     expect(payload.wordingKeys.card).not.toBe(payload.wordingKeys.accepted);
+  });
+});
+
+describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", () => {
+  it("takes the owner's topic, subject and direction over the card's, keeping the card's kind, type and numbers", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256,
+      topicKey: "velmor-tremor", topicLabel: "Velmor tremor", subject: "zentarine 20 mg", direction: "mixed",
+      confirm: true });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    expect(accepted.text).toMatch(/^Accepted ARF-0042 finding 1 as F-1001, a checked finding, of kind effect, direction mixed, about zentarine 20 mg \(supplement\), filed under Velmor tremor \(new topic\)\. The Atlas writer/u);
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ topic: { key: "velmor-tremor", label: "Velmor tremor" },
+      content: { kind: "effect", subject: "zentarine 20 mg", subjectType: "supplement", direction: "mixed",
+        numbers: [TREMOR, NAUSEA] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    const stored = await h.call({ action: "inspect_finding", atlasNumber: "F-1001" });
+    expect(stored.structured.atlas).toMatchObject({ kind: "effect", subject: "zentarine 20 mg", subjectType: "supplement",
+      direction: "mixed" });
+    expect(stored.text).toContain(". It is of kind effect, direction mixed, about zentarine 20 mg (supplement).");
+    expect(h.canonical.snapshot().claims.map(({ claimType }) => claimType)).toEqual(["effect"]);
+  });
+
+  it("asks a card saved before the fields for its topic, numbers, kind, subject, type and direction (choice 2)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(OLDER_CARD);
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 1 });
+    expect(inspect.structured.card).toMatchObject({ topic: null, items: [{ kind: null, subject: null, subjectType: null,
+      direction: null, numbers: null, searches: [] }] });
+    expect(inspect.text).toContain("\nDeclared: nothing, as a card saved before the Atlas fields.\n");
+    expect(inspect.text).toContain("Next: accept_finding needs this cardSha256, a topicKey (and topicLabel for a new " +
+      "topic), the numbers the wording gives (an empty list if none) and the kind, subject, subjectType and direction " +
+      "you declare.");
+    const cardSha256 = inspect.structured.card.cardSha256;
+    const bare = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 });
+    expect(bare.structured).toMatchObject({ ok: false, outcome: "checks_not_passed" });
+    expect(bare.structured.checks.problems.map(({ code }: { code: string }) => code))
+      .toEqual(["topic_missing", "numbers_missing", "card_fields_missing"]);
+    expect(bare.text).toContain("ARF-0042 declares no topic, as a card saved before the Atlas fields: give topicKey");
+    expect(bare.text).toContain("ARF-0042 finding 1 has no kind, subject, subjectType and direction, as its card was " +
+      "saved before the Atlas fields: declare each: kind (effect, harm, overlooked_option, correction, nothing_found or " +
+      "tested_vs_sold); subject (what it is about, as people know it, such as zentarine); subjectType (condition, " +
+      "symptom, test, treatment, supplement, product, food or practice); direction (benefit, harm, no_effect, mixed or " +
+      "descriptive).");
+    const declared = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256, topicKey: "velmor-syndrome",
+      topicLabel: "Velmor syndrome", numbers: [LOW_DOSE] };
+    const partial = await h.call({ ...declared, kind: "effect", subject: "zentarine" });
+    expect(partial.structured.checks.problems).toEqual([expect.objectContaining({ code: "card_fields_missing",
+      message: expect.stringContaining("ARF-0042 finding 1 has no subjectType and direction, as its card") })]);
+    expect(await h.review.inspectIntents(null)).toEqual([]);
+    expect(await h.review.inspectCards([42])).toEqual([]);
+    const accepted = await h.call({ ...declared, ...LOW_DOSE_FIELDS });
+    expect(accepted.text).toBe("Accepted ARF-0042 finding 1 as F-1001, a checked finding, of kind effect, direction " +
+      "no_effect, about zentarine (supplement), filed under Velmor syndrome (new topic). The Atlas writer stores it " +
+      "within about 5 minutes; nothing is public until the Atlas pages exist.");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ content: { ...LOW_DOSE_FIELDS, numbers: [LOW_DOSE] } });
+  });
+
+  it("refuses a search that found nothing with a direction, and keeps its searches only while it stays nothing_found", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.card.items[1]).toMatchObject({ kind: "nothing_found", direction: "descriptive",
+      numbers: 0, searches: [{ database: "pubmed", query: "zentarine voice tremor" }] });
+    expect(inspect.text).toContain("; searches: pubmed \"zentarine voice tremor\".");
+    const cardSha256 = inspect.structured.card.cardSha256;
+    const contradicts = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256,
+      direction: "benefit" });
+    expect(contradicts.structured.checks.problems).toEqual([expect.objectContaining({ code: "card_fields_contradict" })]);
+    expect(contradicts.text).toContain("ARF-0042 finding 2 is of kind nothing_found with direction benefit: a search " +
+      "that found nothing has direction descriptive. A study that found no difference is of kind effect or harm, with " +
+      "direction no_effect.");
+    const kept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256 });
+    expect(kept.text).toMatch(/^Accepted ARF-0042 finding 2 as a lead, F-1001, of kind nothing_found, direction descriptive, about zentarine \(supplement\), with 1 search that found nothing: /u);
+    const [stored] = await h.review.inspectIntents(["F-1001"]);
+    expect(stored!.payload).toMatchObject({ content: { kind: "nothing_found", direction: "descriptive",
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor" }] } });
+    // The same finding on another question's card, accepted as an effect: its searches are not carried.
+    h.later(1);
+    await h.save({ ...VELMOR_CARD, question: "Does zentarine ease the voice tremor of Velmor syndrome?" }, ["none", "none"]);
+    const other = await inspected(h, "ARF-0043", 2);
+    const effect = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 2, cardSha256: other,
+      kind: "effect", direction: "benefit" });
+    expect(effect.structured.outcome, effect.text).toBe("finding_queued");
+    const [changed] = await h.review.inspectIntents(["F-1002"]);
+    expect(changed!.payload).toMatchObject({ content: { kind: "effect", direction: "benefit", numbers: [] } });
+    expect(changed!.payload).not.toHaveProperty("content.searchScope");
+  });
+
+  it("screens the subject and each search's query as it screens every stored text", async () => {
+    await stubProviders();
+    const h = harness();
+    // The library's save screens every card text; acceptance also refuses a card reference, which the save does not
+    // look for, so a query naming a card is stored and then refused here.
+    const saved = await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query: "zentarine voice tremor ARF-0042" }] }] }, ["full_text_audit", "none"]);
+    expect(saved.status).toBe("saved");
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.checks.privacy).toEqual([{ field: "searchScope[0].query", reasonCode: "card_reference" }]);
+    const cardSha256 = inspect.structured.card.cardSha256;
+    const query = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256 });
+    expect(query.structured.checks.privacy).toEqual([{ field: "searchScope[0].query", reasonCode: "card_reference" }]);
+    const subject = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256,
+      subject: "zentarine, as on ARF-0042", confirm: true });
+    expect(subject.structured.checks.privacy).toEqual(expect.arrayContaining([
+      { field: "subject", reasonCode: "card_reference" }]));
+    expect(await h.review.inspectIntents(null)).toEqual([]);
+  });
+
+  it("screens the topic key the call sends, read as words, and refuses a card reference in it (review finding 4)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD);
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const accept = (topicKey: string) => h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256,
+      topicKey, topicLabel: "Velmor syndrome" });
+    expect((await accept("555_867_5309")).structured.checks.privacy)
+      .toEqual([{ field: "topicKey", reasonCode: "direct_identifier" }]);
+    expect((await accept("arf-0042")).structured.checks.privacy)
+      .toEqual([{ field: "topicKey", reasonCode: "card_reference" }]);
+    expect(await h.review.inspectIntents(null)).toEqual([]);
+    expect((await accept("velmor-syndrome")).structured.outcome).toBe("finding_queued");
+  });
+
+  it("takes no field on an open lead, and names the ones a re-check does not take", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const lead = await h.call({ action: "accept_finding", card: "ARF-0042", lead: 1, cardSha256, kind: "effect" });
+    expect(lead.structured.checks.problems).toEqual([expect.objectContaining({ code: "open_lead_fields",
+      message: "An open lead holds only its wording and whom it applies to: leave kind out." })]);
+    // An open lead takes the card's topic and stores no field.
+    const plain = await h.call({ action: "accept_finding", card: "ARF-0042", lead: 1, cardSha256 });
+    expect(plain.text).toMatch(/^Accepted ARF-0042 open lead 1 as a lead, F-1001: an open lead of the card\. Filed under Velmor syndrome \(new topic\), the card's topic\./u);
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    for (const field of ["kind", "subject", "subjectType", "direction", "searchScope"]) {
+      expect(intent!.payload, field).not.toHaveProperty(`content.${field}`);
+    }
+    // Nor does a correction of it take one.
+    expect((await h.promote()).result.status).toBe("promoted");
+    const corrected = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, kind: "effect",
+      note: "Declared as an effect." });
+    expect(corrected.structured.checks.problems).toEqual(expect.arrayContaining([expect.objectContaining({
+      code: "open_lead_fields", message: "An open lead holds only its wording and whom it applies to: leave kind out." })]));
+
+    const r = harness();
+    await acceptedLowDose(r);
+    await r.save(DOI_CARD, ["bounded_absence"]);
+    const recheckSha = await inspected(r, "ARF-0043", 1);
+    const recheck = await r.call({ action: "accept_finding", card: "ARF-0043", finding: 1, cardSha256: recheckSha,
+      direction: "benefit" });
+    expect(recheck.text).toMatch(/^Recorded ARF-0043 finding 1 as a re-check of F-1001/u);
+    expect(recheck.text).toContain(" F-1001 keeps its own kind, subject, subject type and direction; change them with " +
+      "edit_finding.");
+  });
+
+  it("makes a field-only correction with eraseWording a new version, on one version or more (review finding 1)", async () => {
+    await stubProviders();
+    const h = harness();
+    // A subject that names a person, as the card declared it.
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, subject: "Dr Roe's zentarine protocol" }] });
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    expect((await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 })).structured.outcome)
+      .toBe("finding_queued");
+    expect((await h.promote()).result.status).toBe("promoted");
+    // On a finding with one version: the new subject makes version 2, and version 1's wording is erased behind it.
+    const one = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, subject: "zentarine",
+      note: "The subject named a person.", eraseWording: true });
+    expect(one.structured.outcome, one.text).toBe("finding_queued");
+    expect(one.text).toMatch(/^Queued a correction of F-1001: version 2, with your note, which the Atlas dates, of kind effect, direction no_effect, about zentarine \(supplement\); then the wording of version 1 is erased \(decision 7\)/u);
+    const queued = await h.review.inspectIntents(["F-1001"]);
+    expect(queued.map(({ intentKind }) => intentKind)).toEqual(["accept", "revise", "erase"]);
+    expect(queued[1]!.payload).toMatchObject({ kind: "revise", version: 1, content: { subject: "zentarine" } });
+    expect(queued[2]!.payload).toMatchObject({ kind: "erase", version: 2, scope: "earlier_versions" });
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect((await h.promote()).result.status).toBe("promoted");
+    const subjects = () => h.canonical.snapshot().versions.map(({ versionNumber, content }) => [versionNumber, content.subject]);
+    expect(subjects()).toEqual([[1, ATLAS_ERASED_TEXT], [2, "zentarine"]]);
+
+    // On a finding with more versions, the same call makes the next version and erases every one before it.
+    const other = harness();
+    await other.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, subject: "Dr Roe's zentarine protocol" }] });
+    const otherSha = await inspected(other, "ARF-0042", 1);
+    await other.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256: otherSha });
+    expect((await other.promote()).result.status).toBe("promoted");
+    await other.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      whatWouldChangeIt: "A larger trial of 5 mg." });
+    expect((await other.promote()).result.status).toBe("promoted");
+    const two = await other.call({ action: "edit_finding", atlasNumber: "F-1001", version: 2, subject: "zentarine",
+      note: "The subject named a person.", eraseWording: true });
+    expect(two.text).toMatch(/^Queued a correction of F-1001: version 3, /u);
+    expect((await other.review.inspectIntents(["F-1001"])).map(({ intentKind }) => intentKind))
+      .toEqual(["accept", "revise", "revise", "erase"]);
+    expect((await other.promote()).result.status).toBe("promoted");
+    expect((await other.promote()).result.status).toBe("promoted");
+    expect(other.canonical.snapshot().versions.map(({ versionNumber, content }) => [versionNumber, content.subject]))
+      .toEqual([[1, ATLAS_ERASED_TEXT], [2, ATLAS_ERASED_TEXT], [3, "zentarine"]]);
+  });
+
+  it("takes the queries out of a general version made with eraseWording, keeping each search's database (review finding 2)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query: "zentarine voice tremor Jane Roe case" }] }] }, ["full_text_audit", "none"]);
+    const cardSha256 = await inspected(h, "ARF-0042", 2);
+    expect((await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256 })).structured.outcome)
+      .toBe("finding_queued");
+    expect((await h.promote()).result.status).toBe("promoted");
+    const general = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
+      wording: "No trial measured whether zentarine eases the voice tremor of Velmor syndrome.",
+      note: "Reworded in general terms.", eraseWording: true });
+    expect(general.structured.outcome, general.text).toBe("finding_queued");
+    expect(general.text).toContain(` Version 2 keeps its searches' databases, and their queries read as ` +
+      `"${ATLAS_ERASED_TEXT}" as an erased version's do: a query can identify a person as a wording can.`);
+    const revise = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise")!;
+    expect(revise.payload).toMatchObject({ content: { kind: "nothing_found",
+      searchScope: [{ database: "pubmed", query: ATLAS_ERASED_TEXT }] } });
+    expect(JSON.stringify(revise.payload)).not.toContain("Jane Roe");
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect(h.canonical.snapshot().versions.map(({ content }) => content.searchScope)).toEqual([
+      [{ database: "pubmed", query: ATLAS_ERASED_TEXT }], [{ database: "pubmed", query: ATLAS_ERASED_TEXT }]]);
+    expect(JSON.stringify(h.canonical.snapshot())).not.toContain("Jane Roe");
+    // A wording fix without eraseWording keeps the queries as the final check bound them.
+    const plain = harness();
+    await plain.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const plainSha = await inspected(plain, "ARF-0042", 2);
+    await plain.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256: plainSha });
+    expect((await plain.promote()).result.status).toBe("promoted");
+    const fixed = await plain.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      wording: "No trial measured whether zentarine eases the voice tremor of Velmor syndrome." });
+    expect(fixed.text).not.toContain("queries read as");
+    expect((await plain.review.inspectIntents(["F-1001"])).at(-1)!.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor" }] } });
+  });
+
+  it("carries a search's date range from the card to the Atlas, and through an erasure (review finding 8)", async () => {
+    await stubProviders();
+    const h = harness();
+    const range = { start: "2015-01-01", end: "2026-10-22" };
+    await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query: "zentarine voice tremor", date_range: range }] }] }, ["full_text_audit", "none"]);
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.card.items[1].searches)
+      .toEqual([{ database: "pubmed", query: "zentarine voice tremor", dateRange: range }]);
+    expect(inspect.text).toContain("; searches: pubmed \"zentarine voice tremor\" (2015-01-01 to 2026-10-22).");
+    await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256: inspect.structured.card.cardSha256 });
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor", dateRange: range }] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    // A general version made with eraseWording keeps the range with the database (review finding 2).
+    await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
+      wording: "No trial measured the voice tremor of Velmor syndrome.", note: "General.", eraseWording: true });
+    const revise = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise")!;
+    expect(revise.payload).toMatchObject({ content: {
+      searchScope: [{ database: "pubmed", query: ATLAS_ERASED_TEXT, dateRange: range }] } });
+  });
+
+  it("saves and accepts a search for PubMed records by their numbers, which name records, not people (review finding 11)", async () => {
+    await stubProviders();
+    const h = harness();
+    const query = "zentarine AND (40123456[uid] OR 40123457[pmid])";
+    const saved = await h.save({ ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!, { ...VELMOR_CARD.findings[1]!,
+      searches: [{ database: "pubmed", query }] }] }, ["full_text_audit", "none"]);
+    expect(saved.status).toBe("saved");
+    const inspect = await h.call({ action: "inspect_finding", card: "ARF-0042", finding: 2 });
+    expect(inspect.structured.checks.privacy).toEqual([]);
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2,
+      cardSha256: inspect.structured.card.cardSha256 });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect(intent!.payload).toMatchObject({ content: { searchScope: [{ database: "pubmed", query }] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    // The same number in a wording is read as before.
+    const edit = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, correction: false,
+      wording: "No trial of zentarine for the voice tremor was found, as 40123456[uid] showed." });
+    expect(edit.structured.checks.privacy).toEqual([{ field: "wording", reasonCode: "direct_identifier" }]);
+  });
+
+  it("corrects a finding's fields after acceptance, all four or none, and keeps its searches only as nothing_found", async () => {
+    await stubProviders();
+    const h = harness();
+    await acceptedLowDose(h);
+    const direction = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, direction: "benefit",
+      note: "The trial's own analysis favours 5 mg." });
+    expect(direction.text).toBe("Queued a correction of F-1001: version 2, with your note, which the Atlas dates, of " +
+      "kind effect, direction benefit, about zentarine (supplement). The Atlas writer stores it within about 5 minutes.");
+    const [, revise] = await h.review.inspectIntents(["F-1001"]);
+    expect(revise!.payload).toMatchObject({ kind: "revise", content: { ...LOW_DOSE_FIELDS, direction: "benefit" } });
+    expect((await h.promote()).result.status).toBe("promoted");
+
+    // A finding accepted before the fields keeps none of them until a correction declares all four.
+    const phase2 = prepareAtlasFindingIntent({
+      schema: "askrigor.atlas-finding-intent.v1", kind: "accept", entryKind: "finding", leadOrigin: null,
+      editedAtAcceptance: false, topic: { key: "velmor-syndrome", label: null },
+      question: "Does zentarine cause nausea in Velmor syndrome?",
+      content: { wording: "Nausea affected 12 of 120 adults on zentarine 20 mg against 6 of 120 on placebo over 12 weeks.",
+        appliesTo: "Adults with Velmor syndrome", certainty: "low", usualAnswer: "It is well tolerated.",
+        whyNotUsual: "Quick answers call it well tolerated.", whatWouldChangeIt: "A longer trial.", whoElse: null,
+        whatItChanges: null, tags: [], verifiedBases: ["full_text_audit"], numbers: [] },
+      sources: [{ kind: "study", identifiers: [{ scheme: "doi", value: "10.0000/synthetic-velmor-b" }], check: {
+        provider: "crossref", title: "An invented nausea report", publishedYear: 2025, retractionStatus: "none_found",
+        notices: [], ownerConfirmed: false, envelopeSha256: sha256("phase-2-envelope"),
+        checkedAt: "2026-11-04T09:00:00.000Z" } }],
+      wordingKeys: { card: sha256("phase-2-card"), accepted: sha256("phase-2-card") },
+      researchCheckedOn: "2026-10-30",
+      madeWith: { askrigorVersion: "0.1.0", build: "0123abc", protocols: PROTOCOLS, depth: "standard", status: "ready" },
+    });
+    const decided = await h.review.decide({ cardNumber: 900, itemKind: "finding", itemNumber: 1, decision: "accepted",
+      cardSha256: sha256("phase-2-card-record"), ownerReason: null, decidedAt: "2026-11-04T09:00:00.000Z",
+      intent: { intentId: deterministicUuid("phase-2-accept"), ...phase2 }, recheckedPublicNumber: null });
+    expect(decided.publicNumber).toBe("F-1002");
+    expect((await h.promote()).result.status).toBe("promoted");
+    const some = await h.call({ action: "edit_finding", atlasNumber: "F-1002", version: 1, kind: "harm",
+      note: "Declared as a harm." });
+    expect(some.structured.checks.problems).toEqual([expect.objectContaining({ code: "card_fields_missing",
+      message: "F-1002 has no subject, subjectType and direction: declare each: subject (what it is about, as people " +
+        "know it, such as zentarine); subjectType (condition, symptom, test, treatment, supplement, product, food or " +
+        "practice); direction (benefit, harm, no_effect, mixed or descriptive)." })]);
+    const all = await h.call({ action: "edit_finding", atlasNumber: "F-1002", version: 1, kind: "harm",
+      subject: "zentarine", subjectType: "supplement", direction: "harm", correction: false });
+    expect(all.text).toMatch(/^Queued a wording fix of F-1002: version 2, of kind harm, direction harm, about zentarine \(supplement\)\./u);
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect((await h.call({ action: "inspect_finding", atlasNumber: "F-1002" })).structured.atlas)
+      .toMatchObject({ version: 2, kind: "harm", direction: "harm" });
+
+    // A search that found nothing keeps its searches through a wording fix, and loses them as another kind.
+    h.later(1);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
+    const velmor = await inspected(h, "ARF-0043", 2);
+    expect((await h.call({ action: "accept_finding", card: "ARF-0043", finding: 2, cardSha256: velmor }))
+      .structured.outcome).toBe("finding_queued");
+    expect((await h.promote()).result.status).toBe("promoted");
+    await h.call({ action: "edit_finding", atlasNumber: "F-1003", version: 1,
+      appliesTo: "Adults with Velmor syndrome and a voice tremor, in trials so far", correction: false });
+    const fix = (await h.review.inspectIntents(["F-1003"])).at(-1)!;
+    expect(fix.payload).toMatchObject({ kind: "revise", content: { kind: "nothing_found",
+      searchScope: [{ database: "pubmed", query: "zentarine voice tremor" }] } });
+    expect((await h.promote()).result.status).toBe("promoted");
+    await h.call({ action: "edit_finding", atlasNumber: "F-1003", version: 2, kind: "effect", direction: "benefit",
+      note: "A trial has since measured the voice tremor." });
+    const effect = (await h.review.inspectIntents(["F-1003"])).at(-1)!;
+    expect(effect.payload).toMatchObject({ kind: "revise", content: { kind: "effect", direction: "benefit" } });
+    expect(effect.payload).not.toHaveProperty("content.searchScope");
   });
 });
 
@@ -653,7 +1038,7 @@ describe("list_findings", () => {
     const h = harness();
     await h.save(DOI_CARD, ["none"]);
     h.later(1);
-    await h.save(VELMOR_CARD, ["full_text_audit.comment_audit", "none"]);
+    await h.save(VELMOR_CARD, ["full_text_audit", "none"]);
     const listed = await h.call({ action: "list_findings" });
     expect(listed.structured.findings).toMatchObject({ refused: [], waitingForWriter: 0, nextCursor: null,
       unreadableCards: [] });
@@ -662,7 +1047,8 @@ describe("list_findings", () => {
     expect(listed.structured.findings.cards[0].items.map(({ item, number, wouldBecome }: Record<string, unknown>) =>
       `${item} ${number} ${wouldBecome}`)).toEqual(["finding 1 checked", "finding 2 lead", "lead 1 lead"]);
     expect(listed.structured.findings.cards[1].items).toEqual([{ item: "finding", number: 1,
-      text: DOI_CARD.findings[0]!.claim, certainty: "low", wouldBecome: "lead", recheckOf: null }]);
+      text: DOI_CARD.findings[0]!.claim, certainty: "low", kind: "effect", wouldBecome: "lead", recheckOf: null }]);
+    expect(listed.text).toContain(`  Finding 1: ${DOI_CARD.findings[0]!.claim} (low, effect) -> a lead only`);
     expect(listed.text.split("\n")[0]).toBe(`ARF-0043 (beyond a quick answer), saved 2026-11-04: ${VELMOR_CARD.question}`);
     // A decided item leaves its card's list.
     await h.call({ action: "reject_finding", card: "ARF-0043", lead: 1, reason: "Too vague." });

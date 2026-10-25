@@ -12,10 +12,11 @@ AskRigor has two research-use modes:
   finished research answer's findings card is saved to AskRigor's private
   findings library for review (owner decision Q11, 2026-09-30; see
   `docs/privacy-data-map.md`), unless the AI declares its findings personal
-  only (owner answer 156a, 2026-10-22). Findings AskRigor's owner accepts may
-  be published in AskRigor's public Atlas, written without the person (owner
-  answers 159 and 160b, 2026-10-22; built, not yet released). This is the free
-  product.
+  only (owner answer 156a, 2026-10-22). Under notice v4 (owner answer 171,
+  2026-10-25; built, not yet released), free cards publish on save in AskRigor's
+  public Atlas, written without the person and marked "Not checked by supervisors
+  yet" until the owner reviews them. Signed-in people can vote and comment.
+  This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. The answer's offer to save its findings ends with "Saved findings
@@ -30,56 +31,55 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v3-2026-10-22` (owner answers 159, 1b and 7,
-and 160b, 2026-10-22; built, not yet released, its sentences waiting for the
-owner's word-for-word approval). The server returns the complete notice from
-`RESEARCH_USE_NOTICE`. Free mode activates only when all four versioned
-agreement fields are literal `true`. Silence, inferred consent, a different
-notice version, or a partially checked agreement is rejected.
+The version is `free-contributor-v4-2026-10-25` (owner answer 171,
+2026-10-25; exact wording approved, built, not yet released). The server returns
+the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only when
+all four versioned agreement fields are literal `true`. Silence, inferred
+consent, a different notice version, or a partially checked agreement is rejected.
 
-The notice says, in eight sentences: what AskRigor learns from free research is
-saved for its research library; that includes deidentified structured research
-progress and, for each finished research answer whose findings would help
-other people, a findings card; what is never saved; that saved research is
-reviewed and gains no authority by being saved or repeated; that findings
-AskRigor's owner accepts may be published in AskRigor's public Atlas, written
-without the person; that asking to delete a findings card removes everything
-that ties it to the person, with no reason needed; that a published finding
-stays while it is valid, is corrected or taken down when someone shows it is
-wrong, and is rewritten or removed if it could identify anyone; and what paid
-private access saves. The privacy page and the terms say the same three new
-points, and the paid save offer the first.
+Version 4 keeps every other sentence of v3 and makes exactly these three changes:
+
+> Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.
+
+> If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.
+
+> An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.
+
+The privacy page and terms distinguish free cards published on save from paid
+private findings published only after acceptance, and give the approved votes
+and comments wording. The paid save offer keeps its own acceptance sentence.
+The pages' effective dates are left for the release.
 
 The first version, `free-contributor-v1-2026-09-01`, did not mention findings
 cards; the second, `free-contributor-v2-2026-09-30`, did not mention the public
-Atlas or what deleting a card removes. A free account that accepted either
-inspects as `UNENROLLED`, and research tools refuse it with
-`RESEARCH_ACCESS_REQUIRED`, until it accepts the current version. Migration
-`0011_research_use_notice_v2` let `research_use_accounts` hold v1 or v2;
-migration `0016_research_use_notice_v3` replaces that check, under the same
-name, with one that admits v1, v2 and v3. The one-shot admin `migrate` applies
-it at release, before an image that offers v3 serves.
+Atlas or what deleting a card removes. The third,
+`free-contributor-v3-2026-10-22`, described publication after acceptance. An
+account that accepted any of them inspects as `UNENROLLED`, and research tools
+refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v4. Migration
+`0020_research_use_notice_v4` widens the same constraint as 0011 and 0016 to
+admit all four versions, safely on repeated runs. The one-shot admin `migrate`
+applies it before an image offering v4 serves.
 
-An image that reads only v1 and v2 fails the access check of an account whose
-row carries v3, so an image rollback below v3 first runs
-`infra/living-evidence-production/research-use-notice-v3-hold.sql`. It copies
-each v3 account row, unchanged, into `research_use_notice_v3_hold`, which only
-the migrator can read, and marks the account revoked: the earlier image reads
-that state, and the person leaves it by accepting v2, that image's notice, or
-by activating an entitled paid private account. `research-use-notice-v3-restore.sql`,
-run once an image that reads v3 serves again, puts back each account still
-exactly in that state and empties the table; an account the person changed
-meanwhile keeps its newer row and is asked to accept v3 as usual. The hold is
-not a revocation: pending proposals stay pending, and neither script changes
-an entitlement, a proposal or an Atlas row. The v2 scripts
-(`research-use-notice-v2-{hold,restore}.sql`) do the same for v2 rows, for an
-image that reads only v1. The order, with migration 0017, is in
-`infra/living-evidence-production/README.md`.
+An image that reads only v1 to v3 fails the access check of an account whose
+row carries v4, so an image rollback below v4 first runs
+`infra/living-evidence-production/research-use-notice-v4-hold.sql`. It copies
+each v4 account row unchanged into `research_use_notice_v4_hold`, which only
+the migrator can read, and marks the account revoked. The person can accept
+that image's notice (v3) or activate an entitled paid private account.
+`research-use-notice-v4-restore.sql`, run only once an image reading v4 serves
+again, restores each account still exactly in the held state and empties the
+table. An account changed meanwhile keeps its newer row and is asked to accept
+v4 as usual. The hold is not a revocation: pending proposals stay pending;
+entitlements, proposals, Atlas rows and account settings stay unchanged.
+The v3 pair remains available for a target reading only v1 and v2, and the v2
+pair for one reading only v1. The runbook gives the hold/image/hold and
+migrate/image/restore order, and the Docker acceptance is
+`npm run contributor-access:notice-v4-rollback-acceptance`.
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,
-`register_plain_answer`, `set_plain_answer_note`, and
-`set_detailed_lesson_reports`. It is declared
+`register_plain_answer`, `set_plain_answer_note`, `set_detailed_lesson_reports`,
+and the dev-only `set_findings_save`. It is declared
 as a write to MCP clients. Revocation blocks later research calls and withdraws
 every still-pending proposal from that account. It does not silently rewrite an
 already accepted deidentified canonical record.
@@ -129,6 +129,23 @@ lessons repository. A lesson carrying one without a research account, or with
 the setting off, is refused with `detailed_report_refused`
 (`detailed_reports_off`) and nothing is stored; the model sends the lesson again
 without it. The data flow is in `docs/privacy-data-map.md`.
+
+## Findings-card saving for dev accounts
+
+Owner answer 171, default 5: findings-card saving is on by default. An active dev account listed in
+`ASKRIGOR_DEV_ACCOUNT_KEYS` can turn it off with `manage_research_access` action `set_findings_save` and
+`findingsSave: false`, and back on with `findingsSave: true`. Other accounts receive `dev_account_required` and
+their setting stays as it was. `inspect` shows `findingsSave` only to an active dev account. Migration
+`0023_research_findings_save_switch` stores only this boolean choice in `research_use_accounts.findings_save`;
+saving or revoking the account preserves it. The research-access role can update this setting alongside the
+other account settings and the columns used for enrollment and revocation, with no update right on the account
+key or creation time.
+
+With saving off, a free contributor's final check still checks the findings card, caveats and answer as before,
+but skips the card save and reports "not saved: this dev account's card saving is off". The regression harness
+turns the setting off before a run and on after it, and the release record shows both. The setting does not change
+paid-private saves or research-map and source-analysis contributions. This adds no connector tool; the catalog
+stays at 33.
 
 ## Identity boundary
 
@@ -186,6 +203,13 @@ hash, deidentified-query hash, formal-provider constraints, and a basic obvious
 contact/credential screen run before storage. These deterministic checks reduce
 risk but do not prove complete deidentification; this is one reason proposals
 remain pending review.
+
+The contact screen reads the free field names under `receipts[].details` as well
+as values. Its street-address pattern is an English street-suffix list, so it
+misses addresses written in other languages and also refuses some ordinary
+research text, such as "900 mg St. John's wort", "12 month ln ratio" or
+"2 patients seen by dr". The refusal names the pattern that matched, so the
+sender can reword.
 
 A proposal these checks refuse comes back with every problem found (owner
 question 127): each with its field path, its rule, what the contract expects
@@ -335,12 +359,22 @@ of 33 tools. They are flat fields with one rule set per action:
   (`topicKey`, with `topicLabel` for a new topic) and its numbers. A finding
   with no verified basis is accepted as a lead (3b). A card finding whose
   normalized question and claim match a current finding's records a re-check of
-  that finding instead.
+  that finding instead. Atlas phase 3 (built, not yet released; design
+  `docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`, section 5): the
+  card's topic, numbers block, kind, subject, subject type and direction are
+  used by default, and `topicKey`, `numbers`, `kind`, `subject`, `subjectType`
+  and `direction` change them; a card saved before these fields needs all of
+  them (`topic_missing`, `numbers_missing`, `card_fields_missing`), and a search
+  that found nothing has direction `descriptive` (`card_fields_contradict`). Its
+  searches come only from the card and stay only while its kind stays
+  `nothing_found`. An open lead takes none of the four; a re-check changes none.
 - `edit_finding`: before acceptance, an accept with the owner's wording
   (`wording`, `appliesTo`, `whyNotUsual`, `whatWouldChangeIt`, `question`,
   `sources`, `numbers`); after it, with `atlasNumber` and `version`, a
   correction with a public dated `note`, or, with `correction: false`, a wording
-  fix (5a). With `eraseWording: true` (decision 7, when the owner judges the
+  fix (5a); either may declare or change the four fields, and a version holds
+  all four or none. With
+  `eraseWording: true` (decision 7, when the owner judges the
   wording could identify a person) the new wording becomes a new general
   version and every earlier version's wording is erased; sent with no new
   wording, it erases the earlier versions' wording if any is left.
@@ -364,7 +398,29 @@ of 33 tools. They are flat fields with one rule set per action:
   accepted from the cards stay while they are valid. The App cannot delete an
   issue, so the reply links each stripped issue for the owner to delete; the
   same call again answers `card_forgotten` once GitHub answers 404 or 410 for
-  every one, and `card_forget_waiting_for_owner` until then.
+  every one, and `card_forget_waiting_for_owner` until then. It also deletes
+  the cards' held YouTube findings (below).
+- Held YouTube findings (owner answer 173, built, not yet released): the
+  findings drawn from YouTube comments that a saved card leaves out are held
+  apart from the card for the owner's review; so are those of a card whose
+  findings all rest on them, which is not saved as a card, with its question and
+  topic. They are kept until deleted (the owner's rule, 25 October: "don't
+  delete the summaries unless YT tells us to do that"): nothing deletes one by
+  its age. `inspect_finding` on a card lists its held findings
+  (`card.heldYoutubeFindings`) with the day each was saved, and
+  `list_youtube_findings` lists those with no card (`heldWithoutCard`), newest
+  first, 25 saves a page (`cursor` with its `nextCursor` for the next); they are
+  never items, so no decision takes one. `delete_youtube_findings` with `card`
+  deletes a card's, and with `cardSha256` a save's with no card;
+  `delete_all_youtube_findings` deletes every one at once, for the day YouTube
+  asks, and answers `needs_confirmation`, deleting nothing, unless the call says
+  `confirm: true`. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
+  moves every finding drawn from YouTube comments of cards stored before into
+  the held findings, each with its own save's time, and rewrites the card and
+  its later saves as saved today without them; it changes nothing on a card
+  whose findings all rest on YouTube comments or where a decision names a
+  finding the move would remove or renumber, and lists the GitHub edit histories
+  for the owner to clear.
 
 Each decision on a card item carries the `cardSha256` from its inspect: when
 the card or its later saves changed since, the call answers `card_changed` and
@@ -477,7 +533,18 @@ security-definer functions, `inspect_atlas_cards`, `decide_atlas_card_item`,
 `forget_atlas_cards` (used by `forget_card`), and still no direct table
 privilege. The writer-only `erase_atlas_wording()` and its helpers are not
 granted to it. The privacy data map's "Atlas findings: owner review" section
-lists what each holds.
+lists what each holds. Migration `0018_atlas_card_fields.sql` (Atlas phase 3)
+adds three nullable columns to `atlas_finding_versions` (kind, subject type and
+the searches that found nothing), and new bodies for `atlas_redaction_permits`
+and `erase_atlas_wording` that erase the searches' queries too; the review
+role's grants are unchanged. Migration `0019_held_youtube_findings.sql` (owner
+answer 173) adds the private `held_youtube_findings` table and six
+security-definer functions: the research-access role may execute
+`hold_youtube_findings` (at a save) and `purge_expired_held_youtube_findings`;
+the review role those two, `inspect_held_youtube_findings`,
+`inspect_cardless_held_youtube_findings`, `delete_held_youtube_findings` and
+`delete_cardless_held_youtube_findings`. Neither has a direct privilege on the
+table, and the reader's default-privilege SELECT on it is removed.
 
 ## Runtime and failure behavior
 

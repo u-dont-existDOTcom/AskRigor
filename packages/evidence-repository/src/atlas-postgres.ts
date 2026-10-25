@@ -310,6 +310,11 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
     tags: AtlasVersionContent["tags"];
     verified_bases: AtlasVersionContent["verifiedBases"];
     numbers: AtlasVersionContent["numbers"];
+    kind: NonNullable<AtlasVersionContent["kind"]> | null;
+    program_or_exposure: string | null;
+    subject_type: NonNullable<AtlasVersionContent["subjectType"]> | null;
+    direction: NonNullable<AtlasVersionContent["direction"]> | "unclear";
+    search_scope: NonNullable<AtlasVersionContent["searchScope"]> | null;
     research_checked_on: string;
     made_with: AtlasMadeWith;
     card_wording_key: string | null;
@@ -320,7 +325,8 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
     `SELECT version.finding_id, version.claim_version_id, version.version_number, claimed.status,
             claimed.normalized_assertion, claimed.population, version.certainty, version.usual_answer,
             version.why_not_usual, version.what_would_change_it, version.who_else, version.what_it_changes,
-            version.tags, version.verified_bases, version.numbers,
+            version.tags, version.verified_bases, version.numbers, version.kind, claimed.program_or_exposure,
+            version.subject_type, claimed.direction, version.search_scope,
             to_char(version.research_checked_on, 'YYYY-MM-DD') AS research_checked_on, version.made_with,
             version.card_wording_key::text, version.accepted_wording_key::text, version.edited_at_acceptance,
             EXISTS (
@@ -375,6 +381,13 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
           tags: version.tags,
           verifiedBases: version.verified_bases,
           numbers: version.numbers,
+          // Atlas phase 3: a field the version did not declare is left out, as the intent left it out; a version with
+          // no direction holds claim_versions' unclear.
+          ...(version.kind === null ? {} : { kind: version.kind }),
+          ...(version.program_or_exposure === null ? {} : { subject: version.program_or_exposure }),
+          ...(version.subject_type === null ? {} : { subjectType: version.subject_type }),
+          ...(version.direction === "unclear" ? {} : { direction: version.direction }),
+          ...(version.search_scope === null ? {} : { searchScope: version.search_scope }),
         },
         researchCheckedOn: version.research_checked_on,
         madeWith: version.made_with,
@@ -426,9 +439,10 @@ async function executeAtlasPlan(client: PoolClient, plan: AtlasWritePlan, applie
     );
   }
   if (plan.claim !== null) {
+    // Atlas phase 3: the claim type the first version's kind gives (other without one, as in phase 2).
     await client.query(
-      "INSERT INTO claims (claim_id, question_id, claim_type) VALUES ($1, $2, 'other')",
-      [plan.claim.claimId, plan.claim.questionId],
+      "INSERT INTO claims (claim_id, question_id, claim_type) VALUES ($1, $2, $3)",
+      [plan.claim.claimId, plan.claim.questionId, plan.claim.claimType],
     );
   }
   if (plan.finding !== null) {
@@ -471,31 +485,37 @@ async function executeAtlasPlan(client: PoolClient, plan: AtlasWritePlan, applie
     );
   }
   for (const version of plan.versions) {
+    // Atlas phase 3: the subject is the claim's program_or_exposure and the direction its own column, which 0001's
+    // claim model already has; a version without them keeps NULL and unclear, as in phase 2.
     await client.query(
       `INSERT INTO claim_versions
          (version_id, claim_id, created_by_run_id, normalized_assertion, population, program_or_exposure,
           comparator, outcome, horizon, setting, direction, inference_type, capability_state,
           uncertainty_and_limitations, status, supersedes_claim_version_id)
-       VALUES ($1, $2, $3, $4, $5, NULL, NULL, NULL, NULL, NULL, 'unclear', 'unknown', $6, '[]'::jsonb, $7, $8)`,
+       VALUES ($1, $2, $3, $4, $5, $9, NULL, NULL, NULL, NULL, $10, 'unknown', $6, '[]'::jsonb, $7, $8)`,
       [
         version.claimVersionId, version.claimId, runId, version.content.wording, version.content.appliesTo,
         version.content.verifiedBases.length > 0 ? "can_support" : "uncertain", version.status,
-        version.supersedesClaimVersionId,
+        version.supersedesClaimVersionId, version.content.subject ?? null, version.content.direction ?? "unclear",
       ],
     );
+    // And the kind, the subject type and the searches that found nothing, in migration 0018's columns.
     await client.query(
       `INSERT INTO atlas_finding_versions
          (claim_version_id, finding_id, version_number, certainty, usual_answer, why_not_usual, what_would_change_it,
           who_else, what_it_changes, tags, verified_bases, numbers, research_checked_on, made_with, card_wording_key,
-          accepted_wording_key, edited_at_acceptance)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14::jsonb, $15, $16, $17)`,
+          accepted_wording_key, edited_at_acceptance, kind, subject_type, search_scope)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14::jsonb, $15, $16, $17,
+               $18, $19, $20::jsonb)`,
       [
         version.claimVersionId, version.findingId, version.versionNumber, version.content.certainty,
         version.content.usualAnswer, version.content.whyNotUsual, version.content.whatWouldChangeIt,
         version.content.whoElse, version.content.whatItChanges, JSON.stringify(version.content.tags),
         JSON.stringify(version.content.verifiedBases), JSON.stringify(version.content.numbers),
         version.researchCheckedOn, JSON.stringify(version.madeWith), version.cardWordingKey,
-        version.acceptedWordingKey, version.editedAtAcceptance,
+        version.acceptedWordingKey, version.editedAtAcceptance, version.content.kind ?? null,
+        version.content.subjectType ?? null,
+        version.content.searchScope === undefined ? null : JSON.stringify(version.content.searchScope),
       ],
     );
   }

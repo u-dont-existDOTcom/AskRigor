@@ -41,11 +41,20 @@ only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
-permissions documented below. The research-review role can execute only the
-three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012) and the five Atlas review functions of migration 0017 (inspect
-cards, decide a card item, record an intent, inspect intents, and forget
-cards), and has no direct table or sequence privileges. The
+permissions documented below, and executes one held YouTube findings function
+of migration 0019 (hold) and the nine Atlas participation functions
+of migration 0022 (a participant's own state, display name, votes, comments,
+reports, ending their sessions everywhere, checking a session, and deleting
+everything they hold). The research-review role can
+execute only the three bounded owner-review functions (inspect, decide, and the
+review context of migration 0012), the five Atlas review functions of migration
+0017 (inspect cards, decide a card item, record an intent, inspect intents, and
+forget cards), the six held YouTube findings functions of migration 0019 (hold,
+two reads, two deletions and deleting them all), the six publication functions of migration
+0021 (inspect, publish, decide, edit, withdraw, and erase the texts of the
+Atlas's publications) and the five moderation functions of migration 0022 (list
+comments, moderate a comment, stop or restore a commenter, and set and read the
+home page's picks), and has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -87,10 +96,13 @@ placed in Compose.
    grants only its documented tables and operations. The research-access role
    may select/insert/update `research_use_accounts`, select entitlements,
    select/insert pending proposals, and execute the bounded pending-withdrawal
-   function. It cannot grant entitlements, review proposals, or write canonical
+   function and, from migration 0022, the nine Atlas participation functions.
+   It cannot grant entitlements, review proposals, or write canonical
    evidence.
    Verify migration identity and query the catalog as the migrator to prove
-   askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view,
+   askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view
+   except `held_youtube_findings` (migration 0019) and the notice rollback hold
+   tables, which only the migrator reads,
    has no INSERT/UPDATE/DELETE/TRUNCATE privileges, and defaults to read-only
    transactions. Separately connect as `askrigor_evidence_gap_intake` and prove
    that it can select/insert/update the intake table but cannot delete from it,
@@ -159,7 +171,8 @@ schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
 mode-0600 runtime environment. The review URL must use
 `askrigor_research_review`, not the access role or migrator. It can call only
 the hash-bound inspect/decide functions, the read-only review context
-function and the five Atlas review functions, and cannot read tables directly.
+function, the five Atlas review functions and the six held YouTube findings
+functions, and cannot read tables directly.
 
 Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
 a plain answer before research, and their checked answers end with a note
@@ -192,14 +205,22 @@ Owner question 154 (2026-10-21): an account's connector lessons carry a
 detailed report only when the user turned detailed lesson reports on. Migration
 `0015_research_detailed_lesson_reports` adds each account's setting
 (`detailed_lesson_reports`, off by default; never a report, which is stored only
-in the private lessons repository); the access role's existing table grant
+in the private lessons repository); the access role's account-settings grant
 covers it. Apply it with the one-shot admin `migrate` before an image that
 reads it serves, since the access store reads that column on every research
 call. An earlier image does not read it and accepts no detailed report, so a
 rollback needs no step.
 
-Owner answers 159 (1b and 7) and 160b (2026-10-22): the free contributor
-notice's third version, `free-contributor-v3-2026-10-22`, says that findings
+Owner answer 171, default 5: migration `0023_research_findings_save_switch` adds the account's `findings_save`
+setting, on by default. Only a dev account may change it through `manage_research_access`. The access role's
+column-level UPDATE grant covers this setting, the plain-answer note, detailed lesson reports, and the columns
+used for enrollment and revocation; it cannot update the account key or creation time. Apply the migration and
+reprovision the access role before serving the image that reads the setting. The regression harness turns saving
+off before a run and on afterwards, recording both. An earlier image ignores the setting, so rollback to it
+requires pausing regressions to avoid saving their cards again; the column and choice can remain in place.
+
+Earlier notice v3 (owner answers 159, 1b and 7, and 160b, 2026-10-22): the free
+contributor notice's third version, `free-contributor-v3-2026-10-22`, says that findings
 the owner accepts may be published in the public Atlas and what deleting a
 findings card removes and what stays. Migration `0016_research_use_notice_v3`
 replaces the account table's notice check, under the name 0011 gave it
@@ -227,6 +248,43 @@ real PostgreSQL in Docker. The rollback's order, with migration 0017, is at the
 end of the Atlas section below. A rollback to an image that reads only v1 also
 runs `research-use-notice-v2-hold.sql`, and later its restore; the two holds
 move different rows, so their order does not matter.
+
+Owner answer 171 (2026-10-25; approved, built, not yet released): the free
+contributor notice's fourth version, `free-contributor-v4-2026-10-25`, says free
+cards publish on save, written without the person and marked "Not checked by
+supervisors yet" until review, with votes and comments by signed-in accounts.
+Deleting a card removes it from the Atlas unless its findings were accepted;
+an accepted finding stays while valid. Paid private findings still publish
+only after acceptance. Migration `0020_research_use_notice_v4` admits v1 to v4
+under the same `research_use_accounts_free_notice_check`, without new columns
+or grants, and is safe to run again. Run the one-shot admin `migrate` before
+an image offering v4 serves. Earlier accounts accept v4 before free research.
+
+For an image rollback below v4:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. As the migrator, run `research-use-notice-v4-hold.sql` before swapping images.
+   It copies v4 rows unchanged into `research_use_notice_v4_hold`, removes all
+   non-owner grants and marks those accounts revoked. The person may accept
+   the earlier image's notice or activate an entitled paid private account.
+3. Restore the selector and runtime settings from this release's rollback
+   folder, recreate only `research-mcp` with the earlier reviewed image and
+   check its health.
+4. Run the v4 hold once more to catch acceptance between the first hold and
+   the image swap, then re-enable the timer against the restored image.
+
+Undo no migration: 0020 stays and widens only the notice check. Settings,
+entitlements, proposals and Atlas rows stay unchanged. For a target below v3,
+also use the v3 pair above; for a target below v2 use the v2 pair. Each hold
+moves only its own notice version. To serve v4 again, run this release's
+`migrate`, swap to its image, then as the migrator run
+`research-use-notice-v4-restore.sql` only after that image serves. It restores
+only accounts still exactly in the held state, keeps newer account choices,
+and empties the hold table; both scripts are idempotent. The table stores only
+the account fields already held, and only the migrator can read it.
+`npm run contributor-access:notice-v4-rollback-acceptance` checks the scripts
+with real PostgreSQL in Docker, including v1, v2 and v3 accounts, changed
+accounts, settings and every other table. It is not part of the hermetic gate.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
@@ -314,6 +372,331 @@ recreate `research-mcp` with that image, then run
 `research-use-notice-v3-restore.sql` as the migrator (never while the earlier
 image serves), and then steps 2 to 4 of the release above.
 
+Atlas phase 3 (design
+`../../docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`) stores the
+fields a findings card's research AI declares for the Atlas pages. Migration
+`0018_atlas_card_fields` adds three nullable columns to
+`atlas_finding_versions`: `kind`, `subject_type` and `search_scope` (the
+searches that found nothing, each a database and its query), under the check
+`atlas_finding_versions_card_fields_check` (the kind's and the subject type's
+values, and one to ten searches only on a version of kind `nothing_found`). A
+finding's subject goes to `claim_versions.program_or_exposure`, its direction to
+`claim_versions.direction`, and its first version's kind gives
+`claims.claim_type`. It adds the writer-only
+`atlas_search_scope_without_queries` and new bodies for
+`atlas_redaction_permits` and `erase_atlas_wording`, so decision 7's erasure
+also sets each search's query to the fixed marker and keeps its database. It
+adds no table, role, grant or sequence, changes no row, and leaves 0017's body of
+`reject_living_evidence_mutation()` in force. A version written before it holds
+NULL in the new columns and reads back without the fields.
+
+Its release: run the one-shot admin `migrate`, which applies 0018, before the new
+image serves; the review role needs no new grant. Then steps 3 and 4 of the
+release above: the promotion service by hand, and the 33-tool catalog, where
+`finalize_research`, `save_research_findings` and
+`review_research_contribution` take new optional fields, so the owner refreshes
+each connector's tool list.
+
+An image rollback below phase 3, to the image that serves phases 1 and 2, goes
+in this order:
+
+1. Stop and disable `askrigor-research-promotion.timer`.
+2. Run `askrigor-research-promotion.service` once by hand with the phase 3
+   image, and expect `no_pending_promotion` for the Atlas queue. The earlier
+   image cannot parse an intent with the new fields: it leaves it `PENDING`,
+   and every later Atlas intent waits behind it until phase 3 serves again.
+3. Keep the owner's Atlas actions closed while the earlier image serves:
+   `ASKRIGOR_ATLAS_REVIEW` is not `enabled` in the `runtime.env` it gets. A
+   decision it recorded on a finding accepted with phase 3 would write a
+   version without the new fields, and an erasure it recorded would leave the
+   subject and the searches' queries in the private intents.
+4. Restore the selector and `runtime.env` from the release's rollback folder.
+   The restored `runtime.env` is the one phases 1 and 2 served with, which
+   opens the owner's Atlas actions, so remove its
+   `ASKRIGOR_ATLAS_REVIEW=enabled` line before recreating `research-mcp`, as
+   step 3 says. Then recreate only `research-mcp` with the earlier image, and
+   check its health and that the Atlas actions answer `atlas_review_closed`.
+5. Re-enable the timer against the restored image.
+
+The earlier image's findings card is strict, so a `finalize_research` call from
+an app whose tool list was refreshed for phase 3 sends the topic and the new
+finding fields, which that image refuses: it answers `input_invalid` until the
+model leaves them out. After the rollback, each user refreshes the app's tool
+list again (today the owner, the only free contributor), so the app sends the
+fields the earlier image takes.
+
+Undo no migration: 0018 stays, with its columns and rows. The earlier image
+names no new column, so the versions it writes hold NULL there. It needs no
+`migrate`; if its `migrate` runs, it ignores 0018's row in `schema_migrations`
+and puts back 0017's bodies of `atlas_redaction_permits` and
+`erase_atlas_wording`, which leave the searches' queries in place, until phase
+3's `migrate` runs again. To serve phase 3 again: run its `migrate` before its
+image serves, recreate `research-mcp` with that image, have each user refresh
+the app's tool list once more, and only then put the
+`ASKRIGOR_ATLAS_REVIEW=enabled` line back and open the owner's Atlas actions.
+
+Held YouTube findings (owner answer 173, 2026-10-25): the findings drawn from
+YouTube comments that a saved findings card leaves out (owner answer 170) are
+kept in this database, apart from the card, for the owner's review, with no
+refreshing; so are the findings of a card whose findings all rest on YouTube
+comments, which is not saved as a card. They are kept until deleted (the
+owner's rule, 25 October: "don't delete the summaries unless YT tells us to do
+that"): on request, when the card is forgotten, or every one at once if YouTube
+asks. Nothing deletes a held finding by its age. Migration
+`0019_held_youtube_findings` adds:
+
+- the private table `held_youtube_findings`: for each held finding, the saved
+  card's ARF issue number (none for a card not saved, which keeps instead the
+  card's own general wording of the research question and its topic's key and
+  label), the checked card's SHA-256 and the finding's place on that card,
+  AskRigor's texts (the claim, whom it applies to, why the usual answer misses
+  it, what would change it, and the subject when the card declared one), its
+  certainty, kind and direction, its tags and verified bases, and the save time,
+  to the millisecond. A unique index keeps one row per finding of one save, with
+  a card or without, and a partial index orders the saves with no card for the
+  owner's list. No column holds an expiry, a source, a link, the answer quote, a
+  contributor or thread key, or any comment text, name, channel, comment or
+  video ID. Each `migrate` removes every grant on it but the migrator's own, the
+  reader's default-privilege SELECT included;
+- six SECURITY DEFINER functions, each revoked from PUBLIC:
+  `hold_youtube_findings` (a save's findings, with its card's number or its
+  question and topic, never refreshing one held before),
+  `inspect_held_youtube_findings` (every held finding of the given cards),
+  `inspect_cardless_held_youtube_findings` (those with no card, newest first, a
+  page of saves at a time, so paging on returns every one),
+  `delete_held_youtube_findings` (a card's), `delete_cardless_held_youtube_findings`
+  (a save's with no card, by its checked card's SHA-256) and
+  `delete_all_held_youtube_findings` (every row at once, for the day YouTube asks
+  AskRigor to delete them).
+
+The research server holds a saved card's left-out findings through the
+research-access role, in the background: a failure never fails or delays the
+save, and the findings are then not kept. It runs no purge. The owner's review
+tool reads, deletes and moves findings through the review role, and deletes
+them all with `delete_all_youtube_findings` only when the call says
+`confirm: true`; `forget_card` deletes a card's held findings with it.
+`npm run contributor-access:postgres-acceptance` checks the table, the
+functions, the grants, holding, paging and each deletion against real
+PostgreSQL in Docker.
+
+Its release, in this order, before the new image serves:
+
+1. Run the one-shot admin `migrate`, which applies 0019.
+2. Inside the PostgreSQL service, re-run `/usr/local/bin/provision-research-access-role` and
+   `/usr/local/bin/provision-research-review-role`: the access role gets
+   `hold_youtube_findings` alone, and the review role it with
+   `inspect_held_youtube_findings`, `inspect_cardless_held_youtube_findings`,
+   `delete_held_youtube_findings`, `delete_cardless_held_youtube_findings` and
+   `delete_all_held_youtube_findings`. Prove the boundary as step 6 above
+   says: each role executes its functions, neither reads, writes or deletes the
+   table directly, the access role cannot read or delete held findings, and the
+   reader cannot read it.
+3. Recreate only `research-mcp` with the new image, and check the 33-tool
+   catalog: `review_research_contribution` takes four new actions
+   (`list_youtube_findings`, `move_youtube_findings`,
+   `delete_youtube_findings` and `delete_all_youtube_findings`) and one new
+   field (`cards`), and `list_youtube_findings` takes `cursor`, so the owner
+   refreshes each connector's tool list.
+4. The owner moves the findings drawn from YouTube comments of the cards stored
+   before (ARF-0007, ARF-0012 and ARF-0209) with `move_youtube_findings`, and
+   then deletes the earlier revisions GitHub keeps in each rewritten card's edit
+   history, as the reply lists them.
+
+An image that serves before step 2 holds nothing (its holds fail, and each card
+is saved as before), and its owner's card view says the held findings cannot be
+read.
+
+An image rollback below this release recreates only `research-mcp` with the
+earlier image, which stores cards without their findings drawn from YouTube
+comments, as before, and never holds, reads or deletes held findings. Undo no
+migration and delete nothing: the held rows stay, unread, until this release
+serves again, as the owner's rule keeps them until deleted. If YouTube asks
+AskRigor to delete them while the earlier image serves, delete them all as the
+migrator: `SELECT living_evidence.delete_all_held_youtube_findings();`. If the
+earlier image's `migrate` runs, it ignores 0019's row in `schema_migrations`
+and leaves the table and functions in place.
+
+Decision 171, section 4B (plan
+`../../docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`)
+publishes a free contributor's findings card in the Atlas as soon as it is
+saved. Migration `0021_atlas_publications` adds one private table,
+`atlas_publications` (one row per published finding: its public number P-1001
+onward from the new sequence `atlas_publication_number_seq`, the card's issue
+number and digest with the finding's place for moderation and idempotent
+publishing, the published fields, and the state `unreviewed`, `accepted`,
+`edited`, `rejected`, `withdrawn` or `held`), and six SECURITY DEFINER
+functions for the review role: `inspect_atlas_publications`,
+`publish_atlas_findings`, `decide_atlas_publications`,
+`edit_atlas_publications`, `withdraw_atlas_publications` and
+`erase_atlas_publication_texts`. The reader can select the table, as every
+table; the pages read only its published fields. It touches no canonical table
+and leaves the guard's body in force. The runtime publishes at a save, and the
+owner's publication actions answer, only while `ASKRIGOR_ATLAS_REVIEW=enabled`
+and the research-review URL are set.
+
+Its release: run the one-shot admin `migrate`, which applies 0021 (after 0019,
+the held YouTube findings, and 0020, notice version 4), before the new image
+serves; then re-run
+`/usr/local/bin/provision-research-review-role` inside the PostgreSQL container,
+which grants the six functions; then the 33-tool catalog, where
+`review_research_contribution` takes the new publication actions and fields, so
+the owner refreshes each connector's tool list. Before anything is published,
+the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
+ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
+section 4G of the 171 plan lists them, sent again until no card waits).
+
+An image rollback below 0021 needs no drain: the earlier image never reads the
+table, publishes nothing at a save, and has no publication action. Undo no
+migration: 0021 stays, with its rows, which the earlier image ignores; its grant
+script leaves the six grants in place, harmlessly. To serve 0021 again, run its
+`migrate` before its image serves.
+
+Decision 171, section 4C (design
+`../../docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`, section
+C) serves the public Atlas pages from `research-mcp`: `/atlas` (recently
+published, recently checked and contested findings), `/atlas/topics/<topic
+key>`, `/atlas/findings/P-<n>`, `/atlas/changes` and the stylesheet
+`/atlas/atlas.css`; any other `/atlas` path answers 404. Every `/atlas` path
+answers 404 unless `runtime.env` holds `ASKRIGOR_ATLAS_PAGES=enabled`. The pages
+read through the SELECT-only reader (`ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED=true`
+with `ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL`), one read-only snapshot per
+page, and select only a publication's public number, state, F number, published
+fields and dates; switched on without the reader, they answer 503 and the MCP
+server runs on. An unreviewed publication shows with the label "Not checked by
+supervisors yet"; an accepted or edited one shows as its F number's latest
+version, once the promotion timer has written it; held, rejected and withdrawn
+ones never show. Every `/atlas` response carries `Content-Security-Policy:
+default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self';
+frame-ancestors 'none'; base-uri 'none'; object-src 'none'`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin` and `X-Frame-Options: DENY`, and none sets a
+cookie. Rendered pages are cached in memory for 60 seconds (at most 256 pages
+and 8 MiB) and dropped on every publication or review write the process makes;
+each address may load 60 pages at once, then one a second (an IPv6 address is
+counted by its /64).
+
+The apex site's Caddy (`../../ops/public-site/Caddyfile.site`) proxies exactly
+`askrigor.com/atlas` and the paths below it (`@atlas path /atlas /atlas/*`)
+straight to the research server's container, keeping `Host: askrigor.com`, and
+sets the pages' headers there in place of the site's (whose `form-action
+'none'` would otherwise join their policy); the site's own headers skip those
+paths. The block also sets `X-AskRigor-Client-IP` to the reader's address from
+the connection (`{remote_host}`), replacing any value a client sent, and
+`X-AskRigor-Proxy-Secret` to a shared secret. The research server believes the
+address only on a request that carries that secret (`ASKRIGOR_ATLAS_PROXY_SECRET`
+in `runtime.env`) and whose Host is the public origin's host
+(`ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, `https://askrigor.com` by default), so a request
+that reaches `mcp.askrigor.com` directly cannot choose its address, whatever the
+production `mcp.askrigor.com` block forwards; every other request is counted by
+its connection's address, and with no secret set none is believed. If a CDN is ever put in front of the apex,
+use `{client_ip}` in the block instead, with the CDN's address ranges as
+`trusted_proxies` in Caddy's global server options.
+
+The installer needs the upstream and the secret: run it as
+`ASKRIGOR_ATLAS_UPSTREAM=<host:port> ASKRIGOR_ATLAS_PROXY_SECRET=<secret>
+install-public-site.sh ...`, with the research server's container as the
+production Caddyfile already proxies to it (for example `research-mcp:3000`) and
+the secret made once on the server, as the other secrets are (32 random bytes in
+canonical unpadded base64url, never printed), and put into `runtime.env` as
+`ASKRIGOR_ATLAS_PROXY_SECRET` too; pass it to the installer from that file
+without echoing it. The installer refuses an upstream that is not a plain
+host:port, is a public name, or is not one the production Caddyfile already
+uses, and a secret of any other form; it puts both in place of
+`{$ASKRIGOR_ATLAS_UPSTREAM}` and `{$ASKRIGOR_ATLAS_PROXY_SECRET}` in the
+root-only, mode 0400 combined Caddyfile before Caddy validates it. Read the
+production Caddyfile's `mcp.askrigor.com` block (read-only) at release to
+confirm the upstream; recreate `research-mcp` with the secret before installing
+the packet, or readers are counted by the proxy's address until both hold it.
+
+Its release needs no migration and no grant: the reader can already select
+`atlas_publications` (0021 above). When the owner says so, add
+`ASKRIGOR_ATLAS_PAGES=enabled` to `runtime.env`, recreate `research-mcp`, check
+that `https://mcp.askrigor.com/atlas` answers 200 with the headers above, and
+install the public-site packet with the upstream, after which
+`https://askrigor.com/atlas` answers the same.
+
+Rollback: remove the `ASKRIGOR_ATLAS_PAGES=enabled` line and recreate
+`research-mcp`, and every `/atlas` path answers 404 again; the Caddy route can
+stay (it passes those 404s on with the pages' headers), or reinstall the
+previous public-site packet to drop it. The pages store nothing, so nothing
+else is undone.
+
+Decision 171, sections 4D and 4E (design
+`../../docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`, sections
+D and E) add votes and comments to the finding pages, for people signed in with
+the AskRigor login of the apps. Migration `0022_atlas_votes_comments`
+(after 0021, the publications, and before 0023, the findings save switch) adds six
+private tables: `atlas_participants` (a participant key derived from the account
+key the connector derives, never an email address or OAuth subject; the
+commenter tag the owner's review names them by; the display name chosen with
+the first comment; whether the owner stopped them from commenting),
+`atlas_votes` (one `agree` or `disagree` per participant and publication),
+`atlas_comments` (C-1001 onward from `atlas_comment_number_seq`, the display
+name at posting, a body of at most 2,000 characters, `shown` or `hidden`, a
+report count), `atlas_comment_reports` (one per comment and reporter: a
+participant key, or a hash of the address under a salt the server keeps in
+memory for one day), `atlas_home_picks` (the owner's picks, up to five, with
+their public reasons) and `atlas_session_ends` (when a participant signed out
+everywhere or deleted everything, by a hash of their key, kept 30 days so every
+earlier session is refused). It adds nine SECURITY DEFINER functions for the
+research-access role (`inspect_atlas_participant`, `set_atlas_display_name`,
+`set_atlas_vote`, `post_atlas_comment`, `delete_atlas_comment`,
+`report_atlas_comment`, `end_atlas_sessions`, `atlas_session_current` and
+`forget_atlas_participant`) and five for the review
+role (`inspect_atlas_comments`, `moderate_atlas_comment`,
+`set_atlas_commenter_stopped`, `set_atlas_home_picks` and
+`inspect_atlas_home_picks`); neither role gets a table or the sequence. The
+reader can select the tables, as every table, and the pages select only vote
+totals, shown comments, the signed-in reader's own state and the picks. It
+touches no canonical table and no publication.
+
+All of it is off unless `runtime.env` holds `ASKRIGOR_ATLAS_PARTICIPATION=enabled`
+with every part: `ASKRIGOR_ATLAS_AUTH0_CLIENT_ID` and
+`ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET`; `ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`
+and `ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL`, each 32 random bytes in
+canonical base64url, different from each other and from the identity secret;
+the research-access URL and `ASKRIGOR_RESEARCH_IDENTITY_SECRET_BASE64URL`; and
+the connector's `ASKRIGOR_OAUTH_ISSUER_URL` and `ASKRIGOR_OAUTH_JWKS_URL`.
+`ASKRIGOR_ATLAS_PUBLIC_ORIGIN` defaults to `https://askrigor.com`. Without any
+part, the pages show no form and no sign-in link and the sign-in and form routes
+answer 404, so the release can go out before the Auth0 application exists.
+
+The owner's step: in the tenant the connector uses, create a Regular Web
+Application for the Atlas with the same connections as the apps' login, allowed
+callback URL `https://askrigor.com/atlas/auth/callback`, allowed logout URL
+`https://askrigor.com/atlas`, the authorization code grant, client-secret
+authentication at the token endpoint and RS256 ID tokens; its client ID and
+secret go into `runtime.env` with an in-memory, non-echoing editor, never into
+chat, Git or a receipt. Make the session key and the participant secret as the
+identity secret above: two independent 32-byte random values in canonical
+unpadded base64url, never printed. Changing the session
+key signs everyone out; changing the participant secret detaches everyone from
+their votes and comments, so it is kept.
+
+Its release: run the one-shot admin `migrate`, which applies 0022, before the
+new image serves; then re-run `/usr/local/bin/provision-research-access-role`
+and `/usr/local/bin/provision-research-review-role` inside the PostgreSQL
+container, which grant the nine and the five functions; then the 33-tool
+catalog, where `review_research_contribution` takes the comment actions and
+`set_picks`, so the owner refreshes each connector's tool list. With
+participation on, check that a finding page shows the vote totals and the
+sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
+with `scope=openid`, `code_challenge_method=S256` and the callback above, and,
+signed in, that a vote, a comment and its deletion round-trip. A reader who
+reports a comment without signing in is counted by the address the apex block
+forwards (an IPv6 address by its /64); a public-site packet from before this
+change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every
+such reader would share one address hash: install the current packet before
+relying on anonymous reports.
+
+Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
+`research-mcp`; the forms, the sign-in link and the routes go, and the pages
+show no votes or comments, while the rows stay in the database unread. An image
+rollback below 0022 needs no drain: the earlier image never reads the tables.
+Undo no migration: 0022 stays, with its rows; the earlier image's grant scripts
+leave the twelve grants in place, harmlessly. Nothing in a rollback deletes a
+vote or a comment.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and
@@ -394,9 +777,9 @@ machine JSON.
   code rollback.
 - An image rollback below a free contributor notice that accounts have
   accepted holds that notice's account rows first and restores them once the
-  newer image serves again: `research-use-notice-v3-hold.sql` and
-  `research-use-notice-v3-restore.sql` in the order at the end of the Atlas
-  section above, and the v2 pair as well for an image that reads only v1.
+  newer image serves again: `research-use-notice-v4-hold.sql` and
+  `research-use-notice-v4-restore.sql` in the v4 order above, plus the v3 pair
+  for a target reading only v1 and v2, and the v2 pair for one reading only v1.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.

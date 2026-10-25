@@ -142,10 +142,29 @@ describe("AskRigor public site", () => {
     expect(terms).toContain("agree to be bound by the YouTube Terms of Service");
   });
 
+  // Owner answer 173 (2026-10-25): AskRigor keeps the summary it wrote of what YouTube commenters said, for its owner's
+  // review, until it is deleted on request or because YouTube asks (the owner's rule, 25 Oct: "don't delete the
+  // summaries unless YT tells us to do that"). The owner's words, in the page's typographic apostrophes; the effective
+  // date stays.
+  it("says in its YouTube storage section what is kept of what commenters said, and that it goes on request or if YouTube asks", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const paragraph = "<p>When a finished research answer reports what YouTube commenters said, AskRigor may keep " +
+      "the summary it wrote of that, with the answer\u2019s research question, for its owner\u2019s review: no comment " +
+      "text, commenter names, channel, comment or video IDs, or links. It is never published, and it is deleted on " +
+      "request, or if YouTube asks AskRigor to delete it.</p>";
+    const start = privacy.indexOf("<section><h2>YouTube refresh, storage, and deletion</h2>");
+    const section = privacy.slice(start, privacy.indexOf("</section>", start));
+    expect(section.endsWith(paragraph)).toBe(true);
+    expect(privacy.split(paragraph)).toHaveLength(2);
+    expect(privacy).not.toContain("answer's research question");
+    expect(privacy).not.toContain("owner's review");
+    expect(privacy).toContain("Effective October 25, 2026");
+  });
+
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -189,41 +208,33 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
     ]) expect(terms).toContain(fragment);
   });
 
-  // Owner answers 159 (1b and 7) and 160b (2026-10-22), as the free contributor notice's third version says them:
-  // findings the owner accepts may be published in the public Atlas, written without the person; deleting a card
-  // removes everything that ties it to the person, with no reason needed; a published finding stays while it is valid.
-  // Word for word as the owner approved them (162a, 2026-10-22), effective on the release day.
-  it("says that accepted findings may be published in the public Atlas, and what deleting a card removes and keeps", async () => {
+  // Owner answer 171 (2026-10-25): the exact free/paid publication and comments wording.
+  // Page apostrophes follow the existing typography; the release changes the effective dates.
+  it("says free cards publish on save, paid findings wait for acceptance, and how votes and comments work", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "<p>Findings that AskRigor’s owner accepts from a saved findings card, in either mode, may be published in " +
-        "AskRigor’s public Atlas, written without the person. A published finding stays while it is valid: it is " +
-        "corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify " +
-        "anyone.</p></section>",
-      "Paid private mode sends no research contribution to that path. Findings that AskRigor’s owner accepts may be " +
-        "published in AskRigor’s public Atlas, as described above.",
+      "<p>Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "Paid private mode sends no research contribution to that path. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without the person and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them.",
+      "<section><h2>Votes and comments in the Atlas</h2><p>To vote on a finding or comment on it, you sign in with an AskRigor account. AskRigor stores each vote and comment with a key derived from the account, never its email address. Votes are shown only as totals. A comment is public and is shown with the display name you choose, so don’t post contact details or anything that identifies you or someone else. AskRigor checks comments for contact details and links before showing them, and its owner may hide or remove any comment. You can delete your own votes and comments at any time.</p></section>",
       "To request deletion of a findings card, send its <code>ARF-####</code> id to the same address. No reason is " +
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "rather than silently rewritten. Findings that AskRigor’s owner accepts from a saved findings card, in either " +
-        "mode, may be published in AskRigor’s public Atlas, written without you. If you ask to delete a findings " +
-        "card, everything that ties it to you is removed, and no reason is needed. A published finding stays while " +
-        "it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it " +
-        "could identify anyone.</p></section>",
+      "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
+      "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
     ]) expect(terms).toContain(fragment);
   });
 

@@ -44,6 +44,7 @@
     "contributor-access:postgres-acceptance": "bash scripts/run-research-contributor-access-postgres-acceptance.sh",
     "contributor-access:notice-v2-rollback-acceptance": "bash scripts/run-research-use-notice-v2-rollback-acceptance.sh",
     "contributor-access:notice-v3-rollback-acceptance": "bash scripts/run-research-use-notice-v3-rollback-acceptance.sh",
+    "contributor-access:notice-v4-rollback-acceptance": "bash scripts/run-research-use-notice-v4-rollback-acceptance.sh",
     "owner-review:preflight": "tsx scripts/owner-review-task-preflight.mts",
     "owner-review:acceptance": "npm run contributor-access:acceptance",
     "promotion-scheduler:preflight": "tsx scripts/promotion-scheduler-task-preflight.mts",
@@ -73,11 +74,11 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^24.19.1",
+    "@types/node": "^24.19.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.3"
+    "vitest": "5.0.5"
   }
 }

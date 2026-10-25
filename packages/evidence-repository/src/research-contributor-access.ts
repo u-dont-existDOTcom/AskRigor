@@ -44,7 +44,7 @@ import {
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v3-2026-10-22" as const;
+  "free-contributor-v4-2026-10-25" as const;
 
 /**
  * Notices free accounts accepted before the current one, oldest first. Such an
@@ -52,11 +52,13 @@ export const RESEARCH_USE_NOTICE_VERSION =
  * each finished answer's findings card joined what free use saves (owner
  * decision Q11, 2026-09-30), v3 when findings the owner accepts may be
  * published in the public Atlas and the notice says what deleting a card
- * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22).
+ * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22),
+ * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25).
  */
 export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
+  "free-contributor-v3-2026-10-22",
 ] as const;
 
 const researchUseNoticeVersionSchema = z.enum([
@@ -66,20 +68,17 @@ const researchUseNoticeVersionSchema = z.enum([
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
 
-// Version 3 (owner answers 159, 1b and 7, and 160b, 2026-10-22), word for word as drafted for the owner's approval:
-// findings the owner accepts may be published in AskRigor's public Atlas, deleting a card removes everything that
-// ties it to the person, and a published finding stays while it is valid. A finished answer's card is saved only when
-// its findings would help other people (owner answer 156a). The other sentences are version 2's, which the owner
-// approved (question 11, 2026-09-30, with the correction that paid private findings and lessons are saved when the
-// user accepts saving them for that answer).
+// Version 4 (owner answer 171, 2026-10-25), word for word: free cards publish on save, with the unreviewed label,
+// votes and comments; deleting a card removes it from the Atlas unless its findings were already accepted. An
+// accepted finding stays while it is valid. All other sentences remain version 3's.
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
   "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
-  "Findings that AskRigor's owner accepts may be published in AskRigor's public Atlas, written without you.",
-  "If you ask to delete a findings card, everything that ties it to you is removed, and no reason is needed.",
-  "A published finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.",
+  "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
+  "If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor's owner has already accepted its findings; no reason is needed.",
+  "An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.",
   "Paid private access saves research findings or lesson feedback only when you accept saving them for that answer, and requires an active verified entitlement.",
 ].join(" ");
 
@@ -149,6 +148,11 @@ export interface ResearchUseAccountRecord {
    * default, off. saveAccount and revokeAccount never change it; setDetailedLessonReports does.
    */
   detailedLessonReports?: boolean;
+  /**
+   * Whether this account saves findings cards (owner answer 171); absent means the default, on. saveAccount and
+   * revokeAccount never change it; setFindingsSave does. The connector permits only dev accounts to change it.
+   */
+  findingsSave?: boolean;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -250,6 +254,8 @@ export interface ResearchContributorAccessStore {
   setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean>;
   /** Sets the account's detailed lesson reports; false when the account has no row. */
   setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean>;
+  /** Sets the account's findings-card saving; false when the account has no row. */
+  setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -330,11 +336,7 @@ export class ResearchContributorAccessService {
   }
 
   accountKeyForSubject(subject: string): string {
-    const normalized = normalizeOAuthSubject(subject);
-    return createHmac("sha256", this.identitySecret)
-      .update("askrigor:research-use-account:v1\0", "utf8")
-      .update(normalized, "utf8")
-      .digest("hex");
+    return researchAccountKeyForSubject(this.identitySecret, subject);
   }
 
   async inspect(subject: string): Promise<ResearchAccessView> {
@@ -426,11 +428,19 @@ export class ResearchContributorAccessService {
 
   /**
    * The active account's mode and its settings, with the checks requireActive makes: its plain-answer note (owner
-   * answer 140b) and its detailed lesson reports (owner question 154).
+   * answer 140b), its detailed lesson reports (owner question 154), its findings-card saving (owner answer 171), and
+   * the free contributor notice it accepted, which
+   * decides whether its findings cards are published as soon as they are saved (decision 171).
    */
   async activeAccount(
     subject: string,
-  ): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean; detailedLessonReports: boolean }> {
+  ): Promise<{
+    mode: ResearchUseMode;
+    plainAnswerNote: boolean;
+    detailedLessonReports: boolean;
+    findingsSave: boolean;
+    noticeVersion: ResearchUseNoticeVersion | null;
+  }> {
     const account = await this.store.getAccount(
       this.accountKeyForSubject(subject),
     );
@@ -465,6 +475,8 @@ export class ResearchContributorAccessService {
       mode: account.mode,
       plainAnswerNote: account.plainAnswerNote ?? true,
       detailedLessonReports: account.detailedLessonReports === true,
+      findingsSave: account.findingsSave ?? true,
+      noticeVersion: account.noticeVersion,
     };
   }
 
@@ -490,6 +502,18 @@ export class ResearchContributorAccessService {
   async setDetailedLessonReports(subject: string, enabled: boolean): Promise<boolean> {
     await this.requireActive(subject);
     if (!await this.store.setDetailedLessonReports(this.accountKeyForSubject(subject), enabled)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    return enabled;
+  }
+
+  /** Turns findings-card saving off or on for an active account; the connector checks the dev-account restriction. */
+  async setFindingsSave(subject: string, enabled: boolean): Promise<boolean> {
+    await this.requireActive(subject);
+    if (!await this.store.setFindingsSave(this.accountKeyForSubject(subject), enabled)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
         "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
@@ -659,14 +683,22 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
+  async setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, findingsSave: enabled });
+    return true;
+  }
+
   /**
-   * The record as saved: with the account's settings, which only their setters change (setPlainAnswerNote and
-   * setDetailedLessonReports).
+   * The record as saved: with the account's settings, which only their setters change (setPlainAnswerNote,
+   * setDetailedLessonReports and setFindingsSave).
    */
   private keepingSettings(record: ResearchUseAccountRecord): ResearchUseAccountRecord {
     const {
       plainAnswerNote: _ignoredNote,
       detailedLessonReports: _ignoredReports,
+      findingsSave: _ignoredFindingsSave,
       ...saved
     } = structuredClone(record);
     const prior = this.accounts.get(record.accountKey);
@@ -674,6 +706,7 @@ implements ResearchContributorAccessStore {
       ...saved,
       ...(prior?.plainAnswerNote === undefined ? {} : { plainAnswerNote: prior.plainAnswerNote }),
       ...(prior?.detailedLessonReports === undefined ? {} : { detailedLessonReports: prior.detailedLessonReports }),
+      ...(prior?.findingsSave === undefined ? {} : { findingsSave: prior.findingsSave }),
     };
   }
 
@@ -807,7 +840,7 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
               activated_at, revoked_at, created_at, updated_at,
-              plain_answer_note, detailed_lesson_reports
+              plain_answer_note, detailed_lesson_reports, findings_save
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
@@ -831,6 +864,17 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query(
       `UPDATE ${this.schema}.research_use_accounts
           SET detailed_lesson_reports = $2
+        WHERE account_key = $1`,
+      [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
+  }
+
+  // saveAccount and revokeAccount leave findings_save as it is: a new row takes the column's default, on.
+  async setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET findings_save = $2
         WHERE account_key = $1`,
       [accountKey, enabled],
     );
@@ -1017,6 +1061,7 @@ interface ResearchUseAccountRow {
   updated_at: Date | string;
   plain_answer_note: boolean;
   detailed_lesson_reports: boolean;
+  findings_save: boolean;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -1068,6 +1113,7 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     plainAnswerNote: row.plain_answer_note !== false,
     // Only an explicit true turns detailed lesson reports on.
     detailedLessonReports: row.detailed_lesson_reports === true,
+    findingsSave: row.findings_save !== false,
   };
 }
 
@@ -1231,6 +1277,19 @@ function walkStrings(
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
     walkStrings(child, [...path, key], inspect);
   }
+}
+
+/**
+ * The account key the connector derives from a signed-in subject: an HMAC of the subject under the research identity
+ * secret. The Atlas's web sign-in (decision 171, section 4D) derives the same key, so a person is one account in both.
+ */
+export function researchAccountKeyForSubject(identitySecret: Uint8Array, subject: string): string {
+  if (identitySecret.byteLength < 32) throw new Error("RESEARCH_IDENTITY_SECRET_TOO_SHORT");
+  const normalized = normalizeOAuthSubject(subject);
+  return createHmac("sha256", Buffer.from(identitySecret))
+    .update("askrigor:research-use-account:v1\0", "utf8")
+    .update(normalized, "utf8")
+    .digest("hex");
 }
 
 function normalizeOAuthSubject(subject: string): string {
