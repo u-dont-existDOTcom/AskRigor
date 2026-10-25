@@ -541,8 +541,9 @@ serves; then re-run
 which grants the six functions; then the 33-tool catalog, where
 `review_research_contribution` takes the new publication actions and fields, so
 the owner refreshes each connector's tool list. Before anything is published,
-the owner sets the test cards aside (`set_aside_cards` with `cardsFrom` ARF-0116
-and `cardsTo` ARF-0239, sent again until no card waits).
+the owner sets the 217 test cards aside (`set_aside_cards` with `cards` naming
+ARF-0001, ARF-0016 to ARF-0038, ARF-0042, ARF-0043 and ARF-0049 to ARF-0239, as
+section 4G of the 171 plan lists them, sent again until no card waits).
 
 An image rollback below 0021 needs no drain: the earlier image never reads the
 table, publishes nothing at a save, and has no publication action. Undo no

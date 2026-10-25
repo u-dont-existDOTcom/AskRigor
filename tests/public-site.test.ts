@@ -158,13 +158,13 @@ describe("AskRigor public site", () => {
     expect(privacy.split(paragraph)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective October 22, 2026");
+    expect(privacy).toContain("Effective October 25, 2026");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -208,7 +208,7 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
@@ -227,14 +227,14 @@ describe("AskRigor public site", () => {
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
       "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
       "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective October 22, 2026",
+      "Effective October 25, 2026",
     ]) expect(terms).toContain(fragment);
   });
 
