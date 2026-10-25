@@ -12,6 +12,7 @@ import {
   AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
+  PostgresAtlasPageSource,
   PostgresAtlasPromotionStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
@@ -42,6 +43,8 @@ import {
 } from "../packages/evidence-repository/src/index.js";
 import { readAtlasStateWith } from "../packages/evidence-repository/src/atlas-postgres.js";
 import { buildStagedAnalysis } from "../apps/research-mcp/src/analysis-staging.js";
+import { NOT_CHECKED_LABEL, loadAtlasFinding, loadAtlasHome } from "../apps/research-mcp/src/atlas/page-data.js";
+import { atlasPageProblems, escapeHtml, renderAtlasFinding, renderAtlasHome } from "../apps/research-mcp/src/atlas/pages.js";
 import { validateStudyMethodAudit } from "../apps/research-mcp/src/index.js";
 import {
   livingEvidenceFixture,
@@ -583,6 +586,7 @@ async function verify(
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasPublications({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasPages({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -2224,6 +2228,144 @@ export async function verifyAtlasPublications(context: {
     checks.push("atlas_publications_reach_the_review_role_only_through_its_functions_and_the_reader_reads_them");
   } finally {
     await Promise.allSettled([store.close(), admin.end()]);
+  }
+}
+
+/**
+ * Decision 171, section 4C: the public pages read the publications and the accepted findings through the reader role,
+ * in one read-only snapshot. A held or rejected publication is never read; an accepted one shows its F number's latest
+ * version, not the card's wording; one whose F number was withdrawn shows nowhere; and a read selects no column that
+ * names a card or holds the owner's reasons. The pages render from PostgreSQL as they do from memory.
+ */
+export async function verifyAtlasPages(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 1 });
+  const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  const source = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+  let instant = Date.parse("2026-11-06T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  try {
+    const current = (await admin.query<{ public_number: string; label: string; entry_kind: string; topic_key: string }>(
+      `SELECT public_number, label, entry_kind, topic_key FROM ${schema}.atlas_finding_current ORDER BY public_number`,
+    )).rows;
+    const checked = current.find(({ label, entry_kind: kind }) => label === "checked" && kind === "finding");
+    const withdrawn = current.find(({ label }) => label === "withdrawn");
+    assert(checked !== undefined && withdrawn !== undefined, "ATLAS_PAGES_FIXTURE_MISSING");
+    const published = (claim: string): AtlasPublishedFinding => ({
+      schema: ATLAS_PUBLICATION_SCHEMA,
+      topic: { key: "pages-topic", label: "A topic only the pages check uses" },
+      claim,
+      certainty: "low",
+      applies_to: "Adults with an invented condition",
+      kind: null,
+      subject: null,
+      subject_type: null,
+      direction: null,
+      numbers: null,
+      searches: null,
+      sources: ["10.0000/synthetic-pages"],
+      why_not_usual: "Quick answers miss it.",
+      what_would_change_it: "A trial.",
+      verified_bases: [],
+      saved_on: "2026-11-06",
+      askrigor_version: "0.1.0",
+    });
+    const unreviewedDraft = (findingNumber: number, claim: string): AtlasPublicationDraft =>
+      ({ findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: published(claim) });
+    const card = 7201;
+    const digest = atlasHex("synthetic-pages-card");
+    const rows = await store.publish({
+      cardNumber: card,
+      cardSha256: digest,
+      findings: [
+        unreviewedDraft(1, "PAGES-UNREVIEWED claim."),
+        unreviewedDraft(2, "PAGES-CARD-WORDING claim."),
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("PAGES-HELD claim.") },
+        unreviewedDraft(4, "PAGES-REJECTED claim."),
+        unreviewedDraft(5, "PAGES-WITHDRAWN claim."),
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [unreviewed, accepted, held, rejected, withdrawnAfter] = rows.map(({ publicationNumber }) => publicationNumber);
+    assert(rows.length === 5 && rows[2]!.state === "held", "ATLAS_PAGES_PUBLISH_MISMATCH");
+    await store.decide({ cardNumber: card, findingNumber: 2, state: "accepted", atlasNumber: checked.public_number,
+      decidedAt: tick() });
+    await store.decide({ cardNumber: card, findingNumber: 4, state: "rejected", atlasNumber: null, decidedAt: tick() });
+    await store.decide({ cardNumber: card, findingNumber: 5, state: "accepted", atlasNumber: withdrawn.public_number,
+      decidedAt: tick() });
+
+    const read = await source.read(async (reads) => ({
+      listed: await reads.listPublications({ publicationNumbers: rows.map(({ publicationNumber }) => publicationNumber),
+        limit: 10 }),
+      onTopic: await reads.listPublications({ topicKey: "pages-topic", limit: 10 }),
+      canonicalTopic: await reads.listPublications({ topicKey: checked.topic_key, states: ["accepted", "edited"],
+        order: "changed", limit: 500 }),
+      findings: await reads.readFindings([checked.public_number, withdrawn.public_number]),
+      contradictions: await reads.listContradictions(50),
+      changes: await reads.listChanges(50),
+    }));
+    const columns = (row: object) => Object.keys(row).sort().join();
+    assert(
+      read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
+        [unreviewed, accepted, withdrawnAfter].sort().join() &&
+        read.listed.every((row) => columns(row) === "atlasNumber,publicationNumber,published,publishedAt,state,stateChangedAt"),
+      `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
+        ({ publicationNumber, state })))}`,
+    );
+    assert(
+      read.onTopic.map(({ publicationNumber }) => publicationNumber).join() === unreviewed &&
+        read.canonicalTopic.some(({ publicationNumber }) => publicationNumber === accepted),
+      "ATLAS_PAGES_TOPIC_MISMATCH",
+    );
+    const findingOf = (number: string) => read.findings.find(({ atlasNumber }) => atlasNumber === number);
+    const checkedFinding = findingOf(checked.public_number);
+    assert(
+      checkedFinding?.label === "checked" && findingOf(withdrawn.public_number)?.label === "withdrawn" &&
+        checkedFinding.acceptedOn !== null && /^\d{4}-\d{2}-\d{2}$/u.test(checkedFinding.researchCheckedOn) &&
+        checkedFinding.sources.length > 0 && !checkedFinding.erased,
+      "ATLAS_PAGES_FINDINGS_MISMATCH",
+    );
+    assert(
+      read.changes.length > 0 && read.changes.every(({ atlasNumber }) => /^F-[1-9][0-9]{3,}$/u.test(atlasNumber)) &&
+        read.contradictions.every(({ fromNumber, toNumber }) => /^F-[1-9][0-9]{3,}$/u.test(fromNumber) &&
+          /^F-[1-9][0-9]{3,}$/u.test(toNumber)),
+      "ATLAS_PAGES_CHANGES_MISMATCH",
+    );
+
+    // The pages themselves, rendered from PostgreSQL.
+    const acceptedModel = await loadAtlasFinding(source, accepted!);
+    const unreviewedModel = await loadAtlasFinding(source, unreviewed!);
+    const acceptedHtml = acceptedModel === undefined ? "" : renderAtlasFinding(acceptedModel);
+    const unreviewedHtml = unreviewedModel === undefined ? "" : renderAtlasFinding(unreviewedModel);
+    const home = renderAtlasHome(await loadAtlasHome(source));
+    assert(
+      acceptedHtml.includes(escapeHtml(checkedFinding.content.wording)) && !acceptedHtml.includes("PAGES-CARD-WORDING") &&
+        acceptedHtml.includes(`Atlas number ${checked.public_number}`) && !acceptedHtml.includes(NOT_CHECKED_LABEL) &&
+        unreviewedHtml.includes(NOT_CHECKED_LABEL) && unreviewedHtml.includes("PAGES-UNREVIEWED claim.") &&
+        home.includes("PAGES-UNREVIEWED claim.") &&
+        (await loadAtlasFinding(source, held!)) === undefined &&
+        (await loadAtlasFinding(source, rejected!)) === undefined &&
+        (await loadAtlasFinding(source, withdrawnAfter!)) === undefined,
+      "ATLAS_PAGES_RENDERED_MISMATCH",
+    );
+    for (const page of [acceptedHtml, unreviewedHtml, home]) {
+      assert(
+        atlasPageProblems(page).length === 0 && !page.includes("ARF-") && !page.includes(digest) &&
+          !/PAGES-(?:HELD|REJECTED|WITHDRAWN)/u.test(page),
+        "ATLAS_PAGES_SHOW_WHAT_THEY_NEVER_SHOW",
+      );
+    }
+    checks.push("atlas_pages_read_shown_publications_and_accepted_findings_through_the_reader_in_one_read_only_snapshot");
+  } finally {
+    await Promise.allSettled([store.close(), source.close(), admin.end()]);
   }
 }
 

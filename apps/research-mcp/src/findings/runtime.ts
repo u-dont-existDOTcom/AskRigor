@@ -5,6 +5,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
+import { announcingPublicationStore, announcingReviewStore } from "../atlas/change-signal.js";
 import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
@@ -109,7 +110,10 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       version: SERVICE_VERSION,
       build: askrigorBuildCommitFromEnv(),
       now,
-      ...(publications === undefined ? {} : { publisher: new AtlasCardPublisher({ store: publications, now }) }),
+      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C).
+      ...(publications === undefined ? {} : {
+        publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
+      }),
     });
   } catch {
     throw new Error(CONFIGURATION_ERROR);
@@ -152,18 +156,20 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
     const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     const repository = findingsRepositoryFromEnv(env);
     const now = () => new Date();
+    // Every decision, intent and publication write the owner's actions make drops the Atlas pages' cache in this
+    // process (decision 171, section 4C).
     return new AtlasReview({
-      store: new PostgresAtlasReviewStore({
+      store: announcingReviewStore(new PostgresAtlasReviewStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,
-      }),
+      })),
       // Decision 171: the publications, in the same database through the same role's functions.
-      publications: new PostgresAtlasPublicationStore({
+      publications: announcingPublicationStore(new PostgresAtlasPublicationStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,
-      }),
+      })),
       reader: new PostgresAtlasReader({
         connectionString: reader.connectionString,
         schema: reader.schema,

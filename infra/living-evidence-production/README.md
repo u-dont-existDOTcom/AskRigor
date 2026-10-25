@@ -449,6 +449,54 @@ migration: 0020 stays, with its rows, which the earlier image ignores; its grant
 script leaves the six grants in place, harmlessly. To serve 0020 again, run its
 `migrate` before its image serves.
 
+Decision 171, section 4C (design
+`../../docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`, section
+C) serves the public Atlas pages from `research-mcp`: `/atlas` (recently
+published, recently checked and contested findings), `/atlas/topics/<topic
+key>`, `/atlas/findings/P-<n>`, `/atlas/changes` and the stylesheet
+`/atlas/atlas.css`; any other `/atlas` path answers 404. Every `/atlas` path
+answers 404 unless `runtime.env` holds `ASKRIGOR_ATLAS_PAGES=enabled`. The pages
+read through the SELECT-only reader (`ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED=true`
+with `ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL`), one read-only snapshot per
+page, and select only a publication's public number, state, F number, published
+fields and dates; switched on without the reader, they answer 503 and the MCP
+server runs on. An unreviewed publication shows with the label "Not checked by
+supervisors yet"; an accepted or edited one shows as its F number's latest
+version, once the promotion timer has written it; held, rejected and withdrawn
+ones never show. Every `/atlas` response carries `Content-Security-Policy:
+default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self';
+frame-ancestors 'none'; base-uri 'none'; object-src 'none'`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin` and `X-Frame-Options: DENY`, and none sets a
+cookie. Rendered pages are cached in memory for 60 seconds (at most 256 pages
+and 8 MiB) and dropped on every publication or review write the process makes;
+each address may load 60 pages at once, then one a second.
+
+The apex site's Caddy (`../../ops/public-site/Caddyfile.site`) proxies
+`askrigor.com/atlas*` to `https://mcp.askrigor.com` with `Host:
+mcp.askrigor.com`, and sets the pages' headers there in place of the site's
+(whose `form-action 'none'` would otherwise join their policy); the site's own
+headers skip `/atlas`.
+
+Its release needs no migration and no grant: the reader can already select
+`atlas_publications` (0020 above). Before switching the pages on, look
+read-only on the server that the production `mcp.askrigor.com` block passes
+`/atlas*` to `research-mcp` (the repository holds no copy of that block) and
+that the Caddy container reaches `https://mcp.askrigor.com` itself. Then, when
+the owner says so, add `ASKRIGOR_ATLAS_PAGES=enabled` to `runtime.env`,
+recreate `research-mcp`, check that `https://mcp.askrigor.com/atlas` answers
+200 with the headers above, and install the public-site packet, after which
+`https://askrigor.com/atlas` answers the same. Behind the proxy the research
+server sees the proxy's address unless `ASKRIGOR_TRUSTED_CLIENT_IP_HEADER` names
+a header the edge sets, and then the per-address limit counts every reader
+together; check which applies before relying on it.
+
+Rollback: remove the `ASKRIGOR_ATLAS_PAGES=enabled` line and recreate
+`research-mcp`, and every `/atlas` path answers 404 again; the Caddy route can
+stay (it passes those 404s on with the pages' headers), or reinstall the
+previous public-site packet to drop it. The pages store nothing, so nothing
+else is undone.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
 Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and
