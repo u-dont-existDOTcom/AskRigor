@@ -173,6 +173,17 @@ comment or a display name with the design's reason. `review_research_contributio
 `stop_commenter`, `restore_commenter` and `set_picks`, which fills the home page's picks lane. Tests:
 `tests/atlas-participation.test.ts`; the PostgreSQL acceptance covers 0022.
 
+Status (25 Oct, after an independent security review: four medium and five low findings, all fixed on the same branch,
+each confirmed exploit now a test in `tests/atlas-participation-hardening.test.ts`): nothing the pages' last check would
+refuse can be written, and a stored row that would trip it is left out rather than stopping a page; the
+contact-and-links check refuses text-direction controls and reads domains under IANA's whole root zone list in any case
+(`atlas/iana-tlds.ts`); the owner's tool quotes comment names and texts as untrusted JSON; the apex Caddy block goes
+straight to the research server with Host askrigor.com and `X-AskRigor-Client-IP`, believed only for that host, IPv6
+counted by /64 (the installer takes and checks `ASKRIGOR_ATLAS_UPSTREAM`); "sign out everywhere" and deleting everything
+end every earlier session (`atlas_session_ends`, 30 days, by a hash of the key), a callback is taken once, and the
+cookies are `__Host-`; display names cannot be AskRigor's and each comment shows a short commenter mark; comments show
+newest first within 50 and 64 KiB a page, and `/atlas/account/comments` lists each reader's own in every state.
+
 **F. The review tool and the inbox.** Owner actions join `review_research_contribution` (the connector stays at 33
 tools): list and unpublish publications, set cards aside, list recent and reported comments, hide, show and remove a
 comment, and stop or restore a commenter. The list of waiting cards leaves out set-aside and dev-account cards unless

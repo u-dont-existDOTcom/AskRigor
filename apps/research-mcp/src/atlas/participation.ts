@@ -31,8 +31,8 @@ export const ATLAS_FORM_MAX_BYTES = 16 * 1_024;
 /** The refusal the design words for a comment or a display name that holds contact details or links. */
 export const CONTACT_REFUSAL = "Comments can't include contact details or links.";
 /** Said after the refusal when a bare domain is all the check found: often a full stop with no space after it. */
-export const BARE_DOMAIN_HINT = "A full stop with a word right after it, as in \u201cended.It\u201d, reads as a web address: " +
-  "put a space after it.";
+export const BARE_DOMAIN_HINT = "If you meant no web address, put a space after the full stop: a word right after one, as " +
+  "in \u201cended.It\u201d, reads as an address.";
 export const DISPLAY_NAME_REFUSAL = "Display names can't include contact details or links.";
 
 export interface AtlasParticipationSettings {
