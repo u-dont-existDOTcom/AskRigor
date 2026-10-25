@@ -80,6 +80,10 @@ GRANT EXECUTE ON FUNCTION living_evidence.delete_atlas_comment(text, text)
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.report_atlas_comment(text, text, timestamptz)
   TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.end_atlas_sessions(text, timestamptz)
+  TO askrigor_research_access;
+GRANT EXECUTE ON FUNCTION living_evidence.atlas_session_current(text, timestamptz, timestamptz)
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_participant(text, timestamptz)
   TO askrigor_research_access;
 ALTER ROLE askrigor_research_access SET statement_timeout = '5s';

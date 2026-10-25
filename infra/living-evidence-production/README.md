@@ -42,9 +42,10 @@ repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below, and executes two held YouTube findings functions
-of migration 0019 (hold and purge) and the seven Atlas participation functions
+of migration 0019 (hold and purge) and the nine Atlas participation functions
 of migration 0022 (a participant's own state, display name, votes, comments,
-reports and deleting everything they hold). The research-review role can
+reports, ending their sessions everywhere, checking a session, and deleting
+everything they hold). The research-review role can
 execute only the three bounded owner-review functions (inspect, decide, and the
 review context of migration 0012), the five Atlas review functions of migration
 0017 (inspect cards, decide a card item, record an intent, inspect intents, and
@@ -95,7 +96,7 @@ placed in Compose.
    grants only its documented tables and operations. The research-access role
    may select/insert/update `research_use_accounts`, select entitlements,
    select/insert pending proposals, and execute the bounded pending-withdrawal
-   function and, from migration 0022, the seven Atlas participation functions.
+   function and, from migration 0022, the nine Atlas participation functions.
    It cannot grant entitlements, review proposals, or write canonical
    evidence.
    Verify migration identity and query the catalog as the migrator to prove
@@ -609,7 +610,7 @@ Decision 171, sections 4D and 4E (design
 `../../docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`, sections
 D and E) add votes and comments to the finding pages, for people signed in with
 the AskRigor login of the apps. Migration `0022_atlas_votes_comments`
-(after 0021, the publications, and before 0023, the findings save switch) adds five
+(after 0021, the publications, and before 0023, the findings save switch) adds six
 private tables: `atlas_participants` (a participant key derived from the account
 key the connector derives, never an email address or OAuth subject; the
 commenter tag the owner's review names them by; the display name chosen with
@@ -619,11 +620,14 @@ the first comment; whether the owner stopped them from commenting),
 name at posting, a body of at most 2,000 characters, `shown` or `hidden`, a
 report count), `atlas_comment_reports` (one per comment and reporter: a
 participant key, or a hash of the address under a salt the server keeps in
-memory for one day) and `atlas_home_picks` (the owner's picks, up to five, with
-their public reasons). It adds seven SECURITY DEFINER functions for the
+memory for one day), `atlas_home_picks` (the owner's picks, up to five, with
+their public reasons) and `atlas_session_ends` (when a participant signed out
+everywhere or deleted everything, by a hash of their key, kept 30 days so every
+earlier session is refused). It adds nine SECURITY DEFINER functions for the
 research-access role (`inspect_atlas_participant`, `set_atlas_display_name`,
 `set_atlas_vote`, `post_atlas_comment`, `delete_atlas_comment`,
-`report_atlas_comment` and `forget_atlas_participant`) and five for the review
+`report_atlas_comment`, `end_atlas_sessions`, `atlas_session_current` and
+`forget_atlas_participant`) and five for the review
 role (`inspect_atlas_comments`, `moderate_atlas_comment`,
 `set_atlas_commenter_stopped`, `set_atlas_home_picks` and
 `inspect_atlas_home_picks`); neither role gets a table or the sequence. The
@@ -657,7 +661,7 @@ their votes and comments, so it is kept.
 Its release: run the one-shot admin `migrate`, which applies 0022, before the
 new image serves; then re-run `/usr/local/bin/provision-research-access-role`
 and `/usr/local/bin/provision-research-review-role` inside the PostgreSQL
-container, which grant the seven and the five functions; then the 33-tool
+container, which grant the nine and the five functions; then the 33-tool
 catalog, where `review_research_contribution` takes the comment actions and
 `set_picks`, so the owner refreshes each connector's tool list. With
 participation on, check that a finding page shows the vote totals and the

@@ -157,6 +157,7 @@ export type AtlasRoute =
   | { kind: "sign-in" }
   | { kind: "callback" }
   | { kind: "sign-out" }
+  | { kind: "sign-out-everywhere" }
   | { kind: "vote"; publicationNumber: string }
   | { kind: "comment"; publicationNumber: string }
   | { kind: "delete-comment"; publicId: string }
@@ -164,10 +165,10 @@ export type AtlasRoute =
   | { kind: "rename" }
   | { kind: "forget" };
 
-type FormRoute = Extract<AtlasRoute,
-  { kind: "sign-out" | "vote" | "comment" | "delete-comment" | "report-comment" | "rename" | "forget" }>;
-const FORM_KINDS: ReadonlySet<string> = new Set(["sign-out", "vote", "comment", "delete-comment", "report-comment", "rename",
-  "forget"]);
+type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
+  "delete-comment" | "report-comment" | "rename" | "forget" }>;
+const FORM_KINDS: ReadonlySet<string> = new Set(["sign-out", "sign-out-everywhere", "vote", "comment", "delete-comment",
+  "report-comment", "rename", "forget"]);
 const SIGN_IN_KINDS: ReadonlySet<string> = new Set(["sign-in", "callback"]);
 
 /** Whether a path is the Atlas's: /atlas or below it. */
@@ -196,6 +197,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === ATLAS_SIGN_IN_PATH) return { kind: "sign-in" };
   if (pathname === "/atlas/auth/callback") return { kind: "callback" };
   if (pathname === "/atlas/auth/logout") return { kind: "sign-out" };
+  if (pathname === "/atlas/auth/logout-everywhere") return { kind: "sign-out-everywhere" };
   if (pathname === "/atlas/account/name") return { kind: "rename" };
   if (pathname === "/atlas/account/delete") return { kind: "forget" };
   const findingForm = FINDING_FORM_ROUTE.exec(pathname);
@@ -363,10 +365,16 @@ function write(
   response.end(body);
 }
 
+/** What a response for one reader carries: no cache, the browser's own or a shared one, keeps it. */
+const PRIVATE = "private, no-store";
+
 /** A redirect, never cached: 303 after a form or a sign-in, 302 to the tenant's sign-in. */
 function redirect(response: ServerResponse, status: 302 | 303, location: string, cookies: readonly string[] = []): void {
-  write(response, status, TEXT, "", { location, "cache-control": "no-store" }, cookies);
+  write(response, status, TEXT, "", { location, "cache-control": PRIVATE }, cookies);
 }
+
+/** The used sign-ins, kept until their 10 minutes are over, so a callback is taken once. */
+const USED_SIGN_INS_MAX = 10_000;
 
 const HTML = "text/html; charset=utf-8";
 const TEXT = "text/plain; charset=utf-8";
@@ -381,6 +389,7 @@ function declaresBody(request: IncomingMessage): boolean {
 const NOTICES: Readonly<Record<string, string>> = {
   "signed-in": "You are signed in: you can vote and comment.",
   "signed-out": "You are signed out.",
+  "signed-out-everywhere": "You are signed out of the Atlas everywhere: in every browser where you were signed in.",
   voted: "Your vote is saved.",
   "vote-cleared": "Your vote is withdrawn.",
   commented: "Your comment is posted.",
@@ -431,6 +440,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   };
   const clock = () => options.now === undefined ? new Date() : new Date(options.now());
   const reportSalt = new AtlasReportSalt();
+  const usedSignIns = new Map<string, number>();
+  const clearSession = cookieHeader(ATLAS_SESSION_COOKIE, "", 0);
   /** Where signing in starts: always the public origin, whose callback and cookies the sign-in uses. */
   const signInHref = (settings: AtlasParticipationSettings, returnPath: string) =>
     `${settings.publicOrigin}${ATLAS_SIGN_IN_PATH}?return=${encodeURIComponent(returnPath)}`;
@@ -474,6 +485,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           comment: token(`comment:${publicationNumber}`),
           name: token("name"),
           signOut: token("sign-out"),
+          signOutEverywhere: token("sign-out-everywhere"),
           forget: token("forget"),
         },
       },
@@ -519,9 +531,25 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const message = (response: ServerResponse, status: number, title: string, text: string, back: string,
     cookies: readonly string[] = [], linkText = "Go back") => {
     write(response, status, HTML, renderAtlasMessage(title, text, { href: back, text: linkText }), {
-      "cache-control": "no-store",
+      "cache-control": PRIVATE,
     }, cookies);
   };
+
+  /** The session a request carries, if it is current: not ended since by signing out everywhere or deleting everything. */
+  const currentSession = async (request: IncomingMessage, runtime: AtlasParticipationRuntime, now: Date):
+    Promise<{ session: AtlasSession | undefined; clear: string[] }> => {
+    const cookie = readCookie(request, ATLAS_SESSION_COOKIE);
+    const opened = openSession(runtime.settings, cookie, now);
+    const current = opened !== undefined && await runtime.store.sessionCurrent(opened.participantKey,
+      new Date(opened.signedInAt).toISOString(), now.toISOString());
+    const present = typeof request.headers.cookie === "string" && request.headers.cookie.includes(`${ATLAS_SESSION_COOKIE}=`);
+    return { session: current ? opened : undefined, clear: !current && present ? [clearSession] : [] };
+  };
+
+  /** A form that needs a sign-in it does not have: the page links to signing in, as a form cannot leave this site. */
+  const signInFirst = (response: ServerResponse, runtime: AtlasParticipationRuntime, back: string, cookies: string[]) =>
+    message(response, 403, "Sign in to continue", "You are not signed in, or your sign-in has ended. Nothing was changed.",
+      signInHref(runtime.settings, back), cookies, "Sign in with your AskRigor account");
 
   const signInRoute = async (route: Extract<AtlasRoute, { kind: "sign-in" | "callback" }>, request: IncomingMessage,
     response: ServerResponse, runtime: AtlasParticipationRuntime, now: Date) => {
@@ -529,21 +557,23 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     if (route.kind === "sign-in") {
       const { state, location } = startSignIn(runtime.settings, runtime.signIn, safeReturnPath(query.get("return")), now);
       redirect(response, 302, location,
-        [cookieHeader(ATLAS_LOGIN_COOKIE, sealSignInState(runtime.settings, state), "/atlas/auth", ATLAS_LOGIN_SECONDS)]);
+        [cookieHeader(ATLAS_LOGIN_COOKIE, sealSignInState(runtime.settings, state), ATLAS_LOGIN_SECONDS)]);
       return;
     }
-    const clearLogin = cookieHeader(ATLAS_LOGIN_COOKIE, "", "/atlas/auth", 0);
+    const clearLogin = cookieHeader(ATLAS_LOGIN_COOKIE, "", 0);
     try {
-      const signedIn = await finishSignIn({
-        settings: runtime.settings,
-        signIn: runtime.signIn,
-        query,
-        state: openSignInState(runtime.settings, readCookie(request, ATLAS_LOGIN_COOKIE), now),
-        now,
-      });
+      const state = openSignInState(runtime.settings, readCookie(request, ATLAS_LOGIN_COOKIE), now);
+      // A sign-in is taken once: a replayed callback is refused before the tenant is asked again.
+      if (state !== undefined && query.get("state") === state.state) {
+        for (const [used, expiresAt] of usedSignIns) if (expiresAt <= now.getTime()) usedSignIns.delete(used);
+        if (usedSignIns.has(state.state)) throw new AtlasSignInError("sign_in_expired");
+        if (usedSignIns.size >= USED_SIGN_INS_MAX) usedSignIns.delete(usedSignIns.keys().next().value!);
+        usedSignIns.set(state.state, state.expiresAt);
+      }
+      const signedIn = await finishSignIn({ settings: runtime.settings, signIn: runtime.signIn, query, state, now });
       const session = newSession(signedIn.participantKey, now);
       redirect(response, 303, `${signedIn.returnPath}?done=signed-in`, [
-        cookieHeader(ATLAS_SESSION_COOKIE, sealSession(runtime.settings, session), "/atlas", ATLAS_SESSION_SECONDS),
+        cookieHeader(ATLAS_SESSION_COOKIE, sealSession(runtime.settings, session), ATLAS_SESSION_SECONDS),
         clearLogin,
       ]);
     } catch (error) {
@@ -569,19 +599,21 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     } catch (error) {
       if (!(error instanceof AtlasFormError)) throw error;
       write(response, error.status, TEXT, error.status === 413 ? "Request too large\n" : "Bad request\n",
-        { connection: "close", "cache-control": "no-store" });
+        { connection: "close", "cache-control": PRIVATE });
       return;
     }
-    const session = openSession(settings, readCookie(request, ATLAS_SESSION_COOKIE), now);
+    const { session, clear } = await currentSession(request, runtime, now);
     const back = route.kind === "vote" || route.kind === "comment" ? findingPath(route.publicationNumber)
       : safeReturnPath(form.get("return"));
     const expired = () => message(response, 403, "This form has expired",
-      "The page was open too long, or you signed in or out since. Nothing was changed: reload the page and try again.", back);
-    const done = (notice: keyof typeof NOTICES, anchor: string) => {
+      "The page was open too long, or you signed in or out since. Nothing was changed: reload the page and try again.", back,
+      clear);
+    const done = (notice: keyof typeof NOTICES, anchor: string, cookies: string[] = clear) => {
       cache.clear();
-      redirect(response, 303, `${back}?done=${notice}#${anchor}`);
+      redirect(response, 303, `${back}?done=${notice}#${anchor}`, cookies);
     };
-    const tooMany = () => write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60", "cache-control": "no-store" });
+    const tooMany = () => write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60", "cache-control": PRIVATE },
+      clear);
 
     if (route.kind === "report-comment") {
       const valid = validReportToken(settings, route.publicId, form.get("csrf"), now) ||
@@ -597,20 +629,27 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       return done("reported", route.publicId);
     }
     if (session === undefined) {
-      if (route.kind === "sign-out") return redirect(response, 303, `${back}?done=signed-out`);
-      return redirect(response, 303, signInHref(settings, back));
+      if (route.kind === "sign-out" || route.kind === "sign-out-everywhere") {
+        return redirect(response, 303, `${back}?done=signed-out`, clear);
+      }
+      return signInFirst(response, runtime, back, clear);
     }
     const purpose = route.kind === "vote" ? `vote:${route.publicationNumber}`
       : route.kind === "comment" ? `comment:${route.publicationNumber}`
         : route.kind === "delete-comment" ? `delete:${route.publicId}`
-          : route.kind === "rename" ? "name" : route.kind === "forget" ? "forget" : "sign-out";
+          : route.kind === "rename" ? "name" : route.kind === "forget" ? "forget"
+            : route.kind === "sign-out-everywhere" ? "sign-out-everywhere" : "sign-out";
     if (!validCsrfToken(settings, session, purpose, form.get("csrf"))) return expired();
     const key = session.participantKey;
     const at = now.toISOString();
     try {
       switch (route.kind) {
         case "sign-out":
-          redirect(response, 303, `${back}?done=signed-out`, [cookieHeader(ATLAS_SESSION_COOKIE, "", "/atlas", 0)]);
+          redirect(response, 303, `${back}?done=signed-out`, [clearSession]);
+          return;
+        case "sign-out-everywhere":
+          await runtime.store.endSessions(key, at);
+          redirect(response, 303, `${back}?done=signed-out-everywhere`, [clearSession]);
           return;
         case "vote": {
           const choice = form.get("vote");
@@ -628,7 +667,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           const draft = { body, displayName: named };
           const refuse = async (status: 403 | 422, error: string) => {
             const page = await findingPage(source, route.publicationNumber, session, now, { status, error, draft });
-            write(response, page.status, HTML, page.html, { "cache-control": "no-store", vary: "Cookie" });
+            write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" });
           };
           const participant = await runtime.store.inspectParticipant(key);
           if (participant?.stopped === true) return await refuse(403, "Your account can't comment in the Atlas.");
@@ -664,8 +703,9 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
               "the Atlas deleted.", back);
             return;
           }
+          // Deleting everything also ends every session signed in with: this browser's included.
           await runtime.store.forgetParticipant(key, at);
-          return done("forgotten", "comments");
+          return done("forgotten", "comments", [clearSession]);
         }
       }
     } catch (error) {
@@ -750,17 +790,16 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
         if (participation !== undefined && pageRoute.kind === "finding") {
-          const cookie = readCookie(request, ATLAS_SESSION_COOKIE);
-          const session = openSession(participation.settings, cookie, now);
-          const stale = cookie !== undefined && session === undefined
-            ? [cookieHeader(ATLAS_SESSION_COOKIE, "", "/atlas", 0)] : [];
+          const { session, clear: stale } = await currentSession(request, participation, now);
           const done = queryOf(request).get("done") ?? "";
           const notice = Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
           if (session !== undefined || notice !== null) {
             // A signed-in reader's page holds their forms' tokens: it is rendered for them, and never cached.
-            const page = await findingPage(source, pageRoute.publicationNumber, session, now,
-              { notice, signedOut: done === "signed-out" && session === undefined });
-            write(response, page.status, HTML, page.html, { "cache-control": "no-store", vary: "Cookie" }, stale);
+            const page = await findingPage(source, pageRoute.publicationNumber, session, now, {
+              notice,
+              signedOut: (done === "signed-out" || done === "signed-out-everywhere") && session === undefined,
+            });
+            write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;
           }
           const page = await cache.get(pathname, () => render(pageRoute, source));

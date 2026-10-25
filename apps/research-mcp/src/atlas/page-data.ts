@@ -169,7 +169,7 @@ export interface AtlasFindingParticipationView {
     displayName: string | null;
     stopped: boolean;
     vote: "agree" | "disagree" | null;
-    tokens: { vote: string; comment: string; name: string; signOut: string; forget: string };
+    tokens: { vote: string; comment: string; name: string; signOut: string; signOutEverywhere: string; forget: string };
   };
   /** Where a reader who is not signed in signs in, returning to this page. */
   signInHref: string;

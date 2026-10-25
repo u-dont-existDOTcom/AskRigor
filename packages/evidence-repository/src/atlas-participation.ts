@@ -64,7 +64,7 @@ export interface AtlasForgetResult {
   reports: number;
 }
 
-/** The access role's seven participation functions (migration 0022), in TypeScript. */
+/** The access role's nine participation functions (migration 0022), in TypeScript. */
 export interface AtlasParticipationStore {
   /** Null when the participant holds nothing (no row). */
   inspectParticipant(participantKey: string): Promise<AtlasParticipantView | null>;
@@ -84,9 +84,22 @@ export interface AtlasParticipationStore {
   reportComment(reporterKey: string, publicId: string, at: string): Promise<AtlasReportOutcome>;
   /**
    * Deletes everything the participant holds: votes, comments (with the reports on them) and their own reports; then
-   * their row, or, when the owner stopped them, everything of it but the stop.
+   * their row, or, when the owner stopped them, everything of it but the stop; and ends every session they signed in
+   * with.
    */
   forgetParticipant(participantKey: string, at: string): Promise<AtlasForgetResult>;
+  /** Signing out everywhere: every session of the participant signed in up to `at` is over. */
+  endSessions(participantKey: string, at: string): Promise<void>;
+  /** Whether a session the participant signed in with at signedInAt is still current: none of theirs ended since. */
+  sessionCurrent(participantKey: string, signedInAt: string, at: string): Promise<boolean>;
+}
+
+/** The 30 days a session can last: an end of a participant's sessions is kept as long. */
+export const ATLAS_SESSION_END_KEPT_MS = 30 * 24 * 60 * 60 * 1_000;
+
+/** The hash a participant's ended sessions are kept under, as migration 0022 derives it. */
+export function atlasSessionKeyHash(participantKey: string): string {
+  return createHash("sha256").update(`askrigor-atlas-sessions:v1:${participantKey}`, "utf8").digest("hex");
 }
 
 /** A comment as the owner's review sees it: never the participant's key, only the commenter's tag. */
@@ -228,6 +241,7 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
   private readonly reports = new Map<string, { commentNumber: number; reporterKey: string; reportedAt: string }>();
   private picks: AtlasHomePick[] = [];
   private nextComment = 1_001;
+  private readonly sessionEnds = new Map<string, { endedAt: string; keepUntil: string }>();
 
   constructor(private readonly publications: InMemoryAtlasPublicationStore) {}
 
@@ -405,7 +419,38 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
       participant.updatedAt = later(iso(at), participant.updatedAt);
     }
     this.forgetIdle(participantKey);
+    this.endSessionsAt(participantKey, iso(at));
     return { votes, comments, reports };
+  }
+
+  async endSessions(participantKey: string, at: string): Promise<void> {
+    checkParticipant(participantKey);
+    checkAt(at);
+    this.endSessionsAt(participantKey, iso(at));
+  }
+
+  async sessionCurrent(participantKey: string, signedInAt: string, at: string): Promise<boolean> {
+    checkParticipant(participantKey);
+    checkAt(signedInAt);
+    checkAt(at);
+    this.dropLapsedSessionEnds(iso(at));
+    const ended = this.sessionEnds.get(atlasSessionKeyHash(participantKey));
+    return ended === undefined || Date.parse(ended.endedAt) < Date.parse(signedInAt);
+  }
+
+  private endSessionsAt(participantKey: string, at: string): void {
+    this.dropLapsedSessionEnds(at);
+    const hash = atlasSessionKeyHash(participantKey);
+    const keepUntil = new Date(Date.parse(at) + ATLAS_SESSION_END_KEPT_MS).toISOString();
+    const earlier = this.sessionEnds.get(hash);
+    this.sessionEnds.set(hash, earlier === undefined ? { endedAt: at, keepUntil }
+      : { endedAt: later(earlier.endedAt, at), keepUntil: later(earlier.keepUntil, keepUntil) });
+  }
+
+  private dropLapsedSessionEnds(at: string): void {
+    for (const [hash, ended] of this.sessionEnds) {
+      if (Date.parse(ended.keepUntil) < Date.parse(at)) this.sessionEnds.delete(hash);
+    }
   }
 
   async inspectComments(query: AtlasCommentQuery): Promise<AtlasCommentModerationView[]> {
@@ -504,12 +549,14 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
   }
 
   /** Every stored row, as text, for tests that scan what is kept. */
-  snapshot(): { participants: StoredParticipant[]; comments: StoredComment[]; reports: string[]; votes: number } {
+  snapshot(): { participants: StoredParticipant[]; comments: StoredComment[]; reports: string[]; votes: number;
+    sessionEnds: string[] } {
     return {
       participants: structuredClone([...this.participants.values()]),
       comments: structuredClone(this.comments),
       reports: [...this.reports.values()].map(({ reporterKey }) => reporterKey),
       votes: this.votes.size,
+      sessionEnds: [...this.sessionEnds.keys()],
     };
   }
 }
@@ -535,7 +582,7 @@ async function callFunction<Row extends object>(pool: Pool, sql: string, values:
   }
 }
 
-/** The participation store through the access role's seven SECURITY DEFINER functions; it reads no table directly. */
+/** The participation store through the access role's nine SECURITY DEFINER functions; it reads no table directly. */
 export class PostgresAtlasParticipationStore implements AtlasParticipationStore {
   readonly schema: string;
   private readonly pool: Pool;
@@ -620,6 +667,22 @@ export class PostgresAtlasParticipationStore implements AtlasParticipationStore 
          FROM ${this.schema}.forget_atlas_participant($1::text, $2::timestamptz)`,
       [participantKey, at]);
     return { votes: Number(row!.votes_deleted), comments: Number(row!.comments_deleted), reports: Number(row!.reports_deleted) };
+  }
+
+  async endSessions(participantKey: string, at: string): Promise<void> {
+    checkParticipant(participantKey);
+    checkAt(at);
+    await callFunction(this.pool, `SELECT ${this.schema}.end_atlas_sessions($1::text, $2::timestamptz)`, [participantKey, at]);
+  }
+
+  async sessionCurrent(participantKey: string, signedInAt: string, at: string): Promise<boolean> {
+    checkParticipant(participantKey);
+    checkAt(signedInAt);
+    checkAt(at);
+    const [row] = await callFunction<{ session_current: boolean }>(this.pool,
+      `SELECT session_current FROM ${this.schema}.atlas_session_current($1::text, $2::timestamptz, $3::timestamptz)`,
+      [participantKey, signedInAt, at]);
+    return row?.session_current === true;
   }
 
   async close(): Promise<void> {

@@ -93,6 +93,9 @@ export function announcingParticipationStore(
     deleteComment: (participantKey, publicId) => announcing(signal, () => store.deleteComment(participantKey, publicId)),
     reportComment: (reporterKey, publicId, at) => announcing(signal, () => store.reportComment(reporterKey, publicId, at)),
     forgetParticipant: (participantKey, at) => announcing(signal, () => store.forgetParticipant(participantKey, at)),
+    // Sessions show on no page: ending them changes nothing a cached page holds.
+    endSessions: (participantKey, at) => store.endSessions(participantKey, at),
+    sessionCurrent: (participantKey, signedInAt, at) => store.sessionCurrent(participantKey, signedInAt, at),
   };
 }
 

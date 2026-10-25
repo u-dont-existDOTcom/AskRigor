@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { InMemoryAtlasPageSource } from "@askrigor/evidence-repository";
+import { InMemoryAtlasPageSource, InMemoryAtlasParticipation, atlasSessionKeyHash } from "@askrigor/evidence-repository";
 
 import { AtlasChangeSignal } from "../apps/research-mcp/src/atlas/change-signal.js";
 import {
+  ATLAS_LOGIN_COOKIE,
+  ATLAS_SESSION_COOKIE,
   CONTACT_REFUSAL,
   commentProblem,
+  csrfToken,
   displayNameProblem,
+  openSession,
   participantKeyFor,
 } from "../apps/research-mcp/src/atlas/participation.js";
 import { atlasPageProblems, escapeHtml } from "../apps/research-mcp/src/atlas/pages.js";
@@ -15,7 +19,9 @@ import { addressLimitKey, createTokenBucketLimiter } from "../apps/research-mcp/
 import {
   SUBJECT,
   closeAtlasServers,
+  cookiePart,
   fixture,
+  publications,
   rawRequest,
   serve,
   tokenFor,
@@ -190,3 +196,90 @@ describe("the reader's address behind the apex proxy (review issue 2)", () => {
     expect(addressLimitKey("unknown")).toBe("unknown");
   });
 });
+
+describe("signing in (review issue 5)", () => {
+  it("refuses a replayed callback without asking the tenant again", async () => {
+    const f = await fixture();
+    const login = await f.get("/atlas/auth/login?return=/atlas/findings/P-1001");
+    const location = new URL(login.response.headers.get("location")!);
+    const loginCookie = cookiePart(login.response, ATLAS_LOGIN_COOKIE)!;
+    f.tenant.next = { ...f.tenant.next, nonce: location.searchParams.get("nonce")! };
+    const callback = `/atlas/auth/callback?code=synthetic-code&state=${location.searchParams.get("state")}`;
+    expect((await f.get(callback, loginCookie)).response.status).toBe(303);
+    expect(f.tenant.requests).toHaveLength(1);
+    for (const code of ["again", "and-again"]) {
+      const replay = await f.get(callback.replace("synthetic-code", code), loginCookie);
+      expect(replay.response.status, code).toBe(400);
+    }
+    expect(f.tenant.requests).toHaveLength(1);
+  });
+
+  it("ends every session at sign-out everywhere, and after deleting everything", async () => {
+    const f = await fixture();
+    const first = await f.signIn();
+    const second = await f.signIn();
+    const page = (await f.get("/atlas/findings/P-1001", first)).body;
+    const out = await f.post("/atlas/auth/logout-everywhere", { csrf: tokenFor(page, "/atlas/auth/logout-everywhere"),
+      return: "/atlas/findings/P-1001" }, { cookie: first });
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe("/atlas/findings/P-1001?done=signed-out-everywhere");
+    expect(out.headers.getSetCookie()).toEqual([`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]);
+    // The other browser's session is over too: its page shows the sign-in link and clears its cookie, and its forms are
+    // refused with a page that links to signing in.
+    const elsewhere = await f.get("/atlas/findings/P-1001", second);
+    expect(elsewhere.body).not.toContain('action="/atlas/findings/P-1001/vote"');
+    expect(elsewhere.response.headers.getSetCookie()[0]).toContain(`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0`);
+    const vote = await f.post("/atlas/findings/P-1001/vote", { csrf: csrfToken(f.settings,
+      openSession(f.settings, second.slice(second.indexOf("=") + 1), new Date())!, "vote:P-1001"), vote: "agree" },
+    { cookie: second });
+    expect(vote.status).toBe(403);
+    expect(await vote.text()).toContain("Sign in with your AskRigor account");
+    expect(f.store.snapshot().votes).toBe(0);
+    // Ended by a hash of the key, never the key itself; a later sign-in is current.
+    const key = participantKeyFor(f.settings, SUBJECT);
+    expect(f.store.snapshot().sessionEnds).toEqual([atlasSessionKeyHash(key)]);
+    expect(JSON.stringify(f.store.snapshot().sessionEnds)).not.toContain(key);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const third = await f.signIn();
+    const fresh = (await f.get("/atlas/findings/P-1001", third)).body;
+    expect(fresh).toContain('action="/atlas/findings/P-1001/vote"');
+    // Deleting everything ends this session as well.
+    const forgotten = await f.post("/atlas/account/delete", { csrf: tokenFor(fresh, "/atlas/account/delete"), confirm: "yes",
+      return: "/atlas/findings/P-1001" }, { cookie: third });
+    expect(forgotten.headers.getSetCookie()[0]).toContain(`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0`);
+    const after = await f.post("/atlas/findings/P-1001/vote", { csrf: tokenFor(fresh, "/atlas/findings/P-1001/vote"),
+      vote: "agree" }, { cookie: third });
+    expect(after.status).toBe(403);
+  });
+
+  it("keeps an end of sessions for the 30 days a session lasts, then deletes it", async () => {
+    const store = new InMemoryAtlasParticipation(await publications());
+    const key = "a".repeat(64);
+    const signedIn = "2026-11-05T09:00:00.000Z";
+    expect(await store.sessionCurrent(key, signedIn, "2026-11-05T10:00:00.000Z")).toBe(true);
+    await store.endSessions(key, "2026-11-05T10:00:00.000Z");
+    expect(await store.sessionCurrent(key, signedIn, "2026-11-05T10:00:01.000Z")).toBe(false);
+    expect(await store.sessionCurrent(key, "2026-11-05T10:00:02.000Z", "2026-11-05T10:00:03.000Z")).toBe(true);
+    expect(store.snapshot().sessionEnds).toHaveLength(1);
+    expect(await store.sessionCurrent(key, signedIn, "2026-12-05T10:00:01.000Z")).toBe(true);
+    expect(store.snapshot().sessionEnds).toEqual([]);
+  });
+});
+
+describe("the session cookie (review issue 6)", () => {
+  it("is a __Host- cookie on /, and a request carrying two of them is signed out", async () => {
+    const f = await fixture();
+    const session = await f.signIn();
+    expect(session.startsWith(`${ATLAS_SESSION_COOKIE}=`)).toBe(true);
+    const page = (await f.get("/atlas/findings/P-1001", session)).body;
+    const csrf = tokenFor(page, "/atlas/findings/P-1001/vote");
+    // A sibling subdomain could plant a second cookie of the same name with a longer path: then no session is read.
+    const planted = `${ATLAS_SESSION_COOKIE}=v1.planted; ${session}`;
+    expect((await f.get("/atlas/findings/P-1001", planted)).body).not.toContain('action="/atlas/findings/P-1001/vote"');
+    const refused = await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: planted });
+    expect(refused.status).toBe(403);
+    expect(f.store.snapshot().votes).toBe(0);
+    expect((await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: session })).status).toBe(303);
+  });
+});
+

@@ -24,7 +24,7 @@ const ATLAS_MODERATION_FUNCTIONS = [
 ];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
-  "report_atlas_comment", "forget_atlas_participant",
+  "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
 ];
 
 describe("production living-evidence deployment", () => {
@@ -638,8 +638,8 @@ describe("production living-evidence deployment", () => {
       expect(script).not.toContain("held_youtube_findings TO");
       expect(script).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|ALL)\s+ON\s+(?:TABLE\s+)?living_evidence\.held/iu);
     }
-    // With the pending-withdrawal function and migration 0022's seven participation functions (decision 171, 4E).
-    expect(granted(access)).toHaveLength(10);
+    // With the pending-withdrawal function and migration 0022's nine participation functions (decision 171, 4E).
+    expect(granted(access)).toHaveLength(12);
     // The release: migrate first, then both provisioning scripts, before the image serves.
     expect(runbook).toContain("Migration `0019_held_youtube_findings` adds");
     expect(runbook).toContain("re-run `/usr/local/bin/provision-research-access-role` and " +
@@ -705,11 +705,11 @@ describe("production living-evidence deployment", () => {
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
 
-    // Five tables and one sequence, safe to run again.
+    // Six tables and one sequence, safe to run again.
     expect(migration.match(/CREATE TABLE IF NOT EXISTS (\w+)/gu)).toEqual([
       "CREATE TABLE IF NOT EXISTS atlas_participants", "CREATE TABLE IF NOT EXISTS atlas_votes",
       "CREATE TABLE IF NOT EXISTS atlas_comments", "CREATE TABLE IF NOT EXISTS atlas_comment_reports",
-      "CREATE TABLE IF NOT EXISTS atlas_home_picks",
+      "CREATE TABLE IF NOT EXISTS atlas_home_picks", "CREATE TABLE IF NOT EXISTS atlas_session_ends",
     ]);
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_comment_number_seq AS bigint START WITH 1001");
     // A participant is a derived key, never an email address, a subject or an account; a report never holds an address.
@@ -741,13 +741,14 @@ describe("production living-evidence deployment", () => {
         expect(other).not.toContain(`living_evidence.${name}(`);
       }
     }
-    for (const helper of ["atlas_publication_open", "atlas_forget_idle_participant", "atlas_comment_number_seq"]) {
+    for (const helper of ["atlas_publication_open", "atlas_forget_idle_participant", "atlas_comment_number_seq",
+      "atlas_session_key_hash", "atlas_end_sessions("]) {
       expect(review).not.toContain(helper);
       expect(access).not.toContain(helper);
     }
     // With the pending-withdrawal function and migration 0019's two held YouTube findings functions (owner answer 173).
-    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(10);
-    expect(access).not.toMatch(/GRANT[^;]*atlas_(?:participants|votes|comments|comment_reports|home_picks)/u);
+    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(12);
+    expect(access).not.toMatch(/GRANT[^;]*atlas_(?:participants|votes|comments|comment_reports|home_picks|session_ends)/u);
     // Writes happen only inside the functions; nothing outside them touches a table or grants a role.
     const outsideFunctions = migration.replace(/AS \$function\$[\s\S]*?\$function\$;/gu, "");
     expect(outsideFunctions).not.toMatch(/\b(?:INSERT INTO|UPDATE \w+ SET|DELETE FROM|TRUNCATE|GRANT )\b/u);

@@ -1587,20 +1587,31 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   key and every other claim are dropped at once. Signing out of the Atlas
   clears its cookie; the page then offers a plain link that also signs out of
   the tenant's own login in that browser, which the Atlas does not do by itself.
-- **The login cookie** (`__Secure-askrigor-atlas-login`, path `/atlas/auth`,
-  10 minutes, HttpOnly, Secure, SameSite=Lax): the sign-in's random state,
+- **The login cookie** (`__Host-askrigor-atlas-login`, path `/`, 10 minutes,
+  HttpOnly, Secure, SameSite=Lax; the `__Host-` prefix keeps any other host,
+  a sibling subdomain included, from setting it): the sign-in's random state,
   nonce and PKCE verifier, the `/atlas` page to return to and its expiry,
   encrypted and authenticated (AES-256-GCM). It is cleared at the callback,
-  whether the sign-in completes or not, and expires otherwise; the server
-  stores nothing of a sign-in.
-- **The session cookie** (`__Secure-askrigor-atlas`, path `/atlas`, 30 days,
+  whether the sign-in completes or not, and expires otherwise. So that a
+  callback is taken once, the server keeps each used state value in memory
+  until its 10 minutes are over (at most 10,000), and nothing else of a
+  sign-in.
+- **The session cookie** (`__Host-askrigor-atlas`, path `/`, 30 days,
   HttpOnly, Secure, SameSite=Lax), set only at sign-in: the participant key, a
-  random session ID that the forms' tokens are bound to, and its expiry,
-  encrypted and authenticated. There is no server-side session store: signing
-  out clears the cookie, an altered or expired one is ignored and cleared, and
-  changing the session key (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs
-  everyone out. A signed-in reader's finding pages are rendered for them and
-  never cached.
+  random session ID that the forms' tokens are bound to, when the reader signed
+  in, and its expiry, encrypted and authenticated. Signing out clears it; an
+  altered or expired one, or a request carrying two of them, is read as no
+  session, and the cookie is cleared; changing the session key
+  (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs everyone out. A signed-in
+  reader's pages are rendered for them and sent with `Cache-Control: private,
+  no-store`.
+- **Ended sessions** (`atlas_session_ends`): "Sign out everywhere", and
+  deleting everything one holds, end every session signed in before them, in
+  every browser. The server keeps, for each participant who did, a SHA-256 hash
+  of their key (under its own label, so it is not the key) and when their
+  sessions ended, and checks it on every form and signed-in page. A row is kept
+  for the 30 days a session can last and deleted at the first check after
+  them.
 - **The participant key**: an HMAC-SHA256, under its own secret
   (`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL`), of the account key the
   connector derives from the same subject (`researchAccountKeyForSubject`). It
@@ -1657,7 +1668,7 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   owner shows the comment, or when their signed-in reporter deletes everything.
   A display name: replaced when changed, deleted with the row. Picks: replaced
   or cleared by the owner. The cookies: at sign-out, at the callback, or when
-  they expire.
+  they expire. An ended-sessions row: 30 days after, at the next check.
 - **Limits, and no logs.** Per participant, 6 comments an hour (3 at once), 60
   votes an hour and 5 display-name changes an hour; per reporter, 5 reports an
   hour; every request also counts against the per-address page limit; form

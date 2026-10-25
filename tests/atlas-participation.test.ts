@@ -206,7 +206,9 @@ describe("the votes and comments stores in PostgreSQL", () => {
           : sql.includes("report_atlas_comment") ? [{ report_outcome: "reported" }]
             : sql.includes("delete_atlas_comment") ? [{ comment_deleted: true }]
               : sql.includes("forget_atlas_participant") ? [{ votes_deleted: "2", comments_deleted: "1", reports_deleted: "0" }]
-                : [{ participant_display_name: "Jane", participant_stopped: false }]);
+                : sql.includes("atlas_session_current") ? [{ session_current: false }]
+                  : sql.includes("end_atlas_sessions") ? [{ end_atlas_sessions: "" }]
+                    : [{ participant_display_name: "Jane", participant_stopped: false }]);
     const key = "a".repeat(64);
     const at = "2026-11-05T09:00:00.000Z";
     expect(await store.setVote(key, "P-1001", "agree", at)).toEqual({ agree: 2, disagree: 1 });
@@ -216,9 +218,11 @@ describe("the votes and comments stores in PostgreSQL", () => {
     expect(await store.setDisplayName(key, "Jane", at)).toEqual({ displayName: "Jane", stopped: false });
     expect(await store.inspectParticipant(key)).toEqual({ displayName: "Jane", stopped: false });
     expect(await store.forgetParticipant(key, at)).toEqual({ votes: 2, comments: 1, reports: 0 });
-    expect(calls.map(({ sql }) => /FROM living_evidence\.([a-z_]+)\(/u.exec(sql)?.[1])).toEqual([
+    await store.endSessions(key, at);
+    expect(await store.sessionCurrent(key, "2026-11-05T08:00:00.000Z", at)).toBe(false);
+    expect(calls.map(({ sql }) => /(?:FROM |SELECT )living_evidence\.([a-z_]+)\(/u.exec(sql)?.[1])).toEqual([
       "set_atlas_vote", "post_atlas_comment", "report_atlas_comment", "delete_atlas_comment", "set_atlas_display_name",
-      "inspect_atlas_participant", "forget_atlas_participant",
+      "inspect_atlas_participant", "forget_atlas_participant", "end_atlas_sessions", "atlas_session_current",
     ]);
     expect(calls[1]!.values).toEqual([key, "P-1001", "A comment.", "Jane", at]);
     for (const { sql } of calls) expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|FROM living_evidence\.atlas_(?!.*\()/u);
@@ -399,7 +403,7 @@ describe("the participant key, the cookies and the tokens", () => {
 // Signing in --------------------------------------------------------------------------------------------------------------
 
 describe("signing in with the AskRigor login", () => {
-  it("asks the tenant for openid only, with PKCE, state and nonce, and keeps them in a 10-minute cookie on /atlas/auth", async () => {
+  it("asks the tenant for openid only, with PKCE, state and nonce, and keeps them in a 10-minute __Host- cookie", async () => {
     const f = await fixture();
     const { response } = await f.get("/atlas/auth/login?return=/atlas/findings/P-1001");
     expect(response.status).toBe(302);
@@ -413,7 +417,7 @@ describe("signing in with the AskRigor login", () => {
     for (const name of ["state", "nonce", "code_challenge"]) expect(location.searchParams.get(name)).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     expect(location.search).not.toMatch(/email|profile|offline_access/u);
     const cookie = response.headers.getSetCookie().find((header) => header.startsWith(`${ATLAS_LOGIN_COOKIE}=`))!;
-    expect(cookie).toMatch(/; Path=\/atlas\/auth; Max-Age=600; HttpOnly; Secure; SameSite=Lax$/u);
+    expect(cookie).toMatch(/^__Host-askrigor-atlas-login=v1\.[A-Za-z0-9_-]+; Path=\/; Max-Age=600; HttpOnly; Secure; SameSite=Lax$/u);
     expect(cookie).not.toContain(location.searchParams.get("state")!);
   });
 
@@ -431,7 +435,7 @@ describe("signing in with the AskRigor login", () => {
     const page = await f.get("/atlas/findings/P-1001?done=signed-in", session);
     expect(page.body).toContain("You are signed in: you can vote and comment.");
     expect(page.body).toContain('action="/atlas/findings/P-1001/vote"');
-    expect(page.response.headers.get("cache-control")).toBe("no-store");
+    expect(page.response.headers.get("cache-control")).toBe("private, no-store");
   });
 
   it("refuses a forged, expired, foreign or replayed token, a wrong state, an expired sign-in and a tenant error", async () => {
@@ -461,7 +465,7 @@ describe("signing in with the AskRigor login", () => {
       expect(body, name).toContain("Sign-in did not complete");
       expect(body, name).toContain(`<a href="${f.base}/atlas/auth/login?return=%2Fatlas">Try signing in again</a>`);
       expect(cookiePart(response, ATLAS_SESSION_COOKIE), name).toBeUndefined();
-      expect(response.headers.getSetCookie(), name).toContain(`${ATLAS_LOGIN_COOKIE}=; Path=/atlas/auth; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+      expect(response.headers.getSetCookie(), name).toContain(`${ATLAS_LOGIN_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
       expectPageHeaders(response);
     }
   });
@@ -479,7 +483,7 @@ describe("signing in with the AskRigor login", () => {
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(out.status).toBe(303);
     expect(out.headers.get("location")).toBe("/atlas/findings/P-1001?done=signed-out");
-    expect(out.headers.getSetCookie()).toEqual([`${ATLAS_SESSION_COOKIE}=; Path=/atlas; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]);
+    expect(out.headers.getSetCookie()).toEqual([`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`]);
     // Signed out of the Atlas, the reader is offered the tenant's own sign-out, back to the Atlas.
     const after = await f.get("/atlas/findings/P-1001?done=signed-out");
     expect(after.body).toContain("You are signed out.");
@@ -495,7 +499,7 @@ describe("signing in with the AskRigor login", () => {
     // An altered session cookie is no session, and it is cleared.
     const altered = await f.get("/atlas/findings/P-1001", `${session.slice(0, -3)}AAA`);
     expect(altered.body).not.toContain('action="/atlas/findings/P-1001/vote"');
-    expect(altered.response.headers.getSetCookie()[0]).toContain(`${ATLAS_SESSION_COOKIE}=; Path=/atlas; Max-Age=0`);
+    expect(altered.response.headers.getSetCookie()[0]).toContain(`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0`);
   });
 });
 
@@ -696,10 +700,12 @@ describe("the forms' guards", () => {
       expect(response.status, name).toBe(403);
       expect(await response.text()).toContain("This form has expired");
     }
-    // Not signed in: to the sign-in, returning to the finding.
+    // Not signed in: a page that links to signing in, returning to the finding (a form cannot leave this site).
     const anonymous = await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" });
-    expect(anonymous.status).toBe(303);
-    expect(anonymous.headers.get("location")).toBe(`${f.base}/atlas/auth/login?return=%2Fatlas%2Ffindings%2FP-1001`);
+    expect(anonymous.status).toBe(403);
+    expect(anonymous.headers.get("location")).toBeNull();
+    expect(await anonymous.text()).toContain(`<a href="${f.base}/atlas/auth/login?return=%2Fatlas%2Ffindings%2FP-1001">` +
+      "Sign in with your AskRigor account</a>");
     // Only form bodies, at most 16 KiB.
     expect((await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: session, type: "application/json" }))
       .status).toBe(415);

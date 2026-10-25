@@ -13,10 +13,12 @@ SET search_path TO __SCHEMA__, public;
 -- public with the display name its author chose; a report holds the reporter's key, or a hash of the reporter's
 -- address under a salt the server keeps in memory for one day, never the address, and is deleted with its comment, when
 -- the owner shows the comment (the reports are then dealt with) or when its reporter deletes everything they hold. A
--- participant can delete all their votes, comments and reports at once. The public runtime's access role writes through
--- the seven participation functions below and the review role moderates through the five moderation functions (the
--- provisioning scripts grant exactly those); the reader reads the tables for the pages. Safe to run again: every
--- migration runs on each start, in one transaction.
+-- participant can delete all their votes, comments and reports at once. Signing out everywhere, or deleting everything,
+-- ends every session signed in before it: the server keeps when a participant's sessions last ended, by a hash of their
+-- key, for the 30 days a session can last. The public runtime's access role writes through the nine participation
+-- functions below and the review role moderates through the five moderation functions (the provisioning scripts grant
+-- exactly those); the reader reads the tables for the pages. Safe to run again: every migration runs on each start, in
+-- one transaction.
 
 CREATE SEQUENCE IF NOT EXISTS atlas_comment_number_seq AS bigint START WITH 1001 MINVALUE 1001 NO CYCLE;
 
@@ -78,6 +80,17 @@ CREATE TABLE IF NOT EXISTS atlas_home_picks (
   set_at timestamptz NOT NULL
 );
 
+-- When a participant's sessions last ended (signing out everywhere, deleting everything), by a hash of their key: every
+-- session signed in up to then is over. Kept for the 30 days a session can last, then deleted.
+CREATE TABLE IF NOT EXISTS atlas_session_ends (
+  session_key_hash text PRIMARY KEY CHECK (session_key_hash ~ '^[a-f0-9]{64}$'),
+  ended_at timestamptz NOT NULL,
+  keep_until timestamptz NOT NULL,
+  CONSTRAINT atlas_session_ends_v1_times_check CHECK (ended_at < keep_until)
+);
+
+CREATE INDEX IF NOT EXISTS atlas_session_ends_keep_until_idx ON atlas_session_ends (keep_until);
+
 COMMENT ON TABLE atlas_participants IS
   'People who vote or comment in the Atlas (decision 171), by a key derived from the account key, never an email address or OAuth subject; a row exists only while it holds a vote, a comment or the owner''s stop.';
 COMMENT ON TABLE atlas_comment_reports IS
@@ -113,6 +126,34 @@ AS $function$
 $function$;
 
 REVOKE ALL ON FUNCTION atlas_forget_idle_participant(text) FROM PUBLIC;
+
+-- The hash a participant's ended sessions are kept under: not the key itself.
+CREATE OR REPLACE FUNCTION atlas_session_key_hash(target_participant_key text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  SELECT encode(sha256(convert_to('askrigor-atlas-sessions:v1:' || target_participant_key, 'UTF8')), 'hex')
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_session_key_hash(text) FROM PUBLIC;
+
+-- Ends every session of the participant signed in up to end_time, and deletes the ends whose 30 days are over.
+CREATE OR REPLACE FUNCTION atlas_end_sessions(target_participant_key text, end_time timestamptz)
+RETURNS void
+LANGUAGE sql
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < end_time;
+  INSERT INTO atlas_session_ends AS stored (session_key_hash, ended_at, keep_until)
+  VALUES (atlas_session_key_hash(target_participant_key), end_time, end_time + interval '30 days')
+  ON CONFLICT (session_key_hash) DO UPDATE
+    SET ended_at = greatest(stored.ended_at, EXCLUDED.ended_at),
+        keep_until = greatest(stored.keep_until, EXCLUDED.keep_until);
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_end_sessions(text, timestamptz) FROM PUBLIC;
 
 -- The participation functions (SECURITY DEFINER; provision-research-access-role.sh grants exactly these) -----------
 
@@ -355,9 +396,56 @@ $function$;
 
 REVOKE ALL ON FUNCTION report_atlas_comment(text, text, timestamptz) FROM PUBLIC;
 
+-- Signing out everywhere: every session of the participant signed in up to end_time is over.
+CREATE OR REPLACE FUNCTION end_atlas_sessions(target_participant_key text, end_time timestamptz)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+BEGIN
+  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' OR end_time IS NULL THEN
+    RAISE EXCEPTION 'ATLAS_PARTICIPATION_INPUT_INVALID';
+  END IF;
+  PERFORM atlas_end_sessions(target_participant_key, end_time);
+END
+$function$;
+
+REVOKE ALL ON FUNCTION end_atlas_sessions(text, timestamptz) FROM PUBLIC;
+
+-- Whether a session signed in at signed_in_at is still current: no end of the participant's sessions since. Deletes the
+-- ends whose 30 days are over, so none outlives them for long.
+CREATE OR REPLACE FUNCTION atlas_session_current(
+  target_participant_key text,
+  signed_in_at timestamptz,
+  check_time timestamptz
+)
+RETURNS TABLE (session_current boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+BEGIN
+  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$'
+     OR signed_in_at IS NULL OR check_time IS NULL
+  THEN
+    RAISE EXCEPTION 'ATLAS_PARTICIPATION_INPUT_INVALID';
+  END IF;
+  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < check_time;
+  RETURN QUERY SELECT NOT EXISTS (
+    SELECT 1 FROM atlas_session_ends stored
+     WHERE stored.session_key_hash = atlas_session_key_hash(target_participant_key)
+       AND stored.ended_at >= signed_in_at
+  );
+END
+$function$;
+
+REVOKE ALL ON FUNCTION atlas_session_current(text, timestamptz, timestamptz) FROM PUBLIC;
+
 -- Deletes everything the participant holds in the Atlas: their votes, their comments (with the reports on them) and
 -- their own reports of other comments; then their row, unless the owner stopped them, in which case only the stop is
--- kept (their display name goes), so deleting cannot undo a stop. Returns how many votes, comments and reports went.
+-- kept (their display name goes), so deleting cannot undo a stop; and ends every session they signed in with. Returns
+-- how many votes, comments and reports went.
 CREATE OR REPLACE FUNCTION forget_atlas_participant(target_participant_key text, forget_time timestamptz)
 RETURNS TABLE (votes_deleted bigint, comments_deleted bigint, reports_deleted bigint)
 LANGUAGE plpgsql
@@ -391,6 +479,7 @@ BEGIN
    WHERE stored.participant_key = target_participant_key
      AND stored.stopped_at IS NOT NULL;
   PERFORM atlas_forget_idle_participant(target_participant_key);
+  PERFORM atlas_end_sessions(target_participant_key, forget_time);
   RETURN QUERY SELECT vote_rows, comment_rows, report_rows;
 END
 $function$;

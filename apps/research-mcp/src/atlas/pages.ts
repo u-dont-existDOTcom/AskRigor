@@ -483,6 +483,10 @@ ${hiddenFields(viewer.tokens.name, path)}
 ${hiddenFields(viewer.tokens.signOut, path)}
 <button type="submit" class="quiet">Sign out</button>
 </form>
+<form method="post" action="/atlas/auth/logout-everywhere">
+${hiddenFields(viewer.tokens.signOutEverywhere, path)}
+<button type="submit" class="quiet">Sign out everywhere</button>
+</form>
 <form method="post" action="/atlas/account/delete" class="forget-form">
 ${hiddenFields(viewer.tokens.forget, path)}
 <p><input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>

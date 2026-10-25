@@ -33,6 +33,7 @@ import {
   ResearchContributorAccessService,
   atlasCommenterTag,
   atlasCurrentLabels,
+  atlasSessionKeyHash,
   deterministicUuid,
   prepareAtlasFindingIntent,
   prepareResearchContributionProposal,
@@ -1420,15 +1421,15 @@ const ATLAS_PUBLICATION_FUNCTIONS = [
 ] as const;
 // Decision 171, section 4E: migration 0022's tables, and the functions each role is granted.
 const ATLAS_PARTICIPATION_TABLES = [
-  "atlas_participants", "atlas_votes", "atlas_comments", "atlas_comment_reports", "atlas_home_picks",
+  "atlas_participants", "atlas_votes", "atlas_comments", "atlas_comment_reports", "atlas_home_picks", "atlas_session_ends",
 ] as const;
 const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
   "set_atlas_home_picks",
 ] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
-  "delete_atlas_comment", "forget_atlas_participant", "inspect_atlas_participant", "post_atlas_comment",
-  "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
+  "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
+  "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
 ] as const;
 const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
@@ -2895,6 +2896,29 @@ export async function verifyAtlasParticipation(context: {
     );
     checks.push("atlas_commenters_are_stopped_and_restored_by_tag_and_deleting_everything_leaves_only_a_stop");
 
+    // Ending sessions (review 171, issue 5): signing out everywhere and deleting everything end every session signed in
+    // before them; the end is kept by a hash of the key for 30 days, then deleted at the next check.
+    const sessionEnds = async () => (await admin.query<{ session_key_hash: string }>(
+      `SELECT session_key_hash FROM ${schema}.atlas_session_ends ORDER BY session_key_hash`,
+    )).rows.map(({ session_key_hash: hash }) => hash);
+    const signedIn = tick();
+    assert(await participation.sessionCurrent(ann, signedIn, tick()), "ATLAS_FRESH_SESSION_NOT_CURRENT");
+    const endedAt = tick();
+    await participation.endSessions(ann, endedAt);
+    const afterEnd = tick();
+    assert(
+      !(await participation.sessionCurrent(ann, signedIn, afterEnd)) &&
+        await participation.sessionCurrent(ann, tick(), tick()) &&
+        // Deleting everything ended Jane's sessions signed in before it.
+        !(await participation.sessionCurrent(jane, "2026-11-07T08:00:00.000Z", afterEnd)) &&
+        (await sessionEnds()).includes(atlasSessionKeyHash(ann)) && !(await sessionEnds()).includes(ann),
+      "ATLAS_SESSION_END_MISMATCH",
+    );
+    const lapsed = new Date(Date.parse(endedAt) + 31 * 24 * 60 * 60 * 1_000).toISOString();
+    assert(await participation.sessionCurrent(ann, signedIn, lapsed) && !(await sessionEnds()).includes(atlasSessionKeyHash(ann)),
+      "ATLAS_LAPSED_SESSION_END_KEPT");
+    checks.push("atlas_sessions_end_everywhere_by_a_hash_of_the_key_and_the_end_is_deleted_after_30_days");
+
     // Picks: only publications that show, in order, each with its public reason, on the home page.
     await expectParticipation(() => moderation.setHomePicks([{ publicationNumber: held, reason: "Held." }], tick()),
       "PICK_NOT_PUBLISHED");
@@ -2960,7 +2984,7 @@ export async function verifyAtlasParticipation(context: {
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-      "atlas_forget_idle_participant", "atlas_publication_open"];
+      "atlas_forget_idle_participant", "atlas_publication_open", "atlas_session_key_hash", "atlas_end_sessions"];
     const readerFunctions = (await executableBy("askrigor_reader")).filter((name) => migration0022Functions.includes(name));
     assert(readerFunctions.length === 0, `ATLAS_READER_EXECUTES_FUNCTIONS ${readerFunctions.join()}`);
     await asRole("askrigor_research_access", (client) => client.query("SELECT * FROM inspect_atlas_participant($1)", [ann]));
@@ -2984,7 +3008,8 @@ export async function verifyAtlasParticipation(context: {
       `SELECT * FROM moderate_atlas_comment('${annSecond}', 'hide', now())`,
       "SELECT * FROM set_atlas_home_picks('[]'::jsonb, now())",
     ];
-    const helperCalls = [`SELECT atlas_forget_idle_participant('${ann}')`, `SELECT atlas_publication_open('${shown}')`];
+    const helperCalls = [`SELECT atlas_forget_idle_participant('${ann}')`, `SELECT atlas_publication_open('${shown}')`,
+      `SELECT atlas_end_sessions('${ann}', now())`];
     for (const statement of [...tableStatements, ...moderationCalls, ...helperCalls]) {
       await expectPermissionDenied(() => asRole("askrigor_research_access", (client) => client.query(statement)));
     }

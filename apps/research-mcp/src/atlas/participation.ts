@@ -17,8 +17,12 @@ import { pageGuardProblems } from "./page-guard.js";
  * hashes a reporter's address is neither: it is random and lives in memory for one day.
  */
 
-export const ATLAS_SESSION_COOKIE = "__Secure-askrigor-atlas";
-export const ATLAS_LOGIN_COOKIE = "__Secure-askrigor-atlas-login";
+/**
+ * The cookies carry the __Host- prefix: the browser takes them only from this host, over HTTPS, with Path=/ and no
+ * Domain, so a sibling subdomain cannot plant one that the pages would read.
+ */
+export const ATLAS_SESSION_COOKIE = "__Host-askrigor-atlas";
+export const ATLAS_LOGIN_COOKIE = "__Host-askrigor-atlas-login";
 /** 30 days, the design's session; 10 minutes to finish signing in. */
 export const ATLAS_SESSION_SECONDS = 30 * 24 * 60 * 60;
 export const ATLAS_LOGIN_SECONDS = 10 * 60;
@@ -137,33 +141,44 @@ function open(key: Buffer, name: string, value: string | undefined): unknown {
   }
 }
 
-/** A signed-in reader: their participant key and the session's own random id, which binds the CSRF tokens. */
+/**
+ * A signed-in reader: their participant key, the session's own random id, which binds the CSRF tokens, and when they
+ * signed in, which signing out everywhere or deleting everything compares against.
+ */
 export interface AtlasSession {
   participantKey: string;
   sessionId: string;
+  signedInAt: number;
   expiresAt: number;
 }
 
 const SESSION_ID = /^[A-Za-z0-9_-]{22}$/u;
 
 export function newSession(participantKey: string, now: Date): AtlasSession {
-  return { participantKey, sessionId: randomBytes(16).toString("base64url"), expiresAt: now.getTime() + ATLAS_SESSION_SECONDS * 1_000 };
+  return { participantKey, sessionId: randomBytes(16).toString("base64url"), signedInAt: now.getTime(),
+    expiresAt: now.getTime() + ATLAS_SESSION_SECONDS * 1_000 };
 }
 
 export function sealSession(settings: AtlasParticipationSettings, session: AtlasSession): string {
   return seal(keysOf(settings).session, ATLAS_SESSION_COOKIE,
-    { p: session.participantKey, s: session.sessionId, e: session.expiresAt });
+    { p: session.participantKey, s: session.sessionId, i: session.signedInAt, e: session.expiresAt });
 }
 
-/** The session a cookie holds, or undefined when it is missing, altered, foreign or expired. */
+/**
+ * The session a cookie holds, or undefined when it is missing, altered, foreign or expired. Whether it was ended since
+ * (signing out everywhere, deleting everything) is the store's to say (sessionCurrent).
+ */
 export function openSession(settings: AtlasParticipationSettings, value: string | undefined, now: Date): AtlasSession | undefined {
-  const payload = open(keysOf(settings).session, ATLAS_SESSION_COOKIE, value) as { p?: unknown; s?: unknown; e?: unknown } | undefined;
+  const payload = open(keysOf(settings).session, ATLAS_SESSION_COOKIE, value) as
+    { p?: unknown; s?: unknown; i?: unknown; e?: unknown } | undefined;
   if (payload === undefined || typeof payload.p !== "string" || !PARTICIPANT_KEY.test(payload.p) ||
     typeof payload.s !== "string" || !SESSION_ID.test(payload.s) || typeof payload.e !== "number" ||
-    !Number.isFinite(payload.e) || payload.e <= now.getTime() || payload.e > now.getTime() + ATLAS_SESSION_SECONDS * 1_000) {
+    !Number.isFinite(payload.e) || payload.e <= now.getTime() || payload.e > now.getTime() + ATLAS_SESSION_SECONDS * 1_000 ||
+    typeof payload.i !== "number" || !Number.isSafeInteger(payload.i) || payload.i > now.getTime() ||
+    payload.i !== payload.e - ATLAS_SESSION_SECONDS * 1_000) {
     return undefined;
   }
-  return { participantKey: payload.p, sessionId: payload.s, expiresAt: payload.e };
+  return { participantKey: payload.p, sessionId: payload.s, signedInAt: payload.i, expiresAt: payload.e };
 }
 
 /** What signing in carries from the login to the callback: state, nonce, PKCE verifier and where to return. */
@@ -203,20 +218,27 @@ export function openSignInState(settings: AtlasParticipationSettings, value: str
 /** The PKCE challenge of a verifier: base64url(SHA-256(verifier)). */
 export const pkceChallenge = (verifier: string) => createHash("sha256").update(verifier, "ascii").digest("base64url");
 
-/** Set-Cookie for a sealed cookie, HttpOnly, Secure and SameSite=Lax, on its path; maxAge 0 clears it. */
-export function cookieHeader(name: string, value: string, path: string, maxAge: number): string {
-  return `${name}=${maxAge === 0 ? "" : value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+/** Set-Cookie for a sealed __Host- cookie: Path=/, HttpOnly, Secure and SameSite=Lax; maxAge 0 clears it. */
+export function cookieHeader(name: string, value: string, maxAge: number): string {
+  return `${name}=${maxAge === 0 ? "" : value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 }
 
-/** One cookie of a request, by exact name. */
+/**
+ * One cookie of a request, by exact name; undefined when there is none, or more than one, since a second cookie of the
+ * same name can only have been planted (the reader is then signed out).
+ */
 export function readCookie(request: IncomingMessage, name: string): string | undefined {
   const header = request.headers.cookie;
   if (typeof header !== "string" || header.length > 8_192) return undefined;
+  let found: string | undefined;
   for (const part of header.split(";")) {
     const at = part.indexOf("=");
-    if (at > 0 && part.slice(0, at).trim() === name) return part.slice(at + 1).trim();
+    if (at > 0 && part.slice(0, at).trim() === name) {
+      if (found !== undefined) return undefined;
+      found = part.slice(at + 1).trim();
+    }
   }
-  return undefined;
+  return found;
 }
 
 // CSRF tokens -------------------------------------------------------------------------------------------------------------
