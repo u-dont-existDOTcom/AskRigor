@@ -281,6 +281,49 @@ describe("the publications through the owner's review", () => {
     expect(await states(h)).toEqual([["P-1001", 42, 1, "accepted", "F-1001"]]);
   });
 
+  it("publishes a paid private card's finding, or an older card's, when it is accepted or edited, and nothing for a rejection", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD, PAID);
+    // Saved before publishing began, from what is now the owner's account: nothing was published at its save.
+    await h.save(VELMOR_CARD, null);
+    expect(await states(h)).toEqual([]);
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0042", 1) });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    expect(accept.text).toContain("In the Atlas, publication P-1001 (ARF-0042 finding 1) is published as F-1001, " +
+      "without the label, once the writer has stored it.");
+    const edit = await h.call({ action: "edit_finding", card: "ARF-0043", finding: 2,
+      cardSha256: await cardSha256Of(h, "ARF-0043", 2), appliesTo: "Adults with Velmor syndrome and a voice tremor, in trials" });
+    expect(edit.structured.outcome, edit.text).toBe("finding_queued");
+    expect(edit.text).toContain("publication P-1002 (ARF-0043 finding 2) is published with F-1002 in its latest version");
+    const reject = await h.call({ action: "reject_finding", card: "ARF-0043", finding: 1, reason: "Too small a trial." });
+    expect(reject.text).not.toContain("In the Atlas");
+    expect(await states(h)).toEqual([
+      ["P-1002", 43, 2, "edited", "F-1002"],
+      ["P-1001", 42, 1, "accepted", "F-1001"],
+    ]);
+    // The next read of the cards publishes nothing twice.
+    await h.call({ action: "inspect_finding", card: "ARF-0042" });
+    await h.call({ action: "inspect_finding", card: "ARF-0043" });
+    expect((await states(h)).length).toBe(2);
+  });
+
+  it("publishes an accepted finding the decision's own call could not publish on the next read of its card", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD, PAID);
+    const publish = h.publications.publish.bind(h.publications);
+    h.publications.publish = async () => { throw new Error("database unavailable"); };
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0042", 1) });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    expect(await states(h)).toEqual([]);
+    h.publications.publish = publish;
+    await h.call({ action: "inspect_finding", card: "ARF-0042" });
+    expect(await states(h)).toEqual([["P-1001", 42, 1, "accepted", "F-1001"]]);
+  });
+
   it("unpublishes one publication with the owner's private reason, and says so again without changing anything", async () => {
     const h = harness();
     await h.save(DOI_CARD);

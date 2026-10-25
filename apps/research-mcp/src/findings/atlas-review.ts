@@ -904,10 +904,15 @@ export class AtlasReview {
 
   /**
    * Brings a card's publications in line with the decisions on it (accept, edit, reject) and the erasures of its F
-   * numbers. It never holds back the review: a store error leaves them for the next call, and the card's decisions
-   * stand either way.
+   * numbers; given the card, an accepted or edited finding that has no publication gets one in its decided state (a
+   * paid private card's, or one of the owner's older cards that publish_cards has not published). It never holds back
+   * the review: a store error leaves them for the next call, and the card's decisions stand either way.
    */
-  private async syncPublications(cardNumber: number, decisions: readonly AtlasDecisionView[]): Promise<AtlasPublicationView[]> {
+  private async syncPublications(
+    cardNumber: number,
+    decisions: readonly AtlasDecisionView[],
+    card?: FindingsCardRead,
+  ): Promise<AtlasPublicationView[]> {
     const publications = this.deps.publications;
     if (publications === undefined) return [];
     try {
@@ -917,6 +922,7 @@ export class AtlasReview {
         decisions,
         intentsOf: (numbers) => this.deps.store.inspectIntents(numbers),
         at: this.now().toISOString(),
+        ...(card === undefined ? {} : { card: { record: card.record, setAside: isSetAside(card.labels) } }),
       });
     } catch {
       return [];
@@ -1482,7 +1488,7 @@ export class AtlasReview {
       recheckedPublicNumber: recheckOf ?? null,
     });
     const sync = await this.syncCard(loaded, stored);
-    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored));
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     const publicNumber = stored.publicNumber!;
     const status: AtlasStatus = {
       atlasNumber: publicNumber,
@@ -1906,7 +1912,7 @@ export class AtlasReview {
       recheckedPublicNumber: null,
     });
     const sync = await this.syncCard(loaded, stored);
-    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored));
+    const moved = await this.syncPublications(cardNumber, withDecision(loaded.decisions, stored), loaded.card);
     return {
       ok: true,
       outcome: "finding_rejected",
@@ -2200,8 +2206,9 @@ export class AtlasReview {
     const decisions = await this.deps.store.inspectCards([cardNumber]);
     const sync = await reconcileFindingsCard(this.deps.inbox, { ...card, findings: card.record.card.findings.length },
       decisions);
-    // Decision 171: the card's publications follow its decisions; one a decision's own call did not move moves now.
-    await this.syncPublications(cardNumber, decisions);
+    // Decision 171: the card's publications follow its decisions; one a decision's own call did not move moves now,
+    // and an accepted finding without a publication gets one.
+    await this.syncPublications(cardNumber, decisions, card);
     const reconciled: FindingsCardRead = sync.synced
       ? {
           ...card,
@@ -3395,8 +3402,12 @@ function withDecision(decisions: readonly AtlasDecisionView[], decision: AtlasDe
  */
 function publicationSentence(changed: readonly AtlasPublicationView[], kind: "moved" | "erased" = "moved"): string {
   if (changed.length === 0) return "";
+  const created = (row: AtlasPublicationView) => "outcome" in row && row.outcome === "published";
   const words = (row: AtlasPublicationView) => kind === "erased"
     ? "has its published fields erased"
+    : created(row) ? row.state === "edited"
+      ? `is published with ${row.atlasNumber} in its latest version, once the writer has stored it`
+      : `is published as ${row.atlasNumber}, without the label, once the writer has stored it`
     : row.state === "accepted" ? `is accepted as ${row.atlasNumber}, without the label`
       : row.state === "edited" ? `is edited: the pages show ${row.atlasNumber} in its latest version`
         : row.state === "rejected" ? "is rejected: it leaves the Atlas pages"

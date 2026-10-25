@@ -1434,7 +1434,14 @@ The pages (section 4C) are built, not yet released, and switched off until
   consent for the owner's own cards, so the notice and dev-account checks do not
   apply; it never publishes a card whose marker says it was saved in paid
   private mode, and it publishes again what was set aside, replaced or
-  unpublished. Every action is owner-only, on `review_research_contribution`,
+  unpublished. Accepting or editing a finding whose card has no publication of
+  it (a paid private card, whose findings are published only after the owner
+  accepts them, or one of the owner's own older cards that `publish_cards` has
+  not published) publishes it in that state, with the card's published fields,
+  which its page does not show; a set-aside card and a finding drawn from
+  YouTube comments stay unpublished, a finding with a publication in any state
+  (withdrawn or unpublished included) gets no other, and a rejection publishes
+  nothing. Every action is owner-only, on `review_research_contribution`,
   under the Atlas actions' switch.
 - **How they are removed.** Deleting a card (`forget_card`, decision 7, as
   notice version 4 words it): every publication of the person's cards loses the

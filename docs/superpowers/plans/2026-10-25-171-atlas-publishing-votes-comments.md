@@ -105,6 +105,9 @@ eligibility and the projection (`apps/research-mcp/src/atlas/publication.ts`); t
 `unpublish_finding`, `publish_cards` and `set_aside_cards` (`list_findings` leaves set-aside cards out unless
 `includeSetAside`); accept, edit and reject move the state, an erasure erases the published fields, and `forget_card`
 withdraws and erases what is not accepted. The backfill is `publish_cards`, after the owner accepts version 4.
+Accepting or editing a finding that has no publication (a paid private card's, or one of the owner's older cards' not
+yet chosen with `publish_cards`) publishes it in that state (`reconcileCardPublications`), so every accepted finding has
+a page once the timer writes its F number; a rejection publishes nothing, and a set-aside card stays off the pages.
 
 **C. The pages.** Served by the research server at `https://askrigor.com/atlas`, which the apex site's Caddy
 reverse-proxies there; rendered on the server from the database, with no client script and the site's strict content
