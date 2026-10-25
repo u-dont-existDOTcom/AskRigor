@@ -41,13 +41,17 @@ only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
-permissions documented below. The research-review role can execute only the
-three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012), the five Atlas review functions of migration 0017 (inspect
-cards, decide a card item, record an intent, inspect intents, and forget
-cards) and the six publication functions of migration 0020 (inspect, publish,
-decide, edit, withdraw, and erase the texts of the Atlas's publications), and
-has no direct table or sequence privileges. The
+permissions documented below, and the seven Atlas participation functions of
+migration 0022 (a participant's own state, display name, votes, comments,
+reports and deleting everything they hold). The research-review role can
+execute only the three bounded owner-review functions (inspect, decide, and the
+review context of migration 0012), the five Atlas review functions of migration
+0017 (inspect cards, decide a card item, record an intent, inspect intents, and
+forget cards), the six publication functions of migration 0020 (inspect,
+publish, decide, edit, withdraw, and erase the texts of the Atlas's
+publications) and the five moderation functions of migration 0022 (list
+comments, moderate a comment, stop or restore a commenter, and set and read the
+home page's picks), and has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -89,7 +93,8 @@ placed in Compose.
    grants only its documented tables and operations. The research-access role
    may select/insert/update `research_use_accounts`, select entitlements,
    select/insert pending proposals, and execute the bounded pending-withdrawal
-   function. It cannot grant entitlements, review proposals, or write canonical
+   function and, from migration 0022, the seven Atlas participation functions.
+   It cannot grant entitlements, review proposals, or write canonical
    evidence.
    Verify migration identity and query the catalog as the migrator to prove
    askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view,
@@ -496,6 +501,81 @@ Rollback: remove the `ASKRIGOR_ATLAS_PAGES=enabled` line and recreate
 stay (it passes those 404s on with the pages' headers), or reinstall the
 previous public-site packet to drop it. The pages store nothing, so nothing
 else is undone.
+
+Decision 171, sections 4D and 4E (design
+`../../docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`, sections
+D and E) add votes and comments to the finding pages, for people signed in with
+the AskRigor login of the apps. Migration `0022_atlas_votes_comments`
+(registered after 0020; a release branch's 0019 lands on the build branch first,
+and the build branch's 0019 and 0020 then become 0020 and 0021) adds five
+private tables: `atlas_participants` (a participant key derived from the account
+key the connector derives, never an email address or OAuth subject; the
+commenter tag the owner's review names them by; the display name chosen with
+the first comment; whether the owner stopped them from commenting),
+`atlas_votes` (one `agree` or `disagree` per participant and publication),
+`atlas_comments` (C-1001 onward from `atlas_comment_number_seq`, the display
+name at posting, a body of at most 2,000 characters, `shown` or `hidden`, a
+report count), `atlas_comment_reports` (one per comment and reporter: a
+participant key, or a hash of the address under a salt the server keeps in
+memory for one day) and `atlas_home_picks` (the owner's picks, up to five, with
+their public reasons). It adds seven SECURITY DEFINER functions for the
+research-access role (`inspect_atlas_participant`, `set_atlas_display_name`,
+`set_atlas_vote`, `post_atlas_comment`, `delete_atlas_comment`,
+`report_atlas_comment` and `forget_atlas_participant`) and five for the review
+role (`inspect_atlas_comments`, `moderate_atlas_comment`,
+`set_atlas_commenter_stopped`, `set_atlas_home_picks` and
+`inspect_atlas_home_picks`); neither role gets a table or the sequence. The
+reader can select the tables, as every table, and the pages select only vote
+totals, shown comments, the signed-in reader's own state and the picks. It
+touches no canonical table and no publication.
+
+All of it is off unless `runtime.env` holds `ASKRIGOR_ATLAS_PARTICIPATION=enabled`
+with every part: `ASKRIGOR_ATLAS_AUTH0_CLIENT_ID` and
+`ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET`; `ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`
+and `ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL`, each 32 random bytes in
+canonical base64url, different from each other and from the identity secret;
+the research-access URL and `ASKRIGOR_RESEARCH_IDENTITY_SECRET_BASE64URL`; and
+the connector's `ASKRIGOR_OAUTH_ISSUER_URL` and `ASKRIGOR_OAUTH_JWKS_URL`.
+`ASKRIGOR_ATLAS_PUBLIC_ORIGIN` defaults to `https://askrigor.com`. Without any
+part, the pages show no form and no sign-in link and the sign-in and form routes
+answer 404, so the release can go out before the Auth0 application exists.
+
+The owner's step: in the tenant the connector uses, create a Regular Web
+Application for the Atlas with the same connections as the apps' login, allowed
+callback URL `https://askrigor.com/atlas/auth/callback`, allowed logout URL
+`https://askrigor.com/atlas`, the authorization code grant, client-secret
+authentication at the token endpoint and RS256 ID tokens; its client ID and
+secret go into `runtime.env` with an in-memory, non-echoing editor, never into
+chat, Git or a receipt. Make the session key and the participant secret as the
+identity secret above: two independent 32-byte random values in canonical
+unpadded base64url, never printed. Changing the session
+key signs everyone out; changing the participant secret detaches everyone from
+their votes and comments, so it is kept.
+
+Its release: run the one-shot admin `migrate`, which applies 0022, before the
+new image serves; then re-run `/usr/local/bin/provision-research-access-role`
+and `/usr/local/bin/provision-research-review-role` inside the PostgreSQL
+container, which grant the seven and the five functions; then the 33-tool
+catalog, where `review_research_contribution` takes the comment actions and
+`set_picks`, so the owner refreshes each connector's tool list. With
+participation on, check that a finding page shows the vote totals and the
+sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
+with `scope=openid`, `code_challenge_method=S256` and the callback above, and,
+signed in, that a vote, a comment and its deletion round-trip. Behind the apex
+proxy the research server sees the proxy's address unless
+`ASKRIGOR_TRUSTED_CLIENT_IP_HEADER` names a header the edge sets; without it,
+every reader who reports a comment without signing in shares one address hash,
+so they can report each comment once a day and five comments an hour among them
+all (signed-in reports, votes and comments are limited per participant and are
+unaffected). Check which applies before relying on anonymous reports.
+
+Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
+`research-mcp`; the forms, the sign-in link and the routes go, and the pages
+show no votes or comments, while the rows stay in the database unread. An image
+rollback below 0022 needs no drain: the earlier image never reads the tables.
+Undo no migration: 0022 stays, with its rows; the earlier image's grant scripts
+leave the twelve grants in place, harmlessly. Nothing in a rollback deletes a
+vote or a comment.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

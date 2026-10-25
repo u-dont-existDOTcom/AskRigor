@@ -1475,11 +1475,13 @@ The pages (section 4C) are built, not yet released, and switched off until
   shows an `ARF-` number, an account or contributor, an answer quote, a chat, a
   surface or model name, a link's rationale, or anything from YouTube, not even
   a count; a rendered page that holds a script, a card reference or a YouTube
-  link is not served. Nothing about a reader is stored, logged or set as a
-  cookie: the pages set no cookie and keep no request log; the per-address rate
-  limit holds, in memory only, a counter per address (at most 10,000, each
-  dropped after 15 minutes without a request), as the evidence-gap page's does;
-  and the 60-second page cache holds rendered pages, never who asked for them.
+  link is not served. Nothing about a reader who does not sign in is stored,
+  logged or set as a cookie: the pages set them no cookie and keep no request
+  log; the per-address rate limit holds, in memory only, a counter per address
+  (at most 10,000, each dropped after 15 minutes without a request), as the
+  evidence-gap page's does; and the 60-second page cache holds rendered pages
+  for readers who are not signed in, never who asked for them. Signing in to
+  vote or comment is mapped in "Atlas votes and comments" below.
 - **Stated limits.** The contact-details check is structural: a phone number
   written as words, an address spelled out ("name at example dot com"), or a
   plain run of digits with no separator passes it, and a list of numbers spaced
@@ -1490,6 +1492,115 @@ The pages (section 4C) are built, not yet released, and switched off until
   A publication's card digest matches the finalization receipt the person's
   chat holds until the card is forgotten. PostgreSQL keeps erased row versions
   until vacuum and the write-ahead log recycle them, as for wording erasure.
+
+## Atlas votes and comments
+
+Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24
+October 2026; design `docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md`,
+sections D and E), built, not yet released, and switched off until
+`ASKRIGOR_ATLAS_PARTICIPATION=enabled` with every part configured, the
+Atlas's Auth0 application (the owner's step) among them: people who sign in
+with an AskRigor account can vote on a published finding and comment on it.
+While it is off, the pages show no form and no sign-in link and keep nothing.
+
+- **Signing in.** The AskRigor login of the apps, through the same Auth0
+  tenant, as a regular web application with the authorization code flow and
+  PKCE, asking only for `openid`: no email address, name or profile is
+  requested. The callback exchanges the code with the application's secret and
+  the PKCE verifier, verifies the ID token (signature against the tenant's
+  keys, issuer, audience, nonce and expiry) and keeps nothing of it but the
+  participant key derived from its subject; the token, the subject, the account
+  key and every other claim are dropped at once. Signing out of the Atlas
+  clears its cookie; the page then offers a plain link that also signs out of
+  the tenant's own login in that browser, which the Atlas does not do by itself.
+- **The login cookie** (`__Secure-askrigor-atlas-login`, path `/atlas/auth`,
+  10 minutes, HttpOnly, Secure, SameSite=Lax): the sign-in's random state,
+  nonce and PKCE verifier, the `/atlas` page to return to and its expiry,
+  encrypted and authenticated (AES-256-GCM). It is cleared at the callback,
+  whether the sign-in completes or not, and expires otherwise; the server
+  stores nothing of a sign-in.
+- **The session cookie** (`__Secure-askrigor-atlas`, path `/atlas`, 30 days,
+  HttpOnly, Secure, SameSite=Lax), set only at sign-in: the participant key, a
+  random session ID that the forms' tokens are bound to, and its expiry,
+  encrypted and authenticated. There is no server-side session store: signing
+  out clears the cookie, an altered or expired one is ignored and cleared, and
+  changing the session key (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs
+  everyone out. A signed-in reader's finding pages are rendered for them and
+  never cached.
+- **The participant key**: an HMAC-SHA256, under its own secret
+  (`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL`), of the account key the
+  connector derives from the same subject (`researchAccountKeyForSubject`). It
+  is the only identifier the Atlas stores. No page shows it, and the owner's
+  review names a commenter only by a tag (`U-` and 12 hexadecimal characters of
+  a SHA-256 of the key). The same person in the apps and the Atlas is one
+  participant, but the Atlas tables never hold their research account's key,
+  and the research tables hold nothing of the Atlas.
+- **A participant's row** (`atlas_participants`, migration
+  `0022_atlas_votes_comments`): the key, the tag, the display name chosen with
+  the first comment, whether and since when the owner stopped them from
+  commenting, and its times. It exists only while it holds a vote, a comment
+  or the owner's stop: deleting the last of them deletes the row, display name
+  and all.
+- **The display name**: up to 40 characters, chosen with the first comment and
+  changeable; refused, and not stored, when it holds contact details or a link
+  (the structural check of `apps/research-mcp/src/atlas/contact-check.ts`) or a
+  findings card's number. Each comment keeps the name it was posted with.
+- **Votes** (`atlas_votes`): one `agree` or `disagree` per participant and
+  publication, with its time, changeable and withdrawable. Pages show only the
+  totals, and to a signed-in voter their own vote.
+- **Comments** (`atlas_comments`): a public number (C-1001 onward), the
+  publication, the participant key, the display name at posting, the body (up
+  to 2,000 characters), the state `shown` or `hidden`, how many reports it has,
+  and its times. A comment shows at once if it passes the automatic check for
+  contact details (email addresses, phone numbers, messaging handles), links
+  (URLs and bare domains) and findings card numbers; one that fails is refused
+  with the reason ("Comments can't include contact details or links.") and not
+  stored. Pages show a shown comment's display name, body and date, never its
+  author's key or tag; a hidden comment shows nowhere, to its author neither.
+- **Reports** (`atlas_comment_reports`): one per comment and reporter, with its
+  time. A signed-in reporter is their participant key (`p:`); anyone else is an
+  HMAC of their address under a random salt the server draws for each UTC day
+  and keeps in memory only (`a:`), so the address is never stored and, once the
+  day's salt is dropped, no secret can trace a stored hash back to it. The owner
+  sees how many reports a comment has, never who made them.
+- **The owner's actions** (owner-only, on `review_research_contribution`,
+  under the Atlas actions' switch): list the newest comments, or the reported
+  ones, with each commenter's tag; hide a comment (it leaves the pages and
+  stays for the review), show it (back on the pages, its reports dealt with and
+  deleted) or remove it (deleted with its reports); stop a commenter, named by
+  their tag, from commenting, or restore them; and set the home page's picks
+  (`atlas_home_picks`: up to five publications that show, each with the owner's
+  public reason, which passes the comments' check).
+- **How each is deleted.** A vote: withdrawn by its voter, deleted outright. A
+  comment: deleted by its author from its page, or removed by the owner, each
+  with its reports. Everything a participant holds: "Delete everything I hold
+  in the Atlas", on a finding page while signed in, deletes their votes, their
+  comments (hidden ones included, with the reports on them) and their own
+  reports, then their row; for a participant the owner stopped, the row keeps
+  only the key, tag, stop and times, so deleting cannot undo a stop, and it
+  goes when the owner restores them. Reports: with their comment, when the
+  owner shows the comment, or when their signed-in reporter deletes everything.
+  A display name: replaced when changed, deleted with the row. Picks: replaced
+  or cleared by the owner. The cookies: at sign-out, at the callback, or when
+  they expire.
+- **Limits, and no logs.** Per participant, 6 comments an hour (3 at once), 60
+  votes an hour and 5 display-name changes an hour; per reporter, 5 reports an
+  hour; every request also counts against the per-address page limit; form
+  bodies at most 16 KiB. The counters live in memory only, keyed by
+  participant key or reporter key (each dropped after two hours without a
+  request) and by address (after 15 minutes). Nothing is logged about a
+  reader, a voter or a commenter.
+- **Stated limits.** Behind the apex proxy, without a trusted client-address
+  header, every reader who reports without signing in has the same address
+  hash, so their reports count once per comment a day and five an hour among
+  them all. Votes and comments on a publication that later leaves the pages
+  (rejected, withdrawn or held) stay stored and shown nowhere, until the author
+  deletes everything they hold or the owner removes the comments, and show
+  again if the owner publishes the finding again. The contact check is
+  structural, with the limits stated for publications above. The reader role
+  can read every column of these tables, as of every table; the pages select
+  only what they show. PostgreSQL keeps deleted row versions until vacuum and
+  the write-ahead log recycle them.
 
 ## Research data not persistently stored
 

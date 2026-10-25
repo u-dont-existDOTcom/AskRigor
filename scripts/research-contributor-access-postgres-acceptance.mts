@@ -9,10 +9,13 @@ import { Pool } from "pg";
 import {
   ATLAS_PUBLICATION_SCHEMA,
   AtlasFindingPromotionRunner,
+  AtlasParticipationError,
   AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
+  PostgresAtlasModerationStore,
   PostgresAtlasPageSource,
+  PostgresAtlasParticipationStore,
   PostgresAtlasPromotionStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
@@ -27,6 +30,7 @@ import {
   ResearchContributionRejectedError,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
+  atlasCommenterTag,
   atlasCurrentLabels,
   deterministicUuid,
   prepareAtlasFindingIntent,
@@ -45,6 +49,7 @@ import { readAtlasStateWith } from "../packages/evidence-repository/src/atlas-po
 import { buildStagedAnalysis } from "../apps/research-mcp/src/analysis-staging.js";
 import { NOT_CHECKED_LABEL, loadAtlasFinding, loadAtlasHome } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasPageProblems, escapeHtml, renderAtlasFinding, renderAtlasHome } from "../apps/research-mcp/src/atlas/pages.js";
+import { participantKeyFor } from "../apps/research-mcp/src/atlas/participation.js";
 import { validateStudyMethodAudit } from "../apps/research-mcp/src/index.js";
 import {
   livingEvidenceFixture,
@@ -93,7 +98,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0020_atlas_publications",
+      migration: "0022_atlas_votes_comments",
     })}\n`);
     return;
   }
@@ -587,6 +592,7 @@ async function verify(
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasPublications({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasPages({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
+    await verifyAtlasParticipation({ adminUrl, accessUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1370,6 +1376,18 @@ const ATLAS_PUBLICATION_FUNCTIONS = [
   "decide_atlas_publications", "edit_atlas_publications", "erase_atlas_publication_texts", "inspect_atlas_publications",
   "publish_atlas_findings", "withdraw_atlas_publications",
 ] as const;
+// Decision 171, section 4E: migration 0022's tables, and the functions each role is granted.
+const ATLAS_PARTICIPATION_TABLES = [
+  "atlas_participants", "atlas_votes", "atlas_comments", "atlas_comment_reports", "atlas_home_picks",
+] as const;
+const ATLAS_MODERATION_FUNCTIONS = [
+  "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
+  "set_atlas_home_picks",
+] as const;
+const ATLAS_PARTICIPATION_FUNCTIONS = [
+  "delete_atlas_comment", "forget_atlas_participant", "inspect_atlas_participant", "post_atlas_comment",
+  "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
+] as const;
 const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
   "inspect_research_contribution_proposal",
@@ -1490,7 +1508,8 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
   const [migrations, sequence, counts, constraints, guard] = await Promise.all([
     pool.query(`SELECT migration_id, migration_sha256 FROM ${schema}.schema_migrations ORDER BY migration_id`),
     pool.query(`SELECT last_value::text, is_called FROM ${schema}.atlas_public_number_seq`),
-    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents", "atlas_publications"]
+    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents", "atlas_publications",
+      ...ATLAS_PARTICIPATION_TABLES]
       .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`),
     pool.query(
       `SELECT constraint_row.conrelid::regclass::text AS relation, constraint_row.conname,
@@ -1513,9 +1532,9 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
 }
 
 /**
- * Migrations 0017, 0018 (Atlas phase 3), 0019 (notice v4) and 0020 (decision 171's publications): applied, a
- * second migrate changes nothing, and a database at 0016 holding data upgrades to them and then takes an Atlas
- * finding.
+ * Migrations 0017, 0018 (Atlas phase 3), 0019 (notice v4), 0020 (decision 171's publications) and 0022 (its votes and
+ * comments): applied, a second migrate changes nothing, and a database at 0016 holding data upgrades to them and then
+ * takes an Atlas finding.
  */
 export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const { adminUrl, schema, checks } = context;
@@ -1524,9 +1543,9 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     const applied = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${schema}.schema_migrations
         WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields', '0019_research_use_notice_v4',
-          '0020_atlas_publications')`,
+          '0020_atlas_publications', '0022_atlas_votes_comments')`,
     );
-    assert(applied.rowCount === 4, "MIGRATION_0017_TO_0020_NOT_APPLIED");
+    assert(applied.rowCount === 5, "MIGRATION_0017_TO_0022_NOT_APPLIED");
     const before = await atlasMigrationSnapshot(admin, schema);
     const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
     try {
@@ -1535,7 +1554,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
       await again.close();
     }
     assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
-    checks.push("migrations_0017_to_0020_applied_and_a_second_migrate_changes_nothing");
+    checks.push("migrations_0017_to_0022_applied_and_a_second_migrate_changes_nothing");
 
     // A database at 0016, as production holds it before this release, with canonical and account rows in it.
     const upgrade = `${schema}_atlas_upgrade`;
@@ -2370,6 +2389,347 @@ export async function verifyAtlasPages(context: {
 }
 
 /**
+ * Decision 171, section 4E: migration 0022's votes, comments, reports and home-page picks. A participant is a key
+ * derived from the account key the connector derives; the public runtime's access role writes only through its seven
+ * participation functions, the review role moderates only through its five, and the reader reads the tables for the
+ * pages and calls none of them. Votes show as totals and a comment under the name it was posted with; a refused first
+ * comment leaves nothing; a report counts once per reporter, is cleared when the owner shows the comment and goes with
+ * it; deleting everything leaves only an owner's stop; picks name only publications that show; the tables' checks
+ * refuse what no row may hold; and a second migrate keeps every row.
+ */
+export async function verifyAtlasParticipation(context: {
+  adminUrl: string;
+  accessUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, accessUrl, reviewUrl, readerUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const publications = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  const participation = new PostgresAtlasParticipationStore({ connectionString: accessUrl, schema });
+  const moderation = new PostgresAtlasModerationStore({ connectionString: reviewUrl, schema });
+  const source = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+  let instant = Date.parse("2026-11-07T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  const asRole = async <T>(role: string, work: (client: import("pg").PoolClient) => Promise<T>): Promise<T> => {
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL ROLE ${role}`);
+      await client.query(`SET LOCAL search_path TO ${schema}, public`);
+      return await work(client);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  };
+  const expectParticipation = async (action: () => Promise<unknown>, code: string) => {
+    try {
+      await action();
+    } catch (error) {
+      if (error instanceof AtlasParticipationError && error.code === code) return;
+      throw error;
+    }
+    throw new Error(`EXPECTED_ATLAS_PARTICIPATION_CODE_MISSING code=${code}`);
+  };
+  const settings = {
+    publicOrigin: "https://askrigor.com",
+    sessionKey: new Uint8Array(32).fill(1),
+    participantSecret: new Uint8Array(32).fill(2),
+    identitySecret: IDENTITY_SECRET,
+  };
+  const jane = participantKeyFor(settings, FREE_SUBJECT);
+  const ann = participantKeyFor(settings, PAID_SUBJECT);
+  const sam = participantKeyFor(settings, REVIEW_SUBJECT);
+  const reportsOn = async (publicId: string) => (await admin.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM ${schema}.atlas_comment_reports WHERE comment_number = $1`,
+    [Number(publicId.slice(2))],
+  )).rows[0]!.count;
+  const published = (claim: string): AtlasPublishedFinding => ({
+    schema: ATLAS_PUBLICATION_SCHEMA,
+    topic: { key: "participation-topic", label: "A topic only the votes and comments check uses" },
+    claim,
+    certainty: "low",
+    applies_to: "Adults with an invented condition",
+    kind: null,
+    subject: null,
+    subject_type: null,
+    direction: null,
+    numbers: null,
+    searches: null,
+    sources: ["10.0000/synthetic-participation"],
+    why_not_usual: "Quick answers miss it.",
+    what_would_change_it: "A trial.",
+    verified_bases: [],
+    saved_on: "2026-11-07",
+    askrigor_version: "0.1.0",
+  });
+  try {
+    const applied = await admin.query(
+      `SELECT 1 FROM ${schema}.schema_migrations WHERE migration_id = '0022_atlas_votes_comments'`,
+    );
+    assert(applied.rowCount === 1, "MIGRATION_0022_NOT_APPLIED");
+    // The participant key follows the account key the connector derives, under a separate secret.
+    const accountKey = new ResearchContributorAccessService({
+      store: {} as never, identitySecret: IDENTITY_SECRET,
+    }).accountKeyForSubject(FREE_SUBJECT);
+    assert(
+      /^[a-f0-9]{64}$/u.test(jane) && jane !== accountKey && new Set([jane, ann, sam]).size === 3 &&
+        participantKeyFor({ ...settings, sessionKey: new Uint8Array(32).fill(9) }, FREE_SUBJECT) === jane &&
+        participantKeyFor({ ...settings, participantSecret: new Uint8Array(32).fill(3) }, FREE_SUBJECT) !== jane,
+      "ATLAS_PARTICIPANT_KEY_MISMATCH",
+    );
+
+    const rows = await publications.publish({
+      cardNumber: 7301,
+      cardSha256: atlasHex("synthetic-participation-card"),
+      findings: [
+        { findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+          published: published("PARTICIPATION-ONE claim.") },
+        { findingNumber: 2, state: "unreviewed", atlasNumber: null, heldBecause: null,
+          published: published("PARTICIPATION-TWO claim.") },
+        { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
+          published: published("PARTICIPATION-HELD claim.") },
+      ],
+      publishedAt: tick(),
+      revive: false,
+    });
+    const [shown, other, held] = rows.map(({ publicationNumber }) => publicationNumber) as [string, string, string];
+
+    // Votes: one per participant and publication, changeable, shown as totals.
+    assert(
+      isDeepStrictEqual(await participation.setVote(jane, shown, "agree", tick()), { agree: 1, disagree: 0 }) &&
+        isDeepStrictEqual(await participation.setVote(ann, shown, "disagree", tick()), { agree: 1, disagree: 1 }) &&
+        isDeepStrictEqual(await participation.setVote(jane, shown, "disagree", tick()), { agree: 0, disagree: 2 }) &&
+        isDeepStrictEqual(await participation.setVote(sam, shown, "agree", tick()), { agree: 1, disagree: 2 }) &&
+        isDeepStrictEqual(await participation.setVote(sam, shown, null, tick()), { agree: 0, disagree: 2 }),
+      "ATLAS_VOTES_MISMATCH",
+    );
+    assert(await participation.inspectParticipant(sam) === null, "ATLAS_IDLE_PARTICIPANT_KEPT");
+    await expectParticipation(() => participation.setVote(jane, held, "agree", tick()), "NOT_SHOWN");
+    checks.push("atlas_votes_are_one_changeable_vote_per_participant_shown_as_totals_and_an_idle_participant_is_forgotten");
+
+    // Comments: the display name comes with the first; a refused first comment leaves nothing.
+    await expectParticipation(() => participation.postComment(jane, shown, "No name yet.", tick()), "DISPLAY_NAME_REQUIRED");
+    await expectParticipation(() => participation.setDisplayName(sam, "Sam", tick()), "DISPLAY_NAME_REQUIRED");
+    await expectParticipation(() => participation.postComment(sam, held, "On a held one.", tick(), "Sam"), "NOT_SHOWN");
+    assert(await participation.inspectParticipant(sam) === null, "ATLAS_REFUSED_FIRST_COMMENT_LEFT_A_ROW");
+    const first = await participation.postComment(jane, shown, "It helped me after two weeks.", tick(), "Jane");
+    await participation.setDisplayName(jane, "Jane D", tick());
+    const second = await participation.postComment(jane, shown, "Still fine at twelve weeks.", tick(), "Ignored");
+    const annComment = await participation.postComment(ann, shown, "Not for me.", tick(), "Ann");
+    assert(await participation.deleteComment(ann, first) === false, "ATLAS_COMMENT_DELETED_BY_ANOTHER");
+    const read = await source.read((reads) => reads.readParticipation(shown, jane));
+    assert(
+      read.agree === 0 && read.disagree === 2 &&
+        isDeepStrictEqual(read.comments.map(({ publicId, displayName }) => [publicId, displayName]),
+          [[first, "Jane"], [second, "Jane D"], [annComment, "Ann"]]) &&
+        read.viewer?.displayName === "Jane D" && read.viewer.vote === "disagree" && !read.viewer.stopped &&
+        isDeepStrictEqual(read.viewer.ownComments, [first, second]),
+      `ATLAS_PARTICIPATION_READ_MISMATCH ${JSON.stringify(read)}`,
+    );
+    const model = await loadAtlasFinding(source, shown, { participation: { participantKey: null } });
+    assert(model?.participation?.viewer === null && model.participation.comments.length === 3,
+      "ATLAS_FINDING_MODEL_PARTICIPATION_MISMATCH");
+    checks.push("atlas_comments_show_at_once_under_the_name_they_were_posted_with_and_a_refused_first_comment_leaves_nothing");
+
+    // Reports: once per reporter; the owner's list names the commenter by tag, never by key.
+    const anonymous = `a:${atlasHex("synthetic-address-hash-1")}`;
+    assert(
+      await participation.reportComment(anonymous, annComment, tick()) === "reported" &&
+        await participation.reportComment(anonymous, annComment, tick()) === "already_reported" &&
+        await participation.reportComment(`p:${jane}`, annComment, tick()) === "reported" &&
+        await participation.reportComment(anonymous, "C-9999", tick()) === "not_found",
+      "ATLAS_REPORTS_MISMATCH",
+    );
+    const reported = await moderation.inspectComments({ reportedOnly: true, limit: 10 });
+    assert(
+      reported.length === 1 && reported[0]!.publicId === annComment && reported[0]!.reportCount === 2 &&
+        reported[0]!.commenterTag === atlasCommenterTag(ann) && !JSON.stringify(reported).includes(ann),
+      "ATLAS_REPORTED_LIST_MISMATCH",
+    );
+    const hidden = await moderation.moderateComment(annComment, "hide", tick());
+    const afterHide = await source.read((reads) => reads.readParticipation(shown, null));
+    assert(
+      hidden?.state === "hidden" && hidden.reportCount === 2 && afterHide.viewer === null &&
+        !afterHide.comments.some(({ publicId }) => publicId === annComment) &&
+        await participation.reportComment(`a:${atlasHex("synthetic-address-hash-2")}`, annComment, tick()) === "not_found",
+      "ATLAS_HIDE_MISMATCH",
+    );
+    const reshown = await moderation.moderateComment(annComment, "show", tick());
+    assert(
+      reshown?.state === "shown" && reshown.reportCount === 0 && await reportsOn(annComment) === 0 &&
+        (await moderation.inspectComments({ reportedOnly: true, limit: 10 })).length === 0,
+      "ATLAS_SHOW_DID_NOT_CLEAR_THE_REPORTS",
+    );
+    await participation.reportComment(anonymous, annComment, tick());
+    const removed = await moderation.moderateComment(annComment, "remove", tick());
+    assert(
+      removed?.state === "removed" && removed.reportCount === 1 && await reportsOn(annComment) === 0 &&
+        await moderation.moderateComment(annComment, "hide", tick()) === null,
+      "ATLAS_REMOVE_MISMATCH",
+    );
+    checks.push("atlas_reports_count_once_per_reporter_are_cleared_when_the_owner_shows_a_comment_and_go_with_a_removed_one");
+
+    // Stopping a commenter by tag; deleting everything a participant holds leaves only a stop.
+    const janeTag = atlasCommenterTag(jane);
+    const stopped = await moderation.setCommenterStopped(janeTag, true, tick());
+    assert(stopped?.stopped === true && stopped.comments === 2, "ATLAS_STOP_MISMATCH");
+    await expectParticipation(() => participation.postComment(jane, shown, "Again.", tick()), "STOPPED");
+    const annSecond = await participation.postComment(ann, other, "Second thought.", tick());
+    await participation.reportComment(`p:${jane}`, annSecond, tick());
+    await participation.setVote(jane, other, "agree", tick());
+    const forgotten = await participation.forgetParticipant(jane, tick());
+    assert(isDeepStrictEqual(forgotten, { votes: 2, comments: 2, reports: 1 }),
+      `ATLAS_FORGET_MISMATCH ${JSON.stringify(forgotten)}`);
+    const left = (await admin.query<{ participant: number; name: number; votes: number; comments: number; reports: number }>(
+      `SELECT (SELECT count(*)::int FROM ${schema}.atlas_participants WHERE participant_key = $1 AND stopped_at IS NOT NULL)
+                AS participant,
+              (SELECT count(*)::int FROM ${schema}.atlas_participants WHERE participant_key = $1 AND display_name IS NOT NULL)
+                AS name,
+              (SELECT count(*)::int FROM ${schema}.atlas_votes WHERE participant_key = $1) AS votes,
+              (SELECT count(*)::int FROM ${schema}.atlas_comments WHERE participant_key = $1) AS comments,
+              (SELECT count(*)::int FROM ${schema}.atlas_comment_reports WHERE reporter_key = 'p:' || $1) AS reports`,
+      [jane],
+    )).rows[0]!;
+    const annSecondNow = (await moderation.inspectComments({ reportedOnly: false, limit: 50 }))
+      .find(({ publicId }) => publicId === annSecond);
+    assert(
+      isDeepStrictEqual(left, { participant: 1, name: 0, votes: 0, comments: 0, reports: 0 }) &&
+        annSecondNow?.reportCount === 0 && await reportsOn(annSecond) === 0,
+      `ATLAS_FORGET_LEFT_ROWS ${JSON.stringify(left)}`,
+    );
+    await expectParticipation(() => participation.postComment(jane, shown, "Back.", tick(), "Jane"), "STOPPED");
+    const restored = await moderation.setCommenterStopped(janeTag, false, tick());
+    assert(
+      restored?.stopped === false && restored.comments === 0 && await participation.inspectParticipant(jane) === null &&
+        await moderation.setCommenterStopped("U-000000000000", true, tick()) === null,
+      "ATLAS_RESTORE_MISMATCH",
+    );
+    checks.push("atlas_commenters_are_stopped_and_restored_by_tag_and_deleting_everything_leaves_only_a_stop");
+
+    // Picks: only publications that show, in order, each with its public reason, on the home page.
+    await expectParticipation(() => moderation.setHomePicks([{ publicationNumber: held, reason: "Held." }], tick()),
+      "PICK_NOT_PUBLISHED");
+    const picks = await moderation.setHomePicks([
+      { publicationNumber: other, reason: "The second finding matters most." },
+      { publicationNumber: shown, reason: "Harms included." },
+    ], tick());
+    const home = renderAtlasHome(await loadAtlasHome(source));
+    const lane = home.slice(home.indexOf('id="most-important"'), home.indexOf('id="recently-published"'));
+    assert(
+      picks.map(({ slot, publicationNumber }) => `${slot}:${publicationNumber}`).join() === `1:${other},2:${shown}` &&
+        isDeepStrictEqual(await moderation.inspectHomePicks(), picks) &&
+        lane.includes("Why it is here: The second finding matters most.") &&
+        lane.indexOf(`/atlas/findings/${other}`) > -1 &&
+        lane.indexOf(`/atlas/findings/${other}`) < lane.indexOf(`/atlas/findings/${shown}`) &&
+        atlasPageProblems(home).length === 0,
+      "ATLAS_PICKS_MISMATCH",
+    );
+    checks.push("atlas_home_picks_name_only_publications_that_show_and_the_home_page_shows_them_with_their_reasons");
+
+    // The tables' checks refuse what no row may hold, whoever writes.
+    const valid = "c".repeat(64);
+    await admin.query(
+      `INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, display_name, created_at, updated_at)
+       VALUES ($1, 'U-cccccccccccc', 'Check', $2, $2)`,
+      [valid, tick()],
+    );
+    for (const [statement, values] of [
+      [`INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, created_at, updated_at)
+        VALUES ($1, 'U-dddddddddddd', now(), now())`, ["D".repeat(64)]],
+      [`INSERT INTO ${schema}.atlas_participants (participant_key, commenter_tag, display_name, created_at, updated_at)
+        VALUES ($1, 'U-eeeeeeeeeeee', ' Padded', now(), now())`, ["e".repeat(64)]],
+      [`INSERT INTO ${schema}.atlas_votes (publication_number, participant_key, vote, voted_at) VALUES ($1, $2, 'maybe', now())`,
+        [shown, valid]],
+      [`INSERT INTO ${schema}.atlas_comments (comment_number, publication_number, participant_key, display_name, body, state,
+          posted_at, state_changed_at) VALUES (99001, $1, $2, 'Check', $3, 'shown', now(), now())`,
+        [shown, valid, "x".repeat(2_001)]],
+      [`INSERT INTO ${schema}.atlas_comments (comment_number, publication_number, participant_key, display_name, body, state,
+          posted_at, state_changed_at) VALUES (99002, $1, $2, 'Check', 'Fine.', 'removed', now(), now())`, [shown, valid]],
+      [`INSERT INTO ${schema}.atlas_comment_reports (comment_number, reporter_key, reported_at)
+        VALUES ($1, 'a:203.0.113.7', now())`, [Number(annSecond.slice(2))]],
+      [`INSERT INTO ${schema}.atlas_home_picks (slot, publication_number, reason, set_at) VALUES (6, $1, 'Six.', now())`, [held]],
+    ] as const) {
+      await expectCode(() => admin.query(statement, [...values]), "23514");
+    }
+    await admin.query(`DELETE FROM ${schema}.atlas_participants WHERE participant_key = $1`, [valid]);
+    checks.push("atlas_votes_and_comments_tables_refuse_every_row_no_participant_comment_report_or_pick_may_hold");
+
+    // The access role writes only through its functions; the review role moderates only through its own; the reader
+    // reads the tables and calls none of them.
+    const executableBy = async (role: string) => (await admin.query<{ proname: string }>(
+      `SELECT DISTINCT proc.proname FROM pg_proc proc
+         JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
+        WHERE namespace.nspname = $1 AND has_function_privilege($2, proc.oid, 'EXECUTE')
+        ORDER BY proc.proname`,
+      [schema, role],
+    )).rows.map(({ proname }) => proname);
+    const accessFunctions = await executableBy("askrigor_research_access");
+    assert(
+      accessFunctions.join() ===
+        [...ATLAS_PARTICIPATION_FUNCTIONS, "withdraw_pending_research_contribution_proposals"].sort().join(),
+      `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
+    );
+    const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+      "atlas_forget_idle_participant", "atlas_publication_open"];
+    const readerFunctions = (await executableBy("askrigor_reader")).filter((name) => migration0022Functions.includes(name));
+    assert(readerFunctions.length === 0, `ATLAS_READER_EXECUTES_FUNCTIONS ${readerFunctions.join()}`);
+    await asRole("askrigor_research_access", (client) => client.query("SELECT * FROM inspect_atlas_participant($1)", [ann]));
+    await asRole("askrigor_research_review", (client) => client.query("SELECT * FROM inspect_atlas_comments(false, NULL, 10)"));
+    const readable = await asRole("askrigor_reader", async (client) => (await client.query<{ count: number }>(
+      "SELECT (SELECT count(*) FROM atlas_votes) + (SELECT count(*) FROM atlas_comments) AS count")).rows[0]!.count);
+    assert(Number(readable) > 0, "ATLAS_VOTES_AND_COMMENTS_NOT_READABLE_BY_THE_READER");
+    const tableStatements = [
+      ...ATLAS_PARTICIPATION_TABLES.map((table) => `SELECT count(*) FROM ${table}`),
+      "UPDATE atlas_comments SET state = 'shown'",
+      "DELETE FROM atlas_votes",
+      "SELECT nextval('atlas_comment_number_seq')",
+    ];
+    const participationCalls = [
+      `SELECT * FROM set_atlas_vote('${ann}', '${shown}', 'agree', now())`,
+      `SELECT * FROM post_atlas_comment('${ann}', '${shown}', 'Hi.', NULL, now())`,
+      `SELECT * FROM forget_atlas_participant('${ann}', now())`,
+    ];
+    const moderationCalls = [
+      "SELECT * FROM inspect_atlas_comments(false, NULL, 10)",
+      `SELECT * FROM moderate_atlas_comment('${annSecond}', 'hide', now())`,
+      "SELECT * FROM set_atlas_home_picks('[]'::jsonb, now())",
+    ];
+    const helperCalls = [`SELECT atlas_forget_idle_participant('${ann}')`, `SELECT atlas_publication_open('${shown}')`];
+    for (const statement of [...tableStatements, ...moderationCalls, ...helperCalls]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_access", (client) => client.query(statement)));
+    }
+    for (const statement of [...tableStatements, ...participationCalls, ...helperCalls]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_review", (client) => client.query(statement)));
+    }
+    for (const statement of [...participationCalls, ...moderationCalls, ...helperCalls,
+      "UPDATE atlas_comments SET state = 'shown'", "DELETE FROM atlas_votes",
+      `INSERT INTO atlas_home_picks (slot, publication_number, reason, set_at) VALUES (5, '${shown}', 'No.', now())`]) {
+      await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(statement)));
+    }
+    checks.push("atlas_votes_and_comments_reach_each_role_only_through_its_functions_and_the_reader_reads_them");
+
+    // A second migrate keeps every row.
+    const counted = async () => (await admin.query(`SELECT ${ATLAS_PARTICIPATION_TABLES
+      .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`)).rows[0];
+    const before = await counted();
+    const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
+    try {
+      await again.migrate();
+    } finally {
+      await again.close();
+    }
+    assert(isDeepStrictEqual(await counted(), before), "ATLAS_SECOND_MIGRATE_CHANGED_VOTES_OR_COMMENTS");
+    checks.push("a_second_migrate_keeps_every_vote_comment_report_and_pick");
+  } finally {
+    await Promise.allSettled([publications.close(), participation.close(), moderation.close(), source.close(), admin.end()]);
+  }
+}
+
+/**
  * Atlas phase 2, parts C and D (design section 7): the hermetic end-to-end scenario of
  * tests/atlas-acceptance-end-to-end.test.ts against PostgreSQL, forget_card included. The owner's tool, the real
  * findings library save and signed receipts, an in-memory GitHub and the providers' recorded fixtures, with the review
@@ -3046,8 +3406,9 @@ export async function verifyAtlasStorage(context: {
     }
     checks.push("every_canonical_atlas_table_refuses_update_and_delete");
 
-    // The review role executes the five Atlas functions, the six publication ones (decision 171) and the three
-    // contribution ones, and nothing else; it reads and writes no table. The reader reads the Atlas and writes nothing.
+    // The review role executes the five Atlas functions, the six publication ones and the five moderation ones
+    // (decision 171) and the three contribution ones, and nothing else; it reads and writes no table. The reader reads
+    // the Atlas and writes nothing.
     const executable = await admin.query<{ proname: string }>(
       `SELECT DISTINCT proc.proname FROM pg_proc proc
          JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
@@ -3057,7 +3418,8 @@ export async function verifyAtlasStorage(context: {
     );
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
-        [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
+        [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+          ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

@@ -132,6 +132,19 @@ The session is a signed, encrypted, HttpOnly, Secure, SameSite=Lax cookie on `/a
 sign-in; sign-out clears it. **Owner action:** create the Auth0 application (or let the session create it) and put its
 client secret into the server's runtime settings; the session never types a secret.
 
+Status (25 Oct): D is built on `claude/171c-pages-20261025`, not released, and switched off until
+`ASKRIGOR_ATLAS_PARTICIPATION=enabled` with every part configured (`apps/research-mcp/src/atlas/sign-in.ts`,
+`participation.ts`, `pages-http.ts`): `/atlas/auth/login` (code flow with PKCE S256 and `scope=openid`; the state,
+nonce and verifier in a 10-minute encrypted cookie on `/atlas/auth`; sign-in always starts on the public origin), the
+callback (state checked, the code exchanged with the client secret and the verifier, the ID token verified against the
+tenant's keys for issuer, audience, nonce and expiry), the participant key (an HMAC under
+`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL` of the account key `researchAccountKeyForSubject` derives), the
+AES-256-GCM session cookie on `/atlas` (30 days, no server-side store) and sign-out by form post, after which the page
+offers the tenant's own sign-out as a plain link. Settings: `ASKRIGOR_ATLAS_AUTH0_CLIENT_ID`,
+`ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET`, `ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`,
+`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL` and `ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, with the connector's issuer and keys;
+tested against a fake tenant. Creating the Auth0 application stays the owner's step (infra README).
+
 **E. Votes and comments** (migration 0020, with the publications):
 
 - a vote: one per account and finding, `agree` or `disagree`, changeable or withdrawn; pages show totals only;
@@ -144,6 +157,20 @@ client secret into the server's runtime settings; the session never types a secr
   stop an account from commenting (the terms' wording);
 - rate limits per account and per address, and request-size limits, as the evidence-gap intake has;
 - forms carry a CSRF token tied to the session.
+
+Status (25 Oct): E and F's comment actions are built on `claude/171c-pages-20261025`, not released, behind the same
+switch. Migration `0022_atlas_votes_comments` (registered after 0020: a release branch's 0019 lands first, and this
+branch's 0019 and 0020 then become 0020 and 0021) holds participants, votes, comments, reports and the home page's
+picks, with seven participation functions for the research-access role and five moderation functions for the review
+role (`packages/evidence-repository/src/atlas-participation.ts`). A finding page shows the vote totals and the comments,
+with forms to vote or withdraw a vote, comment (the display name comes with the first comment), delete one's own
+comment, report a comment (anyone; a reader who is not signed in with a token for the day), change one's display name
+and delete everything one holds; each form posts to the same origin, passes the Origin check and carries a token bound
+to the session and the form's purpose, within the design's limits. The contact-details-and-links check refuses a
+comment or a display name with the design's reason. `review_research_contribution` (still 33 tools) takes
+`list_comments`, `hide_comment`, `show_comment` (which also clears the comment's reports), `remove_comment`,
+`stop_commenter`, `restore_commenter` and `set_picks`, which fills the home page's picks lane. Tests:
+`tests/atlas-participation.test.ts`; the PostgreSQL acceptance covers 0022.
 
 **F. The review tool and the inbox.** Owner actions join `review_research_contribution` (the connector stays at 33
 tools): list and unpublish publications, set cards aside, list recent and reported comments, hide, show and remove a

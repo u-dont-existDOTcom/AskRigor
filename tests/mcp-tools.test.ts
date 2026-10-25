@@ -156,14 +156,16 @@ describe("AskRigor MCP tools", () => {
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
-        "forget_card", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards"]);
+        "forget_card", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards", "list_comments",
+        "hide_comment", "show_comment", "remove_comment", "stop_commenter", "restore_commenter", "set_picks"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
       // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
         "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
         "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
         "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
-        "cursor", "includeSetAside", "publicationState", "publication", "cards", "cardsFrom", "cardsTo"]);
+        "cursor", "includeSetAside", "publicationState", "publication", "cards", "cardsFrom", "cardsTo", "reported",
+        "comment", "commenter", "picks"]);
       for (const field of ["kind", "subjectType", "direction"]) {
         expect(input.properties[field]!.type, field).toBe("string");
         expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
@@ -178,7 +180,10 @@ describe("AskRigor MCP tools", () => {
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
       expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
-        "retry", "forget", "publications", "canonicalEvidenceChangedByThisCall", "error"]);
+        "retry", "forget", "publications", "participation", "canonicalEvidenceChangedByThisCall", "error"]);
+      // Decision 171, section 4E: the picks' entries are flat too.
+      const picks = input.properties.picks as unknown as { items: { properties: Record<string, { type?: string }> } };
+      expect(Object.values(picks.items.properties).every(({ type }) => type === "string")).toBe(true);
     } finally {
       await server.close();
     }

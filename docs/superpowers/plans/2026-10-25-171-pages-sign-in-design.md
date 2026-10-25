@@ -65,6 +65,10 @@ Status: design for building parts C, D and E of `2026-10-25-171-atlas-publishing
 - **Privacy data map:** rows for the participant key, the display name, votes, comments, reports and their address
   hashes, the login and session cookies, and how each is deleted.
 
+Built (25 Oct) as migration `0022_atlas_votes_comments`, not 0021: a release branch's 0019 lands on the build branch
+first, and the build branch's 0019 and 0020 then become 0020 and 0021. The plan's 4D and 4E status lines say what was
+built.
+
 ## Tests
 
 Rendering (escaping, labels, the numbers, no person or ARF number on any page, no script tag), the routes and headers,

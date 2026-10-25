@@ -2,6 +2,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasPageParticipation,
   AtlasPageChangeKind,
   AtlasPageFinding,
   AtlasPagePublication,
@@ -142,10 +143,42 @@ export interface AtlasTopicModel {
 export interface AtlasFindingModel {
   finding: ShownFinding;
   /**
-   * Votes and comments (decision 171, section 4E) go here when part E is built; nothing is read or rendered for them
-   * now, and the pages set no cookie.
+   * Votes and comments (decision 171, section 4E): the totals, the comments that show and the signed-in viewer's own;
+   * null when votes and comments are switched off, and then nothing of them renders.
    */
-  participation: null;
+  participation: AtlasPageParticipation | null;
+}
+
+/** What a finding page's votes and comments render with: the model's, with each form's token and the page's notice. */
+export interface AtlasFindingParticipationView {
+  totals: { agree: number; disagree: number };
+  comments: Array<{
+    publicId: string;
+    displayName: string;
+    body: string;
+    postedAt: string;
+    /** The report form's token: the session's, or for a reader not signed in, the day's. */
+    reportToken: string;
+    /** The viewer's own comment's delete token; null for another's. */
+    deleteToken: string | null;
+  }>;
+  /** The signed-in viewer, with their forms' tokens; null for a reader who is not signed in. */
+  viewer: null | {
+    displayName: string | null;
+    stopped: boolean;
+    vote: "agree" | "disagree" | null;
+    tokens: { vote: string; comment: string; name: string; signOut: string; forget: string };
+  };
+  /** Where a reader who is not signed in signs in, returning to this page. */
+  signInHref: string;
+  /** A line confirming the reader's last action, such as their vote being saved. */
+  notice: string | null;
+  /** Right after signing out: the link that also signs out of the AskRigor login in this browser. */
+  tenantSignOutHref: string | null;
+  /** Why the reader's last form was refused, such as a comment holding contact details. */
+  error: string | null;
+  /** What the reader wrote, kept when the form was refused. */
+  draft: { body: string; displayName: string } | null;
 }
 
 export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind;
@@ -413,9 +446,23 @@ const certaintyRank = (finding: ShownFinding) => finding.certainty === null ? 4 
 
 // The pages' models ---------------------------------------------------------------------------------------------------
 
-/** The home page: recently published, recently checked and contested findings; the owner's picks come later. */
+/** The home page: the owner's picks with their reasons, then recently published, recently checked and contested findings. */
 export async function loadAtlasHome(source: AtlasPageSource): Promise<AtlasHomeModel> {
   return await source.read(async (reads) => {
+    const pickRows = await reads.listHomePicks();
+    let picks: AtlasOwnerPick[] = [];
+    if (pickRows.length > 0) {
+      const pickPublications = await reads.listPublications({
+        publicationNumbers: pickRows.map(({ publicationNumber }) => publicationNumber), limit: pickRows.length,
+      });
+      const shownPicks = new Map((await shownFindings(reads, pickPublications))
+        .map((finding) => [finding.publicationNumber, finding]));
+      picks = pickRows.flatMap(({ publicationNumber, reason }) => {
+        const finding = shownPicks.get(publicationNumber);
+        return finding === undefined ? [] : [{ finding, reason }];
+      });
+    }
+
     const published = await shownFindings(reads, await reads.listPublications({ order: "published", limit: LANE_READ }));
     const recentlyPublished = oncePerFinding(published.filter(inLanes)).slice(0, ATLAS_LANE_SIZES.published);
 
@@ -427,7 +474,7 @@ export async function loadAtlasHome(source: AtlasPageSource): Promise<AtlasHomeM
         Date.parse(right.stateChangedAt) - Date.parse(left.stateChangedAt)))
       .slice(0, ATLAS_LANE_SIZES.checked);
 
-    return { picks: [], recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
+    return { picks, recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
   });
 }
 
@@ -504,10 +551,14 @@ export function topicSectionOf(finding: ShownFinding): TopicSectionId {
   }
 }
 
-/** A finding page; undefined when the publication does not show. */
+/**
+ * A finding page; undefined when the publication does not show. With participation, its votes and comments are read in
+ * the same snapshot, with the signed-in viewer's own when a participant key is given.
+ */
 export async function loadAtlasFinding(
   source: AtlasPageSource,
   publicationNumber: string,
+  options: { participation?: { participantKey: string | null } } = {},
 ): Promise<AtlasFindingModel | undefined> {
   return await source.read(async (reads) => {
     const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1 });
@@ -519,7 +570,10 @@ export async function loadAtlasFinding(
       : [...finding.contradicts.map(({ atlasNumber }) => atlasNumber), ...finding.replacedBy];
     const related = await relatedFindings(reads, partners);
     const shown = shownFindingOf(publication, findings, related);
-    return shown === undefined ? undefined : { finding: shown, participation: null };
+    if (shown === undefined) return undefined;
+    const participation = options.participation === undefined ? null
+      : await reads.readParticipation(publicationNumber, options.participation.participantKey);
+    return { finding: shown, participation };
   });
 }
 

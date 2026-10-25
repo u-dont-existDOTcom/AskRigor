@@ -213,6 +213,9 @@ export class PostgresEvidenceRepository {
       "0018_atlas_card_fields",
       "0019_research_use_notice_v4",
       "0020_atlas_publications",
+      // Decision 171, section 4E: votes, comments and the home page's picks. Numbered 0022: on the build branch, a
+      // release branch's own 0019 lands first and this branch's 0019 and 0020 become 0020 and 0021.
+      "0022_atlas_votes_comments",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
