@@ -1,6 +1,7 @@
 import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
+import { escapeHtml } from "./page-guard.js";
 import {
   NOT_CHECKED_LABEL,
   canonicalIdentifier,
@@ -33,15 +34,8 @@ class SafeHtml {
 
 type HtmlValue = SafeHtml | string | number | null | undefined | false | readonly HtmlValue[];
 
-/** Text made safe for HTML content and double- or single-quoted attribute values. */
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/gu, "&amp;")
-    .replace(/</gu, "&lt;")
-    .replace(/>/gu, "&gt;")
-    .replace(/"/gu, "&quot;")
-    .replace(/'/gu, "&#39;");
-}
+// The escaping and the last check live in page-guard.ts, which the forms' checks share.
+export { atlasPageProblems, escapeHtml } from "./page-guard.js";
 
 function part(value: HtmlValue): string {
   if (value instanceof SafeHtml) return value.value;
@@ -664,23 +658,6 @@ export function renderAtlasTooManyRequests(): string {
     body: html`<h1>Too many requests</h1>
 <p>Please wait a minute before loading more Atlas pages.</p>`,
   });
-}
-
-// The final check on a rendered page ------------------------------------------------------------------------------------
-
-// What a page never holds, whatever its data: a script, a findings card's reference (ARF- and four digits or more, as
-// the Atlas's own guards read one) or a YouTube link. The stores already refuse each of them; a page that holds one is
-// not served.
-const PAGE_SCRIPT = /<script\b/iu;
-const PAGE_CARD_REFERENCE = /ARF-\d{4}/iu;
-const PAGE_YOUTUBE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
-
-export function atlasPageProblems(page: string): Array<"script" | "card_reference" | "youtube_link"> {
-  return [
-    ...(PAGE_SCRIPT.test(page) ? ["script" as const] : []),
-    ...(PAGE_CARD_REFERENCE.test(page) ? ["card_reference" as const] : []),
-    ...(PAGE_YOUTUBE.test(page) ? ["youtube_link" as const] : []),
-  ];
 }
 
 // The stylesheet --------------------------------------------------------------------------------------------------------

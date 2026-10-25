@@ -5,6 +5,7 @@ import { researchAccountKeyForSubject } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
 import { contactDetailKinds, linkKinds } from "./contact-check.js";
+import { pageGuardProblems } from "./page-guard.js";
 
 /**
  * The security pieces of the Atlas's votes and comments (decision 171, sections 4D and 4E; design
@@ -322,7 +323,8 @@ export function normalizedComment(value: string | null): string {
 
 /**
  * Why a comment cannot be posted, or undefined: empty, longer than 2,000 characters, a control character, contact
- * details or a link (the design's exact refusal), or a findings card's number.
+ * details or a link (the design's exact refusal), or a findings card's number; and anything the pages' last check would
+ * find in it as a page writes it (a YouTube address in any case, a card's number), which would stop the page.
  */
 export function commentProblem(body: string): string | undefined {
   if (body.length === 0) return "Write a comment first.";
@@ -331,14 +333,26 @@ export function commentProblem(body: string): string | undefined {
   if (contactDetailKinds(body).length > 0 || linkKinds(body).length > 0) return CONTACT_REFUSAL;
   // The pages never show a findings card's number (ARF- and four digits or more), whoever writes it.
   if (containsCardReference(body)) return "Comments can't name a findings card.";
-  return undefined;
+  return pageProblem(body, { link: CONTACT_REFUSAL, card: "Comments can't name a findings card.",
+    other: "A comment can't hold that text." });
+}
+
+/** The refusal for what the pages' last check would find in a text, or undefined when it finds nothing. */
+function pageProblem(text: string, words: { link: string; card: string; other: string }): string | undefined {
+  const problems = pageGuardProblems(text);
+  if (problems.includes("youtube_link")) return words.link;
+  if (problems.includes("card_reference")) return words.card;
+  return problems.length > 0 ? words.other : undefined;
 }
 
 export function normalizedDisplayName(value: string | null): string {
   return (value ?? "").replace(/\s+/gu, " ").trim();
 }
 
-/** Why a display name cannot be used, or undefined: empty, longer than 40 characters, or contact details or a link. */
+/**
+ * Why a display name cannot be used, or undefined: empty, longer than 40 characters, a control character, contact
+ * details or a link, a findings card's number, or anything else the pages' last check would find in it.
+ */
 export function displayNameProblem(name: string): string | undefined {
   if (name.length === 0) return "Choose a display name first.";
   // Characters as the store and PostgreSQL count them: code points.
@@ -346,7 +360,8 @@ export function displayNameProblem(name: string): string | undefined {
   if (CONTROL.test(name)) return "A display name can't hold control characters.";
   if (contactDetailKinds(name).length > 0 || linkKinds(name).length > 0) return DISPLAY_NAME_REFUSAL;
   if (containsCardReference(name)) return "Display names can't name a findings card.";
-  return undefined;
+  return pageProblem(name, { link: DISPLAY_NAME_REFUSAL, card: "Display names can't name a findings card.",
+    other: "A display name can't hold that text." });
 }
 
 // Settings ----------------------------------------------------------------------------------------------------------------

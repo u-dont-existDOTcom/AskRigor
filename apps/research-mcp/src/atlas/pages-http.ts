@@ -24,6 +24,7 @@ import {
   type AtlasFindingModel,
   type AtlasFindingParticipationView,
 } from "./page-data.js";
+import { passesPageGuard } from "./page-guard.js";
 import {
   ATLAS_CSS,
   atlasPageProblems,
@@ -410,15 +411,21 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     const publicationNumber = model.finding.publicationNumber;
     const own = new Set(raw.viewer?.ownComments ?? []);
     const token = (purpose: string) => csrfToken(settings, session!, purpose);
+    // No one's row can stop a page: a comment or a name the last check would refuse is left out, and a draft that holds
+    // one is not written back.
+    const viewerName = raw.viewer?.displayName ?? null;
+    const draft = extras.draft ?? null;
     return {
       totals: { agree: raw.agree, disagree: raw.disagree },
-      comments: raw.comments.map((comment) => ({
-        ...comment,
-        reportToken: session === undefined ? reportToken(settings, comment.publicId, now) : token(`report:${comment.publicId}`),
-        deleteToken: session !== undefined && own.has(comment.publicId) ? token(`delete:${comment.publicId}`) : null,
-      })),
+      comments: raw.comments.filter((comment) => passesPageGuard(comment.body) && passesPageGuard(comment.displayName))
+        .map((comment) => ({
+          ...comment,
+          reportToken: session === undefined ? reportToken(settings, comment.publicId, now)
+            : token(`report:${comment.publicId}`),
+          deleteToken: session !== undefined && own.has(comment.publicId) ? token(`delete:${comment.publicId}`) : null,
+        })),
       viewer: session === undefined ? null : {
-        displayName: raw.viewer?.displayName ?? null,
+        displayName: viewerName === null ? null : passesPageGuard(viewerName) ? viewerName : "",
         stopped: raw.viewer?.stopped ?? false,
         vote: raw.viewer?.vote ?? null,
         tokens: {
@@ -433,7 +440,10 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       notice: extras.notice ?? null,
       tenantSignOutHref: extras.signedOut === true ? tenantSignOutUrl(settings, participation.signIn) : null,
       error: extras.error ?? null,
-      draft: extras.draft ?? null,
+      draft: draft === null ? null : {
+        body: passesPageGuard(draft.body) ? draft.body : "",
+        displayName: passesPageGuard(draft.displayName) ? draft.displayName : "",
+      },
     };
   };
 

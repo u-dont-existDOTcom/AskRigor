@@ -1,7 +1,3 @@
-import { request as httpRequest } from "node:http";
-import type { AddressInfo } from "node:net";
-
-import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -9,20 +5,16 @@ import {
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPageSource,
   InMemoryAtlasParticipation,
-  InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
   PostgresAtlasModerationStore,
   PostgresAtlasPageSource,
   PostgresAtlasParticipationStore,
-  RESEARCH_USE_NOTICE_VERSION,
   ResearchContributorAccessService,
   atlasCommenterTag,
-  type AtlasPublicationDraft,
   type ResearchContributorAccessStore,
 } from "@askrigor/evidence-repository";
 
-import { AtlasChangeSignal, announcingModerationStore, announcingParticipationStore } from
-  "../apps/research-mcp/src/atlas/change-signal.js";
+import { AtlasChangeSignal, announcingModerationStore } from "../apps/research-mcp/src/atlas/change-signal.js";
 import {
   ATLAS_LOGIN_COOKIE,
   ATLAS_SESSION_COOKIE,
@@ -44,192 +36,42 @@ import {
   type AtlasParticipationSettings,
 } from "../apps/research-mcp/src/atlas/participation.js";
 import {
-  ATLAS_PAGE_HEADERS,
   atlasParticipationFromEnv,
   atlasRouteOf,
   createAtlasPagesHandler,
-  type AtlasPagesHandler,
-  type AtlasParticipationRuntime,
 } from "../apps/research-mcp/src/atlas/pages-http.js";
-import { planCardPublication } from "../apps/research-mcp/src/atlas/publication.js";
 import { atlasPageProblems } from "../apps/research-mcp/src/atlas/pages.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
-import { findingsCardDigest, findingsCardSchema, withoutYouTubeData } from "../apps/research-mcp/src/findings/card.js";
-import type { FindingsRecord, FindingsSaveAccount } from "../apps/research-mcp/src/findings/service.js";
 import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
   researchContributionReviewOutputSchema,
 } from "../apps/research-mcp/src/research-contribution-review-tool.js";
-import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
-import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
+import {
+  CLIENT_ID,
+  CLIENT_SECRET,
+  ISSUER,
+  OTHER_SUBJECT,
+  OWNER,
+  SUBJECT,
+  bytes,
+  closeAtlasServers,
+  cookiePart,
+  expectPageHeaders,
+  fakeTenant,
+  fixture,
+  publications,
+  serve,
+  tokenFor,
+} from "./helpers/atlas-participation-fixture.js";
 
 // Decision 171, sections 4D and 4E: signing in to the Atlas with the apps' AskRigor login (a fake tenant here), votes
 // and comments with the contact-details-and-links check, the forms' tokens and Origin check, the limits, and the owner's
 // actions on review_research_contribution. Everything is synthetic and in memory.
 
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
-const SAVED_AT = "2026-11-04T09:00:00.000Z";
-const ISSUER = "https://askrigor-test.example.auth0.com/";
-const CLIENT_ID = "atlas-web-client";
-const CLIENT_SECRET = "atlas-web-client-secret-0123456789";
-const SUBJECT = "auth0|atlas-reader-1";
-const OTHER_SUBJECT = "auth0|atlas-reader-2";
-const OWNER = "auth0|atlas-owner";
-const bytes = (fill: number) => new Uint8Array(32).fill(fill);
+afterEach(closeAtlasServers);
 
-function recordOf(card: object): FindingsRecord {
-  const parsed = findingsCardSchema.parse(card);
-  return {
-    schema: "askrigor.findings-card.v1",
-    card: withoutYouTubeData(parsed).card,
-    card_sha256: findingsCardDigest(parsed),
-    stamp: {
-      saved_at: SAVED_AT, askrigor_version: "0.1.0", askrigor_build: "0123abc",
-      protocols: [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }], tool_catalog_sha256: "c".repeat(64),
-      surface: "/mcp/claude", reported_model_unverified: "Example Model 2026-08-06",
-      research: { finalized_at: SAVED_AT, depth: "standard", status: "ready" },
-    },
-  };
-}
-
-async function publications() {
-  const store = new InMemoryAtlasPublicationStore();
-  for (const [cardNumber, card] of [[4242, VELMOR_CARD], [4243, LOW_DOSE_CARD]] as const) {
-    const record = recordOf(card);
-    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } });
-    await store.publish({ cardNumber, cardSha256: record.card_sha256, findings: plan.drafts as AtlasPublicationDraft[],
-      publishedAt: SAVED_AT, revive: false });
-  }
-  return store;
-}
-
-// The fake tenant ---------------------------------------------------------------------------------------------------
-
-async function fakeTenant() {
-  const { publicKey, privateKey } = await generateKeyPair("RS256");
-  const jwk = { ...(await exportJWK(publicKey)), kid: "tenant-key", alg: "RS256" } as JWK;
-  const { privateKey: forgedKey } = await generateKeyPair("RS256");
-  const tenant = {
-    jwks: createLocalJWKSet({ keys: [jwk] }),
-    /** What the next token request answers with. */
-    next: { subject: SUBJECT, nonce: "", audience: CLIENT_ID, issuer: ISSUER, forged: false, expiresIn: "5m", status: 200 },
-    requests: [] as Array<{ url: string; body: URLSearchParams }>,
-    fetch: (async (input: URL | RequestInfo, init?: RequestInit) => {
-      tenant.requests.push({ url: String(input), body: new URLSearchParams(String(init?.body ?? "")) });
-      if (tenant.next.status !== 200) return new Response("{}", { status: tenant.next.status });
-      const token = await new SignJWT({ nonce: tenant.next.nonce })
-        .setProtectedHeader({ alg: "RS256", kid: "tenant-key" })
-        .setIssuer(tenant.next.issuer)
-        .setAudience(tenant.next.audience)
-        .setSubject(tenant.next.subject)
-        .setIssuedAt()
-        .setExpirationTime(tenant.next.expiresIn)
-        .sign(tenant.next.forged ? forgedKey : privateKey);
-      return new Response(JSON.stringify({ id_token: token, access_token: "unused", token_type: "Bearer" }),
-        { headers: { "content-type": "application/json" } });
-    }) as typeof fetch,
-  };
-  return tenant;
-}
-
-// Serving -----------------------------------------------------------------------------------------------------------
-
-const closers: Array<() => Promise<void>> = [];
-afterEach(async () => {
-  await Promise.all(closers.splice(0).map((close) => close()));
-});
-
-async function serve(handler: AtlasPagesHandler): Promise<string> {
-  const server = createAskRigorHttpServer({ publicServerEnabled: false, atlasPagesHandler: handler });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  closers.push(() => new Promise<void>((resolve, reject) => server.close((error) => error === undefined ? resolve() : reject(error))));
-  return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-}
-
-interface Fixture {
-  base: string;
-  settings: AtlasParticipationSettings;
-  tenant: Awaited<ReturnType<typeof fakeTenant>>;
-  store: InMemoryAtlasParticipation;
-  publications: InMemoryAtlasPublicationStore;
-  /** Signs in as a subject through the fake tenant; returns the session cookie's header value. */
-  signIn(subject?: string): Promise<string>;
-  get(path: string, cookie?: string): Promise<{ response: Response; body: string }>;
-  post(path: string, fields: Record<string, string>, options?: { cookie?: string; origin?: string | null; referer?: string;
-    type?: string }): Promise<Response>;
-}
-
-async function fixture(options: { limiters?: AtlasParticipationRuntime["limiters"]; participation?: boolean } = {}):
-  Promise<Fixture> {
-  const published = await publications();
-  const store = new InMemoryAtlasParticipation(published);
-  const tenant = await fakeTenant();
-  const settings: AtlasParticipationSettings = {
-    publicOrigin: "https://askrigor.example", sessionKey: bytes(7), participantSecret: bytes(9), identitySecret: bytes(11),
-  };
-  const signal = new AtlasChangeSignal();
-  const handler = createAtlasPagesHandler({
-    enabled: true,
-    source: new InMemoryAtlasPageSource({ publications: published, participation: store }),
-    signal,
-    ...(options.participation === false ? {} : {
-      participation: {
-        settings,
-        store: announcingParticipationStore(store, signal),
-        signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
-          fetch: tenant.fetch },
-        ...(options.limiters === undefined ? {} : { limiters: options.limiters }),
-      },
-    }),
-  });
-  const base = await serve(handler);
-  settings.publicOrigin = base;
-  const get = async (path: string, cookie?: string) => {
-    const response = await fetch(`${base}${path}`, { redirect: "manual", ...(cookie === undefined ? {} : { headers: { cookie } }) });
-    return { response, body: await response.text() };
-  };
-  const post = async (path: string, fields: Record<string, string>, postOptions: { cookie?: string; origin?: string | null;
-    referer?: string; type?: string } = {}) => fetch(`${base}${path}`, {
-    method: "POST",
-    redirect: "manual",
-    headers: {
-      "content-type": postOptions.type ?? "application/x-www-form-urlencoded",
-      ...(postOptions.origin === null ? {} : { origin: postOptions.origin ?? base }),
-      ...(postOptions.referer === undefined ? {} : { referer: postOptions.referer }),
-      ...(postOptions.cookie === undefined ? {} : { cookie: postOptions.cookie }),
-    },
-    body: new URLSearchParams(fields).toString(),
-  });
-  const signIn = async (subject = SUBJECT) => {
-    const login = await get("/atlas/auth/login?return=/atlas/findings/P-1001");
-    const location = new URL(login.response.headers.get("location")!);
-    const loginCookie = cookiePart(login.response, ATLAS_LOGIN_COOKIE)!;
-    tenant.next = { ...tenant.next, subject, nonce: location.searchParams.get("nonce")! };
-    const callback = await get(`/atlas/auth/callback?code=synthetic-code&state=${location.searchParams.get("state")}`,
-      loginCookie);
-    expect(callback.response.status, callback.body).toBe(303);
-    return cookiePart(callback.response, ATLAS_SESSION_COOKIE)!;
-  };
-  return { base, settings, tenant, store, publications: published, signIn, get, post };
-}
-
-/** The name=value part of a response's Set-Cookie for a cookie, as a request's Cookie header carries it. */
-function cookiePart(response: Response, name: string): string | undefined {
-  return response.headers.getSetCookie().map((header) => header.split(";")[0]!).find((part) => part.startsWith(`${name}=`));
-}
-
-/** A form's CSRF token on a page: the first token after the form's action. */
-function tokenFor(html: string, action: string): string {
-  const at = html.indexOf(`action="${action}"`);
-  expect(at, `no form for ${action}`).toBeGreaterThan(-1);
-  return /name="csrf" value="([^"]+)"/u.exec(html.slice(at))![1]!;
-}
-
-function expectPageHeaders(response: Response) {
-  for (const [name, value] of Object.entries(ATLAS_PAGE_HEADERS)) expect(response.headers.get(name), name).toBe(value);
-}
 
 // The store's semantics -----------------------------------------------------------------------------------------------
 
@@ -1042,6 +884,8 @@ describe("the owner's comment actions and picks", () => {
       ["a held or withdrawn publication", [{ publication: "P-1999", reason: "Missing." }], "pick_not_published"],
       ["contact details in a reason", [{ publication: "P-1001", reason: "Ask jane@example.org." }], "invalid_request"],
       ["a link in a reason", [{ publication: "P-1001", reason: "See example.com." }], "invalid_request"],
+      ["a YouTube address the page check would refuse", [{ publication: "P-1001", reason: "The talk is on YOUTU.BE." }],
+        "invalid_request"],
       ["the same publication twice", [{ publication: "P-1001", reason: "A." }, { publication: "P-1001", reason: "B." }],
         "invalid_request"],
     ] as const) {

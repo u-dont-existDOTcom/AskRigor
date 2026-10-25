@@ -14,6 +14,8 @@ import type {
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
 
+import { passesPageGuard } from "./page-guard.js";
+
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
  * docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md, section 3), read in one snapshot and
@@ -457,9 +459,10 @@ export async function loadAtlasHome(source: AtlasPageSource): Promise<AtlasHomeM
       });
       const shownPicks = new Map((await shownFindings(reads, pickPublications))
         .map((finding) => [finding.publicationNumber, finding]));
+      // A reason the pages' last check would refuse is left out with its pick, so it cannot stop the home page.
       picks = pickRows.flatMap(({ publicationNumber, reason }) => {
         const finding = shownPicks.get(publicationNumber);
-        return finding === undefined ? [] : [{ finding, reason }];
+        return finding === undefined || !passesPageGuard(reason) ? [] : [{ finding, reason }];
       });
     }
 
