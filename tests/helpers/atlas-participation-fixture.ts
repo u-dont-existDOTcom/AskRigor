@@ -9,6 +9,7 @@ import {
   InMemoryAtlasParticipation,
   InMemoryAtlasPublicationStore,
   RESEARCH_USE_NOTICE_VERSION,
+  type AtlasParticipationStore,
   type AtlasPublicationDraft,
 } from "@askrigor/evidence-repository";
 
@@ -145,6 +146,8 @@ export async function fixture(options: {
   rateLimiter?: TokenBucketLimiter;
   participation?: boolean;
   now?: () => number;
+  /** Wraps the store the handler writes through, such as to make one of its calls fail. */
+  wrapStore?: (store: AtlasParticipationStore) => AtlasParticipationStore;
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -165,7 +168,7 @@ export async function fixture(options: {
       ...(options.participation === false ? {} : {
         participation: {
           settings,
-          store: announcingParticipationStore(store, signal),
+          store: (options.wrapStore ?? ((inner) => inner))(announcingParticipationStore(store, signal)),
           signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
             fetch: tenant.fetch },
           ...(options.limiters === undefined ? {} : { limiters: options.limiters }),

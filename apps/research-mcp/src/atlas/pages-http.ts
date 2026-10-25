@@ -569,13 +569,25 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     }, cookies);
   };
 
-  /** The session a request carries, if it is current: not ended since by signing out everywhere or deleting everything. */
-  const currentSession = async (request: IncomingMessage, runtime: AtlasParticipationRuntime, now: Date):
-    Promise<{ session: AtlasSession | undefined; clear: string[] }> => {
+  /**
+   * The session a request carries, if it is current: not ended since by signing out everywhere or deleting everything.
+   * When the store cannot say, a page is read as by a reader who is not signed in (no forms, the cookie kept), and a
+   * form fails safe: the error reaches the dispatcher, which answers 503 having changed nothing.
+   */
+  const currentSession = async (request: IncomingMessage, runtime: AtlasParticipationRuntime, now: Date,
+    unknown: "read-as-signed-out" | "fail" = "fail"): Promise<{ session: AtlasSession | undefined; clear: string[] }> => {
     const cookie = readCookie(request, ATLAS_SESSION_COOKIE);
     const opened = openSession(runtime.settings, cookie, now);
-    const current = opened !== undefined && await runtime.store.sessionCurrent(opened.participantKey,
-      new Date(opened.signedInAt).toISOString(), now.toISOString());
+    let current = false;
+    if (opened !== undefined) {
+      try {
+        current = await runtime.store.sessionCurrent(opened.participantKey, new Date(opened.signedInAt).toISOString(),
+          now.toISOString());
+      } catch (error) {
+        if (unknown === "fail") throw error;
+        return { session: undefined, clear: [] };
+      }
+    }
     const present = typeof request.headers.cookie === "string" && request.headers.cookie.includes(`${ATLAS_SESSION_COOKIE}=`);
     return { session: current ? opened : undefined, clear: !current && present ? [clearSession] : [] };
   };
@@ -865,7 +877,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
         if (participation !== undefined && pageRoute.kind === "finding") {
-          const { session, clear: stale } = await currentSession(request, participation, now);
+          const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");
           const query = queryOf(request);
           const done = query.get("done") ?? "";
           const notice = noticeOf(done);

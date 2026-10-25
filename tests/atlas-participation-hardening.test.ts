@@ -421,3 +421,37 @@ describe("a reader's own comments (review issue 8)", () => {
   });
 });
 
+describe("when the session check cannot reach the database (review follow-up, item 3)", () => {
+  it("shows a page as to a reader who is not signed in, keeps the cookie, and refuses a form with nothing changed", async () => {
+    let failing = false;
+    const f = await fixture({ wrapStore: (store) => ({
+      ...store,
+      inspectParticipant: (key) => store.inspectParticipant(key),
+      setDisplayName: (key, name, at) => store.setDisplayName(key, name, at),
+      setVote: (key, publication, vote, at) => store.setVote(key, publication, vote, at),
+      postComment: (key, publication, body, at, name) => store.postComment(key, publication, body, at, name),
+      deleteComment: (key, id) => store.deleteComment(key, id),
+      reportComment: (reporter, id, at) => store.reportComment(reporter, id, at),
+      forgetParticipant: (key, at) => store.forgetParticipant(key, at),
+      endSessions: (key, at) => store.endSessions(key, at),
+      sessionCurrent: async (key, signedInAt, at) => {
+        if (failing) throw new Error("connect ECONNREFUSED 10.0.0.5:5432");
+        return await store.sessionCurrent(key, signedInAt, at);
+      },
+    }) });
+    const session = await f.signIn();
+    const signedIn = (await f.get("/atlas/findings/P-1001", session)).body;
+    const csrf = tokenFor(signedIn, "/atlas/findings/P-1001/vote");
+    failing = true;
+    const page = await f.get("/atlas/findings/P-1001", session);
+    expect(page.response.status).toBe(200);
+    expect(page.body).toContain("/atlas/auth/login?return=");
+    expect(page.body).not.toContain('action="/atlas/findings/P-1001/vote"');
+    expect(page.response.headers.getSetCookie()).toEqual([]);
+    const vote = await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: session });
+    expect(vote.status).toBe(503);
+    expect(f.store.snapshot().votes).toBe(0);
+    failing = false;
+    expect((await f.get("/atlas/findings/P-1001", session)).body).toContain('action="/atlas/findings/P-1001/vote"');
+  });
+});
