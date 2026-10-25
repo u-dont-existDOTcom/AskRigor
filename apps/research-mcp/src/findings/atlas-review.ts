@@ -784,7 +784,7 @@ export const atlasYoutubeFindingsSchema = z.object({
   cards: z.array(z.object({
     card: cardIdSchema,
     status: z.enum(["moved", "nothing_to_move", "not_found", "unreadable", "every_finding_youtube",
-      "decisions_in_the_way", "incomplete", "deleted"]),
+      "decisions_in_the_way", "published_in_the_way", "incomplete", "deleted"]),
     /** The findings now held, each with the day it is deleted. */
     held: z.array(z.object({
       finding: z.number().int().min(1).max(5),
@@ -798,6 +798,8 @@ export const atlasYoutubeFindingsSchema = z.object({
     laterSavesDeleted: z.number().int().nonnegative(),
     /** decisions_in_the_way: the decided findings the move would remove or renumber. */
     decidedFindings: z.array(z.number().int().min(1).max(5)).max(5),
+    /** published_in_the_way: the published findings, unless their card was forgotten. */
+    publishedFindings: z.array(z.number().int().min(1).max(5)).max(5),
   }).strict()).max(MOVE_YOUTUBE_FINDINGS_CARDS_PER_CALL),
   ownerSteps: z.array(z.string()).max(10),
 }).strict();
@@ -2332,7 +2334,10 @@ export class AtlasReview {
     const now = this.now();
     const reports: YouTubeFindingsMoveReport[] = [];
     for (const cardNumber of numbers) {
-      reports.push(await moveYouTubeFindings({ inbox: this.deps.inbox, store: this.deps.store, held }, cardNumber, now));
+      reports.push(await moveYouTubeFindings({
+        inbox: this.deps.inbox, store: this.deps.store, held,
+        ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }),
+      }, cardNumber, now));
     }
     const rewritten = reports.filter((report) => report.cardRewritten || report.laterSavesRewritten > 0);
     const youtubeFindings: AtlasYoutubeFindings = {
@@ -2346,6 +2351,7 @@ export class AtlasReview {
         laterSavesRewritten: report.laterSavesRewritten,
         laterSavesDeleted: report.laterSavesDeleted,
         decidedFindings: report.decidedFindings,
+        publishedFindings: report.publishedFindings,
       })),
       ownerSteps: rewritten.length === 0 ? [] : [
         "GitHub keeps each rewritten card's earlier text in its edit history. On each card below, open the edited " +
@@ -2429,7 +2435,7 @@ export class AtlasReview {
       youtubeFindings: {
         cards: [{
           card: id, status: "deleted", held: [], deleted, cardRewritten: false, laterSavesRewritten: 0,
-          laterSavesDeleted: 0, decidedFindings: [],
+          laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [],
         }],
         ownerSteps: [],
       },
@@ -3652,6 +3658,10 @@ function moveSentence(report: YouTubeFindingsMoveReport): string {
       return `${id} has decisions on ${report.decidedFindings.length === 1 ? "finding" : "findings"} ` +
         `${listed(report.decidedFindings.map(String))}, which moving its findings drawn from YouTube comments would ` +
         "remove or renumber; nothing was changed.";
+    case "published_in_the_way":
+      return `${id} has publications for ${report.publishedFindings.length === 1 ? "finding" : "findings"} ` +
+        `${listed(report.publishedFindings.map(String))}, which name findings by their place on the card, even ` +
+        "after withdrawal; nothing was changed.";
     case "incomplete":
       return `${id}: the database or GitHub failed part way${done.length === 0 ? "" : ` after it ${done.join(" and ")}`}` +
         `${rewritten.length === 0 ? "" : `, and rewrote ${listed(rewritten)}`}. Call move_youtube_findings for it ` +

@@ -648,7 +648,7 @@ describe("the owner's review of held YouTube findings", () => {
       outcome: "youtube_findings_deleted",
       youtubeFindings: {
         cards: [{ card: "ARF-0042", status: "deleted", held: [], deleted: 1, cardRewritten: false,
-          laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [] }],
+          laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }],
         ownerSteps: [],
       },
     });
@@ -840,6 +840,90 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
   // ARF-0007, saved on 7 Oct: the study finding, then one resting on a comment audit.
   const SEVEN = { ...CARD, findings: [STUDY, FROM_AUDIT] };
 
+  it.each(["unreviewed", "owner_unpublished", "card_set_aside", "card_replaced"] as const)(
+    "changes nothing when the card has publications (%s), even for findings before the first one removed",
+    async (state) => {
+      const publications = new InMemoryAtlasPublicationStore();
+      const h = harness({ start: "2026-10-25T09:00:00.000Z", publications });
+      const { record, metadata } = storeCardBeforeSeventy(h.github, 7, {
+        ...CARD, findings: [STUDY, FROM_AUDIT, { ...STUDY, claim: "Another synthetic study finding." }],
+      }, [["full_text_audit"], ["comment_audit"], ["full_text_audit"]], "2026-10-07T08:15:00.000Z");
+      // A later save would also be rewritten: refusal must leave both it and the original card untouched.
+      const laterMetadata: OccurrenceMetadata = { ...metadata, occurrence_count: 2 };
+      h.github.comments.set(7, [{ id: 501, body: occurrenceComment(record, laterMetadata) }]);
+      const published = await h.call({ action: "publish_cards", cards: ["ARF-0007"] });
+      expect(published.structured.publications.items.map(({ finding }: { finding: number }) => finding)).toEqual([1, 3]);
+      if (state !== "unreviewed") {
+        await publications.withdraw(state === "owner_unpublished" ? {
+          reason: state, publicationNumbers: ["P-1001", "P-1002"], ownerReason: "A synthetic withdrawal.",
+          withdrawnAt: h.clock().toISOString(),
+        } : { reason: state, cardNumbers: [7], withdrawnAt: h.clock().toISOString() });
+      }
+      const rows = await publications.inspect({});
+      expect(rows.every((row) => row.state === (state === "unreviewed" ? "unreviewed" : "withdrawn"))).toBe(true);
+      const issues = structuredClone(h.github.issues);
+      const comments = structuredClone(h.github.comments);
+      const writes = structuredClone(h.github.writes);
+      const hold = vi.spyOn(h.store, "hold");
+
+      const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
+      expect(moved.isError).toBe(false);
+      expect(moved.structured.youtubeFindings).toEqual({
+        cards: [{ card: "ARF-0007", status: "published_in_the_way", held: [], deleted: 0, cardRewritten: false,
+          laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [1, 3] }],
+        ownerSteps: [],
+      });
+      expect(moved.text).toContain("ARF-0007 has publications for findings 1 and 3, which name findings by their " +
+        "place on the card, even after withdrawal; nothing was changed.");
+      expect(hold).not.toHaveBeenCalled();
+      expect(h.store.snapshot()).toEqual([]);
+      expect(h.github.issues).toEqual(issues);
+      expect(h.github.comments).toEqual(comments);
+      expect(h.github.writes).toEqual(writes);
+      expect(await publications.inspect({})).toEqual(rows);
+    },
+  );
+
+  it.each([false, true])("moves as before when publications are configured but none remain except forgotten cards (%s)", async (forgotten) => {
+    const publications = new InMemoryAtlasPublicationStore();
+    const h = harness({ start: "2026-10-25T09:00:00.000Z", publications });
+    const { checked, record, metadata } = storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
+    if (forgotten) {
+      await h.call({ action: "publish_cards", cards: ["ARF-0007"] });
+      // Accepted rows retain that state when forgotten, so the exemption must use cardForgottenAt.
+      await publications.decide({ cardNumber: 7, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
+        decidedAt: h.clock().toISOString() });
+      await publications.withdraw({ reason: "card_forgotten", cardNumbers: [7], withdrawnAt: h.clock().toISOString() });
+    }
+    const rows = await publications.inspect({});
+    expect(rows).toHaveLength(forgotten ? 1 : 0);
+    expect(rows.every((row) => row.cardForgottenAt !== null)).toBe(true);
+
+    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
+    expect(moved.structured.youtubeFindings.cards[0]).toMatchObject({
+      status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }],
+      cardRewritten: true, publishedFindings: [],
+    });
+    const today = storedToday(checked, BASES);
+    expect(h.github.issue(7).body).toBe(cardIssueBody({ ...record, card: today.card,
+      stored_without: today.stored_without }, metadata));
+    expect(h.store.snapshot()).toHaveLength(1);
+    expect(await publications.inspect({})).toEqual(rows);
+  });
+
+  it("changes nothing if the configured publication store cannot be read", async () => {
+    const publications = new InMemoryAtlasPublicationStore();
+    const h = harness({ start: "2026-10-25T09:00:00.000Z", publications });
+    storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
+    const body = h.github.issue(7).body;
+    vi.spyOn(publications, "inspect").mockRejectedValue(new Error("database unavailable"));
+    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
+    expect(moved.structured.youtubeFindings.cards[0]).toMatchObject({ status: "incomplete", held: [], cardRewritten: false });
+    expect(h.github.issue(7).body).toBe(body);
+    expect(h.github.writes).toEqual([]);
+    expect(h.store.snapshot()).toEqual([]);
+  });
+
   it("moves them into the hold from the card's own save time and rewrites the card exactly as a card saved today would read", async () => {
     const h = harness({ start: "2026-10-25T09:00:00.000Z" });
     const { checked, metadata, record } = storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
@@ -849,7 +933,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       outcome: "youtube_findings_moved",
       youtubeFindings: {
         cards: [{ card: "ARF-0007", status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }],
-          deleted: 0, cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [] }],
+          deleted: 0, cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }],
       },
     });
     expect(moved.text).toContain("ARF-0007: moved 1 finding drawn from YouTube comments into the 30-day hold " +
@@ -895,7 +979,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     // The store is not even asked to hold it (and would refuse to).
     expect(hold).not.toHaveBeenCalled();
     expect(moved.structured.youtubeFindings.cards).toEqual([{ card: "ARF-0005", status: "moved", held: [], deleted: 1,
-      cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [] }]);
+      cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }]);
     expect(moved.text).toContain("ARF-0005: deleted 1 finding whose 30 days had ended.");
     expect(h.store.snapshot()).toEqual([]);
     expect((storedRecordOf(h.github.issue(5).body) as FindingsRecord).card.findings.map(({ claim }) => claim))
@@ -940,11 +1024,11 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
         { finding: 1, save: "later_save", deletedOn: "2026-11-09" },
         { finding: 1, save: "later_save", deletedOn: "2026-11-11" },
         { finding: 2, save: "later_save", deletedOn: "2026-11-11" },
-      ], deleted: 0, cardRewritten: true, laterSavesRewritten: 1, laterSavesDeleted: 1, decidedFindings: [] },
+      ], deleted: 0, cardRewritten: true, laterSavesRewritten: 1, laterSavesDeleted: 1, decidedFindings: [], publishedFindings: [] },
       { card: "ARF-0209", status: "nothing_to_move", held: [], deleted: 0, cardRewritten: false, laterSavesRewritten: 0,
-        laterSavesDeleted: 0, decidedFindings: [] },
+        laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] },
       { card: "ARF-0099", status: "not_found", held: [], deleted: 0, cardRewritten: false, laterSavesRewritten: 0,
-        laterSavesDeleted: 0, decidedFindings: [] },
+        laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] },
     ]);
     expect(moved.text).toContain("ARF-0209 holds no finding drawn from YouTube comments; nothing was changed.");
     expect(moved.text).toContain("ARF-0099 is not a findings card in the library; nothing was changed.");

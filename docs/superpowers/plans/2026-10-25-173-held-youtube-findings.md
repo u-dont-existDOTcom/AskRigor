@@ -41,8 +41,9 @@ of every stored card.
    `withoutYouTubeData`, signed bases kept, the checked card's SHA-256, stamp and marker unchanged); a later save left
    with no finding is deleted. It holds before it rewrites, so a failure is finished by calling again. It changes
    nothing on a stored card whose findings all rest on YouTube comments, or where a decision names a finding the move
-   would remove or renumber (decisions name findings by place). The reply lists the GitHub edit histories for the
-   owner to clear.
+   would remove or renumber (decisions name findings by place). It also changes nothing if the card has any
+   publication, including withdrawn ones, unless that publication's card was forgotten; publications also name
+   findings by place. The reply lists the GitHub edit histories for the owner to clear.
 6. **Database access.** Six SECURITY DEFINER functions, each revoked from PUBLIC; no role gets the table, and each
    migrate removes every grant on it but the migrator's (the reader's default-privilege SELECT included). The
    research-access role (save path) executes `hold_youtube_findings` and the purge; the review role executes those two,

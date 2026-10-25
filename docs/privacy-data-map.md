@@ -1193,9 +1193,11 @@ is not saved as a card, and its findings are kept the same way, with no card.
   and each later save exactly as one saved today without them would read; a
   later save left with no finding is deleted. It changes nothing on a card whose
   findings all rest on YouTube comments, or where a decision names a finding the
-  move would remove or renumber. GitHub keeps each rewritten card's earlier text
-  in its edit history until the owner deletes those revisions, as the reply lists
-  them.
+  move would remove or renumber. It also changes nothing if the card has any
+  publication, including withdrawn ones, unless that publication's card was
+  forgotten; publications also name findings by place. GitHub keeps each rewritten
+  card's earlier text in its edit history until the owner deletes those revisions,
+  as the reply lists them.
 
 What is never stored: the chat, the answer beyond each finding's one quoted
 sentence, the research target or its digest, the account key, the receipts

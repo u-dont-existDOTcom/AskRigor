@@ -1,5 +1,8 @@
 import {
+  ATLAS_PUBLICATIONS_PER_INSPECT,
   HELD_YOUTUBE_FINDINGS_MILLISECONDS,
+  atlasPublicationOrder,
+  type AtlasPublicationStore,
   type AtlasReviewStore,
   type HeldYouTubeFindingsStore,
 } from "@askrigor/evidence-repository";
@@ -21,7 +24,8 @@ import type { FindingsRecord } from "./service.js";
  *
  * Every read and check comes first; nothing is changed for a card that does not read, whose findings all rest on
  * YouTube comments (a card saved today would not be saved as a card), or where a decision is recorded on a finding
- * that the move would remove or renumber (decisions name findings by their place). The findings are held before GitHub
+ * that the move would remove or renumber (decisions name findings by their place), or with publications whose card
+ * was not forgotten (publications also name findings by their place). The findings are held before GitHub
  * is changed, so a call that fails part way is called again: a finding held already keeps its expiry, and a rewritten
  * save has nothing left to move.
  */
@@ -33,6 +37,7 @@ export type YouTubeFindingsMoveStatus =
   | "unreadable"
   | "every_finding_youtube"
   | "decisions_in_the_way"
+  | "published_in_the_way"
   | "incomplete";
 
 export interface MovedYouTubeFinding {
@@ -53,12 +58,15 @@ export interface YouTubeFindingsMoveReport {
   laterSavesDeleted: number;
   /** decisions_in_the_way: the decided findings the move would remove or renumber. */
   decidedFindings: number[];
+  /** published_in_the_way: the published findings, including withdrawn rows, unless their card was forgotten. */
+  publishedFindings: number[];
 }
 
 export interface YouTubeFindingsMoveDependencies {
   inbox: FindingsCardInbox;
   store: Pick<AtlasReviewStore, "inspectCards">;
   held: Pick<HeldYouTubeFindingsStore, "hold">;
+  publications?: Pick<AtlasPublicationStore, "inspect">;
 }
 
 // What withoutYouTubeData writes in place of a YouTube link, which a stored text keeps.
@@ -94,7 +102,7 @@ export async function moveYouTubeFindings(
 ): Promise<YouTubeFindingsMoveReport> {
   const report: YouTubeFindingsMoveReport = {
     card: cardNumber, status: "incomplete", findings: [], cardRewritten: false, laterSavesRewritten: 0,
-    laterSavesDeleted: 0, decidedFindings: [],
+    laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [],
   };
   try {
     const lookup = await deps.inbox.readCard(cardNumber);
@@ -114,6 +122,25 @@ export async function moveYouTubeFindings(
       return stored.findingsLeftOut === 0 ? [] : [{ commentId: entry.id, metadata: entry.save.metadata, record, stored }];
     });
     if (leftOut.length === 0 && later.length === 0) return { ...report, status: "nothing_to_move" };
+    if (deps.publications !== undefined) {
+      // Any publication binds the card's finding positions, even after withdrawal. Only forgotten cards are exempt.
+      const published = new Set<number>();
+      let before: number | undefined;
+      for (;;) {
+        const rows = await deps.publications.inspect({
+          cardNumbers: [cardNumber], limit: ATLAS_PUBLICATIONS_PER_INSPECT,
+          ...(before === undefined ? {} : { before }),
+        });
+        for (const row of rows) {
+          if (row.cardForgottenAt === null) published.add(row.findingNumber);
+        }
+        if (rows.length < ATLAS_PUBLICATIONS_PER_INSPECT) break;
+        before = atlasPublicationOrder(rows[rows.length - 1]!.publicationNumber);
+      }
+      if (published.size > 0) return {
+        ...report, status: "published_in_the_way", publishedFindings: [...published].sort((left, right) => left - right),
+      };
+    }
     if (leftOut.length > 0) {
       // Removing a finding renumbers those after it; a decision names its finding by place, so none may follow.
       const first = Math.min(...leftOut) + 1;

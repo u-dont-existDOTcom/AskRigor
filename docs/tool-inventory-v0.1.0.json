@@ -14289,6 +14289,7 @@
                         "unreadable",
                         "every_finding_youtube",
                         "decisions_in_the_way",
+                        "published_in_the_way",
                         "incomplete",
                         "deleted"
                       ]
@@ -14350,6 +14351,15 @@
                         "minimum": 1,
                         "maximum": 5
                       }
+                    },
+                    "publishedFindings": {
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                      }
                     }
                   },
                   "required": [
@@ -14360,7 +14370,8 @@
                     "cardRewritten",
                     "laterSavesRewritten",
                     "laterSavesDeleted",
-                    "decidedFindings"
+                    "decidedFindings",
+                    "publishedFindings"
                   ],
                   "additionalProperties": false
                 }
