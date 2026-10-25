@@ -293,6 +293,9 @@ describe("forget_card (decision 7)", () => {
       findingsAlsoElsewhere: [],
       laterSavesDeletedOn: ["ARF-0044"],
       refiled: [{ from: "ARF-0042", card: "ARF-0045" }],
+      // Decision 171: this harness has no publication store, so no publication is withdrawn or kept.
+      publicationsWithdrawn: [],
+      publicationsKept: [],
       ownerSteps: [
         "Now delete these issues in GitHub (Delete issue, at the foot of each issue's page), which also removes the " +
           "edit history: https://github.com/u-dont-existDOTcom/AskRigor-findings/issues/42, " +

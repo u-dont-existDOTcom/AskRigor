@@ -96,7 +96,7 @@ import {
   type FindingsSaveResult,
 } from "./findings/contracts.js";
 import { saveResearchFindings } from "./findings/runtime.js";
-import type { FindingsSaveContext } from "./findings/service.js";
+import type { FindingsSaveAccount, FindingsSaveContext } from "./findings/service.js";
 import {
   protocolErrorResult,
   protocolRequestError,
@@ -823,10 +823,17 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "withdraw_finding and link_findings complete the set. With eraseWording, edit_finding or withdraw_finding also " +
   "erases wording the owner judges could identify a person. forget_card (card ARF-0142) removes what ties a card to " +
   "its contributor whenever they ask, with no reason needed: it deletes the card's decision rows and strips its " +
-  "GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid. Nothing from " +
-  "a card is public until the owner accepts it, and nothing is public until the Atlas pages exist. An accepted " +
-  "decision is a hash-bound intent: this call never writes canonical evidence, and a separate one-shot writer applies " +
-  "it within about 5 minutes.";
+  "GitHub issue, which the owner then deletes, and findings accepted from it stay while they are valid; its " +
+  "publications that are not accepted leave the Atlas. Publications: a card saved in free contributor mode is " +
+  "published in the Atlas as soon as it is saved, one publication (P-1001) per finding, marked not checked by " +
+  "supervisors yet until accept_finding, edit_finding or reject_finding moves it; a finding whose text holds contact " +
+  "details is held. list_publications lists them (publicationState to filter) and the cards whose publishing did not " +
+  "complete; unpublish_finding (publication P-1003, with your private reason) takes one down; publish_cards (cards, " +
+  "up to 20) publishes cards you choose, such as your own research saved before publishing began, never a paid " +
+  "private card; set_aside_cards (cards, or cardsFrom and cardsTo) labels cards set-aside, which list_findings then " +
+  "leaves out unless includeSetAside, and withdraws their publications. A paid private card's findings are published " +
+  "only after you accept them. An accepted decision is a hash-bound intent: this call never writes canonical " +
+  "evidence, and a separate one-shot writer applies it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer
 // goes ahead and the save, which carries on, is reported unconfirmed.
@@ -2375,6 +2382,8 @@ function defineResearchOperations(
         }, {
           surface: options.mcpSurface ?? "unknown",
           toolCatalogSha256: toolCatalogSha256(),
+          // Decision 171, section 4B: the account checks for publishing the card in the Atlas at its save.
+          account: findingsSaveAccount(account),
         }).then(savedFindings, () => ({ status: "not_saved" as const, reason: "queue_service_unavailable" }));
         result.findings_card.saved = await withinDeadline(
           save,
@@ -2539,9 +2548,27 @@ function registerFindingsSave(
       }, {
         surface: options.mcpSurface ?? "unknown",
         toolCatalogSha256: toolCatalogSha256(),
+        // Decision 171, section 4B: a paid private card is never published at its save; a free contributor's is.
+        account: findingsSaveAccount(account),
       }));
     },
   );
+}
+
+/**
+ * What the Atlas reads of the saving account (decision 171, section 4B), all exact: its mode, the free contributor
+ * notice it accepted, and whether ASKRIGOR_DEV_ACCOUNT_KEYS lists it. Never stored with the card.
+ */
+function findingsSaveAccount(account: {
+  mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
+  accountKey: string;
+  noticeVersion: string | null;
+}): FindingsSaveAccount {
+  return {
+    mode: account.mode,
+    noticeVersion: account.noticeVersion,
+    devAccount: isDevAccount(account.accountKey, devAccountKeysFromEnv()),
+  };
 }
 
 /** The work's result, or `late` once the deadline passes; the work itself carries on. */

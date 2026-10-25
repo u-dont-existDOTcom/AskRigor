@@ -43,9 +43,11 @@ database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
 permissions documented below. The research-review role can execute only the
 three bounded owner-review functions (inspect, decide, and the review context of
-migration 0012) and the five Atlas review functions of migration 0017 (inspect
+migration 0012), the five Atlas review functions of migration 0017 (inspect
 cards, decide a card item, record an intent, inspect intents, and forget
-cards), and has no direct table or sequence privileges. The
+cards) and the six publication functions of migration 0020 (inspect, publish,
+decide, edit, withdraw, and erase the texts of the Atlas's publications), and
+has no direct table or sequence privileges. The
 ordinary research service receives the reader, evidence-gap intake,
 research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
@@ -413,6 +415,39 @@ and puts back 0017's bodies of `atlas_redaction_permits` and
 image serves, recreate `research-mcp` with that image, have each user refresh
 the app's tool list once more, and only then put the
 `ASKRIGOR_ATLAS_REVIEW=enabled` line back and open the owner's Atlas actions.
+
+Decision 171, section 4B (plan
+`../../docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`)
+publishes a free contributor's findings card in the Atlas as soon as it is
+saved. Migration `0020_atlas_publications` adds one private table,
+`atlas_publications` (one row per published finding: its public number P-1001
+onward from the new sequence `atlas_publication_number_seq`, the card's issue
+number and digest with the finding's place for moderation and idempotent
+publishing, the published fields, and the state `unreviewed`, `accepted`,
+`edited`, `rejected`, `withdrawn` or `held`), and six SECURITY DEFINER
+functions for the review role: `inspect_atlas_publications`,
+`publish_atlas_findings`, `decide_atlas_publications`,
+`edit_atlas_publications`, `withdraw_atlas_publications` and
+`erase_atlas_publication_texts`. The reader can select the table, as every
+table; the pages read only its published fields. It touches no canonical table
+and leaves the guard's body in force. The runtime publishes at a save, and the
+owner's publication actions answer, only while `ASKRIGOR_ATLAS_REVIEW=enabled`
+and the research-review URL are set.
+
+Its release: run the one-shot admin `migrate`, which applies 0020 (after 0019
+on the build branch), before the new image serves; then re-run
+`/usr/local/bin/provision-research-review-role` inside the PostgreSQL container,
+which grants the six functions; then the 33-tool catalog, where
+`review_research_contribution` takes the new publication actions and fields, so
+the owner refreshes each connector's tool list. Before anything is published,
+the owner sets the test cards aside (`set_aside_cards` with `cardsFrom` ARF-0116
+and `cardsTo` ARF-0239, sent again until no card waits).
+
+An image rollback below 0020 needs no drain: the earlier image never reads the
+table, publishes nothing at a save, and has no publication action. Undo no
+migration: 0020 stays, with its rows, which the earlier image ignores; its grant
+script leaves the six grants in place, harmlessly. To serve 0020 again, run its
+`migrate` before its image serves.
 
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson

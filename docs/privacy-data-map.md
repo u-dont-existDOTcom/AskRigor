@@ -1114,7 +1114,14 @@ counts the receipt signed. A hidden marker holds the duplicate fingerprint (a
 SHA-256 of the normalized question and claims), a SHA-256 of the finalization
 receipt, used only to make a retried save write nothing new, the save time, and
 the research thread: an HMAC, under the server's receipt secret, of the
-pseudonymous account key and the research target's 12-character digest. A later
+pseudonymous account key and the research target's 12-character digest. From
+decision 171 (built, not yet released) a new card's marker also says, as `true`
+flags with nothing else, whether the saving account's card is published in the
+Atlas as soon as it is saved (`atlas_publish`: a free contributor under the
+current notice, not a dev account) and whether the save was made in paid private
+mode (`paid_private`), whose findings are published only after the owner accepts
+them (Atlas publications, below); it never holds the account, its mode's other
+settings or its notice version. A later
 save of the same question and claims from another thread, while the card is
 open, adds a comment with its own record and stamp instead of a new issue; the
 same thread reaching the same findings again adds nothing. A thread's new card
@@ -1171,11 +1178,13 @@ subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
 `reject_finding`, `withdraw_finding`, `link_findings` and `forget_card`. They are closed unless
 `ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
 0017, the review role's grants and the promotion timer are verified; while
-closed they answer `atlas_review_closed` and read and record nothing. This phase
-2 path publishes accepted findings. Decision 171 adds free-card publication on
-save separately, under notice v4; paid private findings still wait for acceptance.
-Nothing is public until the Atlas pages exist. The owner's call never writes
-canonical evidence: it records a decision and a hash-bound intent through the review role's
+closed they answer `atlas_review_closed` and read and record nothing. Until
+decision 171, nothing from a card is public until the owner accepts it; from it
+(built, not yet released), a card saved in free contributor mode is published
+as soon as it is saved, marked not checked by supervisors yet, and a paid private
+card's findings only after the owner accepts them (Atlas publications, below).
+Nothing is shown until the Atlas pages exist. The owner's call never writes canonical evidence: it
+records a decision and a hash-bound intent through the review role's
 functions, and the existing one-shot timer job writes the canonical rows within
 about 5 minutes.
 
@@ -1356,6 +1365,95 @@ check bound them, and are kept only while its kind stays `nothing_found`.
   phase 3 the owner's Atlas actions stay closed, since the earlier image would
   leave a nothing-found finding's subject and queries in its intents if it
   erased one (`infra/living-evidence-production/README.md`).
+
+## Atlas publications
+
+Decision 171, section 4B (owner answers 168a and "171 approved", 24 October
+2026; plan `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`),
+built, not yet released: the findings of a card saved in free contributor mode
+are published in the Atlas as soon as the card is saved, one publication per
+finding, marked "Not checked by supervisors yet" until the owner reviews them.
+The pages (section 4C) do not exist yet; this section covers what is stored.
+
+- **What is published, and when.** Right after a confirmed save, without the
+  answer waiting for it, the server publishes the card's findings when every
+  exact check holds: the card was saved in free contributor mode by an account
+  whose accepted notice is the current one (`RESEARCH_USE_NOTICE_VERSION`) and
+  which `ASKRIGOR_DEV_ACCOUNT_KEYS` does not list; the card does not carry the
+  `set-aside` label; and it declares its findings public. A finding drawn from
+  YouTube comments (a YouTube video among its sources, the `community_checked`
+  tag or a comment-audit basis, the rule the save applies, which also covers
+  cards saved before it) is never published. A finding whose published text
+  holds contact details (an email address, a phone number or a messaging handle,
+  by the structural check in `apps/research-mcp/src/atlas/contact-check.ts`), a
+  findings card's number (`ARF-` and four digits or more) or a YouTube link is
+  held: stored with the state `held`, shown nowhere, waiting for the owner. A
+  later save joining an open card publishes nothing of its own, and a retried
+  save publishes nothing twice. Publishing at a save happens only while the
+  owner's Atlas actions are open (`ASKRIGOR_ATLAS_REVIEW`), so the owner can
+  always unpublish or set aside what was published.
+- **What a publication holds** (`atlas_publications`, migration
+  `0020_atlas_publications`): a public number (`P-1001` onward, from its own
+  sequence, never derived from an `ARF-` number); the card's issue number and
+  the SHA-256 the final check signed of the card with the finding's place on it,
+  kept apart from the published fields, for moderation and so that publishing
+  is idempotent; the published fields, projected from the stored card: the
+  card's topic (key and label); the finding's claim, certainty, whom it applies
+  to, kind, subject and its type, direction, numbers block (each group's counts
+  and the follow-up; rates, the number needed to treat and the number needed to
+  harm are worked out when the pages render, so the card's are not kept), the
+  searches of a search that found nothing, its source identifiers, why the usual
+  answer misses it and what would change it; its verified bases; the day the card
+  was saved; and the AskRigor version from the card's stamp. Then its state
+  (`unreviewed`, `accepted` with its F number, `edited`, `rejected`,
+  `withdrawn` or `held`), why it is held (the kinds found, never the matched
+  text) or withdrawn (`card_forgotten`, `card_set_aside`, `owner_unpublished`
+  or `card_replaced`), the owner's private reason for unpublishing it, and its
+  times. A publication never holds the `ARF-` number in its published fields,
+  the account or contributor, the research thread key, the answer quote, the
+  surface, the reported model, the build, the receipts, YouTube video IDs or
+  counts, or anything from the public-value declaration. The rows are written
+  only through six functions of the research review role; the reader role can
+  read every column, as it can read every table today, and the pages will read
+  only the published fields.
+- **Who changes them.** The owner's `accept_finding` moves a finding's
+  publications to `accepted` with its F number, `edit_finding` before or after
+  acceptance to `edited` (the pages then show the Atlas finding the F number
+  names, in its latest version), and `reject_finding` to `rejected`, which takes
+  them off the pages; a move a decision's own call could not make is made on the
+  next read of the card. `unpublish_finding` withdraws one by its number, with
+  the owner's private reason; `set_aside_cards` labels cards `set-aside` in the
+  private repository and withdraws their publications, and `list_findings` then
+  leaves those cards out unless asked; a later save of the same research thread
+  replacing a card withdraws that card's publications not yet reviewed; and
+  `publish_cards` publishes cards the owner chooses (the owner's own research
+  saved before publishing began, or a card whose publishing at its save did not
+  complete, which `list_publications` lists), the owner's choice being the
+  consent for the owner's own cards, so the notice and dev-account checks do not
+  apply; it never publishes a card whose marker says it was saved in paid
+  private mode, and it publishes again what was set aside, replaced or
+  unpublished. Every action is owner-only, on `review_research_contribution`,
+  under the Atlas actions' switch.
+- **How they are removed.** Deleting a card (`forget_card`, decision 7, as
+  notice version 4 words it): every publication of the person's cards loses the
+  card's digest, and each one not accepted (unreviewed, edited, held or
+  rejected) is withdrawn with its published fields erased and the owner's
+  private reason gone; an accepted one stays, as the card leaves the Atlas
+  unless the owner has already accepted its findings. Erasing a finding's
+  wording (`eraseWording`, decision 7) erases the published fields of every
+  publication that names its F number, whatever its state. A withdrawn
+  publication keeps its number, card number, finding place, state, reasons and
+  times, so its number is never reused.
+- **Stated limits.** The contact-details check is structural: a phone number
+  written as words, an address spelled out ("name at example dot com"), or a
+  plain run of digits with no separator passes it, and a list of numbers spaced
+  like a phone number may be held; the card's privacy screen ran on every text
+  at the save as well. The card does not record the saving account's mode for a
+  card saved before decision 171, so `publish_cards` cannot refuse such a card
+  as paid private: it is for the owner's own cards and free contributors' only.
+  A publication's card digest matches the finalization receipt the person's
+  chat holds until the card is forgotten. PostgreSQL keeps erased row versions
+  until vacuum and the write-ahead log recycle them, as for wording erasure.
 
 ## Research data not persistently stored
 

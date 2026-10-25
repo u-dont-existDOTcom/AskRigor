@@ -425,11 +425,17 @@ export class ResearchContributorAccessService {
 
   /**
    * The active account's mode and its settings, with the checks requireActive makes: its plain-answer note (owner
-   * answer 140b) and its detailed lesson reports (owner question 154).
+   * answer 140b), its detailed lesson reports (owner question 154), and the free contributor notice it accepted, which
+   * decides whether its findings cards are published as soon as they are saved (decision 171).
    */
   async activeAccount(
     subject: string,
-  ): Promise<{ mode: ResearchUseMode; plainAnswerNote: boolean; detailedLessonReports: boolean }> {
+  ): Promise<{
+    mode: ResearchUseMode;
+    plainAnswerNote: boolean;
+    detailedLessonReports: boolean;
+    noticeVersion: ResearchUseNoticeVersion | null;
+  }> {
     const account = await this.store.getAccount(
       this.accountKeyForSubject(subject),
     );
@@ -464,6 +470,7 @@ export class ResearchContributorAccessService {
       mode: account.mode,
       plainAnswerNote: account.plainAnswerNote ?? true,
       detailedLessonReports: account.detailedLessonReports === true,
+      noticeVersion: account.noticeVersion,
     };
   }
 

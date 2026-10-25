@@ -148,25 +148,29 @@ describe("AskRigor MCP tools", () => {
       const { tools } = await client.listTools();
       const review = tools.find(({ name }) => name === "review_research_contribution")!;
       expect(review.description).toContain("Findings for the Atlas: list_findings shows the findings cards that wait");
-      expect(review.description).toContain("Nothing from a card is public until the owner accepts it");
+      // Decision 171, section 4B: a free contributor's card is published as soon as it is saved; a paid one is not.
+      expect(review.description).toContain("a card saved in free contributor mode is published in the Atlas as soon as " +
+        "it is saved");
+      expect(review.description).toContain("A paid private card's findings are published only after you accept them.");
       expect(review.description).toContain("this call never writes canonical evidence");
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
-        "forget_card"]);
+        "forget_card", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
       // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
         "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",
         "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
         "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
-        "cursor"]);
+        "cursor", "includeSetAside", "publicationState", "publication", "cards", "cardsFrom", "cardsTo"]);
       for (const field of ["kind", "subjectType", "direction"]) {
         expect(input.properties[field]!.type, field).toBe("string");
         expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
       }
       expect(review.description).toContain("by default, the card's topic, numbers, kind, subject, subject type and direction");
-      // Flat: the only nested inputs are the lists of source identifiers and of figures, whose entries are flat too.
+      // Flat: the only nested inputs are the lists of source identifiers, of figures and of cards, whose entries are
+      // flat too.
       const numbers = input.properties.numbers as unknown as { items: { properties: Record<string, { type?: string }> } };
       expect(Object.values(numbers.items.properties).every(({ type }) => type !== "object" && type !== "array")).toBe(true);
       expect(input.properties.card!.pattern).toBe("^[Aa][Rr][Ff]-[0-9]{1,9}$");
@@ -174,7 +178,7 @@ describe("AskRigor MCP tools", () => {
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
       expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
-        "retry", "forget", "canonicalEvidenceChangedByThisCall", "error"]);
+        "retry", "forget", "publications", "canonicalEvidenceChangedByThisCall", "error"]);
     } finally {
       await server.close();
     }

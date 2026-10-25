@@ -28,6 +28,7 @@ import {
   type AtlasReviewRequest,
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
+import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 
@@ -36,12 +37,14 @@ const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
 export const researchContributionReviewInputSchema = z.object({
   action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
-      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card."),
+      "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Publications in " +
+      "the Atlas: list_publications, unpublish_finding, publish_cards or set_aside_cards."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()
     .describe("Proposals: the payload hash inspect returned."),
   reason: z.string().trim().min(1).max(2_000).optional()
-    .describe("The owner's private reason: needed to accept or reject a proposal, and to reject a finding."),
+    .describe("The owner's private reason: needed to accept or reject a proposal, to reject a finding, and to " +
+      "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
   if (isAtlasReviewAction(value.action)) {
@@ -172,6 +175,8 @@ export const researchContributionReviewOutputSchema = z.object({
   retry: atlasRetrySchema.optional(),
   // forget_card (decision 7): what was removed, and the steps left for the owner.
   forget: atlasForgetSchema.optional(),
+  // Decision 171: the publications listed or changed, and what each card named became.
+  publications: atlasPublicationsSchema.optional(),
   // No call of this tool writes canonical evidence: an accepted decision is a hash-bound intent a separate writer applies.
   canonicalEvidenceChangedByThisCall: z.literal(false),
   error: reviewErrorSchema.optional(),
@@ -433,6 +438,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.checks === undefined ? {} : { checks: result.checks }),
     ...(result.retry === undefined ? {} : { retry: result.retry }),
     ...(result.forget === undefined ? {} : { forget: result.forget }),
+    ...(result.publications === undefined ? {} : { publications: result.publications }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

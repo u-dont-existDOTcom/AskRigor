@@ -680,7 +680,12 @@ describe("finalize_research, save_research_findings and the findings library", (
       reported_model: "Example Model 2026-08-06",
     });
     const names = RESEARCH_OPERATIONS.map(({ name }) => name).sort().join("\n");
-    expect(context).toEqual({ surface: "/mcp/claude", toolCatalogSha256: createHash("sha256").update(names).digest("hex") });
+    // Decision 171, section 4B: the account checks for publishing the card at its save, never stored with it.
+    expect(context).toEqual({
+      surface: "/mcp/claude",
+      toolCatalogSha256: createHash("sha256").update(names).digest("hex"),
+      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false },
+    });
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);

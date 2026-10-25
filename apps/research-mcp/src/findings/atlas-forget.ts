@@ -1,6 +1,9 @@
 import {
   ATLAS_FORGET_CARDS_PER_CALL,
+  ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   type AtlasForgottenDecision,
+  type AtlasPublicationStore,
+  type AtlasPublicationView,
   type AtlasReviewStore,
 } from "@askrigor/evidence-repository";
 
@@ -22,8 +25,10 @@ import type { FindingsRecord } from "./service.js";
  *    named card's thread key (earlier replaced cards among them), and every later save (occurrence comment) on another
  *    card with that key. A tombstone an earlier call left lists the cards forgotten with it, so a call that resumes
  *    finds them too.
- * 2. Delete those cards' decision rows (forget_atlas_cards), the owner's private reasons with them. No other database
- *    row names a card; the findings accepted from them stay while they are valid.
+ * 2. Delete those cards' decision rows (forget_atlas_cards), the owner's private reasons with them; the findings
+ *    accepted from them stay while they are valid. Their publications in the Atlas (decision 171) lose the card's
+ *    digest, and each one not accepted is withdrawn with its published fields erased: the card leaves the Atlas unless
+ *    the owner has already accepted its findings (notice version 4).
  * 3. Strip GitHub within the App's issues: write: re-file each other person's later save on those cards as a card of
  *    its own, delete the person's later saves on other cards, then, the named card last, delete each card's comments,
  *    replace its title and body with a tombstone, remove its labels, close it as not planned and lock it.
@@ -50,6 +55,11 @@ export interface CardForgetReport {
   cards: Array<{ number: number; github: ForgottenCardState }>;
   /** The decision rows this call deleted. */
   decisions: AtlasForgottenDecision[];
+  /**
+   * The publications this call changed (decision 171): those not accepted are now withdrawn with their published fields
+   * erased; the accepted ones stay, without the card's digest.
+   */
+  publications: AtlasPublicationView[];
   /** The cards on which this call deleted a later save of the person's. */
   savesDeleted: number[];
   /** Other people's later saves on the person's cards, re-filed as cards of their own by this call or an earlier one. */
@@ -78,6 +88,8 @@ export type CardForgetOutcome =
 export interface CardForgetDependencies {
   store: Pick<AtlasReviewStore, "forgetCards">;
   inbox: FindingsCardInbox;
+  /** The Atlas publications (decision 171); without them none is changed. */
+  publications?: Pick<AtlasPublicationStore, "withdraw">;
 }
 
 /** How many cards' comments are read at once while looking for the person's later saves. */
@@ -163,13 +175,23 @@ export async function forgetCard(
     }
   }
 
-  // 2. The decision rows, the owner's private reasons with them.
+  // 2. The decision rows, the owner's private reasons with them; then the cards' publications (decision 171).
   const decisions: AtlasForgottenDecision[] = [];
   for (let start = 0; start < ordered.length; start += ATLAS_FORGET_CARDS_PER_CALL) {
     decisions.push(...await deps.store.forgetCards(ordered.slice(start, start + ATLAS_FORGET_CARDS_PER_CALL), forgottenAt));
   }
+  const publications: AtlasPublicationView[] = [];
+  if (deps.publications !== undefined) {
+    for (let start = 0; start < ordered.length; start += ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL) {
+      publications.push(...await deps.publications.withdraw({
+        reason: "card_forgotten",
+        cardNumbers: ordered.slice(start, start + ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL),
+        withdrawnAt: forgottenAt,
+      }));
+    }
+  }
   if (live.length === 0 && ordered.length === 1 && statuses.get(cardNumber) === 404 && decisions.length === 0 &&
-    refiled.length === 0) {
+    publications.length === 0 && refiled.length === 0) {
     return { kind: "not_found" };
   }
 
@@ -179,6 +201,7 @@ export async function forgetCard(
     threadKnown: thread !== undefined,
     cards: [],
     decisions,
+    publications,
     savesDeleted: [],
     refiled,
     strippedNow: [],

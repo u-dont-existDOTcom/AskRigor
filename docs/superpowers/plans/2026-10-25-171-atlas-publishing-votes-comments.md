@@ -98,6 +98,14 @@ publishes the eligible cards saved before (after the owner accepts version 4). A
 leave the pages; accepted ones stay (version 4's wording). Accepting, editing and rejecting stay the phase 2 actions;
 they now also move the publication's state.
 
+Status (25 Oct): B and F's publication actions are built on `claude/171b-publications-20261025`, not released.
+Migration `0020_atlas_publications` (table, P-number sequence, six review-role functions) and its store; the exact
+eligibility and the projection (`apps/research-mcp/src/atlas/publication.ts`); the contact-details and links check
+(`atlas/contact-check.ts`); publishing right after a confirmed free save, in the background; `list_publications`,
+`unpublish_finding`, `publish_cards` and `set_aside_cards` (`list_findings` leaves set-aside cards out unless
+`includeSetAside`); accept, edit and reject move the state, an erasure erases the published fields, and `forget_card`
+withdraws and erases what is not accepted. The backfill is `publish_cards`, after the owner accepts version 4.
+
 **C. The pages.** Served by the research server at `https://askrigor.com/atlas`, which the apex site's Caddy
 reverse-proxies there; rendered on the server from the database, with no client script and the site's strict content
 policy; forms post to the same origin. Page types, from the 159 draft: home (recently published, recently checked,

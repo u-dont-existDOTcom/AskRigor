@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
@@ -7,10 +7,13 @@ import { isDeepStrictEqual } from "node:util";
 import { Pool } from "pg";
 
 import {
+  ATLAS_PUBLICATION_SCHEMA,
   AtlasFindingPromotionRunner,
+  AtlasPublicationError,
   AtlasReviewError,
   AtlasWriteConflict,
   PostgresAtlasPromotionStore,
+  PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
   PostgresAtlasWriter,
@@ -32,6 +35,8 @@ import {
   type AtlasFindingIntent,
   type AtlasFindingPromotionRun,
   type AtlasIntentView,
+  type AtlasPublicationDraft,
+  type AtlasPublishedFinding,
   type ContributionPrivacyBoundary,
   type LivingEvidenceContribution,
 } from "../packages/evidence-repository/src/index.js";
@@ -85,7 +90,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0019_research_use_notice_v4",
+      migration: "0020_atlas_publications",
     })}\n`);
     return;
   }
@@ -577,6 +582,7 @@ async function verify(
     await verifyAtlasStorage({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
     await verifyAtlasScenario({ adminUrl, schema: SCHEMA, checks });
     await verifyAtlasCardFields({ adminUrl, schema: SCHEMA, checks });
+    await verifyAtlasPublications({ adminUrl, reviewUrl, readerUrl, schema: SCHEMA, checks });
 
     const racePayload = researchFrontierFixture("research-review-withdraw-race");
     const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
@@ -1355,6 +1361,11 @@ const ATLAS_REVIEW_FUNCTIONS = [
   "decide_atlas_card_item", "forget_atlas_cards", "inspect_atlas_cards", "inspect_atlas_finding_intents",
   "record_atlas_finding_intent",
 ] as const;
+// Decision 171, section 4B: migration 0020's six functions for the Atlas publications.
+const ATLAS_PUBLICATION_FUNCTIONS = [
+  "decide_atlas_publications", "edit_atlas_publications", "erase_atlas_publication_texts", "inspect_atlas_publications",
+  "publish_atlas_findings", "withdraw_atlas_publications",
+] as const;
 const CONTRIBUTION_REVIEW_FUNCTIONS = [
   "decide_research_contribution_proposal", "inspect_research_contribution_context",
   "inspect_research_contribution_proposal",
@@ -1368,6 +1379,17 @@ const MIGRATIONS_BEFORE_ATLAS = [
   "0014_research_map_consent", "0015_research_detailed_lesson_reports", "0016_research_use_notice_v3",
 ] as const;
 const ATLAS_ERASED = "[wording removed]";
+
+/**
+ * The migrations every migrate applies, by their files (down migrations aside), which the deployment test holds equal
+ * to the migrate list: a count that stays right when a migration is added between two others.
+ */
+async function migrationsInForce(): Promise<string[]> {
+  return (await readdir(new URL("../packages/evidence-repository/migrations/", import.meta.url)))
+    .filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/u.test(name) && !name.endsWith("_down.sql"))
+    .map((name) => name.slice(0, -".sql".length))
+    .sort();
+}
 
 const atlasHex = (text: string) => createHash("sha256").update(text).digest("hex");
 const ATLAS_PROTOCOLS = [
@@ -1464,7 +1486,7 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
   const [migrations, sequence, counts, constraints, guard] = await Promise.all([
     pool.query(`SELECT migration_id, migration_sha256 FROM ${schema}.schema_migrations ORDER BY migration_id`),
     pool.query(`SELECT last_value::text, is_called FROM ${schema}.atlas_public_number_seq`),
-    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents"]
+    pool.query(`SELECT ${[...ATLAS_CANONICAL_TABLES, "atlas_card_decisions", "atlas_finding_intents", "atlas_publications"]
       .map((table) => `(SELECT count(*)::int FROM ${schema}.${table}) AS ${table}`).join(", ")}`),
     pool.query(
       `SELECT constraint_row.conrelid::regclass::text AS relation, constraint_row.conname,
@@ -1487,8 +1509,9 @@ async function atlasMigrationSnapshot(pool: Pool, schema: string): Promise<strin
 }
 
 /**
- * Migrations 0017, 0018 and 0019 (Atlas fields and notice v4): applied, a second migrate changes nothing, and a
- * database at 0016 holding data upgrades to them and then takes an Atlas finding.
+ * Migrations 0017, 0018 (Atlas phase 3), 0019 (notice v4) and 0020 (decision 171's publications): applied, a
+ * second migrate changes nothing, and a database at 0016 holding data upgrades to them and then takes an Atlas
+ * finding.
  */
 export async function verifyAtlasMigrations(context: { adminUrl: string; schema: string; checks: string[] }): Promise<void> {
   const { adminUrl, schema, checks } = context;
@@ -1496,9 +1519,10 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
   try {
     const applied = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${schema}.schema_migrations
-        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields', '0019_research_use_notice_v4')`,
+        WHERE migration_id IN ('0017_atlas_findings', '0018_atlas_card_fields', '0019_research_use_notice_v4',
+          '0020_atlas_publications')`,
     );
-    assert(applied.rowCount === 3, "MIGRATION_0017_0018_OR_0019_NOT_APPLIED");
+    assert(applied.rowCount === 4, "MIGRATION_0017_TO_0020_NOT_APPLIED");
     const before = await atlasMigrationSnapshot(admin, schema);
     const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
     try {
@@ -1507,7 +1531,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
       await again.close();
     }
     assert(await atlasMigrationSnapshot(admin, schema) === before, "ATLAS_SECOND_MIGRATE_CHANGED_THE_SCHEMA_OR_ROWS");
-    checks.push("migrations_0017_0018_and_0019_applied_and_a_second_migrate_changes_nothing");
+    checks.push("migrations_0017_to_0020_applied_and_a_second_migrate_changes_nothing");
 
     // A database at 0016, as production holds it before this release, with canonical and account rows in it.
     const upgrade = `${schema}_atlas_upgrade`;
@@ -1557,8 +1581,9 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
         "ATLAS_UPGRADE_BASELINE_MISMATCH");
       await upgradeRepository.migrate();
       const upgraded = await counted();
-      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 && upgraded.migrations === 19,
-        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_0017_0018_OR_0019");
+      assert(upgraded.frontiers === 1 && upgraded.accounts === 1 &&
+        upgraded.migrations === (await migrationsInForce()).length,
+        "ATLAS_UPGRADE_LOST_ROWS_OR_SKIPPED_A_MIGRATION");
       const prepared = prepareAtlasFindingIntent(atlasAccept({
         wording: "In an invented trial, zentarine 20 mg cut relapse in adults with Velmor syndrome.",
         bases: ["full_text_audit"],
@@ -1579,7 +1604,7 @@ export async function verifyAtlasMigrations(context: { adminUrl: string; schema:
     } finally {
       await Promise.allSettled([upgradeRepository.close(), upgradeReview.close(), upgradeRunner.close()]);
     }
-    checks.push("an_0016_database_with_data_upgrades_to_0019_keeps_its_rows_and_takes_a_finding");
+    checks.push("an_0016_database_with_data_upgrades_to_every_migration_keeps_its_rows_and_takes_a_finding");
   } finally {
     await admin.end();
   }
@@ -1687,7 +1712,7 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       };
       const [phase2] = await contentOf("F-1001");
       assert(
-        migrations === 19 && phase2 !== undefined &&
+        migrations === (await migrationsInForce()).length && phase2 !== undefined &&
           ["kind", "subject", "subjectType", "direction", "searchScope"].every((field) => !(field in phase2)),
         "ATLAS_CARD_FIELDS_UPGRADE_CHANGED_A_PHASE_2_FINDING",
       );
@@ -1973,6 +1998,232 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
     }
   } finally {
     await admin.end();
+  }
+}
+
+/**
+ * Decision 171, section 4B: migration 0020's publications, through the review role's six functions as the public
+ * runtime calls them (the save path and the owner's actions): publishing is idempotent by card digest and finding,
+ * decisions move a publication's state, set-aside, replacement and the owner's unpublishing withdraw it, the owner's
+ * choice publishes a withdrawn one again, forgetting a card withdraws and erases what is not accepted and clears every
+ * row's digest, and erasing an F number's wording erases its publications' fields. The table's checks refuse every
+ * state no publication may hold; the review role reads and writes the table only through its functions, and the
+ * reader reads it and calls none of them.
+ */
+export async function verifyAtlasPublications(context: {
+  adminUrl: string;
+  reviewUrl: string;
+  readerUrl: string;
+  schema: string;
+  checks: string[];
+}): Promise<void> {
+  const { adminUrl, reviewUrl, schema, checks } = context;
+  const admin = new Pool({ connectionString: adminUrl, max: 2 });
+  const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
+  let instant = Date.parse("2026-11-04T09:00:00.000Z");
+  const tick = () => new Date(instant += 1_000).toISOString();
+  const asRole = async <T>(role: string, work: (client: import("pg").PoolClient) => Promise<T>): Promise<T> => {
+    const client = await admin.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`SET LOCAL ROLE ${role}`);
+      await client.query(`SET LOCAL search_path TO ${schema}, public`);
+      return await work(client);
+    } finally {
+      await client.query("ROLLBACK").catch(() => undefined);
+      client.release();
+    }
+  };
+  const published = (claim: string): AtlasPublishedFinding => ({
+    schema: ATLAS_PUBLICATION_SCHEMA,
+    topic: { key: ATLAS_TOPIC.key, label: ATLAS_TOPIC.label },
+    claim,
+    certainty: "moderate",
+    applies_to: "Adults with Velmor syndrome",
+    kind: "effect",
+    subject: "zentarine",
+    subject_type: "supplement",
+    direction: "benefit",
+    numbers: [{
+      outcome: "relapse", better: "fewer", option: "zentarine 20 mg", option_events: 18, option_total: 120,
+      comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks",
+    }],
+    searches: null,
+    sources: ["10.0000/synthetic-velmor-publication"],
+    why_not_usual: "Quick answers miss the dose the trials used.",
+    what_would_change_it: "A larger trial at the lower dose.",
+    verified_bases: ["full_text_audit"],
+    saved_on: "2026-11-04",
+    askrigor_version: "0.1.0",
+  });
+  const draft = (findingNumber: number, overrides: Partial<AtlasPublicationDraft> = {}): AtlasPublicationDraft => ({
+    findingNumber,
+    state: "unreviewed",
+    atlasNumber: null,
+    heldBecause: null,
+    published: published(`Finding ${findingNumber}: zentarine 20 mg cut relapse in an invented trial.`),
+    ...overrides,
+  });
+  const digestA = atlasHex("synthetic-publication-card-a");
+  const digestB = atlasHex("synthetic-publication-card-b");
+  try {
+    const first = await store.publish({ cardNumber: 7001, cardSha256: digestA, findings: [draft(1), draft(2,
+      { state: "held", heldBecause: ["phone_number"] }), draft(3)], publishedAt: tick(), revive: false });
+    const replay = await store.publish({ cardNumber: 7001, cardSha256: digestA, findings: [draft(1), draft(2,
+      { state: "held", heldBecause: ["phone_number"] }), draft(3)], publishedAt: tick(), revive: false });
+    const numbers = first.map(({ publicationNumber }) => publicationNumber);
+    assert(
+      first.every(({ outcome }) => outcome === "published") && first[1]!.state === "held" &&
+        numbers.every((number) => /^P-[1-9][0-9]{3,}$/u.test(number)) && new Set(numbers).size === 3 &&
+        replay.every(({ outcome }, index) => outcome === "existing" && replay[index]!.publicationNumber === numbers[index]) &&
+        isDeepStrictEqual(replay[0]!.published, draft(1).published),
+      "ATLAS_PUBLICATIONS_NOT_IDEMPOTENT_BY_DIGEST_AND_FINDING",
+    );
+    checks.push("atlas_publications_are_numbered_from_their_own_sequence_and_idempotent_by_card_digest_and_finding");
+
+    const [accepted] = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
+      decidedAt: tick() });
+    const [edited] = await store.decide({ cardNumber: 7001, findingNumber: 2, state: "edited", atlasNumber: "F-1002",
+      decidedAt: tick() });
+    const [rejected] = await store.decide({ cardNumber: 7001, findingNumber: 3, state: "rejected", atlasNumber: null,
+      decidedAt: tick() });
+    const again = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
+      decidedAt: tick() });
+    assert(accepted?.state === "accepted" && accepted.atlasNumber === "F-1001" && edited?.state === "edited" &&
+      edited.heldBecause?.[0] === "phone_number" && rejected?.state === "rejected" && again.length === 0,
+      "ATLAS_PUBLICATION_DECISIONS_DID_NOT_MOVE_THE_STATES");
+    checks.push("atlas_publication_decisions_move_accepted_edited_and_rejected_and_change_nothing_twice");
+
+    await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)], publishedAt: tick(),
+      revive: false });
+    const replaced = await store.withdraw({ reason: "card_replaced", cardNumbers: [7002], withdrawnAt: tick() });
+    const revived = await store.publish({ cardNumber: 7002, cardSha256: digestB, findings: [draft(1), draft(2)],
+      publishedAt: tick(), revive: true });
+    const [unpublished] = await store.withdraw({ reason: "owner_unpublished",
+      publicationNumbers: [revived[0]!.publicationNumber], ownerReason: "It overstates the trial.", withdrawnAt: tick() });
+    const setAside = await store.withdraw({ reason: "card_set_aside", cardNumbers: [7001, 7002], withdrawnAt: tick() });
+    assert(
+      replaced.length === 2 && replaced.every(({ withdrawnBecause }) => withdrawnBecause === "card_replaced") &&
+        revived.every(({ outcome, state, withdrawnBecause }) => outcome === "revived" && state === "unreviewed" &&
+          withdrawnBecause === null) &&
+        unpublished?.ownerReason === "It overstates the trial." && unpublished.withdrawnBecause === "owner_unpublished" &&
+        // Set aside takes what shows or is held: the accepted, the edited and the other card's unreviewed one.
+        setAside.map(({ publicationNumber }) => publicationNumber).join() ===
+          [numbers[0], numbers[1], revived[1]!.publicationNumber].join(),
+      "ATLAS_PUBLICATION_WITHDRAWALS_MISMATCH",
+    );
+    checks.push("atlas_publications_are_withdrawn_by_replacement_unpublishing_and_set_aside_and_revived_on_the_owners_choice");
+
+    await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
+      findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
+    await store.decide({ cardNumber: 7003, findingNumber: 1, state: "accepted", atlasNumber: "F-1003", decidedAt: tick() });
+    const forgotten = await store.withdraw({ reason: "card_forgotten", cardNumbers: [7003], withdrawnAt: tick() });
+    const forgottenAgain = await store.withdraw({ reason: "card_forgotten", cardNumbers: [7003], withdrawnAt: tick() });
+    const rows = await admin.query<{ state: string; card_sha256: string | null; published_json: unknown;
+      card_forgotten_at: Date | null }>(
+      `SELECT state, card_sha256, published_json, card_forgotten_at FROM ${schema}.atlas_publications
+        WHERE card_number = 7003 ORDER BY finding_number`,
+    );
+    assert(
+      forgotten.length === 2 && forgottenAgain.length === 0 && rows.rows.length === 2 &&
+        rows.rows[0]!.state === "accepted" && rows.rows[0]!.published_json !== null &&
+        rows.rows[1]!.state === "withdrawn" && rows.rows[1]!.published_json === null &&
+        rows.rows.every((row) => row.card_sha256 === null && row.card_forgotten_at !== null),
+      "ATLAS_PUBLICATION_FORGET_MISMATCH",
+    );
+    const erased = await store.eraseTexts("F-1003", tick());
+    const editedAfterForget = await store.markEdited("F-1003", tick());
+    assert(erased.length === 1 && erased[0]!.published === null && editedAfterForget.length === 1 &&
+      editedAfterForget[0]!.state === "withdrawn" && editedAfterForget[0]!.withdrawnBecause === "card_forgotten",
+      "ATLAS_PUBLICATION_ERASE_OR_EDIT_AFTER_FORGET_MISMATCH");
+    checks.push("atlas_publications_of_a_forgotten_card_lose_their_digest_and_all_but_the_accepted_are_withdrawn_and_erased");
+
+    // The table's checks refuse what no publication may hold, whoever writes.
+    const insert = (columns: Record<string, unknown>) => {
+      const row = {
+        publication_number: "P-9999", card_number: 7999, card_sha256: atlasHex("synthetic-publication-card-z"),
+        finding_number: 1, published_json: JSON.stringify(draft(1).published), state: "unreviewed", atlas_number: null,
+        held_because: null, withdrawn_because: null, owner_reason: null, published_at: "2026-11-04T09:00:00.000Z",
+        state_changed_at: "2026-11-04T09:00:00.000Z", card_forgotten_at: null, texts_erased_at: null, ...columns,
+      };
+      const names = Object.keys(row);
+      return admin.query(
+        `INSERT INTO ${schema}.atlas_publications (${names.join(", ")}) VALUES (${names.map((_, index) => `$${index + 1}`).join(", ")})`,
+        Object.values(row),
+      );
+    };
+    for (const columns of [
+      { state: "accepted" },
+      { atlas_number: "F-1001" },
+      { state: "held" },
+      { state: "held", held_because: JSON.stringify(["street_address"]) },
+      { state: "withdrawn" },
+      { withdrawn_because: "card_set_aside" },
+      { state: "withdrawn", withdrawn_because: "card_set_aside", owner_reason: "A reason." },
+      { state: "withdrawn", withdrawn_because: "owner_unpublished" },
+      { state: "withdrawn", withdrawn_because: "lost" },
+      { published_json: null },
+      { texts_erased_at: "2026-11-04T09:00:00.000Z" },
+      { card_sha256: null },
+      { card_sha256: null, card_forgotten_at: "2026-11-04T09:00:00.000Z" },
+      { state_changed_at: "2026-11-03T09:00:00.000Z" },
+      { publication_number: "ARF-0042" },
+      { finding_number: 6 },
+    ]) {
+      await expectCode(() => insert(columns), "23514");
+    }
+    await insert({ publication_number: "P-9998", card_sha256: digestA, finding_number: 4 });
+    await expectCode(() => insert({ publication_number: "P-9997", card_sha256: digestA, finding_number: 4 }), "23505");
+    await admin.query(`DELETE FROM ${schema}.atlas_publications WHERE publication_number = 'P-9998'`);
+    checks.push("atlas_publications_table_checks_refuse_every_state_no_publication_may_hold");
+
+    // The functions refuse what the store refuses; the store maps it to its error.
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.publish_atlas_findings(7004, $1, '[{"findingNumber": 1, "state": "accepted"}]'::jsonb,
+         $2::timestamptz, false)`,
+      [digestA, tick()],
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.withdraw_atlas_publications(ARRAY[7001], NULL, 'owner_unpublished', 'Wrong.',
+         $1::timestamptz)`,
+      [tick()],
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    await expectMessage(() => admin.query(
+      `SELECT * FROM ${schema}.inspect_atlas_publications(NULL, NULL, NULL, NULL, NULL, 0)`,
+    ), "ATLAS_PUBLICATION_INPUT_INVALID");
+    try {
+      await store.publish({ cardNumber: 7004, cardSha256: digestA, findings: [draft(1, { state: "accepted" })],
+        publishedAt: tick(), revive: false });
+      throw new Error("ATLAS_PUBLICATION_STORE_CHECK_MISSING");
+    } catch (error) {
+      assert(error instanceof AtlasPublicationError, "ATLAS_PUBLICATION_STORE_CHECK_MISSING");
+    }
+    checks.push("atlas_publication_functions_refuse_invalid_input_with_their_code");
+
+    // The review role reaches the table only through its functions; the reader reads it and calls none of them.
+    await asRole("askrigor_research_review", async (client) => {
+      await client.query("SELECT * FROM inspect_atlas_publications(NULL, ARRAY[7001], NULL, NULL, NULL, 10)");
+    });
+    for (const statement of [
+      "SELECT count(*) FROM atlas_publications",
+      "SELECT nextval('atlas_publication_number_seq')",
+      "UPDATE atlas_publications SET state = 'unreviewed'",
+      "DELETE FROM atlas_publications",
+    ]) {
+      await expectPermissionDenied(() => asRole("askrigor_research_review", (client) => client.query(statement)));
+    }
+    const readable = await asRole("askrigor_reader", async (client) =>
+      (await client.query<{ count: number }>("SELECT count(*)::int AS count FROM atlas_publications")).rows[0]!.count);
+    assert(readable >= 7, "ATLAS_PUBLICATIONS_NOT_READABLE_BY_THE_READER");
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      "SELECT * FROM inspect_atlas_publications(NULL, NULL, NULL, NULL, NULL, 10)",
+    )));
+    await expectPermissionDenied(() => asRole("askrigor_reader", (client) => client.query(
+      "UPDATE atlas_publications SET state = 'unreviewed'",
+    )));
+    checks.push("atlas_publications_reach_the_review_role_only_through_its_functions_and_the_reader_reads_them");
+  } finally {
+    await Promise.allSettled([store.close(), admin.end()]);
   }
 }
 
@@ -2653,8 +2904,8 @@ export async function verifyAtlasStorage(context: {
     }
     checks.push("every_canonical_atlas_table_refuses_update_and_delete");
 
-    // The review role executes the five Atlas functions (and the three contribution ones) and nothing else; it reads
-    // and writes no table. The reader reads the Atlas and writes nothing.
+    // The review role executes the five Atlas functions, the six publication ones (decision 171) and the three
+    // contribution ones, and nothing else; it reads and writes no table. The reader reads the Atlas and writes nothing.
     const executable = await admin.query<{ proname: string }>(
       `SELECT DISTINCT proc.proname FROM pg_proc proc
          JOIN pg_namespace namespace ON namespace.oid = proc.pronamespace
@@ -2664,7 +2915,7 @@ export async function verifyAtlasStorage(context: {
     );
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
-        [...ATLAS_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
+        [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();
