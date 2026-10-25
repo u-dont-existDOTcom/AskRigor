@@ -118,6 +118,17 @@ complete XML protocol.
   - the Atlas review, switched on last;
   - the privacy page and the terms of October 22, 2026, and the plugin reinstall;
   - the owner regressions, after the owner's ChatGPT app refresh and notice acceptance (pending).
+- `audits/2026-10-25-owner-answers-165-176-production-release.md`: release of #367 on owner answers 176a and
+  "175: send": the Atlas (decision 171: notice v4, publishing at save, the public pages, sign-in, votes and comments
+  built and off until the Auth0 secret is in, the regression runs' save switch), the held YouTube findings with no
+  expiry (173, 175), Atlas phase 3 and owner answers 165a to 174a, with HRP 20.6.31 and Universal 20.5.46 unchanged.
+  It covers:
+  - migrations 0018 to 0023 and both roles' exact grants;
+  - the Docker database tests and CI's database steps;
+  - production acceptance, the pages switched on, and the privacy page and the terms of October 25, 2026;
+  - the plugin receipt without a reinstall, the 217 test cards set aside, and the email to YouTube;
+  - what waits: the move of cards 7, 12 and 209, the owner's app refresh and notice acceptance, the regressions, and
+    the Auth0 secret.
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.

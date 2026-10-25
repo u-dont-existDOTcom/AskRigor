@@ -52,7 +52,8 @@ describe("Gemini Spark candidate validation Action", () => {
     const boundaries = schema.properties?.access_boundaries;
 
     expect(schema.$schema).toBeUndefined();
-    expect(boundaries?.items).toBeUndefined();
+    // Never draft 7's items list; zod 4.6 closes the tuple with items: false, as JSON Schema 2020-12 does.
+    expect([undefined, false]).toContain(boundaries?.items);
     expect(boundaries?.prefixItems).toHaveLength(4);
   });
 

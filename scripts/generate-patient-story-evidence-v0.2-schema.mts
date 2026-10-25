@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { patientStoryEvidenceExtensionV020Schema } from "../packages/contracts/src/patient-story-evidence-v0.2.js";
+import { asZod44JsonSchema } from "./patient-story-schema-zod44-form.mjs";
 
 type JsonObject = Record<string, unknown>;
 
@@ -21,7 +22,7 @@ function array(value: unknown, label: string): unknown[] {
 }
 
 export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
-  const schema = object(z.toJSONSchema(patientStoryEvidenceExtensionV020Schema), "root schema");
+  const schema = object(asZod44JsonSchema(z.toJSONSchema(patientStoryEvidenceExtensionV020Schema)), "root schema");
   schema.$id = "https://askrigor.com/schemas/patient-story-evidence-extension-v0.2.0.json";
   schema.title = "AskRigor patient-story interview evidence extension v0.2.0";
   schema.description =
