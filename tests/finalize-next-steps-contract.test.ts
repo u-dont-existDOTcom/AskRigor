@@ -386,7 +386,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       answer_draft: "Emergency triage. [Offer](https://seller.example/product)" }));
     expect(emergency.status).toBe("ready_with_limits");
     expect(emergency.next_steps).toEqual([]);
-    expect(emergency.caveats).toContain("This answer did not research other binding products.");
+    expect(emergency.caveats).toContain("A class of treatment this answer did not research: other binding products.");
     const noStudies = await complete(base({ key_sources: [], commercial_review_applicability: undefined }));
     expect(noStudies.status).toBe("ready_with_limits");
   });

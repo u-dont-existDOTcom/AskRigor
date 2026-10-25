@@ -236,7 +236,8 @@ describe("finalize_research reads each key study's figures check", () => {
     ],
     absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [], answer_draft: `${draft}\n\n${SKIP}`
   } satisfies FinalizeResearchInput, { secret: SECRET }));
-  const IDENTICAL = "Paper 2017 and Paper 2018 report identical results, so they are counted once, not as independent replication.";
+  const IDENTICAL = "Two studies that report identical results: Paper 2017; Paper 2018. They are counted once, not as " +
+    "independent replication.";
 
   it("asks a new audit without figures to declare them, and leaves audits signed before the check alone", () => {
     const missing = check([sign({ id: A, fig: "not_declared" }), sign({ id: B, fig: "none_reported" })]);
@@ -256,9 +257,9 @@ describe("finalize_research reads each key study's figures check", () => {
   });
 
   it("carries a study's inconsistency and its impossible values into the answer as caveats", () => {
-    const inconsistent = "The reported figures in Paper 2017 don't match the study's own data, so its results stay " +
+    const inconsistent = "A study whose reported figures don't match its own data: Paper 2017. Its results stay " +
       "unreliable until they are reconciled.";
-    const impossible = "The value 96 mmol/g in Paper 2018 is physically impossible as printed, so it is not used.";
+    const impossible = "A value that is physically impossible as printed, so it is not used: 96 mmol/g. Study: Paper 2018.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];
     expect(check(receipts).caveats).toEqual([SKIP, inconsistent, impossible]);

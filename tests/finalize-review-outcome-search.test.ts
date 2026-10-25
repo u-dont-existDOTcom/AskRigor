@@ -25,7 +25,7 @@ const OUTCOME_SEARCH: NonNullable<Corpus["outcome_search"]> = {
   queries: ["liver enzymes improved", "fibrosis no change", "ALT AST worse", "enzymes hépatiques"],
   directions: ["benefit", "no_effect", "worse"]
 };
-const PREVIEW = `On iHerb, the reviews of ${PRODUCT} could not be searched for the outcome, so the 10 read are a preview, not a measure of how often it helps or harms.`;
+const PREVIEW = `The reviews on this site could not be searched for the outcome, so the 10 read are a preview, not a measure of how often it helps or harms. Product: ${PRODUCT}. Site: iHerb.`;
 
 function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
   const reviews: Search = {

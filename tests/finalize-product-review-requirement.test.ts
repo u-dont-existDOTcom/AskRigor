@@ -199,7 +199,7 @@ describe("finalize_research product review requirement", () => {
     expect(result.limits).toContain(
       "The search of Local Health Reviews ended at an access boundary (login_required); say so."
     );
-    expect(result.caveats).toContain("Local Health Reviews needs a login to read, so reports there are not included.");
+    expect(result.caveats).toContain("A community that needs a login to read: Local Health Reviews. Reports there are not included.");
     expect(finalizeResearch(input, OPTIONS).status).toBe("not_ready");
     expect(finalizeResearch(input, OPTIONS).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("The answer leaves out");
   });
