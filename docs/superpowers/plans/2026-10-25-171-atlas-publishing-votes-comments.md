@@ -113,6 +113,15 @@ the owner's "most important now" picks with their reasons (2a), contested), topi
 (the label, numbers, sources, votes and comments) and what changed. Rendered pages are cached briefly for readers who
 aren't signed in. Search and the retraction warnings (6a) follow in phase 5.
 
+Status (25 Oct): C is built on `claude/171c-pages-20261025`, not released, and switched off until
+`ASKRIGOR_ATLAS_PAGES=enabled`. The pages (`apps/research-mcp/src/atlas/pages.ts`, `page-data.ts`, `pages-http.ts`) read
+the publications and the accepted findings through the reader role (`PostgresAtlasPageSource` in
+`packages/evidence-repository/src/atlas-pages.ts`; no migration): home (recently published, recently checked,
+contested; the owner's picks lane has its place and renders nothing until its owner action exists), topic, finding
+(an accepted or edited one as its F number's latest version, from the timer's write on) and what changed, with the
+/atlas headers, no cookie, a 60-second cache dropped on every publication or review write in the process, the
+per-address limit and the apex Caddy route. The finding page's place for votes and comments renders nothing until E.
+
 **D. Sign-in.** The AskRigor login of the apps, through the same Auth0 tenant and connections: an Auth0 regular web
 application with the authorization code flow and PKCE, callback `https://askrigor.com/atlas/auth/callback`. The server
 derives the same account key the connector derives, and keeps only a key derived from it (never the email address).

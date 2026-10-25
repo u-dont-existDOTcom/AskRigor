@@ -121,6 +121,7 @@ import type { McpSurface } from "./register-tools.js";
 import { toolListVersionOf } from "./tool-list-currency.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
 import { createAtlasReviewFromEnv } from "./findings/runtime.js";
+import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/pages-http.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -237,6 +238,8 @@ export interface AskRigorHttpServerOptions {
   /** The owner's findings actions for the Atlas; from the environment by default, and only while they are open. */
   atlasReview?: AtlasReview;
   atlasReviewEnabled?: boolean;
+  /** The public Atlas pages under /atlas (decision 171, section 4C); from the environment by default. */
+  atlasPagesHandler?: AtlasPagesHandler;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -456,6 +459,8 @@ export function createAskRigorHttpServer(
   // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
   const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
   const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
+  // The public Atlas pages: every /atlas path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled.
+  const atlasPagesHandler = options.atlasPagesHandler ?? createAtlasPagesHandlerFromEnv();
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
@@ -528,7 +533,7 @@ export function createAskRigorHttpServer(
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
     if (pathname === undefined) {
-      response.writeHead(404).end();
+      if (!atlasPagesHandler.refuseTarget(request, response)) response.writeHead(404).end();
       return;
     }
 
@@ -557,6 +562,15 @@ export function createAskRigorHttpServer(
         response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
         response.end(JSON.stringify({ status: "unavailable" }));
       }
+      return;
+    }
+
+    if (
+      await atlasPagesHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      })
+    ) {
       return;
     }
 

@@ -382,6 +382,18 @@ export function atlasReviewEnabledFromEnv(
 }
 
 /**
+ * Whether the public Atlas pages answer under /atlas (decision 171, section 4C): ASKRIGOR_ATLAS_PAGES set to
+ * "enabled". Otherwise every /atlas path answers 404, so a release can carry the pages switched off. The pages read
+ * through the living-evidence reader (ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED and its reader URL); switched on without
+ * it, they answer 503.
+ */
+export function atlasPagesEnabledFromEnv(
+  value = process.env.ASKRIGOR_ATLAS_PAGES
+): boolean {
+  return value?.trim() === "enabled";
+}
+
+/**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
  * 64-character keys research_use_accounts stores. Like a paid private account, a dev account registers a plain answer

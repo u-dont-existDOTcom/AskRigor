@@ -1373,7 +1373,8 @@ Decision 171, section 4B (owner answers 168a and "171 approved", 24 October
 built, not yet released: the findings of a card saved in free contributor mode
 are published in the Atlas as soon as the card is saved, one publication per
 finding, marked "Not checked by supervisors yet" until the owner reviews them.
-The pages (section 4C) do not exist yet; this section covers what is stored.
+The pages (section 4C) are built, not yet released, and switched off until
+`ASKRIGOR_ATLAS_PAGES=enabled`; the bullet "The pages" below covers them.
 
 - **What is published, and when.** Right after a confirmed save, without the
   answer waiting for it, the server publishes the card's findings when every
@@ -1414,8 +1415,9 @@ The pages (section 4C) do not exist yet; this section covers what is stored.
   surface, the reported model, the build, the receipts, YouTube video IDs or
   counts, or anything from the public-value declaration. The rows are written
   only through six functions of the research review role; the reader role can
-  read every column, as it can read every table today, and the pages will read
-  only the published fields.
+  read every column, as it can read every table today, and the pages read only
+  the published fields, the public number, the state, the F number and the
+  dates.
 - **Who changes them.** The owner's `accept_finding` moves a finding's
   publications to `accepted` with its F number, `edit_finding` before or after
   acceptance to `edited` (the pages then show the Atlas finding the F number
@@ -1444,6 +1446,33 @@ The pages (section 4C) do not exist yet; this section covers what is stored.
   publication that names its F number, whatever its state. A withdrawn
   publication keeps its number, card number, finding place, state, reasons and
   times, so its number is never reused.
+- **The pages** (section 4C, `apps/research-mcp/src/atlas/`): the research
+  server renders `/atlas`, `/atlas/topics/<topic key>`,
+  `/atlas/findings/P-<n>` and `/atlas/changes`, which the apex site proxies at
+  `askrigor.com/atlas`. They read through the SELECT-only reader role, in one
+  read-only snapshot per page, and select from `atlas_publications` only the
+  public number, state, F number, published fields and dates of an unreviewed,
+  accepted or edited publication: never the card's number or digest, the
+  finding's place on the card, the owner's private reason, or why one was held
+  or withdrawn. An unreviewed publication shows its published fields with the
+  label "Not checked by supervisors yet"; an accepted or edited one shows its F
+  number's latest version from the canonical Atlas (its wording, fields,
+  numbers, searches and its sources' identifiers), its F number and the day it
+  was checked, and nothing of the card's own wording; held, rejected and
+  withdrawn publications, one whose F number the timer has not written yet, and
+  a finding withdrawn after acceptance or whose latest wording was erased show
+  nowhere ("What changed" lists such a withdrawal by its F number, date and
+  public note only). Rates and the numbers needed to treat or harm are worked
+  out from the counts as a page renders. Links to sources are built from the
+  identifiers (DOI, PMID, PMCID, NCT), never taken from a card's text. No page
+  shows an `ARF-` number, an account or contributor, an answer quote, a chat, a
+  surface or model name, a link's rationale, or anything from YouTube, not even
+  a count; a rendered page that holds a script, a card reference or a YouTube
+  link is not served. Nothing about a reader is stored, logged or set as a
+  cookie: the pages set no cookie and keep no request log; the per-address rate
+  limit holds, in memory only, a counter per address (at most 10,000, each
+  dropped after 15 minutes without a request), as the evidence-gap page's does;
+  and the 60-second page cache holds rendered pages, never who asked for them.
 - **Stated limits.** The contact-details check is structural: a phone number
   written as words, an address spelled out ("name at example dot com"), or a
   plain run of digits with no separator passes it, and a list of numbers spaced

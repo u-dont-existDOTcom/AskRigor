@@ -499,6 +499,14 @@ and restore scripts support image rollback; the runbook gives their order.
 This slice changes wording and consent; publications, votes and comments are
 built separately under `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
 
+Decision 171, section 4C (built, not yet released): the research server renders
+the public Atlas pages under `/atlas` (home, topic, finding and what changed),
+which the apex site's Caddy proxies at `askrigor.com/atlas`. An unreviewed
+finding shows its published fields marked "Not checked by supervisors yet"; an
+accepted or edited one shows its Atlas number's current wording. The pages read
+through the SELECT-only reader, run no script, set no cookie, and answer 404
+until `ASKRIGOR_ATLAS_PAGES=enabled`.
+
 Atlas phase 3 (built, not yet released; it goes out in the release after the
 one carrying phases 1 and 2; design
 `docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md`): a findings card

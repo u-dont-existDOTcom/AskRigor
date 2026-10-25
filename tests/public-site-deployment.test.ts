@@ -15,6 +15,18 @@ const bash = (script: string) => spawnSync("bash", ["-c", script], {
   encoding: "utf8"
 });
 
+/** The Caddyfile's `handle /atlas* { ... }` block, through its matching closing brace. */
+function atlasHandle(caddyfile: string): string {
+  const start = caddyfile.indexOf("handle /atlas* {");
+  if (start < 0) throw new Error("no /atlas handle");
+  let depth = 0;
+  for (let at = start; at < caddyfile.length; at += 1) {
+    if (caddyfile[at] === "{") depth += 1;
+    if (caddyfile[at] === "}" && --depth === 0) return caddyfile.slice(start, at + 1);
+  }
+  throw new Error("unclosed /atlas handle");
+}
+
 let caddy: string;
 let compose: string;
 let installer: string;
@@ -48,9 +60,35 @@ describe("public-site deployment packet", () => {
     expect(caddy).toContain("/support/index.html");
     expect(caddy).toContain("path /assets/*");
     expect(caddy).toContain("respond 404");
-    expect(caddy).not.toContain("mcp.askrigor.com");
+    // The packet adds no site of its own beside the apex: mcp.askrigor.com is only the Atlas pages' upstream.
+    expect(caddy.match(/^\S.*\{$/gmu)).toEqual(["askrigor.com {"]);
+    expect(caddy.replace(atlasHandle(caddy), "")).not.toContain("mcp.askrigor.com");
     expect(caddy).not.toContain("includeSubDomains");
     expect(caddy).not.toContain("preload");
+  });
+
+  it("proxies /atlas to the research server with the pages' own headers, before the final 404", () => {
+    const atlas = atlasHandle(caddy);
+    const rest = caddy.replace(atlas, "");
+    // Decision 171, section 4C: the research server renders the pages; Caddy proxies to it by its public name.
+    expect(atlas).toContain("reverse_proxy https://mcp.askrigor.com {");
+    expect(atlas).toContain("header_up Host mcp.askrigor.com");
+    // The pages' policy, in place of the site's: forms post to this origin, and still no script.
+    expect(atlas).toContain(`Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; ` +
+      `form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"`);
+    for (const header of ["X-Content-Type-Options nosniff", "Referrer-Policy strict-origin-when-cross-origin",
+      "X-Frame-Options DENY", 'Strict-Transport-Security "max-age=31536000"', "-Server"]) {
+      expect(atlas).toContain(header);
+    }
+    expect(atlas).not.toMatch(/script-src|unsafe-|form-action 'none'/u);
+    // The site's headers skip /atlas, so its form-action 'none' never joins the pages' policy.
+    expect(rest).toContain("@site not path /atlas*");
+    expect(rest.match(/^\s*header\b.*$/gmu)).toEqual(["\theader @site {"]);
+    expect(rest).toContain("form-action 'none'");
+    // The /atlas handle comes after the site's own routes and before the final 404, which answers every other path.
+    expect(caddy.indexOf("handle /atlas* {")).toBeGreaterThan(caddy.indexOf("handle @assets {"));
+    expect(caddy.indexOf("handle /atlas* {")).toBeLessThan(caddy.lastIndexOf("handle {"));
+    expect(caddy.slice(caddy.lastIndexOf("handle {"))).toMatch(/^handle \{\s+respond 404\s+\}\s+\}\s*$/u);
   });
 
   it("overlays only the two read-only Caddy mounts", () => {
