@@ -411,10 +411,14 @@ const NOTICES: Readonly<Record<string, string>> = {
 
 const queryOf = (request: IncomingMessage) => new URL(request.url ?? "/", "http://atlas.invalid").searchParams;
 
-/** A page's cursor, ?before=C-1234: only a comment's public id, as its number. */
-function commentCursor(value: string | null): number | undefined {
+/**
+ * A page's cursor, ?before=C-1234: only a comment's public id, as its number. One that does not parse, or is past the
+ * numbers a page can read, is ignored: the page shows the newest comments.
+ */
+export function commentCursor(value: string | null): number | undefined {
   const match = value === null ? null : /^C-([1-9][0-9]{3,15})$/u.exec(value);
-  return match === null ? undefined : Number(match[1]);
+  const number = match === null ? undefined : Number(match[1]);
+  return number !== undefined && Number.isSafeInteger(number) ? number : undefined;
 }
 
 /** The notice a page's done= names, or null: only a notice's own name, never an object's property. */

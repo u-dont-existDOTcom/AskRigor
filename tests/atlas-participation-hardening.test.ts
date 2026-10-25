@@ -23,6 +23,7 @@ import {
   ATLAS_CLIENT_IP_HEADER,
   AtlasPageCache,
   atlasReaderAddress,
+  commentCursor,
   createAtlasPagesHandler,
 } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { addressLimitKey, createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
@@ -453,5 +454,26 @@ describe("when the session check cannot reach the database (review follow-up, it
     expect(f.store.snapshot().votes).toBe(0);
     failing = false;
     expect((await f.get("/atlas/findings/P-1001", session)).body).toContain('action="/atlas/findings/P-1001/vote"');
+  });
+});
+
+describe("an older-comments cursor (review follow-up, item 5)", () => {
+  it("ignores a cursor that does not parse or is out of range, showing the newest comments", async () => {
+    const f = await fixture();
+    const session = await f.signIn();
+    await f.store.postComment(keyOf(41), "P-1001", "The newest comment.", AT, "Ann");
+    for (const before of ["C-9999999999999999", "C-99999999999999999999", "C-0001", "1001", "C-1001x", "P-1001"]) {
+      for (const cookie of [undefined, session]) {
+        const page = await f.get(`/atlas/findings/P-1001?before=${encodeURIComponent(before)}`, cookie);
+        expect(page.response.status, `${before} ${cookie === undefined ? "anonymous" : "signed in"}`).toBe(200);
+        expect(page.body, before).toContain("The newest comment.");
+      }
+      expect((await f.get(`/atlas/account/comments?before=${encodeURIComponent(before)}`, session)).response.status, before)
+        .toBe(200);
+    }
+    expect(commentCursor("C-1234")).toBe(1_234);
+    expect(commentCursor("C-9007199254740991")).toBe(9_007_199_254_740_991);
+    expect(commentCursor("C-9007199254740993")).toBeUndefined();
+    expect(commentCursor(null)).toBeUndefined();
   });
 });
