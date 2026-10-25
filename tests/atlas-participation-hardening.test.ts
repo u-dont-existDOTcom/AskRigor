@@ -294,11 +294,15 @@ describe("the session cookie (review issue 6)", () => {
 });
 
 describe("display names (review issue 7)", () => {
-  it("refuses AskRigor's own name in any case or width", () => {
-    for (const name of ["AskRigor", "askrigor", "ASKRIGOR team", "Ask Rigor", "ＡｓｋＲｉｇｏｒ"]) {
-      expect(displayNameProblem(name), name).toBeDefined();
+  it("refuses AskRigor's own name as a word, in any case or width, with marks or a zero, and spares other words", () => {
+    for (const name of ["AskRigor", "askrigor", "ASKRIGOR team", "Ask Rigor", "Ask-Rigour", "the AskRigor bot",
+      "\uFF21\uFF53\uFF4B\uFF32\uFF49\uFF47\uFF4F\uFF52", "AskRig0r", "AskRig\u00F6r", "AskRigo\u0308r", "AskRigour",
+      "AskRig\u00F8r"]) {
+      expect(displayNameProblem(name), name).toBe("Display names can't use AskRigor's name.");
     }
-    expect(displayNameProblem("Rigorous Ann")).toBeUndefined();
+    for (const name of ["Task Rigor", "Mask Rigour", "Rigorous Ann", "Askrigorous", "Ask me", "Rigor"]) {
+      expect(displayNameProblem(name), name).toBeUndefined();
+    }
   });
 
   it("shows a mark after each name that links one person's comments under one name only (review follow-up, item 1)",

@@ -394,12 +394,33 @@ export function displayNameProblem(name: string): string | undefined {
   if (hasDirectionControl(name)) return "A display name can't hold text-direction control characters.";
   if (contactDetailKinds(name).length > 0 || linkKinds(name).length > 0) return DISPLAY_NAME_REFUSAL;
   if (containsCardReference(name)) return "Display names can't name a findings card.";
-  // No one comments as AskRigor: its name in any case or width, with any spacing or punctuation inside, is refused.
-  if (name.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "").includes("askrigor")) {
-    return "Display names can't use AskRigor's name.";
-  }
+  if (namesAskRigor(name)) return "Display names can't use AskRigor's name.";
   return pageProblem(name, { link: DISPLAY_NAME_REFUSAL, card: "Display names can't name a findings card.",
     other: "A display name can't hold that text." });
+}
+
+// AskRigor's own name ---------------------------------------------------------------------------------------------------
+
+const BRAND_WORDS: ReadonlySet<string> = new Set(["askrigor", "askrigour"]);
+
+/**
+ * The words of a name as the brand check reads them: compatibility form (full-width letters as ASCII), lower case,
+ * combining marks removed (ö reads as o), 0 and ø read as o, split at everything that is not a letter or a digit.
+ */
+function brandWords(name: string): string[] {
+  return name.normalize("NFKC").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[0ø]/gu, "o")
+    .split(/[^\p{L}\p{N}]+/u).filter((word) => word !== "");
+}
+
+/**
+ * Whether a display name takes AskRigor's name: a word, or two words side by side, equal to "askrigor" or "askrigour"
+ * once read as brandWords does, so "AskRigor team", "Ask Rigor", "AskRig0r" and "AskRigör" are refused and "Task Rigor"
+ * is not. Look-alike letters of other scripts (a Cyrillic а) are not read as Latin ones: a stated limit.
+ */
+export function namesAskRigor(name: string): boolean {
+  const words = brandWords(name);
+  return words.some((word, index) => BRAND_WORDS.has(word) ||
+    (index + 1 < words.length && BRAND_WORDS.has(`${word}${words[index + 1]}`)));
 }
 
 // Settings ----------------------------------------------------------------------------------------------------------------
