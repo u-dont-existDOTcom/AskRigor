@@ -156,16 +156,22 @@ describe("AskRigor MCP tools", () => {
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
       expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
-        "forget_card", "list_youtube_findings", "move_youtube_findings", "delete_youtube_findings", "list_publications",
-        "unpublish_finding", "publish_cards", "set_aside_cards", "list_comments", "hide_comment", "show_comment",
-        "remove_comment", "stop_commenter", "restore_commenter", "set_picks"]);
+        "forget_card", "list_youtube_findings", "move_youtube_findings", "delete_youtube_findings",
+        "delete_all_youtube_findings", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards",
+        "list_comments", "hide_comment", "show_comment", "remove_comment", "stop_commenter", "restore_commenter",
+        "set_picks"]);
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
       // Owner answer 173: the held YouTube findings ride on the same tool, so the catalog stays at 33 tools.
+      // Kept until deleted, on request or if YouTube asks (the owner's rule, 25 Oct): no deletion by age.
       expect(review.description).toContain("the findings drawn from YouTube comments that a saved card leaves out are " +
-        "kept apart from it for 30 days, then deleted");
+        "kept apart from it for your review");
+      expect(review.description).toContain("they are kept until deleted, on request or if YouTube asks.");
+      expect(review.description).not.toMatch(/30 days|30-day|then deleted/u);
       expect(review.description).toContain("They are never decided, accepted or published.");
       expect(review.description).toContain("list_youtube_findings lists those with no card (newest first, each with its " +
-        "question and topic)");
+        "question and topic; cursor for the next page)");
+      expect(review.description).toContain("delete_all_youtube_findings deletes every one at once, only with confirm: " +
+        "true after the owner said to (as when YouTube asks)");
       // Atlas phase 3: kind, subject, subjectType and direction, flat, after the topic.
       expect(Object.keys(input.properties)).toEqual(["action", "proposalId", "expectedPayloadSha256", "reason", "card",
         "cards", "finding", "lead", "atlasNumber", "cardSha256", "version", "topicKey", "topicLabel", "kind", "subject",

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HELD_YOUTUBE_FINDING_BASES,
   HELD_YOUTUBE_FINDING_TAGS,
-  HELD_YOUTUBE_FINDINGS_MILLISECONDS,
+  HELD_YOUTUBE_SAVES_WITHOUT_CARD_PER_READ,
   HeldYouTubeFindingsError,
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPublicationStore,
@@ -12,14 +12,13 @@ import {
   InMemoryHeldYouTubeFindingsStore,
   PostgresHeldYouTubeFindingsStore,
   RESEARCH_USE_NOTICE_VERSION,
-  heldYouTubeFindingExpiry,
   sha256,
   type HeldYouTubeFindingContent,
   type HeldYouTubeFindingsStore,
 } from "@askrigor/evidence-repository";
 
 import { AtlasCardPublisher } from "../apps/research-mcp/src/atlas/publication.js";
-import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
+import { AtlasReview, LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsSaveToolResult } from "../apps/research-mcp/src/findings/connector-tool.js";
 import {
   FINDING_TAGS,
@@ -41,11 +40,8 @@ import {
   type CardMetadata,
   type OccurrenceMetadata,
 } from "../apps/research-mcp/src/findings/github-findings.js";
-import {
-  HELD_YOUTUBE_FINDINGS_PURGE_INTERVAL_MILLISECONDS,
-  heldYouTubeFindingsStoresFromEnv,
-  startHeldYouTubeFindingsPurge,
-} from "../apps/research-mcp/src/findings/held-youtube-findings.js";
+import * as heldFindingsModule from "../apps/research-mcp/src/findings/held-youtube-findings.js";
+import { heldYouTubeFindingsStoresFromEnv } from "../apps/research-mcp/src/findings/held-youtube-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import {
   FindingsSaveService,
@@ -63,9 +59,10 @@ import { FakeGitHub, storedRecordOf } from "./helpers/fake-github-findings.js";
 import { CARD } from "./helpers/findings-fixtures.js";
 
 // Owner answer 173 (25 Oct 2026): the findings drawn from YouTube comments that a saved findings card leaves out (owner
-// answer 170) are held apart from the card, in the database, for the 30 days YouTube's Developer Policies (III.E.4)
-// allow, for the owner's review, and then deleted, with no refreshing. Hermetic: GitHub is in memory, the held store
-// is migration 0019's semantics in memory, and every clock is injected.
+// answer 170) are held apart from the card, in the database, for the owner's review, and kept until they are deleted:
+// on request, when the card is forgotten, or all at once if YouTube asks (the owner's rule, 25 Oct: "don't delete the
+// summaries unless YT tells us to do that"). Nothing deletes one by its age. Hermetic: GitHub is in memory, the held
+// store is migration 0019's semantics in memory, and every clock is injected.
 
 const SECRET = "held-youtube-findings-test-secret-0123456789";
 const OWNER = "auth0|held-youtube-findings-owner";
@@ -237,61 +234,41 @@ type Harness = ReturnType<typeof harness>;
 const held = (finding: Partial<HeldYouTubeFindingContent> = {}): HeldYouTubeFindingContent => ({ ...HELD_CONTENT, ...finding });
 
 describe("the held YouTube findings store (migration 0019's semantics)", () => {
-  it("keeps the finding exactly 30 days from its save, and holding it again changes nothing (no refreshing)", async () => {
+  it("keeps the finding with its save time, and holding it again changes nothing (no refreshing)", async () => {
     let now = Date.parse("2026-10-07T10:00:00.000Z");
     const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date(now) });
     const input = { cardNumber: 7, cardSha256: "a".repeat(64), savedAt: "2026-10-07T09:30:00.000Z", findings: [held()] };
     expect(await store.hold(input)).toEqual([{
-      cardNumber: 7, cardSha256: "a".repeat(64), findingNumber: 1, savedAt: "2026-10-07T09:30:00.000Z",
-      expiresAt: "2026-11-06T09:30:00.000Z", heldNow: true,
+      cardNumber: 7, cardSha256: "a".repeat(64), findingNumber: 1, savedAt: "2026-10-07T09:30:00.000Z", heldNow: true,
     }]);
-    expect(heldYouTubeFindingExpiry("2026-10-07T09:30:00.000Z")).toBe("2026-11-06T09:30:00.000Z");
-    expect(HELD_YOUTUBE_FINDINGS_MILLISECONDS).toBe(30 * DAY);
-    // A later save of the same finding of the same checked card, on the same card, keeps the first expiry.
+    // A later save of the same finding of the same checked card, on the same card, keeps the first save time.
     now += 5 * DAY;
-    expect(await store.hold({ ...input, savedAt: new Date(now).toISOString() })).toEqual([
-      expect.objectContaining({ expiresAt: "2026-11-06T09:30:00.000Z", heldNow: false }),
-    ]);
+    expect(await store.hold({ ...input, savedAt: new Date(now).toISOString() })).toEqual([{
+      cardNumber: 7, cardSha256: "a".repeat(64), findingNumber: 1, savedAt: "2026-10-07T09:30:00.000Z", heldNow: false,
+    }]);
     expect(store.snapshot()).toHaveLength(1);
   });
 
-  it("leaves out an expired finding from every read before any purge, and the purge deletes only expired ones", async () => {
+  it("keeps every finding however old, with no expiry: every read returns it until it is deleted", async () => {
     let now = Date.parse("2026-10-07T10:00:00.000Z");
     const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date(now) });
-    await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: new Date(now).toISOString(), findings: [held()] });
-    now += DAY;
-    await store.hold({ cardNumber: 7, cardSha256: "b".repeat(64), savedAt: new Date(now).toISOString(), findings: [held()] });
-    now = Date.parse("2026-11-06T10:00:00.000Z") - 1;
-    expect((await store.inspect([7])).map(({ cardSha256 }) => cardSha256)).toEqual(["a".repeat(64), "b".repeat(64)]);
-    // At its expiry, the first is no longer returned, though no purge has run.
-    now += 1;
-    expect((await store.inspect([7])).map(({ cardSha256 }) => cardSha256)).toEqual(["b".repeat(64)]);
-    expect(store.snapshot()).toHaveLength(2);
-    expect(await store.purgeExpired()).toBe(1);
-    expect(store.snapshot().map(({ cardSha256 }) => cardSha256)).toEqual(["b".repeat(64)]);
-    now += DAY;
-    expect(await store.inspect([7])).toEqual([]);
-    expect(await store.purgeExpired()).toBe(1);
-    expect(store.snapshot()).toEqual([]);
+    // A save long before today is held all the same, with its own time; one ahead of the clock counts from now.
+    expect(await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: "2025-03-01T08:00:00.000Z",
+      findings: [held()] })).toEqual([expect.objectContaining({ savedAt: "2025-03-01T08:00:00.000Z", heldNow: true })]);
+    expect(await store.hold({ cardNumber: 7, cardSha256: "b".repeat(64), savedAt: "2026-12-31T00:00:00.000Z",
+      findings: [held()] })).toEqual([expect.objectContaining({ savedAt: "2026-10-07T10:00:00.000Z", heldNow: true })]);
+    await store.hold({ cardSha256: "c".repeat(64), savedAt: "2025-03-01T08:00:00.000Z", question: "Q?", findings: [held()] });
+    // Years later, every read still returns each one, and nothing about it says when it goes.
+    now = Date.parse("2029-10-07T10:00:00.000Z");
+    expect((await store.inspect([7])).map(({ cardSha256, savedAt }) => [cardSha256.charAt(0), savedAt])).toEqual([
+      ["a", "2025-03-01T08:00:00.000Z"], ["b", "2026-10-07T10:00:00.000Z"],
+    ]);
+    expect((await store.inspectWithoutCard({ saves: 1 })).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["c"]);
+    expect(store.snapshot()).toHaveLength(3);
+    for (const row of store.snapshot()) expect(Object.keys(row).filter((key) => /expir|delet/iu.test(key))).toEqual([]);
   });
 
-  it("never holds a finding already past 30 days, counts a save time ahead of its clock from now, and holds an expired one anew", async () => {
-    let now = Date.parse("2026-10-07T10:00:00.000Z");
-    const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date(now) });
-    const old = { cardNumber: 7, cardSha256: "a".repeat(64), savedAt: "2026-09-07T10:00:00.000Z", findings: [held()] };
-    expect(await store.hold(old)).toEqual([]);
-    expect(store.snapshot()).toEqual([]);
-    expect(await store.hold({ ...old, cardNumber: 8, savedAt: "2026-12-31T00:00:00.000Z" })).toEqual([
-      expect.objectContaining({ savedAt: "2026-10-07T10:00:00.000Z", expiresAt: "2026-11-06T10:00:00.000Z" }),
-    ]);
-    await store.hold({ ...old, cardNumber: 9, savedAt: "2026-10-07T10:00:00.000Z" });
-    now = Date.parse("2026-11-08T10:00:00.000Z");
-    expect(await store.hold({ ...old, cardNumber: 9, savedAt: "2026-11-08T10:00:00.000Z" })).toEqual([
-      expect.objectContaining({ expiresAt: "2026-12-08T10:00:00.000Z", heldNow: true }),
-    ]);
-  });
-
-  it("deletes a card's findings early, and only that card's", async () => {
+  it("deletes a card's findings, and only that card's", async () => {
     const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date("2026-10-07T10:00:00.000Z") });
     for (const cardNumber of [7, 12]) {
       await store.hold({ cardNumber, cardSha256: "a".repeat(64), savedAt: "2026-10-07T10:00:00.000Z",
@@ -303,45 +280,86 @@ describe("the held YouTube findings store (migration 0019's semantics)", () => {
       .toEqual([[12, 1], [12, 3]]);
   });
 
-  it("holds a card-less save's findings with its question and topic for 30 days, apart from every saved card's", async () => {
+  it("holds a card-less save's findings with its question and topic, apart from every saved card's", async () => {
     let now = Date.parse("2026-10-07T10:00:00.000Z");
     const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date(now) });
     const older = { cardSha256: "a".repeat(64), savedAt: new Date(now).toISOString(), question: "Does home exercise help?",
       topic: TOPIC, findings: [held(), held({ findingNumber: 2 })] };
     expect(await store.hold(older)).toEqual([
-      expect.objectContaining({ cardNumber: null, findingNumber: 1, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: true }),
-      expect.objectContaining({ cardNumber: null, findingNumber: 2, heldNow: true }),
+      { cardNumber: null, cardSha256: "a".repeat(64), findingNumber: 1, savedAt: "2026-10-07T10:00:00.000Z", heldNow: true },
+      { cardNumber: null, cardSha256: "a".repeat(64), findingNumber: 2, savedAt: "2026-10-07T10:00:00.000Z", heldNow: true },
     ]);
     // The same checked card saved as card 7 is another row; the card's reads and deletions never touch the card-less.
     await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: new Date(now).toISOString(), findings: [held()] });
     now += DAY;
     await store.hold({ cardSha256: "b".repeat(64), savedAt: new Date(now).toISOString(), question: "Does walking help?",
       findings: [held()] });
-    // No refreshing: the same save held again keeps its first expiry.
+    // No refreshing: the same save held again keeps its first save time.
     expect(await store.hold({ ...older, savedAt: new Date(now).toISOString() })).toEqual([
-      expect.objectContaining({ findingNumber: 1, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: false }),
-      expect.objectContaining({ findingNumber: 2, expiresAt: "2026-11-06T10:00:00.000Z", heldNow: false }),
+      expect.objectContaining({ findingNumber: 1, savedAt: "2026-10-07T10:00:00.000Z", heldNow: false }),
+      expect.objectContaining({ findingNumber: 2, savedAt: "2026-10-07T10:00:00.000Z", heldNow: false }),
     ]);
-    expect((await store.inspectWithoutCard()).map(({ cardSha256, findingNumber, question, topic }) =>
+    expect((await store.inspectWithoutCard({ saves: 100 })).map(({ cardSha256, findingNumber, question, topic }) =>
       [cardSha256.charAt(0), findingNumber, question, topic ?? null])).toEqual([
       ["b", 1, "Does walking help?", null],
       ["a", 1, "Does home exercise help?", TOPIC],
       ["a", 2, "Does home exercise help?", TOPIC],
     ]);
     expect((await store.inspect([7])).map(({ cardNumber, question }) => [cardNumber, question ?? null])).toEqual([[7, null]]);
-    // Deleted early by the save's checked card, and only that save's: never the saved card's row of the same checked
-    // card, which the card's own deletion takes, leaving the card-less rows.
+    // Deleted by the save's checked card, and only that save's: never the saved card's row of the same checked card,
+    // which the card's own deletion takes, leaving the card-less rows.
     expect(await store.deleteWithoutCard(["a".repeat(64)])).toBe(2);
     expect(await store.deleteWithoutCard(["a".repeat(64)])).toBe(0);
     expect((await store.inspect([7])).map(({ cardNumber }) => cardNumber)).toEqual([7]);
     expect(await store.deleteForCards([7])).toBe(1);
-    expect((await store.inspectWithoutCard()).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["b"]);
-    // Past its 30 days no read returns it, and the purge deletes it.
-    now = Date.parse("2026-11-07T10:00:00.000Z");
-    expect(await store.inspectWithoutCard()).toEqual([]);
-    expect(store.snapshot()).toHaveLength(1);
-    expect(await store.purgeExpired()).toBe(1);
+    expect((await store.inspectWithoutCard({ saves: 100 })).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["b"]);
+    // A year later it is still there: nothing deletes it but a deletion.
+    now += 365 * DAY;
+    expect((await store.inspectWithoutCard({ saves: 100 })).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["b"]);
+  });
+
+  it("pages through the saves with no card, newest first, never splitting a save, and returns every one", async () => {
+    const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date("2026-10-30T00:00:00.000Z") });
+    // Seven saves: two made in the same millisecond (ordered by their checked card's digest), one with three findings.
+    const saves = [
+      ["1", "2026-10-01T08:00:00.000Z", 1], ["2", "2026-10-03T08:00:00.000Z", 3], ["3", "2026-10-03T08:00:00.001Z", 1],
+      ["4", "2026-10-05T08:00:00.000Z", 2], ["5", "2026-10-05T08:00:00.000Z", 1], ["6", "2026-10-09T08:00:00.000Z", 1],
+      ["7", "2026-10-20T08:00:00.000Z", 1],
+    ] as const;
+    for (const [digit, savedAt, findings] of saves) {
+      await store.hold({ cardSha256: digit.repeat(64), savedAt, question: `Question ${digit}?`,
+        findings: Array.from({ length: findings }, (_, index) => held({ findingNumber: index + 1 })) });
+    }
+    // A saved card's findings are never on these pages.
+    await store.hold({ cardNumber: 7, cardSha256: "8".repeat(64), savedAt: "2026-10-25T08:00:00.000Z", findings: [held()] });
+    const seen: string[][] = [];
+    let after: { savedAt: string; cardSha256: string } | undefined;
+    // At most as many pages as saves, and one empty: a page that repeats a save never ends otherwise.
+    for (let turn = 0; turn <= saves.length; turn += 1) {
+      const page = await store.inspectWithoutCard({ ...(after === undefined ? {} : { after }), saves: 2 });
+      if (page.length === 0) break;
+      expect(new Set(page.map(({ cardSha256 }) => cardSha256)).size).toBeLessThanOrEqual(2);
+      seen.push(page.map(({ cardSha256, findingNumber }) => `${cardSha256.charAt(0)}${findingNumber}`));
+      const last = page.at(-1)!;
+      after = { savedAt: last.savedAt, cardSha256: last.cardSha256 };
+    }
+    expect(seen).toEqual([["71", "61"], ["41", "42", "51"], ["31", "21", "22", "23"], ["11"]]);
+    // A page names its save exactly, so a save deleted meanwhile neither skips nor repeats another.
+    expect(await store.deleteWithoutCard(["6".repeat(64)])).toBe(1);
+    expect((await store.inspectWithoutCard({ after: { savedAt: "2026-10-09T08:00:00.000Z", cardSha256: "6".repeat(64) },
+      saves: 1 })).map(({ cardSha256 }) => cardSha256.charAt(0))).toEqual(["4", "4"]);
+    expect(HELD_YOUTUBE_SAVES_WITHOUT_CARD_PER_READ).toBe(100);
+  });
+
+  it("deletes every held finding at once, of every card and every save with no card", async () => {
+    const store = new InMemoryHeldYouTubeFindingsStore({ now: () => new Date("2026-10-07T10:00:00.000Z") });
+    await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: "2026-10-07T10:00:00.000Z",
+      findings: [held(), held({ findingNumber: 3 })] });
+    await store.hold({ cardNumber: 12, cardSha256: "b".repeat(64), savedAt: "2026-10-07T10:00:00.000Z", findings: [held()] });
+    await store.hold({ cardSha256: "c".repeat(64), savedAt: "2026-10-07T10:00:00.000Z", question: "Q?", findings: [held()] });
+    expect(await store.deleteAll()).toBe(4);
     expect(store.snapshot()).toEqual([]);
+    expect(await store.deleteAll()).toBe(0);
   });
 
   it("takes only AskRigor's texts and fixed values: any other field, or a malformed call, is refused before the database", async () => {
@@ -386,6 +404,12 @@ describe("the held YouTube findings store (migration 0019's semantics)", () => {
           await expect(store.deleteWithoutCard(digests)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
         }
       }
+      for (const page of [{ saves: 0 }, { saves: 101 }, { saves: 1.5 }, { saves: 2, after: { savedAt: "not a time",
+        cardSha256: "a".repeat(64) } }, { saves: 2, after: { savedAt: valid.savedAt, cardSha256: "A".repeat(64) } }]) {
+        for (const store of [memory, postgres]) {
+          await expect(store.inspectWithoutCard(page)).rejects.toBeInstanceOf(HeldYouTubeFindingsError);
+        }
+      }
     } finally {
       await postgres.close();
     }
@@ -419,7 +443,7 @@ describe("what a held finding keeps, and what it never does", () => {
 });
 
 describe("the save path holds the findings a saved card leaves out", () => {
-  it("holds each finding left out, under the card's number, the checked card's digest and its place, for exactly 30 days", async () => {
+  it("holds each finding left out, under the card's number, the checked card's digest and its place, with its save time", async () => {
     const h = harness({ start: "2026-09-30T12:00:00.000Z" });
     await expect(h.save(MIXED_CARD, MIXED_BASES)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
     await h.library.heldSettled();
@@ -428,7 +452,6 @@ describe("the save path holds the findings a saved card leaves out", () => {
       cardNumber: 42,
       cardSha256: findingsCardDigest(findingsCardSchema.parse(MIXED_CARD)),
       savedAt: "2026-09-30T12:00:00.000Z",
-      expiresAt: "2026-10-30T12:00:00.000Z",
     }]);
     // The card in GitHub holds only the other finding, as before (owner answer 170).
     const body = h.github.issue(42).body;
@@ -464,7 +487,6 @@ describe("the save path holds the findings a saved card leaves out", () => {
       question: YOUTUBE_ONLY_QUESTION,
       topic: TOPIC,
       savedAt: "2026-10-25T09:30:00.000Z",
-      expiresAt: "2026-11-24T09:30:00.000Z",
     }]);
     // Never a source, link, video ID, the answer quote, the contributor or the thread key.
     const stored = JSON.stringify(h.store.snapshot());
@@ -474,14 +496,14 @@ describe("the save path holds the findings a saved card leaves out", () => {
     }
   });
 
-  it("does not refresh: the same findings saved again, from another thread, keep their first expiry", async () => {
+  it("does not refresh: the same findings saved again, from another thread, keep their first save time", async () => {
     const h = harness();
     await h.save(MIXED_CARD, MIXED_BASES, ALICE);
     h.later(3 * DAY);
     await expect(h.save(MIXED_CARD, MIXED_BASES, BOB)).resolves.toMatchObject({ status: "existing_card", card_id: "ARF-0042" });
     await h.library.heldSettled();
-    expect(h.store.snapshot().map(({ cardNumber, findingNumber, expiresAt }) => [cardNumber, findingNumber, expiresAt]))
-      .toEqual([[42, 1, "2026-11-06T10:00:00.000Z"]]);
+    expect(h.store.snapshot().map(({ cardNumber, findingNumber, savedAt }) => [cardNumber, findingNumber, savedAt]))
+      .toEqual([[42, 1, "2026-10-07T10:00:00.000Z"]]);
     // The later save's comment leaves the finding out too.
     const comment = h.github.comments.get(42)!.find(({ body }) => body.includes("askrigor-findings-occurrence"))!;
     expect((storedRecordOf(comment.body) as FindingsRecord).card.findings).toHaveLength(1);
@@ -519,51 +541,9 @@ describe("the save path holds the findings a saved card leaves out", () => {
   });
 });
 
-describe("the hourly purge from the research server process", () => {
-  it("purges at once and then every hour, through each store once, and a failing store never stops it", async () => {
-    const calls: string[] = [];
-    const access = { purgeExpired: vi.fn(async () => { calls.push("access"); return 0; }) };
-    const review = { purgeExpired: vi.fn(async () => { calls.push("review"); throw new Error("database unavailable"); }) };
-    let tick: (() => void) | undefined;
-    let every: number | undefined;
-    let unref = false;
-    let cleared = false;
-    const purge = startHeldYouTubeFindingsPurge([access, undefined, review, access], {
-      setInterval: (callback, milliseconds) => {
-        tick = callback;
-        every = milliseconds;
-        return { unref: () => { unref = true; } };
-      },
-      clearInterval: () => { cleared = true; },
-    });
-    await purge.settled();
-    expect(calls).toEqual(["access", "review"]);
-    expect(every).toBe(HELD_YOUTUBE_FINDINGS_PURGE_INTERVAL_MILLISECONDS);
-    expect(HELD_YOUTUBE_FINDINGS_PURGE_INTERVAL_MILLISECONDS).toBe(60 * 60 * 1_000);
-    expect(unref).toBe(true);
-    tick!();
-    await purge.settled();
-    expect(calls).toEqual(["access", "review", "access", "review"]);
-    purge.stop();
-    expect(cleared).toBe(true);
-    // With no store configured, there is nothing to purge and no timer.
-    const none = startHeldYouTubeFindingsPurge([undefined, undefined], { setInterval: () => { throw new Error("no timer"); } });
-    none.stop();
-  });
-
-  it("deletes a held finding at the first hourly purge after its 30 days end", async () => {
-    vi.useFakeTimers({ now: new Date("2026-10-07T10:20:00.000Z") });
-    const store = new InMemoryHeldYouTubeFindingsStore();
-    await store.hold({ cardNumber: 7, cardSha256: "a".repeat(64), savedAt: new Date().toISOString(), findings: [held()] });
-    const purge = startHeldYouTubeFindingsPurge([store]);
-    try {
-      await vi.advanceTimersByTimeAsync(30 * DAY - 30 * 60 * 1_000);
-      expect(store.snapshot()).toHaveLength(1);
-      await vi.advanceTimersByTimeAsync(60 * 60 * 1_000);
-      expect(store.snapshot()).toEqual([]);
-    } finally {
-      purge.stop();
-    }
+describe("the research server's held stores", () => {
+  it("runs no purge: the server module makes the stores and nothing else, so nothing deletes a held finding by age", () => {
+    expect(Object.keys(heldFindingsModule)).toEqual(["heldYouTubeFindingsStoresFromEnv"]);
   });
 
   it("makes a held store for each role the environment configures, and none for one that does not read", async () => {
@@ -580,7 +560,7 @@ describe("the hourly purge from the research server process", () => {
 });
 
 describe("the owner's review of held YouTube findings", () => {
-  it("lists a card's held findings on its view with the day each is deleted, never as an item a decision can take", async () => {
+  it("lists a card's held findings on its view with the day each was saved, never as an item a decision can take", async () => {
     const h = harness();
     await h.save(MIXED_CARD, MIXED_BASES);
     await h.library.heldSettled();
@@ -601,12 +581,11 @@ describe("the owner's review of held YouTube findings", () => {
       tags: ["community_checked"],
       bases: ["comment_audit"],
       savedOn: "2026-10-07",
-      deletedOn: "2026-11-06",
     }]);
-    expect(view.text).toContain("Held YouTube findings, kept apart from the card for your review: never decided, " +
-      "accepted or published, and deleted 30 days after their save.");
+    expect(view.text).toContain("Held YouTube findings, kept apart from the card for your review until deleted: never " +
+      "decided, accepted or published.");
     expect(view.text).toContain("  Finding 1 of the card as checked, saved 7 Oct 2026: Commenters on two videos");
-    expect(view.text).toContain("-> deleted on 6 Nov 2026.");
+    expect(view.text).not.toContain("deleted on");
     // Accepting a finding never takes one from the hold: the card has one finding, and no other.
     const sha = view.structured.card.cardSha256 as string;
     const accept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 2, cardSha256: sha });
@@ -618,14 +597,14 @@ describe("the owner's review of held YouTube findings", () => {
     expect(await h.review.inspectIntents(null)).toEqual([]);
   });
 
-  it("shows nothing past 30 days, before any purge, and says when the held findings cannot be read", async () => {
+  it("still shows them a year later, and says when the held findings cannot be read", async () => {
     const h = harness();
     await h.save(MIXED_CARD, MIXED_BASES);
     await h.library.heldSettled();
-    h.later(30 * DAY);
-    const expired = await h.call({ action: "inspect_finding", card: "ARF-0042" });
-    expect(expired.structured.card.heldYoutubeFindings).toEqual([]);
-    expect(expired.text).not.toContain("Held YouTube findings");
+    h.later(365 * DAY);
+    const later = await h.call({ action: "inspect_finding", card: "ARF-0042" });
+    expect(later.structured.card.heldYoutubeFindings).toEqual([expect.objectContaining({ finding: 1, savedOn: "2026-10-07" })]);
+    expect(later.text).toContain("Held YouTube findings");
     expect(h.store.snapshot()).toHaveLength(1);
 
     const broken = new InMemoryHeldYouTubeFindingsStore();
@@ -638,7 +617,7 @@ describe("the owner's review of held YouTube findings", () => {
     expect(view.text).toContain("Its held YouTube findings could not be read just now.");
   });
 
-  it("deletes a card's held findings early with delete_youtube_findings", async () => {
+  it("deletes a card's held findings with delete_youtube_findings", async () => {
     const h = harness();
     await h.save(MIXED_CARD, MIXED_BASES);
     await h.library.heldSettled();
@@ -652,11 +631,11 @@ describe("the owner's review of held YouTube findings", () => {
         ownerSteps: [],
       },
     });
-    expect(deleted.text).toBe("Deleted ARF-0042's held YouTube finding now, before its 30 days ended.");
+    expect(deleted.text).toBe("Deleted ARF-0042's held YouTube finding.");
     expect(h.store.snapshot()).toEqual([]);
     const again = await h.call({ action: "delete_youtube_findings", card: "ARF-0042" });
-    expect(again.text).toBe("ARF-0042 has no held YouTube findings: none were held, or their 30 days ended, or they " +
-      "were deleted already. Nothing was deleted.");
+    expect(again.text).toBe("ARF-0042 has no held YouTube findings: none were held, or they were deleted already. " +
+      "Nothing was deleted.");
   });
 
   it("deletes a card's held findings with the card when its contributor asks to forget it", async () => {
@@ -669,7 +648,7 @@ describe("the owner's review of held YouTube findings", () => {
     expect(h.store.snapshot()).toEqual([]);
   });
 
-  it("lists the held findings with no card, newest first, with each card's question, topic and deletion day, and deletes one early", async () => {
+  it("lists the held findings with no card, newest first, with each card's question, topic and save day, and deletes one", async () => {
     const h = harness({ start: "2026-10-25T09:30:00.000Z" });
     await h.save(YOUTUBE_ONLY_CARD, ["comment_audit"]);
     h.later(2 * DAY);
@@ -681,47 +660,123 @@ describe("the owner's review of held YouTube findings", () => {
     expect(listed.isError).toBe(false);
     const older = findingsCardDigest(findingsCardSchema.parse(YOUTUBE_ONLY_CARD));
     const newer = findingsCardDigest(findingsCardSchema.parse(later));
-    const view = (savedOn: string, deletedOn: string) => ({
+    const view = (savedOn: string) => ({
       finding: 1, claim: HELD_CONTENT.claim, certainty: "moderate", appliesTo: HELD_CONTENT.appliesTo,
       whyNotUsual: HELD_CONTENT.whyNotUsual, whatWouldChangeIt: HELD_CONTENT.whatWouldChangeIt, kind: "effect",
       subject: "Home exercise", direction: "benefit", tags: ["community_checked"], bases: ["comment_audit"], savedOn,
-      deletedOn,
     });
     expect(listed.structured).toMatchObject({ ok: true, outcome: "youtube_findings_listed" });
     expect(listed.structured.heldWithoutCard).toEqual({
       saves: [
         { cardSha256: newer, question: "Does walking ease knee osteoarthritis pain?", topic: null, savedOn: "2026-10-27",
-          deletedOn: "2026-11-26", findings: [view("2026-10-27", "2026-11-26")] },
-        { cardSha256: older, question: YOUTUBE_ONLY_QUESTION, topic: TOPIC, savedOn: "2026-10-25", deletedOn: "2026-11-24",
-          findings: [view("2026-10-25", "2026-11-24")] },
+          findings: [view("2026-10-27")] },
+        { cardSha256: older, question: YOUTUBE_ONLY_QUESTION, topic: TOPIC, savedOn: "2026-10-25",
+          findings: [view("2026-10-25")] },
       ],
-      moreNotShown: false,
+      nextCursor: null,
       deleted: null,
     });
-    expect(listed.text).toContain(`${newer}, saved 27 Oct 2026, deleted on 26 Nov 2026: Does walking ease knee ` +
-      "osteoarthritis pain?");
-    expect(listed.text).toContain(`${older}, saved 25 Oct 2026, deleted on 24 Nov 2026: ${YOUTUBE_ONLY_QUESTION} ` +
+    expect(listed.text).toContain("Newest first; kept for your review until deleted, and never decided, accepted or " +
+      "published.");
+    expect(listed.text).toContain(`${newer}, saved 27 Oct 2026: Does walking ease knee osteoarthritis pain?`);
+    expect(listed.text).toContain(`${older}, saved 25 Oct 2026: ${YOUTUBE_ONLY_QUESTION} ` +
       "[Hip osteoarthritis (hip-osteoarthritis)]");
     expect(listed.text).toContain("  Finding 1: Commenters on two videos reported less hip pain");
+    expect(listed.text).not.toContain("deleted on");
+    expect(listed.text).not.toContain("More are held");
     // They are no card's, so no card view or list of cards shows them.
     expect((await h.call({ action: "list_findings" })).structured.findings.cards).toEqual([]);
 
     const deleted = await h.call({ action: "delete_youtube_findings", cardSha256: older });
     expect(deleted.structured).toMatchObject({ ok: true, outcome: "youtube_findings_deleted",
-      heldWithoutCard: { saves: [], moreNotShown: false, deleted: 1 } });
-    expect(deleted.text).toBe(`Deleted the held YouTube finding with no card under ${older} now, before its 30 days ended.`);
+      heldWithoutCard: { saves: [], nextCursor: null, deleted: 1 } });
+    expect(deleted.text).toBe(`Deleted the held YouTube finding with no card under ${older}.`);
     expect((await h.call({ action: "list_youtube_findings" })).structured.heldWithoutCard.saves
       .map(({ cardSha256 }: { cardSha256: string }) => cardSha256)).toEqual([newer]);
-    // Past its 30 days, before any purge, it is listed no more; the purge then deletes it.
-    h.later(30 * DAY);
-    const expired = await h.call({ action: "list_youtube_findings" });
-    expect(expired.structured.heldWithoutCard.saves).toEqual([]);
-    expect(expired.text).toBe("No YouTube findings are held without a card.");
-    expect(h.store.snapshot()).toHaveLength(1);
-    expect(await h.store.purgeExpired()).toBe(1);
+    // A year later it is still listed: nothing deletes it but a deletion.
+    h.later(365 * DAY);
+    expect((await h.call({ action: "list_youtube_findings" })).structured.heldWithoutCard.saves
+      .map(({ cardSha256 }: { cardSha256: string }) => cardSha256)).toEqual([newer]);
+    expect((await h.call({ action: "delete_youtube_findings", cardSha256: newer })).structured.heldWithoutCard.deleted).toBe(1);
     const gone = await h.call({ action: "delete_youtube_findings", cardSha256: newer });
-    expect(gone.text).toBe(`No YouTube findings are held without a card under ${newer}: none were held, or their 30 days ` +
-      "ended, or they were deleted already. Nothing was deleted.");
+    expect(gone.text).toBe(`No YouTube findings are held without a card under ${newer}: none were held, or they were ` +
+      "deleted already. Nothing was deleted.");
+    const empty = await h.call({ action: "list_youtube_findings" });
+    expect(empty.structured.heldWithoutCard).toEqual({ saves: [], nextCursor: null, deleted: null });
+    expect(empty.text).toBe("No YouTube findings are held without a card.");
+  });
+
+  it("pages the list of held findings with no card, so every one is shown, and refuses a cursor it did not make", async () => {
+    const h = harness({ start: "2026-10-30T09:00:00.000Z" });
+    const count = LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE + 2;
+    const digests: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const digest = sha256(`card-less save ${index}`);
+      digests.push(digest);
+      // Saves an hour apart, the first two in the same millisecond.
+      await h.store.hold({ cardSha256: digest, savedAt: new Date(Date.parse("2026-10-01T00:00:00.000Z") +
+        Math.max(index - 1, 0) * 60 * 60 * 1_000).toISOString(), question: `Question ${index}?`, findings: [held()] });
+    }
+    const newestFirst = digests.map((digest, index) => ({ digest, at: Math.max(index - 1, 0) }))
+      .sort((left, right) => right.at - left.at || (left.digest < right.digest ? -1 : 1)).map(({ digest }) => digest);
+    const first = await h.call({ action: "list_youtube_findings" });
+    expect(first.structured.heldWithoutCard.saves).toHaveLength(LIST_YOUTUBE_FINDINGS_SAVES_PER_PAGE);
+    const cursor = first.structured.heldWithoutCard.nextCursor as string;
+    expect(cursor).toMatch(/^[0-9]+_[a-f0-9]{64}$/u);
+    expect(first.text).toContain(`More are held: list_youtube_findings with cursor ${cursor} shows the next page.`);
+    const second = await h.call({ action: "list_youtube_findings", cursor });
+    expect(second.structured.heldWithoutCard.nextCursor).toBeNull();
+    expect(second.text).not.toContain("More are held");
+    expect([...first.structured.heldWithoutCard.saves, ...second.structured.heldWithoutCard.saves]
+      .map(({ cardSha256 }: { cardSha256: string }) => cardSha256)).toEqual(newestFirst);
+    // Past the last save, the list says so.
+    const lastSave = second.structured.heldWithoutCard.saves.at(-1) as { cardSha256: string };
+    const past = await h.call({ action: "list_youtube_findings",
+      cursor: `${Date.parse("2026-10-01T00:00:00.000Z")}_${lastSave.cardSha256}` });
+    expect(past.structured.heldWithoutCard.saves).toEqual([]);
+    expect(past.text).toBe("No more YouTube findings are held without a card.");
+    // A cursor list_youtube_findings did not make is refused, and changes nothing.
+    const listedFindings = await h.call({ action: "list_findings" });
+    for (const foreign of ["abc", `99999999999999999_${"a".repeat(64)}`, `1761_${"A".repeat(64)}`,
+      Buffer.from(JSON.stringify({ number: 7 })).toString("base64url"), listedFindings.structured.findings.nextCursor ?? "x"]) {
+      const refused = await h.call({ action: "list_youtube_findings", cursor: foreign });
+      expect(refused.structured.error, foreign).toEqual({ code: "invalid_request",
+        message: "The cursor is not one list_youtube_findings returned." });
+    }
+    expect(h.store.snapshot()).toHaveLength(count);
+  });
+
+  it("deletes every held finding at once with delete_all_youtube_findings, only when the call confirms it", async () => {
+    const h = harness({ start: "2026-10-25T09:30:00.000Z" });
+    await h.save(MIXED_CARD, MIXED_BASES);
+    await h.save(YOUTUBE_ONLY_CARD, ["comment_audit"], BOB);
+    await h.library.heldSettled();
+    expect(h.store.snapshot()).toHaveLength(2);
+    for (const input of [{ action: "delete_all_youtube_findings" }, { action: "delete_all_youtube_findings", confirm: false }]) {
+      const asked = await h.call(input);
+      // As forget_card asks: no error, a question for the owner.
+      expect(asked.isError).toBe(false);
+      expect(asked.structured).toMatchObject({ ok: false, outcome: "needs_confirmation" });
+      expect(asked.structured.error).toBeUndefined();
+      expect(asked.structured.youtubeFindings).toBeUndefined();
+      expect(asked.text).toBe("Nothing was deleted: delete_all_youtube_findings deletes every held YouTube finding at " +
+        "once, of every card and of every save with no card, and none can be restored. Send the same call with " +
+        "confirm: true only when the owner says to delete them all, as when YouTube asks AskRigor to delete them.");
+      expect(h.store.snapshot()).toHaveLength(2);
+    }
+    const deleted = await h.call({ action: "delete_all_youtube_findings", confirm: true });
+    expect(deleted.structured).toMatchObject({
+      ok: true, outcome: "youtube_findings_deleted", youtubeFindings: { cards: [], ownerSteps: [], deletedAll: 2 },
+    });
+    expect(deleted.text).toBe("Deleted every held YouTube finding at once: 2 findings, of every card and every save " +
+      "with no card. None is held now.");
+    expect(h.store.snapshot()).toEqual([]);
+    // The card itself, and its finding resting on a study, stay.
+    expect((storedRecordOf(h.github.issue(42).body) as FindingsRecord).card.findings.map(({ claim }) => claim))
+      .toEqual([STUDY.claim]);
+    const again = await h.call({ action: "delete_all_youtube_findings", confirm: true });
+    expect(again.structured.youtubeFindings).toEqual({ cards: [], ownerSteps: [], deletedAll: 0 });
+    expect(again.text).toBe("No YouTube findings were held, so none was deleted.");
   });
 
   it("checks the owner and the switch on every held-findings action, and each action's input", async () => {
@@ -731,6 +786,7 @@ describe("the owner's review of held YouTube findings", () => {
     for (const input of [
       { action: "delete_youtube_findings", card: "ARF-0042" },
       { action: "delete_youtube_findings", cardSha256: "a".repeat(64) },
+      { action: "delete_all_youtube_findings", confirm: true },
       { action: "list_youtube_findings" },
       { action: "move_youtube_findings", cards: ["ARF-0042"] },
     ]) {
@@ -756,6 +812,11 @@ describe("the owner's review of held YouTube findings", () => {
       { action: "delete_youtube_findings", cardSha256: "not a digest" },
       { action: "list_youtube_findings", card: "ARF-0042" },
       { action: "list_youtube_findings", cursor: "abc" },
+      { action: "list_youtube_findings", cursor: "not a cursor!" },
+      { action: "delete_all_youtube_findings", card: "ARF-0042", confirm: true },
+      { action: "delete_all_youtube_findings", cardSha256: "a".repeat(64), confirm: true },
+      { action: "delete_all_youtube_findings", cards: ["ARF-0042"], confirm: true },
+      { action: "delete_all_youtube_findings", confirm: "yes" },
     ]) {
       const refused = await h.call(input);
       expect(refused.structured.error?.code, JSON.stringify(input)).toBe("invalid_request");
@@ -901,7 +962,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
 
     const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
     expect(moved.structured.youtubeFindings.cards[0]).toMatchObject({
-      status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }],
+      status: "moved", held: [{ finding: 2, save: "card", savedOn: "2026-10-07" }],
       cardRewritten: true, publishedFindings: [],
     });
     const today = storedToday(checked, BASES);
@@ -924,7 +985,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     expect(h.store.snapshot()).toEqual([]);
   });
 
-  it("moves them into the hold from the card's own save time and rewrites the card exactly as a card saved today would read", async () => {
+  it("moves them into the held findings with the card's own save time and rewrites the card exactly as a card saved today would read", async () => {
     const h = harness({ start: "2026-10-25T09:00:00.000Z" });
     const { checked, metadata, record } = storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
     const moved = await h.call({ action: "move_youtube_findings", cards: ["arf-0007"] });
@@ -932,12 +993,12 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       ok: true,
       outcome: "youtube_findings_moved",
       youtubeFindings: {
-        cards: [{ card: "ARF-0007", status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }],
+        cards: [{ card: "ARF-0007", status: "moved", held: [{ finding: 2, save: "card", savedOn: "2026-10-07" }],
           deleted: 0, cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }],
       },
     });
-    expect(moved.text).toContain("ARF-0007: moved 1 finding drawn from YouTube comments into the 30-day hold " +
-      "(deleted on 6 Nov 2026). The card now reads as saved today without them.");
+    expect(moved.text).toContain("ARF-0007: moved 1 finding drawn from YouTube comments into the held findings. The " +
+      "card now reads as saved today without them.");
     expect(moved.structured.youtubeFindings.ownerSteps).toEqual([
       "GitHub keeps each rewritten card's earlier text in its edit history. On each card below, open the edited menu " +
         "at the top of the description (and of each rewritten later save), and delete every earlier revision from " +
@@ -954,36 +1015,50 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     expect(parseFindingsRecordBody(h.github.issue(7).body, "card")).toEqual({ record: expected, metadata });
     // The finding kept keeps its signed basis.
     expect(expected.card.findings).toEqual([expect.objectContaining({ claim: STUDY.claim, verified_bases: ["full_text_audit"] })]);
-    // Held from the card's own save: 7 Oct 08:15, deleted 6 Nov 08:15.
+    // Held with the card's own save time: 7 Oct 08:15.
     expect(h.store.snapshot()).toEqual([{
       ...heldYouTubeFindingOf(record.card.findings[1]!, 2, ["comment_audit"]),
       cardNumber: 7, cardSha256: record.card_sha256, savedAt: "2026-10-07T08:15:00.000Z",
-      expiresAt: "2026-11-06T08:15:00.000Z",
     }]);
-    // The review tool still reads the card, and lists the moved finding with the day it goes.
+    // The review tool still reads the card, and lists the moved finding with the day it was saved.
     const view = await h.call({ action: "inspect_finding", card: "ARF-0007" });
     expect(view.isError).toBe(false);
     expect(view.structured.card.items.filter(({ item }: { item: string }) => item === "finding")).toHaveLength(1);
-    expect(view.structured.card.heldYoutubeFindings).toEqual([expect.objectContaining({ finding: 2, deletedOn: "2026-11-06" })]);
+    expect(view.structured.card.heldYoutubeFindings).toEqual([expect.objectContaining({ finding: 2, savedOn: "2026-10-07" })]);
     // Once moved, there is nothing left to move.
     const again = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
     expect(again.structured.youtubeFindings.cards[0]).toMatchObject({ status: "nothing_to_move", held: [] });
     expect(again.structured.youtubeFindings.ownerSteps).toEqual([]);
   });
 
-  it("deletes a finding already past 30 days rather than moving it, and still takes it out of the card", async () => {
+  it("moves every finding drawn from YouTube comments however old its save, with no expiry", async () => {
     const h = harness({ start: "2026-10-25T09:00:00.000Z" });
-    storeCardBeforeSeventy(h.github, 5, SEVEN, BASES, "2026-09-20T08:00:00.000Z");
+    const { record } = storeCardBeforeSeventy(h.github, 5, SEVEN, BASES, "2025-09-20T08:00:00.000Z");
     const hold = vi.spyOn(h.store, "hold");
     const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0005"] });
-    // The store is not even asked to hold it (and would refuse to).
-    expect(hold).not.toHaveBeenCalled();
-    expect(moved.structured.youtubeFindings.cards).toEqual([{ card: "ARF-0005", status: "moved", held: [], deleted: 1,
-      cardRewritten: true, laterSavesRewritten: 0, laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }]);
-    expect(moved.text).toContain("ARF-0005: deleted 1 finding whose 30 days had ended.");
-    expect(h.store.snapshot()).toEqual([]);
+    expect(hold).toHaveBeenCalledTimes(1);
+    expect(moved.structured.youtubeFindings.cards).toEqual([{ card: "ARF-0005", status: "moved",
+      held: [{ finding: 2, save: "card", savedOn: "2025-09-20" }], deleted: 0, cardRewritten: true, laterSavesRewritten: 0,
+      laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] }]);
+    expect(moved.text).toContain("ARF-0005: moved 1 finding drawn from YouTube comments into the held findings.");
+    expect(h.store.snapshot()).toEqual([expect.objectContaining({ cardNumber: 5, cardSha256: record.card_sha256,
+      findingNumber: 2, savedAt: "2025-09-20T08:00:00.000Z" })]);
     expect((storedRecordOf(h.github.issue(5).body) as FindingsRecord).card.findings.map(({ claim }) => claim))
       .toEqual([STUDY.claim]);
+  });
+
+  it("changes no card when the store does not hold every finding it was given", async () => {
+    const partial = new InMemoryHeldYouTubeFindingsStore();
+    partial.hold = async () => [];
+    const h = harness({ start: "2026-10-25T09:00:00.000Z", reviewHeld: partial });
+    storeCardBeforeSeventy(h.github, 7, SEVEN, BASES, "2026-10-07T08:15:00.000Z");
+    const body = h.github.issue(7).body;
+    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
+    expect(moved.structured.youtubeFindings.cards[0]).toMatchObject({ status: "incomplete", held: [], cardRewritten: false });
+    expect(moved.text).toContain("ARF-0007: the database or GitHub failed part way. Call move_youtube_findings for it " +
+      "again; what is done is not redone.");
+    expect(h.github.issue(7).body).toBe(body);
+    expect(h.github.writes).toEqual([]);
   });
 
   it("moves the findings of later saves too, deleting a later save left with none, and reports each card", async () => {
@@ -1020,10 +1095,10 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012", "ARF-0209", "ARF-0099", "ARF-0012"] });
     expect(moved.structured.youtubeFindings.cards).toEqual([
       { card: "ARF-0012", status: "moved", held: [
-        { finding: 1, save: "card", deletedOn: "2026-11-06" },
-        { finding: 1, save: "later_save", deletedOn: "2026-11-09" },
-        { finding: 1, save: "later_save", deletedOn: "2026-11-11" },
-        { finding: 2, save: "later_save", deletedOn: "2026-11-11" },
+        { finding: 1, save: "card", savedOn: "2026-10-07" },
+        { finding: 1, save: "later_save", savedOn: "2026-10-10" },
+        { finding: 1, save: "later_save", savedOn: "2026-10-12" },
+        { finding: 2, save: "later_save", savedOn: "2026-10-12" },
       ], deleted: 0, cardRewritten: true, laterSavesRewritten: 1, laterSavesDeleted: 1, decidedFindings: [], publishedFindings: [] },
       { card: "ARF-0209", status: "nothing_to_move", held: [], deleted: 0, cardRewritten: false, laterSavesRewritten: 0,
         laterSavesDeleted: 0, decidedFindings: [], publishedFindings: [] },
@@ -1040,19 +1115,19 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     expect(rewritten).not.toBe("tampered");
     expect((rewritten as { record: FindingsRecord }).record.card.findings.map(({ claim }) => claim)).toEqual([STUDY.claim]);
     expect((rewritten as { metadata: OccurrenceMetadata }).metadata).toEqual(kept.metadata);
-    expect(h.store.snapshot().map(({ cardSha256, findingNumber, expiresAt }) => [cardSha256, findingNumber, expiresAt]))
+    expect(h.store.snapshot().map(({ cardSha256, findingNumber, savedAt }) => [cardSha256, findingNumber, savedAt]))
       .toEqual([
-        [card.record.card_sha256, 1, "2026-11-06T11:00:00.000Z"],
-        [kept.record.card_sha256, 1, "2026-11-09T11:00:00.000Z"],
-        [allYouTube.record.card_sha256, 1, "2026-11-11T11:00:00.000Z"],
-        [allYouTube.record.card_sha256, 2, "2026-11-11T11:00:00.000Z"],
+        [card.record.card_sha256, 1, "2026-10-07T11:00:00.000Z"],
+        [kept.record.card_sha256, 1, "2026-10-10T11:00:00.000Z"],
+        [allYouTube.record.card_sha256, 1, "2026-10-12T11:00:00.000Z"],
+        [allYouTube.record.card_sha256, 2, "2026-10-12T11:00:00.000Z"],
       ]);
     // The card reads, with its later save, in the review tool.
     expect((await h.call({ action: "inspect_finding", card: "ARF-0012" })).structured.card.saves).toBe(2);
     expect(h.github.issue(209).body).toBe(untouched);
-    expect(moved.text).toContain("ARF-0012: moved 4 findings drawn from YouTube comments into the 30-day hold " +
-      "(deleted on 6 Nov 2026, 9 Nov 2026 and 11 Nov 2026). The card and 1 later save now read as saved today without " +
-      "them. 1 later save that rested only on YouTube comments was deleted.");
+    expect(moved.text).toContain("ARF-0012: moved 4 findings drawn from YouTube comments into the held findings. The " +
+      "card and 1 later save now read as saved today without them. 1 later save that rested only on YouTube comments " +
+      "was deleted.");
   });
 
   it("changes nothing where a decision names a finding the move would remove or renumber, or where every finding rests on YouTube comments", async () => {
@@ -1107,13 +1182,13 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
     h.github.failWhen = ({ method }) => method === "PATCH" ? 503 : undefined;
     const half = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
     expect(half.structured.youtubeFindings.cards[0]).toMatchObject({
-      status: "incomplete", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }], cardRewritten: false,
+      status: "incomplete", held: [{ finding: 2, save: "card", savedOn: "2026-10-07" }], cardRewritten: false,
     });
     h.github.failWhen = undefined;
     h.later(DAY);
     const done = await h.call({ action: "move_youtube_findings", cards: ["ARF-0007"] });
     expect(done.structured.youtubeFindings.cards[0]).toMatchObject({
-      status: "moved", held: [{ finding: 2, save: "card", deletedOn: "2026-11-06" }], cardRewritten: true,
+      status: "moved", held: [{ finding: 2, save: "card", savedOn: "2026-10-07" }], cardRewritten: true,
     });
     expect(h.store.snapshot()).toHaveLength(1);
   });
@@ -1135,7 +1210,6 @@ describe("with the Atlas publications (decision 171)", () => {
       cardNumber: 42,
       cardSha256: findingsCardDigest(findingsCardSchema.parse(MIXED_CARD)),
       savedAt: "2026-11-04T09:00:00.000Z",
-      expiresAt: "2026-12-04T09:00:00.000Z",
     }]);
     const published = await publications.inspect({});
     expect(published.map(({ publicationNumber, cardNumber, findingNumber, state }) =>

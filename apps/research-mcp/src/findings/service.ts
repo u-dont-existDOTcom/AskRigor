@@ -123,8 +123,8 @@ export interface FindingsSaveServiceOptions {
   /** The Atlas publisher (decision 171); without it nothing is published at the save. */
   publisher?: FindingsCardPublisher;
   /**
-   * Where the findings a saved card leaves out are held for 30 days (owner answer 173): the database, through the
-   * research-access role. Without it they are not kept.
+   * Where the findings a saved card leaves out are held for the owner's review (owner answer 173): the database,
+   * through the research-access role. Without it they are not kept.
    */
   held?: Pick<HeldYouTubeFindingsStore, "hold">;
 }
@@ -208,7 +208,7 @@ export class FindingsSaveService {
         signed.includes("comment_audit") ? [index] : []));
       const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
-      // held for 30 days, with its question and topic, for the owner's review (owner answer 173).
+      // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {
         this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
         return result({ status: "youtube_findings_only", retryable: false });
@@ -288,8 +288,8 @@ export class FindingsSaveService {
   }
 
   /**
-   * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held for 30 days in the
-   * database, apart from the card, for the owner's review: its texts and fixed values only (heldYouTubeFindingOf), under
+   * Owner answer 173 (25 Oct): each finding withoutYouTubeData left out of the saved card is held in the database,
+   * apart from the card, for the owner's review, until deleted: its texts and fixed values only (heldYouTubeFindingOf), under
    * the card's issue number, the checked card's digest and its place on that card, from the save time. A card none of
    * whose findings is kept is not saved as a card, so its findings are held with no issue number, with the card's own
    * general wording of the research question and its topic (heldYouTubeCardTextsOf). In the background: the save's

@@ -840,13 +840,15 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "stop_commenter and restore_commenter (commenter U-...) stop a commenter or let them comment again; set_picks " +
   "(picks: up to 5 publications, each with your public reason) sets the home page's most important findings now. " +
   "Held YouTube " +
-  "findings: the findings drawn from YouTube comments that a saved card leaves out are kept apart from it for 30 " +
-  "days, then deleted, and so are those of a card whose findings all rest on them, which is not saved as a card; " +
-  "inspect_finding on a card lists its held findings with the day each is deleted, list_youtube_findings lists those " +
-  "with no card (newest first, each with its question and topic), delete_youtube_findings deletes a card's (card) or " +
-  "a card-less save's (cardSha256) now, and move_youtube_findings (cards, such as [\"ARF-0007\"]) moves those of cards " +
-  "stored before into that hold, rewriting each card as one saved today would read. They are never decided, accepted " +
-  "or published. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a " +
+  "findings: the findings drawn from YouTube comments that a saved card leaves out are kept apart from it for your " +
+  "review, and so are those of a card whose findings all rest on them, which is not saved as a card; they are kept " +
+  "until deleted, on request or if YouTube asks. inspect_finding on a card lists its held findings with the day each " +
+  "was saved, list_youtube_findings lists those with no card (newest first, each with its question and topic; cursor " +
+  "for the next page), delete_youtube_findings deletes a card's (card) or a card-less save's (cardSha256), " +
+  "delete_all_youtube_findings deletes every one at once, only with confirm: true after the owner said to (as when " +
+  "YouTube asks), and move_youtube_findings (cards, such as [\"ARF-0007\"]) moves those of cards stored before " +
+  "into the held findings, rewriting each card as one saved today would read. They are never decided, accepted or " +
+  "published. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a " +
   "separate one-shot writer applies it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer

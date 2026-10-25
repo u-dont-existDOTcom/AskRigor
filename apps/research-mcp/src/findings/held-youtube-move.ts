@@ -1,6 +1,5 @@
 import {
   ATLAS_PUBLICATIONS_PER_INSPECT,
-  HELD_YOUTUBE_FINDINGS_MILLISECONDS,
   atlasPublicationOrder,
   type AtlasPublicationStore,
   type AtlasReviewStore,
@@ -14,20 +13,20 @@ import type { FindingsRecord } from "./service.js";
 
 /**
  * move_youtube_findings (owner answer 173, 25 Oct): a card stored before a saved card left out its findings drawn from
- * YouTube comments (owner answer 170) still holds them in the private GitHub inbox. This moves them into the held
- * YouTube findings, each counted from its own save's time (a card saved on 7 Oct is deleted on 6 Nov), and rewrites
- * the card exactly as a card saved today without them would read: withoutYouTubeData's stored card, whose remaining
- * findings keep their signed bases, the checked card's SHA-256, the same stamp and marker, and stored_without naming
- * youtube_comment_findings, so the review tool still reads it. Later saves (occurrence comments) are rewritten the
- * same way, and a later save left with no finding is deleted, as such a save today would not be filed. A finding whose
- * 30 days have already ended is deleted, not moved.
+ * YouTube comments (owner answer 170) still holds them in the private GitHub inbox. This moves every one of them into
+ * the held YouTube findings, each with its own save's time, where they are kept until deleted (the owner's rule, 25
+ * Oct: "don't delete the summaries unless YT tells us to do that"), and rewrites the card exactly as a card saved today
+ * without them would read: withoutYouTubeData's stored card, whose remaining findings keep their signed bases, the
+ * checked card's SHA-256, the same stamp and marker, and stored_without naming youtube_comment_findings, so the review
+ * tool still reads it. Later saves (occurrence comments) are rewritten the same way, and a later save left with no
+ * finding is deleted, as such a save today would not be filed.
  *
  * Every read and check comes first; nothing is changed for a card that does not read, whose findings all rest on
  * YouTube comments (a card saved today would not be saved as a card), or where a decision is recorded on a finding
  * that the move would remove or renumber (decisions name findings by their place), or with publications whose card
- * was not forgotten (publications also name findings by their place). The findings are held before GitHub
- * is changed, so a call that fails part way is called again: a finding held already keeps its expiry, and a rewritten
- * save has nothing left to move.
+ * was not forgotten (publications also name findings by their place). Every finding is held before GitHub
+ * is changed, and GitHub is not changed unless the store holds each one, so a call that fails part way is called
+ * again: a finding held already keeps its save time, and a rewritten save has nothing left to move.
  */
 
 export type YouTubeFindingsMoveStatus =
@@ -44,9 +43,8 @@ export interface MovedYouTubeFinding {
   /** Its place on that save's card, from 1. */
   finding: number;
   save: "card" | "later_save";
+  /** When its save was made, as the held findings keep it. */
   savedAt: string;
-  /** When it is deleted; null when its 30 days had ended, so it was deleted rather than moved. */
-  expiresAt: string | null;
 }
 
 export interface YouTubeFindingsMoveReport {
@@ -98,7 +96,6 @@ export function recordWithoutYouTubeFindings(
 export async function moveYouTubeFindings(
   deps: YouTubeFindingsMoveDependencies,
   cardNumber: number,
-  now: Date,
 ): Promise<YouTubeFindingsMoveReport> {
   const report: YouTubeFindingsMoveReport = {
     card: cardNumber, status: "incomplete", findings: [], cardRewritten: false, laterSavesRewritten: 0,
@@ -151,7 +148,7 @@ export async function moveYouTubeFindings(
       if (decided.length > 0) return { ...report, status: "decisions_in_the_way", decidedFindings: decided };
     }
 
-    // 1. The held findings: the card's own, then each later save's, each counted from that save's time.
+    // 1. The held findings: the card's own, then each later save's, each with that save's time.
     const saves = [
       ...(leftOut.length === 0 ? [] : [{ save: "card" as const, record: card.record, indexes: leftOut }]),
       ...later.map(({ record, stored }) => ({
@@ -161,12 +158,10 @@ export async function moveYouTubeFindings(
       })),
     ];
     for (const { save, record, indexes } of saves) {
-      const savedAt = record.stamp.saved_at;
-      const live = Date.parse(savedAt) + HELD_YOUTUBE_FINDINGS_MILLISECONDS > now.getTime();
-      const held = !live ? [] : await deps.held.hold({
+      const held = await deps.held.hold({
         cardNumber,
         cardSha256: record.card_sha256,
-        savedAt,
+        savedAt: record.stamp.saved_at,
         findings: indexes.map((index) => {
           const finding = record.card.findings[index]!;
           return heldYouTubeFindingOf(finding, index + 1, finding.verified_bases ?? []);
@@ -174,7 +169,9 @@ export async function moveYouTubeFindings(
       });
       for (const index of indexes) {
         const kept = held.find(({ findingNumber }) => findingNumber === index + 1);
-        report.findings.push({ finding: index + 1, save, savedAt, expiresAt: kept?.expiresAt ?? null });
+        // A finding the store does not report held stays on the card: nothing in GitHub changes.
+        if (kept === undefined) throw new Error("HELD_YOUTUBE_FINDING_NOT_HELD");
+        report.findings.push({ finding: index + 1, save, savedAt: kept.savedAt });
       }
     }
 

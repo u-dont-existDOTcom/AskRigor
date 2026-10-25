@@ -120,7 +120,8 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       ...(publications === undefined ? {} : {
         publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
       }),
-      // Owner answer 173: the findings a saved card leaves out are held for 30 days, through the research-access role.
+      // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the
+      // research-access role.
       held: heldYouTubeFindingsStoresFromEnv().access,
     });
   } catch {

@@ -74,13 +74,13 @@ GRANT EXECUTE ON FUNCTION living_evidence.hold_youtube_findings(
 ) TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_held_youtube_findings(integer[])
   TO askrigor_research_review;
-GRANT EXECUTE ON FUNCTION living_evidence.inspect_cardless_held_youtube_findings()
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_cardless_held_youtube_findings(timestamptz, text, integer)
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.delete_held_youtube_findings(integer[])
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.delete_cardless_held_youtube_findings(text[])
   TO askrigor_research_review;
-GRANT EXECUTE ON FUNCTION living_evidence.purge_expired_held_youtube_findings()
+GRANT EXECUTE ON FUNCTION living_evidence.delete_all_held_youtube_findings()
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_publications(
   text[], integer[], text[], text[], bigint, integer

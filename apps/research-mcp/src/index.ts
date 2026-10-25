@@ -2,7 +2,6 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 import { DEFAULT_PORT } from "./config.js";
-import { heldYouTubeFindingsStoresFromEnv, startHeldYouTubeFindingsPurge } from "./findings/held-youtube-findings.js";
 import { createAskRigorHttpServer } from "./server.js";
 
 export { createAskRigorHttpServer, createAskRigorServer } from "./server.js";
@@ -528,7 +527,4 @@ if (
   server.listen(port, "0.0.0.0", () => {
     console.log(`AskRigor MCP server listening on port ${port}`);
   });
-  // Owner answer 173: held YouTube findings are deleted on day 30, by a purge now and then every hour.
-  const held = heldYouTubeFindingsStoresFromEnv();
-  startHeldYouTubeFindingsPurge([held.access, held.review]);
 }

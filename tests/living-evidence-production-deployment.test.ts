@@ -537,11 +537,12 @@ describe("production living-evidence deployment", () => {
     expect(migration).not.toContain("reject_living_evidence_mutation");
   });
 
-  // Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held for 30
-  // days, then deleted (YouTube Developer Policies III.E.4). Insert at a save (the research-access role), read and
-  // delete for the owner's review (the review role), and purge for both; no table grant to anyone. A card whose findings
-  // all rest on YouTube comments is not saved as a card, and its findings are held with no card number, with the card's
-  // question and topic.
+  // Owner answer 173 (25 Oct): the findings drawn from YouTube comments that a saved card leaves out are held for the
+  // owner's review and kept until deleted (the owner's rule, 25 Oct: "don't delete the summaries unless YT tells us to
+  // do that"): no expiry and no purge. Insert at a save (the research-access role); read, delete a card's or a save's,
+  // and delete every one at once for the owner's review (the review role); no table grant to anyone. A card whose
+  // findings all rest on YouTube comments is not saved as a card, and its findings are held with no card number, with
+  // the card's question and topic.
   it("ships migration 0019's held YouTube findings, reached only through six functions the two roles get exactly", async () => {
     const migration = await read("packages/evidence-repository/migrations/0019_held_youtube_findings.sql");
     const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
@@ -554,8 +555,11 @@ describe("production living-evidence deployment", () => {
       '"0020_research_use_notice_v4",\n');
     // Safe to run again, as every migration runs on each start.
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS held_youtube_findings (");
-    expect(migration).toContain("CREATE INDEX IF NOT EXISTS held_youtube_findings_expiry_idx");
+    expect(migration).toContain("CREATE INDEX IF NOT EXISTS held_youtube_findings_without_card_idx\n" +
+      "  ON held_youtube_findings (saved_at DESC, card_sha256) WHERE card_number IS NULL;");
     expect(migration).not.toMatch(/DROP TABLE|DROP COLUMN|CREATE ROLE|CREATE SEQUENCE|GRANT /u);
+    // No expiry, no purge, and nothing that deletes by age or by the clock.
+    expect(migration).not.toMatch(/expir|purge|interval|720/iu);
     // Only AskRigor's texts and fixed values: no column for a source, a link, the answer quote, a thread or account,
     // or any comment, name, channel or video.
     const start = migration.indexOf("CREATE TABLE IF NOT EXISTS held_youtube_findings (");
@@ -564,11 +568,9 @@ describe("production living-evidence deployment", () => {
     expect(columns).toEqual([
       "card_number", "card_sha256", "finding_number", "question", "topic_key", "topic_label", "claim", "certainty",
       "applies_to", "why_not_usual", "what_would_change_it", "kind", "subject", "direction", "tags", "verified_bases",
-      "saved_at", "expires_at",
+      "saved_at",
     ]);
     expect(table).not.toMatch(/source|link|url|quote|thread|account|contributor|comment_text|author|channel|video_id/iu);
-    // Exactly 30 days of 24 hours after the save, whatever the session's time zone.
-    expect(table).toContain("CHECK (expires_at = saved_at + interval '720 hours')");
     // A saved card names its findings; a card not saved as a card brings its question, and its whole topic or none.
     expect(table).toContain("card_number integer CHECK (card_number IS NULL OR card_number > 0),");
     expect(table).toContain("(card_number IS NOT NULL AND question IS NULL AND topic_key IS NULL AND topic_label IS NULL)\n" +
@@ -588,7 +590,7 @@ describe("production living-evidence deployment", () => {
     }));
     expect(functions.map(({ name }) => name)).toEqual([
       "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
-      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "delete_all_held_youtube_findings",
     ]);
     for (const { name, header } of functions) {
       expect(header).toContain("SECURITY DEFINER");
@@ -596,39 +598,45 @@ describe("production living-evidence deployment", () => {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
     }
     const body = (name: string) => functions.find((candidate) => candidate.name === name)!.body;
-    // A read never returns a row past its expiry; the purge takes no time from its caller, so no caller deletes early.
-    expect(body("inspect_held_youtube_findings")).toContain("AND held.expires_at > now()");
+    // Every read returns every held row: a card's whole, and the saves with no card a page at a time, by save.
+    expect(body("inspect_held_youtube_findings")).toContain("WHERE held.card_number = ANY(target_card_numbers)\n" +
+      "   ORDER BY held.card_number, held.saved_at, held.card_sha256, held.finding_number;");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION inspect_cardless_held_youtube_findings(\n" +
+      "  after_saved_at timestamptz,\n  after_card_sha256 text,\n  save_limit integer\n)");
+    expect(body("inspect_cardless_held_youtube_findings")).toContain("IF save_limit IS NULL OR save_limit NOT BETWEEN 1 AND 100");
     expect(body("inspect_cardless_held_youtube_findings")).toContain(
-      "WHERE held.card_number IS NULL\n     AND held.expires_at > now()\n   ORDER BY held.saved_at DESC");
-    // A card-less save's deletion never deletes a saved card's findings, nor a card's a card-less one's.
+      "OR (held.saved_at = after_saved_at AND held.card_sha256::text > after_card_sha256))\n" +
+      "     ORDER BY saved DESC, digest\n     LIMIT save_limit");
+    // A card-less save's deletion never deletes a saved card's findings, nor a card's a card-less one's; deleting them
+    // all takes every row, of both.
     expect(body("delete_cardless_held_youtube_findings")).toContain("WHERE held.card_number IS NULL");
     expect(body("delete_held_youtube_findings")).toContain("WHERE held.card_number = ANY(target_card_numbers)");
-    expect(migration).toContain("CREATE OR REPLACE FUNCTION purge_expired_held_youtube_findings()\nRETURNS integer");
-    expect(body("purge_expired_held_youtube_findings")).toContain("WHERE held.expires_at <= now();");
-    // A hold refuses any other key, never holds a finding past its 30 days, and never refreshes one held before.
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION delete_all_held_youtube_findings()\nRETURNS integer");
+    expect(body("delete_all_held_youtube_findings")).toContain("DELETE FROM held_youtube_findings held WHERE true;");
+    // A hold refuses any other key, keeps the save time to the millisecond, and never refreshes one held before.
     expect(body("hold_youtube_findings")).toContain("WHERE supplied_key.name NOT IN ('finding_number', 'claim'");
-    expect(body("hold_youtube_findings")).toContain("stored_saved_at := LEAST(saved_time, now());");
-    expect(body("hold_youtube_findings")).toContain("IF stored_saved_at + interval '720 hours' > now() THEN");
+    expect(body("hold_youtube_findings")).toContain(
+      "stored_saved_at := date_trunc('milliseconds', LEAST(saved_time, now()));");
     expect(body("hold_youtube_findings")).toContain("ON CONFLICT DO NOTHING");
+    expect(body("hold_youtube_findings")).not.toContain("DELETE");
     expect(body("hold_youtube_findings")).toContain("OR (target_card_number IS NULL AND card_question IS NULL)");
 
-    // The grants: the research-access role holds at a save and purges; the review role holds moved findings, reads,
-    // deletes early and purges. Neither gets the table, and each grant names the function's exact signature.
+    // The grants: the research-access role only holds at a save; the review role holds moved findings, reads, deletes
+    // a card's or a save's, and deletes them all. Neither gets the table, and each grant names the function's exact
+    // signature.
     const granted = (script: string) =>
       [...script.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name!);
-    expect(granted(access).filter((name) => name.includes("youtube"))).toEqual([
-      "hold_youtube_findings", "purge_expired_held_youtube_findings",
-    ]);
+    expect(granted(access).filter((name) => name.includes("youtube"))).toEqual(["hold_youtube_findings"]);
     expect(granted(review).filter((name) => name.includes("youtube"))).toEqual([
       "hold_youtube_findings", "inspect_held_youtube_findings", "inspect_cardless_held_youtube_findings",
-      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "purge_expired_held_youtube_findings",
+      "delete_held_youtube_findings", "delete_cardless_held_youtube_findings", "delete_all_held_youtube_findings",
     ]);
     const signature = (text: string, prefix: string) => {
       const from = text.indexOf(prefix) + prefix.length;
       return text.slice(from, text.indexOf(")", from)).replace(/\s+/gu, " ").trim();
     };
     for (const [script, names] of [
-      [access, ["hold_youtube_findings", "purge_expired_held_youtube_findings"]],
+      [access, ["hold_youtube_findings"]],
       [review, functions.map(({ name }) => name)],
     ] as const) {
       for (const name of names) {
@@ -639,7 +647,9 @@ describe("production living-evidence deployment", () => {
       expect(script).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|ALL)\s+ON\s+(?:TABLE\s+)?living_evidence\.held/iu);
     }
     // With the pending-withdrawal function and migration 0022's nine participation functions (decision 171, 4E).
-    expect(granted(access)).toHaveLength(12);
+    expect(granted(access)).toHaveLength(11);
+    expect(access).not.toContain("purge");
+    expect(review).not.toContain("purge");
     // The release: migrate first, then both provisioning scripts, before the image serves.
     expect(runbook).toContain("Migration `0019_held_youtube_findings` adds");
     expect(runbook).toContain("re-run `/usr/local/bin/provision-research-access-role` and " +
@@ -746,8 +756,8 @@ describe("production living-evidence deployment", () => {
       expect(review).not.toContain(helper);
       expect(access).not.toContain(helper);
     }
-    // With the pending-withdrawal function and migration 0019's two held YouTube findings functions (owner answer 173).
-    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(12);
+    // With the pending-withdrawal function and migration 0019's hold of YouTube findings (owner answer 173).
+    expect(access.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(11);
     expect(access).not.toMatch(/GRANT[^;]*atlas_(?:participants|votes|comments|comment_reports|home_picks|session_ends)/u);
     // Writes happen only inside the functions; nothing outside them touches a table or grants a role.
     const outsideFunctions = migration.replace(/AS \$function\$[\s\S]*?\$function\$;/gu, "");
