@@ -2970,6 +2970,52 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
+                    },
+                    "worked_out": {
+                      "description": "Only for a figure the paper does not print itself but that is worked out from numbers it prints, such as a total, the analyzed group or a percentage: those printed numbers, each with its block, and how it is worked out. reported is then the worked-out value. AskRigor redoes the arithmetic and records the figure as worked out, or as not matching when the arithmetic gives another value.",
+                      "type": "object",
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "sum",
+                            "difference",
+                            "ratio",
+                            "percentage"
+                          ],
+                          "description": "sum: all inputs added; difference: the first minus the second; ratio: the first divided by the second; percentage: 100 times the first divided by the second."
+                        },
+                        "inputs": {
+                          "minItems": 2,
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "evidence_block_id": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
+                              },
+                              "printed": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80,
+                                "description": "One number as the paper prints it in that block."
+                              }
+                            },
+                            "required": [
+                              "evidence_block_id",
+                              "printed"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "inputs"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -3392,6 +3438,52 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
+                    },
+                    "worked_out": {
+                      "description": "Only for a figure the paper does not print itself but that is worked out from numbers it prints, such as a total, the analyzed group or a percentage: those printed numbers, each with its block, and how it is worked out. reported is then the worked-out value. AskRigor redoes the arithmetic and records the figure as worked out, or as not matching when the arithmetic gives another value.",
+                      "type": "object",
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "sum",
+                            "difference",
+                            "ratio",
+                            "percentage"
+                          ],
+                          "description": "sum: all inputs added; difference: the first minus the second; ratio: the first divided by the second; percentage: 100 times the first divided by the second."
+                        },
+                        "inputs": {
+                          "minItems": 2,
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "evidence_block_id": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf|direct)_[0-9]{6}_[a-f0-9]{12}$"
+                              },
+                              "printed": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 80,
+                                "description": "One number as the paper prints it in that block."
+                              }
+                            },
+                            "required": [
+                              "evidence_block_id",
+                              "printed"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "inputs"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -3469,6 +3561,40 @@
                     "type": "array",
                     "items": {
                       "type": "number"
+                    }
+                  },
+                  "worked_out": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "worked_out_mismatched": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "computed": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "computed"
+                      ],
+                      "additionalProperties": false
                     }
                   }
                 },

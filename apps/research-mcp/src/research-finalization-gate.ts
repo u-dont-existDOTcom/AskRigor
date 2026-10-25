@@ -2406,7 +2406,9 @@ export function finalizeResearch(
       requireDeclaration(`The study audit of ${source.id} lists no reported_figures: validate it again with ` +
         "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source " +
         "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and " +
-        "reported_figures_none_reason when it reports no numeric result; pass the research_receipt it returns.");
+        "reported_figures_none_reason when it reports no numeric result; a figure worked out from printed numbers, " +
+        "such as the analyzed group behind a rate, is listed with worked_out, its printed inputs and how; pass the " +
+        "research_receipt it returns.");
       continue;
     }
     if (figures.status === "internally_inconsistent") {
