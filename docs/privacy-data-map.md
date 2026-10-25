@@ -1552,7 +1552,8 @@ The pages (section 4C) are built, not yet released, and switched off until
   (an IPv6 address counted by its /64; at most 10,000, each dropped after 15
   minutes without a request), as the evidence-gap page's does, with the address
   the apex site's proxy forwards from the connection in `X-AskRigor-Client-IP`,
-  believed only on requests for askrigor.com; and the 60-second page cache holds
+  believed only on requests for askrigor.com that carry the proxy's shared
+  secret; and the 60-second page cache holds
   rendered pages that answered 200 for readers who are not signed in, never
   who asked for them. Signing in to
   vote or comment is mapped in "Atlas votes and comments" below.

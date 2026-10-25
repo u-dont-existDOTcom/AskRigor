@@ -575,23 +575,32 @@ straight to the research server's container, keeping `Host: askrigor.com`, and
 sets the pages' headers there in place of the site's (whose `form-action
 'none'` would otherwise join their policy); the site's own headers skip those
 paths. The block also sets `X-AskRigor-Client-IP` to the reader's address from
-the connection (`{remote_host}`), replacing any value a client sent. The
-research server believes that header only on a request whose Host is the public
-origin's host (`ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, `https://askrigor.com` by
-default), which only this block sends, so a request that reaches
-`mcp.askrigor.com` directly cannot choose its address; every other request is
-counted by its connection's address. If a CDN is ever put in front of the apex,
+the connection (`{remote_host}`), replacing any value a client sent, and
+`X-AskRigor-Proxy-Secret` to a shared secret. The research server believes the
+address only on a request that carries that secret (`ASKRIGOR_ATLAS_PROXY_SECRET`
+in `runtime.env`) and whose Host is the public origin's host
+(`ASKRIGOR_ATLAS_PUBLIC_ORIGIN`, `https://askrigor.com` by default), so a request
+that reaches `mcp.askrigor.com` directly cannot choose its address, whatever the
+production `mcp.askrigor.com` block forwards; every other request is counted by
+its connection's address, and with no secret set none is believed. If a CDN is ever put in front of the apex,
 use `{client_ip}` in the block instead, with the CDN's address ranges as
 `trusted_proxies` in Caddy's global server options.
 
-The installer needs the upstream: run it as
-`ASKRIGOR_ATLAS_UPSTREAM=<host:port> install-public-site.sh ...`, with the
-research server's container as the production Caddyfile already proxies to it
-(for example `research-mcp:3000`). It refuses anything that is not a plain
-host:port, a public name, or an upstream the production Caddyfile does not
-already use, and puts the checked value in place of `{$ASKRIGOR_ATLAS_UPSTREAM}`
-before Caddy validates the combined file. Read the production Caddyfile's
-`mcp.askrigor.com` block (read-only) at release to confirm the value.
+The installer needs the upstream and the secret: run it as
+`ASKRIGOR_ATLAS_UPSTREAM=<host:port> ASKRIGOR_ATLAS_PROXY_SECRET=<secret>
+install-public-site.sh ...`, with the research server's container as the
+production Caddyfile already proxies to it (for example `research-mcp:3000`) and
+the secret made once on the server, as the other secrets are (32 random bytes in
+canonical unpadded base64url, never printed), and put into `runtime.env` as
+`ASKRIGOR_ATLAS_PROXY_SECRET` too; pass it to the installer from that file
+without echoing it. The installer refuses an upstream that is not a plain
+host:port, is a public name, or is not one the production Caddyfile already
+uses, and a secret of any other form; it puts both in place of
+`{$ASKRIGOR_ATLAS_UPSTREAM}` and `{$ASKRIGOR_ATLAS_PROXY_SECRET}` in the
+root-only, mode 0400 combined Caddyfile before Caddy validates it. Read the
+production Caddyfile's `mcp.askrigor.com` block (read-only) at release to
+confirm the upstream; recreate `research-mcp` with the secret before installing
+the packet, or readers are counted by the proxy's address until both hold it.
 
 Its release needs no migration and no grant: the reader can already select
 `atlas_publications` (0021 above). When the owner says so, add

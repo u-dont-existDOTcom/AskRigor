@@ -53,12 +53,14 @@ askrigor.com {
 			-Server
 		}
 		# Straight to the research server's container: the installer puts in ASKRIGOR_ATLAS_UPSTREAM (host:port) after
-		# checking that the production Caddyfile already proxies to it. The Host stays askrigor.com, and the reader's
-		# address comes from this connection, replacing any value a client sent; the research server believes it only on
+		# checking that the production Caddyfile already proxies to it, and the shared secret ASKRIGOR_ATLAS_PROXY_SECRET,
+		# into the root-only combined Caddyfile. The Host stays askrigor.com, and the reader's address comes from this
+		# connection, replacing any value a client sent; the research server believes it only with the secret and only on
 		# requests for askrigor.com. Behind a CDN, use {client_ip} instead, with the CDN's ranges as trusted_proxies in the
 		# global server options.
 		reverse_proxy {$ASKRIGOR_ATLAS_UPSTREAM} {
 			header_up X-AskRigor-Client-IP {remote_host}
+			header_up X-AskRigor-Proxy-Secret {$ASKRIGOR_ATLAS_PROXY_SECRET}
 		}
 	}
 

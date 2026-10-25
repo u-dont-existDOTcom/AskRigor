@@ -21,6 +21,7 @@ import {
 import { atlasPageProblems, escapeHtml } from "../apps/research-mcp/src/atlas/pages.js";
 import {
   ATLAS_CLIENT_IP_HEADER,
+  ATLAS_PROXY_SECRET_HEADER,
   AtlasPageCache,
   atlasReaderAddress,
   commentCursor,
@@ -143,14 +144,15 @@ describe("the contact-details and links check (review issue 3)", () => {
   });
 });
 
-describe("the reader's address behind the apex proxy (review issue 2)", () => {
+describe("the reader's address behind the apex proxy (review issue 2, follow-up item 7)", () => {
   const onePage = () => createTokenBucketLimiter({ capacity: 1, refillTokensPerMinute: 0, maxKeys: 100, idleTtlMs: 60_000 });
+  const SECRET = Buffer.from(new Uint8Array(32).fill(5)).toString("base64url");
 
   it("believes X-AskRigor-Client-IP only on requests for the public origin's host, and counts IPv6 by its /64", async () => {
-    const f = await fixture({ rateLimiter: onePage() });
+    const f = await fixture({ rateLimiter: onePage(), proxySecret: SECRET });
     const publicHost = new URL(f.base).host;
     const page = async (host: string, address: string) => (await rawRequest(f.base, "/atlas/findings/P-1001",
-      { headers: { host, [ATLAS_CLIENT_IP_HEADER]: address } })).status;
+      { headers: { host, [ATLAS_CLIENT_IP_HEADER]: address, [ATLAS_PROXY_SECRET_HEADER]: SECRET } })).status;
     expect(await page(publicHost, "203.0.113.1")).toBe(200);
     expect(await page(publicHost, "203.0.113.1")).toBe(429);
     expect(await page(publicHost, "203.0.113.2")).toBe(200);
@@ -163,15 +165,34 @@ describe("the reader's address behind the apex proxy (review issue 2)", () => {
     expect(await page("mcp.askrigor.example", "198.51.100.2")).toBe(429);
   });
 
+  it("believes it only with the proxy's secret, and never when no secret is configured", async () => {
+    const f = await fixture({ rateLimiter: onePage(), proxySecret: SECRET });
+    const publicHost = new URL(f.base).host;
+    const page = async (address: string, secret?: string) => (await rawRequest(f.base, "/atlas/findings/P-1001",
+      { headers: { host: publicHost, [ATLAS_CLIENT_IP_HEADER]: address,
+        ...(secret === undefined ? {} : { [ATLAS_PROXY_SECRET_HEADER]: secret }) } })).status;
+    // Without the secret, or with another, each request counts as the connection's address: one page in all.
+    expect(await page("203.0.113.11")).toBe(200);
+    expect(await page("203.0.113.12", "x".repeat(43))).toBe(429);
+    expect(await page("203.0.113.13", `${SECRET}x`)).toBe(429);
+    expect(await page("203.0.113.14", SECRET)).toBe(200);
+    const unset = await fixture({ rateLimiter: onePage() });
+    const unsetHost = new URL(unset.base).host;
+    const unsetPage = async (address: string) => (await rawRequest(unset.base, "/atlas/findings/P-1001",
+      { headers: { host: unsetHost, [ATLAS_CLIENT_IP_HEADER]: address, [ATLAS_PROXY_SECRET_HEADER]: SECRET } })).status;
+    expect(await unsetPage("203.0.113.21")).toBe(200);
+    expect(await unsetPage("203.0.113.22")).toBe(429);
+  });
+
   it("keys a report from a reader who is not signed in by the forwarded address", async () => {
-    const f = await fixture();
+    const f = await fixture({ proxySecret: SECRET });
     await f.store.postComment("e".repeat(64), "P-1001", "A comment.", AT, "Erin");
     const publicHost = new URL(f.base).host;
     const html = (await f.get("/atlas/findings/P-1001")).body;
     const report = async (address: string) => (await rawRequest(f.base, "/atlas/comments/C-1001/report", {
       method: "POST",
       headers: { host: publicHost, origin: f.base, "content-type": "application/x-www-form-urlencoded",
-        [ATLAS_CLIENT_IP_HEADER]: address },
+        [ATLAS_CLIENT_IP_HEADER]: address, [ATLAS_PROXY_SECRET_HEADER]: SECRET },
       body: new URLSearchParams({ csrf: tokenFor(html, "/atlas/comments/C-1001/report"), return: "/atlas/findings/P-1001" })
         .toString(),
     })).status;
@@ -183,18 +204,23 @@ describe("the reader's address behind the apex proxy (review issue 2)", () => {
   });
 
   it("reads the forwarded address exactly, falling back to the connection's", () => {
-    const request = (headers: Record<string, string>) => ({ headers }) as never;
+    const request = (headers: Record<string, string>) => ({ headers: { [ATLAS_PROXY_SECRET_HEADER]: SECRET, ...headers } }) as never;
     expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: " 203.0.113.9 " }), "askrigor.com",
-      "10.0.0.2")).toBe("203.0.113.9");
+      "10.0.0.2", SECRET)).toBe("203.0.113.9");
     expect(atlasReaderAddress(request({ host: "ASKRIGOR.COM", [ATLAS_CLIENT_IP_HEADER]: "::ffff:203.0.113.9" }),
-      "askrigor.com", "10.0.0.2")).toBe("203.0.113.9");
+      "askrigor.com", "10.0.0.2", SECRET)).toBe("203.0.113.9");
     for (const [host, value] of [["mcp.askrigor.com", "203.0.113.9"], ["askrigor.com", "203.0.113.9, 10.0.0.1"],
       ["askrigor.com", "not an address"], ["askrigor.com", "fe80::1%eth0"]] as const) {
-      expect(atlasReaderAddress(request({ host, [ATLAS_CLIENT_IP_HEADER]: value }), "askrigor.com", "10.0.0.2"),
+      expect(atlasReaderAddress(request({ host, [ATLAS_CLIENT_IP_HEADER]: value }), "askrigor.com", "10.0.0.2", SECRET),
         `${host} ${value}`).toBe("10.0.0.2");
     }
-    expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: "203.0.113.9" }), null, "10.0.0.2"))
-      .toBe("10.0.0.2");
+    expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: "203.0.113.9" }), null, "10.0.0.2",
+      SECRET)).toBe("10.0.0.2");
+    // Without the secret configured, or without it on the request, the connection's address.
+    expect(atlasReaderAddress(request({ host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: "203.0.113.9" }), "askrigor.com",
+      "10.0.0.2")).toBe("10.0.0.2");
+    expect(atlasReaderAddress({ headers: { host: "askrigor.com", [ATLAS_CLIENT_IP_HEADER]: "203.0.113.9" } } as never,
+      "askrigor.com", "10.0.0.2", SECRET)).toBe("10.0.0.2");
   });
 
   it("counts an IPv6 address by its /64 and an IPv4 address as it is", () => {

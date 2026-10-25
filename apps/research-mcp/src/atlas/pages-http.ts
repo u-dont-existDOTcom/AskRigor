@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { createRemoteJWKSet } from "jose";
@@ -93,9 +94,10 @@ import {
  * 404, and every path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. Every /atlas response carries the pages' own
  * content policy and headers. Nothing about a reader is logged; a reader who does not sign in gets no cookie, and the
  * per-address rate limit keeps a counter in memory, as the evidence-gap page's does, counting an IPv6 address by its
- * /64. The apex site's Caddy proxies /atlas here with the Host askrigor.com and the reader's address, taken from the
- * connection, in X-AskRigor-Client-IP; that header is believed only on a request whose Host is the public origin's,
- * which only that proxy sends, never on one that reached mcp.askrigor.com directly. Rendered pages are cached in
+ * /64. The apex site's Caddy proxies /atlas here with the Host askrigor.com, the reader's address, taken from the
+ * connection, in X-AskRigor-Client-IP, and the shared secret ASKRIGOR_ATLAS_PROXY_SECRET in X-AskRigor-Proxy-Secret;
+ * the address is believed only with that secret and the public origin's Host, so no request that reached
+ * mcp.askrigor.com directly can choose its address, whatever the mcp block forwards. Rendered pages are cached in
  * memory for 60 seconds for readers who are not signed in, bounded in number and size, and dropped whenever a
  * publication, an accepted finding, a vote or a comment changes in this process (change-signal.ts).
  *
@@ -118,6 +120,8 @@ export const ATLAS_PAGE_HEADERS = Object.freeze({
 
 /** The header the apex site's Caddy sets to the reader's address, from the connection. */
 export const ATLAS_CLIENT_IP_HEADER = "x-askrigor-client-ip";
+/** The header that proves a request came through the apex site's Caddy: the shared secret the installer writes there. */
+export const ATLAS_PROXY_SECRET_HEADER = "x-askrigor-proxy-secret";
 
 /** Per address, as the evidence-gap page limits its routes: a burst of 60 pages, then one a second. */
 export const ATLAS_PAGES_RATE_LIMIT = {
@@ -342,6 +346,11 @@ export interface CreateAtlasPagesHandlerOptions {
    * is not usable: then no forwarded address is believed.
    */
   publicOrigin?: string | null;
+  /**
+   * The secret the apex site's Caddy sends in X-AskRigor-Proxy-Secret (ASKRIGOR_ATLAS_PROXY_SECRET): without it, or
+   * when a request's header does not match it, no forwarded address is believed.
+   */
+  proxySecret?: string | null;
   /** What the pages read; undefined while enabled means they are not configured, and answer 503. */
   source?: AtlasPageSource;
   rateLimiter?: TokenBucketLimiter;
@@ -434,17 +443,27 @@ function cursorOf(value: string | null, prefix: "C" | "P"): number | undefined {
 const noticeOf = (done: string) => Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
 
 /**
- * The reader's address: the apex proxy's X-AskRigor-Client-IP on a request whose Host is the public origin's host,
- * else the address the server resolved for the connection.
+ * The reader's address: the apex proxy's X-AskRigor-Client-IP on a request that carries the proxy's secret and whose
+ * Host is the public origin's host, else the address the server resolved for the connection.
  */
-export function atlasReaderAddress(request: IncomingMessage, publicHost: string | null, connectionAddress: string): string {
+export function atlasReaderAddress(request: IncomingMessage, publicHost: string | null, connectionAddress: string,
+  proxySecret: string | null = null): string {
   const host = request.headers.host;
   const forwarded = request.headers[ATLAS_CLIENT_IP_HEADER];
-  if (publicHost !== null && typeof host === "string" && host.toLowerCase() === publicHost && typeof forwarded === "string") {
+  if (proxySecret !== null && sameSecret(request.headers[ATLAS_PROXY_SECRET_HEADER], proxySecret) && publicHost !== null &&
+    typeof host === "string" && host.toLowerCase() === publicHost && typeof forwarded === "string") {
     const address = normalizeClientIp(forwarded);
     if (address !== undefined) return address;
   }
   return connectionAddress;
+}
+
+/** Whether a header holds exactly the secret, compared in constant time. */
+function sameSecret(header: string | string[] | undefined, secret: string): boolean {
+  if (typeof header !== "string") return false;
+  const left = Buffer.from(header, "utf8");
+  const right = Buffer.from(secret, "utf8");
+  return left.byteLength === right.byteLength && timingSafeEqual(left, right);
 }
 
 function hostOf(origin: string | null | undefined): string | null {
@@ -459,6 +478,7 @@ function hostOf(origin: string | null | undefined): string | null {
 export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions): AtlasPagesHandler {
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(ATLAS_PAGES_RATE_LIMIT);
   const publicHost = hostOf(options.publicOrigin);
+  const proxySecret = options.proxySecret ?? null;
   const cache = new AtlasPageCache({ ...ATLAS_PAGE_CACHE_LIMITS, ...options.cache, now: options.now });
   if (options.enabled) (options.signal ?? atlasChanges).subscribe(() => cache.clear());
   const participation = options.participation;
@@ -862,7 +882,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         return true;
       }
-      const addressKey = addressLimitKey(atlasReaderAddress(request, publicHost, dispatchOptions.clientIp));
+      const addressKey = addressLimitKey(atlasReaderAddress(request, publicHost, dispatchOptions.clientIp, proxySecret));
       if (!rateLimiter.consume(addressKey)) {
         write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60" });
         return true;
@@ -996,9 +1016,13 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
     source = undefined;
   }
   const participation = atlasParticipationFromEnv(env);
+  // The proxy's secret, as the other secrets: 32 random bytes in canonical base64url, else none.
+  const proxySecret = secretFromBase64Url(env.ASKRIGOR_ATLAS_PROXY_SECRET) === undefined ? null
+    : env.ASKRIGOR_ATLAS_PROXY_SECRET!.trim();
   return createAtlasPagesHandler({
     enabled: true,
     publicOrigin: publicOriginFrom(env.ASKRIGOR_ATLAS_PUBLIC_ORIGIN) ?? null,
+    proxySecret,
     source,
     ...(participation === undefined ? {} : { participation }),
   });

@@ -148,6 +148,8 @@ export async function fixture(options: {
   now?: () => number;
   /** Wraps the store the handler writes through, such as to make one of its calls fail. */
   wrapStore?: (store: AtlasParticipationStore) => AtlasParticipationStore;
+  /** The apex proxy's shared secret the handler expects with a forwarded address. */
+  proxySecret?: string;
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -165,6 +167,7 @@ export async function fixture(options: {
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
+      ...(options.proxySecret === undefined ? {} : { proxySecret: options.proxySecret }),
       ...(options.participation === false ? {} : {
         participation: {
           settings,

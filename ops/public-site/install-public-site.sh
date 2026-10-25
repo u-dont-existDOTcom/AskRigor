@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 usage() {
-  printf 'Usage: ASKRIGOR_ATLAS_UPSTREAM=<host:port> %s <archive.tar.gz> <archive.sha256> <revision>\n' "${0##*/}" >&2
+  printf 'Usage: ASKRIGOR_ATLAS_UPSTREAM=<host:port> ASKRIGOR_ATLAS_PROXY_SECRET=<secret> %s <archive.tar.gz> <archive.sha256> <revision>\n' "${0##*/}" >&2
 }
 
 die() {
@@ -177,16 +177,30 @@ validate_atlas_upstream() {
     { die "ASKRIGOR_ATLAS_UPSTREAM is not an upstream the production Caddyfile proxies to"; return 1; }
 }
 
-# The packet's Caddyfile with the checked upstream in place of its placeholder, appended to the combined Caddyfile.
+# The shared secret the apex block sends the research server, which believes a forwarded address only with it: the
+# server-made setting ASKRIGOR_ATLAS_PROXY_SECRET (32 random bytes in canonical unpadded base64url), the same value the
+# research server is given. It is never printed.
+validate_atlas_proxy_secret() {
+  local secret=$1
+  [[ "$secret" =~ ^[A-Za-z0-9_-]{43}$ ]] ||
+    { die "ASKRIGOR_ATLAS_PROXY_SECRET must be 32 random bytes in unpadded base64url"; return 1; }
+}
+
+# The packet's Caddyfile with the checked upstream and secret in place of their placeholders, appended to the combined
+# Caddyfile (which the installer keeps root-only, mode 0400).
 render_packet_caddyfile() {
   local packet=$1
   local upstream=$2
-  local output=$3
-  local placeholder='{$ASKRIGOR_ATLAS_UPSTREAM}'
+  local secret=$3
+  local output=$4
+  local upstream_placeholder='{$ASKRIGOR_ATLAS_UPSTREAM}'
+  local secret_placeholder='{$ASKRIGOR_ATLAS_PROXY_SECRET}'
   local content
   content=$(<"$packet")
-  [[ "$content" == *"$placeholder"* ]] || { die "packet Caddyfile lacks the Atlas upstream placeholder"; return 1; }
-  content=${content//"$placeholder"/"$upstream"}
+  [[ "$content" == *"$upstream_placeholder"* ]] || { die "packet Caddyfile lacks the Atlas upstream placeholder"; return 1; }
+  [[ "$content" == *"$secret_placeholder"* ]] || { die "packet Caddyfile lacks the Atlas proxy secret placeholder"; return 1; }
+  content=${content//"$upstream_placeholder"/"$upstream"}
+  content=${content//"$secret_placeholder"/"$secret"}
   [[ "$content" != *'{$ASKRIGOR_'* ]] || { die "packet Caddyfile keeps an unrendered placeholder"; return 1; }
   printf '%s\n' "$content" >>"$output"
 }
@@ -352,6 +366,7 @@ main() {
   input_checksum=$2
   revision=$3
   atlas_upstream=${ASKRIGOR_ATLAS_UPSTREAM:-}
+  atlas_proxy_secret=${ASKRIGOR_ATLAS_PROXY_SECRET:-}
 
 [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
   die "revision must be a safe nonempty release name"
@@ -394,6 +409,7 @@ resolve_https_release "$https_release_link" "$https_releases_root"
 https_compose=$resolved_https_compose
 production_caddyfile=$resolved_production_caddyfile
 validate_atlas_upstream "$atlas_upstream" "$production_caddyfile"
+validate_atlas_proxy_secret "$atlas_proxy_secret"
 select_live_compose_config_files \
   "$base_compose" "$https_compose" "$state_root/compose.site.yaml"
 discover_live_caddy_container "$live_compose_config_files"
@@ -525,7 +541,7 @@ packet_overlay="$release_path/ops/public-site/compose.site.yaml"
 staged_combined_caddyfile="$staging_path/Caddyfile.combined"
 cp --reflink=never -- "$production_caddyfile" "$staged_combined_caddyfile"
 printf '\n' >>"$staged_combined_caddyfile"
-render_packet_caddyfile "$packet_caddyfile" "$atlas_upstream" "$staged_combined_caddyfile"
+render_packet_caddyfile "$packet_caddyfile" "$atlas_upstream" "$atlas_proxy_secret" "$staged_combined_caddyfile"
 chown root:root -- "$staged_combined_caddyfile"
 chmod 0400 -- "$staged_combined_caddyfile"
 
