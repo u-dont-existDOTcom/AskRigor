@@ -2,6 +2,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasPageOwnComment,
   AtlasPageParticipation,
   AtlasPageChangeKind,
   AtlasPageFinding,
@@ -13,6 +14,7 @@ import type {
   AtlasPublishedFinding,
   AtlasSubjectType,
 } from "@askrigor/evidence-repository";
+import { ATLAS_OWN_COMMENTS_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { passesPageGuard } from "./page-guard.js";
 
@@ -183,6 +185,8 @@ export interface AtlasFindingParticipationView {
   error: string | null;
   /** What the reader wrote, kept when the form was refused. */
   draft: { body: string; displayName: string } | null;
+  /** The next page of older comments, when the page holds only some of them. */
+  olderHref: string | null;
 }
 
 export type AtlasChangeEntryKind = "published" | AtlasPageChangeKind;
@@ -563,7 +567,7 @@ export function topicSectionOf(finding: ShownFinding): TopicSectionId {
 export async function loadAtlasFinding(
   source: AtlasPageSource,
   publicationNumber: string,
-  options: { participation?: { participantKey: string | null } } = {},
+  options: { participation?: { participantKey: string | null; before?: number } } = {},
 ): Promise<AtlasFindingModel | undefined> {
   return await source.read(async (reads) => {
     const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1 });
@@ -577,8 +581,22 @@ export async function loadAtlasFinding(
     const shown = shownFindingOf(publication, findings, related);
     if (shown === undefined) return undefined;
     const participation = options.participation === undefined ? null
-      : await reads.readParticipation(publicationNumber, options.participation.participantKey);
+      : await reads.readParticipation(publicationNumber, options.participation.participantKey, options.participation.before);
     return { finding: shown, participation };
+  });
+}
+
+/** A signed-in reader's own comments page: their comments in every state, newest first, and whether older ones remain. */
+export interface AtlasOwnCommentsModel {
+  comments: AtlasPageOwnComment[];
+  more: boolean;
+}
+
+export async function loadAtlasOwnComments(source: AtlasPageSource, participantKey: string, before?: number):
+  Promise<AtlasOwnCommentsModel> {
+  return await source.read(async (reads) => {
+    const rows = await reads.listOwnComments(participantKey, before, ATLAS_OWN_COMMENTS_PER_PAGE + 1);
+    return { comments: rows.slice(0, ATLAS_OWN_COMMENTS_PER_PAGE), more: rows.length > ATLAS_OWN_COMMENTS_PER_PAGE };
   });
 }
 

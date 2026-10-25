@@ -268,6 +268,10 @@ describe("the votes and comments stores in PostgreSQL", () => {
         }
         if (normalized.includes("FROM atlas_participants viewer")) return { rows: [{ display_name: "Ann", stopped: false }] };
         if (normalized.includes("SELECT own.vote")) return { rows: [{ vote: "agree" }] };
+        if (normalized.includes("own.publication_number, own.display_name")) {
+          return { rows: [{ comment_number: "1001", publication_number: "P-1001", display_name: "Ann", body: "Mine.",
+            state: "hidden", posted_at: new Date("2026-11-05T09:00:00Z"), publication_listed: true }] };
+        }
         if (normalized.includes("SELECT own.comment_number")) return { rows: [{ comment_number: "1001" }] };
         if (normalized.includes("atlas_home_picks")) return { rows: [{ slot: 1, publication_number: "P-1001", reason: "Why." }] };
         return { rows: [] };
@@ -279,8 +283,14 @@ describe("the votes and comments stores in PostgreSQL", () => {
       anonymous: await reads.readParticipation("P-1001", null),
       viewer: await reads.readParticipation("P-1001", "b".repeat(64)),
       picks: await reads.listHomePicks(),
+      own: await reads.listOwnComments("b".repeat(64), 1_005, 51),
     }));
-    expect(read.anonymous).toEqual({ agree: 3, disagree: 1, viewer: null,
+    expect(read.own).toEqual([{ publicId: "C-1001", publicationNumber: "P-1001", displayName: "Ann", body: "Mine.",
+      state: "hidden", postedAt: "2026-11-05T09:00:00.000Z", publicationListed: true }]);
+    const ownCall = calls.find(({ sql }) => sql.includes("own.publication_number, own.display_name"))!;
+    expect(ownCall.values).toEqual(["b".repeat(64), 1_005, 51]);
+    expect(ownCall.sql.slice(0, ownCall.sql.indexOf(" FROM "))).not.toContain("participant_key");
+    expect(read.anonymous).toEqual({ agree: 3, disagree: 1, viewer: null, more: false,
       comments: [{ publicId: "C-1001", displayName: "Jane", body: "Hi.", postedAt: "2026-11-05T09:00:00.000Z",
         marker: "0123ab" }] });
     expect(read.viewer.viewer).toEqual({ displayName: "Ann", stopped: false, vote: "agree", ownComments: ["C-1001"] });
@@ -294,7 +304,7 @@ describe("the votes and comments stores in PostgreSQL", () => {
     for (const { sql } of calls) {
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE)\b|atlas_comment_reports|reporter_key/u);
     }
-    expect(calls.filter(({ values }) => values?.includes("b".repeat(64)))).toHaveLength(3);
+    expect(calls.filter(({ values }) => values?.includes("b".repeat(64)))).toHaveLength(4);
     await expect(source.read((reads) => reads.readParticipation("P-1001", "not a key"))).rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
   });
 });
@@ -634,7 +644,8 @@ describe("votes and comments on a finding page", () => {
     page = (await f.get("/atlas/findings/P-1001", session)).body;
     await f.post("/atlas/findings/P-1001/comments", { csrf: tokenFor(page, "/atlas/findings/P-1001/comments"),
       body: "Second." }, { cookie: session });
-    expect(f.store.pageParticipation("P-1001", null).comments.map(({ displayName }) => displayName)).toEqual(["Jane", "J. Doe"]);
+    // Newest first: the later comment under the new name, then the earlier one under the old.
+    expect(f.store.pageParticipation("P-1001", null).comments.map(({ displayName }) => displayName)).toEqual(["J. Doe", "Jane"]);
     const bad = await f.post("/atlas/account/name", { csrf: tokenFor(page, "/atlas/account/name"), displayName: "see me.com",
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(bad.status).toBe(422);

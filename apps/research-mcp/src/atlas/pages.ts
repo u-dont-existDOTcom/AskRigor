@@ -462,7 +462,8 @@ ${hiddenFields(comment.reportToken, path)}
 </div>
 </li>
 `)}</ol>`}
-${viewer === null ? "" : viewer.stopped ? html`<p class="error-line">Your account can't comment in the Atlas.</p>`
+${view.olderHref === null ? "" : html`<p><a href="${view.olderHref}">Older comments</a></p>
+`}${viewer === null ? "" : viewer.stopped ? html`<p class="error-line">Your account can't comment in the Atlas.</p>`
     : html`<form method="post" action="${path}/comments" class="comment-form">
 ${hiddenFields(viewer.tokens.comment, path)}
 ${viewer.displayName !== null ? "" : html`<p><label for="display-name">Your display name, shown with your comments</label>
@@ -473,6 +474,7 @@ ${viewer.displayName !== null ? "" : html`<p><label for="display-name">Your disp
 <button type="submit">Post comment</button>
 </form>`}
 ${viewer === null ? "" : html`<div class="account">
+<p class="account-link"><a href="${OWN_COMMENTS_PATH}">Your comments</a>, to find and delete any of them</p>
 ${viewer.displayName === null ? "" : html`<form method="post" action="/atlas/account/name" class="name-form">
 ${hiddenFields(viewer.tokens.name, path)}
 <label for="new-name">Your display name</label>
@@ -643,6 +645,55 @@ export function renderAtlasUnavailable(): string {
 }
 
 /** A short page answering a form or a sign-in that could not go ahead, with the way back. */
+/** Where a signed-in reader finds every comment of theirs. */
+export const OWN_COMMENTS_PATH = "/atlas/account/comments";
+
+/** A signed-in reader's own comments, each with its delete form, and the page's notice. */
+export interface AtlasOwnCommentsView {
+  comments: Array<{
+    publicId: string;
+    publicationNumber: string;
+    /** Null when the text cannot be written on a page (the pages' last check would refuse it). */
+    body: string | null;
+    state: "shown" | "hidden";
+    postedAt: string;
+    publicationListed: boolean;
+    deleteToken: string;
+  }>;
+  olderHref: string | null;
+  notice: string | null;
+}
+
+export function renderAtlasOwnComments(view: AtlasOwnCommentsView): string {
+  return page({
+    path: null,
+    title: "Your comments | AskRigor Atlas",
+    description: "The comments you posted in the AskRigor Atlas.",
+    body: html`<h1 id="comments">Your comments</h1>
+${view.notice === null ? "" : html`<p class="notice-line" role="status">${view.notice}</p>
+`}<p>Every comment you posted in the Atlas, newest first, wherever it is: shown, hidden by AskRigor&#39;s owner, or on a
+finding that is no longer on the pages. Deleting one deletes it outright, with its reports.</p>
+${view.comments.length === 0 ? html`<p>You have no comments in the Atlas.</p>` : html`<ol class="comment-list">
+${view.comments.map((comment) => html`<li class="comment" id="${comment.publicId}">
+<p class="meta">${comment.publicId} · ${comment.publicationListed
+    ? html`on <a href="${findingPath(comment.publicationNumber)}">${comment.publicationNumber}</a>`
+    : html`on ${comment.publicationNumber}, no longer on the pages`} · ${day(comment.postedAt)}${comment.state === "hidden"
+    ? html` · <strong>hidden by AskRigor&#39;s owner</strong>: only you see it here` : ""}</p>
+${comment.body === null ? html`<p class="aside">Its text cannot be shown on the pages.</p>`
+    : html`<p class="comment-body" dir="auto">${comment.body}</p>`}
+<div class="comment-actions">
+<form method="post" action="/atlas/comments/${comment.publicId}/delete">
+${hiddenFields(comment.deleteToken, OWN_COMMENTS_PATH)}
+<button type="submit" class="quiet">Delete this comment</button>
+</form>
+</div>
+</li>
+`)}</ol>`}
+${view.olderHref === null ? "" : html`<p><a href="${view.olderHref}">Older comments</a></p>
+`}<p><a href="/atlas">Atlas home</a></p>`,
+  });
+}
+
 export function renderAtlasMessage(title: string, message: string, back: { href: string; text: string }): string {
   return page({
     path: null,
@@ -868,6 +919,7 @@ input[type="text"], input:not([type]), textarea {
 }
 .name-form input { width: auto; flex: 1 1 12rem; }
 .account .forget-form { flex-basis: 100%; margin-top: 0.75rem; }
+.account .account-link { flex-basis: 100%; margin: 0; }
 .forget-form p { margin: 0 0 0.4rem; }
 .forget-form label { display: inline; font-weight: 400; }
 button {

@@ -22,9 +22,10 @@ export const ATLAS_COMMENT_MAX_CHARACTERS = 2_000;
 export const ATLAS_DISPLAY_NAME_MAX_CHARACTERS = 40;
 export const ATLAS_HOME_PICKS_MAX = 5;
 export const ATLAS_PICK_REASON_MAX_CHARACTERS = 300;
-/** The most comments one owner's inspection returns, and one finding page shows. */
+/** The most comments one owner's inspection returns, one finding page reads, and one page of a reader's own lists. */
 export const ATLAS_COMMENTS_PER_INSPECT = 200;
-export const ATLAS_COMMENTS_PER_PAGE = 200;
+export const ATLAS_COMMENTS_PER_PAGE = 50;
+export const ATLAS_OWN_COMMENTS_PER_PAGE = 50;
 
 const PARTICIPANT_KEY = /^[a-f0-9]{64}$/u;
 const REPORTER_KEY = /^[pa]:[a-f0-9]{64}$/u;
@@ -156,6 +157,18 @@ export function atlasCommenterTag(participantKey: string): string {
   return `U-${createHash("sha256").update(`askrigor-atlas-commenter:v1:${participantKey}`, "utf8").digest("hex").slice(0, 12)}`;
 }
 
+/** One of a reader's own comments, as their own comments page lists it: in any state, on any publication. */
+export interface AtlasPageOwnComment {
+  publicId: string;
+  publicationNumber: string;
+  displayName: string;
+  body: string;
+  state: AtlasCommentState;
+  postedAt: string;
+  /** Whether its publication is unreviewed, accepted or edited, so its page may show. */
+  publicationListed: boolean;
+}
+
 /** The mark a page shows after a commenter's name: six hexadecimal characters of their tag. */
 export function atlasCommenterMarker(participantKey: string): string {
   return atlasCommenterTag(participantKey).slice(2, 8);
@@ -230,11 +243,13 @@ export interface AtlasPageParticipation {
   agree: number;
   disagree: number;
   /**
-   * The comments that show, oldest first. marker is six hexadecimal characters of the commenter's tag (the start of
-   * the U- tag the owner's review names them by): the same on all their comments, so two people who chose one name can
-   * be told apart.
+   * The comments that show, newest first, at most ATLAS_COMMENTS_PER_PAGE, older than the page's cursor when it has
+   * one. marker is six hexadecimal characters of the commenter's tag (the start of the U- tag the owner's review names
+   * them by): the same on all their comments, so two people who chose one name can be told apart.
    */
   comments: Array<{ publicId: string; displayName: string; body: string; postedAt: string; marker: string }>;
+  /** Whether older comments that show remain beyond these. */
+  more: boolean;
   /** The signed-in viewer's own state; null without a viewer. */
   viewer: { displayName: string | null; stopped: boolean; vote: AtlasVote | null; ownComments: string[] } | null;
 }
@@ -533,18 +548,20 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
     return structuredClone(this.picks);
   }
 
-  /** What a finding page reads (the reader's view in PostgreSQL). */
-  pageParticipation(publicationNumber: string, participantKey: string | null): AtlasPageParticipation {
+  /** What a finding page reads (the reader's view in PostgreSQL): newest first, older than `before` when given. */
+  pageParticipation(publicationNumber: string, participantKey: string | null, before?: number): AtlasPageParticipation {
     const participant = participantKey === null ? undefined : this.participants.get(participantKey);
     const vote = participantKey === null ? undefined : this.votes.get(`${publicationNumber}\u0000${participantKey}`);
+    const shown = this.comments
+      .filter((comment) => comment.publicationNumber === publicationNumber && comment.state === "shown" &&
+        (before === undefined || comment.commentNumber < before))
+      .sort((left, right) => right.commentNumber - left.commentNumber);
     return {
       ...this.totals(publicationNumber),
-      comments: this.comments
-        .filter((comment) => comment.publicationNumber === publicationNumber && comment.state === "shown")
-        .sort((left, right) => left.commentNumber - right.commentNumber)
-        .slice(0, ATLAS_COMMENTS_PER_PAGE)
+      comments: shown.slice(0, ATLAS_COMMENTS_PER_PAGE)
         .map((comment) => ({ publicId: atlasCommentId(comment.commentNumber), displayName: comment.displayName,
           body: comment.body, postedAt: comment.postedAt, marker: atlasCommenterMarker(comment.participantKey) })),
+      more: shown.length > ATLAS_COMMENTS_PER_PAGE,
       viewer: participantKey === null ? null : {
         displayName: participant?.displayName ?? null,
         stopped: participant?.stoppedAt !== null && participant?.stoppedAt !== undefined,
@@ -555,6 +572,23 @@ export class InMemoryAtlasParticipation implements AtlasParticipationStore, Atla
           .map((comment) => atlasCommentId(comment.commentNumber)),
       },
     };
+  }
+
+  /** A reader's own comments in every state and on every publication, newest first (the reader's view in PostgreSQL). */
+  ownComments(participantKey: string, before: number | undefined, limit: number): AtlasPageOwnComment[] {
+    return this.comments
+      .filter((comment) => comment.participantKey === participantKey && (before === undefined || comment.commentNumber < before))
+      .sort((left, right) => right.commentNumber - left.commentNumber)
+      .slice(0, limit)
+      .map((comment) => ({
+        publicId: atlasCommentId(comment.commentNumber),
+        publicationNumber: comment.publicationNumber,
+        displayName: comment.displayName,
+        body: comment.body,
+        state: comment.state,
+        postedAt: comment.postedAt,
+        publicationListed: this.open(comment.publicationNumber),
+      }));
   }
 
   /** Every stored row, as text, for tests that scan what is kept. */

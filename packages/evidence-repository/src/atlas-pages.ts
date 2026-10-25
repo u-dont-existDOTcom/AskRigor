@@ -16,7 +16,9 @@ import {
 import { readAtlasStateWith } from "./atlas-postgres.js";
 import {
   ATLAS_COMMENTS_PER_PAGE,
+  ATLAS_OWN_COMMENTS_PER_PAGE,
   atlasCommentId,
+  type AtlasPageOwnComment,
   type AtlasPageParticipation,
   type InMemoryAtlasParticipation,
 } from "./atlas-participation.js";
@@ -140,10 +142,14 @@ export interface AtlasPageReads {
   /** Change records of the kinds the pages list, newest first. */
   listChanges(limit: number): Promise<AtlasPageChange[]>;
   /**
-   * A publication's vote totals and the comments that show (section 4E), with the signed-in viewer's own vote, display
-   * name and comments when a participant key is given; never another participant's key.
+   * A publication's vote totals and the comments that show (section 4E), newest first, older than `before` (a comment
+   * number) when given, with the signed-in viewer's own vote, display name and comments when a participant key is
+   * given; never another participant's key.
    */
-  readParticipation(publicationNumber: string, participantKey: string | null): Promise<AtlasPageParticipation>;
+  readParticipation(publicationNumber: string, participantKey: string | null, before?: number):
+    Promise<AtlasPageParticipation>;
+  /** A signed-in reader's own comments in every state and on every publication, newest first, older than `before`. */
+  listOwnComments(participantKey: string, before: number | undefined, limit: number): Promise<AtlasPageOwnComment[]>;
   /** The owner's picks for the home page, in order. */
   listHomePicks(): Promise<AtlasPageHomePick[]>;
 }
@@ -355,9 +361,16 @@ const SHOWN_COMMENTS_SQL = `SELECT shown.comment_number, shown.display_name, sho
        substr(author.commenter_tag, 3, 6) AS marker
   FROM atlas_comments shown
   JOIN atlas_participants author ON author.participant_key = shown.participant_key
- WHERE shown.publication_number = $1 AND shown.state = 'shown'
- ORDER BY shown.comment_number
- LIMIT $2`;
+ WHERE shown.publication_number = $1 AND shown.state = 'shown' AND ($2::bigint IS NULL OR shown.comment_number < $2)
+ ORDER BY shown.comment_number DESC
+ LIMIT $3`;
+const OWN_COMMENTS_SQL = `SELECT own.comment_number, own.publication_number, own.display_name, own.body, own.state, own.posted_at,
+       publication.state IN ('unreviewed', 'accepted', 'edited') AS publication_listed
+  FROM atlas_comments own
+  JOIN atlas_publications publication ON publication.publication_number = own.publication_number
+ WHERE own.participant_key = $1 AND ($2::bigint IS NULL OR own.comment_number < $2)
+ ORDER BY own.comment_number DESC
+ LIMIT $3`;
 const VIEWER_SQL = `SELECT viewer.display_name, viewer.stopped_at IS NOT NULL AS stopped
   FROM atlas_participants viewer
  WHERE viewer.participant_key = $1`;
@@ -369,8 +382,16 @@ const HOME_PICKS_SQL = `SELECT pick.slot, pick.publication_number, pick.reason F
 
 const PARTICIPANT_KEY = /^[a-f0-9]{64}$/u;
 
-function validateParticipationRead(publicationNumber: string, participantKey: string | null): void {
-  if (!PUBLICATION_NUMBER.test(publicationNumber) || (participantKey !== null && !PARTICIPANT_KEY.test(participantKey))) {
+function validateParticipationRead(publicationNumber: string, participantKey: string | null, before?: number): void {
+  if (!PUBLICATION_NUMBER.test(publicationNumber) || (participantKey !== null && !PARTICIPANT_KEY.test(participantKey)) ||
+    (before !== undefined && (!Number.isSafeInteger(before) || before < 1))) {
+    throw new AtlasPageQueryError();
+  }
+}
+
+function validateOwnCommentsRead(participantKey: string, before: number | undefined, limit: number): void {
+  if (!PARTICIPANT_KEY.test(participantKey) || (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) ||
+    !Number.isInteger(limit) || limit < 1 || limit > ATLAS_OWN_COMMENTS_PER_PAGE + 1) {
     throw new AtlasPageQueryError();
   }
 }
@@ -463,12 +484,14 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       }));
     },
 
-    async readParticipation(publicationNumber, participantKey) {
-      validateParticipationRead(publicationNumber, participantKey);
+    async readParticipation(publicationNumber, participantKey, before) {
+      validateParticipationRead(publicationNumber, participantKey, before);
       const totals = (await client.query<{ agree: string | number; disagree: string | number }>(VOTE_TOTALS_SQL,
         [publicationNumber])).rows[0];
-      const comments = (await client.query<{ comment_number: string | number; display_name: string; body: string;
-        posted_at: Date | string; marker: string }>(SHOWN_COMMENTS_SQL, [publicationNumber, ATLAS_COMMENTS_PER_PAGE])).rows;
+      const read = (await client.query<{ comment_number: string | number; display_name: string; body: string;
+        posted_at: Date | string; marker: string }>(SHOWN_COMMENTS_SQL,
+        [publicationNumber, before ?? null, ATLAS_COMMENTS_PER_PAGE + 1])).rows;
+      const comments = read.slice(0, ATLAS_COMMENTS_PER_PAGE);
       let viewer: AtlasPageParticipation["viewer"] = null;
       if (participantKey !== null) {
         const [own] = (await client.query<{ display_name: string | null; stopped: boolean }>(VIEWER_SQL,
@@ -493,8 +516,24 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           postedAt: instant(row.posted_at),
           marker: z.string().regex(/^[a-f0-9]{6}$/u).parse(row.marker),
         })),
+        more: read.length > ATLAS_COMMENTS_PER_PAGE,
         viewer,
       };
+    },
+
+    async listOwnComments(participantKey, before, limit) {
+      validateOwnCommentsRead(participantKey, before, limit);
+      return (await client.query<{ comment_number: string | number; publication_number: string; display_name: string;
+        body: string; state: string; posted_at: Date | string; publication_listed: boolean }>(OWN_COMMENTS_SQL,
+        [participantKey, before ?? null, limit])).rows.map((row) => ({
+        publicId: atlasCommentId(Number(row.comment_number)),
+        publicationNumber: row.publication_number,
+        displayName: row.display_name,
+        body: row.body,
+        state: z.enum(["shown", "hidden"]).parse(row.state),
+        postedAt: instant(row.posted_at),
+        publicationListed: row.publication_listed === true,
+      }));
     },
 
     async listHomePicks() {
@@ -657,12 +696,17 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           }));
       },
 
-      readParticipation: async (publicationNumber, participantKey) => {
-        validateParticipationRead(publicationNumber, participantKey);
-        return this.stores.participation?.pageParticipation(publicationNumber, participantKey) ?? {
-          agree: 0, disagree: 0, comments: [],
+      readParticipation: async (publicationNumber, participantKey, before) => {
+        validateParticipationRead(publicationNumber, participantKey, before);
+        return this.stores.participation?.pageParticipation(publicationNumber, participantKey, before) ?? {
+          agree: 0, disagree: 0, comments: [], more: false,
           viewer: participantKey === null ? null : { displayName: null, stopped: false, vote: null, ownComments: [] },
         };
+      },
+
+      listOwnComments: async (participantKey, before, limit) => {
+        validateOwnCommentsRead(participantKey, before, limit);
+        return this.stores.participation?.ownComments(participantKey, before, limit) ?? [];
       },
 
       listHomePicks: async () => (await this.stores.participation?.inspectHomePicks() ?? [])

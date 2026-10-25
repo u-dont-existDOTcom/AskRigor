@@ -25,13 +25,15 @@ import {
   loadAtlasChanges,
   loadAtlasFinding,
   loadAtlasHome,
+  loadAtlasOwnComments,
   loadAtlasTopic,
   type AtlasFindingModel,
   type AtlasFindingParticipationView,
 } from "./page-data.js";
-import { passesPageGuard } from "./page-guard.js";
+import { escapeHtml, passesPageGuard } from "./page-guard.js";
 import {
   ATLAS_CSS,
+  OWN_COMMENTS_PATH,
   atlasPageProblems,
   findingPath,
   renderAtlasChanges,
@@ -39,6 +41,7 @@ import {
   renderAtlasHome,
   renderAtlasMessage,
   renderAtlasNotFound,
+  renderAtlasOwnComments,
   renderAtlasTooManyRequests,
   renderAtlasTopic,
   renderAtlasUnavailable,
@@ -124,6 +127,9 @@ export const ATLAS_PAGES_RATE_LIMIT = {
   idleTtlMs: 15 * 60_000,
 } as const;
 
+/** The most comment text, as escaped bytes, one page renders; older comments are a link away. */
+export const ATLAS_COMMENT_PAGE_BYTES = 64 * 1_024;
+
 export const ATLAS_PAGE_CACHE_LIMITS = {
   ttlMs: 60_000,
   maxEntries: 256,
@@ -163,7 +169,8 @@ export type AtlasRoute =
   | { kind: "delete-comment"; publicId: string }
   | { kind: "report-comment"; publicId: string }
   | { kind: "rename" }
-  | { kind: "forget" };
+  | { kind: "forget" }
+  | { kind: "own-comments" };
 
 type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
   "delete-comment" | "report-comment" | "rename" | "forget" }>;
@@ -200,6 +207,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/auth/logout-everywhere") return { kind: "sign-out-everywhere" };
   if (pathname === "/atlas/account/name") return { kind: "rename" };
   if (pathname === "/atlas/account/delete") return { kind: "forget" };
+  if (pathname === "/atlas/account/comments") return { kind: "own-comments" };
   const findingForm = FINDING_FORM_ROUTE.exec(pathname);
   if (findingForm !== null) {
     return findingForm[2] === "vote" ? { kind: "vote", publicationNumber: findingForm[1]! }
@@ -225,7 +233,8 @@ interface CachedAtlasPage extends RenderedAtlasPage {
 
 /**
  * Rendered pages by path, for ttlMs; at most maxEntries pages and maxBytes in all, the least recently used dropped
- * first. One render per path at a time; clear() drops everything, and a render that began before it is not kept.
+ * first, and only pages that answered 200. One render per path at a time; clear() drops everything, and a render that
+ * began before it is not kept.
  */
 export class AtlasPageCache {
   private readonly entries = new Map<string, CachedAtlasPage>();
@@ -269,7 +278,8 @@ export class AtlasPageCache {
     if (waiting !== undefined) return await waiting;
     const generation = this.generation;
     const rendering = render().then((page) => {
-      if (generation === this.generation) {
+      // Only a page that answered 200 is kept, so requests for missing paths cannot crowd real pages out.
+      if (generation === this.generation && page.status === 200) {
         const bytes = Buffer.byteLength(page.html, "utf8");
         if (bytes <= this.options.maxBytes) {
           this.insert(key, { ...page, bytes, expiresAt: (this.options.now ?? Date.now)() + this.options.ttlMs });
@@ -401,6 +411,15 @@ const NOTICES: Readonly<Record<string, string>> = {
 
 const queryOf = (request: IncomingMessage) => new URL(request.url ?? "/", "http://atlas.invalid").searchParams;
 
+/** A page's cursor, ?before=C-1234: only a comment's public id, as its number. */
+function commentCursor(value: string | null): number | undefined {
+  const match = value === null ? null : /^C-([1-9][0-9]{3,15})$/u.exec(value);
+  return match === null ? undefined : Number(match[1]);
+}
+
+/** The notice a page's done= names, or null: only a notice's own name, never an object's property. */
+const noticeOf = (done: string) => Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
+
 /**
  * The reader's address: the apex proxy's X-AskRigor-Client-IP on a request whose Host is the public origin's host,
  * else the address the server resolved for the connection.
@@ -467,9 +486,22 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     // one is not written back.
     const viewerName = raw.viewer?.displayName ?? null;
     const draft = extras.draft ?? null;
+    // Newest first, as much as the page's byte cap allows (always one); the rest is a link to older comments.
+    const shown = raw.comments.filter((comment) => passesPageGuard(comment.body) && passesPageGuard(comment.displayName));
+    const fitting: typeof shown = [];
+    let bytes = 0;
+    for (const comment of shown) {
+      bytes += Buffer.byteLength(escapeHtml(comment.body), "utf8") + Buffer.byteLength(escapeHtml(comment.displayName), "utf8");
+      if (fitting.length > 0 && bytes > ATLAS_COMMENT_PAGE_BYTES) break;
+      fitting.push(comment);
+    }
+    // The cursor is the last comment read, shown or left out, so the next page starts after it.
+    const last = fitting.length < shown.length ? fitting.at(-1) : raw.comments.at(-1);
+    const olderHref = (fitting.length < shown.length || raw.more) && last !== undefined
+      ? `${findingPath(publicationNumber)}?before=${last.publicId}` : null;
     return {
       totals: { agree: raw.agree, disagree: raw.disagree },
-      comments: raw.comments.filter((comment) => passesPageGuard(comment.body) && passesPageGuard(comment.displayName))
+      comments: fitting
         .map((comment) => ({
           ...comment,
           reportToken: session === undefined ? reportToken(settings, comment.publicId, now)
@@ -497,15 +529,17 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         body: passesPageGuard(draft.body) ? draft.body : "",
         displayName: passesPageGuard(draft.displayName) ? draft.displayName : "",
       },
+      olderHref,
     };
   };
 
   /** A finding page, with the viewer's votes and comments and the page's notice or refusal. */
   const findingPage = async (source: AtlasPageSource, publicationNumber: string, session: AtlasSession | undefined,
     now: Date, extras: { status?: 200 | 403 | 422; notice?: string | null; signedOut?: boolean; error?: string | null;
-      draft?: { body: string; displayName: string } | null } = {}): Promise<RenderedAtlasPage> => {
+      draft?: { body: string; displayName: string } | null; before?: number } = {}): Promise<RenderedAtlasPage> => {
     const model = await loadAtlasFinding(source, publicationNumber, participation === undefined ? {}
-      : { participation: { participantKey: session?.participantKey ?? null } });
+      : { participation: { participantKey: session?.participantKey ?? null,
+        ...(extras.before === undefined ? {} : { before: extras.before }) } });
     if (model === undefined) return checked({ status: 404, html: renderAtlasNotFound() });
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, participationView(model, session, now, extras)) });
   };
@@ -544,6 +578,43 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       new Date(opened.signedInAt).toISOString(), now.toISOString());
     const present = typeof request.headers.cookie === "string" && request.headers.cookie.includes(`${ATLAS_SESSION_COOKIE}=`);
     return { session: current ? opened : undefined, clear: !current && present ? [clearSession] : [] };
+  };
+
+  /** A signed-in reader's own comments: every one of theirs, in any state, each with its delete form. */
+  const ownCommentsRoute = async (request: IncomingMessage, response: ServerResponse, runtime: AtlasParticipationRuntime,
+    source: AtlasPageSource, now: Date) => {
+    const { session, clear } = await currentSession(request, runtime, now);
+    if (session === undefined) {
+      message(response, 200, "Your comments", "Sign in to see every comment you posted in the Atlas and to delete any " +
+        "of them.", signInHref(runtime.settings, OWN_COMMENTS_PATH), clear, "Sign in with your AskRigor account");
+      return;
+    }
+    const query = queryOf(request);
+    const model = await loadAtlasOwnComments(source, session.participantKey, commentCursor(query.get("before")));
+    const fitting: typeof model.comments = [];
+    let bytes = 0;
+    for (const comment of model.comments) {
+      bytes += Buffer.byteLength(escapeHtml(comment.body), "utf8");
+      if (fitting.length > 0 && bytes > ATLAS_COMMENT_PAGE_BYTES) break;
+      fitting.push(comment);
+    }
+    const last = fitting.at(-1);
+    const html = renderAtlasOwnComments({
+      comments: fitting.map((comment) => ({
+        publicId: comment.publicId,
+        publicationNumber: comment.publicationNumber,
+        body: passesPageGuard(comment.body) ? comment.body : null,
+        state: comment.state,
+        postedAt: comment.postedAt,
+        publicationListed: comment.publicationListed,
+        deleteToken: csrfToken(runtime.settings, session, `delete:${comment.publicId}`),
+      })),
+      olderHref: (fitting.length < model.comments.length || model.more) && last !== undefined
+        ? `${OWN_COMMENTS_PATH}?before=${last.publicId}` : null,
+      notice: noticeOf(query.get("done") ?? ""),
+    });
+    const page = checked({ status: 200, html });
+    write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
   };
 
   /** A form that needs a sign-in it does not have: the page links to signing in, as a form cannot leave this site. */
@@ -788,16 +859,24 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await formRoute(route as FormRoute, request, response, participation, source, addressKey, now);
           return true;
         }
+        if (participation !== undefined && route.kind === "own-comments") {
+          await ownCommentsRoute(request, response, participation, source, now);
+          return true;
+        }
         const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
         if (participation !== undefined && pageRoute.kind === "finding") {
           const { session, clear: stale } = await currentSession(request, participation, now);
-          const done = queryOf(request).get("done") ?? "";
-          const notice = Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
-          if (session !== undefined || notice !== null) {
-            // A signed-in reader's page holds their forms' tokens: it is rendered for them, and never cached.
+          const query = queryOf(request);
+          const done = query.get("done") ?? "";
+          const notice = noticeOf(done);
+          const before = commentCursor(query.get("before"));
+          if (session !== undefined || notice !== null || before !== undefined) {
+            // A signed-in reader's page holds their forms' tokens: it is rendered for them, and never cached; so is a
+            // page of older comments.
             const page = await findingPage(source, pageRoute.publicationNumber, session, now, {
               notice,
               signedOut: (done === "signed-out" || done === "signed-out-everywhere") && session === undefined,
+              ...(before === undefined ? {} : { before }),
             });
             write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;

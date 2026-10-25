@@ -1553,8 +1553,8 @@ The pages (section 4C) are built, not yet released, and switched off until
   minutes without a request), as the evidence-gap page's does, with the address
   the apex site's proxy forwards from the connection in `X-AskRigor-Client-IP`,
   believed only on requests for askrigor.com; and the 60-second page cache holds
-  rendered pages
-  for readers who are not signed in, never who asked for them. Signing in to
+  rendered pages that answered 200 for readers who are not signed in, never
+  who asked for them. Signing in to
   vote or comment is mapped in "Atlas votes and comments" below.
 - **Stated limits.** The contact-details check is structural: a phone number
   written as words, an address spelled out ("name at example dot com"), or a
@@ -1646,8 +1646,12 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   contact details (email addresses, phone numbers, messaging handles), links
   (URLs and bare domains) and findings card numbers; one that fails is refused
   with the reason ("Comments can't include contact details or links.") and not
-  stored. Pages show a shown comment's display name, body and date, never its
-  author's key or tag; a hidden comment shows nowhere, to its author neither.
+  stored. A finding page shows its shown comments newest first, at most 50 and
+  64 KiB of text at a time, with a link to older ones: each comment's display
+  name, mark, body and date, never its author's key or full tag. A hidden
+  comment shows only to its author, on their own comments page
+  (`/atlas/account/comments`), which lists every comment of theirs in any
+  state, on any publication, newest first, each with its delete button.
 - **Reports** (`atlas_comment_reports`): one per comment and reporter, with its
   time. A signed-in reporter is their participant key (`p:`); anyone else is an
   HMAC of their address (the one the apex proxy forwards; an IPv6 address by its
@@ -1664,8 +1668,9 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   (`atlas_home_picks`: up to five publications that show, each with the owner's
   public reason, which passes the comments' check).
 - **How each is deleted.** A vote: withdrawn by its voter, deleted outright. A
-  comment: deleted by its author from its page, or removed by the owner, each
-  with its reports. Everything a participant holds: "Delete everything I hold
+  comment: deleted by its author from its finding page or their own comments
+  page (hidden, older or on a finding that left the pages included), or removed
+  by the owner, each with its reports. Everything a participant holds: "Delete everything I hold
   in the Atlas", on a finding page while signed in, deletes their votes, their
   comments (hidden ones included, with the reports on them) and their own
   reports, then their row; for a participant the owner stopped, the row keeps
@@ -1682,10 +1687,11 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   participant key or reporter key (each dropped after two hours without a
   request) and by address (after 15 minutes). Nothing is logged about a
   reader, a voter or a commenter.
-- **Stated limits.** Votes and comments on a publication that later leaves the pages
-  (rejected, withdrawn or held) stay stored and shown nowhere, until the author
-  deletes everything they hold or the owner removes the comments, and show
-  again if the owner publishes the finding again. The contact check is
+- **Stated limits.** Votes and comments on a publication that later leaves the
+  pages (rejected, withdrawn or held) stay stored and shown nowhere but on
+  their author's own comments page, until the author deletes them (a vote only
+  with everything they hold) or the owner removes the comments, and show again
+  if the owner publishes the finding again. The contact check is
   structural, with the limits stated for publications above. The reader role
   can read every column of these tables, as of every table; the pages select
   only what they show. PostgreSQL keeps deleted row versions until vacuum and

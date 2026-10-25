@@ -19,7 +19,12 @@ import {
   participantKeyFor,
 } from "../apps/research-mcp/src/atlas/participation.js";
 import { atlasPageProblems, escapeHtml } from "../apps/research-mcp/src/atlas/pages.js";
-import { ATLAS_CLIENT_IP_HEADER, atlasReaderAddress, createAtlasPagesHandler } from "../apps/research-mcp/src/atlas/pages-http.js";
+import {
+  ATLAS_CLIENT_IP_HEADER,
+  AtlasPageCache,
+  atlasReaderAddress,
+  createAtlasPagesHandler,
+} from "../apps/research-mcp/src/atlas/pages-http.js";
 import { addressLimitKey, createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import {
   SUBJECT,
@@ -309,6 +314,88 @@ describe("display names (review issue 7)", () => {
     expect(marks).toContain(atlasCommenterTag(keyOf(21)).slice(2, 8));
     expect(body).not.toContain(keyOf(21));
     expect(body).not.toContain(atlasCommenterTag(keyOf(21)));
+  });
+});
+
+describe("page size (review issues 8 and 9)", () => {
+  it("shows the newest comments first and caps what one page renders, linking to older ones", async () => {
+    const f = await fixture();
+    for (let index = 0; index < 200; index += 1) {
+      await f.store.postComment(keyOf(index + 10), "P-1001", "\"".repeat(2_000), AT, `N${index}`);
+    }
+    await f.store.postComment(keyOf(9), "P-1001", "The newest comment.", AT, "Newest");
+    const page = await f.get("/atlas/findings/P-1001");
+    expect(page.response.status).toBe(200);
+    expect(Buffer.byteLength(page.body)).toBeLessThan(200_000);
+    expect(page.body.indexOf("The newest comment.")).toBeGreaterThan(-1);
+    expect(page.body.indexOf("The newest comment.")).toBeLessThan(page.body.indexOf("&quot;&quot;"));
+    const older = /href="(\/atlas\/findings\/P-1001\?before=C-\d+)"/u.exec(page.body);
+    expect(older).not.toBeNull();
+    const next = await f.get(older![1]!);
+    expect(next.response.status).toBe(200);
+    expect(next.body).not.toContain("The newest comment.");
+  });
+
+  it("does not cache a page that answered 404, so missing paths cannot crowd real pages out", async () => {
+    const cache = new AtlasPageCache({ ttlMs: 60_000, maxEntries: 2, maxBytes: 1_000_000 });
+    let renders = 0;
+    const missing = async () => { renders += 1; return { status: 404 as const, html: "<p>Not found</p>" }; };
+    await cache.get("/atlas/findings/P-9999", missing);
+    await cache.get("/atlas/findings/P-9999", missing);
+    expect(renders).toBe(2);
+    expect(cache.size).toBe(0);
+    let found = 0;
+    const page = async () => { found += 1; return { status: 200 as const, html: "<p>A page</p>" }; };
+    await cache.get("/atlas", page);
+    await cache.get("/atlas", page);
+    expect(found).toBe(1);
+  });
+});
+
+describe("a reader's own comments (review issue 8)", () => {
+  it("lists every comment of theirs, hidden, beyond a page or on a finding that left the pages, each deletable", async () => {
+    const f = await fixture();
+    const session = await f.signIn();
+    const key = participantKeyFor(f.settings, SUBJECT);
+    const first = await f.store.postComment(key, "P-1001", "Kept on the pages.", AT, "Jane");
+    const hidden = await f.store.postComment(key, "P-1002", "Hidden by the owner.", AT, "Jane");
+    await f.store.moderateComment(hidden, "hide", AT);
+    const gone = await f.store.postComment(key, "P-1003", "On a finding that left.", AT, "Jane");
+    await f.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1003"], ownerReason: "No.",
+      withdrawnAt: AT });
+    for (let index = 0; index < 60; index += 1) await f.store.postComment(key, "P-1001", `Later comment ${index}.`, AT, "Jane");
+    await f.store.postComment(keyOf(31), "P-1001", "Someone else's.", AT, "Ann");
+
+    const page = await f.get("/atlas/account/comments", session);
+    expect(page.response.status).toBe(200);
+    expect(page.response.headers.get("cache-control")).toBe("private, no-store");
+    expect(page.body).toContain("Later comment 59.");
+    expect(page.body).not.toContain("Someone else&#39;s.");
+    const older = /href="(\/atlas\/account\/comments\?before=C-\d+)"/u.exec(page.body);
+    expect(older).not.toBeNull();
+    const rest = (await f.get(older![1]!, session)).body;
+    expect(rest).toContain("Hidden by the owner.");
+    expect(rest).toContain("hidden by AskRigor");
+    expect(rest).toContain("on P-1003, no longer on the pages");
+    expect(rest).toContain(`<a href="/atlas/findings/P-1001">P-1001</a>`);
+    for (const id of [first, hidden, gone]) {
+      const deleted = await f.post(`/atlas/comments/${id}/delete`, { csrf: tokenFor(rest, `/atlas/comments/${id}/delete`),
+        return: "/atlas/account/comments" }, { cookie: session });
+      expect(deleted.status, id).toBe(303);
+      expect(deleted.headers.get("location")).toBe("/atlas/account/comments?done=deleted#comments");
+    }
+    const left = f.store.snapshot().comments.map(({ body }) => body);
+    expect(left).not.toContain("Kept on the pages.");
+    expect(left).not.toContain("Hidden by the owner.");
+    expect(left).not.toContain("On a finding that left.");
+    expect(left).toContain("Someone else's.");
+    // Not signed in: a page that links to signing in, and nothing of anyone's comments.
+    const anonymous = await f.get("/atlas/account/comments");
+    expect(anonymous.response.status).toBe(200);
+    expect(anonymous.body).toContain(`${f.base}/atlas/auth/login?return=%2Fatlas%2Faccount%2Fcomments`);
+    expect(anonymous.body).not.toContain("Later comment");
+    // The finding page links to it for a signed-in reader.
+    expect((await f.get("/atlas/findings/P-1001", session)).body).toContain('<a href="/atlas/account/comments">Your comments</a>');
   });
 });
 
