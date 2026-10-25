@@ -848,7 +848,11 @@ export const REVIEW_RESEARCH_CONTRIBUTION_DESCRIPTION =
   "delete_all_youtube_findings deletes every one at once, only with confirm: true after the owner said to (as when " +
   "YouTube asks), and move_youtube_findings (cards, such as [\"ARF-0007\"]) moves those of cards stored before " +
   "into the held findings, rewriting each card as one saved today would read. They are never decided, accepted or " +
-  "published. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a " +
+  "published. If all findings on the card and its " +
+  "later saves rest on YouTube comments, they are held with no card number, each save with its own question and " +
+  "topic; its comments are deleted and its issue tombstoned and locked for you to delete in GitHub. A decision on " +
+  "any finding, a publication whose card was not forgotten, an unreadable save, or a later save with findings to " +
+  "keep prevents that removal. An accepted decision is a hash-bound intent: this call never writes canonical evidence, and a " +
   "separate one-shot writer applies it within about 5 minutes.";
 
 // A findings save never holds back the answer for long: past this, the answer

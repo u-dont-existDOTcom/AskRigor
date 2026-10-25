@@ -302,20 +302,31 @@ export const FORGOTTEN_TITLE = "Forgotten findings card";
 export interface ForgottenMetadata {
   cards: number[];
   forgotten_at: string;
+  /** Owner answer 179a: the card's findings are held with no card, rather than forgotten by its contributor. */
+  reason?: "youtube_findings_held_without_card";
 }
 
 function parseForgottenMetadata(value: Record<string, unknown>): ForgottenMetadata | undefined {
   const cards = value.cards;
   const forgottenAt = value.forgotten_at;
   if (!Array.isArray(cards) || cards.length < 1 || cards.length > 1_000 || !cards.every(isPositiveInteger) ||
-    new Set(cards).size !== cards.length || typeof forgottenAt !== "string" || !Number.isFinite(Date.parse(forgottenAt))) {
+    new Set(cards).size !== cards.length || typeof forgottenAt !== "string" || !Number.isFinite(Date.parse(forgottenAt)) ||
+    (value.reason !== undefined && value.reason !== "youtube_findings_held_without_card")) {
     return undefined;
   }
-  return { cards: [...cards as number[]].sort((left, right) => left - right), forgotten_at: forgottenAt };
+  return { cards: [...cards as number[]].sort((left, right) => left - right), forgotten_at: forgottenAt,
+    ...(value.reason === undefined ? {} : { reason: value.reason }) };
 }
 
 /** A forgotten card's body: what happened and when, with no record, wording, thread key or decision, and its marker. */
 export function tombstoneBody(metadata: ForgottenMetadata): string {
+  if (metadata.reason === "youtube_findings_held_without_card") {
+    return "## Findings held without a card\n\nThis findings card was removed on " +
+      `${decisionDate(metadata.forgotten_at)} (owner answer 179a): its findings and those of its later saves ` +
+      "are held for the owner's review with no card number, each with its own save's research question and topic. " +
+      "Its record and comments are removed. AskRigor's owner deletes this issue in GitHub, which also removes its " +
+      "edit history.\n\n" + marker(FORGOTTEN_MARKER, metadata);
+  }
   return "## Forgotten\n\nThis findings card was forgotten at its contributor's request (decision 7) on " +
     `${decisionDate(metadata.forgotten_at)}: its record, its later saves and the decisions on it are removed. ` +
     "AskRigor's owner deletes this issue in GitHub, which also removes its edit history.\n\n" +
