@@ -1,8 +1,14 @@
-import { PostgresAtlasReader, PostgresAtlasReviewStore } from "@askrigor/evidence-repository";
+import {
+  PostgresAtlasPublicationStore,
+  PostgresAtlasReader,
+  PostgresAtlasReviewStore,
+} from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 
+import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
+  atlasReviewEnabledFromEnv,
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
   researchContributionReviewConfigFromEnv,
@@ -83,6 +89,9 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
     const { appId, installationId, privateKeyBase64 } = githubAppCredentialsFromEnv();
     const repository = findingsRepositoryFromEnv();
     const now = () => new Date();
+    // Decision 171, section 4B: a free contributor's card is published in the Atlas as soon as it is saved, while the
+    // owner's Atlas actions are open to moderate it.
+    const publications = createAtlasPublicationStoreFromEnv();
     const tokenProvider = new GitHubInstallationTokenProvider({
       appId,
       installationId,
@@ -100,9 +109,32 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       version: SERVICE_VERSION,
       build: askrigorBuildCommitFromEnv(),
       now,
+      ...(publications === undefined ? {} : { publisher: new AtlasCardPublisher({ store: publications, now }) }),
     });
   } catch {
     throw new Error(CONFIGURATION_ERROR);
+  }
+}
+
+/**
+ * The Atlas publications (decision 171, section 4B), through the review role's functions in the research review
+ * database: only while the owner's Atlas actions are open (ASKRIGOR_ATLAS_REVIEW=enabled), so nothing is published that
+ * the owner cannot unpublish or set aside. Undefined, with nothing connected, otherwise.
+ */
+export function createAtlasPublicationStoreFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): PostgresAtlasPublicationStore | undefined {
+  if (!atlasReviewEnabledFromEnv(env.ASKRIGOR_ATLAS_REVIEW)) return undefined;
+  try {
+    const review = researchContributionReviewConfigFromEnv(env);
+    if (review === undefined) return undefined;
+    return new PostgresAtlasPublicationStore({
+      connectionString: review.connectionString,
+      schema: review.schema,
+      ssl: review.ssl,
+    });
+  } catch {
+    return undefined;
   }
 }
 
@@ -122,6 +154,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
     const now = () => new Date();
     return new AtlasReview({
       store: new PostgresAtlasReviewStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      }),
+      // Decision 171: the publications, in the same database through the same role's functions.
+      publications: new PostgresAtlasPublicationStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,

@@ -27,7 +27,9 @@ const SAMPLES = [
   "00000000-0000-0000-0000-000000000000", "ffffffff-ffff-ffff-ffff-ffffffffffff",
   "10.1002/", "https://example.org/10.1002/test", "10.123/test", "10.1234567890/test",
   // Atlas phase 2: a findings card's id and an accepted finding's number, in any case.
-  "ARF-0142", "arf-0042", "ARF-1234567890", "ARF-", "F-1007", "f-1001", "F-0999", "F-100"
+  "ARF-0142", "arf-0042", "ARF-1234567890", "ARF-", "F-1007", "f-1001", "F-0999", "F-100",
+  // Decision 171: a publication's number, in any case.
+  "P-1003", "p-1001", "P-0999", "P-100"
 ];
 
 type JsonObject = Record<string, unknown>;

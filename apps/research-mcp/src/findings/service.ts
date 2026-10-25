@@ -27,6 +27,41 @@ export interface FindingsSaveContext {
   surface: string;
   /** sha256 of the server's operation names, sorted, one per line. */
   toolCatalogSha256: string;
+  /**
+   * The saving account, for the Atlas (decision 171, section 4B): a free contributor's card is published as soon as it
+   * is saved when the account accepted the current notice and is not a dev account. Never stored with the card.
+   */
+  account?: FindingsSaveAccount;
+}
+
+/** What the Atlas reads of the saving account, all exact: its mode, the notice it accepted, and its dev listing. */
+export interface FindingsSaveAccount {
+  mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
+  /** The free contributor notice the account accepted; null for a paid private account. */
+  noticeVersion: string | null;
+  /** Whether the account is listed in ASKRIGOR_DEV_ACCOUNT_KEYS. */
+  devAccount: boolean;
+}
+
+/** A confirmed save, as the Atlas publisher reads it. */
+export interface SavedFindingsCard {
+  record: FindingsRecord;
+  issueNumber: number;
+  /** created: the save is the card's own record (a retry of it included); existing: a later save on an open card. */
+  kind: "created" | "existing";
+  /** Whether the card the save landed on carries the set-aside label. */
+  setAside: boolean;
+  /** The cards of the same research thread this save replaced. */
+  replacedCards: number[];
+  account: FindingsSaveAccount | undefined;
+}
+
+/** Publishes a saved card's findings in the Atlas (decision 171, section 4B); the save never waits for it. */
+export interface FindingsCardPublisher {
+  /** Whether a card this account saves is published as soon as it is saved: the account checks alone. */
+  accountPublishes(account: FindingsSaveAccount | undefined): boolean;
+  /** After a confirmed save: publishes what is eligible. It may throw; the save has already been answered. */
+  afterSave(saved: SavedFindingsCard): Promise<void>;
 }
 
 export interface ProtocolIdentity {
@@ -78,6 +113,8 @@ export interface FindingsSaveServiceOptions {
   version: string;
   build: string;
   now?: () => Date;
+  /** The Atlas publisher (decision 171); without it nothing is published at the save. */
+  publisher?: FindingsCardPublisher;
 }
 
 /**
@@ -91,9 +128,16 @@ export interface FindingsSaveServiceOptions {
  */
 export class FindingsSaveService {
   private readonly now: () => Date;
+  /** Publications started after a save and not finished yet. */
+  private readonly publishing = new Set<Promise<void>>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
+  }
+
+  /** Resolves once every publication started so far has finished, whatever its outcome: for tests and shutdown. */
+  async publicationsSettled(): Promise<void> {
+    await Promise.allSettled([...this.publishing]);
   }
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
@@ -174,12 +218,27 @@ export class FindingsSaveService {
           research: researchStamp(receipt.issued_at, receipt.claims),
         },
       };
+      const publisher = this.options.publisher;
       const queued = await this.options.queue.submit({
         record,
         fingerprint: findingsCardFingerprint(input.findings_card),
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
         thread: findingsThreadKey(secret, input.contributor, target),
+        ...(publisher?.accountPublishes(context.account) === true ? { atlasPublish: true } : {}),
+        ...(context.account?.mode === "PAID_PRIVATE" ? { paidPrivate: true } : {}),
       });
+      // Decision 171, section 4B: the card's findings are published right after the confirmed save. The answer never
+      // waits for it, and a failure never changes the save's result: the owner retries it with publish_cards.
+      if (publisher !== undefined) {
+        this.publishAfterSave(publisher, {
+          record,
+          issueNumber: queued.issueNumber,
+          kind: queued.kind,
+          setAside: queued.setAside,
+          replacedCards: queued.replacedCards,
+          account: context.account,
+        });
+      }
       return result({
         status: queued.kind === "created" ? "saved" : "existing_card",
         retryable: false,
@@ -190,6 +249,15 @@ export class FindingsSaveService {
     } catch (error) {
       return queueUnavailable(error);
     }
+  }
+
+  /** Starts the publisher on a confirmed save, without waiting for it; its failure is caught and changes nothing. */
+  private publishAfterSave(publisher: FindingsCardPublisher, saved: SavedFindingsCard): void {
+    const started = Promise.resolve()
+      .then(() => publisher.afterSave(saved))
+      .catch(() => undefined)
+      .finally(() => this.publishing.delete(started));
+    this.publishing.add(started);
   }
 }
 

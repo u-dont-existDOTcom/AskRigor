@@ -40,6 +40,7 @@ import {
   GitHubFindingsQueue,
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
+  SET_ASIDE_LABEL,
   marker,
   parseCardMetadata,
   parseMarker,
@@ -347,11 +348,33 @@ export interface FindingsCommentEntry {
 /** Whether an issue is there, or GitHub answers 404 (no such issue) or 410 (deleted) for it. */
 export type FindingsIssueStatus = "present" | 404 | 410;
 
+/**
+ * What a card's marker says of its save, for the Atlas (decision 171, section 4B): whether the saving account's card is
+ * published as soon as it is saved, and whether it was saved in paid private mode, whose findings are published only
+ * after the owner accepts them. Both are false on a card saved before the marker held them.
+ */
+export interface CardMarks {
+  atlasPublish: boolean;
+  paidPrivate: boolean;
+}
+
+/** The marks of a card's marker. */
+export function cardMarksOf(metadata: CardMetadata): CardMarks {
+  return { atlasPublish: metadata.atlas_publish === true, paidPrivate: metadata.paid_private === true };
+}
+
+/** Whether a card carries the set-aside label (decision 171, default 5). */
+export function isSetAside(labels: readonly string[]): boolean {
+  return labels.includes(SET_ASIDE_LABEL);
+}
+
 /** A card as the owner's review reads it, with its later saves and the decisions its comments record. */
 export interface FindingsCardRead {
   number: number;
   state: "open" | "closed";
   labels: string[];
+  /** What the card's marker says of its save. */
+  marks: CardMarks;
   record: FindingsRecord;
   /** The later saves' records, in the order GitHub lists their comments. */
   occurrences: FindingsRecord[];
@@ -372,6 +395,8 @@ export interface OpenFindingsCard {
   /** The issue's comment count; unknown counts as one, so its comments are read. */
   comments: number;
   record: FindingsRecord | undefined;
+  /** What the card's marker says of its save; undefined with the record. */
+  marks: CardMarks | undefined;
 }
 
 export type FindingsCardComments =
@@ -386,6 +411,8 @@ export interface FindingsCardInbox {
   postDecision(cardNumber: number, decision: FindingsDecisionMarker): Promise<void>;
   /** Labels the card reviewed, without pending-review, and closes it as completed if it is open. */
   markReviewed(card: { number: number; state: "open" | "closed"; labels: readonly string[] }): Promise<void>;
+  /** Adds the set-aside label to a card (decision 171, default 5); a card that has it already keeps it. */
+  setAside(cardNumber: number): Promise<void>;
   // forget_card (decision 7), within the App's issues: write; deleting an issue is the owner's, in GitHub (choice 5a).
   /** Every card, open or closed, and every forgotten card in the repository. */
   repositoryIssues(): Promise<FindingsRepositoryIssue[]>;
@@ -441,6 +468,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         number: cardNumber,
         state: issue.state === "closed" ? "closed" : "open",
         labels,
+        marks: cardMarksOf(card.metadata),
         record: card.record,
         occurrences: comments.occurrences,
         decisions: comments.decisions,
@@ -470,6 +498,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
             ? issue.comments
             : 1,
           record: parsed === "tampered" ? undefined : parsed.record,
+          marks: parsed === "tampered" ? undefined : cardMarksOf(parsed.metadata),
         });
       }
       if (response.length < 100) break;
@@ -519,6 +548,17 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         : { labels }),
     });
     if (!isRecord(edited) || (card.state === "open" && edited.state !== "closed")) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+  }
+
+  async setAside(cardNumber: number): Promise<void> {
+    if (!isPositiveInteger(cardNumber)) throw new GitHubApiError("github_service_unavailable", false);
+    const labeled = await this.request(`${this.issuesPath}/${cardNumber}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ labels: [SET_ASIDE_LABEL] }),
+    });
+    if (!Array.isArray(labeled) || !labelNames(labeled).includes(SET_ASIDE_LABEL)) {
       throw new GitHubApiError("github_service_unavailable", true);
     }
   }

@@ -379,10 +379,12 @@ describe("research contributor access", () => {
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
     await service.acceptFreeContributor(SUBJECT, agreement());
@@ -410,6 +412,7 @@ describe("research contributor access", () => {
     await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Each setting changes only itself.
     await service.setPlainAnswerNote(SUBJECT, false);

@@ -11,6 +11,11 @@ const ATLAS_REVIEW_FUNCTIONS = [
   "inspect_atlas_cards", "decide_atlas_card_item", "record_atlas_finding_intent", "inspect_atlas_finding_intents",
   "forget_atlas_cards",
 ];
+// Decision 171, section 4B: migration 0020's six functions for the Atlas publications, in the grant script's order.
+const ATLAS_PUBLICATION_FUNCTIONS = [
+  "inspect_atlas_publications", "publish_atlas_findings", "decide_atlas_publications", "edit_atlas_publications",
+  "withdraw_atlas_publications", "erase_atlas_publication_texts",
+];
 
 describe("production living-evidence deployment", () => {
   it("keeps PostgreSQL private, non-root, bounded, and on a separate internal network", async () => {
@@ -128,8 +133,9 @@ describe("production living-evidence deployment", () => {
     expect(provision).toContain(
       "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_context(uuid)\n  TO askrigor_research_review;",
     );
-    // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(8);
+    // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2) and migration 0020's
+    // six publication functions (decision 171).
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(14);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -243,9 +249,9 @@ describe("production living-evidence deployment", () => {
     const migration = await read("packages/evidence-repository/migrations/0017_atlas_findings.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
 
-    // 0017 runs after 0016 on every migrate, and 0018 (Atlas phase 3) after it, last.
+    // 0017 runs after 0016 on every migrate, and 0018 (Atlas phase 3) after it.
     expect(repository).toContain(
-      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n    ]');
+      '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -304,8 +310,8 @@ describe("production living-evidence deployment", () => {
       expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
     }
     const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
-    expect(granted.filter((name) => name!.includes("atlas"))).toEqual(ATLAS_REVIEW_FUNCTIONS);
-    expect(granted).toHaveLength(8);
+    expect(granted.filter((name) => name!.includes("atlas"))).toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS]);
+    expect(granted).toHaveLength(14);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -461,6 +467,57 @@ describe("production living-evidence deployment", () => {
     }
     // The guard itself is not redefined here: 0017's body, with its redaction branch, stays in force.
     expect(migration).not.toContain("reject_living_evidence_mutation");
+  });
+
+  it("ships migration 0020's publications with exactly the six review-role functions it grants (decision 171)", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0020_atlas_publications.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const provision = await read("infra/living-evidence-production/provision-research-review-role.sh");
+
+    // 0020 runs after 0018 on every migrate (0019, notice version 4, goes between them on the build branch).
+    const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
+    const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
+    expect(order.indexOf("0020_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
+    expect(order.at(-1)).toBe("0020_atlas_publications");
+    // One table and its sequence, safe to run again; the reason lists replaced on every run.
+    expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
+    expect(migration.match(/CREATE TABLE/gu)).toHaveLength(1);
+    expect(migration).toContain("publication_number text PRIMARY KEY CHECK (publication_number ~ '^P-[1-9][0-9]{3,}$')");
+    expect(migration).toContain("ALTER TABLE atlas_publications DROP CONSTRAINT IF EXISTS atlas_publications_v1_held_check;");
+    expect(migration).toContain(
+      "ALTER TABLE atlas_publications DROP CONSTRAINT IF EXISTS atlas_publications_v1_withdrawn_reason_check;");
+    expect(migration).toContain("ON atlas_publications (card_sha256, finding_number)\n  WHERE card_sha256 IS NOT NULL;");
+    // The row never holds an account, a thread key, a receipt, an answer quote or a contributor: only the card's number
+    // and digest, for moderation and idempotency.
+    const table = migration.slice(migration.indexOf("CREATE TABLE IF NOT EXISTS atlas_publications ("),
+      migration.indexOf("\n);", migration.indexOf("CREATE TABLE IF NOT EXISTS atlas_publications (")));
+    expect(table).not.toMatch(/account|thread|receipt|answer_quote|contributor|surface|model|youtube/iu);
+    // The six SECURITY DEFINER functions, each revoked from PUBLIC and granted to the review role with its signature.
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")),
+      header: chunk.slice(0, chunk.indexOf("AS $")),
+    }));
+    expect(functions.map(({ name }) => name)).toEqual(ATLAS_PUBLICATION_FUNCTIONS);
+    for (const { name, header } of functions) {
+      expect(header).toContain("SECURITY DEFINER");
+      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog");
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+    }
+    const signature = (text: string, prefix: string) => {
+      const start = text.indexOf(prefix) + prefix.length;
+      return text.slice(start, text.indexOf(")", start)).replace(/\s+/gu, " ").trim();
+    };
+    for (const name of ATLAS_PUBLICATION_FUNCTIONS) {
+      expect(signature(provision, `GRANT EXECUTE ON FUNCTION living_evidence.${name}(`))
+        .toBe(signature(migration, `REVOKE ALL ON FUNCTION ${name}(`));
+    }
+    expect(migration).toContain("REVOKE ALL ON SEQUENCE atlas_publication_number_seq FROM PUBLIC;");
+    expect(provision).not.toContain("atlas_publication_number_seq");
+    // Writes happen only inside the six functions; the canonical guard and the canonical tables are not touched.
+    const outsideFunctions = migration.replace(/AS \$function\$[\s\S]*?\$function\$;/gu, "");
+    expect(outsideFunctions).not.toMatch(/\b(?:INSERT INTO|UPDATE \w+ SET|DELETE FROM|TRUNCATE|GRANT )\b/u);
+    expect(migration).not.toMatch(/reject_living_evidence_mutation|claim_versions|atlas_finding_versions|CREATE ROLE/u);
   });
 
   it("runs the Atlas runner after the contribution runner in promote-accepted, with the units unchanged", async () => {

@@ -852,9 +852,11 @@ export function createResearchAccessGuard(
  * The caller's active research-use mode and pseudonymous account key, which
  * decide what the findings library does with its research: saved (free
  * contributor) or offered for a yes (paid private); its plain-answer note
- * setting (owner answer 140b); and whether its lessons may carry a detailed
- * report (owner question 154). Undefined for an inactive account, a call
- * without a valid research:use token, or no access service. Never throws.
+ * setting (owner answer 140b); whether its lessons may carry a detailed
+ * report (owner question 154); and the free contributor notice it accepted
+ * (decision 171: its cards are published as soon as they are saved under the
+ * current one). Undefined for an inactive account, a call without a valid
+ * research:use token, or no access service. Never throws.
  */
 export async function researchUseAccount(
   extra: ResearchOperationExtra | undefined,
@@ -864,12 +866,19 @@ export async function researchUseAccount(
   accountKey: string;
   plainAnswerNote: boolean;
   detailedLessonReports: boolean;
+  noticeVersion: string | null;
 } | undefined> {
   const auth = authorizedSubject(extra, undefined);
   if ("error" in auth || service === undefined) return undefined;
   try {
-    const { mode, plainAnswerNote, detailedLessonReports } = await service.activeAccount(auth.subject);
-    return { mode, accountKey: service.accountKeyForSubject(auth.subject), plainAnswerNote, detailedLessonReports };
+    const { mode, plainAnswerNote, detailedLessonReports, noticeVersion } = await service.activeAccount(auth.subject);
+    return {
+      mode,
+      accountKey: service.accountKeyForSubject(auth.subject),
+      plainAnswerNote,
+      detailedLessonReports,
+      noticeVersion,
+    };
   } catch {
     return undefined;
   }
