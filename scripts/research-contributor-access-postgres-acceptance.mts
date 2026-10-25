@@ -2922,21 +2922,38 @@ export async function verifyAtlasParticipation(context: {
     const sessionEnds = async () => (await admin.query<{ session_key_hash: string }>(
       `SELECT session_key_hash FROM ${schema}.atlas_session_ends ORDER BY session_key_hash`,
     )).rows.map(({ session_key_hash: hash }) => hash);
-    const signedIn = tick();
+    // The functions take the time from the database's clock (review follow-up, item 4), so these sign-in times are real.
+    const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+    const signedIn = minutesAgo(5);
     assert(await participation.sessionCurrent(ann, signedIn, tick()), "ATLAS_FRESH_SESSION_NOT_CURRENT");
-    const endedAt = tick();
-    await participation.endSessions(ann, endedAt);
-    const afterEnd = tick();
+    await participation.endSessions(ann, tick());
+    await new Promise((resolve) => setTimeout(resolve, 20));
     assert(
-      !(await participation.sessionCurrent(ann, signedIn, afterEnd)) &&
-        await participation.sessionCurrent(ann, tick(), tick()) &&
+      !(await participation.sessionCurrent(ann, signedIn, tick())) &&
+        await participation.sessionCurrent(ann, new Date().toISOString(), tick()) &&
         // Deleting everything ended Jane's sessions signed in before it.
-        !(await participation.sessionCurrent(jane, "2026-11-07T08:00:00.000Z", afterEnd)) &&
+        !(await participation.sessionCurrent(jane, minutesAgo(60), tick())) &&
         (await sessionEnds()).includes(atlasSessionKeyHash(ann)) && !(await sessionEnds()).includes(ann),
       "ATLAS_SESSION_END_MISMATCH",
     );
-    const lapsed = new Date(Date.parse(endedAt) + 31 * 24 * 60 * 60 * 1_000).toISOString();
-    assert(await participation.sessionCurrent(ann, signedIn, lapsed) && !(await sessionEnds()).includes(atlasSessionKeyHash(ann)),
+    // No caller chooses the time: the functions take none, and a check with a session signed in far ahead neither ends
+    // nor purges a record that has not lapsed.
+    const signatures = (await admin.query<{ end_sessions: string | null; session_current: string | null; old: string | null }>(
+      `SELECT to_regprocedure('${schema}.end_atlas_sessions(text)')::text AS end_sessions,
+              to_regprocedure('${schema}.atlas_session_current(text, timestamptz)')::text AS session_current,
+              to_regprocedure('${schema}.atlas_session_current(text, timestamptz, timestamptz)')::text AS old`,
+    )).rows[0]!;
+    assert(signatures.end_sessions !== null && signatures.session_current !== null && signatures.old === null,
+      "ATLAS_SESSION_FUNCTIONS_TAKE_A_TIME");
+    await participation.sessionCurrent(ann, "2099-01-01T00:00:00.000Z", "2099-01-01T00:00:00.000Z");
+    assert((await sessionEnds()).includes(atlasSessionKeyHash(ann)), "ATLAS_SESSION_END_PURGED_BY_A_CALLER");
+    // A lapsed record (30 days over by the database's clock) is deleted at the next check.
+    await admin.query(
+      `UPDATE ${schema}.atlas_session_ends SET ended_at = now() - interval '40 days', keep_until = now() - interval '10 days'
+        WHERE session_key_hash = $1`,
+      [atlasSessionKeyHash(ann)],
+    );
+    assert(await participation.sessionCurrent(ann, signedIn, tick()) && !(await sessionEnds()).includes(atlasSessionKeyHash(ann)),
       "ATLAS_LAPSED_SESSION_END_KEPT");
     checks.push("atlas_sessions_end_everywhere_by_a_hash_of_the_key_and_the_end_is_deleted_after_30_days");
 
@@ -3059,7 +3076,7 @@ export async function verifyAtlasParticipation(context: {
       "SELECT * FROM set_atlas_home_picks('[]'::jsonb, now())",
     ];
     const helperCalls = [`SELECT atlas_forget_idle_participant('${ann}')`, `SELECT atlas_publication_open('${shown}')`,
-      `SELECT atlas_end_sessions('${ann}', now())`];
+      `SELECT atlas_end_sessions('${ann}')`];
     for (const statement of [...tableStatements, ...moderationCalls, ...helperCalls]) {
       await expectPermissionDenied(() => asRole("askrigor_research_access", (client) => client.query(statement)));
     }

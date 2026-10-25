@@ -89,9 +89,15 @@ export interface AtlasParticipationStore {
    * with.
    */
   forgetParticipant(participantKey: string, at: string): Promise<AtlasForgetResult>;
-  /** Signing out everywhere: every session of the participant signed in up to `at` is over. */
+  /**
+   * Signing out everywhere: every session of the participant signed in up to now is over. PostgreSQL takes the time
+   * from its own clock; `at` is the in-memory store's.
+   */
   endSessions(participantKey: string, at: string): Promise<void>;
-  /** Whether a session the participant signed in with at signedInAt is still current: none of theirs ended since. */
+  /**
+   * Whether a session the participant signed in with at signedInAt is still current: none of theirs ended since.
+   * PostgreSQL drops lapsed ends by its own clock; `at` is the in-memory store's.
+   */
   sessionCurrent(participantKey: string, signedInAt: string, at: string): Promise<boolean>;
 }
 
@@ -728,19 +734,17 @@ export class PostgresAtlasParticipationStore implements AtlasParticipationStore 
     return { votes: Number(row!.votes_deleted), comments: Number(row!.comments_deleted), reports: Number(row!.reports_deleted) };
   }
 
-  async endSessions(participantKey: string, at: string): Promise<void> {
+  async endSessions(participantKey: string, _at: string): Promise<void> {
     checkParticipant(participantKey);
-    checkAt(at);
-    await callFunction(this.pool, `SELECT ${this.schema}.end_atlas_sessions($1::text, $2::timestamptz)`, [participantKey, at]);
+    await callFunction(this.pool, `SELECT ${this.schema}.end_atlas_sessions($1::text)`, [participantKey]);
   }
 
-  async sessionCurrent(participantKey: string, signedInAt: string, at: string): Promise<boolean> {
+  async sessionCurrent(participantKey: string, signedInAt: string, _at: string): Promise<boolean> {
     checkParticipant(participantKey);
     checkAt(signedInAt);
-    checkAt(at);
     const [row] = await callFunction<{ session_current: boolean }>(this.pool,
-      `SELECT session_current FROM ${this.schema}.atlas_session_current($1::text, $2::timestamptz, $3::timestamptz)`,
-      [participantKey, signedInAt, at]);
+      `SELECT session_current FROM ${this.schema}.atlas_session_current($1::text, $2::timestamptz)`,
+      [participantKey, signedInAt]);
     return row?.session_current === true;
   }
 

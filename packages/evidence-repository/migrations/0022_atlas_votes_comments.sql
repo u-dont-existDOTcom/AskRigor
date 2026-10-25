@@ -155,21 +155,22 @@ $function$;
 
 REVOKE ALL ON FUNCTION atlas_session_key_hash(text) FROM PUBLIC;
 
--- Ends every session of the participant signed in up to end_time, and deletes the ends whose 30 days are over.
-CREATE OR REPLACE FUNCTION atlas_end_sessions(target_participant_key text, end_time timestamptz)
+-- Ends every session of the participant signed in up to now, by the database's own clock, and deletes the ends whose
+-- 30 days are over. No caller chooses the time, so none can end or purge another moment's records.
+CREATE OR REPLACE FUNCTION atlas_end_sessions(target_participant_key text)
 RETURNS void
 LANGUAGE sql
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
-  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < end_time;
+  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < now();
   INSERT INTO atlas_session_ends AS stored (session_key_hash, ended_at, keep_until)
-  VALUES (atlas_session_key_hash(target_participant_key), end_time, end_time + interval '30 days')
+  VALUES (atlas_session_key_hash(target_participant_key), now(), now() + interval '30 days')
   ON CONFLICT (session_key_hash) DO UPDATE
     SET ended_at = greatest(stored.ended_at, EXCLUDED.ended_at),
         keep_until = greatest(stored.keep_until, EXCLUDED.keep_until);
 $function$;
 
-REVOKE ALL ON FUNCTION atlas_end_sessions(text, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION atlas_end_sessions(text) FROM PUBLIC;
 
 -- The participation functions (SECURITY DEFINER; provision-research-access-role.sh grants exactly these) -----------
 
@@ -412,42 +413,37 @@ $function$;
 
 REVOKE ALL ON FUNCTION report_atlas_comment(text, text, timestamptz) FROM PUBLIC;
 
--- Signing out everywhere: every session of the participant signed in up to end_time is over.
-CREATE OR REPLACE FUNCTION end_atlas_sessions(target_participant_key text, end_time timestamptz)
+-- Signing out everywhere: every session of the participant signed in up to now is over.
+CREATE OR REPLACE FUNCTION end_atlas_sessions(target_participant_key text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
-  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' OR end_time IS NULL THEN
+  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' THEN
     RAISE EXCEPTION 'ATLAS_PARTICIPATION_INPUT_INVALID';
   END IF;
-  PERFORM atlas_end_sessions(target_participant_key, end_time);
+  PERFORM atlas_end_sessions(target_participant_key);
 END
 $function$;
 
-REVOKE ALL ON FUNCTION end_atlas_sessions(text, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION end_atlas_sessions(text) FROM PUBLIC;
 
 -- Whether a session signed in at signed_in_at is still current: no end of the participant's sessions since. Deletes the
--- ends whose 30 days are over, so none outlives them for long.
-CREATE OR REPLACE FUNCTION atlas_session_current(
-  target_participant_key text,
-  signed_in_at timestamptz,
-  check_time timestamptz
-)
+-- ends whose 30 days are over by the database's own clock, so none outlives them for long and no caller can purge them
+-- early.
+CREATE OR REPLACE FUNCTION atlas_session_current(target_participant_key text, signed_in_at timestamptz)
 RETURNS TABLE (session_current boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = __SCHEMA__, pg_catalog, pg_temp
 AS $function$
 BEGIN
-  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$'
-     OR signed_in_at IS NULL OR check_time IS NULL
-  THEN
+  IF target_participant_key IS NULL OR target_participant_key !~ '^[a-f0-9]{64}$' OR signed_in_at IS NULL THEN
     RAISE EXCEPTION 'ATLAS_PARTICIPATION_INPUT_INVALID';
   END IF;
-  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < check_time;
+  DELETE FROM atlas_session_ends lapsed WHERE lapsed.keep_until < now();
   RETURN QUERY SELECT NOT EXISTS (
     SELECT 1 FROM atlas_session_ends stored
      WHERE stored.session_key_hash = atlas_session_key_hash(target_participant_key)
@@ -456,7 +452,7 @@ BEGIN
 END
 $function$;
 
-REVOKE ALL ON FUNCTION atlas_session_current(text, timestamptz, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION atlas_session_current(text, timestamptz) FROM PUBLIC;
 
 -- Deletes everything the participant holds in the Atlas: their votes, their comments (with the reports on them) and
 -- their own reports of other comments; then their row, unless the owner stopped them, in which case only the stop is
@@ -496,7 +492,7 @@ BEGIN
    WHERE stored.participant_key = target_participant_key
      AND stored.stopped_at IS NOT NULL;
   PERFORM atlas_forget_idle_participant(target_participant_key);
-  PERFORM atlas_end_sessions(target_participant_key, forget_time);
+  PERFORM atlas_end_sessions(target_participant_key);
   RETURN QUERY SELECT vote_rows, comment_rows, report_rows;
 END
 $function$;

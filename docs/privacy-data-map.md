@@ -1610,8 +1610,8 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   every browser. The server keeps, for each participant who did, a SHA-256 hash
   of their key (under its own label, so it is not the key) and when their
   sessions ended, and checks it on every form and signed-in page. A row is kept
-  for the 30 days a session can last and deleted at the first check after
-  them.
+  for the 30 days a session can last, by the database's own clock (no caller
+  sets the time), and deleted at the first check after them.
 - **The participant key**: an HMAC-SHA256, under its own secret
   (`ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL`), of the account key the
   connector derives from the same subject (`researchAccountKeyForSubject`). It
