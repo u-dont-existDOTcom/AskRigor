@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CONTRIBUTION_EXAMPLES,
@@ -143,6 +143,7 @@ function storedRecord(body: string): FindingsRecord {
 
 const originalEnvironment = { ...process.env };
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const key of Object.keys(process.env)) {
     if (!(key in originalEnvironment)) delete process.env[key];
   }
@@ -689,6 +690,85 @@ describe("finalize_research, save_research_findings and the findings library", (
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);
+  });
+
+  it("shows findings-card saving to dev accounts only, and only they can switch their own setting", async () => {
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const manage = connectorTool("manage_research_access", { researchContributorAccessService: service });
+    const inspected = await manage({ action: "inspect" }, "auth0|free");
+    expect(inspected.structuredContent).toMatchObject({ ok: true, findingsSave: true });
+    expect(JSON.stringify(inspected.content)).toContain("Findings-card saving is on for this dev account.");
+    const off = await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free");
+    expect(off.structuredContent).toEqual({ ok: true, findingsSave: false });
+    expect(off.isError).not.toBe(true);
+    expect(JSON.stringify(off.content)).toContain("Findings-card saving is off for this dev account");
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).toMatchObject({ findingsSave: false });
+    await expect(service.activeAccount("auth0|paid")).resolves.toMatchObject({ findingsSave: true });
+    const on = await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
+    expect(on.structuredContent).toEqual({ ok: true, findingsSave: true });
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).toMatchObject({ findingsSave: true });
+
+    for (const input of [{ action: "set_findings_save" }, { action: "inspect", findingsSave: false }]) {
+      expect((await manage(input, "auth0|free")).structuredContent)
+        .toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    }
+    // A paid private entitlement does not make an account a dev account.
+    for (const subject of ["auth0|paid", "auth0|new"]) {
+      const view = await manage({ action: "inspect" }, subject);
+      expect(view.structuredContent).not.toHaveProperty("findingsSave");
+      expect(JSON.stringify(view.content)).not.toContain("Findings-card saving");
+      const refused = await manage({ action: "set_findings_save", findingsSave: false }, subject);
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toMatchObject({ ok: false, error: { code: "dev_account_required" } });
+      expect(JSON.stringify(refused.content)).toContain("this account is not listed, so its setting was not changed");
+    }
+    // The same free contributor loses the right to change it when removed from the dev list.
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", "");
+    expect((await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "dev_account_required" } });
+    await expect(service.activeAccount("auth0|free")).resolves.toMatchObject({ findingsSave: true });
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    await service.revoke("auth0|free");
+    expect((await manage({ action: "inspect" }, "auth0|free")).structuredContent).not.toHaveProperty("findingsSave");
+    expect((await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free")).structuredContent)
+      .toMatchObject({ ok: false, error: { code: "research_access_revoked" } });
+  });
+
+  it("skips a dev account's free card save when switched off, keeps the check and caveats, and saves again when on", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const manage = connectorTool("manage_research_access", options);
+    const finalize = connectorTool("finalize_research", options);
+    const before = await finalize(request(), "auth0|free");
+    expect(calls).toHaveLength(1);
+    calls.length = 0;
+    await manage({ action: "set_findings_save", findingsSave: false }, "auth0|free");
+    const off = await finalize(request(), "auth0|free");
+    expect(calls).toEqual([]);
+    expect(off.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      caveats: [SKIP],
+      findings_card: { status: "checked", problems: [], saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+    });
+    expect(off.structuredContent).not.toHaveProperty("saved_line");
+    expect(JSON.stringify(off.content)).toContain("Findings card: checked; not saved: this dev account's card saving is off.");
+    const checked = before.structuredContent!;
+    for (const field of ["status", "caveats", "limits", "next_steps", "check_line", "receipts_verified", "must_report"]) {
+      expect(off.structuredContent?.[field], field).toEqual(checked[field]);
+    }
+    // Turning saving off never relaxes the card requirement or a failing check.
+    const { findings_card: _card, ...withoutCard } = request();
+    expect((await finalize(withoutCard, "auth0|free")).structuredContent)
+      .toMatchObject({ status: "not_ready", findings_card: { status: "absent" } });
+    expect(calls).toEqual([]);
+    await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
+    const on = await finalize(request(), "auth0|free");
+    expect(calls).toHaveLength(1);
+    expect(on.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
   });
 
   it("needs a card from a free contributor's answer, and saves nothing until it has one", async () => {

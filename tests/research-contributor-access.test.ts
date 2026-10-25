@@ -377,12 +377,12 @@ describe("research contributor access", () => {
     expect(store.allAccounts()).toEqual([]);
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false, findingsSave: true,
       noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false, findingsSave: true,
       noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
@@ -410,7 +410,7 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ detailedLessonReports: false });
     await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
-      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true,
+      mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true, findingsSave: true,
       noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     });
     // Each setting changes only itself.
@@ -429,6 +429,34 @@ describe("research contributor access", () => {
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
       "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
       "plainAnswerNote", "revokedAt", "status", "updatedAt"
+    ]);
+  });
+
+  it("stores findings-card saving on by default, preserves it through save and revocation, and changes only itself", async () => {
+    const { store, service } = fixture();
+    await expect(service.setFindingsSave(SUBJECT, false)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REQUIRED" });
+    expect(store.allAccounts()).toEqual([]);
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: true });
+    await service.setPlainAnswerNote(SUBJECT, false);
+    await service.setDetailedLessonReports(SUBJECT, true);
+    await expect(service.setFindingsSave(SUBJECT, false)).resolves.toBe(false);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({
+      findingsSave: false, plainAnswerNote: false, detailedLessonReports: true,
+    });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: false });
+    await service.revoke(SUBJECT);
+    await expect(service.setFindingsSave(SUBJECT, true)).rejects.toMatchObject({ code: "RESEARCH_ACCESS_REVOKED" });
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ findingsSave: false });
+    await expect(service.setFindingsSave(SUBJECT, true)).resolves.toBe(true);
+    await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({
+      findingsSave: true, plainAnswerNote: false, detailedLessonReports: true,
+    });
+    expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt",
     ]);
   });
 

@@ -95,7 +95,7 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0021_atlas_publications",
+      migration: "0023_research_findings_save_switch",
     })}\n`);
     return;
   }
@@ -324,6 +324,45 @@ async function verify(
     );
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
+
+    // Owner answer 171, default 5: only a setting, on by default; the access role can change it, not identity columns.
+    const findingsSaveMigration = await admin.query(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0023_research_findings_save_switch'`,
+    );
+    assert(findingsSaveMigration.rowCount === 1, "MIGRATION_0023_NOT_APPLIED");
+    const findingsSaveColumn = await admin.query<{ data_type: string; is_nullable: string; column_default: string }>(
+      `SELECT data_type, is_nullable, column_default FROM information_schema.columns
+        WHERE table_schema = $1 AND table_name = 'research_use_accounts' AND column_name = 'findings_save'`,
+      [SCHEMA],
+    );
+    assert(
+      findingsSaveColumn.rows[0]?.data_type === "boolean" && findingsSaveColumn.rows[0]?.is_nullable === "NO" &&
+        findingsSaveColumn.rows[0]?.column_default === "true",
+      "FINDINGS_SAVE_COLUMN_MISMATCH",
+    );
+    assert((await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_ON_BY_DEFAULT");
+    await service.setFindingsSave(PAID_SUBJECT, false);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_TURNED_OFF");
+    assert((await service.activeAccount(PAID_SUBJECT)).plainAnswerNote, "PLAIN_ANSWER_NOTE_CHANGED_BY_FINDINGS_SAVE");
+    assert(!(await service.activeAccount(PAID_SUBJECT)).detailedLessonReports, "LESSON_REPORTS_CHANGED_BY_FINDINGS_SAVE");
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    assert(!(await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_CHANGED_BY_SAVE");
+    await service.setFindingsSave(PAID_SUBJECT, true);
+    assert((await service.activeAccount(PAID_SUBJECT)).findingsSave, "FINDINGS_SAVE_NOT_TURNED_ON");
+    await expectCode(() => service.setFindingsSave(FREE_SUBJECT, false), "RESEARCH_ACCESS_REVOKED");
+    const freeFindingsSave = await admin.query<{ findings_save: boolean }>(
+      `SELECT findings_save FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+      [service.accountKeyForSubject(FREE_SUBJECT)],
+    );
+    assert(freeFindingsSave.rows[0]?.findings_save === true, "REVOKED_ACCOUNT_FINDINGS_SAVE_CHANGED");
+    await expectPermissionDenied(() => restricted.query(
+      `UPDATE ${SCHEMA}.research_use_accounts SET account_key = account_key`,
+    ));
+    await expectPermissionDenied(() => restricted.query(
+      `UPDATE ${SCHEMA}.research_use_accounts SET created_at = created_at`,
+    ));
+    checks.push("findings_save_stored_on_by_default_kept_by_save_and_only_account_columns_updatable");
 
     // Owner answer 171: v4 joins the earlier three notices, each of which requires reacceptance before research.
     const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(

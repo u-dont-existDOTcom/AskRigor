@@ -78,8 +78,8 @@ migrate/image/restore order, and the Docker acceptance is
 
 `manage_research_access` is the OAuth-scoped operation for `inspect`,
 `accept_free_contributor`, `activate_paid_private`, `revoke`,
-`register_plain_answer`, `set_plain_answer_note`, and
-`set_detailed_lesson_reports`. It is declared
+`register_plain_answer`, `set_plain_answer_note`, `set_detailed_lesson_reports`,
+and the dev-only `set_findings_save`. It is declared
 as a write to MCP clients. Revocation blocks later research calls and withdraws
 every still-pending proposal from that account. It does not silently rewrite an
 already accepted deidentified canonical record.
@@ -129,6 +129,23 @@ lessons repository. A lesson carrying one without a research account, or with
 the setting off, is refused with `detailed_report_refused`
 (`detailed_reports_off`) and nothing is stored; the model sends the lesson again
 without it. The data flow is in `docs/privacy-data-map.md`.
+
+## Findings-card saving for dev accounts
+
+Owner answer 171, default 5: findings-card saving is on by default. An active dev account listed in
+`ASKRIGOR_DEV_ACCOUNT_KEYS` can turn it off with `manage_research_access` action `set_findings_save` and
+`findingsSave: false`, and back on with `findingsSave: true`. Other accounts receive `dev_account_required` and
+their setting stays as it was. `inspect` shows `findingsSave` only to an active dev account. Migration
+`0023_research_findings_save_switch` stores only this boolean choice in `research_use_accounts.findings_save`;
+saving or revoking the account preserves it. The research-access role can update this setting alongside the
+other account settings and the columns used for enrollment and revocation, with no update right on the account
+key or creation time.
+
+With saving off, a free contributor's final check still checks the findings card, caveats and answer as before,
+but skips the card save and reports "not saved: this dev account's card saving is off". The regression harness
+turns the setting off before a run and on after it, and the release record shows both. The setting does not change
+paid-private saves or research-map and source-analysis contributions. This adds no connector tool; the catalog
+stays at 33.
 
 ## Identity boundary
 

@@ -160,8 +160,13 @@ describe("production living-evidence deployment", () => {
       "CREATE ROLE askrigor_research_access LOGIN PASSWORD",
     );
     expect(provision).toContain(
-      "GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.research_use_accounts",
+      "GRANT SELECT, INSERT ON TABLE living_evidence.research_use_accounts",
     );
+    expect(provision).toContain(
+      "GRANT UPDATE (status, mode, notice_version, agreement_json, activated_at, revoked_at, updated_at,\n" +
+      "  plain_answer_note, detailed_lesson_reports, findings_save) ON TABLE living_evidence.research_use_accounts",
+    );
+    expect(provision).not.toContain("GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.research_use_accounts");
     expect(provision).toContain(
       "GRANT SELECT ON TABLE living_evidence.research_private_entitlements",
     );
@@ -202,10 +207,16 @@ describe("production living-evidence deployment", () => {
     expect(mapConsent).not.toMatch(/CREATE TABLE|GRANT/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts")).toContain('"0014_research_map_consent"');
     // Owner question 154 (2026-10-21): detailed lesson reports are a choice on the account row, off by default, which
-    // the role's table grant already covers; a report itself is stored only in the private lessons repository.
+    // the role's settings grant covers; a report itself is stored only in the private lessons repository.
     const lessonReports = await read("packages/evidence-repository/migrations/0015_research_detailed_lesson_reports.sql");
     expect(lessonReports).toContain("ADD COLUMN IF NOT EXISTS detailed_lesson_reports boolean NOT NULL DEFAULT false");
     expect(lessonReports).not.toMatch(/CREATE TABLE|GRANT|DROP|DELETE|UPDATE/iu);
+    const findingsSave = await read("packages/evidence-repository/migrations/0023_research_findings_save_switch.sql");
+    expect(findingsSave).toContain("ADD COLUMN IF NOT EXISTS findings_save boolean NOT NULL DEFAULT true");
+    expect(findingsSave).toContain("A setting only; no findings card is stored here.");
+    expect(findingsSave).not.toMatch(/CREATE TABLE|GRANT|DROP|DELETE|UPDATE/iu);
+    expect(await read("packages/evidence-repository/src/postgres.ts"))
+      .toContain('"0021_atlas_publications",\n      "0023_research_findings_save_switch",');
     // Owner answers 159 (1b and 7) and 160b (2026-10-22): the third free contributor notice, next to the first two.
     // It replaces 0011's constraint under 0011's name, so 0011 run again neither drops nor re-adds it, and only while
     // the constraint lacks the third version.
@@ -294,7 +305,7 @@ describe("production living-evidence deployment", () => {
     // widens the notice constraint for v4, and 0021 adds the publications.
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
-      '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n    ]');
+      '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      "0023_research_findings_save_switch",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -527,7 +538,7 @@ describe("production living-evidence deployment", () => {
 
     // 0019 runs right after 0018; the build's 0020 (notice version 4) and 0021 (publications) follow it.
     expect(repository).toContain('"0018_atlas_card_fields",\n      "0019_held_youtube_findings",\n      ' +
-      '"0020_research_use_notice_v4",\n      "0021_atlas_publications",\n    ].map(');
+      '"0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      "0023_research_findings_save_switch",\n    ].map(');
     // Safe to run again, as every migration runs on each start.
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS held_youtube_findings (");
     expect(migration).toContain("CREATE INDEX IF NOT EXISTS held_youtube_findings_expiry_idx");
@@ -631,7 +642,7 @@ describe("production living-evidence deployment", () => {
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     expect(order.indexOf("0021_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
-    expect(order.at(-1)).toBe("0021_atlas_publications");
+    expect(order.at(-1)).toBe("0023_research_findings_save_switch");
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
