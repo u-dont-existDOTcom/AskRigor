@@ -681,8 +681,10 @@ catalog, where `review_research_contribution` takes the comment actions and
 `set_picks`, so the owner refreshes each connector's tool list. With
 participation on, check that a finding page shows the vote totals and the
 sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
-with `scope=openid`, `code_challenge_method=S256` and the callback above, and,
-signed in, that a vote, a comment and its deletion round-trip. A reader who
+with `scope=openid`, the tenant's own `/userinfo` audience (never its default
+audience, the MCP API, which admits only the connectors' applications),
+`code_challenge_method=S256` and the callback above, and, signed in, that a
+vote, a comment and its deletion round-trip. A reader who
 reports a comment without signing in is counted by the address the apex block
 forwards (an IPv6 address by its /64); a public-site packet from before this
 change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every

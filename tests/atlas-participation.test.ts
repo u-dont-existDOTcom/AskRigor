@@ -435,7 +435,7 @@ describe("the participant key, the cookies and the tokens", () => {
 // Signing in --------------------------------------------------------------------------------------------------------------
 
 describe("signing in with the AskRigor login", () => {
-  it("asks the tenant for openid only, with PKCE, state and nonce, and keeps them in a 10-minute __Host- cookie", async () => {
+  it("asks the tenant for openid only, for its userinfo audience, with PKCE, state and nonce, in a 10-minute __Host- cookie", async () => {
     const f = await fixture();
     const { response } = await f.get("/atlas/auth/login?return=/atlas/findings/P-1001");
     expect(response.status).toBe(302);
@@ -445,6 +445,8 @@ describe("signing in with the AskRigor login", () => {
     expect(Object.fromEntries(location.searchParams)).toMatchObject({
       response_type: "code", client_id: CLIENT_ID, redirect_uri: `${f.base}/atlas/auth/callback`, scope: "openid",
       code_challenge_method: "S256",
+      // Never the tenant's default audience (the MCP API, which admits only the connectors' applications).
+      audience: `${ISSUER}userinfo`,
     });
     for (const name of ["state", "nonce", "code_challenge"]) expect(location.searchParams.get(name)).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     expect(location.search).not.toMatch(/email|profile|offline_access/u);
