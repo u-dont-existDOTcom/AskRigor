@@ -861,10 +861,10 @@ export const PERSONAL_ONLY_NOT_SAVED = "not saved: its findings are declared per
   "AskRigor's findings library";
 /**
  * A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are held
- * for the owner's review and deleted after 30 days (owner answer 173).
+ * for the owner's review (owner answer 173).
  */
 export const YOUTUBE_FINDINGS_NOT_SAVED = "not saved as a card: its findings all rest on YouTube comments, which " +
-  "AskRigor keeps only for its owner's review and deletes after 30 days";
+  "AskRigor keeps only for its owner's review";
 export const PERSONAL_ONLY_NOT_OFFERED = "its findings are declared personal only, so the answer offers no save, and " +
   "save_research_findings does not save them";
 

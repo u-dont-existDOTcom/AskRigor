@@ -1245,18 +1245,19 @@ describe("with the Atlas publications (decision 171)", () => {
 });
 
 // Owner answer 173: a card whose findings all rest on YouTube comments is not saved as a card, and the user is told
-// that AskRigor keeps those findings only for its owner's review and deletes them after 30 days, not that it stores
-// nothing until YouTube confirms it may.
+// that AskRigor keeps those findings only for its owner's review, not that it stores nothing until YouTube confirms it
+// may, nor that it deletes them after a time (the owner's rule, 25 Oct).
 describe("what the user is told of a card whose findings all rest on YouTube comments", () => {
-  it("says it is not saved as a card, and that its findings are kept for the owner's review and deleted after 30 days", () => {
+  it("says it is not saved as a card, and that its findings are kept only for the owner's review", () => {
     const saved = findingsSaveToolResult({ status: "youtube_findings_only", retryable: false });
     expect(saved.isError).toBe(true);
     expect(saved.content).toEqual([{ type: "text", text: "Not saved as a card: its findings all rest on YouTube " +
-      "comments, which AskRigor keeps only for its owner's review and deletes after 30 days." }]);
+      "comments, which AskRigor keeps only for its owner's review." }]);
     expect(YOUTUBE_FINDINGS_NOT_SAVED).toBe("not saved as a card: its findings all rest on YouTube comments, which " +
-      "AskRigor keeps only for its owner's review and deletes after 30 days");
+      "AskRigor keeps only for its owner's review");
     for (const text of [JSON.stringify(saved.content), YOUTUBE_FINDINGS_NOT_SAVED]) {
       expect(text).not.toContain("until YouTube confirms");
+      expect(text).not.toMatch(/delet|days/iu);
     }
   });
 });

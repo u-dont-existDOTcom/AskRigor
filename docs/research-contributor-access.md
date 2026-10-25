@@ -401,21 +401,26 @@ of 33 tools. They are flat fields with one rule set per action:
   every one, and `card_forget_waiting_for_owner` until then. It also deletes
   the cards' held YouTube findings (below).
 - Held YouTube findings (owner answer 173, built, not yet released): the
-  findings drawn from YouTube comments that a saved card leaves out are held for
-  30 days apart from the card, then deleted; so are those of a card whose
+  findings drawn from YouTube comments that a saved card leaves out are held
+  apart from the card for the owner's review; so are those of a card whose
   findings all rest on them, which is not saved as a card, with its question and
-  topic. `inspect_finding` on a card lists its held findings
-  (`card.heldYoutubeFindings`) with the day each is deleted, and
+  topic. They are kept until deleted (the owner's rule, 25 October: "don't
+  delete the summaries unless YT tells us to do that"): nothing deletes one by
+  its age. `inspect_finding` on a card lists its held findings
+  (`card.heldYoutubeFindings`) with the day each was saved, and
   `list_youtube_findings` lists those with no card (`heldWithoutCard`), newest
-  first; they are never items, so no decision takes one.
-  `delete_youtube_findings` with `card` deletes a card's now, and with
-  `cardSha256` a save's with no card. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
-  moves those of cards stored before into the hold, each from its own save's
-  time, deletes one already past 30 days, and rewrites the card and its later
-  saves as saved today without them; it changes nothing on a card whose
-  findings all rest on YouTube comments or where a decision names a finding the
-  move would remove or renumber, and lists the GitHub edit histories for the
-  owner to clear.
+  first, 25 saves a page (`cursor` with its `nextCursor` for the next); they are
+  never items, so no decision takes one. `delete_youtube_findings` with `card`
+  deletes a card's, and with `cardSha256` a save's with no card;
+  `delete_all_youtube_findings` deletes every one at once, for the day YouTube
+  asks, and answers `needs_confirmation`, deleting nothing, unless the call says
+  `confirm: true`. `move_youtube_findings` with `cards` (such as `["ARF-0007"]`)
+  moves every finding drawn from YouTube comments of cards stored before into
+  the held findings, each with its own save's time, and rewrites the card and
+  its later saves as saved today without them; it changes nothing on a card
+  whose findings all rest on YouTube comments or where a decision names a
+  finding the move would remove or renumber, and lists the GitHub edit histories
+  for the owner to clear.
 
 Each decision on a card item carries the `cardSha256` from its inspect: when
 the card or its later saves changed since, the call answers `card_changed` and

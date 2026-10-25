@@ -41,8 +41,8 @@ only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
-permissions documented below, and executes two held YouTube findings functions
-of migration 0019 (hold and purge) and the nine Atlas participation functions
+permissions documented below, and executes one held YouTube findings function
+of migration 0019 (hold) and the nine Atlas participation functions
 of migration 0022 (a participant's own state, display name, votes, comments,
 reports, ending their sessions everywhere, checking a session, and deleting
 everything they hold). The research-review role can
@@ -50,7 +50,7 @@ execute only the three bounded owner-review functions (inspect, decide, and the
 review context of migration 0012), the five Atlas review functions of migration
 0017 (inspect cards, decide a card item, record an intent, inspect intents, and
 forget cards), the six held YouTube findings functions of migration 0019 (hold,
-two reads, two deletions and purge), the six publication functions of migration
+two reads, two deletions and deleting them all), the six publication functions of migration
 0021 (inspect, publish, decide, edit, withdraw, and erase the texts of the
 Atlas's publications) and the five moderation functions of migration 0022 (list
 comments, moderate a comment, stop or restore a commenter, and set and read the
@@ -435,12 +435,14 @@ image serves, recreate `research-mcp` with that image, have each user refresh
 the app's tool list once more, and only then put the
 `ASKRIGOR_ATLAS_REVIEW=enabled` line back and open the owner's Atlas actions.
 
-Held YouTube findings (owner answer 173, 2026-10-25; YouTube Developer Policies,
-section III.E.4, for Non-Authorized Data): the findings drawn from YouTube
-comments that a saved findings card leaves out (owner answer 170) are kept in
-this database for 30 days, apart from the card, for the owner's review, and then
-deleted, with no refreshing; so are the findings of a card whose findings all
-rest on YouTube comments, which is not saved as a card. Migration
+Held YouTube findings (owner answer 173, 2026-10-25): the findings drawn from
+YouTube comments that a saved findings card leaves out (owner answer 170) are
+kept in this database, apart from the card, for the owner's review, with no
+refreshing; so are the findings of a card whose findings all rest on YouTube
+comments, which is not saved as a card. They are kept until deleted (the
+owner's rule, 25 October: "don't delete the summaries unless YT tells us to do
+that"): on request, when the card is forgotten, or every one at once if YouTube
+asks. Nothing deletes a held finding by its age. Migration
 `0019_held_youtube_findings` adds:
 
 - the private table `held_youtube_findings`: for each held finding, the saved
@@ -449,48 +451,51 @@ rest on YouTube comments, which is not saved as a card. Migration
   label), the checked card's SHA-256 and the finding's place on that card,
   AskRigor's texts (the claim, whom it applies to, why the usual answer misses
   it, what would change it, and the subject when the card declared one), its
-  certainty, kind and direction, its tags and verified bases, the save time and
-  the expiry, which a check holds at exactly 720 hours later. A unique index keeps
-  one row per finding of one save, with a card or without. No column holds a
-  source, a link, the answer quote, a contributor or thread key, or any comment
-  text, name, channel, comment or video ID. Each `migrate` removes every grant on
-  it but the migrator's own, the reader's default-privilege SELECT included;
+  certainty, kind and direction, its tags and verified bases, and the save time,
+  to the millisecond. A unique index keeps one row per finding of one save, with
+  a card or without, and a partial index orders the saves with no card for the
+  owner's list. No column holds an expiry, a source, a link, the answer quote, a
+  contributor or thread key, or any comment text, name, channel, comment or
+  video ID. Each `migrate` removes every grant on it but the migrator's own, the
+  reader's default-privilege SELECT included;
 - six SECURITY DEFINER functions, each revoked from PUBLIC:
   `hold_youtube_findings` (a save's findings, with its card's number or its
-  question and topic, never one already past its 30 days, and never refreshing
-  one held before), `inspect_held_youtube_findings` (a card's findings whose 30
-  days have not ended), `inspect_cardless_held_youtube_findings` (those with no
-  card, newest first), `delete_held_youtube_findings` (a card's, early),
-  `delete_cardless_held_youtube_findings` (a save's with no card, by its checked
-  card's SHA-256, early) and `purge_expired_held_youtube_findings` (every row
-  past its expiry by the database's clock; it takes no time from its caller, so
-  no caller deletes a finding early through it).
+  question and topic, never refreshing one held before),
+  `inspect_held_youtube_findings` (every held finding of the given cards),
+  `inspect_cardless_held_youtube_findings` (those with no card, newest first, a
+  page of saves at a time, so paging on returns every one),
+  `delete_held_youtube_findings` (a card's), `delete_cardless_held_youtube_findings`
+  (a save's with no card, by its checked card's SHA-256) and
+  `delete_all_held_youtube_findings` (every row at once, for the day YouTube asks
+  AskRigor to delete them).
 
 The research server holds a saved card's left-out findings through the
 research-access role, in the background: a failure never fails or delays the
-save, and the findings are then not kept. It purges expired rows at start and
-then every hour, from its own process, through both roles. The owner's review
-tool reads, deletes early and moves findings through the review role, and
-`forget_card` deletes a card's held findings with it. No read returns a row past
-its expiry, purged yet or not. `npm run contributor-access:postgres-acceptance`
-checks the table, the functions, the grants, holding, expiry and the purge
-against real PostgreSQL in Docker.
+save, and the findings are then not kept. It runs no purge. The owner's review
+tool reads, deletes and moves findings through the review role, and deletes
+them all with `delete_all_youtube_findings` only when the call says
+`confirm: true`; `forget_card` deletes a card's held findings with it.
+`npm run contributor-access:postgres-acceptance` checks the table, the
+functions, the grants, holding, paging and each deletion against real
+PostgreSQL in Docker.
 
 Its release, in this order, before the new image serves:
 
 1. Run the one-shot admin `migrate`, which applies 0019.
 2. Inside the PostgreSQL service, re-run `/usr/local/bin/provision-research-access-role` and
    `/usr/local/bin/provision-research-review-role`: the access role gets
-   `hold_youtube_findings` and `purge_expired_held_youtube_findings`, and the
-   review role those two with `inspect_held_youtube_findings`,
-   `inspect_cardless_held_youtube_findings`, `delete_held_youtube_findings` and
-   `delete_cardless_held_youtube_findings`. Prove the boundary as step 6 above
+   `hold_youtube_findings` alone, and the review role it with
+   `inspect_held_youtube_findings`, `inspect_cardless_held_youtube_findings`,
+   `delete_held_youtube_findings`, `delete_cardless_held_youtube_findings` and
+   `delete_all_held_youtube_findings`. Prove the boundary as step 6 above
    says: each role executes its functions, neither reads, writes or deletes the
-   table directly, and the reader cannot read it.
+   table directly, the access role cannot read or delete held findings, and the
+   reader cannot read it.
 3. Recreate only `research-mcp` with the new image, and check the 33-tool
-   catalog: `review_research_contribution` takes three new actions
-   (`list_youtube_findings`, `move_youtube_findings` and
-   `delete_youtube_findings`) and one new field (`cards`), so the owner
+   catalog: `review_research_contribution` takes four new actions
+   (`list_youtube_findings`, `move_youtube_findings`,
+   `delete_youtube_findings` and `delete_all_youtube_findings`) and one new
+   field (`cards`), and `list_youtube_findings` takes `cursor`, so the owner
    refreshes each connector's tool list.
 4. The owner moves the findings drawn from YouTube comments of the cards stored
    before (ARF-0007, ARF-0012 and ARF-0209) with `move_youtube_findings`, and
@@ -503,13 +508,13 @@ read.
 
 An image rollback below this release recreates only `research-mcp` with the
 earlier image, which stores cards without their findings drawn from YouTube
-comments, as before, and never holds, reads or purges held findings. Undo no
-migration. Since nothing purges them while it serves, delete the held rows as
-the migrator, so none outlives its 30 days: `DELETE FROM
-living_evidence.held_youtube_findings;` (or, for a rollback of a few days,
-`SELECT living_evidence.purge_expired_held_youtube_findings();` once a day until
-this release serves again). If the earlier image's `migrate` runs, it ignores
-0019's row in `schema_migrations` and leaves the table and functions in place.
+comments, as before, and never holds, reads or deletes held findings. Undo no
+migration and delete nothing: the held rows stay, unread, until this release
+serves again, as the owner's rule keeps them until deleted. If YouTube asks
+AskRigor to delete them while the earlier image serves, delete them all as the
+migrator: `SELECT living_evidence.delete_all_held_youtube_findings();`. If the
+earlier image's `migrate` runs, it ignores 0019's row in `schema_migrations`
+and leaves the table and functions in place.
 
 Decision 171, section 4B (plan
 `../../docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`)

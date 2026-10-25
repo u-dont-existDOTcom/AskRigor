@@ -672,7 +672,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps (the notice version accepted, now `free-contributor-v4-2026-10-25`, or v1, v2 or v3, whose account accepts v4 before free research continues; migration `0020_research_use_notice_v4`, owner answer 171); the plain-answer note setting (`plain_answer_note`, a boolean, on by default; owner answer 140b, migration `0013_research_plain_answer_note`); the detailed lesson reports setting (`detailed_lesson_reports`, a boolean, off by default, which only the user's `set_detailed_lesson_reports` turns on; owner question 154, migration `0015_research_detailed_lesson_reports`), never a report; the findings-card saving setting (`findings_save`, a boolean, on by default, which only a dev account listed in `ASKRIGOR_DEV_ACCOUNT_KEYS` may turn off or on through `set_findings_save`; owner answer 171, default 5, migration `0023_research_findings_save_switch`), never a card; verified-entitlement status; strict deidentified formal-frontier, source-analysis or topic-link proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason; optionally the UUID of the same account's own pending proposal of the same kind that the proposal supersedes (owner answer 138b, 2026-10-20); for a paid-private account's research map only, the SHA-256 of the finalization receipt whose offer the user said yes to (`consent_receipt_sha256`, owner answer 143a, migration `0014_research_map_consent`), never the receipt | A distinct least-privilege PostgreSQL role can select/insert access accounts and update only their enrollment/revocation columns and settings (including `findings_save`, never the account key or creation time), read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. A database trigger accepts a supersedes link only to the same account's own pending proposal of the same kind, and refuses any other UUID with one answer, so a submitter learns nothing about another account's proposals; accepting the proposal rejects that draft, "superseded by <id>", in the same transaction. The same trigger admits a paid-private account's proposal only as a research map carrying that consent digest, and a free contributor's never carries one; a unique index lets one yes file one map, and the owner's review shows neither the account key nor the digest. The owner's review sees the link in both directions by proposal ID only, which shows that the two proposals come from one account, never the account key. Before storage, a frontier is reconciled with the canonical store by exact identity through the read-only canonical reader, so the stored payload may hold canonical IDs and labels in place of the ones sent; the submitter is told which IDs, all of them already public through the catalog tools. A topic link names two canonical topics by ID and key, one of four relations and a deidentified rationale; it is stored only after the same reader confirms both topics and that no stored link contradicts it, and when the reader cannot be read nothing is stored. |
 | Held validated analysis (free contributor) | HMAC-SHA-256 account key; the study or review audit's SHA-256; the living-evidence contribution built from one validated method audit: source identifiers, title, content hash and locator, structured domain findings and claim capabilities, a study audit's declared headline figures and program routes, the audit receipt, the protocol identities, and a Crossref integrity-check hash | Process memory only, between a free contributor's successful `validate_study_method_audit` or `validate_review_method_audit` on MCP and a passing `finalize_research`. The final check then files it as a pending `SOURCE_ANALYSIS` proposal through the same intake and privacy checks as `submit_research_contribution`, so the AI no longer has to send it. Held only for active free contributor accounts, never paid private, and only for a source with a DOI and a clean Crossref integrity check; repository reuse is not held. No source text, chat, prompt or person's details; entries drop after 24 hours, past 500 entries, or on restart. A study a free contributor read from the operator's library (owner answer 157a) is held the same way: its locator is the public page that gave its public basis (or the canonical family's own), never the library's link. The contribution itself is the same data a pending proposal already stores. Owner answer 138b (2026-10-20): each audit is its own analysis, keyed by the audit and its protocols; when the source's identifiers name one canonical source family with no conflicting identifier, the public runtime's read-only canonical reader supplies that family's ID, title, version of the same bytes and freshness policy, which the contribution then carries instead of the document's; a new source version records no retrieval time. An audit the canonical store already holds under the same protocols, or one this account already filed (pending, accepted or rejected), is not filed again. |
 | Owner-accepted contribution promotion | Promotion UUID; proposal UUID, strict kind and reviewed payload SHA-256; creation time; `PENDING`, `COMPLETED` or `FAILED` state; for `COMPLETED`, the completion time and the stable receipt (canonical identifiers and the writer's receipt) with its SHA-256; for `FAILED`, one failure code from a closed list of canonical conflict codes (never free text or payload content) and the failure time. The owner's decision, reason and review time stay on the proposal row. No claim, attempt count or error text is stored. | The public runtime cannot write this state or canonical evidence. One function-only owner-review call atomically creates the exact intent only on acceptance; the review role reads a failed intent's code through one more security-definer function, which returns no account key. That function also gives the owner's review the supersession links and the other proposals pending review or queued for promotion that share one of the proposal's identities (topic key or ID, frontier, question, source family, or a candidate or source identifier), by proposal ID, kind, state and the kinds of identity shared only: never an account key or another proposal's content. The review also reads the canonical store through the public runtime's read-only reader for the canonical records sharing those identities (IDs only) and a promotion preflight, a dry run of the writer's identity checks that stores nothing and names each conflict by its fixed code and payload path; neither is stored or sent anywhere but to the owner. A separate root-scheduled short-lived admin container receives only the existing canonical writer environment and promotes at most one accepted intent per activation; an intent whose canonical write conflicts deterministically ends `FAILED` with its code and the activation moves to the next (at most 20 per activation), while a transient error leaves it `PENDING` (owner answer 138b, 2026-10-20). The static unit accepts no user input and logs only the bounded operation receipt, including each failed intent's UUIDs, kind and code; it receives no raw chat, account key, private health narrative, upload, raw source/provider content, or community data. Disabling the timer preserves all rows. |
-| Held YouTube findings (owner answer 173) | For each finding drawn from YouTube comments that a saved findings card leaves out, or of a card whose findings all rest on them, which is not saved as a card: its claim, certainty, whom it applies to, why the usual answer misses it, what would change it, its kind, subject and direction when declared, and its tags and verified bases (fixed values); the saved card's `ARF-####` issue number (none for a card not saved, which keeps instead the card's own general wording of the research question and its topic's key and label), the checked card's SHA-256, the finding's place on that card, the save time and the expiry. Never a source (a YouTube video ID), a link, the answer quote, a contributor or thread key, or any comment text, name, channel, comment or video ID. | Private PostgreSQL table `held_youtube_findings` (migration `0019_held_youtube_findings`), reached only through six security-definer functions: the research-access role holds a save's findings in the background (a failure never fails or delays the save; they are then not kept) and purges; the review role holds the findings moved out of cards stored before, reads and deletes early, a card's or a save's with no card, and purges; the reader and every other role are refused. Only the owner sees them, in the owner-only review tool (a card's view, and `list_youtube_findings` for those with no card), with the day each is deleted; never published, accepted into the Atlas or offered anywhere else. Deleted exactly 30 days (720 hours) after the save, with no refreshing: no read returns an expired row, and the research server purges at start and then every hour. Sooner on request: `delete_youtube_findings` for a card or a save with no card, and `forget_card` with a card. |
+| Held YouTube findings (owner answer 173) | For each finding drawn from YouTube comments that a saved findings card leaves out, or of a card whose findings all rest on them, which is not saved as a card: its claim, certainty, whom it applies to, why the usual answer misses it, what would change it, its kind, subject and direction when declared, and its tags and verified bases (fixed values); the saved card's `ARF-####` issue number (none for a card not saved, which keeps instead the card's own general wording of the research question and its topic's key and label), the checked card's SHA-256, the finding's place on that card, and the save time. Never a source (a YouTube video ID), a link, the answer quote, a contributor or thread key, or any comment text, name, channel, comment or video ID. | Private PostgreSQL table `held_youtube_findings` (migration `0019_held_youtube_findings`), reached only through six security-definer functions: the research-access role holds a save's findings in the background (a failure never fails or delays the save; they are then not kept); the review role holds the findings moved out of cards stored before, reads, deletes a card's or a save's with no card, and deletes them all at once; the reader and every other role are refused. Only the owner sees them, in the owner-only review tool (a card's view, and `list_youtube_findings` for those with no card, a page at a time), with the day each was saved; never published, accepted into the Atlas or offered anywhere else. Kept until deleted (the owner's rule, 25 October 2026: "don't delete the summaries unless YT tells us to do that"): on request, with `delete_youtube_findings` for a card or a save with no card and `forget_card` with a card, or every one at once with `delete_all_youtube_findings` (with `confirm: true`) if YouTube asks. Nothing deletes one by its age, and none is refreshed. |
 
 Contribution intake rejects frontier candidate and source-analysis identifier values beginning with `sandbox:` (case-insensitive), because a sandbox link points into another session and can never be opened.
 
@@ -1106,12 +1106,11 @@ clarifies, so such a finding is left out whole, and a card whose findings all
 rest on YouTube comments is not saved as a card (`youtube_findings_only`; owner
 answer 170, 24 October 2026). `stored_without` records what was left out; the
 SHA-256 is still the checked card's. Each finding left out of a saved card is
-held for 30 days apart from the card, in the database, and then deleted, and so
-are the findings of a card not saved as a card, with its question and topic
-(held YouTube findings, below; owner answer 173, 25 October 2026). The save's
-result then says so: "Not saved as a card: its findings all rest on YouTube
-comments, which AskRigor keeps only for its owner's review and deletes after 30
-days." A finding may still summarize what other public
+held apart from the card, in the database, for the owner's review, and so are
+the findings of a card not saved as a card, with its question and topic (held
+YouTube findings, below; owner answer 173, 25 October 2026). The save's result
+then says so: "Not saved as a card: its findings all rest on YouTube comments,
+which AskRigor keeps only for its owner's review." A finding may still summarize what other public
 communities reported, without posts, commenter names or links. The version stamp holds the
 save time; the AskRigor version and build commit, or `unknown`; the HRP and
 Universal names, versions and SHA-256; a SHA-256 of the tool catalog; the
@@ -1139,21 +1138,20 @@ server's secret, and one account's threads on different research targets do
 not match.
 
 Held YouTube findings (owner answer 173, 25 October 2026; built, not yet
-released, the privacy page's sentence waiting for the owner's approval with the
-release). AskRigor reads public YouTube data with a server key, which YouTube's
-Developer Policies call Non-Authorized Data; their section III.E.4 lets an API
-client keep a limited amount for no longer than 30 calendar days, then delete or
-refresh it. AskRigor deletes: each finding drawn from YouTube comments that a
-saved card leaves out is kept for 30 days, apart from the card, for the owner's
-review, and never refreshed. A card whose findings all rest on YouTube comments
-is not saved as a card, and its findings are kept the same way, with no card.
+released; the privacy page's paragraph is the owner's wording of 25 October).
+Each finding drawn from YouTube comments that a saved card leaves out is kept
+apart from the card, for the owner's review, and never refreshed. A card whose
+findings all rest on YouTube comments is not saved as a card, and its findings
+are kept the same way, with no card. They are kept until deleted: the owner's
+rule, 25 October 2026, is "don't delete the summaries unless YT tells us to do
+that".
 
 - What: for each such finding, only what AskRigor wrote, each in a column of its
   own: its claim, certainty, whom it applies to, why the usual answer misses it
   and what would change it, its kind, subject and direction when the card
   declared them, and its tags and verified bases (fixed values), with the card's
   `ARF-####` issue number, the checked card's SHA-256, the finding's place on
-  that card, the save time and the expiry. For a card not saved as a card there
+  that card, and the save time. For a card not saved as a card there
   is no issue number: its findings are named by the checked card's SHA-256 and
   their place, and keep the card's own general wording of the research question
   (at most 300 characters) and its topic's key and label when it declared one,
@@ -1173,25 +1171,27 @@ is not saved as a card, and its findings are kept the same way, with no card.
   only through six security-definer functions; the public reader and every
   other role are refused, the reader's default-privilege SELECT included.
 - Who sees them: only the owner, in the owner-only review tool: `inspect_finding`
-  on a card lists its held findings with the day each is deleted, and
-  `list_youtube_findings` lists those with no card, newest first, each with its
-  question, topic and deletion day. They are never items of a card, so no
-  decision takes one: they are never published, accepted into the Atlas or
-  offered anywhere else.
-- Deletion: exactly 30 days (720 hours) after the save. No read returns a
-  finding past its expiry, and the research server purges expired rows at start
-  and then every hour, from its own process. Sooner on request: the owner deletes
-  a card's held findings with `delete_youtube_findings` (with `card`), or those
-  of a save with no card (with its `cardSha256`), and `forget_card` deletes a
-  card's with the card. A save with no card has no `ARF-####` id for a deletion
-  request to name, so its findings go on the owner's word or at day 30. The same
-  findings saved again keep their first expiry.
+  on a card lists its held findings with the day each was saved, and
+  `list_youtube_findings` lists those with no card, newest first, 25 saves a
+  page (its `nextCursor` shows the next, so every one can be seen), each with its
+  question, topic and save day. They are never items of a card, so no decision
+  takes one: they are never published, accepted into the Atlas or offered
+  anywhere else.
+- Deletion: only on request, or if YouTube asks; nothing deletes a held finding
+  by its age. The owner deletes a card's held findings with
+  `delete_youtube_findings` (with `card`), or those of a save with no card (with
+  its `cardSha256`); `forget_card` deletes a card's with the card; and
+  `delete_all_youtube_findings` deletes every one at once, of every card and
+  every save with no card, only when the call says `confirm: true` after the
+  owner said to, as when YouTube asks AskRigor to delete them. A save with no
+  card has no `ARF-####` id for a deletion request to name, so its findings go
+  on the owner's word. The same findings saved again keep their first save time.
 - Cards stored before (owner answer 173: ARF-0007, ARF-0012 and ARF-0209): the
-  owner's `move_youtube_findings` holds their findings drawn from YouTube
-  comments, each counted from its own save's time (a card saved on 7 October is
-  deleted on 6 November), deletes one already past 30 days, and rewrites the card
-  and each later save exactly as one saved today without them would read; a
-  later save left with no finding is deleted. It changes nothing on a card whose
+  owner's `move_youtube_findings` holds every one of their findings drawn from
+  YouTube comments, each with its own save's time, and then rewrites the card and
+  each later save exactly as one saved today without them would read (no card is
+  changed unless the database holds each of its findings first); a later save
+  left with no finding is deleted. It changes nothing on a card whose
   findings all rest on YouTube comments, or where a decision names a finding the
   move would remove or renumber. It also changes nothing if the card has any
   publication, including withdrawn ones, unless that publication's card was
@@ -1245,8 +1245,9 @@ pages will be built. The actions are on the owner-only
 subject): `list_findings`, `inspect_finding`, `accept_finding`, `edit_finding`,
 `reject_finding`, `withdraw_finding`, `link_findings` and `forget_card`, and for the
 held YouTube findings (above; owner answer 173) `list_youtube_findings`,
-`move_youtube_findings` and `delete_youtube_findings`, with each card's held
-findings listed on its `inspect_finding` view. They are closed unless
+`move_youtube_findings`, `delete_youtube_findings` and
+`delete_all_youtube_findings`, with each card's held findings listed on its
+`inspect_finding` view. They are closed unless
 `ASKRIGOR_ATLAS_REVIEW` is `enabled`, which the release sets once migration
 0017, the review role's grants and the promotion timer are verified; while
 closed they answer `atlas_review_closed` and read and record nothing. Until
@@ -1733,7 +1734,7 @@ when the account turned on detailed lesson reports) and anonymous recurrence
 metadata listed above; it does not create a transcript store or user profile. The free
 contributor findings library, when deployed, is another: it stores only the
 checked, screened cards, stamps and thread keys listed above, with no user
-profile, and for 30 days the held YouTube findings listed above. The independently
+profile, and the held YouTube findings listed above, until deleted. The independently
 disclosed living-evidence, frontier, participant-intake, research-access, and
 pending-proposal stores have their own strict contracts and authority boundaries.
 
