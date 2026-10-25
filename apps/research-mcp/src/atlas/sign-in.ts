@@ -58,6 +58,10 @@ export function startSignIn(settings: AtlasParticipationSettings, signIn: AtlasS
     client_id: signIn.clientId,
     redirect_uri: callbackUrl(settings),
     scope: "openid",
+    // The tenant's default audience is the MCP API, which admits only the connectors' applications. The Atlas wants an
+    // ID token alone, so it names Auth0's own userinfo audience and never asks for the MCP API (on 25 Oct the tenant
+    // refused every sign-in without it: the client "is not authorized to access resource server").
+    audience: new URL("userinfo", withTrailingSlash(signIn.issuerUrl)).href,
     state: state.state,
     nonce: state.nonce,
     code_challenge: pkceChallenge(state.verifier),
