@@ -1083,7 +1083,8 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
     next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
     ...(checkRound === undefined ? {} : { round: { number: checkRound.round, limit: CHECK_ROUND_LIMIT } }),
-    ...(checkRound?.status === "open" ? { round_token: checkRound.token } : {}),
+    // Invalid inputs return no replacement carried state, so the token keeps only the call's binding.
+    ...(checkRound?.status === "open" ? { round_token: checkRound.issueToken() } : {}),
     ...(stopped === undefined ? {} : {
       stopped: {
         reason: stopped.reason,
@@ -3488,7 +3489,6 @@ export function finalizeResearch(
     output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
     const entry = ({ kind, text }: CheckStep) => ({ kind, step: text });
     if (checkRound.status === "open") {
-      output.round_token = checkRound.token;
       if (checkRound.stuck.length > 0) output.stuck_steps = checkRound.stuck.map(entry);
     } else {
       const reasons = output.unchecked_line.slice(UNCHECKED_LINE_START.length).replace(/^: /u, "").replace(/\.$/u, "");
@@ -3569,6 +3569,10 @@ export function finalizeResearch(
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
+  if (checkRound?.status === "open") {
+    output.round_token = checkRound.issueToken(output.carry_forward === undefined
+      ? undefined : roundBinding(output.carry_forward, input.research_target));
+  }
   return finalizeResearchOutputSchema.parse(output);
 }
 
