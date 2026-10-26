@@ -1741,6 +1741,8 @@ function defineResearchOperations(
             ...productIdentityClaims(input.product_identity === undefined ? undefined : productIdentitySchema.parse(input.product_identity), [{ video_id: result.video_id, product_class: result.product_class }]),
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
+            ...(result.error?.code === "youtube_video_audit_identifier_membership_boundary"
+              ? { boundary: "identifier_membership" } : {}),
             records: result.records_retrieved_cumulative,
             shown: returned.shown,
             // The audit's depth, so the coverage check needs no copy of it.
@@ -1803,7 +1805,7 @@ function defineResearchOperations(
         ret: view.records_returned_for_analysis,
         rtop: view.top_level_records_returned_for_analysis,
         rrep: view.reply_records_returned_for_analysis
-      }));
+      }), result.error?.code === "youtube_video_audit_identifier_membership_boundary");
     }
   );
 
@@ -3046,7 +3048,8 @@ function receiptSequence(): number {
  * Adds the receipt to a result. An error result carries none, except where
  * `signsError` asks for it: a discovery round's, as a search a rate limit or
  * the daily quota stopped is signed with that limit, which keeps discovery
- * open; and a video extract_youtube_video_claims did not read (AskRigor#359).
+ * open; a terminal identifier-membership boundary's bounded video audit; and a
+ * video extract_youtube_video_claims did not read (AskRigor#359).
  */
 function withResearchReceipt(
   result: CallToolResult,
@@ -3895,8 +3898,9 @@ function youtubeVideoCommunityAuditFailure(
     ...(identityError?.product_class === undefined ? {} : { product_class: identityError.product_class }),
     analysis_limit: snapshot?.analysis_limit ?? parsed.analysis_limit ?? 500,
     segment_index: snapshot?.segment_index ?? 0,
-    metadata_access_status: "error",
-    metadata_error: error,
+    ...(identifierBoundary?.channel_id === undefined
+      ? { metadata_access_status: "error", metadata_error: error }
+      : { metadata_access_status: "api_visible_complete", channel_id: identifierBoundary.channel_id }),
     ...(snapshot?.provider_reported_comments === undefined
       ? {}
       : { provider_reported_comments: snapshot.provider_reported_comments }),

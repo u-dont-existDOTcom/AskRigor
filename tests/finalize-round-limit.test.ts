@@ -396,6 +396,16 @@ describe("what a stopped check could not do and what the next turn can", () => {
         "unchanged 3 rounds running.");
   });
 
+  it("leaves a stuck tool-limit step to the next turn by its marker, without reading its text", () => {
+    const deferred: CheckStep = { ...research, deferUntilNextTurn: true };
+    let outcome = advance([deferred]);
+    for (let round = 2; round <= 3; round += 1) {
+      outcome = advance([deferred], outcome.status === "open" ? outcome.token : undefined);
+    }
+    expect(outcome).toMatchObject({ status: "stopped", reason: "stuck", couldNot: [], nextTurn: [deferred] });
+    expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : "open").toBeUndefined();
+  });
+
   it("gives no bug report when everything left is for the next turn", () => {
     let token: string | undefined;
     let outcome = advance([toolList], token);

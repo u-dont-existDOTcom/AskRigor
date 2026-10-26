@@ -37,6 +37,8 @@ type RoundState = z.output<typeof roundStateSchema>;
 export interface CheckStep {
   kind: NextStepKind;
   text: string;
+  /** The generating tool's limit cannot reset during this turn. Never inferred from the step's prose. */
+  deferUntilNextTurn?: boolean;
 }
 
 export type RoundOutcome =
@@ -136,7 +138,7 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
     // refreshes. Everything else is what AskRigor could not do this turn: a step that kept coming back, or, at the
     // limit, a declaration, draft or record the AI and the check could not settle in ten rounds.
     const nextTurn = (step: CheckStep, wasStuck: boolean) =>
-      step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
+      step.deferUntilNextTurn === true || step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
     return {
       status: "stopped",
       round,

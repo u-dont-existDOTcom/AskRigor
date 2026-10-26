@@ -733,7 +733,8 @@ describe("finalize_research gate", () => {
     const blockedMap = [{ name: "HGH users group", platform: "facebook" }, { name: "HGH users mobile", platform: "facebook" }];
     expect(gate({ principal_communities: blockedMap, community_searches: [blockedGroup] }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for HGH users group records an access boundary but no url: give the community's address " +
-        "(its forum, group or site link), so it is known by its site rather than its name."
+        "(its forum, group or site link), so it is known by its site rather than its name; or record access_boundary " +
+        "not_found when no site by that name could be found."
     );
     expect(gate({
       principal_communities: blockedMap,
@@ -2112,7 +2113,7 @@ describe("finalize_research gate", () => {
       "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
       FORUM_LIMIT,
       "Cite 10.1016/j.joca.2020.01.001 as a lead: no open full text was available, so its methods were not audited.",
-      "Cite PMID: 31234567 as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.",
+      "Cite PMID: 31234567 as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.",
       OFFER_LIMIT
     ]);
     expect(result.finalization_receipt).toBeDefined();
@@ -2210,7 +2211,7 @@ describe("finalize_research gate", () => {
     expect(tried.sources.lead_only).toEqual(["10.1016/j.joca.2020.01.001"]);
   });
 
-  it("does not accept a DOI-less PMID as a lead when PubMed lists an open copy in PMC", () => {
+  it("keeps a DOI-less PMID as a lead even when PMC hosts a copy the acquisition tool cannot request", () => {
     const pmcRecord = sign("pubmed_record", { pmid: "31234567", pmcid: "PMC7654321" }, options);
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study, pmcRecord],
@@ -2222,13 +2223,10 @@ describe("finalize_research gate", () => {
         { read_depth: "partial_text" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only", reason: "no DOI" }
       ]
     }, options);
-    expect(result.status).toBe("not_ready");
-    expect(result.sources.lead_only).toEqual([]);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "PubMed lists an open full text in PubMed Central (PMC7654321) for PMID 31234567 but no DOI. Find its DOI " +
-        "(search_europe_pmc for PMC7654321) and read it with acquire_open_full_text and that pmcid, or leave it out of " +
-        "key_sources and label its claims unverified."
-    ]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(result.caveats.join(" ")).toContain("which PubMed lists without a DOI");
   });
 
   it("binds material videos to discovery receipts passed in the same call", () => {
@@ -2294,8 +2292,6 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "Try acquire_open_full_text for PMC123 with its DOI and this pmcid before treating it as lead_only; pass the research_receipt it returns. " +
-        LEAD_RECEIPT_SEARCH_TEXT,
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
         LEAD_RECEIPT_SEARCH_TEXT,
@@ -2312,6 +2308,46 @@ describe("finalize_research gate", () => {
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "4242", status: "lead_only" }]
     }, options);
     expect(byDoi.sources.lead_only).toEqual(["4242"]);
+  });
+
+  it("never asks a source known only by PMCID for a DOI it does not have", () => {
+    const result = finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ id: "PMC5640576", status: "lead_only", read_depth: "partial_text", answer_marker: "Study" }]
+    }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.sources.lead_only).toEqual(["PMC5640576"]);
+    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(result.caveats.join(" ")).toContain("its full-text tool requires a DOI and none was known");
+    expect(result.caveats.join(" ")).toContain("PMC5640576");
+  });
+
+  it("closes a material video's bounded audit and requires its count and non-ranking caveats", () => {
+    const bounded = sign("youtube_video_audit", {
+      video: "bbbbbbbbbbb", state: "completed_with_access_boundary", lock: "pass",
+      boundary: "identifier_membership", records: 520, shown: 0
+    }, options);
+    const request = {
+      receipts: [survey, emptySearch, repeatScout, videoA, bounded, study],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      research_depth: "deep", material_video_ids: ["aaaaaaaaaaa", "bbbbbbbbbbb"],
+      key_sources: [{ id: "10.1002/art.41142", status: "validated", read_depth: "partial_text", answer_marker: "Study" }],
+      community_findings: findingsFor(["aaaaaaaaaaa"])
+    };
+    const result = finalizeResearch(request, options);
+    const sentence = "The audit of [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) stopped at 520 comments, " +
+      "before the end of its comments, so no complete-corpus claim is made.";
+    const noRanking = "These comments support only a bounded account, so the answer does not use them to rank or recommend options.";
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.community.audited_videos).toContain("bbbbbbbbbbb");
+    expect(result.caveats).toContain(sentence);
+    expect(result.caveats).toContain(noRanking);
+    const omitted = finalizeResearchRaw({ ...request, answer_draft: CLEAN_DRAFT }, options);
+    expect(omitted.status).toBe("not_ready");
+    expect(omitted.next_steps.join(" ")).toContain(sentence);
+    expect(omitted.next_steps.join(" ")).toContain(noRanking);
+    expect(omitted.next_steps.join(" ")).not.toContain("continue until the audit completes");
   });
 
   it("keeps discovering until two rounds from new angles add no video worth auditing", () => {
@@ -2401,6 +2437,15 @@ describe("finalize_research gate", () => {
     expect(deep.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(
       /^1 search\(es\) in the latest discovery rounds did not complete, 1 stopped by YouTube's rate limit or daily quota\. Rerun them once it resets and pass the new research_receipt\./u
     )]);
+    // Its own signed quota result defers the step even after it becomes stuck; no defect is inferred from that wait.
+    const quotaRequest = { ...base, receipts, research_depth: "deep" as const };
+    const second = finalizeResearch({ ...quotaRequest, round_token: deep.round_token }, options);
+    const stopped = finalizeResearch({ ...quotaRequest, round_token: second.round_token }, options);
+    expect(stopped.status).toBe("stopped");
+    expect(stopped.stopped).toMatchObject({ could_not: [], next_turn: [{
+      kind: "research", step: expect.stringContaining("Rerun them once it resets")
+    }] });
+    expect(stopped.bug_report).toBeUndefined();
 
     // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };

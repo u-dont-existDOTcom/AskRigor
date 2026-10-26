@@ -1852,7 +1852,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   broad-choice flag and judged video IDs. So that
   `assess_treatment_landscape_coverage` can build its ledger from receipts, a
   per-video audit receipt also carries the audited video's public channel ID
-  and the audit's counts and completion flags, a scout receipt the unresolved
+  and the audit's counts and completion flags. A terminal identifier-membership
+  error also delivers its signed audit receipt, with a fixed
+  `boundary: identifier_membership` marker and counts from the last verified
+  frontier; no comment or identifier sample is added. A scout receipt carries the unresolved
   and rejected candidate video IDs and the public IDs it left to the model's
   judgment (reworded titles and YouTube's closest results for a title it could
   not find), a literature search receipt (PubMed, Europe PMC or

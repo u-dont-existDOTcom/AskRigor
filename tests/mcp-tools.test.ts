@@ -1330,6 +1330,17 @@ describe("AskRigor MCP tools", () => {
           blockers: []
         }
       });
+      // A terminal boundary may remain an error for clients that consume its diagnostic, but it delivers its receipt.
+      const researchReceipt = (result.structuredContent as { research_receipt: string }).research_receipt;
+      expect(researchReceipt).toBeTypeOf("string");
+      expect(result.content).toContainEqual({ type: "text", text: `research_receipt: ${researchReceipt}` });
+      expect(verifyResearchReceipt(researchReceipt, { secret })).toMatchObject({
+        ok: true, kind: "youtube_video_audit", claims: {
+          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass",
+          boundary: "identifier_membership", records: "501", top: "501", rep: "0", shown: "0",
+          cr: "0", tx: "0", rr: "0", ch: "UC0123456789abcdefghijkl", ms: "api_visible_complete"
+        }
+      });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
