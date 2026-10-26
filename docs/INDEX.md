@@ -117,7 +117,9 @@ complete XML protocol.
   - production acceptance, with no video read (zero spend);
   - the Atlas review, switched on last;
   - the privacy page and the terms of October 22, 2026, and the plugin reinstall;
-  - the owner regressions, after the owner's ChatGPT app refresh and notice acceptance (pending).
+  - the owner regressions of 23 Oct, after the owner's ChatGPT app refresh and notice acceptance (79 cases: 38 met
+    every criterion, 2 failed, 1 was refused by OpenAI's filter; the final check passed in 73); the case-by-case
+    judgment is `audits/2026-10-23-owner-regressions-judgment.md`.
 - `audits/2026-10-25-owner-answers-165-176-production-release.md`: release of #367 on owner answers 176a and
   "175: send": the Atlas (decision 171: notice v4, publishing at save, the public pages, sign-in, votes and comments
   built and off until the Auth0 secret is in, the regression runs' save switch), the held YouTube findings with no
@@ -135,6 +137,9 @@ complete XML protocol.
   body-parser 2.4.0 and fast-uri 3.1.9 for Dependabot alerts 25 to 33, with zod 4.6's JSON Schema form), its
   acceptance, the plugin check and the regression poller on the new build; then the Atlas sign-in fix (#373), on
   owner answer 180a, and on 26 October card 12's move and the signed-in pages (#374, owner answer 181a).
+  The owner regressions on #372's build (80 cases, 25 to 26 Oct: 36 met every criterion, none failed, 8 checks
+  stopped, 2 runs ended without an answer) are judged case by case in
+  `audits/2026-10-26-owner-regressions-judgment.md`, with the carried state's turn problem (finding 1).
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.
