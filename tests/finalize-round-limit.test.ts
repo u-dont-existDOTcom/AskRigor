@@ -1,3 +1,4 @@
+import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -84,8 +85,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
       short_reason: "some of its statements were not checked"
     });
     expect(result!.unchecked_line).toBe(`${UNCHECKED_LINE_START}: some of its statements were not checked.`);
-    expect(result!.bug_report).toBe("AskRigor's final check reached its limit of 10 rounds without passing, with steps " +
-      "about the answer's declarations still open.");
+    expect(result!.bug_report).toBe("AskRigor's final check stopped at round 10 with this rule still unmet: " + step(10));
     // Unchecked: no finalization receipt, so no card is saved, and the next turn knows the answer went out unchecked.
     expect(result!.finalization_receipt).toBeUndefined();
     expect(result!.carried).toMatchObject({ last_status: "not_ready", open_kinds: ["declaration"] });
@@ -109,8 +109,8 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     const fifth = check(fixture({ proposed_tests: [repeating(9)], round_token: fourth.round_token }));
     expect(fifth.status).toBe("stopped");
     expect(fifth.stopped).toMatchObject({ reason: "stuck", could_not: [{ kind: "declaration", step: step(9) }], next_turn: [] });
-    expect(fifth.bug_report).toBe("AskRigor's final check stopped without passing after 5 rounds, because steps about " +
-      "the answer's declarations came back unchanged 3 rounds running.");
+    expect(fifth.check_report?.could_not[0]?.consecutive_rounds).toBe(5);
+    expect(fifth.bug_report).toBe("AskRigor's final check stopped at round 5 with this rule still unmet: " + step(9));
   });
 
   it("stops at the third unchanged round when that step is all that is left", () => {
@@ -325,8 +325,8 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(third.stopped?.reason).toBe("stuck");
     expect(third.stopped?.short_reason).toBe("the check could not run");
     expect(third.stopped?.could_not.map(({ kind }) => kind)).toEqual(first.next_steps.map(() => "input_invalid"));
-    expect(third.bug_report).toBe("AskRigor's final check stopped without passing after 3 rounds, because steps about " +
-      "the call's inputs came back unchanged 3 rounds running.");
+    expect(third.bug_report).toBe("AskRigor's final check stopped at round 3 with this rule still unmet: " +
+      "The call's inputs have problems, so the final check did not run. There is 1 more unmet step.");
     // A token from a valid round of the same turn carries on into an invalid one.
     const valid = check(fixture({ proposed_tests: [repeating(1)] }));
     expect(check({ ...invalid, round_token: valid.round_token }).round?.number).toBe(2);
@@ -359,7 +359,7 @@ describe("what a stopped check could not do and what the next turn can", () => {
   const advance = (steps: readonly CheckStep[], token?: string) => advanceCheckRound(steps, {
     ...options, call: readCheckRound(token, options)
   });
-  const research: CheckStep = { kind: "research", text: "Read the study's full text." };
+  const research: CheckStep = { kind: "research", text: "Read the study's full text.", rule: rule`Read the study's full text.` };
   const declaration: CheckStep = { kind: "declaration", text: "Give named_target." };
   const toolList: CheckStep = { kind: "tool_list", text: "Refresh the app's tool list." };
 
@@ -392,8 +392,7 @@ describe("what a stopped check could not do and what the next turn can", () => {
     }
     expect(outcome).toMatchObject({ status: "stopped", reason: "stuck", couldNot: [research], nextTurn: [toolList] });
     expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : undefined)
-      .toBe("AskRigor's final check stopped without passing after 3 rounds, because steps about research came back " +
-        "unchanged 3 rounds running.");
+      .toBe("AskRigor's final check stopped at round 3 with this rule still unmet: Read the study's full text.");
   });
 
   it("leaves a stuck tool-limit step to the next turn by its marker, without reading its text", () => {

@@ -45,6 +45,15 @@ export const connectorLessonInputSchema = connectorLessonCandidateSchema
         "the final check), ≤120 each; proposed_change ≤1,500; test_cases: 0-5 invented {case ≤1,200, " +
         "negative_control: boolean}; uncertain: what stays uncertain, ≤1,000.",
     ),
+    check_report_token: connectorLessonCandidateSchema.shape.check_report_token.describe(
+      "For a stopped final check's bug report: the exact check_report_token returned by finalize_research, after the user agrees to send the shown report. The server verifies it and attaches its masked report verbatim; no detailed-reports setting is needed.",
+    ),
+    preventing_rule: connectorLessonCandidateSchema.shape.preventing_rule.describe(
+      "For a user's correction: the exact HRP or Universal XML element name declared in corrections[].preventing_rule, or no_rule with missing_rule, shown with the report before asking.",
+    ),
+    missing_rule: connectorLessonCandidateSchema.shape.missing_rule.describe(
+      "With preventing_rule no_rule: the same one-line missing-rule declaration shown to the user; no personal details.",
+    ),
   });
 
 /** The lesson Action's public receipt: no issue number, URL, lesson text or fingerprint. */
@@ -57,6 +66,8 @@ export const connectorLessonOutputSchema = z.object({
     "anonymizer_unavailable",
     "github_unavailable",
     "detailed_report_refused",
+    "check_report_refused",
+    "correction_rule_refused",
   ]),
   retryable: z.boolean(),
   candidate_id: z.string().optional(),
@@ -98,6 +109,10 @@ export function connectorLessonToolResult(raw: ConnectorLessonSubmissionResult):
         result,
         true,
       );
+    case "check_report_refused":
+      return receipt("Not saved: the final check report token did not verify. Pass the exact check_report_token AskRigor returned.", result, true);
+    case "correction_rule_refused":
+      return receipt("Not saved: the correction needs an exact current HRP or Universal element name, or no_rule with a one-line missing_rule.", result, true);
     case "detailed_report_refused":
       return receipt(
         "Not saved: detailed lesson reports are off for this account, so nothing was stored. Send the same lesson " +

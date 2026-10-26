@@ -1988,10 +1988,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   does not affect its binding. Steps that came back unchanged three rounds running
   return in `stuck_steps`, and a check that stops (`stopped`, after ten rounds or
   when only such steps are left) returns the steps it could not do and the
-  steps the next turn can do, a short reason, and `bug_report`, a fixed server
-  sentence naming only kinds of step, which the answer shows before asking
-  whether AskRigor may send it; nothing is sent unless the user says yes and the
-  model then calls `submit_lesson_candidate`. A stopped check returns no
+  steps the next turn can do, a short reason, and `bug_report`, the first unmet
+  rule with inserted values masked, plus the number of other unmet steps. The
+  answer shows it before asking whether AskRigor may send it; nothing is sent
+  unless the user says yes and the model calls `submit_lesson_candidate` with
+  the signed `check_report_token` described below. A stopped check returns no
   finalization receipt. The
   finalization receipt signs the SHA-256 of the answer draft the check read,
   without leading and trailing white space (`answer`), so whoever holds the
@@ -2138,3 +2139,40 @@ more detailed implementation inventory. The August 16 Custom GPT research
 transport disclosure in `site/privacy/index.html` is candidate source, not a
 live-policy claim, until its transactional deployment is recorded. Re-review
 the live notice whenever processing changes.
+
+## Masked final-check debug reports (26 October 2026)
+
+`finalize_research` constructs `check_report` in memory when the check stops. The report holds the deployed build
+and protocol versions, stop reason and round; each step it could not do and each next-turn step, with its kind,
+consecutive round count and masked rule; the last call's receipt counts by kind and verification rejection reasons;
+and masked gate limitations, including a known missing-DOI boundary. It contains explicit counts of omitted steps,
+receipt groups, limitations and characters. Serialized JSON is bounded to 6,000 characters; each rule to 1,200.
+
+Privacy is enforced at construction, independently of language or privacy heuristics. A tagged rule retains its
+fixed server wording separately from inserted values. Each value is shown only if it is exactly a registered tool
+name, next-step kind, field path derived from the finalizer input schema (including valid array positions), a
+source-derived enumeration code, a whole number, or a protocol version. Everything else is `…`. Untagged dynamic
+strings are masked too. No free user prose can enter this report by construction: topics, names, study/video IDs,
+quotes, observations and URLs are never copied unless the whole inserted value itself equals one of the explicitly
+allowed names or numbers. No raw receipt, signature, research-target digest, account key, turn/conversation ID or
+provider response is included. Normal model-facing steps continue to hold the information needed for the research;
+the report is a separate masked projection.
+
+The caller receives this report and `check_report_token`, which carries its exact JSON, not the unmasked template
+values. Prefix `br1~` uses a domain-separated 128-bit HMAC-SHA256 signature (`askrigor final check report v1`) with
+the existing receipt-signing secret. Maximum token length is 34,000 characters; it has no expiry and is readable to
+anyone who can read the conversation. The server adds no state store or logging. After consent to the shown report,
+the model passes this token unchanged to the connector lesson tool. Invalid, altered, foreign-server or foreign-domain
+tokens return `check_report_refused` / `invalid_check_report_token`, without storing anything. After the existing
+lesson privacy pipeline passes, the exact verified JSON is added in “The final check's report, as AskRigor recorded
+it” in the private lesson issue or repeat comment. The token is not stored. Neither report nor token reaches the
+legacy anonymizer, duplicate fingerprint or public receipt. This masked server report needs no detailed-reports
+setting; model-authored `detailed_report` still requires it and still passes its existing privacy screen.
+
+For a user's confirmed correction with a report, the finalizer and connector lesson accept `preventing_rule`,
+an exact current HRP/Universal element tag or selectable `name`/`id`, or `no_rule` plus a one-line `missing_rule`
+(maximum 300 characters). Names are checked against parsed complete protocol files, including lowercase Universal
+names; missing-rule prose passes the existing lesson privacy screen. The answer shows the declaration with its
+report and the lesson stores it as a separate fixed section, outside generalization and the duplicate fingerprint.
+Invalid names or incomplete declarations return `correction_rule_refused` / `invalid_preventing_rule`. These
+connector fields do not broaden the Action's request shape or preserve raw incidents.

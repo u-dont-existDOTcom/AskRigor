@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { joinRules, rule, type CheckRule } from "./check-rules.js";
 
 import { digestCanonicalJson } from "./lessons/incident-contracts.js";
 
@@ -64,15 +65,20 @@ export async function toolListVersionOf(server: McpServer): Promise<string> {
  * unknown.
  */
 export function toolListNotice(declared: string | undefined, current: string | undefined): string | undefined {
+  return toolListNoticeRule(declared, current)?.text;
+}
+
+/** The same notice with its server-authored wording retained for a masked check report. */
+export function toolListNoticeRule(declared: string | undefined, current: string | undefined): CheckRule | undefined {
   if (current === undefined || !VERSION_PATTERN.test(current)) return undefined;
   const version = toolListVersionOrUndefined(declared);
   if (version !== undefined) {
     return version === current
       ? undefined
-      : "This app's copy of AskRigor's tools is older than the tools AskRigor now serves. Before anything else, tell " +
-        `the user, in their language: "${TOOL_LIST_REFRESH_SENTENCE}"`;
+      : joinRules("This app's copy of AskRigor's tools is older than the tools AskRigor now serves. Before anything else, tell ",
+        rule`the user, in their language: "${joinRules(TOOL_LIST_REFRESH_SENTENCE)}"`);
   }
-  return "If get_protocol_manifest in this app's tool list has no tool_list_version field, this app's copy of " +
-    `AskRigor's tools is out of date: tell the user, in their language: "${TOOL_LIST_REFRESH_SENTENCE}" If it has ` +
-    "one, send the version its description gives.";
+  return joinRules("If get_protocol_manifest in this app's tool list has no tool_list_version field, this app's copy of ",
+    rule`AskRigor's tools is out of date: tell the user, in their language: "${joinRules(TOOL_LIST_REFRESH_SENTENCE)}" If it has `,
+    "one, send the version its description gives.");
 }

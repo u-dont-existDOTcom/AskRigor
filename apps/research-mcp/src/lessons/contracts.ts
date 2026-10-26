@@ -1,3 +1,5 @@
+import { preventingRuleSchema } from "../protocol-rule-names.js";
+import { CHECK_REPORT_TOKEN_MAX_CHARACTERS } from "../check-report.js";
 import { z } from "zod";
 import { lessonIncidentProvenanceSchema } from "./incident-contracts.js";
 
@@ -132,6 +134,9 @@ export const connectorLessonCandidateSchema = lessonCandidateSchema
   .extend({
     related_issue: relatedIssueSchema.optional(),
     detailed_report: detailedLessonReportSchema.optional(),
+    check_report_token: z.string().min(1).max(CHECK_REPORT_TOKEN_MAX_CHARACTERS).optional(),
+    preventing_rule: preventingRuleSchema.optional(),
+    missing_rule: z.string().trim().min(1).max(300).regex(/^[^\r\n]+$/u).optional(),
   });
 
 export type ConnectorLessonCandidate = z.infer<typeof connectorLessonCandidateSchema>;
@@ -235,6 +240,8 @@ const detailedReportRefusedResultSchema = z.strictObject({
 export const connectorLessonSubmissionResultSchema = z.discriminatedUnion("status", [
   ...lessonSubmissionResultSchema.options,
   detailedReportRefusedResultSchema,
+  z.strictObject({ status: z.literal("check_report_refused"), retryable: z.literal(false), reason_code: z.literal("invalid_check_report_token") }),
+  z.strictObject({ status: z.literal("correction_rule_refused"), retryable: z.literal(false), reason_code: z.literal("invalid_preventing_rule") }),
 ]);
 
 export type ConnectorLessonSubmissionResult = z.infer<typeof connectorLessonSubmissionResultSchema>;
