@@ -80,10 +80,10 @@ describe("finalize next-step identifier contract", () => {
     expect(tool.description).toContain(
       "visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm " +
       "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
-      "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
+      "in this turn or a later one, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
       "and after a not_ready result in this turn, its round_token. Result: " +
       "second_reading, whether it ran; " +
-      "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+      "carry_forward, the conversation's state to pass back in this turn or a later one; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
       "hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given " +
       "before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, " +
       "and steps that came back unchanged 3 rounds running, which it stopped asking for (stuck_steps); stopped, the " +
@@ -91,6 +91,10 @@ describe("finalize next-step identifier contract", () => {
       "the next turn can do and a bug report; previous_check when the conversation's previous check did not pass;"
     );
     const input = tool.inputSchema as { properties: Record<string, { description: string }> };
+    expect(input.properties.carried_state!.description).toBe(
+      "The carry_forward value the last final check in this conversation returned, passed back exactly in this turn " +
+      "or a later one; left out before the conversation's first final check."
+    );
     expect(input.properties.key_sources!.description).toBe(
       "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +

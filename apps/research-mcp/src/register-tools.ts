@@ -2298,10 +2298,10 @@ function defineResearchOperations(
         "each key study, and the caveats, " +
         "and is not stored; once the other checks pass, a second model may read the answer for harm " +
         "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
-        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
+        "in this turn or a later one, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
         "and after a not_ready result in this turn, its round_token. Result: " +
         "second_reading, whether it ran; " +
-        "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+        "carry_forward, the conversation's state to pass back in this turn or a later one; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given " +
         "before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, " +
         `and steps that came back unchanged ${STUCK_AFTER_ROUNDS} rounds running, which it stopped asking for ` +
@@ -2511,7 +2511,7 @@ function defineResearchOperations(
               ".") +
           (result.carry_forward === undefined
             ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
-            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`) +
+            : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
           (result.round_token === undefined || result.round === undefined ? "" :
             `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +

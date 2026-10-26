@@ -212,15 +212,32 @@ describe("finalize_research compares the answer with the plain answer registered
   // user had not been shown, and l48 then asked the user to approve a bug report about one.
   it("refuses a correction of a plain-answer claim on the first turn, where no answer was shown before", () => {
     const fixed = "A daily dose of 1,000 IU is not enough for everyone; trials used 400 to 4,000 IU.";
-    const result = check({
+    const correction = {
       answer_draft: `${LINK}\n\n${CORRECTED} ${fixed}`,
       corrections: [{ retracted: CLAIMS[1]!, change: fixed, by_user: false }],
       plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "corrected", answer_quote: fixed }]
-    });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain("corrections[0] takes back a claim of the plain answer written before this " +
+    } satisfies Partial<FinalizeResearchInput>;
+    const result = check(correction);
+    const problem = "corrections[0] takes back a claim of the plain answer written before this " +
       "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records what " +
-      "the research changed.");
+      "the research changed.";
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toContain(problem);
+    expect(result.carried!.first_turn).toBe(true);
+    const withinTurn = check({ ...correction, carried_state: result.carry_forward, round_token: result.round_token });
+    expect(withinTurn.round?.number).toBe(2);
+    expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
+    expect(withinTurn.next_steps).toContain(problem);
+    // A new turn passes the earlier state's token without the round token: that claim may have been shown.
+    const later = check({ ...correction, carried_state: result.carry_forward });
+    expect(later.status).toBe("ready_with_limits");
+    expect(later.next_steps).not.toContain(problem);
+    expect(later.carried!.first_turn).toBe(false);
+    // An unverifiable state remains a later turn, and gets no replacement, as before.
+    const invalid = check({ ...correction, carried_state: "invalid", round_token: result.round_token });
+    expect(invalid.next_steps.join("\n")).toContain("carried_state does not verify");
+    expect(invalid.next_steps).not.toContain(problem);
+    expect(invalid.carry_forward).toBeUndefined();
   });
 
   it("gives no note, and holds nothing back, without this account's plain answer registered before this research", () => {

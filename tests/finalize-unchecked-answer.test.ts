@@ -115,6 +115,57 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
     expect(fromOlder.next_steps).toEqual([]);
     expect(fromOlder.previous_check).toBeUndefined();
   });
+
+  it("does not report this turn's own unfinished check as an earlier turn's answer", () => {
+    const first = check(base({ absence_claims: undefined }));
+    const second = check(base({ carried_state: first.carry_forward, round_token: first.round_token,
+      absence_claims: undefined }));
+    expect(second.status).toBe("not_ready");
+    expect(second.previous_check).toBeUndefined();
+    expect(second.carried).toMatchObject({ turn: first.carried!.turn, first_turn: true });
+    expect(second.carried).not.toHaveProperty("previous_open");
+    // The turn is read even when this call passes and returns no round token.
+    const passed = check(base({ carried_state: second.carry_forward, round_token: second.round_token }));
+    expect(passed.status).toBe("ready_with_limits");
+    expect(passed.previous_check).toBeUndefined();
+    expect(passed.carried).toMatchObject({ turn: first.carried!.turn, first_turn: true });
+    expect(passed.round_token).toBeUndefined();
+  });
+
+  it("keeps an earlier turn's unfinished check through each returned state in the new turn", () => {
+    const earlier = check(base({ receipts: ["rr1~not-a-receipt~x"] }));
+    const previous = { status: "not_ready", open: ["receipt_rejected"] };
+    let result = check(base({ carried_state: earlier.carry_forward, scale_results: undefined }));
+    expect(result.carried!.turn).not.toBe(earlier.carried!.turn);
+    expect(result.carried!.first_turn).toBe(false);
+    const turn = result.carried!.turn;
+    for (let call = 1; call <= 3; call += 1) {
+      expect(result.previous_check).toEqual(previous);
+      expect(result.carried).toMatchObject({ turn, first_turn: false, previous_open: previous.open });
+      expect(result.carried!.open_kinds).not.toEqual(previous.open);
+      if (call < 3) result = check(base({
+        carried_state: result.carry_forward, round_token: result.round_token,
+        ...(call === 1 ? { binary_results: undefined } : {})
+      }));
+    }
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.carried).not.toHaveProperty("open_kinds");
+    expect(check(base({ carried_state: result.carry_forward })).previous_check).toBeUndefined();
+  });
+
+  it("reads a state without turn fields as an earlier turn's, including an empty list of open kinds", () => {
+    for (const open of [["research" as const], []]) {
+      const older = issueCarriedState({
+        v: 1, issued_at: NOW().toISOString(), observations: [], retracted: [], rejected: [], named_communities: [],
+        last_status: "not_ready", open_kinds: open
+      }, { secret: SECRET })!;
+      // A valid round token cannot make an unlabelled legacy state this turn's state.
+      const first = check(base({ absence_claims: undefined }));
+      const result = check(base({ carried_state: older, round_token: first.round_token }));
+      expect(result.previous_check).toEqual({ status: "not_ready", open });
+      expect(result.carried).toMatchObject({ first_turn: false, previous_open: open, turn: first.carried!.turn });
+    }
+  });
 });
 
 describe("the unchecked line and the previous check in finalize_research's result text", () => {
@@ -160,9 +211,17 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "the two studies I couldn't open yet.\"; and ends with this line, as written (in the answer's language when the " +
       "answer is not in English): AskRigor's final check has not passed: some of its statements were not checked.");
     expect(blocked.text).toContain("This was round 1 of 10 in this turn. Pass this as round_token in this turn's next " +
-      "finalize_research call: cr1~");
+      "finalize_research call: cr2~");
+    expect(blocked.text).toContain("Pass this as carried_state in this conversation's next finalize_research call, " +
+      "in this turn or a later one: cs1~");
     expect(blocked.text).not.toContain("End the answer with this line");
     expect(blocked.text).not.toContain("word for word");
+
+    const sameTurn = await call(base({
+      carried_state: blocked.output.carry_forward, round_token: blocked.output.round_token
+    }));
+    expect(sameTurn.output.status).toBe("ready_with_limits");
+    expect(sameTurn.text).not.toContain("The previous final check in this conversation did not pass");
 
     const next = await call(base({ carried_state: blocked.output.carry_forward }));
     expect(next.output.status).toBe("ready_with_limits");

@@ -2,13 +2,14 @@ import { Script, runInNewContext } from "node:vm";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
   finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch, type FinalizeResearchInput,
+  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch, type FinalizeResearchInput, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 
@@ -72,7 +73,14 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       const input = fixture();
       const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
       expect(result.isError).not.toBe(true);
-      expect(result.structuredContent).toEqual(finalizeResearch(input, { secret: SECRET, findings: "closed" }));
+      const output = result.structuredContent as FinalizeResearchOutput;
+      const direct = finalizeResearch(input, { secret: SECRET, findings: "closed" });
+      // Separate calls start separate random turns; the signed state must still match the exact readable result.
+      expect(output).toEqual({
+        ...direct, carry_forward: expect.any(String),
+        carried: { ...direct.carried, turn: expect.stringMatching(/^[0-9a-f]{16}$/u) }
+      });
+      expect(verifyCarriedState(output.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: output.carried });
       expect(result.structuredContent).toMatchObject({
         status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
         next_steps: [], limits: [COMMUNITY_SKIP_LIMIT], sources: { validated: ["10.1000/depth"], lead_only: [] },

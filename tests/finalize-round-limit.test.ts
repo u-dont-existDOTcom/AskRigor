@@ -1,8 +1,10 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
   ROUND_TOKEN_MAX_CHARACTERS,
+  readCheckRound,
   roundBinding,
   STOPPED_CHECK_REPORT_OFFER,
   stoppedCheckBugReport,
@@ -67,7 +69,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
       if (round < CHECK_ROUND_LIMIT) {
         expect(result.status).toBe("not_ready");
         expect(result.next_steps).toEqual([step(round)]);
-        expect(result.round_token).toMatch(/^cr1~/u);
+        expect(result.round_token).toMatch(/^cr2~/u);
         token = result.round_token;
       }
     }
@@ -161,6 +163,64 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(check(fixture({ carried_state: carriedState, proposed_tests: [repeating(11)] }), 11).round?.number).toBe(1);
   });
 
+  it("keeps the o354 continue sequence in one turn when carried state begins at the fourth call", () => {
+    let previous: FinalizeResearchOutput | undefined;
+    const rounds: number[] = [];
+    const turns: string[] = [];
+    // All six calls: three without state, then three with the preceding result's state.
+    for (let call = 1; call <= 6; call += 1) {
+      const result = check(fixture({
+        proposed_tests: [repeating(call)], round_token: previous?.round_token,
+        ...(call <= 3 ? {} : { carried_state: previous?.carry_forward })
+      }), call);
+      rounds.push(result.round!.number);
+      turns.push(result.carried!.turn!);
+      expect(result.previous_check).toBeUndefined();
+      expect(result.carried!.first_turn).toBe(true);
+      previous = result;
+    }
+    expect(rounds).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(new Set(turns).size).toBe(1);
+  });
+
+  it("keeps q79's turn through invalid inputs and omitted carried state", () => {
+    const invalid = { ...fixture(), receipts: "not a list" };
+    const first = check(invalid);
+    const second = check(fixture({ proposed_tests: [repeating(2)], round_token: first.round_token }));
+    const third = check({ ...invalid, carried_state: second.carry_forward, round_token: second.round_token });
+    const fourth = check(fixture({ proposed_tests: [repeating(4)], round_token: third.round_token }));
+    const fifth = check(fixture({
+      proposed_tests: [repeating(5)], carried_state: fourth.carry_forward, round_token: fourth.round_token
+    }));
+    const results = [first, second, third, fourth, fifth];
+    expect(results.map(({ round }) => round?.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(results.map(({ status }) => status)).toEqual(Array(5).fill("not_ready"));
+    const turns = results.map(({ round_token }) =>
+      JSON.parse(Buffer.from(round_token!.split("~")[1]!, "base64url").toString("utf8")).turn);
+    expect(new Set(turns).size).toBe(1);
+    expect(fifth.carried).toMatchObject({ turn: turns[0], first_turn: true });
+    expect(fifth.previous_check).toBeUndefined();
+  });
+
+  it("starts a new turn without a valid v2 token, even with this call's preceding carried state", () => {
+    const first = check(fixture({ proposed_tests: [repeating(1)] }));
+    const state = JSON.parse(Buffer.from(first.round_token!.split("~")[1]!, "base64url").toString("utf8"));
+    const { turn: _turn, ...old } = state;
+    const body = `cr1~${Buffer.from(JSON.stringify({ ...old, v: 1 })).toString("base64url")}`;
+    const key = createHmac("sha256", SECRET).update("askrigor check round v1").digest();
+    const oldToken = `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
+    for (const roundToken of [undefined, oldToken, "cr2~invalid~invalid"]) {
+      const result = check(fixture({
+        proposed_tests: [repeating(2)], carried_state: first.carry_forward, round_token: roundToken
+      }));
+      expect(result.round?.number).toBe(1);
+      expect(result.carried!.turn).toMatch(/^[0-9a-f]{16}$/u);
+      expect(result.carried!.turn).not.toBe(first.carried!.turn);
+      expect(result.carried!.first_turn).toBe(false);
+      expect(result.previous_check).toEqual({ status: "not_ready", open: ["declaration"] });
+    }
+  });
+
   it("keeps stuck steps across returned carried states and stops when only those steps remain", () => {
     let carriedState = check(fixture()).carry_forward;
     let token: string | undefined;
@@ -186,7 +246,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     }
   });
 
-  it("accepts only the input or returned state with the same target, and still rejects bad, lapsed or oversized tokens", () => {
+  it("binds only the target and turn, and still rejects bad, lapsed, early or oversized tokens", () => {
     const carriedState = check(fixture()).carry_forward;
     const first = check(fixture({ carried_state: carriedState, proposed_tests: [repeating(1)] }), 1);
     const token = first.round_token!;
@@ -197,16 +257,19 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     const foreign = check(fixture(), 2).carry_forward;
     expect(foreign).not.toBe(carriedState);
     expect(foreign).not.toBe(first.carry_forward);
-    expect(withToken(foreign)).toBe(1);
-    expect(withToken(undefined)).toBe(1);
+    expect(withToken(foreign)).toBe(2);
+    expect(withToken(undefined)).toBe(2);
     expect(withToken(first.carry_forward, { research_target: "Another target" })).toBe(1);
     expect(withToken(first.carry_forward, { round_token: undefined })).toBe(1);
     const parts = token.split("~");
     const state = JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8"));
-    expect(state.bind).toBe(roundBinding(carriedState, fixture().research_target));
-    expect(state.next_bind).toBe(roundBinding(first.carry_forward, fixture().research_target));
-    // Changing the newly recorded state without signing it again must not change what the token admits.
-    state.next_bind = roundBinding(foreign, fixture().research_target);
+    expect(state.v).toBe(2);
+    expect(state.bind).toBe(roundBinding(fixture().research_target));
+    expect(state.turn).toMatch(/^[0-9a-f]{16}$/u);
+    expect(state.turn).toBe(first.carried!.turn);
+    expect(state).not.toHaveProperty("next_bind");
+    // Changing the turn without signing it again must not change what the token admits.
+    state.turn = "f".repeat(16);
     const altered = `${parts[0]}~${Buffer.from(JSON.stringify(state)).toString("base64url")}~${parts[2]}`;
     expect(withToken(foreign, { round_token: altered })).toBe(1);
     expect(withToken(first.carry_forward, { round_token: altered })).toBe(1);
@@ -236,7 +299,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
       .round?.number).toBe(3);
   });
 
-  it("keeps the original binding when a carried state is refused and no replacement is returned", () => {
+  it("keeps the turn when a carried state is refused and the next call leaves it out", () => {
     const carriedState = "refused carried state";
     const first = check(fixture({ carried_state: carriedState }), 1);
     expect(first.carry_forward).toBeUndefined();
@@ -246,7 +309,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(second.round?.number).toBe(2);
     expect(second.carry_forward).toBeUndefined();
     expect(check(fixture({ round_token: first.round_token }), 2).round?.number).toBeUndefined();
-    expect(check(fixture({ round_token: first.round_token, proposed_tests: [repeating(1)] }), 2).round?.number).toBe(1);
+    expect(check(fixture({ round_token: first.round_token, proposed_tests: [repeating(1)] }), 2).round?.number).toBe(2);
   });
 
   it("counts inputs that fail as rounds, their list as one step", () => {
@@ -292,23 +355,26 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
 });
 
 describe("what a stopped check could not do and what the next turn can", () => {
-  const options = { secret: SECRET, bind: roundBinding(undefined, "target"), now: START };
+  const options = { secret: SECRET, bind: roundBinding("target"), now: START };
+  const advance = (steps: readonly CheckStep[], token?: string) => advanceCheckRound(steps, {
+    ...options, call: readCheckRound(token, options)
+  });
   const research: CheckStep = { kind: "research", text: "Read the study's full text." };
   const declaration: CheckStep = { kind: "declaration", text: "Give named_target." };
   const toolList: CheckStep = { kind: "tool_list", text: "Refresh the app's tool list." };
 
   it("leaves research and the tool list to the next turn at the limit, and the rest to a bug report", () => {
     let token: string | undefined;
-    let outcome = advanceCheckRound([research], { ...options, token });
+    let outcome = advance([research], token);
     for (let round = 2; round <= CHECK_ROUND_LIMIT; round += 1) {
       expect(outcome.status).toBe("open");
-      token = outcome.status === "open" ? outcome.issueToken() : undefined;
+      token = outcome.status === "open" ? outcome.token : undefined;
       // Each round's text differs, so nothing is stuck.
-      outcome = advanceCheckRound([
+      outcome = advance([
         { ...research, text: `Read study ${round}.` },
         { ...declaration, text: `Give declaration ${round}.` },
         { ...toolList, text: `Refresh ${round}.` }
-      ], { ...options, token });
+      ], token);
     }
     expect(outcome).toMatchObject({
       status: "stopped", round: CHECK_ROUND_LIMIT, reason: "limit",
@@ -319,10 +385,10 @@ describe("what a stopped check could not do and what the next turn can", () => {
 
   it("counts research that keeps coming back as failing, but leaves a stuck tool list to the user", () => {
     let token: string | undefined;
-    let outcome = advanceCheckRound([research, toolList], { ...options, token });
+    let outcome = advance([research, toolList], token);
     for (let round = 2; round <= 3; round += 1) {
-      token = outcome.status === "open" ? outcome.issueToken() : undefined;
-      outcome = advanceCheckRound([research, toolList], { ...options, token });
+      token = outcome.status === "open" ? outcome.token : undefined;
+      outcome = advance([research, toolList], token);
     }
     expect(outcome).toMatchObject({ status: "stopped", reason: "stuck", couldNot: [research], nextTurn: [toolList] });
     expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : undefined)
@@ -332,10 +398,10 @@ describe("what a stopped check could not do and what the next turn can", () => {
 
   it("gives no bug report when everything left is for the next turn", () => {
     let token: string | undefined;
-    let outcome = advanceCheckRound([toolList], { ...options, token });
+    let outcome = advance([toolList], token);
     for (let round = 2; round <= 3; round += 1) {
-      token = outcome.status === "open" ? outcome.issueToken() : undefined;
-      outcome = advanceCheckRound([toolList], { ...options, token });
+      token = outcome.status === "open" ? outcome.token : undefined;
+      outcome = advance([toolList], token);
     }
     expect(outcome).toMatchObject({ status: "stopped", couldNot: [], nextTurn: [toolList] });
     expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : "open").toBeUndefined();
