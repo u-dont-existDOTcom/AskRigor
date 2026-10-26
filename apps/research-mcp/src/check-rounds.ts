@@ -8,8 +8,9 @@ import type { NextStepKind } from "./next-step-kinds.js";
  * back unchanged three rounds running is stuck, so the check stops asking for it and counts it as a reason. When the
  * limit is reached, or every step left is stuck, the check stops and gives a final result, which says why it did not
  * pass. A not-ready result gives a signed round token that the next call in the same turn passes back, so the server
- * keeps no state. The token is bound to the call's carried state and research target, so a later turn, whose carried
- * state differs, starts again at round 1, and it lapses two hours after the round that issued it.
+ * keeps no state. Issued after the result's carried state is built, the token accepts the call's carried state or
+ * that result's carry_forward, with the same research target; a later turn passes no token and starts at round 1.
+ * It lapses two hours after the round that issued it.
  *
  * "Unchanged" is exact: a step is the same step when its kind and text are the same.
  */
@@ -26,6 +27,7 @@ const roundStateSchema = z.object({
   v: z.literal(1),
   n: z.number().int().min(1).max(CHECK_ROUND_LIMIT),
   bind: z.string().regex(/^[0-9a-f]{32}$/u),
+  next_bind: z.string().regex(/^[0-9a-f]{32}$/u).optional(),
   at: z.iso.datetime(),
   steps: z.array(z.tuple([digestSchema, z.number().int().min(1).max(CHECK_ROUND_LIMIT)])).max(MAX_TRACKED_STEPS),
   stuck: z.array(digestSchema).max(MAX_TRACKED_STEPS)
@@ -38,7 +40,7 @@ export interface CheckStep {
 }
 
 export type RoundOutcome =
-  | { status: "open"; round: number; token: string; open: CheckStep[]; stuck: CheckStep[] }
+  | { status: "open"; round: number; issueToken: (nextBind?: string) => string; open: CheckStep[]; stuck: CheckStep[] }
   | { status: "stopped"; round: number; reason: "limit" | "stuck"; couldNot: CheckStep[]; nextTurn: CheckStep[] };
 
 /** What a round token is bound to: the call's carried state and research target. */
@@ -73,7 +75,7 @@ function verifyRoundToken(token: string | undefined, secret: string, bind: strin
       !timingSafeEqual(mac(body, secret), signature)) return undefined;
   try {
     const parsed = roundStateSchema.safeParse(JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8")));
-    if (!parsed.success || parsed.data.bind !== bind) return undefined;
+    if (!parsed.success || (parsed.data.bind !== bind && parsed.data.next_bind !== bind)) return undefined;
     const age = now.getTime() - Date.parse(parsed.data.at);
     return age >= -CLOCK_SKEW_MS && age <= ROUND_TOKEN_LIFETIME_MS ? parsed.data : undefined;
   } catch {
@@ -83,7 +85,8 @@ function verifyRoundToken(token: string | undefined, secret: string, bind: strin
 
 /**
  * One round of a check that did not pass. `wholeList` counts the steps as one unit, for the invalid-input result,
- * whose first line is a heading that repeats while the problems under it change.
+ * whose first line is a heading that repeats while the problems under it change. An open round's token is issued
+ * after its result's carried state is built, with that state's binding when there is a replacement.
  */
 export function advanceCheckRound(steps: readonly CheckStep[], options: {
   token: string | undefined;
@@ -129,15 +132,21 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
       nextTurn: [...stuck.filter((step) => nextTurn(step, true)), ...open.filter((step) => nextTurn(step, false))]
     };
   }
-  const token = issueRoundToken({
+  const state: RoundState = {
     v: 1,
     n: round,
     bind: options.bind,
     at: options.now.toISOString(),
     steps: [...nextCounts].slice(0, MAX_TRACKED_STEPS),
     stuck: [...stuckDigests].slice(-MAX_TRACKED_STEPS)
-  }, options.secret);
-  return { status: "open", round, token, open, stuck };
+  };
+  return {
+    status: "open", round, open, stuck,
+    issueToken: (nextBind) => issueRoundToken({
+      ...state,
+      ...(nextBind === undefined ? {} : { next_bind: nextBind })
+    }, options.secret)
+  };
 }
 
 const KIND_WORDS: Record<NextStepKind, string> = {
