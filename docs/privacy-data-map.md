@@ -1619,8 +1619,11 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   altered or expired one, or a request carrying two of them, is read as no
   session, and the cookie is cleared; changing the session key
   (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs everyone out. A signed-in
-  reader's pages are rendered for them and sent with `Cache-Control: private,
-  no-store`.
+  reader's home, changes, topic and finding pages read it for the header and
+  are rendered for them with `Cache-Control: private, no-store` and
+  `Vary: Cookie`. `/atlas/account` also reads it and is never cached, whether
+  signed in or out; it holds the account controls and links to their own votes
+  and comments. Known action notices also bypass the shared page cache.
 - **Ended sessions** (`atlas_session_ends`): "Sign out everywhere", and
   deleting everything one holds, end every session signed in before them, in
   every browser. The server keeps, for each participant who did, a SHA-256 hash
@@ -1695,7 +1698,7 @@ While it is off, the pages show no form and no sign-in link and keep nothing.
   comment: deleted by its author from its finding page or their own comments
   page (hidden, older or on a finding that left the pages included), or removed
   by the owner, each with its reports. Everything a participant holds: "Delete everything I hold
-  in the Atlas", on a finding page while signed in, deletes their votes, their
+  in the Atlas", on `/atlas/account` while signed in, deletes their votes, their
   comments (hidden ones included, with the reports on them) and their own
   reports, then their row; for a participant the owner stopped, the row keeps
   only the key, tag, stop and times, so deleting cannot undo a stop, and it

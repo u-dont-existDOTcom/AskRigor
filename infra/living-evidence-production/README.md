@@ -700,7 +700,15 @@ sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
 with `scope=openid`, the tenant's own `/userinfo` audience (never its default
 audience, the MCP API, which admits only the connectors' applications),
 `code_challenge_method=S256` and the callback above, and, signed in, that a
-vote, a comment and its deletion round-trip. A reader who
+vote, a comment and its deletion round-trip. Check the header on home, changes, topic and finding pages: Sign in
+returns to that page; signed in, Your account shows the chosen display name (or no name before the first comment).
+`/atlas?done=signed-in` must show its status notice. Signed-in and known-notice pages must carry
+`Cache-Control: private, no-store` and `Vary: Cookie`; a subsequent signed-out request must contain no reader name
+in its header or session token. Check `/atlas/account` both signed out (a sign-in link, no error) and signed in, and its HEAD
+response with no body and the same private headers. From it, round-trip renaming, sign out, sign out everywhere and
+confirmed deletion; each returns to the account page with its notice, and the two sign-outs offer the login's own
+browser sign-out. Finding pages keep vote and comment forms and link to Your account for the other controls.
+A reader who
 reports a comment without signing in is counted by the address the apex block
 forwards (an IPv6 address by its /64); a public-site packet from before this
 change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every

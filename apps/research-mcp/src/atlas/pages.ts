@@ -157,17 +157,29 @@ function relatedLink(related: ShownRelated): SafeHtml {
 
 // The layout ----------------------------------------------------------------------------------------------------------
 
+export const ACCOUNT_PATH = "/atlas/account";
+
+/** Reader state is supplied only while votes and comments are on; its name is untrusted text. */
+export interface AtlasPageReader {
+  signInHref: string;
+  viewer: null | { displayName: string | null };
+  notice?: string | null;
+  tenantSignOutHref?: string | null;
+}
+
 interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
   title: string;
   description: string;
-  current?: "home" | "changes";
+  current?: "home" | "changes" | "account";
+  reader?: AtlasPageReader;
   body: SafeHtml;
 }
 
 function page(frame: PageFrame): string {
-  const current = (name: "home" | "changes") => frame.current === name ? html` aria-current="page"` : "";
+  const current = (name: "home" | "changes" | "account") => frame.current === name ? html` aria-current="page"` : "";
+  const reader = frame.reader;
   return html`<!doctype html>
 <html lang="en">
 <head>
@@ -185,10 +197,16 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <nav aria-label="Atlas navigation"><ul class="nav-list">
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
-<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
+${reader === undefined ? "" : reader.viewer === null
+    ? html`<li><a href="${reader.signInHref}">Sign in</a></li>
+` : html`<li><a href="${ACCOUNT_PATH}"${current("account")}>Your account${reader.viewer.displayName
+      ? html` (<bdi>${reader.viewer.displayName}</bdi>)` : ""}</a></li>
+`}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
 </ul></nav>
 </div></header>
 <main id="content" class="shell">
+${reader?.notice ? html`<p class="notice-line" role="status">${reader.notice}</p>
+` : ""}${reader?.tenantSignOutHref ? tenantSignOutLine(reader.tenantSignOutHref) : ""}
 ${frame.body}
 </main>
 <footer class="site-footer"><div class="shell footer-row">
@@ -202,6 +220,11 @@ ${frame.body}
 </body>
 </html>
 `.value;
+}
+
+function tenantSignOutLine(href: string): SafeHtml {
+  return html`<p class="aside">The AskRigor login itself may still remember you in this browser: <a href="${href}">sign out of it too</a>, so that the next sign-in asks for your password.</p>
+`;
 }
 
 const shortened = (text: string, length: number) =>
@@ -267,7 +290,7 @@ ${findingItem(first!)}${second === undefined ? "" : findingItem(second)}</ul>
 `;
 }
 
-export function renderAtlasHome(model: AtlasHomeModel): string {
+export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader): string {
   const body = html`<p class="eyebrow">Public research findings</p>
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
@@ -296,6 +319,7 @@ ${model.contested.map(contestedItem)}</ul>
     title: "AskRigor Atlas",
     description: "Findings from research done with AskRigor, written without the people who asked.",
     current: "home",
+    reader,
     body,
   });
 }
@@ -307,7 +331,7 @@ const SECTION_NOTES: Partial<Record<AtlasTopicModel["sections"][number]["id"], s
   earlier: "Newer findings replace these.",
 };
 
-export function renderAtlasTopic(model: AtlasTopicModel): string {
+export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader): string {
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
@@ -319,6 +343,7 @@ ${findingList(section.findings)}
 `)}`;
   return page({
     path: topicPath(model.topic.key),
+    reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
     body,
@@ -423,7 +448,7 @@ function hiddenFields(token: string, returnPath: string): SafeHtml {
 
 /**
  * Votes and comments (decision 171, section 4E): the totals and the comments that show, a report button on each, and,
- * for a signed-in reader, the vote, comment, delete, display-name, sign-out and delete-everything forms; for anyone
+ * for a signed-in reader, the vote, comment and delete forms and an account link; for anyone
  * else, the sign-in link. Every form posts to this origin with its token. Nothing renders while votes and comments are
  * switched off.
  */
@@ -473,40 +498,18 @@ ${viewer.displayName !== null ? "" : html`<p><label for="display-name">Your disp
 <p class="aside">${COMMENT_RULES} See the <a href="${CANONICAL_ORIGIN}/terms">terms</a>.</p>
 <button type="submit">Post comment</button>
 </form>`}
-${viewer === null ? "" : html`<div class="account">
-<p class="account-link"><a href="${OWN_COMMENTS_PATH}">Your votes and comments</a>, to find and delete any of them</p>
-${viewer.displayName === null ? "" : html`<form method="post" action="/atlas/account/name" class="name-form">
-${hiddenFields(viewer.tokens.name, path)}
-<label for="new-name">Your display name</label>
-<input id="new-name" name="displayName" maxlength="40" required autocomplete="nickname" value="${viewer.displayName}">
-<button type="submit" class="quiet">Save name</button>
-</form>
-`}<form method="post" action="/atlas/auth/logout">
-${hiddenFields(viewer.tokens.signOut, path)}
-<button type="submit" class="quiet">Sign out</button>
-</form>
-<form method="post" action="/atlas/auth/logout-everywhere">
-${hiddenFields(viewer.tokens.signOutEverywhere, path)}
-<button type="submit" class="quiet">Sign out everywhere</button>
-</form>
-<form method="post" action="/atlas/account/delete" class="forget-form">
-${hiddenFields(viewer.tokens.forget, path)}
-<p><input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>
-<label for="forget-confirm">Delete everything I hold in the Atlas: my votes, my comments and my reports</label></p>
-<button type="submit" class="quiet">Delete them all</button>
-</form>
-</div>`}
+${viewer === null ? "" : html`<p><a href="${ACCOUNT_PATH}">Your account</a>, to find your votes and comments and manage your account</p>`}
 </section>
 `;
   return html`<div class="participation">
 ${view.notice === null ? "" : html`<p class="notice-line" role="status">${view.notice}</p>
-`}${view.tenantSignOutHref === null ? "" : html`<p class="aside">The AskRigor login itself may still remember you in this browser: <a href="${view.tenantSignOutHref}">sign out of it too</a>, so that the next sign-in asks for your password.</p>
-`}${view.error === null ? "" : html`<p class="error-line" role="alert">${view.error}</p>
+`}${view.tenantSignOutHref === null ? "" : tenantSignOutLine(view.tenantSignOutHref)}${view.error === null ? "" : html`<p class="error-line" role="alert">${view.error}</p>
 `}${votes}${comments}</div>
 `;
 }
 
-export function renderAtlasFinding(model: AtlasFindingModel, participationView?: AtlasFindingParticipationView): string {
+export function renderAtlasFinding(model: AtlasFindingModel, participationView?: AtlasFindingParticipationView,
+  reader?: AtlasPageReader): string {
   const finding = model.finding;
   const status = finding.status;
   const facts: SafeHtml[] = [];
@@ -565,6 +568,7 @@ ${sources}</ul>
 `}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
+    reader,
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
     description: shortened(finding.claim, 160),
     body,
@@ -606,7 +610,7 @@ ${entry.note === null ? "" : html`<p class="note">${entry.note}</p>`}
 `;
 }
 
-export function renderAtlasChanges(model: AtlasChangesModel): string {
+export function renderAtlasChanges(model: AtlasChangesModel, reader?: AtlasPageReader): string {
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>What changed</h1>
 <p class="lede">Findings published, checked, corrected and withdrawn, the newest first.</p>
@@ -617,14 +621,16 @@ ${model.entries.map(changeItem)}</ol>`}`;
     title: "What changed | AskRigor Atlas",
     description: "What changed in the AskRigor Atlas: findings published, checked, corrected and withdrawn.",
     current: "changes",
+    reader,
     body,
   });
 }
 
 // Pages without a model -------------------------------------------------------------------------------------------------
 
-export function renderAtlasNotFound(): string {
+export function renderAtlasNotFound(reader?: AtlasPageReader): string {
   return page({
+    reader,
     path: null,
     title: "Not found | AskRigor Atlas",
     description: "There is no Atlas page at this address.",
@@ -634,8 +640,9 @@ export function renderAtlasNotFound(): string {
   });
 }
 
-export function renderAtlasUnavailable(): string {
+export function renderAtlasUnavailable(reader?: AtlasPageReader): string {
   return page({
+    reader,
     path: null,
     title: "Unavailable | AskRigor Atlas",
     description: "The Atlas is unavailable right now.",
@@ -644,7 +651,59 @@ export function renderAtlasUnavailable(): string {
   });
 }
 
-/** A short page answering a form or a sign-in that could not go ahead, with the way back. */
+export interface AtlasAccountView {
+  reader: AtlasPageReader;
+  tokens: null | { name: string; signOut: string; signOutEverywhere: string; forget: string };
+}
+
+/** Account controls have one home, even before any finding has been published. */
+export function renderAtlasAccount(view: AtlasAccountView): string {
+  const viewer = view.reader.viewer;
+  const tokens = view.tokens;
+  return page({
+    path: null,
+    current: "account",
+    reader: view.reader,
+    title: "Your account | AskRigor Atlas",
+    description: "Your AskRigor account in the Atlas.",
+    body: html`<h1>Your account</h1>
+${viewer === null || tokens === null ? html`<p>Sign in with your AskRigor account to manage your votes and comments.</p>
+<p><a href="${view.reader.signInHref}">Sign in with your AskRigor account</a></p>` : html`<p>You are signed in with your AskRigor account.</p>
+${viewer.displayName === null ? html`<p>You choose a display name with your first comment.</p>`
+    : html`${viewer.displayName === "" ? html`<p>Your display name cannot be shown here. You can change it below.</p>`
+      : html`<p>Your display name is <strong><bdi>${viewer.displayName}</bdi></strong>.</p>`}
+<form method="post" action="/atlas/account/name" class="name-form">
+${hiddenFields(tokens.name, ACCOUNT_PATH)}
+<label for="new-name">Your display name</label>
+<input id="new-name" name="displayName" maxlength="40" required autocomplete="nickname" value="${viewer.displayName}">
+<button type="submit" class="quiet">Save name</button>
+</form>`}
+<p><a href="${OWN_COMMENTS_PATH}">Your votes and comments</a>, to find and delete any of them</p>
+<h2>What the Atlas keeps</h2>
+<p>The Atlas keeps your votes, your comments with the display name you choose, and your reports, under a key derived
+from your account, never your email address. Votes are shown only as totals; comments are public. It keeps no record
+of which pages you read. See the <a href="${CANONICAL_ORIGIN}/privacy">privacy page</a>.</p>
+<p>You can withdraw votes and delete comments on your votes and comments page, or delete them all, with your reports,
+using the form below.</p>
+<div class="account">
+<form method="post" action="/atlas/auth/logout">
+${hiddenFields(tokens.signOut, ACCOUNT_PATH)}
+<button type="submit" class="quiet">Sign out</button>
+</form>
+<form method="post" action="/atlas/auth/logout-everywhere">
+${hiddenFields(tokens.signOutEverywhere, ACCOUNT_PATH)}
+<button type="submit" class="quiet">Sign out everywhere</button>
+</form>
+<form method="post" action="/atlas/account/delete" class="forget-form">
+${hiddenFields(tokens.forget, ACCOUNT_PATH)}
+<p><input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>
+<label for="forget-confirm">Delete everything I hold in the Atlas: my votes, my comments and my reports</label></p>
+<button type="submit" class="quiet">Delete them all</button>
+</form>
+</div>`}`,
+  });
+}
+
 /** Where a signed-in reader finds every comment of theirs. */
 export const OWN_COMMENTS_PATH = "/atlas/account/comments";
 
@@ -672,8 +731,9 @@ export interface AtlasOwnCommentsView {
   notice: string | null;
 }
 
-export function renderAtlasOwnComments(view: AtlasOwnCommentsView): string {
+export function renderAtlasOwnComments(view: AtlasOwnCommentsView, reader?: AtlasPageReader): string {
   return page({
+    reader,
     path: null,
     title: "Your votes and comments | AskRigor Atlas",
     description: "The votes you gave and the comments you posted in the AskRigor Atlas.",
@@ -717,8 +777,10 @@ ${view.olderHref === null ? "" : html`<p><a href="${view.olderHref}">Older comme
   });
 }
 
-export function renderAtlasMessage(title: string, message: string, back: { href: string; text: string }): string {
+export function renderAtlasMessage(title: string, message: string, back: { href: string; text: string },
+  reader?: AtlasPageReader): string {
   return page({
+    reader,
     path: null,
     title: `${title} | AskRigor Atlas`,
     description: title,
@@ -728,8 +790,9 @@ export function renderAtlasMessage(title: string, message: string, back: { href:
   });
 }
 
-export function renderAtlasTooManyRequests(): string {
+export function renderAtlasTooManyRequests(reader?: AtlasPageReader): string {
   return page({
+    reader,
     path: null,
     title: "Too many requests | AskRigor Atlas",
     description: "Too many requests for Atlas pages.",
