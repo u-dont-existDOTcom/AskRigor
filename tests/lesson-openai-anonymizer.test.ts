@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
 import {
   generalizedLessonSchema,
   lessonCandidateSchema,
@@ -224,7 +225,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       queue: { submit },
     });
 
-    await expect(service.submit({ ...lesson, related_issue: 357 }, "connector")).resolves.toEqual({
+    await expect(service.submit({ ...lesson, ...lessonDiagnostics, related_issue: 357 }, "connector")).resolves.toEqual({
       status: "submitted",
       candidate_id: "ARL-0042",
       occurrence_count: 1,
@@ -235,10 +236,13 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const requestBody = String(fetchMock.mock.calls[0]![1]?.body);
     expect(JSON.parse(JSON.parse(requestBody).input[1].content[0].text)).toEqual(lesson);
     expect(requestBody).not.toContain("related_issue");
+    expect(requestBody).not.toContain("existing_rules");
+    expect(requestBody).not.toContain(lessonDiagnostics.observed_behavior);
     expect(submit.mock.calls.map(([input]) => input)).toEqual([{
       candidate: lesson,
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
       source: "connector",
+      diagnostics: lessonDiagnostics,
       relatedIssue: 357,
     }]);
   });
@@ -275,7 +279,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       queue: { submit },
     });
 
-    await expect(service.submit({ ...lesson, detailed_report: report }, "connector", { detailedReports: true }))
+    await expect(service.submit({ ...lesson, ...lessonDiagnostics, detailed_report: report }, "connector", { detailedReports: true }))
       .resolves.toEqual({ status: "submitted", candidate_id: "ARL-0042", occurrence_count: 1, retryable: false });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const requestBody = String(fetchMock.mock.calls[0]![1]?.body);
@@ -287,6 +291,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       candidate: lesson,
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
       source: "connector",
+      diagnostics: lessonDiagnostics,
       detailedReport: report,
     }]);
   });

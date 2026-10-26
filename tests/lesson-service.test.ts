@@ -1,3 +1,4 @@
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
 import { describe, expect, it, vi } from "vitest";
 import type { DetailedLessonReport, LessonCandidate } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
@@ -20,6 +21,8 @@ const candidate: LessonCandidate = {
   protocol_identities: [{ name: "HRP", version: "20.5.17", sha256: "a".repeat(64) }],
   consent_scope: "once",
 };
+
+const connectorCandidate = { ...candidate, ...lessonDiagnostics };
 
 function createSubject(overrides: {
   limit?: { allowed: true } | { allowed: false; retryAfterSeconds: number };
@@ -149,7 +152,7 @@ describe("lesson submission pipeline", () => {
   it("tells the queue which surface sent the lesson: the Custom GPT unless the connector is named", async () => {
     const { service, submit } = createSubject();
     await service.submit(candidate);
-    await service.submit(candidate, "connector");
+    await service.submit(connectorCandidate, "connector");
     expect(submit.mock.calls.map(([input]) => (input as { source?: string }).source))
       .toEqual(["custom-gpt", "connector"]);
   });
@@ -160,7 +163,7 @@ describe("lesson submission pipeline", () => {
   it("hands a connector lesson's related issue to the queue, outside the lesson the anonymizer sees", async () => {
     const { service, generalize, submit } = createSubject();
 
-    const result = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+    const result = await service.submit({ ...connectorCandidate, related_issue: 357 }, "connector");
 
     expect(result).toEqual({
       status: "submitted",
@@ -175,6 +178,7 @@ describe("lesson submission pipeline", () => {
       candidate,
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
       source: "connector",
+      diagnostics: lessonDiagnostics,
       relatedIssue: 357,
     }]);
   });
@@ -182,8 +186,8 @@ describe("lesson submission pipeline", () => {
   it("gives the queue the same fingerprint with or without a related issue", async () => {
     const { service, submit } = createSubject();
 
-    await service.submit(candidate, "connector");
-    await service.submit({ ...candidate, related_issue: 357 }, "connector");
+    await service.submit(connectorCandidate, "connector");
+    await service.submit({ ...connectorCandidate, related_issue: 357 }, "connector");
 
     const inputs = submit.mock.calls.map(([input]) => input as { fingerprint: string; relatedIssue?: number });
     expect(inputs).toHaveLength(2);
@@ -209,7 +213,7 @@ describe("lesson submission pipeline", () => {
     async (relatedIssue) => {
       const { service, generalize, submit } = createSubject();
 
-      await expect(service.submit({ ...candidate, related_issue: relatedIssue }, "connector")).resolves.toEqual({
+      await expect(service.submit({ ...connectorCandidate, related_issue: relatedIssue }, "connector")).resolves.toEqual({
         status: "privacy_rejected",
         retryable: false,
         reason_code: "unsafe_candidate",
@@ -232,7 +236,7 @@ describe("lesson submission pipeline", () => {
       queue: { submit },
     });
 
-    await expect(service.submit({ ...candidate, related_issue: undefined }, "connector"))
+    await expect(service.submit({ ...connectorCandidate, related_issue: undefined }, "connector"))
       .resolves.toMatchObject({ status: "submitted" });
     expect(submit).toHaveBeenCalledTimes(1);
     expect(submit.mock.calls[0]![0]).not.toHaveProperty("relatedIssue");
@@ -594,7 +598,7 @@ describe("connector lesson detailed report", () => {
     test_cases: [{ case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false }],
     uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
   };
-  const withReport = { ...candidate, detailed_report: report };
+  const withReport = { ...connectorCandidate, detailed_report: report };
   const refused = { status: "detailed_report_refused", retryable: false, reason_code: "detailed_reports_off" };
 
   it("hands the queue the exact report from an account that turned detailed reports on, outside the anonymizer", async () => {
@@ -611,6 +615,7 @@ describe("connector lesson detailed report", () => {
       candidate,
       fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
       source: "connector",
+      diagnostics: lessonDiagnostics,
       relatedIssue: 357,
       detailedReport: report,
     }]);
@@ -627,7 +632,7 @@ describe("connector lesson detailed report", () => {
     expect(generalize).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
     // The same lesson without its report is then saved as before.
-    await expect(service.submit(candidate, "connector", context)).resolves.toMatchObject({ status: "submitted" });
+    await expect(service.submit(connectorCandidate, "connector", context)).resolves.toMatchObject({ status: "submitted" });
     expect(submit.mock.calls[0]![0]).not.toHaveProperty("detailedReport");
   });
 
@@ -635,7 +640,7 @@ describe("connector lesson detailed report", () => {
     const { service, generalize, submit } = createSubject();
 
     for (const detailed_report of [{ ...report, observed: "o".repeat(1_001) }, "a long report", null]) {
-      await expect(service.submit({ ...candidate, detailed_report }, "connector")).resolves.toEqual(refused);
+      await expect(service.submit({ ...connectorCandidate, detailed_report }, "connector")).resolves.toEqual(refused);
     }
     expect(generalize).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
@@ -654,7 +659,7 @@ describe("connector lesson detailed report", () => {
     const { service, generalize, submit } = createSubject();
 
     await expect(service.submit(
-      { ...candidate, detailed_report: { ...report, ...change } },
+      { ...connectorCandidate, detailed_report: { ...report, ...change } },
       "connector",
       { detailedReports: true },
     )).resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" });
@@ -674,7 +679,7 @@ describe("connector lesson detailed report", () => {
       uncertain: "What stays uncertain, in general terms. ".repeat(25).trim(),
     };
 
-    await expect(service.submit({ ...candidate, detailed_report: tooLong }, "connector", { detailedReports: true }))
+    await expect(service.submit({ ...connectorCandidate, detailed_report: tooLong }, "connector", { detailedReports: true }))
       .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" });
     expect(generalize).not.toHaveBeenCalled();
     expect(submit).not.toHaveBeenCalled();
@@ -683,7 +688,7 @@ describe("connector lesson detailed report", () => {
   it("gives the queue the same fingerprint with or without a detailed report", async () => {
     const { service, submit } = createSubject();
 
-    await service.submit(candidate, "connector");
+    await service.submit(connectorCandidate, "connector");
     await service.submit(withReport, "connector", { detailedReports: true });
 
     const inputs = submit.mock.calls.map(([input]) => input as { fingerprint: string; detailedReport?: unknown });
@@ -697,7 +702,7 @@ describe("connector lesson detailed report", () => {
     const { service, generalize, submit } = createSubject();
 
     for (const context of [{}, { detailedReports: true }]) {
-      await expect(service.submit(withReport, "custom-gpt", context)).resolves.toEqual({
+      await expect(service.submit({ ...candidate, detailed_report: report }, "custom-gpt", context)).resolves.toEqual({
         status: "privacy_rejected",
         retryable: false,
         reason_code: "unsafe_candidate",
@@ -726,12 +731,78 @@ describe("connector lesson detailed report", () => {
       queue: { submit },
     });
 
-    await expect(service.submit({ ...candidate, detailed_report: undefined }, "connector"))
+    await expect(service.submit({ ...connectorCandidate, detailed_report: undefined }, "connector"))
       .resolves.toMatchObject({ status: "submitted" });
     await expect(service.submit(withReport, "connector", { detailedReports: true }))
       .resolves.toMatchObject({ status: "submitted" });
     expect(submit.mock.calls.map(([input]) => input as { detailedReport?: unknown })
       .map(({ detailedReport }) => detailedReport)).toEqual([undefined, report]);
     expect((submit.mock.calls[1]![0] as { candidate: object }).candidate).not.toHaveProperty("detailed_report");
+  });
+});
+
+describe("connector lesson existing-rule inventory and short diagnostics", () => {
+  it("accepts real HRP and Universal elements and every declared execution status", async () => {
+    const { service, generalize, submit } = createSubject();
+    const existing_rules = { rules: [
+      { name: "StudyMethodReliabilityGate", status: "not_loaded", reason: "The protocol was not loaded for this step." },
+      { name: "SymmetricCOI", status: "loaded_not_applied", reason: "The review treated the two sources differently." },
+      { name: "claim_scope_predicate_alignment_gate", status: "applied_but_insufficient", reason: "The declared comparison still allowed different endpoints." },
+      { name: "CausalInferenceDiscipline", status: "not_triggered", reason: "The causal claim was not declared at the check." },
+      { name: "StudyDesignCapabilityMatrix", status: "unknown", reason: "The trace is unavailable; the cause remains uncertain." },
+    ] };
+    await expect(service.submit({ ...connectorCandidate, existing_rules }, "connector", { detailedReports: false }))
+      .resolves.toMatchObject({ status: "submitted" });
+    // Diagnostic declarations cannot be rewritten by the legacy anonymizer, or enter the duplicate key.
+    expect(generalize).toHaveBeenCalledExactlyOnceWith(candidate);
+    expect(submit.mock.calls[0]![0]).toMatchObject({ diagnostics: { ...lessonDiagnostics, existing_rules } });
+  });
+
+  it.each(["InventedRuleThatDoesNotExist", "symmetriccoi", "SymmetricCOI ", "VersionDiscipline.NoChangeForChangeSake"])(
+    "refuses the non-element name %s explicitly before generalization or storage", async (name) => {
+      const { service, generalize, submit } = createSubject();
+      await expect(service.submit({ ...connectorCandidate, existing_rules: {
+        rules: [{ name, status: "unknown", reason: "The trace is unavailable." }],
+      } }, "connector")).resolves.toEqual({
+        status: "existing_rules_refused", retryable: false, reason_code: "unknown_protocol_element",
+      });
+      expect(generalize).not.toHaveBeenCalled();
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts none with a missing-rule explanation without asserting that the diagnosis is correct", async () => {
+    const { service, submit } = createSubject();
+    const existing_rules = { none: "No existing rule covers checking this invented menu label against its intended text." };
+    await expect(service.submit({ ...connectorCandidate, existing_rules }, "connector"))
+      .resolves.toMatchObject({ status: "submitted" });
+    expect(submit.mock.calls[0]![0]).toMatchObject({ diagnostics: { existing_rules } });
+  });
+
+  it.each([undefined, { none: "" }, { rules: [] }, { rules: [{ name: "SymmetricCOI", status: "unknown" }] }])(
+    "refuses an absent or incomplete inventory %j with a form status", async (existing_rules) => {
+      const { service, generalize, submit, consume } = createSubject();
+      await expect(service.submit({ ...connectorCandidate, existing_rules }, "connector")).resolves.toEqual({
+        status: "existing_rules_refused", retryable: false, reason_code: "invalid_existing_rules",
+      });
+      expect(consume).toHaveBeenCalledOnce();
+      expect(generalize).not.toHaveBeenCalled();
+      expect(submit).not.toHaveBeenCalled();
+    },
+  );
+
+  const unsafe = "Contact person@example.com for the details of this failure.";
+  it.each([
+    { existing_rules: { none: unsafe } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "unknown", reason: unsafe }] } },
+    { observed_behavior: unsafe },
+    { part_to_change: { kind: "tool", name: unsafe } },
+    { observed_behavior: `${"An invented step failed. ".repeat(40)}${unsafe}` },
+  ])("screens every new diagnostic text with the existing privacy screen: %j", async (change) => {
+    const { service, generalize, submit } = createSubject();
+    await expect(service.submit({ ...connectorCandidate, ...change }, "connector"))
+      .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_candidate" });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
   });
 });

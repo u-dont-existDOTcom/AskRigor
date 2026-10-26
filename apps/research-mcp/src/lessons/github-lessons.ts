@@ -1,9 +1,11 @@
 import { checkReportSchema, checkReportSection, type CheckReport } from "../check-report.js";
 import {
   PUBLIC_ASKRIGOR_REPOSITORY,
+  connectorLessonDiagnosticsSchema,
   detailedLessonReportSchema,
   relatedIssueSchema,
   type DetailedLessonReport,
+  type ConnectorLessonDiagnostics,
   type GeneralizedLesson,
 } from "./contracts.js";
 import {
@@ -37,6 +39,8 @@ export interface GitHubLessonSubmission {
    * the fingerprint nor the hidden metadata.
    */
   detailedReport?: DetailedLessonReport;
+  /** Screened connector diagnostics, preserved exactly outside the legacy anonymizer and duplicate key. */
+  diagnostics?: ConnectorLessonDiagnostics;
   checkReport?: CheckReport;
   correctionRule?: { name: string; missing?: string };
 }
@@ -130,6 +134,7 @@ export class GitHubLessonQueue {
       !FINGERPRINT_PATTERN.test(input.fingerprint) ||
       (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success) ||
       (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success) ||
+      (input.diagnostics !== undefined && !connectorLessonDiagnosticsSchema.safeParse(input.diagnostics).success) ||
       (input.checkReport !== undefined && !checkReportSchema.safeParse(input.checkReport).success)
     ) {
       throw new GitHubApiError("github_service_unavailable", false);
@@ -219,7 +224,7 @@ export class GitHubLessonQueue {
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue, input.detailedReport, input.checkReport, input.correctionRule) }),
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input) }),
     });
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
@@ -305,6 +310,7 @@ export class GitHubLessonQueue {
           input.detailedReport,
           input.checkReport,
           input.correctionRule,
+          input.diagnostics,
         ),
         labels,
       }),
@@ -362,6 +368,7 @@ function buildIssueBody(
   detailedReport: DetailedLessonReport | undefined,
   checkReport?: CheckReport,
   correctionRule?: GitHubLessonSubmission["correctionRule"],
+  diagnostics?: ConnectorLessonDiagnostics,
 ): string {
   const versionContext = [
     `AskRigor: ${candidate.askrigor_version ? escapeMarkdown(candidate.askrigor_version) : "Not supplied"}`,
@@ -376,8 +383,11 @@ function buildIssueBody(
       : ["Protocols: Not supplied"]),
   ].join("\n");
   const sections = [
+    ...(diagnostics === undefined ? [] : [existingRulesSection(diagnostics)]),
     section("General lesson", escapeMarkdown(candidate.general_lesson)),
+    ...(diagnostics === undefined ? [] : [section("Observed behavior", escapeMarkdown(diagnostics.observed_behavior))]),
     section("Expected behavior", escapeMarkdown(candidate.expected_behavior)),
+    ...(diagnostics === undefined ? [] : [partToChangeSection(diagnostics)]),
     section("Failure reason", escapeMarkdown(candidate.failure_reason)),
     section("Synthetic regression", escapeMarkdown(candidate.synthetic_regression_example)),
     section("Evidence basis", escapeMarkdown(candidate.evidence_basis)),
@@ -415,12 +425,17 @@ function buildIssueBody(
 
 function buildOccurrenceComment(
   metadata: OccurrenceMetadata,
-  relatedIssue: number | undefined,
-  detailedReport: DetailedLessonReport | undefined,
-  checkReport?: CheckReport,
-  correctionRule?: GitHubLessonSubmission["correctionRule"],
+  input: GitHubLessonSubmission,
 ): string {
+  const { relatedIssue, detailedReport, checkReport, correctionRule, diagnostics, candidate } = input;
   return [
+    ...(diagnostics === undefined ? [] : [existingRulesSection(diagnostics), "",
+      section("General lesson", escapeMarkdown(candidate.general_lesson)), "",
+      section("Observed behavior", escapeMarkdown(diagnostics.observed_behavior)), "",
+      section("Expected behavior", escapeMarkdown(candidate.expected_behavior)), "",
+      partToChangeSection(diagnostics), "",
+      section("Failure reason", escapeMarkdown(candidate.failure_reason)), "",
+      section("Synthetic regression", escapeMarkdown(candidate.synthetic_regression_example)), ""]),
     "## Anonymous lesson occurrence",
     "",
     `Occurrence count: ${metadata.occurrence_count}`,
@@ -437,6 +452,17 @@ function buildOccurrenceComment(
     "",
     occurrenceMetadataMarker(metadata),
   ].join("\n");
+}
+
+function existingRulesSection({ existing_rules: inventory }: ConnectorLessonDiagnostics): string {
+  return section("Existing rules", "rules" in inventory
+    ? inventory.rules.map(({ name, status, reason }) =>
+      `- ${escapeMarkdown(name)}: ${escapeMarkdown(status)} — ${escapeMarkdown(reason)}`).join("\n")
+    : `none: ${escapeMarkdown(inventory.none)}`);
+}
+
+function partToChangeSection({ part_to_change: part }: ConnectorLessonDiagnostics): string {
+  return section("Part to change", `${escapeMarkdown(part.kind)}: ${escapeMarkdown(part.name)}`);
 }
 
 // Owner question 154: rendered from the validated fields only, each text escaped as the lesson's are. The privacy

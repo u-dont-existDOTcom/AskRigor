@@ -719,12 +719,36 @@ location, medical history, upload, or raw quotation. The complete decoded JSON
 body is limited to 8,192 UTF-8 bytes.
 
 The connector's `submit_lesson_candidate` takes the same fields without
-`incident_provenance`, plus an optional `related_issue` (described below) and,
+`incident_provenance`, plus the required short diagnostics below, an optional
+`related_issue` (described below) and,
 only from an account that turned on detailed lesson reports, an optional
 `detailed_report` (owner question 154, 2026-10-21). Detailed lesson reports are
 off by default; the user turns them on or off with `manage_research_access`
 action `set_detailed_lesson_reports`, which stores only that choice, in
-`research_use_accounts.detailed_lesson_reports`. The report's fields are:
+`research_use_accounts.detailed_lesson_reports`.
+
+Every connector lesson requires these short diagnostics, including when detailed
+reports are off. The original short fields' bounds above are unchanged.
+
+| Connector field | Meaning and implemented bound |
+| --- | --- |
+| `existing_rules` | Either `{rules: [{name, status, reason}]}` with 1–12 entries, or `{none: explanation}`. Each name is an exact current HRP/Universal element tag or selectable `name`/`id`, at most 160 characters. Status is `not_loaded`, `loaded_not_applied`, `applied_but_insufficient`, `not_triggered` or `unknown`. Each reason, or the explanation of the missing rule, is one nonempty line of at most 300 characters. |
+| `observed_behavior` | What actually happened and the first observed failing step, 20–1,200 characters; generalized, with no real person's details. |
+| `part_to_change` | `{kind, name}`: kind is `tool`, `protocol_rule` or `final_check`, the same kinds named by a detailed report; the specific part's name is 1–120 characters. |
+
+The server checks every inventory name exactly against the parsed complete
+protocols used by `load_protocol`. It checks declaration form, not whether a
+rule covered the failure or why it was not followed. Every new prose field
+(reasons, missing-rule explanation, observed behavior and part name) passes the
+unchanged lesson privacy screen. These diagnostics stay outside the legacy
+anonymizer, duplicate fingerprint and hidden metadata; the validated fields are
+escaped and stored in the private issue or repeat comment. The tool tells the
+model to show the inventory first and propose enforcing or fixing covering rules
+before a new rule, and to show the short diagnostics before seeking consent.
+These fields collect no raw incident or personal-data class and do not change
+the detailed-report setting, rate limits, Action body limit, or anonymizer path.
+
+The optional detailed report's fields are:
 
 | Report field | Meaning and implemented bound |
 | --- | --- |
@@ -755,6 +779,10 @@ retryability, and an allowlisted reason code. On the connector only,
 `detailed_report_refused` returns only its status, `retryable:false` and the
 reason code `detailed_reports_off`. Results do not expose a private
 URL, GitHub issue number, candidate text, report text, or fingerprint.
+The connector also returns `existing_rules_refused`, `retryable:false`, with
+`invalid_existing_rules` for a missing/malformed inventory or
+`unknown_protocol_element` for a name outside the current protocol elements.
+Neither refusal echoes the submitted declaration or stores a lesson.
 
 ## Lesson screening, recipients, and storage
 
@@ -775,14 +803,19 @@ for a connector lesson, an optional number of a public `u-dont-existDOTcom/AskRi
 issue, rendered by the server as a reference with no free text; for a connector
 lesson from an account that turned on detailed lesson reports, its detailed
 report as a "Detailed report" section rendered by the server from the validated
-fields with the same escaping; an
+fields with the same escaping; for every connector lesson, the existing-rule
+inventory as the first section, observed behavior and the part to change; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden
 deduplication fingerprint marker. Later duplicates leave that body unchanged
-and append private generated comments containing only the anonymous count,
+and append private generated comments containing the anonymous count,
 observation timestamp, the related issue reference when that repeat names one,
 the repeat's detailed report when it carries one, and canonical fingerprint
 marker. A detailed report is part of neither the fingerprint nor the hidden
 metadata, and it is stored only there, in the private lessons repository.
+For a connector repeat, the comment starts with that occurrence's inventory,
+then its general lesson, observed and expected behavior, part to change, failure
+reason and synthetic regression. This preserves occurrence-specific detail
+without changing the duplicate key or rewriting an earlier report.
 Neither the issue nor
 the generated comments store `consent_scope`, user identity, network identity,
 conversation identifier, raw chat, raw quotation, medical history, or upload.

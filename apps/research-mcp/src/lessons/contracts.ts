@@ -54,6 +54,45 @@ export const PUBLIC_ASKRIGOR_REPOSITORY = "u-dont-existDOTcom/AskRigor" as const
  */
 export const relatedIssueSchema = z.number().int().min(1).max(1_000_000);
 
+const lessonLine = z.string().trim().min(1).max(300).regex(/^[^\r\n]+$/u);
+
+/** Declaration only: the server checks names and form, not whether a rule actually covered the failure. */
+export const existingRulesSchema = z.union([
+  z.strictObject({
+    rules: z.array(z.strictObject({
+      name: z.string().min(1).max(160),
+      status: z.enum(["not_loaded", "loaded_not_applied", "applied_but_insufficient", "not_triggered", "unknown"]),
+      reason: lessonLine,
+    })).min(1).max(12),
+  }),
+  z.strictObject({ none: lessonLine }),
+]);
+
+/** The same kinds of parts named by detailed_report, with a concrete tool, rule or check to inspect. */
+export const lessonPartToChangeSchema = z.strictObject({
+  kind: z.enum(["tool", "protocol_rule", "final_check"]),
+  name: z.string().trim().min(1).max(120),
+});
+
+export const connectorLessonDiagnosticsSchema = z.strictObject({
+  existing_rules: existingRulesSchema,
+  observed_behavior: z.string().min(20).max(1_200),
+  part_to_change: lessonPartToChangeSchema,
+});
+
+export type ConnectorLessonDiagnostics = z.infer<typeof connectorLessonDiagnosticsSchema>;
+
+/** All newly submitted prose passes the existing lesson screen; protocol names are separately checked exactly. */
+export function connectorLessonDiagnosticTexts(diagnostics: ConnectorLessonDiagnostics): string[] {
+  return [
+    ...("rules" in diagnostics.existing_rules
+      ? diagnostics.existing_rules.rules.map(({ reason }) => reason)
+      : [diagnostics.existing_rules.none]),
+    diagnostics.observed_behavior,
+    diagnostics.part_to_change.name,
+  ];
+}
+
 /**
  * A detailed report's bounds (owner question 154, 2026-10-21): the steps, what happened and what was expected, causes
  * with confidence, the parts of AskRigor to change, a proposed change, up to five invented test cases and what stays
@@ -123,7 +162,8 @@ export const detailedLessonReportSchema = detailedLessonReportFieldsSchema.refin
 
 /**
  * The connector's request shape: the Action's candidate without incident
- * provenance (the connector has no incident vault), plus the optional number
+ * provenance (the connector has no incident vault), with required existing-rule
+ * and short diagnostic declarations, plus the optional number
  * of a public AskRigor issue that reports the failure and, only from an
  * account that turned detailed lesson reports on, an optional detailed report.
  * Only the connector accepts related_issue and detailed_report; the Action's
@@ -132,6 +172,7 @@ export const detailedLessonReportSchema = detailedLessonReportFieldsSchema.refin
 export const connectorLessonCandidateSchema = lessonCandidateSchema
   .omit({ incident_provenance: true })
   .extend({
+    ...connectorLessonDiagnosticsSchema.shape,
     related_issue: relatedIssueSchema.optional(),
     detailed_report: detailedLessonReportSchema.optional(),
     check_report_token: z.string().min(1).max(CHECK_REPORT_TOKEN_MAX_CHARACTERS).optional(),
@@ -242,6 +283,11 @@ export const connectorLessonSubmissionResultSchema = z.discriminatedUnion("statu
   detailedReportRefusedResultSchema,
   z.strictObject({ status: z.literal("check_report_refused"), retryable: z.literal(false), reason_code: z.literal("invalid_check_report_token") }),
   z.strictObject({ status: z.literal("correction_rule_refused"), retryable: z.literal(false), reason_code: z.literal("invalid_preventing_rule") }),
+  z.strictObject({
+    status: z.literal("existing_rules_refused"),
+    retryable: z.literal(false),
+    reason_code: z.enum(["invalid_existing_rules", "unknown_protocol_element"]),
+  }),
 ]);
 
 export type ConnectorLessonSubmissionResult = z.infer<typeof connectorLessonSubmissionResultSchema>;

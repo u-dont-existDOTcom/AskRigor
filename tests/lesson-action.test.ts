@@ -1,3 +1,4 @@
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
 import { chmod, mkdtemp, rm } from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -15,7 +16,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { connectorLessonInputSchema, DETAILED_REPORT_RULE } from
+import { connectorLessonInputSchema, connectorLessonToolResult, DETAILED_REPORT_RULE, EXISTING_RULES_RULE } from
   "../apps/research-mcp/src/lessons/connector-tool.js";
 import type { DetailedLessonReport, LessonSubmissionResult } from
   "../apps/research-mcp/src/lessons/contracts.js";
@@ -260,6 +261,8 @@ afterEach(async () => {
     rm(directory, { recursive: true, force: true })
   ));
 });
+
+const connectorCandidate = { ...validCandidate, ...lessonDiagnostics };
 
 describe("consequential lesson Action", () => {
   it("requires the Action Bearer key before invoking the lesson service", async () => {
@@ -532,17 +535,17 @@ describe("consequential lesson Action", () => {
     const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
-      const saved = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      const saved = await client.callTool({ name: "submit_lesson_candidate", arguments: connectorCandidate });
       expect(saved.isError).not.toBe(true);
       expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
       expect(saved.structuredContent).toEqual(submitted());
-      expect(received).toEqual([validCandidate]);
+      expect(received).toEqual([connectorCandidate]);
 
-      const rejected = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      const rejected = await client.callTool({ name: "submit_lesson_candidate", arguments: connectorCandidate });
       expect(rejected.isError).toBe(true);
       expect(JSON.stringify(rejected.content)).toContain("Not saved: the privacy check");
 
-      const limited = await client.callTool({ name: "submit_lesson_candidate", arguments: validCandidate });
+      const limited = await client.callTool({ name: "submit_lesson_candidate", arguments: connectorCandidate });
       expect(limited.isError).toBe(true);
       expect(JSON.stringify(limited.content)).toContain("try again in about 120 seconds");
 
@@ -550,7 +553,7 @@ describe("consequential lesson Action", () => {
       const withIncident = await client.callTool({
         name: "submit_lesson_candidate",
         arguments: {
-          ...validCandidate,
+          ...connectorCandidate,
           incident_provenance: { incident_id: "ALI-0001", incident_sha256: "b".repeat(64), preservation_status: "EXACT_TRANSCRIPT_PRESERVED" },
         },
       });
@@ -583,21 +586,26 @@ describe("consequential lesson Action", () => {
         maximum: 1_000_000,
       });
       expect(tool?.inputSchema.required).not.toContain("related_issue");
+      expect(tool?.inputSchema.required).toEqual(expect.arrayContaining([
+        "existing_rules", "observed_behavior", "expected_behavior", "part_to_change",
+      ]));
+      expect(tool?.description).toContain(EXISTING_RULES_RULE);
+      expect(EXISTING_RULES_RULE).toContain("propose enforcing or fixing them before any new rule");
       expect(LESSON_ACTION_REQUEST_SCHEMA.properties).not.toHaveProperty("related_issue");
 
       const saved = await client.callTool({
         name: "submit_lesson_candidate",
-        arguments: { ...validCandidate, related_issue: 357 },
+        arguments: { ...connectorCandidate, related_issue: 357 },
       });
       expect(saved.isError).not.toBe(true);
       expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
       expect(saved.structuredContent).toEqual(submitted());
-      expect(received).toEqual([{ ...validCandidate, related_issue: 357 }]);
+      expect(received).toEqual([{ ...connectorCandidate, related_issue: 357 }]);
 
       for (const related_issue of [0, -357, 357.5, "357", 1_000_001, "https://github.com/u-dont-existDOTcom/AskRigor/issues/357"]) {
         const rejected = await client.callTool({
           name: "submit_lesson_candidate",
-          arguments: { ...validCandidate, related_issue },
+          arguments: { ...connectorCandidate, related_issue },
         });
         expect(rejected.isError).toBe(true);
       }
@@ -609,12 +617,22 @@ describe("consequential lesson Action", () => {
 
   it("returns the unavailable receipt when the connector's lesson queue is not configured", async () => {
     clearRuntimeEnvironment();
-    await expect(submitConnectorLessonCandidate(validCandidate)).resolves.toEqual({
+    await expect(submitConnectorLessonCandidate(connectorCandidate)).resolves.toEqual({
       status: "github_unavailable",
       retryable: false,
       reason_code: "github_auth_unavailable",
     });
   });
+
+  it.each(["invalid_existing_rules", "unknown_protocol_element"] as const)(
+    "explains the inventory refusal %s without echoing submitted content", (reason_code) => {
+      const result = connectorLessonToolResult({ status: "existing_rules_refused", retryable: false, reason_code });
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toEqual({ status: "existing_rules_refused", retryable: false, reason_code });
+      expect(JSON.stringify(result.content)).toContain(reason_code === "unknown_protocol_element"
+        ? "not an exact current HRP or Universal element" : "one-line explanation");
+    },
+  );
 });
 
 // Owner question 154 (2026-10-21): "i would not give everyone a long report like that in chat unless they turn that
@@ -754,21 +772,21 @@ describe("detailed lesson reports on the connector", () => {
     });
     await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: true }, "auth0|on");
 
-    const saved = await submit({ ...validCandidate, detailed_report: report }, "auth0|on");
+    const saved = await submit({ ...connectorCandidate, detailed_report: report }, "auth0|on");
     expect(saved.isError).not.toBe(true);
     expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
     expect(saved.structuredContent).toEqual(submitted());
     expect(queued).toEqual([expect.objectContaining({ source: "connector", detailedReport: report })]);
     expect(queued[0]!.candidate).not.toHaveProperty("detailed_report");
 
-    const notSaved = await submit({ ...validCandidate, detailed_report: report }, "auth0|off");
+    const notSaved = await submit({ ...connectorCandidate, detailed_report: report }, "auth0|off");
     expect(notSaved.isError).toBe(true);
     expect(notSaved.structuredContent).toEqual(refused);
     expect(text(notSaved)).toBe(REFUSED_TEXT);
     expect(queued).toHaveLength(1);
     // The same lesson without its report is saved, from an account with the setting off as from one with it on.
     for (const subject of ["auth0|off", "auth0|on"]) {
-      expect((await submit(validCandidate, subject)).structuredContent).toEqual(submitted());
+      expect((await submit(connectorCandidate, subject)).structuredContent).toEqual(submitted());
     }
     expect(queued).toHaveLength(3);
     expect(queued.slice(1).every((input) => !("detailedReport" in input))).toBe(true);
@@ -779,7 +797,7 @@ describe("detailed lesson reports on the connector", () => {
 
     // Turned off again, the account's report is refused.
     await manage({ action: "set_detailed_lesson_reports", detailedLessonReports: false }, "auth0|on");
-    expect((await submit({ ...validCandidate, detailed_report: report }, "auth0|on")).structuredContent).toEqual(refused);
+    expect((await submit({ ...connectorCandidate, detailed_report: report }, "auth0|on")).structuredContent).toEqual(refused);
     expect(queued).toHaveLength(3);
   });
 
@@ -811,7 +829,7 @@ describe("detailed lesson reports on the connector", () => {
 
       const notSaved = await client.callTool({
         name: "submit_lesson_candidate",
-        arguments: { ...validCandidate, detailed_report: report },
+        arguments: { ...connectorCandidate, detailed_report: report },
       });
       expect(notSaved.isError).toBe(true);
       expect(notSaved.structuredContent).toEqual(refused);
@@ -822,7 +840,7 @@ describe("detailed lesson reports on the connector", () => {
       const tooLong = await client.callTool({
         name: "submit_lesson_candidate",
         arguments: {
-          ...validCandidate,
+          ...connectorCandidate,
           detailed_report: {
             ...report,
             steps: Array.from({ length: 12 }, () => "s".repeat(300)),

@@ -13,6 +13,46 @@ protocol state, or tool receipts and concluding that the user's concrete
 criticism is valid. A preference, unsupported disagreement, or unresolved doubt
 is not a validated lesson.
 
+### Connector lessons: diagnose existing rules first
+
+Before proposing a connector lesson, load the current complete HRP and Universal
+protocols and inventory the rules that already cover the failure. Every
+`submit_lesson_candidate` connector request requires `existing_rules`, either:
+
+- `{rules: [{name, status, reason}]}`: 1–12 rules, each with an exact current
+  protocol element tag or selectable `name`/`id` (at most 160 characters), a
+  status of `not_loaded`, `loaded_not_applied`, `applied_but_insufficient`,
+  `not_triggered` or `unknown`, and a one-line reason of at most 300 characters;
+- `{none: explanation}`: one line, at most 300 characters, identifying the
+  missing rule when no existing rule covers the failure.
+
+State this inventory first in the lesson shown to the user. When covering rules
+exist, propose enforcing or fixing them before any new rule. Use `unknown` and
+explain the unavailable trace rather than inventing a cause. The server checks
+the declaration's form and exact names against the same complete protocols as
+`load_protocol`; it does not decide whether the diagnosis is true.
+
+Even with detailed reports off, include `observed_behavior` (20–1,200 characters,
+including the first observed failing step), `expected_behavior` (40–1,200), and
+`part_to_change`: `{kind: tool|protocol_rule|final_check, name}` with the specific
+tool, rule or check named in at most 120 characters. These are the same kinds of
+parts as a detailed report lists. Keep the concrete fix in the lesson and the
+invented reproduction and expected test result in `synthetic_regression_example`
+(20–1,200). Show the inventory and these diagnostics with the lesson before
+seeking consent. All prose must remain generalized and privacy safe; no raw
+incident, real person's details, or quotation belongs in these fields.
+
+For a lesson from a stopped final check, pass the exact `check_report_token`
+that check returned, after consent to its shown report. The server verifies and
+files the masked report unchanged; it needs no detailed-reports setting. A
+model-authored `detailed_report` still requires the account to have turned
+detailed lesson reports on, and must be shown before consent. The short fields
+do not replace an authorized detailed report when one is available.
+
+The private issue and each repeat's comment start with the inventory and retain
+the short diagnostic fields, even when detailed reports are off. These connector
+fields do not change the separate Action's request or its incident-vault path.
+
 After a concrete criticism has been rechecked and validated as a real AskRigor
 lesson, and the user authorizes lesson handling, preserve the minimum exact
 originating incident window through the private lesson-incident capture Action
@@ -217,6 +257,11 @@ Map the returned `submit_lesson_candidate` status exactly:
 - `rate_limited` -> `Lesson not submitted: submission is rate limited. Try again after {retry_after_seconds} seconds.`
 - `anonymizer_unavailable` -> `Lesson not submitted: privacy generalization is unavailable.`
 - `github_unavailable` -> `Lesson not submitted: the private review queue is unavailable.`
+- Connector `existing_rules_refused` / `unknown_protocol_element` -> the lesson
+  was not saved because a named rule is not an exact current protocol element;
+  reload the protocols and correct the declaration before showing it again.
+- Connector `existing_rules_refused` / `invalid_existing_rules` -> the lesson
+  was not saved because its required inventory is missing or malformed.
 
 Never display or infer a private repository URL or issue number. A public
 `ARL-####` candidate ID and anonymous occurrence count are the complete
