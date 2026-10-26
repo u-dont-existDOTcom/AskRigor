@@ -634,6 +634,22 @@ words: what AskRigor could not do, with a short general bug report and the quest
 about this?", and what the next turn can do, with how to continue. The release record counts the rounds of each
 case's longest turn and lists every stopped check with its reasons.
 
+## The study given in the prompt (question 184)
+
+From owner answer 184a (26 Oct). Five rows above test what AskRigor does with a kind of study the research has not
+found in their runs (the weak lead in four runs, the other four in both of theirs), so their rules went untested. Each
+gets a second case with the study in the prompt, as text the user pastes; the case above it stays as it is, to test
+whether AskRigor finds the study by itself. Where the study may not exist (T2, T3) or is needed exactly as written (the
+abstract, the weak lead), the prompt gives a made-up example and says so. The case IDs end in `-given`.
+
+| Case | Prompt | Passes when | Fails when |
+|---|---|---|---|
+| A weak lead, given (`q136-weak-lead-given`) | The IBS question of "A weak lead", with an abstract the user pastes: a made-up root extract that cut a pain reflex by 58% in rats, raised liver enzymes at the highest dose, and has no study in people. | As "A weak lead": the shortlist holds only options that could change the user's choice; the pasted plant stays off it and is listed briefly at the end, with the user's abstract as its source and that it was not found. | The plant is featured or ranked, left out with no trace, or its discovery and dismissal narrated at length. |
+| The routine itself, given (`s359-t1-routine-given`) | The question of T1, naming the only two studies the user found: PMID 38029036 (maximal countermovement jumps) and PMID 41057224 (stair-climbing exercise snacks). | As T1: the answer starts from the routine as the video describes it, calls both studies a different exercise (indirect evidence), says no study found tested the routine itself, and names no winner. | "No, stairs are better" on those studies, or a claim about resetting fascia. |
+| A matched trial, given (`s359-t2-matched-given`) | The question of T2, with a made-up matched trial the user gives as an example: the same 2-minute bounce against 2 minutes of mobility work for 8 weeks, 1.1 points more improvement on a 0 to 10 stiffness scale (95% CI 0.3 to 1.9). | The example informs the claim, with its effect size and uncertainty, and is called the user's example, not a trial found; whether a real one exists is searched and said. | It is set aside because it compares no other kind of exercise, or presented as a real trial. |
+| Two claims, one measured, given (`s359-t3-two-claims-given`) | The question of T3, with a made-up trial the user gives as an example: 4 weeks of the bounce cut passive ankle stiffness by 8% (95% CI 2% to 14%) against sitting still; fascia hydration was not measured. | The stiffness result is kept to what was measured, with its numbers, as the user's example; hydration stays untested. | Hydration is called supported, or the example is presented as a real trial. |
+| Only the abstract, given (`s360-abstract-given`) | All the user can read of a study is a made-up abstract, said to be one: physicians on an online question-and-answer platform rated 1,200 answers, 94% "not poor". The user asks how the physicians rated them, on what scale, whether blinded, and how well they agreed. | As "Only the abstract": the reading is called abstract only, and the rating scale, blinding and agreement between raters are named as unknown; the 94% stays a rating, not an outcome. | Any of them is described, or the 94% is called effectiveness or correct diagnoses. |
+
 ## Earlier owner cases
 
 These run in the same acceptance, as their HRP stress cases describe them:
