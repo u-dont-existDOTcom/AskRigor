@@ -541,3 +541,44 @@ The same scenario module, `tests/helpers/atlas-scenario.ts`, also runs against P
 `packages/evidence-repository/migrations/0012_research_contribution_merging.sql` (the precedent for 0017);
 `apps/research-mcp/src/findings/github-findings.ts`; `apps/research-mcp/src/research-finalization-gate.ts`
 (`binaryContrast`, `findingsCardCheck`).
+
+## 10. Research builds on the public Atlas (owner request, 26 October 2026)
+
+`search_research_frontiers` now searches the public Atlas as well as stored research plans, keeping the 33-tool
+catalog. It is read-only and open without research enrollment. Its `query` uses `atlas/search.ts` and
+`loadAtlasFindings` exactly as the pages do (300 characters, 20 words, any language); `topic_key` selects an exact
+topic. `limit` is 1–20, default 10. The response contains the public P number and accepted F number, current checked
+state or “Not checked by supervisors yet”, certainty, wording, applicability, public question and topic, source
+identifiers, existing links and the publication's page address. Older unreviewed publications have no published
+question, so it remains null. Held, rejected, withdrawn, erased and not-yet-promoted findings remain absent through
+the same page reader. The response also includes the matched topics' public lead findings and matching stored plans'
+open/ready/retryable trails, bounded to 20 findings total across matches and topic leads and 20 trails, with explicit
+more/partial state. Large responses remove whole records until at most 52,000 bytes, and receipts cover exactly
+the findings still returned; no claim or source text is truncated. Plans are control metadata and currentness is not inferred.
+
+The signed `atlas_lookup` receipt carries normalized query words, optional topic key, the existing research-target
+digest, returned public numbers, checked state, public page origin, sources' identifier fingerprints, and
+issue time. It is valid for the same 24 hours as research receipts. The token ceiling is 32,768 characters for Atlas
+and finalization receipts, to fit bounded any-script words and provenance; other receipt kinds retain 2,048. These
+receipts contain no finding wording, answer sentence or source text. The query words can reveal a user's topic;
+see the privacy data map. A failed Atlas read produces no successful lookup receipt. Failed plan reads remain
+explicitly partial and do not erase a successful findings lookup.
+
+The final check requires a target-bound lookup when its existing routing requires discovery or study work, retaining
+its definition/calculation/mechanism-only and emergency-before-triage exemptions. An empty lookup needs no reuse
+declaration. For every returned finding (including a returned topic lead), `atlas_reuse` declares a P or F number
+and `confirms`, `updates`, `narrows`, `contradicts` or `not_relevant`; one declaration covers both aliases. A used
+finding also gives `answer_quote`, copied exactly from `answer_draft`, and its exact `page_url` in that sentence's
+link. Code compares only signed membership, sentence presence and link destination. Relevance and relationship are
+the model's judgment in any language. Unchecked reuse requires at least one source's reading receipt in the same
+call (a PubMed record, full-text read or study/review audit), or `lead_only: true`. Either path carries the fixed
+caveat: “Atlas finding [number] has not been checked by supervisors; it is a lead, not an established finding.”
+Accepted findings' sources may be declared in `key_sources` with `read_depth: atlas_checked` when the lookup
+receipt names them and the corresponding finding is used in `atlas_reuse`. The card may cite them as held, without a
+fresh acquisition/audit requirement; this does not earn a fresh full-text audit basis or a `full_text_read` tag.
+
+The passing finalization receipt signs used numbers and relations (excluding `not_relevant`). The save service puts
+those exact pairs in the private card's optional `atlas_basis`; model-supplied pairs cannot bypass the declaration
+checks. Each later save keeps its own pairs. `inspect_finding` shows the card's and later saves' pairs as
+`atlasBasis`, and the private review copy names them. This records provenance only: `link_findings` still requires
+the owner's instruction. No database migration or automatic canonical link is added.

@@ -1886,6 +1886,23 @@ pending-proposal stores have their own strict contracts and authority boundaries
   see the app's other tools and sends nothing to them; a study declared `read`
   is reported as read through another tool, not audited by AskRigor. These
   declarations are request-local and are not logged or persisted.
+- Public Atlas lookup (`search_research_frontiers`, 26 October 2026) receives bounded query words (300
+  characters, 20 words), an optional exact topic key and an optional research target. It reads only the public
+  Atlas page reader and stored formal-research plans; the Atlas content is public. No query is sent to an external
+  search/model provider. The `atlas_lookup` receipt returns the **normalized words themselves**, not just a digest:
+  they can name the user's research topic. It also contains the optional topic key, the usual research-target
+  digest (not the target's text), returned public P/F numbers and checked state, the public page origin, fingerprints
+  of sources' identifiers and the issue time. The client receives and holds this readable signed token
+  and sends it back to `finalize_research`; AskRigor verifies it in memory, expires it after 24 hours, and does not
+  persist or log the token or its query words. Atlas and finalization tokens have a 32,768-character ceiling;
+  other research receipt kinds retain 2,048. A lookup that could not run signs an attempt receipt marked failed, with
+  no findings, which the final check accepts with a stated limit; it is never read as an empty successful search.
+  The lookup needs sign-in but not research access: the Atlas content is public, and the stored research plans it
+  returns hold research trails, no findings and no personal details.
+  `atlas_reuse` sentences and page links are request-local and are not saved. A passing finalization receipt signs
+  only the **used public numbers and declared relations**, and the private GitHub findings card and each later save
+  retain those pairs as `atlas_basis` for owner review. They contain neither lookup words nor answer sentences.
+  `inspect_finding` exposes these pairs to the owner; they do not create canonical Atlas links or expose an account.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
@@ -1895,7 +1912,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   when product identity was declared, completion states, a refusal's fixed
   code for a video not read, counts, the publication dates a literature search
   was restricted to (two dates, no query text), and the issue
-  time; never comments, source text, questions, or user data. Discovery
+  time; never comments or source text. The Atlas-lookup exception below carries query words that may reveal the user's topic. Other receipt kinds carry no questions or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
   search terms, so the gate can tell rounds from different angles apart, and

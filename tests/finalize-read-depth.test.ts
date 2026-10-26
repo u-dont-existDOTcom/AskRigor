@@ -56,10 +56,10 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
     expect(result.next_steps.join(" ")).toContain("key_sources.answer_marker");
     expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
   });
-  it.each(READ_DEPTH_VALUES)("accepts %s with an audit receipt", async (read_depth) => {
+  it.each(READ_DEPTH_VALUES.filter((depth) => depth !== "atlas_checked"))("accepts %s with an audit receipt", async (read_depth) => {
     expect((await call({ key_sources: [{ id: DOI, status: "validated", read_depth, answer_marker: MARKER }] })).status).toBe("ready_with_limits");
   });
-  it.each(READ_DEPTH_VALUES)("checks %s against no receipt, a reading receipt and both audit kinds", async (read_depth) => {
+  it.each(READ_DEPTH_VALUES.filter((depth) => depth !== "atlas_checked"))("checks %s against no receipt, a reading receipt and both audit kinds", async (read_depth) => {
     for (const kind of [undefined, "full_text_read", "study_audit", "review_audit"] as const) {
       const result = await call({ receipts: kind === undefined ? [] : [sign(kind)],
         key_sources: [{ id: DOI, status: "validated", read_depth, answer_marker: MARKER }] });

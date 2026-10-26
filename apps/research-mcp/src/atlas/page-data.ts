@@ -607,12 +607,13 @@ async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator
 
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
 export async function loadAtlasFindings(source: AtlasPageSource, options: {
-  before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery;
+  before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery; topicKey?: string;
 } = {}): Promise<AtlasFindingsModel> {
   return await source.read(async (reads) => {
     const filter = options.filter ?? "all";
     const findings: ShownFinding[] = [];
     for await (const finding of allShown(reads, options.before)) {
+      if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
       if ((filter === "checked" && finding.status.kind === "unreviewed") ||
         (filter === "unreviewed" && finding.status.kind !== "unreviewed") ||
         (filter === "contested" && !isContested(finding))) continue;

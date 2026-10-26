@@ -656,7 +656,7 @@ describe("AskRigor public-review packet", () => {
         ? { securitySchemes: [{ type: "oauth2", scopes: ["cases:review"] }] }
         // Public protocol identity, as GET /version gives it, needs no sign-in; a signed-in client sends its
         // token too, so the manifest can report whether research calls will be accepted.
-        : tool.name === "get_protocol_manifest"
+        : ["get_protocol_manifest", "search_research_frontiers"].includes(tool.name)
           ? { securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: ["research:use"] }] }
           : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] };
       expect(tool._meta).toEqual({

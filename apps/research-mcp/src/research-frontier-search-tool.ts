@@ -7,7 +7,7 @@ const nullableTextSchema = z.string().nullable();
 const catalogSchemaName = "askrigor.living-evidence.research-frontier-catalog.v1" as const;
 
 export const researchFrontierSearchInputSchema = z.object({
-  query: z.string().trim().min(2).max(300).describe(
+  query: z.string().trim().min(1).max(300).describe(
     "Free-text lexical query over stored topic keys, labels, aliases, research questions, and structured question dimensions.",
   ),
   limit: z.number().int().min(1).max(25).default(10).describe(

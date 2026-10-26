@@ -438,6 +438,8 @@ function readableCard(record: FindingsRecord): string {
       `- What would change it: ${escapeMarkdown(finding.what_would_change_it)}`,
       ...atlasFieldLines(finding),
     ].join("\n"))),
+    ...((card.atlas_basis ?? []).length === 0 ? [] : [section("Built on Atlas findings",
+      card.atlas_basis!.map(({ number, relation }) => `- ${number}: ${relation}`).join("\n"))]),
     ...(card.open_leads.length === 0
       ? []
       : [section("Open leads", card.open_leads.map((lead) => `- ${escapeMarkdown(lead)}`).join("\n"))]),

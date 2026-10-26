@@ -1,3 +1,4 @@
+import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -69,7 +70,7 @@ function packageFor(
     // Genuine HMAC-signed study receipt, following the valid-package fixture in
     // research-finalization-gate.test.ts and fresh-receipt setup in
     // treatment-coverage-from-receipts.test.ts's in-memory MCP test.
-    receipts: [issueResearchReceipt("study_audit", {
+    receipts: [atlasLookupFixture(overrides.research_target ?? TARGET, receiptOptions), issueResearchReceipt("study_audit", {
       id: "PMC10518852", doi: "10.1002/art.41142", status: "complete_no_unresolved_fields"
     }, receiptOptions)],
     community_evidence: "researched",
@@ -113,7 +114,7 @@ describe("finalize_research product review requirement", () => {
     expect(result.status).toBe("not_ready");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
     expect(result.finalization_receipt).toBeUndefined();
-    expect(result.receipts_verified).toBe(1);
+    expect(result.receipts_verified).toBe(2);
   });
 
   it("blocks omission of the whole commercial_review_applicability declaration", () => {
@@ -287,7 +288,7 @@ describe("finalize_research product review requirement", () => {
       const missing = await withCaveats(input);
       expect(missing.status).toBe("not_ready");
       expect(missing.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
-      expect(missing.receipts_verified).toBe(1);
+      expect(missing.receipts_verified).toBe(2);
       expect(missing.receipts_rejected).toEqual([]);
       expect(missing.finalization_receipt).toBeUndefined();
       const supplied = await withCaveats({ ...input, ...withReviews() });

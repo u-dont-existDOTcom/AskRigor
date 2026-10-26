@@ -180,7 +180,7 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         structured,
       };
     },
-    async save(card: object, bases: string[] = ["full_text_audit"]) {
+    async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = []) {
       contributor += 1;
       const parsed = findingsCardSchema.parse(card);
       // Each save is another person's research thread.
@@ -189,7 +189,7 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         findings_card: card,
         contributor: key,
         finalization_receipt: issueResearchReceipt("finalization", {
-          status: "ready", depth: "standard", target: key.slice(0, 12), findings: findingsCardDigest(parsed), bases,
+          status: "ready", depth: "standard", target: key.slice(0, 12), findings: findingsCardDigest(parsed), bases, ...(atlas.length === 0 ? {} : { atlas }),
         }, { secret: SECRET, now: clock }),
       }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) });
     },
@@ -1138,5 +1138,22 @@ describe("list_findings", () => {
       .toEqual(["Finding 2: accepted as F-1001, a lead, 4 Nov 2026."]);
     await h.call({ action: "inspect_finding", card: "ARF-0042" });
     expect(h.github.comments.get(42)).toHaveLength(1);
+  });
+});
+
+
+describe("Atlas reuse saved on the findings card", () => {
+  it("shows only the exact relationships signed by the final check, including later saves, without linking findings", async () => {
+    const h = harness();
+    const first = await h.save(DOI_CARD, ["full_text_audit"], ["P-1001:updates"]);
+    expect(first.status).toBe("saved");
+    const second = await h.save(DOI_CARD, ["full_text_audit"], ["F-1002:contradicts"]);
+    expect(second.status).toBe("existing_card");
+    const inspected = await h.call({ action: "inspect_finding", card: first.card_id });
+    expect(inspected.structured.card.atlasBasis).toEqual([
+      { number: "P-1001", relation: "updates" }, { number: "F-1002", relation: "contradicts" },
+    ]);
+    expect(inspected.text).toContain("P-1001 (updates)");
+    expect((await h.canonical.readAtlasState({})).links).toEqual([]);
   });
 });

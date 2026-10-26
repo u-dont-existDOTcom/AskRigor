@@ -1,3 +1,5 @@
+import { sourceIdentifierOf } from "./atlas/page-data.js";
+import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
 import { rule, joinRules, ruleText, ruleParts, type RuleInput, type CheckRule } from "./check-rules.js";
 import { buildCheckReport, checkReportSchema, issueCheckReportToken, type ReportReceipt } from "./check-report.js";
@@ -298,7 +300,7 @@ export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "no
 type PlainAnswerOutcome = typeof PLAIN_ANSWER_OUTCOMES[number];
 
 export const READ_DEPTH_VALUES = [
-  "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
+  "atlas_checked", "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
   "secondary_only", "metadata_only", "inaccessible", "route_error"
 ] as const;
 
@@ -329,6 +331,11 @@ export const OTHER_ROUTE_VALUES = ["read", "unavailable", "cost", "none"] as con
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
+  atlas_reuse: z.array(atlasReuseSchema).max(300).optional().describe(
+    "For every finding returned by this research_target's Atlas lookups, one entry by its P or F number: relation " +
+    "confirms, updates, narrows, contradicts or not_relevant. Each used finding gives answer_quote copied exactly " +
+    "from answer_draft with a link to its own page_url. For an unchecked finding, read at least one source again " +
+    "here or declare lead_only true; the answer carries the finding's fixed not-checked-by-supervisors caveat."),
   full_text_search: z.object({
     status: z.enum(["run", "not_needed"]),
     queries: z.array(z.string().min(1).max(500)).min(1).max(10).optional()
@@ -551,7 +558,7 @@ export const finalizeResearchInputSchema = z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
     read_depth: z.enum(READ_DEPTH_VALUES).optional()
-      .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
+      .describe("Records each source's required reading depth; atlas_checked cites a source as held by a checked Atlas finding used in atlas_reuse, without claiming a fresh reading or audit; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
     answer_marker: z.string().trim().min(3).max(80).optional()
       .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -577,7 +584,7 @@ export const finalizeResearchInputSchema = z.object({
     target_time_horizon: z.enum(TARGET_MATCHES).optional()
       .describe("With named_target: as target_components, for the time horizon.")
   }).strict()).max(60)
-    .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
+    .describe("Lists each study the conclusions depend on: validated after a full-text method audit or from a checked Atlas finding (read_depth atlas_checked), or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
@@ -2292,6 +2299,11 @@ export function finalizeResearch(
   };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
   // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
+  const atlasSources = checkedAtlasSources(verified, targetDigest, input.atlas_reuse ?? []);
+  const checkedInAtlas = (id: string): boolean => {
+    const source = sourceIdentifierOf(id);
+    return source !== undefined && atlasSources.has(atlasSourceDigest(source));
+  };
   const keyLinks = input.key_sources.map((source) => {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
@@ -2305,6 +2317,9 @@ export function finalizeResearch(
     const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
     const audited = ids.some((candidate) => validatedIds.has(candidate));
     const read = audited || ids.some((candidate) => readIds.has(candidate));
+    if (source.read_depth === "atlas_checked" && !checkedInAtlas(source.id)) {
+      addStep("declaration", rule`Key source ${source.id} has no checked Atlas finding used in atlas_reuse whose lookup receipt names it; pass that lookup and declaration, or give the depth read here.`);
+    }
     if (source.read_depth === undefined) {
       requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
@@ -2335,6 +2350,11 @@ export function finalizeResearch(
       if (identified && untied === undefined && !studyLinks.some(linked)) {
         addStep("answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
+    }
+    if (source.read_depth === "atlas_checked" && checkedInAtlas(source.id)) {
+      // Accepted provenance is citable as held; it does not enter validatedIds/readIds or earn a fresh-audit basis.
+      validatedSources.push(source.id);
+      continue;
     }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
       validatedSources.push(source.id);
@@ -3004,6 +3024,25 @@ export function finalizeResearch(
   // coverage result forbid, is not read from its words: no word list decides
   // that in every language, so the caveat saying it does not rank them is
   // what the gate enforces.
+  // Same short-lookup and pre-triage exemptions as the existing research/discovery routing. No content matcher
+  // decides whether a finding matters: the model declares it, and these checks compare only exact fields.
+  const shortLookup = input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
+    input.question_about === "other" && input.treatment_choice !== "compared" &&
+    input.commercial_review_applicability?.status !== "required" &&
+    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
+  const emergency = input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "emergency_before_triage";
+  const atlasReuse = checkAtlasReuse({ receipts: verified, target: targetDigest,
+    required: !emergency && !shortLookup && (input.community_evidence === "researched" ||
+      input.key_sources.length > 0 || stepKinds.includes("research")),
+    declarations: input.atlas_reuse ?? [], draft: input.answer_draft });
+  for (const step of atlasReuse.steps) {
+    if (step.kind === "declaration") requireDeclaration(rule`${step.text}`);
+    else addStep("research", rule`${step.text}`);
+  }
+  // Fixed sentences, or one holding a public Atlas number its schema checked: shown whole in bug reports.
+  for (const caveat of atlasReuse.caveats) requireLimit(joinRules(caveat), caveat);
   const draft = input.answer_draft;
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
@@ -3427,7 +3466,8 @@ export function finalizeResearch(
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
         ? {
             findings: findingsCardDigest(input.findings_card),
-            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
+            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) }),
+            ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
