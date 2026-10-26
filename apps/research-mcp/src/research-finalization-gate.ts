@@ -25,6 +25,7 @@ import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
   ROUND_TOKEN_MAX_CHARACTERS,
+  readCheckRound,
   roundBinding,
   stoppedCheckBugReport,
   type CheckStep
@@ -840,7 +841,7 @@ export const finalizeResearchInputSchema = z.object({
   }).strict()).max(10).optional()
     .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
-    .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+    .describe("The carry_forward value the last final check in this conversation returned, passed back exactly in this turn or a later one; left out before the conversation's first final check."),
   round_token: z.string().max(ROUND_TOKEN_MAX_CHARACTERS).optional()
     .describe(`The round_token of this turn's previous finalize_research result, passed back exactly; left out on the turn's first call. A turn has at most ${CHECK_ROUND_LIMIT} rounds.`),
   // Owner request (2026-10-22), and the 22 Oct regressions: with it, a missing declaration says whether this app's
@@ -1066,13 +1067,16 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
       ? (rawInput as Record<string, unknown>)[key] : undefined;
     return typeof value === "string" ? value : undefined;
   };
-  const checkRound = options.secret === undefined ? undefined : advanceCheckRound(
+  const roundOptions = options.secret === undefined ? undefined : {
+    secret: options.secret,
+    bind: roundBinding(raw("research_target")?.trim()),
+    now: options.now?.() ?? new Date()
+  };
+  const checkRound = roundOptions === undefined ? undefined : advanceCheckRound(
     nextSteps.map((text) => ({ kind: "input_invalid" as const, text })),
     {
-      token: raw("round_token"),
-      secret: options.secret,
-      bind: roundBinding(raw("carried_state"), raw("research_target")?.trim()),
-      now: options.now?.() ?? new Date(),
+      ...roundOptions,
+      call: readCheckRound(raw("round_token"), roundOptions),
       wholeList: true
     }
   );
@@ -1083,8 +1087,7 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
     next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
     ...(checkRound === undefined ? {} : { round: { number: checkRound.round, limit: CHECK_ROUND_LIMIT } }),
-    // Invalid inputs return no replacement carried state, so the token keeps only the call's binding.
-    ...(checkRound?.status === "open" ? { round_token: checkRound.issueToken() } : {}),
+    ...(checkRound?.status === "open" ? { round_token: checkRound.token } : {}),
     ...(stopped === undefined ? {} : {
       stopped: {
         reason: stopped.reason,
@@ -1184,8 +1187,8 @@ function roundReasonKinds(open: readonly CheckStep[], stuck: readonly CheckStep[
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
-function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: Pick<string[], "push">):
-  { carried?: CarriedState; invalid: boolean } {
+function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: string, nextSteps: Pick<string[], "push">):
+  { carried?: CarriedState; invalid: boolean; firstTurn: boolean; previousOpen?: NextStepKind[] } {
   let carried: CarriedState | undefined;
   let invalid = false;
   if (input.carried_state !== undefined) {
@@ -1205,36 +1208,45 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
     const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
       ? []
       : carried.observations.filter(({ observation }) => !observations.has(observation));
-    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
-        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected in an earlier turn: keep it, or list it in reopened if the user reopened it.`);
+        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.`);
       }
     }
     if (carried.primary_outcome !== undefined) {
       const goal = carried.primary_outcome;
-      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from an earlier turn is ${JSON.stringify(goal)}.`);
-      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from an earlier turn (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
+      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from earlier in this conversation is ${JSON.stringify(goal)}.`);
+      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from earlier in this conversation (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
     }
     if (input.principal_communities !== undefined) {
       const named = new Set(input.principal_communities.filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name));
-      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named in an earlier turn: keep it with named_by_user, or record why it is not searched.`);
+      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.`);
     }
   }
   for (const [i, { intervention }] of (input.recommendations ?? []).entries()) {
     if (rejected.has(optionKey(intervention)) && !reopened.has(optionKey(intervention))) nextSteps.push(`recommendations[${i}] puts forward ${intervention}, which the user rejected: leave it out, or list it in reopened if the user reopened it.`);
   }
-  return carried === undefined ? { invalid } : { carried, invalid };
+  const sameTurn = carried?.turn === turn;
+  const previousOpen = sameTurn ? carried?.previous_open
+    : carried?.last_status === "not_ready" ? carried.open_kinds ?? [] : undefined;
+  return {
+    ...(carried === undefined ? {} : { carried }), invalid,
+    firstTurn: input.carried_state === undefined || (sameTurn && carried?.first_turn === true),
+    ...(previousOpen === undefined ? {} : { previousOpen })
+  };
 }
 
 /**
  * The state only grows or changes by declaration: what a call leaves out is carried on (and the check says so), so a
  * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
- * changes it.
+ * changes it. The call's turn id, first-turn flag and earlier turn's open kinds distinguish state passed within
+ * this turn from state passed into a later one; the round token alone identifies the call's turn.
  */
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
-  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[] }):
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
+    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -1268,7 +1280,10 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     named_communities: [...new Set([...(carried?.named_communities ?? []),
       ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8),
     last_status: check.status,
-    ...(check.status === "not_ready" ? { open_kinds: check.open } : {})
+    ...(check.status === "not_ready" ? { open_kinds: check.open } : {}),
+    turn: check.turn,
+    first_turn: check.firstTurn,
+    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen })
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -1538,6 +1553,12 @@ export function finalizeResearch(
     };
   }
 
+  const roundOptions = {
+    secret: options.secret,
+    bind: roundBinding(input.research_target),
+    now: options.now?.() ?? new Date()
+  };
+  const callRound = readCheckRound(input.round_token, roundOptions);
   const verified: VerifiedReceipt[] = [];
   const rejected: Array<{ index: number; reason: ResearchReceiptRejection }> = [];
   // The same receipt passed twice is one unit of work, never two rounds.
@@ -1627,7 +1648,8 @@ export function finalizeResearch(
       "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
       "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
   }
-  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, stepSink(addStep, "carried_state"));
+  const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
+    checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -3330,12 +3352,12 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
-    // A statement taken back in an earlier turn stays out of the answer, unless a caveat of this check holds it: the
+    // A statement taken back earlier in this conversation stays out of the answer, unless a caveat of this check holds it: the
     // caveat stays, so a correction cannot take it back (the 22 Oct regression o354 continue).
     for (const statement of carried?.retracted ?? []) {
       if (caveatHolding(statement, caveats) === undefined &&
           retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        addStep("carried_state", `The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
+        addStep("carried_state", `The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
       }
     }
     for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
@@ -3349,7 +3371,7 @@ export function finalizeResearch(
     // On a conversation's first turn the user has seen no answer yet, so a claim of the plain answer registered before
     // the research was never shown as one; plain_answer_comparison records what the research changed in it (the 23 Oct
     // regressions l26, l48 and l49 author reply "corrected" it, and l48 asked the user to approve a bug report about it).
-    if (plainAnswer?.status === "registered" && input.carried_state === undefined) {
+    if (plainAnswer?.status === "registered" && firstTurn) {
       for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
         if (plainAnswer.claims.includes(plainAnswerClaimDigest(retracted))) {
           addStep("declaration", `corrections[${index}] takes back a claim of the plain answer written before this ` +
@@ -3420,10 +3442,8 @@ export function finalizeResearch(
   const checkRound = nextSteps.length === 0 ? undefined : advanceCheckRound(
     nextSteps.map((text, index) => ({ kind: stepKinds[index]!, text })),
     {
-      token: input.round_token,
-      secret: options.secret,
-      bind: roundBinding(input.carried_state, input.research_target),
-      now: options.now?.() ?? new Date()
+      ...roundOptions,
+      call: callRound
     }
   );
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
@@ -3504,8 +3524,8 @@ export function finalizeResearch(
   }
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
   // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
-  if (carried?.last_status === "not_ready") {
-    output.previous_check = { status: "not_ready", open: carried.open_kinds ?? [] };
+  if (previousOpen !== undefined) {
+    output.previous_check = { status: "not_ready", open: previousOpen };
   }
   if (plainAnswer !== undefined) {
     const note = options.plainAnswer?.note !== false;
@@ -3565,13 +3585,13 @@ export function finalizeResearch(
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
     status: status === "stopped" ? "not_ready" : status,
     open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
-    caveats
+    caveats, turn: callRound.turn, firstTurn,
+    ...(previousOpen === undefined ? {} : { previousOpen })
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
   if (checkRound?.status === "open") {
-    output.round_token = checkRound.issueToken(output.carry_forward === undefined
-      ? undefined : roundBinding(output.carry_forward, input.research_target));
+    output.round_token = checkRound.token;
   }
   return finalizeResearchOutputSchema.parse(output);
 }

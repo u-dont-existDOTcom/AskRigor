@@ -21,10 +21,14 @@ export const carriedStateSchema = z.object({
   rejected: z.array(z.string().trim().min(1).max(120)).max(12),
   named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
   // The last final check's status and the kinds of step it left open (AskRigor#354), so the next check in this
-  // conversation knows that an answer given after a check that did not pass went out unchecked. Tokens issued before
-  // these fields existed have neither.
+  // conversation knows that an answer given after an earlier turn's check that did not pass went out unchecked.
+  // The round token identifies the call's turn; state returned within it preserves its first-turn flag and the
+  // earlier turn's open kinds. Tokens without turn fields are read as coming from an earlier turn.
   last_status: z.enum(["ready", "ready_with_limits", "not_ready"]).optional(),
-  open_kinds: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional()
+  open_kinds: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional(),
+  turn: z.string().regex(/^[0-9a-f]{16}$/u).optional(),
+  first_turn: z.boolean().optional(),
+  previous_open: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional()
 }).strict();
 export type CarriedState = z.output<typeof carriedStateSchema>;
 type Options = { secret: string };
@@ -47,7 +51,10 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
       ...(checked.primary_outcome === undefined ? {} : { primary_outcome: checked.primary_outcome }),
       rejected: checked.rejected, named_communities: checked.named_communities,
       ...(checked.last_status === undefined ? {} : { last_status: checked.last_status }),
-      ...(checked.open_kinds === undefined ? {} : { open_kinds: checked.open_kinds })
+      ...(checked.open_kinds === undefined ? {} : { open_kinds: checked.open_kinds }),
+      ...(checked.turn === undefined ? {} : { turn: checked.turn }),
+      ...(checked.first_turn === undefined ? {} : { first_turn: checked.first_turn }),
+      ...(checked.previous_open === undefined ? {} : { previous_open: checked.previous_open })
     };
     const payload = deflateRawSync(Buffer.from(JSON.stringify(ordered))).toString("base64url");
     const body = `cs1~${payload}`;

@@ -17,15 +17,15 @@ a bug report when nothing can be done, otherwise how the next turn handles it).
 ## How it is built
 
 - `apps/research-mcp/src/check-rounds.ts`. The server keeps no state: a not-ready result returns `round` and a signed
-  `round_token` (HMAC, domain "askrigor check round v1", prefix `cr1~`), which the model passes back as `round_token`
-  on the turn's next call. The token holds the round number, its time, a digest of the call's carried state and
-  research target, and 16-hex digests of
-  each step's kind and text with how many rounds running it came back, plus the digests of steps already stuck. It
-  lapses two hours after it was issued. A missing, altered, lapsed or foreign token starts again at round 1, so a
-  client with an old tool list behaves as before.
-  The token is issued after the result's carried state is built and also signs that returned state's binding to the
-  same research target, so passing each new `carry_forward` keeps counting within the turn; a later turn passes no
-  round token and starts again at round 1.
+  `round_token` (v2, HMAC domain "askrigor check round v2", prefix `cr2~`), which the model passes back as
+  `round_token` on the turn's next call. It binds only the research target's 32-hex digest and holds a random
+  16-lowercase-hex turn id, the round number, its time, and 16-hex digests of each step's kind and text with how many
+  rounds running it came back, plus the digests of steps already stuck. A verified token preserves the turn id
+  whether or not carried state is passed, including invalid-input calls; a passing call reads its turn too.
+  It lapses two hours after it was issued, with one minute of clock skew. A missing or invalid token (`cr1~`
+  included) starts at round 1 with a new turn id; a later turn passes no round token. Carried state records its
+  issuing turn, first-turn flag and the earlier turn's open kinds, keeping this turn's calls distinct from earlier
+  unchecked answers.
 - "Unchanged" is exact: the same kind and the same text. An input that fails validation counts as a round, its list
   as one step, since its first line is a heading that repeats.
 - `stopped` (a new status) is the turn's final result: no next steps, no finalization receipt (so no card is saved,

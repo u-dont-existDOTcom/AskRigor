@@ -358,7 +358,7 @@ describe("strict declaration schemas", () => {
   };
   const shown = (input: FinalizeResearchInput) => ({ ...input, answer_draft: `${input.answer_draft}\n\n${run(base()).caveats.join(" ")}` });
   const withoutReceipt = ({ finalization_receipt: _receipt, carry_forward: _token, carried, ...rest }: ReturnType<typeof finalizeResearch>) => {
-    const { issued_at: _issued, ...state } = carried ?? {};
+    const { issued_at: _issued, turn: _turn, ...state } = carried ?? {};
     return { ...rest, carried: state };
   };
   it("accepts one report identity object and checks it as a list of one", () => {

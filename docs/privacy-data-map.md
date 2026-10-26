@@ -1959,7 +1959,9 @@ pending-proposal stores have their own strict contracts and authority boundaries
   back, options rejected and communities named, and the last check's status
   with the kinds of step it left open (fixed values; AskRigor#354), as a signed,
   compressed token returned in the tool result, alongside the readable `carried`
-  state. The client
+  state. It also holds the issuing call's random 16-hex turn id, the first-turn boolean and, only when that turn
+  began after an earlier turn's check that did not pass, that check's open kinds (fixed values). These added fields
+  contain no personal data. The client
   passes the token back as `carried_state`; AskRigor verifies and rebuilds it
   in memory and never stores or logs it. It has no expiry and is readable by
   anyone who can read the conversation. It is not a research receipt.
@@ -1968,16 +1970,17 @@ pending-proposal stores have their own strict contracts and authority boundaries
   pass, each next step has a kind (`next_step_kinds`, eight fixed values), and
   `unchecked_line` is a fixed server sentence, worded from those kinds, that an
   answer given before a pass ends with; `previous_check` repeats the kinds the
-  carried state holds from a check that did not pass (AskRigor#354). A check
+  carried state holds from an earlier turn's check that did not pass (AskRigor#354), preserved through this turn's
+  later calls. A check
   that does not pass also returns `round` (which of the turn's at most ten
   rounds it was) and `round_token` (owner answer 172a), a signed token the
   client passes back as `round_token` on the turn's next call. The token holds
-  the round number, the time it was issued, a 32-hex digest of the call's carried
-  state and research target, and, for each step still asked for or stopped as
+  the round number, the time it was issued, the research target's 32-hex digest, a random 16-hex turn id,
+  and, for each step still asked for or stopped as
   stuck, a 16-hex digest of its kind and text with a count; never the steps'
-  text. AskRigor verifies it in memory and never stores or logs it; it lapses
-  two hours after it was issued and counts for nothing with another carried
-  state or research target. Steps that came back unchanged three rounds running
+  text. These token fields contain no personal data. AskRigor verifies it in memory and never stores or logs it;
+  it lapses two hours after it was issued and counts for nothing with another research target. Carried state
+  does not affect its binding. Steps that came back unchanged three rounds running
   return in `stuck_steps`, and a check that stops (`stopped`, after ten rounds or
   when only such steps are left) returns the steps it could not do and the
   steps the next turn can do, a short reason, and `bug_report`, a fixed server
