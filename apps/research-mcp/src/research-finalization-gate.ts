@@ -20,7 +20,7 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { detailsProse, displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
@@ -839,7 +839,7 @@ export const finalizeResearchInputSchema = z.object({
     difference: answerQuote.optional().describe("With repeats: the answer's sentence saying how this test differs in a way that could change the result, copied from answer_draft."),
     blinded: z.boolean().describe("true when the person would not know which condition they are in.")
   }).strict()).max(10).optional()
-    .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
+    .describe("With answer_draft: each test or self-measurement the answer proposes to the user, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
     .describe("The carry_forward value the last final check in this conversation returned, passed back exactly in this turn or a later one; left out before the conversation's first final check."),
   round_token: z.string().max(ROUND_TOKEN_MAX_CHARACTERS).optional()
@@ -1155,6 +1155,8 @@ function stepSink(addStep: (kind: NextStepKind, ...steps: string[]) => void, kin
 // the user gets, so it cannot hold one back; the answer says itself that the check has not passed, and why, from the
 // kinds of step still open.
 export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
+const CHECK_LINE = "Checked with AskRigor's final check.";
+const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits above.";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
   new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
 
@@ -1424,7 +1426,8 @@ export const finalizeResearchOutputSchema = z.object({
       "which holds nothing back."),
   plain_answer_note: z.string().optional()
     .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
-      "check_line, quoting each of its claims exactly and saying what the research found, and what backs each change."),
+      "check_line, quoting its claims exactly except a claim with a figure absent from the checked draft, which is " +
+      "replaced by a fixed sentence, and saying what the research found and what backs each change."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -1634,7 +1637,7 @@ export function finalizeResearch(
     requireDeclaration("user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).");
   }
   if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
-    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, whether it repeats an attempt in user_observations, and whether it is blinded (an empty list means none).");
+    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).");
   }
   for (const { observation, response } of input.user_observations ?? []) {
     if (response === "uncertain") caveatOnce(
@@ -1786,6 +1789,12 @@ export function finalizeResearch(
     !videosRead.has(video) && !videosUnread.has(video)));
   for (const video of unfinishedReadings) videosUnread.add(video);
   const auditedVideos = [...audited.keys()].sort();
+  // A missing-evidence caveat cannot contradict comments this call's verified receipts show were read.
+  const commentVideos = new Set([
+    ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
+    ...communityRead
+  ]);
+  const readVideos = new Set([...audited.keys(), ...communityRead]);
   let materialVideos: string[] = [];
   let saturated = false;
   let firstPassComplete = false;
@@ -1908,16 +1917,17 @@ export function finalizeResearch(
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
-          if (saturation.rateLimited > 0 && audited.size > 0) {
+          if (saturation.rateLimited > 0 && readVideos.size > 0) {
             // Videos read after the quota stopped discovery were found another way (s359 T1b of 23 Oct): saying that
             // no YouTube evidence was checked would be false, and a correction cannot take back the check's own caveat.
+            // A video read with no comments still turned up, so it counts here, unlike for the thin-evidence caveats.
             requireLimit(
               "YouTube's rate limit or daily quota stopped discovery, and the videos read were found another way; say " +
                 "that YouTube discovery was incomplete.",
-              audited.size === 1
+              readVideos.size === 1
                 ? "YouTube's search limit stopped discovery, so the video read here was found another way, not by a " +
                   "complete search."
-                : `YouTube's search limit stopped discovery, so the ${audited.size} videos read here were found another ` +
+                : `YouTube's search limit stopped discovery, so the ${readVideos.size} videos read here were found another ` +
                   "way, not by a complete search."
             );
           } else if (saturation.rateLimited > 0) {
@@ -1927,7 +1937,7 @@ export function finalizeResearch(
               "YouTube's search limit stopped discovery before any video turned up, so YouTube evidence could not be " +
                 "checked yet."
             );
-          } else {
+          } else if (commentVideos.size === 0) {
             requireLimit(
               `No video turned up in ${rounds.length} discovery rounds; say that YouTube evidence on this is thin.`,
               `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
@@ -1939,7 +1949,7 @@ export function finalizeResearch(
             `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
               "or substantial firsthand experience, or give no_material_video_reason."
           );
-        } else {
+        } else if (commentVideos.size === 0) {
           requireLimit(
             `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
               "say that YouTube evidence on this is thin.",
@@ -2006,10 +2016,6 @@ export function finalizeResearch(
   const mustReport: string[] = [];
   // Findings must cover every video whose comments were read; a video whose
   // comments were disabled or inaccessible may be listed but need not be.
-  const commentVideos = new Set([
-    ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
-    ...communityRead
-  ]);
   const auditedAtAll = new Set([...audited.keys(), ...communityAudited]);
   const findings = input.community_findings;
   if (commentVideos.size > 0 && findings === undefined) {
@@ -2639,7 +2645,7 @@ export function finalizeResearch(
           "pass would take, and ask which the user " +
           "wants and which focus.",
         ...directions.flatMap(({ caption }, index) =>
-          focuses[index]!.map(({ topic, why }) => `${caption}: ${topic.trim()}. ${asSentence(why)}`)),
+          focuses[index]!.map(({ topic, why }) => `${completedCaveat(`${caption}:`, topic)} ${asSentence(why)}`)),
         `${completedCaveat("What another pass would take:", estimate)} ` + (directions.length === 2
           ? "Would you like to go deeper into the studies or the communities, and which focus matters most to you?"
           : "Would you like to go deeper into the studies, and which focus matters most to you?")
@@ -3501,9 +3507,9 @@ export function finalizeResearch(
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard
   };
-  if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
+  if (status === "ready") output.check_line = CHECK_LINE;
   else if (status === "ready_with_limits") {
-    output.check_line = "Checked with AskRigor's final check, with the limits above.";
+    output.check_line = LIMITED_CHECK_LINE;
   } else if (checkRound === undefined) output.unchecked_line = uncheckedLine(stepKinds);
   else {
     // A stopped check's research the next turn can do is unfinished; the research it could not do kept failing.
@@ -3540,7 +3546,7 @@ export function finalizeResearch(
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
-    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
+    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
   }
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
@@ -3898,6 +3904,23 @@ function answerDraftProblems(
   const renderingOf = new Map(translated
     ? context.renderings.map(({ caveat, text }) => [caveatForm(caveat), text] as const)
     : []);
+  const collapsed = detailsProse(draft).map((block) => caveatText(linkTargets(block)));
+  const insideDetails = (sentence: string): boolean => {
+    const form = caveatForm(sentence);
+    return /[\p{L}\p{N}]/u.test(form) && collapsed.some((block) => block.includes(form));
+  };
+  const hiddenCaveats = context.caveats.flatMap((caveat) => {
+    const rendering = renderingOf.get(caveatForm(caveat));
+    return [caveat, ...(rendering === undefined ? [] : [rendering])].filter(insideDetails);
+  });
+  if (hiddenCaveats.length > 0) {
+    problems.push("Move these caveat sentences out of the <details> block so they are visible without expanding it: " +
+      [...new Set(hiddenCaveats)].map((sentence) => JSON.stringify(sentence)).join(" "));
+  }
+  if ([CHECK_LINE, LIMITED_CHECK_LINE, UNCHECKED_LINE_START].some(insideDetails)) {
+    problems.push("Move the check line or unchecked line out of the <details> block so its full sentence is visible " +
+      "without expanding it.");
+  }
   const unlinked: string[] = [];
   const missingCaveats = context.caveats.filter((caveat) => {
     if (statesCaveat(blocks, caveat)) return false;
@@ -4230,17 +4253,36 @@ function quotation(text: string): string {
 }
 
 /**
- * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, then what
+ * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, unless it
+ * holds a figure the checked draft does not show (26 Oct regressions, finding 5); then a fixed sentence, worded for
+ * the claim's outcome, replaces that claim's words. The shared number comparison handles digits in any script. Each
+ * claim is followed by what
  * the research found, with the answer's own sentence and what backs a change, for example "Without AskRigor, a quick
  * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
  */
-function plainAnswerNote(compared: readonly ComparedClaim[]): string {
+// What replaces a claim whose figures the checked draft does not show, by the claim's outcome.
+const FIGURES_NOT_SHOWN: Readonly<Record<PlainAnswerOutcome, string>> = {
+  confirmed: "given figures that the answer above does not repeat.",
+  corrected: "given figures this research does not support.",
+  qualified: "given figures this research does not support.",
+  not_checked: "given figures this research did not check."
+};
+
+function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
+  const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
   return compared.map(({ claim, outcome, quote, work }, index) => {
-    const said = `${index === 0 ? "Without AskRigor, a quick answer would have said:" : "It would also have said:"} ` +
-      quotation(claim);
-    if (outcome === "not_checked") return `${said} This research did not check that.`;
+    const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
+    const figuresNotShown = extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
+    const said = figuresNotShown ? `${lead} ${FIGURES_NOT_SHOWN[outcome]}` : `${lead} said: ${quotation(claim)}`;
+    if (outcome === "not_checked") return figuresNotShown ? said : `${said} This research did not check that.`;
+    // Only a confirmation may come without the answer's sentence: "that, from ..." with no quote after it reads as
+    // unfinished (q132 of 25 Oct), so the basis follows "it".
+    if (quote === undefined) {
+      return work === undefined ? `${said} This research ${outcome} that.`
+        : `${said} This research ${outcome} it, from ${verifiedWorkPhrase(work)}.`;
+    }
     const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
-    return `${said} This research ${outcome} that${from}${quote === undefined ? "." : `: ${quotation(quote)}`}`;
+    return `${said} This research ${outcome} that${from}: ${quotation(quote)}`;
   }).join(" ");
 }
 

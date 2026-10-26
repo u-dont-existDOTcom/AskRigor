@@ -670,7 +670,9 @@ function checkReportedFigures(
     const printed = extractUnsignedNumbers(figure.reported);
     const inBlock = extractUnsignedNumbers(blockText.get(figure.evidence_block_id) ?? "");
     if (!printed.every((value) => includesAbsoluteNumber(inBlock, value))) {
-      throw new Error(`Study audit reported figure "${figure.label}" is not in its cited source block`);
+      throw new Error(`Study audit reported figure "${figure.label}" is not in its cited source block. ` +
+        "A figure worked out from printed numbers goes in worked_out: give operation and inputs, each with " +
+        "printed and evidence_block_id; reported is the worked-out value.");
     }
     const readings = firstNumberReadings(figure.reported);
     if (readings.every((reading) => !Number.isInteger(reading))) values.push(readings[0]!);
