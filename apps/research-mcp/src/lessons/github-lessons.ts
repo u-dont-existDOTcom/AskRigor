@@ -1,3 +1,4 @@
+import { checkReportSchema, checkReportSection, type CheckReport } from "../check-report.js";
 import {
   PUBLIC_ASKRIGOR_REPOSITORY,
   detailedLessonReportSchema,
@@ -36,6 +37,8 @@ export interface GitHubLessonSubmission {
    * the fingerprint nor the hidden metadata.
    */
   detailedReport?: DetailedLessonReport;
+  checkReport?: CheckReport;
+  correctionRule?: { name: string; missing?: string };
 }
 
 export interface GitHubLessonQueueResult {
@@ -126,7 +129,8 @@ export class GitHubLessonQueue {
     if (
       !FINGERPRINT_PATTERN.test(input.fingerprint) ||
       (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success) ||
-      (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success)
+      (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success) ||
+      (input.checkReport !== undefined && !checkReportSchema.safeParse(input.checkReport).success)
     ) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
@@ -215,7 +219,7 @@ export class GitHubLessonQueue {
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue, input.detailedReport) }),
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue, input.detailedReport, input.checkReport, input.correctionRule) }),
     });
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
@@ -299,6 +303,8 @@ export class GitHubLessonQueue {
           terminal?.number,
           input.relatedIssue,
           input.detailedReport,
+          input.checkReport,
+          input.correctionRule,
         ),
         labels,
       }),
@@ -354,6 +360,8 @@ function buildIssueBody(
   priorIssueNumber: number | undefined,
   relatedIssue: number | undefined,
   detailedReport: DetailedLessonReport | undefined,
+  checkReport?: CheckReport,
+  correctionRule?: GitHubLessonSubmission["correctionRule"],
 ): string {
   const versionContext = [
     `AskRigor: ${candidate.askrigor_version ? escapeMarkdown(candidate.askrigor_version) : "Not supplied"}`,
@@ -381,6 +389,8 @@ function buildIssueBody(
     ...(relatedIssue === undefined
       ? []
       : [section("Related AskRigor issue", relatedIssueReference(relatedIssue))]),
+    ...(checkReport === undefined ? [] : [checkReportSection(checkReport)]),
+    ...(correctionRule === undefined ? [] : [correctionRuleSection(correctionRule)]),
     ...(detailedReport === undefined ? [] : [detailedReportSection(detailedReport)]),
     ...(metadata.incident_occurrences?.length
       ? [section(
@@ -407,6 +417,8 @@ function buildOccurrenceComment(
   metadata: OccurrenceMetadata,
   relatedIssue: number | undefined,
   detailedReport: DetailedLessonReport | undefined,
+  checkReport?: CheckReport,
+  correctionRule?: GitHubLessonSubmission["correctionRule"],
 ): string {
   return [
     "## Anonymous lesson occurrence",
@@ -419,6 +431,8 @@ function buildOccurrenceComment(
     ...(metadata.incident_occurrence === undefined
       ? []
       : ["", "Opaque incident provenance:", formatIncidentOccurrence(metadata.incident_occurrence)]),
+    ...(checkReport === undefined ? [] : ["", checkReportSection(checkReport)]),
+    ...(correctionRule === undefined ? [] : ["", correctionRuleSection(correctionRule)]),
     ...(detailedReport === undefined ? [] : ["", detailedReportSection(detailedReport)]),
     "",
     occurrenceMetadataMarker(metadata),
@@ -700,4 +714,9 @@ function raiseInvalidIncidentMetadata(): never {
 
 function isParseableTimestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function correctionRuleSection(rule: NonNullable<GitHubLessonSubmission["correctionRule"]>): string {
+  return section("Rule that should have prevented the error", escapeMarkdown(rule.name === "no_rule"
+    ? `no_rule: ${rule.missing}` : rule.name));
 }

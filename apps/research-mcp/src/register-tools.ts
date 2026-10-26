@@ -1,3 +1,4 @@
+import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 
@@ -900,6 +901,9 @@ export function uncheckedAnswerInstructions(result: FinalizeResearchOutput): str
       ? `this turn reached its limit of ${CHECK_ROUND_LIMIT} rounds`
       : `the only steps left came back unchanged ${STUCK_AFTER_ROUNDS} rounds running`}. This is the turn's final ` +
       "result: do not call finalize_research again in this turn, and give the answer now.") +
+    (result.check_report_token === undefined ? "" :
+      "\nIf the user says yes to sending this bug report, pass check_report_token exactly as returned to " +
+      "submit_lesson_candidate; do not rewrite the server report.") +
     "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or verdict " +
     "that a step still open could change, " +
     (reasons.length === 0 ? "" : `says before its last line, in plain words, ${reasons.join("; and ")}; `) +
@@ -2358,6 +2362,8 @@ function defineResearchOperations(
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
+        protocolElements: await currentProtocolElementNames(),
+        ...(options.runningVersions === undefined ? {} : { runningVersions: options.runningVersions }),
         findings: !library
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
@@ -2472,6 +2478,10 @@ function defineResearchOperations(
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
           uncheckedAnswerInstructions(result) +
+          ((checkedInput?.corrections ?? []).some(({ by_user, report }) => by_user === true && report !== undefined)
+            ? "\nWhen the user agrees to send the correction report, pass its preventing_rule and any missing_rule " +
+              "exactly as shown to submit_lesson_candidate."
+            : "") +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
@@ -2531,7 +2541,7 @@ function defineResearchOperations(
     "submit_lesson_candidate",
     {
       description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. " +
-        DETAILED_REPORT_RULE,
+        DETAILED_REPORT_RULE + " For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
       inputSchema: connectorLessonInputSchema,
       outputSchema: connectorLessonOutputSchema,
       annotations: MUTATING_ANNOTATIONS,

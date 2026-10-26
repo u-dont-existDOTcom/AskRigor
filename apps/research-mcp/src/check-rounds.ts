@@ -2,6 +2,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { z } from "zod";
 
 import type { NextStepKind } from "./next-step-kinds.js";
+import type { CheckRule } from "./check-rules.js";
+import { maskedRule } from "./check-rules.js";
 
 /**
  * The final check's rounds within one turn (owner answer 172a, 2026-10-24): at most ten calls, and a step that comes
@@ -37,6 +39,8 @@ type RoundState = z.output<typeof roundStateSchema>;
 export interface CheckStep {
   kind: NextStepKind;
   text: string;
+  rule?: CheckRule;
+  consecutive?: number;
   /** The generating tool's limit cannot reset during this turn. Never inferred from the step's prose. */
   deferUntilNextTurn?: boolean;
 }
@@ -122,14 +126,13 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
   const open: CheckStep[] = [];
   const stuck: CheckStep[] = [];
   for (const { digest, steps: unitSteps } of units) {
-    const count = stuckBefore.has(digest) ? STUCK_AFTER_ROUNDS
-      : nextCounts.get(digest) ?? Math.min((counts.get(digest) ?? 0) + 1, CHECK_ROUND_LIMIT);
-    if (count >= STUCK_AFTER_ROUNDS) {
+    const count = nextCounts.get(digest) ?? Math.min((counts.get(digest) ?? 0) + 1, CHECK_ROUND_LIMIT);
+    nextCounts.set(digest, count);
+    if (stuckBefore.has(digest) || count >= STUCK_AFTER_ROUNDS) {
       stuckDigests.add(digest);
-      stuck.push(...unitSteps);
+      stuck.push(...unitSteps.map((step) => ({ ...step, consecutive: count })));
     } else {
-      nextCounts.set(digest, count);
-      open.push(...unitSteps);
+      open.push(...unitSteps.map((step) => ({ ...step, consecutive: count })));
     }
   }
   if (open.length === 0 || round >= CHECK_ROUND_LIMIT) {
@@ -161,30 +164,19 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
   };
 }
 
-const KIND_WORDS: Record<NextStepKind, string> = {
-  input_invalid: "the call's inputs",
-  receipt_rejected: "its research records",
-  research: "research",
-  declaration: "the answer's declarations",
-  answer_draft: "the answer draft",
-  carried_state: "the conversation's state",
-  second_reading: "a second reading of the answer",
-  tool_list: "the app's tool list"
-};
-
-/**
- * The bug report a stopped answer shows before asking whether AskRigor may send it: general, with the kinds of step
- * only, never their text, which can hold the user's topic.
- */
-export function stoppedCheckBugReport(outcome: Extract<RoundOutcome, { status: "stopped" }>): string | undefined {
-  if (outcome.couldNot.length === 0) return undefined;
-  const kinds = [...new Set(outcome.couldNot.map(({ kind }) => KIND_WORDS[kind]))];
-  const about = kinds.length === 1 ? kinds[0]! : `${kinds.slice(0, -1).join(", ")} and ${kinds.at(-1)!}`;
-  return outcome.reason === "limit"
-    ? `AskRigor's final check reached its limit of ${CHECK_ROUND_LIMIT} rounds without passing, with steps about ` +
-      `${about} still open.`
-    : `AskRigor's final check stopped without passing after ${outcome.round} rounds, because steps about ${about} ` +
-      `came back unchanged ${STUCK_AFTER_ROUNDS} rounds running.`;
+/** The first unmet rule, with every inserted value independently masked. */
+export function stoppedCheckBugReport(outcome: Extract<RoundOutcome, { status: "stopped" }>,
+  allowed: (value: unknown) => boolean = () => false): string | undefined {
+  const first = outcome.couldNot[0];
+  if (first === undefined) return undefined;
+  const masked = maskedRule(first.rule, allowed);
+  // The short offer quotes only the first sentence; the signed report keeps the full masked rule.
+  const sentence = masked.split(/(?<=[.!?])\s/u, 1)[0]!;
+  const wording = sentence.length > 450 ? sentence.slice(0, 448) + "…." :
+    /[.!?]$/u.test(sentence) ? sentence : sentence + ".";
+  const more = outcome.couldNot.length - 1;
+  return `AskRigor's final check stopped at round ${outcome.round} with this rule still unmet: ${wording}` +
+    (more === 0 ? "" : ` There ${more === 1 ? "is" : "are"} ${more} more unmet ${more === 1 ? "step" : "steps"}.`);
 }
 
 // The question that follows that report (owner answer 172a, in the words of question 172).

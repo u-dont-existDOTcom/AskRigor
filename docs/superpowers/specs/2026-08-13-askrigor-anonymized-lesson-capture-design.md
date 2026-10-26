@@ -452,3 +452,26 @@ receipts, or Custom GPT instructions.
 - Public privacy and retention documentation matches reality.
 - Existing MCP behavior and tests remain unchanged.
 - A live Custom GPT synthetic lesson submission succeeds end to end.
+
+## Connector debug reports (owner request, 26 October 2026)
+
+The connector accepts `check_report_token` from a stopped `finalize_research` result after the user agrees to the
+shown masked bug report. The token contains the server's bounded `check_report`, authenticated under its own HMAC
+domain (`br1~`, `askrigor final check report v1`), maximum 34,000 characters, no expiry. It includes versions, stop
+reason/round, masked rules with consecutive counts, receipt-kind counts and rejection reasons, masked limitations
+and omission counts. It holds no raw receipt, topic, source identifier, URL, observation, quote or conversation data.
+Only exact server-owned names, schema field paths, enumeration codes, whole numbers and protocol versions survive
+an inserted-value check; other inserted values become `…`. The report's JSON is at most 6,000 characters.
+
+The service verifies the token, keeps it out of generalization, runs the lesson's existing privacy pipeline and
+appends the verified report verbatim in the fixed section “The final check's report, as AskRigor recorded it”. A
+repeat's occurrence comment carries the same section. The token itself is not stored, nor included in the duplicate
+fingerprint or public receipt. `check_report_refused` with `invalid_check_report_token` means nothing was saved.
+The detailed-report account setting continues to apply to model-authored `detailed_report`; it is not needed for
+these masked server diagnostics. This adds no model/API call.
+
+A correction also carries `preventing_rule`: an exact current HRP/Universal element tag or selectable `name`/`id`,
+validated against complete protocols loaded by the protocol package, or `no_rule` with one-line `missing_rule`.
+The final check requires the declaration beside the shown correction report. The lesson tool validates it again,
+screens missing-rule prose and preserves it outside generalization in “Rule that should have prevented the error”.
+Invalid declarations return `correction_rule_refused` / `invalid_preventing_rule`. The Action shape stays unchanged.

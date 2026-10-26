@@ -1,3 +1,4 @@
+import { rule, joinRules, ruleText, type RuleInput } from "./check-rules.js";
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import { z } from "zod";
 
@@ -160,7 +161,7 @@ export function assessTreatmentCoverageFromReceipts(
   options: TreatmentCoverageFromReceiptsOptions
 ): TreatmentCoverageFromReceiptsOutput {
   const input = treatmentCoverageFromReceiptsInputSchema.parse(rawInput);
-  const problems: string[] = [];
+  const problems: RuleInput[] = [];
 
   // Verified receipts, each token once.
   const verified: Receipt[] = [];
@@ -186,7 +187,7 @@ export function assessTreatmentCoverageFromReceipts(
   });
   if (rejected.length > 0) {
     problems.push(
-      `${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
+      rule`${rejected.length} receipt(s) failed verification; pass each research_receipt exactly as the tool returned it.`
     );
   }
 
@@ -197,8 +198,7 @@ export function assessTreatmentCoverageFromReceipts(
   const roundByIndex = new Map(rounds.map((round) => [round.index, round]));
   if (rounds.length === 0) {
     problems.push(
-      "No discovery receipt passed here was made for this research_target; pass the discovery receipts and the " +
-        "research target exactly as the discovery tools received it."
+      joinRules(rule`No discovery receipt passed here was made for this research_target; pass the discovery receipts and the `, rule`research target exactly as the discovery tools received it.`)
     );
   }
 
@@ -219,7 +219,7 @@ export function assessTreatmentCoverageFromReceipts(
     ...input.access_boundaries.map(({ boundary_id }) => boundary_id)
   ]) {
     if (id.startsWith("server:")) {
-      problems.push(`ID ${id} is reserved for server-made records; rename it.`);
+      problems.push(rule`ID ${id} is reserved for server-made records; rename it.`);
     }
   }
   const classById = new Map(input.treatment_classes.map((entry) => [entry.class_id, entry]));
@@ -228,12 +228,12 @@ export function assessTreatmentCoverageFromReceipts(
   for (const mapping of input.rounds) {
     if (!roundByIndex.has(mapping.receipt)) {
       problems.push(
-        `rounds lists receipt ${mapping.receipt}, which is not a verified discovery receipt for this research target.`
+        rule`rounds lists receipt ${mapping.receipt}, which is not a verified discovery receipt for this research target.`
       );
       continue;
     }
     if (roundMapping.has(mapping.receipt)) {
-      problems.push(`rounds lists receipt ${mapping.receipt} more than once.`);
+      problems.push(rule`rounds lists receipt ${mapping.receipt} more than once.`);
       continue;
     }
     roundMapping.set(mapping.receipt, mapping);
@@ -249,8 +249,7 @@ export function assessTreatmentCoverageFromReceipts(
       : mapping.queries;
     if (discoveryQueryDigest(queries) !== text(round.claims.q)) {
       problems.push(
-        `The queries given for receipt ${index} do not match what that round signed; give its exact executed ` +
-          "queries (for a scout round, its rediscovery leads)."
+        joinRules(rule`The queries given for receipt ${index} do not match what that round signed; give its exact executed `, rule`queries (for a scout round, its rediscovery leads).`)
       );
       continue;
     }
@@ -269,7 +268,7 @@ export function assessTreatmentCoverageFromReceipts(
   }>();
   const classify = (videoId: string, entry: Parameters<typeof classification.set>[1]): void => {
     if (classification.has(videoId)) {
-      problems.push(`Video ${videoId} is listed more than once across selected, screened and not-material videos.`);
+      problems.push(rule`Video ${videoId} is listed more than once across selected, screened and not-material videos.`);
       return;
     }
     classification.set(videoId, entry);
@@ -302,7 +301,7 @@ export function assessTreatmentCoverageFromReceipts(
   const notMaterialFingerprintByClass = new Map<string, string>();
   for (const group of input.not_material_videos) {
     if (!classById.has(group.treatment_class_id)) {
-      problems.push(`not_material_videos names unknown treatment class ${group.treatment_class_id}.`);
+      problems.push(rule`not_material_videos names unknown treatment class ${group.treatment_class_id}.`);
     }
     const fingerprintId = notMaterialFingerprintByClass.get(group.treatment_class_id) ??
       `server:not_material:${notMaterialFingerprintByClass.size + 1}`;
@@ -339,8 +338,7 @@ export function assessTreatmentCoverageFromReceipts(
   for (const videoId of classification.keys()) {
     if (!roundsByVideo.has(videoId)) {
       problems.push(
-        `Video ${videoId} is not among the videos this research target's discovery receipts found; pass the ` +
-          "receipt of the round that found it, or leave it out."
+        joinRules(rule`Video ${videoId} is not among the videos this research target's discovery receipts found; pass the `, rule`receipt of the round that found it, or leave it out.`)
       );
     }
   }
@@ -444,13 +442,13 @@ export function assessTreatmentCoverageFromReceipts(
     const batch = batchByRound.get(search.round);
     if (batch === undefined) {
       problems.push(
-        `specific_searches[${position}] names receipt ${search.round}, which is not a verified discovery receipt for this research target.`
+        rule`specific_searches[${position}] names receipt ${search.round}, which is not a verified discovery receipt for this research target.`
       );
       return;
     }
     if (!queryText.has(search.round)) {
       problems.push(
-        `specific_searches[${position}] needs the exact queries of receipt ${search.round} in rounds, so its terms can be checked against what ran.`
+        rule`specific_searches[${position}] needs the exact queries of receipt ${search.round} in rounds, so its terms can be checked against what ran.`
       );
       return;
     }
@@ -483,8 +481,7 @@ export function assessTreatmentCoverageFromReceipts(
     const audit = auditByVideo.get(video.video_id);
     if (audit === undefined && communityAudited.has(video.video_id)) {
       problems.push(
-        `Selected video ${video.video_id} has only a one-call community audit; audit it with ` +
-          "audit_youtube_video_community so its depth can be checked."
+        joinRules(rule`Selected video ${video.video_id} has only a one-call community audit; audit it with `, rule`audit_youtube_video_community so its depth can be checked.`)
       );
     }
     if (audit === undefined || !candidateById.has(video.video_id)) continue;
@@ -647,15 +644,15 @@ export function assessTreatmentCoverageFromReceipts(
     scout_frontier_videos: validated.length,
     access_boundaries_derived: derivedBoundaries.length,
     open_scout_titles: scoutRounds.reduce((total, round) => total + openScoutTitles(round), 0),
-    input_problems: problems
+    input_problems: problems.map(ruleText)
   });
   if (problems.length === 0) {
     return treatmentCoverageFromReceiptsOutputSchema.parse({ ...result, receipt_derivation: derivation });
   }
   return treatmentCoverageFromReceiptsOutputSchema.parse({
     ...result,
-    selection_blockers: [...problems, ...result.selection_blockers],
-    blockers: [...problems, ...result.blockers],
+    selection_blockers: [...problems.map(ruleText), ...result.selection_blockers],
+    blockers: [...problems.map(ruleText), ...result.blockers],
     selection_coverage_lock: "block",
     synthesis_lock: "block",
     answer_boundary: "continue_research",
