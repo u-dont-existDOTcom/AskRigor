@@ -488,7 +488,26 @@ export function assessTreatmentCoverageFromReceipts(
       );
     }
     if (audit === undefined || !candidateById.has(video.video_id)) continue;
-    const discussion = discussionReceipt(video.video_id, audit, boundaryIdFor("video_discussion", video.video_id));
+    // The audit's own terminal limit is already attempted, not another declaration for the model to reconstruct.
+    const identifierBoundary = text(audit.claims.boundary) === "identifier_membership" &&
+      text(audit.claims.state) === "completed_with_access_boundary" && text(audit.claims.lock) === "pass" &&
+      text(audit.claims.cr) === "0";
+    const derived = identifierBoundary ? {
+      boundary_id: `server:discussion:${video.video_id}`,
+      scope_type: "video_discussion" as const,
+      scope_id: video.video_id,
+      access_status: "partial" as const,
+      terminal: true,
+      retryable: false,
+      recovery_attempted: true,
+      materiality: "material" as const,
+      impact: "uncertain" as const,
+      description: `The video audit stopped at ${text(audit.claims.records)} comments at its identifier-membership ` +
+        "boundary, before the end of the comments; only bounded, non-ranking output is supported."
+    } : undefined;
+    if (derived !== undefined) derivedBoundaries.push(derived);
+    const discussion = discussionReceipt(video.video_id, audit,
+      derived?.boundary_id ?? boundaryIdFor("video_discussion", video.video_id));
     selected.push({
       video_id: video.video_id,
       fingerprint_id: video.fingerprint_id,
@@ -610,8 +629,8 @@ export function assessTreatmentCoverageFromReceipts(
     directional_searches: input.directional_searches,
     access_boundaries: [
       ...derivedBoundaries,
-      ...input.access_boundaries.filter((boundary) => !(boundary.scope_type === "discovery_batch" &&
-        derivedBoundaries.some(({ scope_id }) => scope_id === boundary.scope_id)))
+      ...input.access_boundaries.filter((boundary) => !derivedBoundaries.some(({ scope_type, scope_id }) =>
+        scope_type === boundary.scope_type && scope_id === boundary.scope_id))
     ]
   };
   const result = assessTreatmentLandscapeCoverage(ledger, { transcriptToolAvailable: false });

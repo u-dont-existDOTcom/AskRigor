@@ -48,3 +48,7 @@ a bug report when nothing can be done, otherwise how the next turn handles it).
 
 The protocols ("on not_ready do its next steps") and the rule that an unchecked answer says at its start that it is
 partial and gives no ranking or verdict an open step could change. Neither was part of question 172.
+
+## 2026-10-26 quota steps
+
+Discovery marks steps stopped by YouTube's rate limit or daily quota as deferred until the next turn at generation time. Even after three unchanged rounds these go to `stopped.next_turn`, whose own text says to rerun them once YouTube's limit resets; alone they offer no bug report, while ordinary stuck research stays in `could_not`.

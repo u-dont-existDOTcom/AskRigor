@@ -26,6 +26,7 @@ import {
   createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
+  YoutubeAuditIdentifierMembershipBoundaryError,
   type YoutubeVideoAuditContinuationState
 } from "./youtube-audit-continuation.js";
 
@@ -274,20 +275,28 @@ export async function auditYoutubeVideoCommunity(
   ) {
     throw new Error("YouTube audit segment video did not match the continuation chain");
   }
-  const state = advanceYoutubeAuditState(
-    baseState,
-    segment.comments,
-    {
-      top_level_comments_retrieved: segment.top_level_comments_retrieved,
-      replies_retrieved: segment.replies_retrieved,
-      comment_thread_pages: segment.comment_thread_pages,
-      reply_pages: segment.reply_pages,
-      pagination_overlaps_reconciled: segment.pagination_overlaps_reconciled ?? 0,
-      reply_count_mismatches: segment.reply_count_mismatches
-    },
-    segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false },
-    identity === undefined ? undefined : (comment) => classifyProductComment(identity, productClass!, comment.text)
-  );
+  let state: YoutubeVideoAuditContinuationState;
+  try {
+    state = advanceYoutubeAuditState(
+      baseState,
+      segment.comments,
+      {
+        top_level_comments_retrieved: segment.top_level_comments_retrieved,
+        replies_retrieved: segment.replies_retrieved,
+        comment_thread_pages: segment.comment_thread_pages,
+        reply_pages: segment.reply_pages,
+        pagination_overlaps_reconciled: segment.pagination_overlaps_reconciled ?? 0,
+        reply_count_mismatches: segment.reply_count_mismatches
+      },
+      segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false },
+      identity === undefined ? undefined : (comment) => classifyProductComment(identity, productClass!, comment.text)
+    );
+  } catch (error) {
+    if (error instanceof YoutubeAuditIdentifierMembershipBoundaryError) {
+      throw new YoutubeAuditIdentifierMembershipBoundaryError(error.message, error.snapshot, metadataVideo?.channel_id);
+    }
+    throw error;
+  }
 
   const mismatchBlock = state.reply_count_mismatches.length > 0;
   const paginationOverlapBoundary = state.pagination_overlaps_reconciled > 0;

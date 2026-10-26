@@ -1495,6 +1495,7 @@ const TERMINAL_VIDEO_STATES = new Set([
 interface VideoAudit {
   state: string;
   lock: string;
+  identifierBoundaryRecords?: number;
   // Comments and replies retrieved; zero when comments were disabled or
   // inaccessible, so there is nothing to report.
   records: number;
@@ -1577,9 +1578,14 @@ export function finalizeResearch(
   const nextSteps: string[] = [];
   // Each step's kind, in the same order (AskRigor#354).
   const stepKinds: NextStepKind[] = [];
+  const checkSteps: CheckStep[] = [];
+  const addCheckStep = (step: CheckStep): void => {
+    nextSteps.push(step.text);
+    stepKinds.push(step.kind);
+    checkSteps.push(step);
+  };
   const addStep = (kind: NextStepKind, ...steps: string[]): void => {
-    nextSteps.push(...steps);
-    stepKinds.push(...steps.map(() => kind));
+    for (const text of steps) addCheckStep({ kind, text });
   };
   let missingDeclaration = false;
   const requireDeclaration = (step: string): void => {
@@ -1763,7 +1769,8 @@ export function finalizeResearch(
       // Comments the audit's final view returned; receipts from before `shown`
       // existed count every record retrieved.
       recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock),
-        Number(text(claims.shown) || text(claims.records)));
+        Number(text(claims.shown) || text(claims.records)),
+        text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
@@ -1895,7 +1902,9 @@ export function finalizeResearch(
         firstPassRateLimited = saturation.rateLimited;
       } else if (!saturated) {
         discoveryContinues = true;
-        addStep("research", ...saturation.nextSteps);
+        for (const text of saturation.nextSteps) addCheckStep({
+          kind: "research", text, deferUntilNextTurn: saturation.deferUntilNextTurn
+        });
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
@@ -1960,7 +1969,12 @@ export function finalizeResearch(
         }
         if (audit.state === "completed_with_access_boundary") {
           requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
-          partlyRead.push(video);
+          if (audit.identifierBoundaryRecords !== undefined) {
+            caveats.push(`The audit of ${videoLink(video, "this video")} stopped at ${audit.identifierBoundaryRecords} ` +
+              "comments, before the end of its comments, so no complete-corpus claim is made.");
+            caveatOnce("An identifier-bounded video audit supports only bounded, non-ranking output.",
+              "These comments support only a bounded account, so the answer does not use them to rank or recommend options.");
+          } else partlyRead.push(video);
         } else if (audit.lock === "block") {
           requireLimit(
             `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
@@ -2386,36 +2400,27 @@ export function finalizeResearch(
       );
       continue;
     }
-    const pubmedPmcid = isPmid(id) ? pubmedPmcids.get(id) : undefined;
-    if (isPmid(id) && pubmedDoi === "" && pubmedPmcid !== undefined) {
-      // An open copy exists in PMC, so this is not a lead; the full-text chain
-      // needs a DOI, so find one or keep the study out of the key sources.
-      addStep("research", 
-        `PubMed lists an open full text in PubMed Central (${pubmedPmcid}) for PMID ${id} but no DOI. Find its DOI ` +
-          `(search_europe_pmc for ${pubmedPmcid}) and read it with acquire_open_full_text and that pmcid, or leave it out of ` +
-          "key_sources and label its claims unverified."
-      );
-      continue;
-    }
-    if (isPmid(id) && pubmedDoi === "") {
-      // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
+    const knownDoi = isDoi(id) ? id : pubmedDoi || papers.identifiers(id).find(isDoi);
+    if (knownDoi === undefined) {
+      // The tool requires a DOI even when PMC hosts an open copy. Never ask for an identifier we do not have.
       leadSources.push(source.id);
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
         continue;
       }
       requireLimit(
-        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
+        `Cite ${source.id} as a lead: ${isPmid(id) ? "PubMed lists no DOI" : "no DOI is known"}; ` +
+          "acquire_open_full_text requires a DOI, so its methods were not audited."
       );
-      unreadStudies.set(id, "NO_DOI");
+      unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
       continue;
     }
-    const target = pubmedDoi ?? source.id;
+    const target = isDoi(id) ? source.id : knownDoi;
     addStep("research", source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
           `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
-      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
+      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`} ` +
           `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
   }
   if (unreadStudies.size > 0) caveats.push(...unreadStudiesCaveats(unreadStudies));
@@ -3440,7 +3445,7 @@ export function finalizeResearch(
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
   const checkRound = nextSteps.length === 0 ? undefined : advanceCheckRound(
-    nextSteps.map((text, index) => ({ kind: stepKinds[index]!, text })),
+    checkSteps,
     {
       ...roundOptions,
       call: callRound
@@ -4367,6 +4372,10 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
     "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
   ],
+  NO_KNOWN_DOI: [
+    "AskRigor could not fetch the full text of {links}: its full-text tool requires a DOI and none was known",
+    "AskRigor could not fetch the full texts of {links}: its full-text tool requires a DOI and none was known"
+  ],
   ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
   PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
   CANDIDATE_FOUND_FETCH_BLOCKED: [
@@ -5197,7 +5206,8 @@ function communityCoverage(
         search.access_boundary !== "not_found") {
       out.requireDeclaration(
         `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
-          "forum, group or site link), so it is known by its site rather than its name."
+          "forum, group or site link), so it is known by its site rather than its name; or record access_boundary " +
+          "not_found when no site by that name could be found."
       );
       continue;
     }
@@ -5471,7 +5481,7 @@ function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
   depth: "first_pass" | "deep"
-): { saturated: boolean; nextSteps: string[]; rateLimited: number } {
+): { saturated: boolean; nextSteps: string[]; rateLimited: number; deferUntilNextTurn?: boolean } {
   const stop = depth === "first_pass"
     ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
     : "";
@@ -5488,6 +5498,7 @@ function discoverySaturation(
     return {
       saturated: false,
       rateLimited,
+      deferUntilNextTurn: rateLimited > 0,
       nextSteps: [
         `${incomplete} search(es) in the latest discovery rounds did not complete` +
           (rateLimited > 0
@@ -5555,7 +5566,8 @@ function recordVideoAudit(
   video: string,
   state: string,
   lock: string,
-  records: number
+  records: number,
+  identifierBoundaryRecords?: number
 ): void {
   if (video.length === 0 || !TERMINAL_VIDEO_STATES.has(state)) return;
   const previous = audited.get(video);
@@ -5563,7 +5575,9 @@ function recordVideoAudit(
   // audit can find them deleted); a complete audit supersedes a bounded one.
   const read = Math.max(previous?.records ?? 0, Number.isSafeInteger(records) ? records : 0);
   if (previous === undefined || previous.state !== "api_visible_complete") {
-    audited.set(video, { state, lock, records: read });
+    audited.set(video, { state, lock, records: read,
+      ...(Number.isSafeInteger(identifierBoundaryRecords) && identifierBoundaryRecords! >= 0
+        ? { identifierBoundaryRecords } : {}) });
   } else {
     audited.set(video, { ...previous, records: read });
   }

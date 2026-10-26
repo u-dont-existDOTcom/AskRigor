@@ -136,6 +136,28 @@ function input(overrides: Partial<TreatmentCoverageFromReceiptsInput> = {}): unk
 }
 
 describe("treatment coverage from signed receipts", () => {
+  it("accepts an identifier-bounded video audit only for bounded non-ranking output", () => {
+    const bounded = sign("youtube_video_audit", {
+      video: "FFFFFFFFFFF", state: "completed_with_access_boundary", lock: "pass",
+      boundary: "identifier_membership", records: 520, ch: "UCchannelFFFFFFFFFFFFFFF", ms: "api_visible_complete", acc: "partial",
+      cov: "completed_with_access_boundary", prc: "1000", top: 500, rep: 20,
+      shown: 0, ret: 0, rtop: 0, rrep: 0, mm: 0, cr: 0, f: 1, tx: 0, rr: 0, bl: 0
+    }, 7_000);
+    const oneCall = discovery("youtube_community_audit", {
+      videos: ["FFFFFFFFFFF"], read: [], state: "completed_with_access_boundary", access: "complete",
+      q: discoveryQueryDigest(["hip pain what helped"]), open: 0
+    }, 500);
+    const result = assessTreatmentCoverageFromReceipts(input({ receipts: [...receipts.slice(0, -1), bounded, oneCall] }),
+      { secret: SECRET, now });
+    expect(result.receipt_derivation.input_problems).toEqual([]);
+    expect(result.receipt_derivation.audited_videos).toContain("FFFFFFFFFFF");
+    expect(result.receipt_derivation.access_boundaries_derived).toBe(1);
+    expect(result.blockers.join(" ")).not.toContain("one-call community audit");
+    expect(result).toMatchObject({ answer_boundary: "bounded_nonranking_only", material_videos_fully_audited: 2 });
+    expect(result.boundary_blockers.join(" ")).toContain("stopped at 520 comments");
+    expect(result.answer_boundary).not.toBe("ledger_consistent_for_synthesis");
+  });
+
   it("builds the ledger from receipts and passes a complete check", () => {
     const result = assessTreatmentCoverageFromReceipts(input(), { secret: SECRET, now });
     expect(result.receipt_derivation).toEqual({

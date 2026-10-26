@@ -119,3 +119,7 @@ link YouTube's Terms of Service or state the required agreement. Before release:
 - Plugin: complete eight-member source and installed receipts pass; seven
   non-manifest members are byte-identical and the installed manifest differs
   only by its intentional cache-buster version.
+
+## 2026-10-26 bounded receipt repair
+
+In the 25 to 26 October regression run, this boundary ended five video audits at 520 to 2,239 records. At 520 records the false-positive probability per comment is about 2 × 10⁻⁹ with 32,768 bits and 11 hashes; this indicates the boundaries were mostly YouTube paging returning an already-counted comment outside the 500-identifier exact sample, rather than filter collisions. The filter and exact sample are unchanged; MCP now delivers the terminal error's signed bounded receipt, and coverage/finalization retain its verified counts with an explicit no-complete-corpus, non-ranking limit.

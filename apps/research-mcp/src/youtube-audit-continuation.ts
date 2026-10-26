@@ -202,7 +202,9 @@ export class YoutubeAuditIdentifierMembershipBoundaryError extends Error {
 
   constructor(
     message: string,
-    public readonly snapshot: YoutubeAuditRestartSnapshot
+    public readonly snapshot: YoutubeAuditRestartSnapshot,
+    /** Public metadata already fetched by the audit, never added to continuation state or the membership filter. */
+    public readonly channel_id?: string
   ) {
     super(message);
     this.name = "YoutubeAuditIdentifierMembershipBoundaryError";
