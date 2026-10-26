@@ -48,7 +48,7 @@ export function assertNextStepsContract<T extends FinalizeResearchOutput>(result
   expect(unknownNextStepIdentifiers(result.next_steps), result.next_steps.join("\n")).toEqual([]);
   // Every step has its kind, in the same order, and an answer given before a pass has its line (AskRigor#354).
   expect(result.next_step_kinds, result.next_steps.join("\n")).toHaveLength(result.next_steps.length);
-  expect(result.unchecked_line !== undefined).toBe(result.status === "not_ready");
+  expect(result.unchecked_line !== undefined).toBe(result.status === "not_ready" || result.status === "stopped");
   return result;
 }
 

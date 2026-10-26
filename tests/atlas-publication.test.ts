@@ -177,6 +177,12 @@ describe("which findings and cards are published", () => {
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: false })).toEqual([]);
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: true })).toEqual(["not_free_contributor"]);
     expect(cardPublicationProblems(record, true, { route: "owner", paidPrivate: false })).toEqual(["set_aside"]);
+    // A card saved before the public_value declaration existed: the owner naming it is the choice (182a); a card that
+    // declared its findings personal only stays out even then.
+    const { public_value: _declared, ...undeclared } = record.card;
+    expect(cardPublicationProblems({ ...record, card: undeclared }, false, { route: "owner", paidPrivate: false })).toEqual([]);
+    expect(cardPublicationProblems({ ...record, card: { ...undeclared, public_value: { scope: "personal_only" as const } } },
+      false, { route: "owner", paidPrivate: false })).toEqual(["not_public"]);
   });
 
   it("holds a finding whose published text holds contact details, a card reference or a YouTube link", () => {

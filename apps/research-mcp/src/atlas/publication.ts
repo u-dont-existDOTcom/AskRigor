@@ -77,7 +77,10 @@ export function cardPublicationProblems(
   if (route.route === "save") problems.push(...accountPublicationProblems(route.account));
   if (route.route === "owner" && route.paidPrivate) problems.push("not_free_contributor");
   if (setAside) problems.push("set_aside");
-  if (record.card.public_value?.scope !== "public") problems.push("not_public");
+  // A card saved before cards declared whether their findings help anyone else has no declaration: the owner naming
+  // it is that choice (owner answer 182a, the owner's earlier cards). A card declared personal only never publishes.
+  const declared = record.card.public_value?.scope;
+  if (declared === undefined ? route.route !== "owner" : declared !== "public") problems.push("not_public");
   return problems;
 }
 

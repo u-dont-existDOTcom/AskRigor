@@ -20,11 +20,12 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { detailsProse, displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
   ROUND_TOKEN_MAX_CHARACTERS,
+  readCheckRound,
   roundBinding,
   stoppedCheckBugReport,
   type CheckStep
@@ -838,9 +839,9 @@ export const finalizeResearchInputSchema = z.object({
     difference: answerQuote.optional().describe("With repeats: the answer's sentence saying how this test differs in a way that could change the result, copied from answer_draft."),
     blinded: z.boolean().describe("true when the person would not know which condition they are in.")
   }).strict()).max(10).optional()
-    .describe("With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
+    .describe("With answer_draft: each test or self-measurement the answer proposes to the user, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none."),
   carried_state: z.string().max(48_000).optional()
-    .describe("The carry_forward value the last final check in this conversation returned, passed back exactly; left out in a conversation's first research answer."),
+    .describe("The carry_forward value the last final check in this conversation returned, passed back exactly in this turn or a later one; left out before the conversation's first final check."),
   round_token: z.string().max(ROUND_TOKEN_MAX_CHARACTERS).optional()
     .describe(`The round_token of this turn's previous finalize_research result, passed back exactly; left out on the turn's first call. A turn has at most ${CHECK_ROUND_LIMIT} rounds.`),
   // Owner request (2026-10-22), and the 22 Oct regressions: with it, a missing declaration says whether this app's
@@ -1066,13 +1067,16 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
       ? (rawInput as Record<string, unknown>)[key] : undefined;
     return typeof value === "string" ? value : undefined;
   };
-  const checkRound = options.secret === undefined ? undefined : advanceCheckRound(
+  const roundOptions = options.secret === undefined ? undefined : {
+    secret: options.secret,
+    bind: roundBinding(raw("research_target")?.trim()),
+    now: options.now?.() ?? new Date()
+  };
+  const checkRound = roundOptions === undefined ? undefined : advanceCheckRound(
     nextSteps.map((text) => ({ kind: "input_invalid" as const, text })),
     {
-      token: raw("round_token"),
-      secret: options.secret,
-      bind: roundBinding(raw("carried_state"), raw("research_target")?.trim()),
-      now: options.now?.() ?? new Date(),
+      ...roundOptions,
+      call: readCheckRound(raw("round_token"), roundOptions),
       wholeList: true
     }
   );
@@ -1151,6 +1155,8 @@ function stepSink(addStep: (kind: NextStepKind, ...steps: string[]) => void, kin
 // the user gets, so it cannot hold one back; the answer says itself that the check has not passed, and why, from the
 // kinds of step still open.
 export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
+const CHECK_LINE = "Checked with AskRigor's final check.";
+const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits above.";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
   new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
 
@@ -1183,8 +1189,8 @@ function roundReasonKinds(open: readonly CheckStep[], stuck: readonly CheckStep[
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
-function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSteps: Pick<string[], "push">):
-  { carried?: CarriedState; invalid: boolean } {
+function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: string, nextSteps: Pick<string[], "push">):
+  { carried?: CarriedState; invalid: boolean; firstTurn: boolean; previousOpen?: NextStepKind[] } {
   let carried: CarriedState | undefined;
   let invalid = false;
   if (input.carried_state !== undefined) {
@@ -1204,36 +1210,45 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, nextSte
     const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
       ? []
       : carried.observations.filter(({ observation }) => !observations.has(observation));
-    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
-        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected in an earlier turn: keep it, or list it in reopened if the user reopened it.`);
+        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.`);
       }
     }
     if (carried.primary_outcome !== undefined) {
       const goal = carried.primary_outcome;
-      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from an earlier turn is ${JSON.stringify(goal)}.`);
-      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from an earlier turn (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
+      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from earlier in this conversation is ${JSON.stringify(goal)}.`);
+      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from earlier in this conversation (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
     }
     if (input.principal_communities !== undefined) {
       const named = new Set(input.principal_communities.filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name));
-      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named in an earlier turn: keep it with named_by_user, or record why it is not searched.`);
+      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.`);
     }
   }
   for (const [i, { intervention }] of (input.recommendations ?? []).entries()) {
     if (rejected.has(optionKey(intervention)) && !reopened.has(optionKey(intervention))) nextSteps.push(`recommendations[${i}] puts forward ${intervention}, which the user rejected: leave it out, or list it in reopened if the user reopened it.`);
   }
-  return carried === undefined ? { invalid } : { carried, invalid };
+  const sameTurn = carried?.turn === turn;
+  const previousOpen = sameTurn ? carried?.previous_open
+    : carried?.last_status === "not_ready" ? carried.open_kinds ?? [] : undefined;
+  return {
+    ...(carried === undefined ? {} : { carried }), invalid,
+    firstTurn: input.carried_state === undefined || (sameTurn && carried?.first_turn === true),
+    ...(previousOpen === undefined ? {} : { previousOpen })
+  };
 }
 
 /**
  * The state only grows or changes by declaration: what a call leaves out is carried on (and the check says so), so a
  * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
- * changes it.
+ * changes it. The call's turn id, first-turn flag and earlier turn's open kinds distinguish state passed within
+ * this turn from state passed into a later one; the round token alone identifies the call's turn.
  */
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
-  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[] }):
+  check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
+    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -1267,7 +1282,10 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     named_communities: [...new Set([...(carried?.named_communities ?? []),
       ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8),
     last_status: check.status,
-    ...(check.status === "not_ready" ? { open_kinds: check.open } : {})
+    ...(check.status === "not_ready" ? { open_kinds: check.open } : {}),
+    turn: check.turn,
+    first_turn: check.firstTurn,
+    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen })
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -1408,7 +1426,8 @@ export const finalizeResearchOutputSchema = z.object({
       "which holds nothing back."),
   plain_answer_note: z.string().optional()
     .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
-      "check_line, quoting each of its claims exactly and saying what the research found, and what backs each change."),
+      "check_line, quoting its claims exactly except a claim with a figure absent from the checked draft, which is " +
+      "replaced by a fixed sentence, and saying what the research found and what backs each change."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -1479,6 +1498,7 @@ const TERMINAL_VIDEO_STATES = new Set([
 interface VideoAudit {
   state: string;
   lock: string;
+  identifierBoundaryRecords?: number;
   // Comments and replies retrieved; zero when comments were disabled or
   // inaccessible, so there is nothing to report.
   records: number;
@@ -1537,6 +1557,12 @@ export function finalizeResearch(
     };
   }
 
+  const roundOptions = {
+    secret: options.secret,
+    bind: roundBinding(input.research_target),
+    now: options.now?.() ?? new Date()
+  };
+  const callRound = readCheckRound(input.round_token, roundOptions);
   const verified: VerifiedReceipt[] = [];
   const rejected: Array<{ index: number; reason: ResearchReceiptRejection }> = [];
   // The same receipt passed twice is one unit of work, never two rounds.
@@ -1555,9 +1581,14 @@ export function finalizeResearch(
   const nextSteps: string[] = [];
   // Each step's kind, in the same order (AskRigor#354).
   const stepKinds: NextStepKind[] = [];
+  const checkSteps: CheckStep[] = [];
+  const addCheckStep = (step: CheckStep): void => {
+    nextSteps.push(step.text);
+    stepKinds.push(step.kind);
+    checkSteps.push(step);
+  };
   const addStep = (kind: NextStepKind, ...steps: string[]): void => {
-    nextSteps.push(...steps);
-    stepKinds.push(...steps.map(() => kind));
+    for (const text of steps) addCheckStep({ kind, text });
   };
   let missingDeclaration = false;
   const requireDeclaration = (step: string): void => {
@@ -1606,7 +1637,7 @@ export function finalizeResearch(
     requireDeclaration("user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).");
   }
   if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
-    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, whether it repeats an attempt in user_observations, and whether it is blinded (an empty list means none).");
+    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).");
   }
   for (const { observation, response } of input.user_observations ?? []) {
     if (response === "uncertain") caveatOnce(
@@ -1626,7 +1657,8 @@ export function finalizeResearch(
       "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
       "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
   }
-  const { carried, invalid: carriedInvalid } = checkCarriedState(input, options.secret, stepSink(addStep, "carried_state"));
+  const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
+    checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -1740,7 +1772,8 @@ export function finalizeResearch(
       // Comments the audit's final view returned; receipts from before `shown`
       // existed count every record retrieved.
       recordVideoAudit(audited, text(claims.video), text(claims.state), text(claims.lock),
-        Number(text(claims.shown) || text(claims.records)));
+        Number(text(claims.shown) || text(claims.records)),
+        text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
@@ -1756,6 +1789,12 @@ export function finalizeResearch(
     !videosRead.has(video) && !videosUnread.has(video)));
   for (const video of unfinishedReadings) videosUnread.add(video);
   const auditedVideos = [...audited.keys()].sort();
+  // A missing-evidence caveat cannot contradict comments this call's verified receipts show were read.
+  const commentVideos = new Set([
+    ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
+    ...communityRead
+  ]);
+  const readVideos = new Set([...audited.keys(), ...communityRead]);
   let materialVideos: string[] = [];
   let saturated = false;
   let firstPassComplete = false;
@@ -1872,20 +1911,23 @@ export function finalizeResearch(
         firstPassRateLimited = saturation.rateLimited;
       } else if (!saturated) {
         discoveryContinues = true;
-        addStep("research", ...saturation.nextSteps);
+        for (const text of saturation.nextSteps) addCheckStep({
+          kind: "research", text, deferUntilNextTurn: saturation.deferUntilNextTurn
+        });
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
         if (discovered.size === 0) {
-          if (saturation.rateLimited > 0 && audited.size > 0) {
+          if (saturation.rateLimited > 0 && readVideos.size > 0) {
             // Videos read after the quota stopped discovery were found another way (s359 T1b of 23 Oct): saying that
             // no YouTube evidence was checked would be false, and a correction cannot take back the check's own caveat.
+            // A video read with no comments still turned up, so it counts here, unlike for the thin-evidence caveats.
             requireLimit(
               "YouTube's rate limit or daily quota stopped discovery, and the videos read were found another way; say " +
                 "that YouTube discovery was incomplete.",
-              audited.size === 1
+              readVideos.size === 1
                 ? "YouTube's search limit stopped discovery, so the video read here was found another way, not by a " +
                   "complete search."
-                : `YouTube's search limit stopped discovery, so the ${audited.size} videos read here were found another ` +
+                : `YouTube's search limit stopped discovery, so the ${readVideos.size} videos read here were found another ` +
                   "way, not by a complete search."
             );
           } else if (saturation.rateLimited > 0) {
@@ -1895,7 +1937,7 @@ export function finalizeResearch(
               "YouTube's search limit stopped discovery before any video turned up, so YouTube evidence could not be " +
                 "checked yet."
             );
-          } else {
+          } else if (commentVideos.size === 0) {
             requireLimit(
               `No video turned up in ${rounds.length} discovery rounds; say that YouTube evidence on this is thin.`,
               `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
@@ -1907,7 +1949,7 @@ export function finalizeResearch(
             `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
               "or substantial firsthand experience, or give no_material_video_reason."
           );
-        } else {
+        } else if (commentVideos.size === 0) {
           requireLimit(
             `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
               "say that YouTube evidence on this is thin.",
@@ -1937,7 +1979,12 @@ export function finalizeResearch(
         }
         if (audit.state === "completed_with_access_boundary") {
           requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
-          partlyRead.push(video);
+          if (audit.identifierBoundaryRecords !== undefined) {
+            caveats.push(`The audit of ${videoLink(video, "this video")} stopped at ${audit.identifierBoundaryRecords} ` +
+              "comments, before the end of its comments, so no complete-corpus claim is made.");
+            caveatOnce("An identifier-bounded video audit supports only bounded, non-ranking output.",
+              "These comments support only a bounded account, so the answer does not use them to rank or recommend options.");
+          } else partlyRead.push(video);
         } else if (audit.lock === "block") {
           requireLimit(
             `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
@@ -1969,10 +2016,6 @@ export function finalizeResearch(
   const mustReport: string[] = [];
   // Findings must cover every video whose comments were read; a video whose
   // comments were disabled or inaccessible may be listed but need not be.
-  const commentVideos = new Set([
-    ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
-    ...communityRead
-  ]);
   const auditedAtAll = new Set([...audited.keys(), ...communityAudited]);
   const findings = input.community_findings;
   if (commentVideos.size > 0 && findings === undefined) {
@@ -2363,36 +2406,27 @@ export function finalizeResearch(
       );
       continue;
     }
-    const pubmedPmcid = isPmid(id) ? pubmedPmcids.get(id) : undefined;
-    if (isPmid(id) && pubmedDoi === "" && pubmedPmcid !== undefined) {
-      // An open copy exists in PMC, so this is not a lead; the full-text chain
-      // needs a DOI, so find one or keep the study out of the key sources.
-      addStep("research", 
-        `PubMed lists an open full text in PubMed Central (${pubmedPmcid}) for PMID ${id} but no DOI. Find its DOI ` +
-          `(search_europe_pmc for ${pubmedPmcid}) and read it with acquire_open_full_text and that pmcid, or leave it out of ` +
-          "key_sources and label its claims unverified."
-      );
-      continue;
-    }
-    if (isPmid(id) && pubmedDoi === "") {
-      // PubMed lists no DOI and no PMC copy, so the open full-text chain cannot run; the lead is proven.
+    const knownDoi = isDoi(id) ? id : pubmedDoi || papers.identifiers(id).find(isDoi);
+    if (knownDoi === undefined) {
+      // The tool requires a DOI even when PMC hosts an open copy. Never ask for an identifier we do not have.
       leadSources.push(source.id);
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
         continue;
       }
       requireLimit(
-        `Cite ${source.id} as a lead: PubMed lists no DOI, so no open full text could be acquired and its methods were not audited.`
+        `Cite ${source.id} as a lead: ${isPmid(id) ? "PubMed lists no DOI" : "no DOI is known"}; ` +
+          "acquire_open_full_text requires a DOI, so its methods were not audited."
       );
-      unreadStudies.set(id, "NO_DOI");
+      unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
       continue;
     }
-    const target = pubmedDoi ?? source.id;
+    const target = isDoi(id) ? source.id : knownDoi;
     addStep("research", source.status === "validated"
       ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
           "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
           `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
-      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`}${isPmcid(id) ? " with its DOI and this pmcid" : ""} ` +
+      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`} ` +
           `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
   }
   if (unreadStudies.size > 0) caveats.push(...unreadStudiesCaveats(unreadStudies));
@@ -2611,7 +2645,7 @@ export function finalizeResearch(
           "pass would take, and ask which the user " +
           "wants and which focus.",
         ...directions.flatMap(({ caption }, index) =>
-          focuses[index]!.map(({ topic, why }) => `${caption}: ${topic.trim()}. ${asSentence(why)}`)),
+          focuses[index]!.map(({ topic, why }) => `${completedCaveat(`${caption}:`, topic)} ${asSentence(why)}`)),
         `${completedCaveat("What another pass would take:", estimate)} ` + (directions.length === 2
           ? "Would you like to go deeper into the studies or the communities, and which focus matters most to you?"
           : "Would you like to go deeper into the studies, and which focus matters most to you?")
@@ -3329,12 +3363,12 @@ export function finalizeResearch(
         urls: community.urls
       }))
     ];
-    // A statement taken back in an earlier turn stays out of the answer, unless a caveat of this check holds it: the
+    // A statement taken back earlier in this conversation stays out of the answer, unless a caveat of this check holds it: the
     // caveat stays, so a correction cannot take it back (the 22 Oct regression o354 continue).
     for (const statement of carried?.retracted ?? []) {
       if (caveatHolding(statement, caveats) === undefined &&
           retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        addStep("carried_state", `The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(statement)}. Leave it out.`);
+        addStep("carried_state", `The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
       }
     }
     for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
@@ -3348,7 +3382,7 @@ export function finalizeResearch(
     // On a conversation's first turn the user has seen no answer yet, so a claim of the plain answer registered before
     // the research was never shown as one; plain_answer_comparison records what the research changed in it (the 23 Oct
     // regressions l26, l48 and l49 author reply "corrected" it, and l48 asked the user to approve a bug report about it).
-    if (plainAnswer?.status === "registered" && input.carried_state === undefined) {
+    if (plainAnswer?.status === "registered" && firstTurn) {
       for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
         if (plainAnswer.claims.includes(plainAnswerClaimDigest(retracted))) {
           addStep("declaration", `corrections[${index}] takes back a claim of the plain answer written before this ` +
@@ -3417,12 +3451,10 @@ export function finalizeResearch(
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
   const checkRound = nextSteps.length === 0 ? undefined : advanceCheckRound(
-    nextSteps.map((text, index) => ({ kind: stepKinds[index]!, text })),
+    checkSteps,
     {
-      token: input.round_token,
-      secret: options.secret,
-      bind: roundBinding(input.carried_state, input.research_target),
-      now: options.now?.() ?? new Date()
+      ...roundOptions,
+      call: callRound
     }
   );
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
@@ -3475,9 +3507,9 @@ export function finalizeResearch(
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard
   };
-  if (status === "ready") output.check_line = "Checked with AskRigor's final check.";
+  if (status === "ready") output.check_line = CHECK_LINE;
   else if (status === "ready_with_limits") {
-    output.check_line = "Checked with AskRigor's final check, with the limits above.";
+    output.check_line = LIMITED_CHECK_LINE;
   } else if (checkRound === undefined) output.unchecked_line = uncheckedLine(stepKinds);
   else {
     // A stopped check's research the next turn can do is unfinished; the research it could not do kept failing.
@@ -3488,7 +3520,6 @@ export function finalizeResearch(
     output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
     const entry = ({ kind, text }: CheckStep) => ({ kind, step: text });
     if (checkRound.status === "open") {
-      output.round_token = checkRound.token;
       if (checkRound.stuck.length > 0) output.stuck_steps = checkRound.stuck.map(entry);
     } else {
       const reasons = output.unchecked_line.slice(UNCHECKED_LINE_START.length).replace(/^: /u, "").replace(/\.$/u, "");
@@ -3504,8 +3535,8 @@ export function finalizeResearch(
   }
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
   // after it went out unchecked, which only the model knows, so the result says so and the model says what changed.
-  if (carried?.last_status === "not_ready") {
-    output.previous_check = { status: "not_ready", open: carried.open_kinds ?? [] };
+  if (previousOpen !== undefined) {
+    output.previous_check = { status: "not_ready", open: previousOpen };
   }
   if (plainAnswer !== undefined) {
     const note = options.plainAnswer?.note !== false;
@@ -3515,7 +3546,7 @@ export function finalizeResearch(
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
-    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared);
+    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
   }
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
@@ -3565,10 +3596,14 @@ export function finalizeResearch(
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
     status: status === "stopped" ? "not_ready" : status,
     open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
-    caveats
+    caveats, turn: callRound.turn, firstTurn,
+    ...(previousOpen === undefined ? {} : { previousOpen })
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
   else if (carry !== undefined) Object.assign(output, carry);
+  if (checkRound?.status === "open") {
+    output.round_token = checkRound.token;
+  }
   return finalizeResearchOutputSchema.parse(output);
 }
 
@@ -3869,6 +3904,23 @@ function answerDraftProblems(
   const renderingOf = new Map(translated
     ? context.renderings.map(({ caveat, text }) => [caveatForm(caveat), text] as const)
     : []);
+  const collapsed = detailsProse(draft).map((block) => caveatText(linkTargets(block)));
+  const insideDetails = (sentence: string): boolean => {
+    const form = caveatForm(sentence);
+    return /[\p{L}\p{N}]/u.test(form) && collapsed.some((block) => block.includes(form));
+  };
+  const hiddenCaveats = context.caveats.flatMap((caveat) => {
+    const rendering = renderingOf.get(caveatForm(caveat));
+    return [caveat, ...(rendering === undefined ? [] : [rendering])].filter(insideDetails);
+  });
+  if (hiddenCaveats.length > 0) {
+    problems.push("Move these caveat sentences out of the <details> block so they are visible without expanding it: " +
+      [...new Set(hiddenCaveats)].map((sentence) => JSON.stringify(sentence)).join(" "));
+  }
+  if ([CHECK_LINE, LIMITED_CHECK_LINE, UNCHECKED_LINE_START].some(insideDetails)) {
+    problems.push("Move the check line or unchecked line out of the <details> block so its full sentence is visible " +
+      "without expanding it.");
+  }
   const unlinked: string[] = [];
   const missingCaveats = context.caveats.filter((caveat) => {
     if (statesCaveat(blocks, caveat)) return false;
@@ -4201,17 +4253,36 @@ function quotation(text: string): string {
 }
 
 /**
- * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, then what
+ * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, unless it
+ * holds a figure the checked draft does not show (26 Oct regressions, finding 5); then a fixed sentence, worded for
+ * the claim's outcome, replaces that claim's words. The shared number comparison handles digits in any script. Each
+ * claim is followed by what
  * the research found, with the answer's own sentence and what backs a change, for example "Without AskRigor, a quick
  * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
  */
-function plainAnswerNote(compared: readonly ComparedClaim[]): string {
+// What replaces a claim whose figures the checked draft does not show, by the claim's outcome.
+const FIGURES_NOT_SHOWN: Readonly<Record<PlainAnswerOutcome, string>> = {
+  confirmed: "given figures that the answer above does not repeat.",
+  corrected: "given figures this research does not support.",
+  qualified: "given figures this research does not support.",
+  not_checked: "given figures this research did not check."
+};
+
+function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
+  const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
   return compared.map(({ claim, outcome, quote, work }, index) => {
-    const said = `${index === 0 ? "Without AskRigor, a quick answer would have said:" : "It would also have said:"} ` +
-      quotation(claim);
-    if (outcome === "not_checked") return `${said} This research did not check that.`;
+    const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
+    const figuresNotShown = extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
+    const said = figuresNotShown ? `${lead} ${FIGURES_NOT_SHOWN[outcome]}` : `${lead} said: ${quotation(claim)}`;
+    if (outcome === "not_checked") return figuresNotShown ? said : `${said} This research did not check that.`;
+    // Only a confirmation may come without the answer's sentence: "that, from ..." with no quote after it reads as
+    // unfinished (q132 of 25 Oct), so the basis follows "it".
+    if (quote === undefined) {
+      return work === undefined ? `${said} This research ${outcome} that.`
+        : `${said} This research ${outcome} it, from ${verifiedWorkPhrase(work)}.`;
+    }
     const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
-    return `${said} This research ${outcome} that${from}${quote === undefined ? "." : `: ${quotation(quote)}`}`;
+    return `${said} This research ${outcome} that${from}: ${quotation(quote)}`;
   }).join(" ");
 }
 
@@ -4342,6 +4413,10 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
   NO_DOI: [
     "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
     "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
+  ],
+  NO_KNOWN_DOI: [
+    "AskRigor could not fetch the full text of {links}: its full-text tool requires a DOI and none was known",
+    "AskRigor could not fetch the full texts of {links}: its full-text tool requires a DOI and none was known"
   ],
   ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
   PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
@@ -5173,7 +5248,8 @@ function communityCoverage(
         search.access_boundary !== "not_found") {
       out.requireDeclaration(
         `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
-          "forum, group or site link), so it is known by its site rather than its name."
+          "forum, group or site link), so it is known by its site rather than its name; or record access_boundary " +
+          "not_found when no site by that name could be found."
       );
       continue;
     }
@@ -5447,7 +5523,7 @@ function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
   depth: "first_pass" | "deep"
-): { saturated: boolean; nextSteps: string[]; rateLimited: number } {
+): { saturated: boolean; nextSteps: string[]; rateLimited: number; deferUntilNextTurn?: boolean } {
   const stop = depth === "first_pass"
     ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
     : "";
@@ -5464,6 +5540,7 @@ function discoverySaturation(
     return {
       saturated: false,
       rateLimited,
+      deferUntilNextTurn: rateLimited > 0,
       nextSteps: [
         `${incomplete} search(es) in the latest discovery rounds did not complete` +
           (rateLimited > 0
@@ -5531,7 +5608,8 @@ function recordVideoAudit(
   video: string,
   state: string,
   lock: string,
-  records: number
+  records: number,
+  identifierBoundaryRecords?: number
 ): void {
   if (video.length === 0 || !TERMINAL_VIDEO_STATES.has(state)) return;
   const previous = audited.get(video);
@@ -5539,7 +5617,9 @@ function recordVideoAudit(
   // audit can find them deleted); a complete audit supersedes a bounded one.
   const read = Math.max(previous?.records ?? 0, Number.isSafeInteger(records) ? records : 0);
   if (previous === undefined || previous.state !== "api_visible_complete") {
-    audited.set(video, { state, lock, records: read });
+    audited.set(video, { state, lock, records: read,
+      ...(Number.isSafeInteger(identifierBoundaryRecords) && identifierBoundaryRecords! >= 0
+        ? { identifierBoundaryRecords } : {}) });
   } else {
     audited.set(video, { ...previous, records: read });
   }

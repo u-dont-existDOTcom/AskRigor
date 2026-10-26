@@ -126,6 +126,75 @@ describe("finalize_research compares the answer with the plain answer registered
       `It would also have said: “${claims[1]}” This research did not check that.`);
   });
 
+  it("completes a confirmation with evidence even when no answer quote was supplied", () => {
+    const result = check({ plain_answer_comparison: [
+      { claim: CLAIMS[0]!, outcome: "confirmed", sources: [DOI] },
+      COMPARISON[1]!
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.plain_answer_note).toContain("This research confirmed it, from a full-text audit of 1 study.");
+    expect(result.plain_answer_note).not.toContain("that,");
+    // Corrections and qualifications still need their checked answer quote, so neither emits an unfinished note.
+    for (const outcome of ["corrected", "qualified"] as const) {
+      const missing = check({ plain_answer_comparison: [
+        { claim: CLAIMS[0]!, outcome, sources: [DOI] }, COMPARISON[1]!
+      ] });
+      expect(missing.status).toBe("not_ready");
+      expect(missing).not.toHaveProperty("plain_answer_note");
+    }
+  });
+
+  it("does not reprint a quick-answer claim containing a figure absent from the checked draft", () => {
+    const claim = "Responders were 90.3% versus 24.2%, a difference of 66.1 points and a ratio of 3.73.";
+    const changed = "The research did not establish responder rates for this comparison.";
+    const fixedFor = {
+      confirmed: "Without AskRigor, a quick answer would have given figures that the answer above does not repeat.",
+      corrected: "Without AskRigor, a quick answer would have given figures this research does not support.",
+      qualified: "Without AskRigor, a quick answer would have given figures this research does not support.",
+      not_checked: "Without AskRigor, a quick answer would have given figures this research did not check."
+    } as const;
+    for (const outcome of ["confirmed", "corrected", "qualified", "not_checked"] as const) {
+      const fixed = fixedFor[outcome];
+      const result = check({
+        receipts: [plainReceipt(1_000, [claim]), audit()],
+        answer_draft: `${LINK}\n\n${changed}`,
+        plain_answer_comparison: [{ claim, outcome, ...(outcome === "not_checked" ? {} : {
+          answer_quote: changed, sources: [DOI]
+        }) }]
+      });
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.plain_answer_note).toContain(fixed);
+      for (const figure of ["90.3", "24.2", "66.1", "3.73"]) expect(result.plain_answer_note).not.toContain(figure);
+      expect(result.plain_answer_note).not.toContain(claim);
+      if (outcome !== "not_checked") {
+        expect(result.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study: “${changed}”`);
+      } else expect(result.plain_answer_note).toBe(fixed);
+    }
+  });
+
+  it("compares quick-answer figures exactly using the shared Unicode number comparison", () => {
+    const claim = "The measured result was １２,５%.";
+    const noteFor = (answer: string) => check({
+      receipts: [plainReceipt(1_000, [claim]), audit()], answer_draft: `${LINK}\n\n${answer}`,
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: answer, sources: [DOI] }]
+    });
+    const matching = noteFor("The measured result was 12.5%, with uncertainty.");
+    expect(matching.status).toBe("ready_with_limits");
+    expect(matching.plain_answer_note).toContain(`“${claim}”`);
+    const different = noteFor("The measured result was 112.5%, with uncertainty.");
+    expect(different.status).toBe("ready_with_limits");
+    expect(different.plain_answer_note).not.toContain(claim);
+    // A number hidden in a link destination is not a figure the checked answer gives its reader.
+    expect(noteFor("The [result](https://example.com/12.5) has uncertainty.").plain_answer_note).not.toContain(claim);
+    const codeClaim = "The measured result was `90.3%`.";
+    const codeResult = check({
+      receipts: [plainReceipt(1_000, [codeClaim]), audit()],
+      plain_answer_comparison: [{ claim: codeClaim, outcome: "not_checked" }]
+    });
+    expect(codeResult.status).toBe("ready_with_limits");
+    expect(codeResult.plain_answer_note).not.toContain("90.3");
+  });
+
   it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
     const result = check({ plain_answer_comparison: undefined });
     expect(result.status).toBe("not_ready");
@@ -212,15 +281,32 @@ describe("finalize_research compares the answer with the plain answer registered
   // user had not been shown, and l48 then asked the user to approve a bug report about one.
   it("refuses a correction of a plain-answer claim on the first turn, where no answer was shown before", () => {
     const fixed = "A daily dose of 1,000 IU is not enough for everyone; trials used 400 to 4,000 IU.";
-    const result = check({
+    const correction = {
       answer_draft: `${LINK}\n\n${CORRECTED} ${fixed}`,
       corrections: [{ retracted: CLAIMS[1]!, change: fixed, by_user: false }],
       plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "corrected", answer_quote: fixed }]
-    });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain("corrections[0] takes back a claim of the plain answer written before this " +
+    } satisfies Partial<FinalizeResearchInput>;
+    const result = check(correction);
+    const problem = "corrections[0] takes back a claim of the plain answer written before this " +
       "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records what " +
-      "the research changed.");
+      "the research changed.";
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toContain(problem);
+    expect(result.carried!.first_turn).toBe(true);
+    const withinTurn = check({ ...correction, carried_state: result.carry_forward, round_token: result.round_token });
+    expect(withinTurn.round?.number).toBe(2);
+    expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
+    expect(withinTurn.next_steps).toContain(problem);
+    // A new turn passes the earlier state's token without the round token: that claim may have been shown.
+    const later = check({ ...correction, carried_state: result.carry_forward });
+    expect(later.status).toBe("ready_with_limits");
+    expect(later.next_steps).not.toContain(problem);
+    expect(later.carried!.first_turn).toBe(false);
+    // An unverifiable state remains a later turn, and gets no replacement, as before.
+    const invalid = check({ ...correction, carried_state: "invalid", round_token: result.round_token });
+    expect(invalid.next_steps.join("\n")).toContain("carried_state does not verify");
+    expect(invalid.next_steps).not.toContain(problem);
+    expect(invalid.carry_forward).toBeUndefined();
   });
 
   it("gives no note, and holds nothing back, without this account's plain answer registered before this research", () => {

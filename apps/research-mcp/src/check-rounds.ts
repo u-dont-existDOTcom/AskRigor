@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 import type { NextStepKind } from "./next-step-kinds.js";
@@ -8,8 +8,9 @@ import type { NextStepKind } from "./next-step-kinds.js";
  * back unchanged three rounds running is stuck, so the check stops asking for it and counts it as a reason. When the
  * limit is reached, or every step left is stuck, the check stops and gives a final result, which says why it did not
  * pass. A not-ready result gives a signed round token that the next call in the same turn passes back, so the server
- * keeps no state. The token is bound to the call's carried state and research target, so a later turn, whose carried
- * state differs, starts again at round 1, and it lapses two hours after the round that issued it.
+ * keeps no state. The v2 token binds only the research target and carries a random turn id, independent of carried
+ * state; a later turn passes no round token and starts at round 1 with a new turn id.
+ * It lapses two hours after the round that issued it.
  *
  * "Unchanged" is exact: a step is the same step when its kind and text are the same.
  */
@@ -23,9 +24,10 @@ const CLOCK_SKEW_MS = 60_000;
 
 const digestSchema = z.string().regex(/^[0-9a-f]{16}$/u);
 const roundStateSchema = z.object({
-  v: z.literal(1),
+  v: z.literal(2),
   n: z.number().int().min(1).max(CHECK_ROUND_LIMIT),
   bind: z.string().regex(/^[0-9a-f]{32}$/u),
+  turn: z.string().regex(/^[0-9a-f]{16}$/u),
   at: z.iso.datetime(),
   steps: z.array(z.tuple([digestSchema, z.number().int().min(1).max(CHECK_ROUND_LIMIT)])).max(MAX_TRACKED_STEPS),
   stuck: z.array(digestSchema).max(MAX_TRACKED_STEPS)
@@ -35,15 +37,17 @@ type RoundState = z.output<typeof roundStateSchema>;
 export interface CheckStep {
   kind: NextStepKind;
   text: string;
+  /** The generating tool's limit cannot reset during this turn. Never inferred from the step's prose. */
+  deferUntilNextTurn?: boolean;
 }
 
 export type RoundOutcome =
   | { status: "open"; round: number; token: string; open: CheckStep[]; stuck: CheckStep[] }
   | { status: "stopped"; round: number; reason: "limit" | "stuck"; couldNot: CheckStep[]; nextTurn: CheckStep[] };
 
-/** What a round token is bound to: the call's carried state and research target. */
-export function roundBinding(carriedState: string | undefined, researchTarget: string | undefined): string {
-  return createHash("sha256").update(`${carriedState ?? ""}\u0000${researchTarget ?? ""}`, "utf8")
+/** What a round token is bound to: the research target only. */
+export function roundBinding(researchTarget: string | undefined): string {
+  return createHash("sha256").update(researchTarget ?? "", "utf8")
     .digest("hex").slice(0, 32);
 }
 
@@ -52,12 +56,12 @@ function digestOf(kind: NextStepKind, text: string): string {
 }
 
 function mac(body: string, secret: string): Buffer {
-  const key = createHmac("sha256", secret).update("askrigor check round v1").digest();
+  const key = createHmac("sha256", secret).update("askrigor check round v2").digest();
   return createHmac("sha256", key).update(body).digest().subarray(0, 16);
 }
 
 function issueRoundToken(state: RoundState, secret: string): string {
-  const body = `cr1~${Buffer.from(JSON.stringify(roundStateSchema.parse(state))).toString("base64url")}`;
+  const body = `cr2~${Buffer.from(JSON.stringify(roundStateSchema.parse(state))).toString("base64url")}`;
   return `${body}~${mac(body, secret).toString("base64url")}`;
 }
 
@@ -65,7 +69,7 @@ function issueRoundToken(state: RoundState, secret: string): string {
 function verifyRoundToken(token: string | undefined, secret: string, bind: string, now: Date): RoundState | undefined {
   if (token === undefined || token.length > ROUND_TOKEN_MAX_CHARACTERS) return undefined;
   const parts = token.split("~");
-  if (parts.length !== 3 || parts[0] !== "cr1" || !/^[A-Za-z0-9_-]+$/u.test(parts[1]!) ||
+  if (parts.length !== 3 || parts[0] !== "cr2" || !/^[A-Za-z0-9_-]+$/u.test(parts[1]!) ||
       !/^[A-Za-z0-9_-]{22}$/u.test(parts[2]!)) return undefined;
   const body = `${parts[0]}~${parts[1]}`;
   const signature = Buffer.from(parts[2]!, "base64url");
@@ -81,18 +85,32 @@ function verifyRoundToken(token: string | undefined, secret: string, bind: strin
   }
 }
 
+export interface CheckRound {
+  turn: string;
+  previous?: RoundState;
+}
+
+/** Read every call's turn, including a check that passes; only a verified round token continues a turn. */
+export function readCheckRound(token: string | undefined, options: {
+  secret: string; bind: string; now: Date;
+}): CheckRound {
+  const previous = verifyRoundToken(token, options.secret, options.bind, options.now);
+  return previous === undefined ? { turn: randomBytes(8).toString("hex") } : { turn: previous.turn, previous };
+}
+
 /**
  * One round of a check that did not pass. `wholeList` counts the steps as one unit, for the invalid-input result,
- * whose first line is a heading that repeats while the problems under it change.
+ * whose first line is a heading that repeats while the problems under it change. Every issued token keeps the
+ * call's turn, whether or not the call passed carried state.
  */
 export function advanceCheckRound(steps: readonly CheckStep[], options: {
-  token: string | undefined;
+  call: CheckRound;
   secret: string;
   bind: string;
   now: Date;
   wholeList?: boolean;
 }): RoundOutcome {
-  const previous = verifyRoundToken(options.token, options.secret, options.bind, options.now);
+  const previous = options.call.previous;
   const round = Math.min((previous?.n ?? 0) + 1, CHECK_ROUND_LIMIT);
   const counts = new Map(previous?.steps ?? []);
   const stuckBefore = new Set(previous?.stuck ?? []);
@@ -120,7 +138,7 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
     // refreshes. Everything else is what AskRigor could not do this turn: a step that kept coming back, or, at the
     // limit, a declaration, draft or record the AI and the check could not settle in ten rounds.
     const nextTurn = (step: CheckStep, wasStuck: boolean) =>
-      step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
+      step.deferUntilNextTurn === true || step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
     return {
       status: "stopped",
       round,
@@ -129,15 +147,18 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
       nextTurn: [...stuck.filter((step) => nextTurn(step, true)), ...open.filter((step) => nextTurn(step, false))]
     };
   }
-  const token = issueRoundToken({
-    v: 1,
+  const state: RoundState = {
+    v: 2,
     n: round,
     bind: options.bind,
+    turn: options.call.turn,
     at: options.now.toISOString(),
     steps: [...nextCounts].slice(0, MAX_TRACKED_STEPS),
     stuck: [...stuckDigests].slice(-MAX_TRACKED_STEPS)
-  }, options.secret);
-  return { status: "open", round, token, open, stuck };
+  };
+  return {
+    status: "open", round, open, stuck, token: issueRoundToken(state, options.secret)
+  };
 }
 
 const KIND_WORDS: Record<NextStepKind, string> = {

@@ -1,4 +1,4 @@
-# Production release, 2026-10-25 evening (security updates; votes and comments on; the sign-in fix)
+# Production releases, 25 and 26 October (security updates; votes and comments on; the sign-in fix; card 12's move and the signed-in pages)
 
 - **Owner decisions:** "177a 178a" (read at 20:52 UTC on 25 Oct, owner questions page). 177a: the Atlas app's client
   secret goes to the server from a file the owner saved, moved by a script without anyone seeing it, and votes and
@@ -64,3 +64,17 @@
   - **During the regression run:** the restart at 23:10:05 UTC fell within the owner's regression run (started 22:12);
     the judgment checks the cases running then and reruns any it disturbed. The tool list is unchanged, so the
     ChatGPT app's copy stays current.
+
+## Card 12's move and the Atlas's signed-in pages (#374), on owner answer 181a (26 Oct)
+
+- **Decision:** 181a ("ok sure", read at 00:13 UTC on 26 Oct): release the next build when the owner's regression run
+  ends, so its remaining cases are not told the app's tools changed. The run ended at 04:43:20 UTC.
+- **Contents:** owner answer 179a (`move_youtube_findings` holds a stored card whose findings all rest on YouTube
+  comments with no card, then tombstones and locks the issue) and the Atlas's signed-in pages (the header's "Sign in"
+  or "Your account", the notices on every page, `/atlas/account`, uncached signed-in pages, plain rate-limit and outage
+  pages), with the release records of 25 October. The review tool's description and output schema change, so the tool
+  list version changes and connected apps are asked to refresh.
+- **Source:** #374 passed all seven checks on `2db2c5f0` and merged as `997cb4269815247f3a0d3699c6025ac643907524` onto main `7621883d`; the merge tree equals the PR head tree. Tests: card 12's move on `311112f2` (`npm run verify` 4,829, PostgreSQL acceptance 84) and the signed-in pages on `2db2c5f0` (`npm run verify` 4,843, PostgreSQL acceptance 84, `test:site`).
+- **Image:** ID `sha256:24d04a9460dc3bbc16bbe8fb1f565d6cc5ee9009138c93e62a145dc86af7a3a0`; source archive `218630e1d14afb64...`; image archive `4864be9fe74c21d9...`, 124,209,412 bytes; the no-secret candidate passed.
+- **Stages:** stage B as for #372 (migrate unchanged, both roles' rights exact, only the build line; `pg_dump` 4,978,953 bytes, `63f7b0c7be50e132...`; rollback folder `pre-997cb4269815247f3a0d3699c6025ac643907524`, prior image tagged `askrigor-research:rollback-pre-997cb4269815`); `research-mcp` recreated at 04:52:08 UTC, healthy, after the regression run had ended; stage C passed (version and build, 33 tools, the pages and the sign-in redirect, the probes with participation configured, the promotion run and the timer). Live: every page's header offers "Sign in", and `/atlas/account` answers. The Codex plugin still equals the release's packaged files.
+- **After:** card 12's move, asked of the session that moved cards 7 and 209 (its connector loads the release's tool list); the owner refreshes the ChatGPT app for the new tool list; `l31-dose-changed-switch`, disturbed by the 23:10:05 restart, is rerun.

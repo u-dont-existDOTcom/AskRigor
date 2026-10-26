@@ -27,7 +27,7 @@ describe("conversation state carried between final checks", () => {
   });
   it("names a dropped observation, caps those steps at ten, and accepts a withdrawn observation with its caveat", () => {
     const token = check({ user_observations: [observation] }).carry_forward;
-    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn: keep it, marked withdrawn or uncertain if its source took it back.`);
+    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
     const withdrawn = check({ carried_state: token, user_observations: [{ ...observation, response: "withdrawn" }] });
     expect(withdrawn.next_steps.join("\n")).not.toContain("user_observations leaves out");
     expect(withdrawn.caveats).toContain(`A report its source has taken back: ${observation.observation}. It counts neither for nor against an effect.`);
@@ -50,7 +50,7 @@ describe("conversation state carried between final checks", () => {
   it("rejects an earlier retracted statement except inside this call's own change sentence", () => {
     const wrong = "The rate was 40%.";
     const token = check({ corrections: [{ retracted: wrong, change: "The rate is corrected.", by_user: false }] }).carry_forward;
-    expect(carriedSteps({ carried_state: token, answer_draft: `## ${wrong}` })).toContain(`The answer repeats a statement taken back in an earlier turn: ${JSON.stringify(wrong)}. Leave it out.`);
+    expect(carriedSteps({ carried_state: token, answer_draft: `## ${wrong}` })).toContain(`The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(wrong)}. Leave it out.`);
     const change = `Earlier I said ${wrong} That is taken back.`;
     expect(carriedSteps({ carried_state: token, answer_draft: change, corrections: [{ retracted: wrong, change, by_user: false }] })).toEqual([]);
     expect(carriedSteps({ carried_state: token, answer_draft: `${change}\n\n${wrong}`, corrections: [{ retracted: wrong, change, by_user: false }] }).join("\n")).toContain("repeats a statement");
@@ -78,7 +78,7 @@ describe("conversation state carried between final checks", () => {
       .toContain("corrections[0] takes back words of the check's own caveat");
     const other = issueCarriedState({ ...declared.carried!, retracted: ["The rate was 40%."] }, { secret: SECRET })!;
     expect(carriedSteps({ carried_state: other, proposed_tests: [unblinded], answer_draft: `${draft}\n\nThe rate was 40%.` }))
-      .toContain('The answer repeats a statement taken back in an earlier turn: "The rate was 40%.". Leave it out.');
+      .toContain('The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.');
   });
   it("keeps the latest twelve distinct retracted statements truncated to 200 characters", () => {
     const first = check({ corrections: Array.from({ length: 10 }, (_, i) => ({ retracted: `${i} ${"甲".repeat(250)}`, change: "Changed.", by_user: false })) });
@@ -104,7 +104,37 @@ describe("conversation state carried between final checks", () => {
     expect(check({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true }).carried!.primary_outcome).toBe("Another goal");
     expect(carriedSteps({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true })).toEqual([]);
     const result = check({ carried_state: token, primary_outcome: "Explain why", principal_communities: [{ name: "YouTube", platform: "youtube" }] });
-    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named in an earlier turn: keep it with named_by_user, or record why it is not searched."); expect(result.carried!.named_communities).toContain("r/Example");
+    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched."); expect(result.carried!.named_communities).toContain("r/Example");
+  });
+  it("describes all six continuity steps as earlier in the conversation, including this turn's state", () => {
+    const first = check({
+      user_observations: [observation], rejected_options: ["Option A"], primary_outcome: "Explain why",
+      principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }],
+      corrections: [{ retracted: "The rate was 40%.", change: "Corrected.", by_user: false }],
+      proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }]
+    });
+    const current = {
+      carried_state: first.carry_forward, round_token: first.round_token,
+      principal_communities: [{ name: "YouTube", platform: "youtube" as const }],
+      answer_draft: "The rate was 40%."
+    };
+    const steps = carriedSteps(current);
+    expect(steps).toEqual([
+      `user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`,
+      "rejected_options leaves out Option A, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.",
+      'Give primary_outcome: the user\'s main goal carried from earlier in this conversation is "Explain why".',
+      "principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.",
+      'The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.'
+    ]);
+    expect(carriedSteps({ ...current, primary_outcome: "Another goal" })).toContain(
+      'primary_outcome differs from the main goal carried from earlier in this conversation ("Explain why"): keep it, or set primary_outcome_changed if the user changed it.'
+    );
+    // The existing way out of each step still closes it.
+    expect(carriedSteps({
+      carried_state: first.carry_forward, round_token: first.round_token, user_observations: [observation],
+      reopened: ["Option A"], primary_outcome: "Another goal", primary_outcome_changed: true,
+      principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }]
+    })).toEqual([]);
   });
   it("returns no carry without the receipt secret and never puts it into the finalization receipt", () => {
     expect(finalizeResearch(base(), { secret: undefined })).not.toHaveProperty("carry_forward");
@@ -129,6 +159,19 @@ describe("carried-state ledger at its size limit", () => {
 });
 
 describe("carried-state token bounds and authentication", () => {
+  it("round-trips the optional turn fields without changing cs1 or the size limit", () => {
+    const state: CarriedState = {
+      ...maximumState((length) => "甲".repeat(length)), turn: "0123456789abcdef", first_turn: false,
+      previous_open: ["input_invalid", "receipt_rejected", "research", "declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]
+    };
+    const token = issueCarriedState(state, { secret: SECRET })!;
+    expect(token).toMatch(/^cs1~/u);
+    expect(token.length).toBeLessThanOrEqual(48_000);
+    expect(verifyCarriedState(token, { secret: SECRET })).toEqual({ ok: true, state });
+    for (const turn of ["0123456789ABCDEf", "0123456789abcde", "0123456789abcdef0"]) {
+      expect(() => issueCarriedState({ ...state, turn }, { secret: SECRET })).toThrow();
+    }
+  });
   it("round-trips every field at its limit in varied three-byte UTF-8 characters within 48000 characters", () => {
     let seed = 17;
     const text = (length: number) => Array.from({ length }, () => { seed = (seed * 1664525 + 1013904223) >>> 0; return String.fromCharCode(0x4e00 + seed % 20000); }).join("");
@@ -162,7 +205,11 @@ describe("observation, test and correction declarations (109)", () => {
   it("requires both declarations with a draft and keeps their limits strict", () => {
     const input = base(); delete input.user_observations; delete input.proposed_tests;
     expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("user_observations is missing:");
-    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("proposed_tests is missing:");
+    const wording = "which attempt in user_observations it repeats (its index in repeats, left out if none)";
+    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain(
+      `proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, ${wording}`);
+    expect(finalizeResearchInputSchema.shape.proposed_tests.description).toContain(wording);
+    expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: false as never, blinded: true }] })).success).toBe(false);
     expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: null as never, blinded: true }] })).success).toBe(false);
     expect(finalizeResearchInputSchema.safeParse(base({ user_observations: [{ ...observation, observation: "甲".repeat(201) }] })).success).toBe(false);
   });

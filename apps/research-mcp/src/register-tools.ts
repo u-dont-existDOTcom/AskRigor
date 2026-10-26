@@ -1741,6 +1741,8 @@ function defineResearchOperations(
             ...productIdentityClaims(input.product_identity === undefined ? undefined : productIdentitySchema.parse(input.product_identity), [{ video_id: result.video_id, product_class: result.product_class }]),
             state: result.receipt.completion_state,
             lock: result.receipt.synthesis_lock,
+            ...(result.error?.code === "youtube_video_audit_identifier_membership_boundary"
+              ? { boundary: "identifier_membership" } : {}),
             records: result.records_retrieved_cumulative,
             shown: returned.shown,
             // The audit's depth, so the coverage check needs no copy of it.
@@ -1803,7 +1805,7 @@ function defineResearchOperations(
         ret: view.records_returned_for_analysis,
         rtop: view.top_level_records_returned_for_analysis,
         rrep: view.reply_records_returned_for_analysis
-      }));
+      }), result.error?.code === "youtube_video_audit_identifier_membership_boundary");
     }
   );
 
@@ -2298,10 +2300,10 @@ function defineResearchOperations(
         "each key study, and the caveats, " +
         "and is not stored; once the other checks pass, a second model may read the answer for harm " +
         "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +
-        "in a later turn, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
+        "in this turn or a later one, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; " +
         "and after a not_ready result in this turn, its round_token. Result: " +
         "second_reading, whether it ran; " +
-        "carry_forward, the conversation's state to pass back next turn; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
+        "carry_forward, the conversation's state to pass back in this turn or a later one; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh " +
         "hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given " +
         "before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, " +
         `and steps that came back unchanged ${STUCK_AFTER_ROUNDS} rounds running, which it stopped asking for ` +
@@ -2511,7 +2513,7 @@ function defineResearchOperations(
               ".") +
           (result.carry_forward === undefined
             ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
-            : `\nPass this as carried_state in this conversation's next finalize_research call: ${result.carry_forward}`) +
+            : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
           (result.round_token === undefined || result.round === undefined ? "" :
             `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +
@@ -3046,7 +3048,8 @@ function receiptSequence(): number {
  * Adds the receipt to a result. An error result carries none, except where
  * `signsError` asks for it: a discovery round's, as a search a rate limit or
  * the daily quota stopped is signed with that limit, which keeps discovery
- * open; and a video extract_youtube_video_claims did not read (AskRigor#359).
+ * open; a terminal identifier-membership boundary's bounded video audit; and a
+ * video extract_youtube_video_claims did not read (AskRigor#359).
  */
 function withResearchReceipt(
   result: CallToolResult,
@@ -3895,8 +3898,9 @@ function youtubeVideoCommunityAuditFailure(
     ...(identityError?.product_class === undefined ? {} : { product_class: identityError.product_class }),
     analysis_limit: snapshot?.analysis_limit ?? parsed.analysis_limit ?? 500,
     segment_index: snapshot?.segment_index ?? 0,
-    metadata_access_status: "error",
-    metadata_error: error,
+    ...(identifierBoundary?.channel_id === undefined
+      ? { metadata_access_status: "error", metadata_error: error }
+      : { metadata_access_status: "api_visible_complete", channel_id: identifierBoundary.channel_id }),
     ...(snapshot?.provider_reported_comments === undefined
       ? {}
       : { provider_reported_comments: snapshot.provider_reported_comments }),
