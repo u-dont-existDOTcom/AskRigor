@@ -23,6 +23,8 @@ complete XML protocol.
 
 ## Validation and release
 
+- `forum-outlier-and-reddit-retrieval-playbook.md`: source-checked operational reference for strict outcome/dose/duration admission of forum cases and portable ChatGPT-native-web / connected-scraper Reddit retrieval fallbacks. It is not a deployed protocol or a substitute for the canonical `FORUM_SIGNAL_MODULE.md`.
+
 - `askrigor-strict-runner.md`: personal local Codex runner enforcing a passing
   AskRigor final check against the exact displayed draft, bounded fixes,
   restricted tools, and private continuation state
