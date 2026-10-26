@@ -11,7 +11,8 @@ import {
 
 afterEach(closeAtlasServers);
 
-const PATHS = ["/atlas", "/atlas/changes", "/atlas/topics/velmor-syndrome", "/atlas/findings/P-1001"];
+const PATHS = ["/atlas", "/atlas/changes", "/atlas/topics/velmor-syndrome", "/atlas/findings/P-1001",
+  "/atlas/findings", "/atlas/topics"];
 const header = (body: string) => body.slice(body.indexOf("<header"), body.indexOf("</header>") + "</header>".length);
 const AT = "2026-10-26T00:00:00.000Z";
 
@@ -26,6 +27,30 @@ async function namedReader(f: Awaited<ReturnType<typeof fixture>>, name = "Ana")
 }
 
 describe("the Atlas header and shared cache", () => {
+  it("keeps search identical with and without a signed-in cookie, and reads no participant", async () => {
+    let sessionChecks = 0;
+    const f = await fixture({ wrapStore: (store) => new Proxy(store, {
+      get(target, property, receiver) {
+        const value = Reflect.get(target, property, receiver);
+        if (property === "sessionCurrent" || property === "inspectParticipant") {
+          return (...args: unknown[]) => { sessionChecks += 1; return value.apply(target, args); };
+        }
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) });
+    const cookie = await namedReader(f, "SEARCHNAMESENTINEL");
+    sessionChecks = 0;
+    const plain = await f.get("/atlas/search?q=velmor");
+    const signed = await f.get("/atlas/search?q=velmor", cookie);
+    expect(signed.body).toBe(plain.body);
+    expect(signed.body).not.toContain("SEARCHNAMESENTINEL");
+    expect(signed.body).not.toContain("Your account");
+    expect(signed.body).toContain(">Sign in</a>");
+    expect(signed.body).not.toContain('name="csrf"');
+    expect(signed.response.headers.get("cache-control")).toBe("private, no-store");
+    expect(signed.response.headers.getSetCookie()).toEqual([]);
+    expect(sessionChecks).toBe(0);
+  });
   it("offers sign-in returning to each public page, and caches no reader's name or form token", async () => {
     const f = await fixture();
     const session = await namedReader(f, 'Ana <& "ابن');
@@ -153,7 +178,7 @@ describe("Your account", () => {
       expectPageHeaders(page.response);
       if (cookie === undefined) {
         expect(page.body).toContain(`href="${f.base}/atlas/auth/login?return=%2Fatlas%2Faccount"`);
-        expect(page.body).not.toContain("<form");
+        expect(page.body).not.toContain('method="post"');
         expect(page.response.headers.getSetCookie()).toEqual([]);
       } else {
         expect(header(page.body)).toContain('href="/atlas/account" aria-current="page">Your account</a>');

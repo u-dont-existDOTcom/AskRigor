@@ -25,8 +25,10 @@ import {
   announcingPublicationStore,
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
-import { NOT_CHECKED_LABEL, sourceIdentifierOf } from "../apps/research-mcp/src/atlas/page-data.js";
-import { ATLAS_CSS, atlasPageProblems, escapeHtml, percent, sourceLink } from "../apps/research-mcp/src/atlas/pages.js";
+import { NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasTopics, loadAtlasTopic,
+  type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { ATLAS_CSS, atlasPageProblems, escapeHtml, percent, sourceLink, renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
+import { atlasSearchQuery, atlasSearchWords } from "../apps/research-mcp/src/atlas/search.js";
 import {
   ATLAS_PAGE_HEADERS,
   AtlasPageCache,
@@ -493,7 +495,8 @@ describe("the finding pages", () => {
       }
       // No account, contributor, chat, surface, model or YouTube, in any case.
       expect(body, path).not.toMatch(/youtu|claude|chatgpt|\bgpt\b|contributor|account|\bchat\b|model|surface/iu);
-      expect(body, path).not.toMatch(/<script|<form|<iframe|\sstyle=|\son[a-z]+=/iu);
+      expect(body, path).not.toMatch(/<script|<iframe|\sstyle=|\son[a-z]+=/iu);
+      expect(body, path).toContain('method="get" action="/atlas/search"');
       expect(atlasPageProblems(body), path).toEqual([]);
     }
   });
@@ -629,7 +632,7 @@ describe("the routes", () => {
     expect(css.body).toContain("@media (max-width: 40rem)");
     expect(css.body).not.toMatch(/https?:\/\//u);
     expectPageHeaders(css.response);
-    for (const path of ["/atlas/", "/atlas/findings", "/atlas/findings/P-12", "/atlas/findings/p-1001",
+    for (const path of ["/atlas/", "/atlas/findings/P-12", "/atlas/findings/p-1001",
       "/atlas/findings/F-1001", "/atlas/findings/P-1001/", "/atlas/topics/", "/atlas/topics/Velmor", "/atlas/x",
       "/atlas/atlas.js", "/atlas/changes/new", "/atlas/findings/P-9999"]) {
       const { response, body } = await text(base, path);
@@ -917,7 +920,12 @@ describe("the pages' PostgreSQL reads", () => {
     const select = calls.find(({ sql }) => sql.includes("FROM atlas_publications"))!;
     expect(select.sql).toMatch(/^SELECT listed\.publication_number, listed\.state, listed\.atlas_number, listed\.published_json, listed\.published_at, listed\.state_changed_at FROM atlas_publications listed WHERE/u);
     expect(select.sql).toContain("ORDER BY listed.state_changed_at DESC");
-    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20]);
+    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20, null]);
+    await source.read((reads) => reads.listPublications({ before: "P-1001", limit: 20 }));
+    const cursorRead = calls.filter(({ sql }) => sql.includes("FROM atlas_publications")).at(-1)!;
+    expect(cursorRead.sql).toContain("listed.published_at");
+    expect(cursorRead.sql).toContain("substring(anchor.publication_number FROM 3)::bigint");
+    expect(cursorRead.values).toEqual([null, null, null, null, 20, "P-1001"]);
     for (const { sql } of calls) {
       expect(sql).not.toMatch(/card_number|card_sha256|owner_reason|held_because|withdrawn_because|finding_number|card_forgotten_at|texts_erased_at|'held'|'rejected'|'withdrawn'/u);
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|nextval)\b|inspect_atlas_publications|atlas_card_decisions|atlas_finding_intents/u);
@@ -934,6 +942,260 @@ describe("the pages' PostgreSQL reads", () => {
     await expect(valid.source.read((reads) => reads.listPublications({ limit: 5, topicKey: "Not a key" })))
       .rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
     await expect(valid.source.read((reads) => reads.readFindings(["P-1001"]))).rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
+    await expect(valid.source.read((reads) => reads.listPublications({ before: "P-1001'", limit: 20 })))
+      .rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
+  });
+});
+
+describe("Atlas navigation (183b)", () => {
+  const ids = (body: string) => [...body.matchAll(/class="finding-claim"><a href="\/atlas\/findings\/(P-\d+)"/gu)]
+    .map((match) => match[1]);
+
+  it("lists every shown publication and uses the home lane's contested definition", async () => {
+    const f = await fixture();
+    const base = await serve(pages(f.source));
+    const all = await text(base, "/atlas/findings");
+    expect(ids(all.body)).toEqual(Object.values(f.shown).sort((a, b) => Number(b.slice(2)) - Number(a.slice(2))));
+    expect(all.body).toContain(f.editedWording);
+    for (const value of Object.values(NEVER)) expect(all.body).not.toContain(value);
+    const checked = await text(base, "/atlas/findings?filter=checked");
+    expect(ids(checked.body)).toEqual([f.shown.lead, f.shown.lowDose, f.shown.edited]);
+    const unreviewed = await text(base, "/atlas/findings?filter=unreviewed");
+    expect(ids(unreviewed.body)).toEqual([f.shown.hip, f.shown.nothingFound, f.shown.effect]);
+    expect(unreviewed.body).toContain(NOT_CHECKED_LABEL);
+    const contested = await text(base, "/atlas/findings?filter=contested");
+    expect(ids(contested.body)).toEqual([f.shown.lowDose, f.shown.edited]);
+    const home = await text(base, "/atlas");
+    expect(ids(home.body.slice(home.body.indexOf('<h2 id="contested">'))).sort()).toEqual(ids(contested.body).sort());
+    expect(ids((await text(base, "/atlas/findings?filter=unknown&before=bad")).body)).toEqual(ids(all.body));
+    const topics = await text(base, "/atlas/topics");
+    expect(topics.body).toContain('href="/atlas/topics/velmor-syndrome">Velmor syndrome (invented)</a> — 5 findings');
+    expect(topics.body).toContain('href="/atlas/topics/hip-osteoarthritis">Hip osteoarthritis</a> — 1 finding');
+    expect(topics.body.indexOf('>Hip osteoarthritis</a>')).toBeLessThan(topics.body.indexOf('>Velmor syndrome (invented)</a>'));
+  });
+
+  it("pages equal-time publications without skipping or repeating and scans beyond 500 for topics and search", async () => {
+    const store = atlas();
+    const draft = planCardPublication({ record: recordOf(oneFindingCard("ordinary word")), setAside: false,
+      route: { route: "save", account: FREE } }).drafts[0]!;
+    for (let index = 0; index < 525; index += 1) {
+      await store.publications.publish({ cardNumber: 10_000 + index, cardSha256: sha256(`page:${index}`),
+        findings: [{ ...draft, published: { ...draft.published!, claim: index === 0 ? "distant needle" : `ordinary word ${index}`,
+          topic: index === 0 ? null : { key: "many", label: "Many findings" } } }],
+        publishedAt: SAVED_AT, revive: false });
+    }
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    const first = await loadAtlasFindings(source);
+    expect(first.findings).toHaveLength(20);
+    expect(first.findings[0]!.publicationNumber).toBe("P-1525");
+    expect(first.before).toBe("P-1506");
+    const next = await loadAtlasFindings(source, { before: first.before! });
+    expect(next.findings[0]!.publicationNumber).toBe("P-1505");
+    expect(next.findings.some((finding) => first.findings.some((other) => finding.publicationNumber === other.publicationNumber)))
+      .toBe(false);
+    const last = await loadAtlasFindings(source, { before: "P-1006" });
+    expect(last.findings).toHaveLength(5);
+    expect(last.before).toBeNull();
+    const topics = await loadAtlasTopics(source);
+    expect(topics).toEqual({ topics: [{ key: "many", label: "Many findings", count: 524 }], withoutTopic: 1 });
+    const found = await loadAtlasFindings(source, { search: atlasSearchQuery("distant needle").query! });
+    expect(found.findings.map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+    const base = await serve(pages(source));
+    const all = await text(base, "/atlas/findings");
+    expect(all.body).toContain('rel="next" href="/atlas/findings?filter=all&amp;before=P-1506"');
+    const second = await text(base, "/atlas/findings?filter=unreviewed&before=P-1506");
+    expect(ids(second.body)[0]).toBe("P-1505");
+    expect(second.body).toContain('filter=unreviewed&amp;before=P-1486');
+    const search = await text(base, "/atlas/search?q=ordinary");
+    const older = /rel="next" href="([^"]+)"/u.exec(search.body)![1]!.replace(/&amp;/gu, "&");
+    expect(ids((await text(base, older)).body)[0]).toBe("P-1505");
+    expect((await text(base, "/atlas/topics")).body).toContain("1 finding has no topic (older cards)");
+  });
+
+  it("matches exact Unicode words in each public field, with full case folding and accents", async () => {
+    expect(atlasSearchWords("ÉCOLE, Straße; ΜΆΪΟΣ/ς　ЯБЛОКО。研究、東京！किताब")).toEqual([
+      "ecole", "strasse", "μαιοσ", "σ", "яблоко", "研究", "東京", "किताब",
+    ]);
+    expect(atlasSearchWords("ﬃ ＣＡＦÉ e\u0301" )).toEqual(["ffi", "cafe", "e"]);
+    expect(atlasSearchQuery("x".repeat(300)).query).not.toBeNull();
+    expect(atlasSearchQuery(Array.from({ length: 20 }, (_, i) => `w${i}`).join(" ")).query).not.toBeNull();
+    const f = await fixture();
+    const p = await f.store.publish(9990, recordOf(oneFindingCard("École Straße ΜΆΪΟΣ ЯБЛОКО 研究、東京", {
+      subject: "Café", applies_to: "ДЕТИ",
+    })));
+    const base = await serve(pages(f.source));
+    for (const query of ["ecole STRASSE", "μαϊοσ яблоко", "研究 東京", "cafe дети", "hand adults", "velmor"]) {
+      const result = await text(base, `/atlas/search?q=${encodeURIComponent(query)}`);
+      expect(result.response.status, query).toBe(200);
+      expect(ids(result.body).length, query).toBeGreaterThan(0);
+      if (query !== "hand adults" && query !== "velmor") expect(ids(result.body)).toContain(p.rows[0]!.publicationNumber);
+    }
+    expect(ids((await text(base, "/atlas/search?q=ecol")).body)).toEqual([]);
+    expect(ids((await text(base, "/atlas/search?q=ecole%20absent")).body)).toEqual([]);
+    // Matching canonical questions does not fall back to the private card or stale edited wording.
+    expect(ids((await text(base, "/atlas/search?q=hand")).body)).toContain(f.shown.edited);
+    expect(ids((await text(base, `/atlas/search?q=${NEVER.cardWording}`)).body)).toEqual([]);
+    const main = await text(base, "/atlas/search?q=zentarine");
+    for (const id of Object.values(f.hidden)) expect(ids(main.body)).not.toContain(id);
+  });
+
+  it("handles empty, long, too-many-word and hostile queries as escaped forms, without retaining them", async () => {
+    const f = await fixture();
+    let reads = 0;
+    const source: AtlasPageSource = { read: async (work) => { reads += 1; return f.source.read(work); } };
+    const base = await serve(pages(source));
+    for (const query of ["", "  ...　", "x".repeat(301), Array.from({ length: 21 }, (_, index) => `w${index}`).join(" ")]) {
+      const page = await text(base, `/atlas/search?q=${encodeURIComponent(query)}`);
+      expect(page.response.status).toBe(200);
+      expect(page.body).toContain('role="status"');
+      expect(page.body).not.toContain("x".repeat(301));
+    }
+    expect(reads).toBe(0);
+    const hostile = '<script>alert("x")</script> \' ARF-1234 youtube.com';
+    const page = await text(base, `/atlas/search?q=${encodeURIComponent(hostile)}`);
+    expect(page.response.status).toBe(200);
+    expect(page.body).toContain("&#60;&#115;&#99;&#114;&#105;&#112;&#116;&#62;");
+    expect(page.body).toContain("&#34;");
+    expect(page.body).toContain("&#39;");
+    expect(page.body).not.toMatch(/<script|\son[a-z]+=|<iframe/iu);
+    expect(atlasPageProblems(page.body)).toEqual([]);
+    expect(page.response.headers.get("cache-control")).toBe("private, no-store");
+    expect(page.response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(page.response.headers.getSetCookie()).toEqual([]);
+    await text(base, `/atlas/search?q=${encodeURIComponent(hostile)}`);
+    expect(reads).toBe(2);
+  });
+
+  it("keys cached lists by the bounded filter and cursor, never by unrelated parameters, and invalidates them", async () => {
+    const f = await fixture();
+    let reads = 0;
+    const source: AtlasPageSource = { read: async (work) => { reads += 1; return f.source.read(work); } };
+    const signal = new AtlasChangeSignal();
+    const base = await serve(pages(source, { signal, cache: { maxEntries: 2 } }));
+    await text(base, "/atlas/findings");
+    await text(base, "/atlas/findings?filter=nonsense&unused=anything");
+    expect(reads).toBe(1);
+    await text(base, "/atlas/findings?filter=checked");
+    await text(base, "/atlas/findings?filter=checked&before=P-1004");
+    expect(reads).toBe(3);
+    await text(base, "/atlas/findings"); // Evicted by the existing cache limit.
+    expect(reads).toBe(4);
+    await text(base, "/atlas/topics");
+    await text(base, "/atlas/topics?unused=anything");
+    expect(reads).toBe(5);
+    signal.announce();
+    await text(base, "/atlas/topics");
+    expect(reads).toBe(6);
+  });
+
+  it("puts navigation and a labelled GET search on every page, with HEAD, the unchanged CSP and rate limits", async () => {
+    const f = await fixture();
+    const base = await serve(pages(f.source));
+    for (const path of ["/atlas", "/atlas/changes", "/atlas/findings", "/atlas/topics", "/atlas/search?q=velmor",
+      "/atlas/topics/velmor-syndrome", `/atlas/findings/${f.shown.edited}`, "/atlas/unknown"]) {
+      const page = await text(base, path);
+      const header = page.body.slice(page.body.indexOf("<header"), page.body.indexOf("</header>"));
+      expect(header).toMatch(/href="\/atlas\/findings"(?: aria-current="page")?>All findings<\/a>/u);
+      expect(header).toMatch(/href="\/atlas\/topics"(?: aria-current="page")?>Topics<\/a>/u);
+      expect(header).toContain('role="search" method="get" action="/atlas/search"');
+      expect(header).toContain('<label for="atlas-header-query">Search findings</label>');
+      expect(page.response.headers.get("content-security-policy")).toBe(CSP);
+      expect(page.body).not.toMatch(/<script|\son[a-z]+=|\sstyle=|<foreignObject/iu);
+      const head = await text(base, path, { method: "HEAD" });
+      expect(head.response.status).toBe(page.response.status);
+      expect(head.body).toBe("");
+      expect(head.response.headers.get("content-security-policy")).toBe(CSP);
+    }
+    const limited = await serve(pages(f.source, { rateLimiter: createTokenBucketLimiter({
+      capacity: 1, refillTokensPerMinute: 0, maxKeys: 2, idleTtlMs: 60_000,
+    }) }));
+    expect((await text(limited, "/atlas/search?q=velmor")).response.status).toBe(200);
+    expect((await text(limited, "/atlas/findings")).response.status).toBe(429);
+    for (const path of ["/atlas/findings", "/atlas/topics", "/atlas/search"]) {
+      expect((await text(base, path, { method: "POST" })).response.status).toBe(405);
+    }
+  });
+
+  it("draws questions, certainty groups, all four links and open leads, with the same linked text below", async () => {
+    const f = await fixture();
+    await f.store.publish(9992, recordOf(oneFindingCard("Another checked finding.")));
+    const extra = await f.store.accept(9992, acceptPayload({ wording: "Another checked finding." }));
+    await f.store.publications.decide({ cardNumber: 9992, findingNumber: 1, state: "accepted", atlasNumber: extra,
+      decidedAt: f.store.tick() });
+    await f.store.publish(9993, recordOf(oneFindingCard("An earlier checked finding.")));
+    const earlier = await f.store.accept(9993, acceptPayload({ wording: "An earlier checked finding." }));
+    await f.store.publications.decide({ cardNumber: 9993, findingNumber: 1, state: "accepted", atlasNumber: earlier,
+      decidedAt: f.store.tick() });
+    for (const [from, relation, to] of [[f.numbers.edited, "same_as", extra],
+      [extra, "narrows", f.numbers.lowDose], [f.numbers.edited, "replaces", earlier]] as const) {
+      await f.store.record({ kind: "link", publicNumber: from, relation, toPublicNumber: to,
+        disagreement: null, rationale: "PRIVATERATIONALE", decidedWith: DECIDED_WITH });
+    }
+    const model = (await loadAtlasTopic(f.source, "velmor-syndrome"))!;
+    expect(model.connections.map(({ relation }) => relation).sort()).toEqual(["contradicts", "narrows", "replaces", "same_as"]);
+    const body = renderAtlasTopic(model);
+    const svg = body.slice(body.indexOf("<svg"), body.lastIndexOf("</svg>") + 6);
+    const alternative = body.slice(body.indexOf('<h3 id="map-text">'), body.indexOf('<section aria-labelledby="part-'));
+    for (const relation of ["same as", "narrows", "contradicts", "replaces"]) {
+      expect(svg).toContain(relation);
+      expect(alternative).toContain(relation);
+    }
+    expect(svg).toContain('class="map-edge"');
+    expect(svg).toContain("Not checked yet");
+    expect(svg).toContain("Open leads");
+    expect(svg).toContain("Q1: Does zentarine ease the hand tremor");
+    expect(alternative).toContain("Does zentarine ease the hand tremor");
+    expect(alternative).toContain("Certainty: Moderate");
+    expect(body).not.toContain("PRIVATERATIONALE");
+    for (const finding of model.sections.flatMap(({ findings }) => findings)) {
+      expect(svg).toContain(`href="/atlas/findings/${finding.publicationNumber}"`);
+      expect(alternative).toContain(`href="/atlas/findings/${finding.publicationNumber}"`);
+    }
+  });
+
+  it("keeps empty and single-finding maps simple and bounds each SVG for many findings", async () => {
+    const f = await fixture();
+    const single = (await loadAtlasTopic(f.source, "hip-osteoarthritis"))!;
+    const one = renderAtlasTopic(single);
+    expect(one.match(/<svg /gu)).toHaveLength(1);
+    expect(one).toContain("Question not recorded");
+    const empty = renderAtlasTopic({ ...single, sections: [], connections: [] });
+    expect(empty).toContain('aria-label="No findings yet"');
+    const seed = single.sections[0]!.findings[0]!;
+    const findings: ShownFinding[] = Array.from({ length: 200 }, (_, index) => ({ ...seed,
+      publicationNumber: `P-${2000 + index}`, claim: `Finding ${index} <tag> & quoted`, question: `Question ${index} <&>?`,
+    }));
+    const many = renderAtlasTopic({ ...single, sections: [{ id: "other", heading: "Other findings", findings }] });
+    expect(many.match(/<svg /gu)).toHaveLength(34);
+    for (const panel of many.matchAll(/<svg [\s\S]*?<\/svg>/gu)) {
+      expect((panel[0].match(/class="map-node"/gu) ?? []).length).toBeLessThanOrEqual(12);
+      expect(Number(/height="(\d+)"/u.exec(panel[0])![1])).toBeLessThanOrEqual(1121);
+    }
+    expect(many).toContain("Question 199 &lt;&amp;&gt;?");
+    expect(many).toContain("Finding 199 &lt;tag&gt; &amp; quoted");
+    expect(atlasPageProblems(many)).toEqual([]);
+    expect(many).not.toMatch(/<script|<foreignObject|\son[a-z]+=|\sstyle=/iu);
+  });
+
+  it("includes incoming links from other topics in their original direction, but no withdrawn endpoint", async () => {
+    const f = await fixture();
+    const published = await f.store.publish(9994, recordOf(oneFindingCard("An outside-topic finding.")));
+    const external = await f.store.accept(9994, { ...acceptPayload({ wording: "An outside-topic finding." }),
+      topic: { key: "outside", label: "Outside topic" } });
+    await f.store.publications.decide({ cardNumber: 9994, findingNumber: 1, state: "accepted", atlasNumber: external,
+      decidedAt: f.store.tick() });
+    await f.store.record({ kind: "link", publicNumber: external, relation: "narrows", toPublicNumber: f.numbers.edited,
+      disagreement: null, rationale: "Private rationale.", decidedWith: DECIDED_WITH });
+    const topic = (await loadAtlasTopic(f.source, "velmor-syndrome"))!;
+    expect(topic.connections).toContainEqual({
+      from: { atlasNumber: external, publicationNumber: published.rows[0]!.publicationNumber },
+      to: { atlasNumber: f.numbers.edited, publicationNumber: f.shown.edited }, relation: "narrows",
+    });
+    expect(topic.connections.filter(({ relation }) => relation === "contradicts")).toHaveLength(1);
+    await f.store.record({ kind: "withdraw", publicNumber: external, version: 1,
+      note: "Withdrawn outside-topic finding.", decidedWith: DECIDED_WITH });
+    const after = (await loadAtlasTopic(f.source, "velmor-syndrome"))!;
+    expect(after.connections.some(({ from, to }) => from.atlasNumber === external || to.atlasNumber === external)).toBe(false);
   });
 });
 

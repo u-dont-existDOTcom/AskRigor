@@ -25,6 +25,10 @@ import { announcingParticipationStore, atlasChanges, type AtlasChangeSignal } fr
 import {
   loadAtlasChanges,
   loadAtlasFinding,
+  loadAtlasFindings,
+  loadAtlasTopics,
+  ATLAS_FINDING_FILTERS,
+  type AtlasFindingFilter,
   loadAtlasHome,
   loadAtlasOwnComments,
   loadAtlasTopic,
@@ -41,6 +45,9 @@ import {
   renderAtlasAccount,
   renderAtlasChanges,
   renderAtlasFinding,
+  renderAtlasFindings,
+  renderAtlasTopics,
+  renderAtlasSearch,
   renderAtlasHome,
   renderAtlasMessage,
   renderAtlasNotFound,
@@ -50,6 +57,7 @@ import {
   renderAtlasUnavailable,
   type AtlasPageReader,
 } from "./pages.js";
+import { atlasSearchQuery } from "./search.js";
 import {
   ATLAS_LOGIN_COOKIE,
   ATLAS_LOGIN_SECONDS,
@@ -93,7 +101,8 @@ import {
 /**
  * The public Atlas pages over HTTP (decision 171, sections 4C to 4E; design
  * docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md, sections C to E). The research server answers /atlas,
- * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/changes and /atlas/atlas.css; any other /atlas path answers
+ * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/findings, /atlas/topics, /atlas/search, /atlas/changes and
+ * /atlas/atlas.css; any other /atlas path answers
  * 404, and every path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. Every /atlas response carries the pages' own
  * content policy and headers. Nothing about a reader is logged; a reader who does not sign in gets no cookie, and the
  * per-address rate limit keeps a counter in memory, as the evidence-gap page's does, counting an IPv6 address by its
@@ -101,7 +110,7 @@ import {
  * connection, in X-AskRigor-Client-IP, and the shared secret ASKRIGOR_ATLAS_PROXY_SECRET in X-AskRigor-Proxy-Secret;
  * the address is believed only with that secret and the public origin's Host, so no request that reached
  * mcp.askrigor.com directly can choose its address, whatever the mcp block forwards. Rendered pages are cached in
- * memory for 60 seconds for readers who are not signed in, bounded in number and size, and dropped whenever a
+ * memory for 60 seconds for readers who are not signed in, except search, bounded in number and size, and dropped whenever a
  * publication, an accepted finding, a vote or a comment changes in this process (change-signal.ts).
  *
  * With votes and comments switched on (ASKRIGOR_ATLAS_PARTICIPATION=enabled, every part configured), the sign-in
@@ -164,6 +173,9 @@ export type AtlasRoute =
   | { kind: "home" }
   | { kind: "stylesheet" }
   | { kind: "changes" }
+  | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
+  | { kind: "topics" }
+  | { kind: "search" }
   | { kind: "topic"; topicKey: string }
   | { kind: "finding"; publicationNumber: string }
   // Votes and comments (section 4E), only while they are switched on.
@@ -204,6 +216,9 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas") return { kind: "home" };
   if (pathname === "/atlas/atlas.css") return { kind: "stylesheet" };
   if (pathname === "/atlas/changes") return { kind: "changes" };
+  if (pathname === "/atlas/findings") return { kind: "findings" };
+  if (pathname === "/atlas/topics") return { kind: "topics" };
+  if (pathname === "/atlas/search") return { kind: "search" };
   const topic = TOPIC_ROUTE.exec(pathname);
   if (topic !== null) return { kind: "topic", topicKey: topic[1]! };
   const finding = PUBLICATION_ROUTE.exec(pathname);
@@ -363,7 +378,7 @@ export interface CreateAtlasPagesHandlerOptions {
   signal?: AtlasChangeSignal;
   cache?: Partial<typeof ATLAS_PAGE_CACHE_LIMITS>;
   now?: () => number;
-  /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them no page shows a form. */
+  /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them only GET search forms show. */
   participation?: AtlasParticipationRuntime;
 }
 
@@ -443,6 +458,11 @@ function cursorOf(value: string | null, prefix: "C" | "P"): number | undefined {
   const number = match === null ? undefined : Number(match[1]);
   return number !== undefined && Number.isSafeInteger(number) ? number : undefined;
 }
+
+const publicationCursor = (query: URLSearchParams): string | undefined => {
+  const number = voteCursor(query.get("before"));
+  return number === undefined ? undefined : `P-${number}`;
+};
 
 /** The notice a page's done= names, or null: only a notice's own name, never an object's property. */
 const noticeOf = (done: string) => Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
@@ -600,13 +620,17 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
-  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>,
+  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" }>,
     source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "home":
         return checked({ status: 200, html: renderAtlasHome(await loadAtlasHome(source), reader) });
       case "changes":
         return checked({ status: 200, html: renderAtlasChanges(await loadAtlasChanges(source), reader) });
+      case "findings":
+        return checked({ status: 200, html: renderAtlasFindings(await loadAtlasFindings(source, route), reader) });
+      case "topics":
+        return checked({ status: 200, html: renderAtlasTopics(await loadAtlasTopics(source), reader) });
       case "topic": {
         const model = await loadAtlasTopic(source, route.topicKey);
         return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
@@ -983,6 +1007,25 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         return true;
       }
       const source = options.source;
+      if (route.kind === "search") {
+        // Queries are transient: no cache key, cached HTML, session inspection, account data, query log or write.
+        // This still uses the common address limiter and method/body checks above.
+        const query = queryOf(request);
+        const parsed = atlasSearchQuery(query.get("q"));
+        const before = publicationCursor(query);
+        try {
+          if (parsed.query !== null && source === undefined) throw new Error("ATLAS_READER_UNAVAILABLE");
+          const results = parsed.query === null ? null : await loadAtlasFindings(source!, {
+            search: parsed.query, ...(before === undefined ? {} : { before }),
+          });
+          const page = checked({ status: 200, html: renderAtlasSearch({ ...parsed, results },
+            participation === undefined ? undefined : signedOutReader("/atlas/search")) });
+          write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
+        } catch {
+          plainFailure(response, 503, renderAtlasUnavailable(), { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
+        }
+        return true;
+      }
       if (source === undefined) {
         plainFailure(response, 503, renderAtlasUnavailable());
         return true;
@@ -1005,7 +1048,16 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await ownCommentsRoute(request, response, participation, source, now);
           return true;
         }
-        const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
+        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" }>;
+        let cacheKey = pathname;
+        if (pageRoute.kind === "findings") {
+          const query = queryOf(request);
+          const before = publicationCursor(query);
+          const raw = query.get("filter");
+          const filter = ATLAS_FINDING_FILTERS.find((value) => value === raw) ?? "all";
+          pageRoute = { kind: "findings", filter, ...(before === undefined ? {} : { before }) };
+          cacheKey = `${pathname}?filter=${filter}${before === undefined ? "" : `&before=${before}`}`;
+        }
         if (participation !== undefined) {
           const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");
           const query = queryOf(request);
@@ -1023,11 +1075,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
             write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;
           }
-          const page = await cache.get(pathname, () => render(pageRoute, source, signedOutReader(pathname)));
+          const page = await cache.get(cacheKey, () => render(pageRoute, source, signedOutReader(pathname)));
           write(response, page.status, HTML, page.html, { vary: "Cookie" }, stale);
           return true;
         }
-        const page = await cache.get(pathname, () => render(pageRoute, source));
+        const page = await cache.get(cacheKey, () => render(pageRoute, source));
         write(response, page.status, HTML, page.html);
       } catch {
         if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());

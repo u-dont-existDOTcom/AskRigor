@@ -41,7 +41,7 @@ Status: design for building parts C, D and E of `2026-10-25-171-atlas-publishing
 - **Session:** an AES-GCM encrypted, HttpOnly, Secure, SameSite=Lax cookie on `/atlas` holding the participant key and
   an expiry (30 days), set only at sign-in; no server-side session store. Sign-out is a form post that clears it.
 - **Off switch:** `ASKRIGOR_ATLAS_PARTICIPATION=enabled` turns sign-in, votes and comments on; without it the pages
-  show neither forms nor sign-in links, so a release can go out before the Auth0 application exists.
+  show neither participation forms nor sign-in links, so a release can go out before the Auth0 application exists.
 - **Account entry (decision 171 follow-up):** while participation is on, every page's header offers Sign in,
   returning to that page, or Your account with the signed-in reader's chosen display name, escaped as untrusted text.
   `/atlas/account` answers GET and HEAD without caching: signed out it offers sign-in; signed in it holds the link to
@@ -86,3 +86,44 @@ the Caddy block (the site-deploy test), the login round trip against a fake tena
 expired token, an outside return path), the session cookie (tampering, expiry), CSRF and Origin checks, every form, the
 contact-and-links check on comments and names in several languages, the limits, the off switch, the owner actions and
 their access checks, and the PostgreSQL acceptance with migration 0022.
+
+## 183b. Finding one's way around the Atlas
+
+Owner answer 183b builds both navigation and topic maps now. Every page header has All findings, Topics and a
+labelled GET search form, alongside What changed and the existing account/sign-in entry when participation is on.
+The search form remains available with participation off. No scripts or content-policy changes are needed.
+
+- `/atlas/findings` lists every shown publication, including leads and earlier findings, newest publication first,
+  20 per page. `?before=P-…` is a keyset cursor over publication time and number (including equal-time ties).
+  Filters are all, checked (accepted/edited), not checked yet (the existing notice), and contested (the same
+  link-derived canonical label used by the home lane). Missing, erased, held, rejected and withdrawn findings stay out.
+- `/atlas/topics` scans all shown publications in 500-row reader chunks, groups by topic key, sorts labels, and
+  counts publications. Older publications without a topic have their own count and a link to All findings.
+- `/atlas/search?q=…` matches every query word against exact words in the public canonical question, wording,
+  applies-to text, subject or topic label. Unreviewed/older publications have no published question: their private card
+  question is never read. Both sides use NFKC, full default Unicode 16 case folding (C/F mappings from
+  [Unicode's case-fold data](https://www.unicode.org/Public/16.0.0/ucd/CaseFolding.txt)), canonical decomposition and
+  diacritic folding, then NFC; tokens split on Unicode whitespace and punctuation. Other script marks, including
+  Indic vowel signs, remain. No stemming, stop words or language guesses. Limits: 300 UTF-16 code units and 20 words;
+  invalid/empty input is a normal form response without a database read. Query text is escaped when displayed.
+  Results page in the same order and cursor style as All findings, scanning beyond each 500-row chunk as needed.
+- Search is **not cached**, in-process or downstream (`private, no-store`): queries can be personal, and retaining
+  query-bearing keys or HTML in the shared cache is unnecessary. Search skips sessions/participant reads entirely,
+  carries no reader data or tokens, and has no cookies or canonical query URL. With participation on it shows only a
+  generic sign-in entry, returning to the query-free search path. `no-referrer` in both headers and HTML prevents
+  onward query disclosure. Queries are never persisted or logged by the application and never sent to PostgreSQL;
+  the database reads only public content. All routes use the existing address rate limit. Ordinary list pages keep
+  the existing 60-second, 256-entry, 8-MiB cache, with normalized filter/cursor keys and write invalidation.
+- Each topic map uses the same shown findings as its sections (the existing maximum of 200), plus their canonical
+  public questions and unwithdrawn links. Certainty columns place high, moderate, low and very-low findings apart
+  from unreviewed findings and open leads. Visible question panels have Q numbers shared with the finding nodes.
+  Panels hold at most 12 question or finding nodes; the
+  1,120-unit width scrolls on narrow screens and each panel is at most 1,121 units tall. Separate connection panels
+  draw at most 12 directed, labelled edges (same as, narrows, contradicts, replaces), each with linked endpoints;
+  incoming and outgoing public endpoints on other topics link to their finding too, retaining the original direction.
+  Full questions, wording, certainty, open leads and
+  connections follow as a linked plain list. No script, external SVG resource or private link rationale is rendered.
+  Empty and single-finding models have simple maps; a topic with no shown finding retains its existing 404 route.
+
+No migration: publication keyset reads, question wording and link projections use existing SELECT-only reader grants
+and one read-only snapshot. No new database function, view, grant, migration-list entry or MCP tool is needed.

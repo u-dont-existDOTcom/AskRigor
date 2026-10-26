@@ -8,6 +8,7 @@ import {
   atlasCurrentLabels,
   atlasPool,
   type AtlasLabel,
+  type AtlasLinkRelation,
   type AtlasState,
   type AtlasVersionContent,
   type InMemoryAtlasCanonicalStore,
@@ -70,6 +71,8 @@ export interface AtlasPagePublication {
 }
 
 export interface AtlasPagePublicationQuery {
+  /** Keyset cursor: older than this publication in the requested order, including equal-time ties. */
+  before?: string;
   publicationNumbers?: readonly string[];
   atlasNumbers?: readonly string[];
   /** An unreviewed publication by its published topic key; an accepted or edited one by its F number's topic key. */
@@ -87,6 +90,8 @@ export type AtlasPageSourceIdentifiers = Array<{ scheme: AtlasPageSourceScheme; 
 /** An accepted finding as its pages read it: its F number's latest version, and what its label and dates need. */
 export interface AtlasPageFinding {
   atlasNumber: string;
+  question: string | null;
+  links: Array<{ atlasNumber: string; relation: AtlasLinkRelation; direction: "outgoing" | "incoming" }>;
   entryKind: "finding" | "lead";
   label: AtlasLabel;
   topic: { key: string; label: string } | null;
@@ -178,6 +183,7 @@ function validatePublicationQuery(query: AtlasPagePublicationQuery): Required<Pi
   AtlasPagePublicationQuery {
   validateLimit(query.limit, ATLAS_PAGE_PUBLICATIONS_PER_READ);
   if ((query.publicationNumbers !== undefined && !query.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number))) ||
+    (query.before !== undefined && !PUBLICATION_NUMBER.test(query.before)) ||
     (query.atlasNumbers !== undefined && !query.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) ||
     (query.topicKey !== undefined && !TOPIC_KEY.test(query.topicKey)) ||
     (query.states !== undefined && !query.states.every((state) => (ATLAS_PAGE_STATES as readonly string[]).includes(state))) ||
@@ -272,6 +278,14 @@ export function atlasPageFindingsOf(
     const dated = dates.get(finding.publicNumber);
     return {
       atlasNumber: finding.publicNumber,
+      question: state.questions.find(({ questionId }) => questionId === finding.questionId)?.normalizedQuestion ?? null,
+      links: live.filter((link) => link.fromFindingId === finding.findingId || link.toFindingId === finding.findingId)
+        .flatMap((link) => {
+          const outgoing = link.fromFindingId === finding.findingId;
+          const other = numberOf.get(outgoing ? link.toFindingId : link.fromFindingId);
+          return other === undefined ? [] : [{ atlasNumber: other, relation: link.relation,
+            direction: outgoing ? "outgoing" as const : "incoming" as const }];
+        }),
       entryKind: finding.entryKind,
       label: labels.get(finding.findingId)!,
       topic: topic === undefined ? null : { key: topic.canonicalKey, label: topic.label },
@@ -317,6 +331,12 @@ function publicationsSql(order: "published" | "changed"): string {
               JOIN topics topic ON topic.topic_id = question.topic_id
              WHERE finding.public_number = listed.atlas_number
                AND topic.canonical_key = $4::text)))
+     AND ($6::text IS NULL OR
+          (${order === "changed" ? "listed.state_changed_at" : "listed.published_at"},
+           substring(listed.publication_number FROM 3)::bigint) < (
+            SELECT ${order === "changed" ? "anchor.state_changed_at" : "anchor.published_at"},
+                   substring(anchor.publication_number FROM 3)::bigint
+              FROM atlas_publications anchor WHERE anchor.publication_number = $6::text))
    ORDER BY ${order === "changed" ? "listed.state_changed_at" : "listed.published_at"} DESC,
             substring(listed.publication_number FROM 3)::bigint DESC
    LIMIT $5`;
@@ -426,6 +446,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         query.atlasNumbers === undefined ? null : [...query.atlasNumbers],
         query.topicKey ?? null,
         query.limit,
+        query.before ?? null,
       ]);
       return result.rows.flatMap((row) => {
         const publication = pagePublicationOf({
@@ -458,6 +479,17 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       for (let start = 0; start < atlasNumbers.length; start += STATE_REQUEST_NUMBERS) {
         const chunk = atlasNumbers.slice(start, start + STATE_REQUEST_NUMBERS);
         const state = await readAtlasStateWith(client, { publicNumbers: chunk });
+        // State reads already load the question identities. Read only their public wording here, through the same
+        // SELECT-only reader and snapshot; never a card's private question or answer quote.
+        const questions = await client.query<{ question_id: string; normalized_question: string }>(
+          "SELECT question_id, normalized_question FROM questions WHERE question_id = ANY($1::uuid[])",
+          [[...new Set(state.findings.map(({ questionId }) => questionId))]],
+        );
+        state.questions = questions.rows.map((row) => ({
+          questionId: row.question_id,
+          topicId: state.findings.find(({ questionId }) => questionId === row.question_id)!.topicId,
+          normalizedQuestion: row.normalized_question,
+        }));
         findings.push(...atlasPageFindingsOf(state, chunk, dates));
       }
       return findings;
@@ -640,7 +672,12 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           [finding.publicNumber, state.topics.find(({ topicId }) => topicId === finding.topicId)?.canonicalKey]));
         const time = (row: { publishedAt: string; stateChangedAt: string }) =>
           Date.parse(query.order === "changed" ? row.stateChangedAt : row.publishedAt);
+        const cursor = query.before === undefined ? undefined
+          : this.stores.publications.allRows().find(({ publicationNumber }) => publicationNumber === query.before);
         return this.stores.publications.allRows()
+          .filter((row) => query.before === undefined || (cursor !== undefined &&
+            (time(row) < time(cursor) || (time(row) === time(cursor) &&
+              atlasPublicationOrder(row.publicationNumber) < atlasPublicationOrder(cursor.publicationNumber)))))
           .filter((row) => (row.state === "unreviewed" && row.published !== null) ||
             row.state === "accepted" || row.state === "edited")
           .filter((row) => (query.states === undefined || (query.states as readonly string[]).includes(row.state)) &&

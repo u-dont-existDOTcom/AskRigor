@@ -631,6 +631,34 @@ that `https://mcp.askrigor.com/atlas` answers 200 with the headers above, and
 install the public-site packet with the upstream, after which
 `https://askrigor.com/atlas` answers the same.
 
+Navigation (owner answer 183b) adds no migration or grant. Check GET and HEAD for
+`/atlas/findings`, `/atlas/topics` and `/atlas/search?q=…`: every page header must
+offer All findings, Topics, What changed and a labelled GET search form, with
+the existing sign-in/account entry when enabled. All findings must page newest
+first using `before=P-…`, preserving its all/checked/unreviewed/contested filter;
+the contested set uses the home lane's definition. Topics must list every
+populated topic by label, its count and the no-topic count/link. Search must
+match all words with Unicode normalization, case and accent folding (try Latin
+accents, Greek/Cyrillic and Japanese), page results and handle blank, overlong
+and markup-containing input as escaped normal pages. Search responses must be
+`private, no-store`, with `Referrer-Policy: no-referrer` and the same HTML meta
+policy, no cookies, no account name or form tokens even with a session cookie;
+query strings must never enter application, proxy/access/error or analytics
+logs. Keep request-URL logging disabled/redacted on both public proxy paths.
+Search is excluded from the in-process page cache; list caches retain the
+existing bounds, with separate normalized filter/cursor keys.
+
+Check a topic with a single finding and one with many: inline SVG panels place
+findings by certainty, keep unreviewed findings and leads apart, and draw named
+connections with linked endpoints. Full questions, findings and links must also
+read as plain text below. Each panel holds at most 12 nodes or 12 connections;
+wide diagrams scroll within the page. No script, inline style, external SVG
+resource, held/withdrawn content or private link rationale may appear. Retain
+the existing CSP. Check the pages on the apex proxy as well as the direct
+research server; the search HTML referrer policy also protects against a proxy
+overriding the response header. These are release checks, not permission for a
+worker to deploy or make live requests.
+
 Rollback: remove the `ASKRIGOR_ATLAS_PAGES=enabled` line and recreate
 `research-mcp`, and every `/atlas` path answers 404 again; the Caddy route can
 stay (it passes those 404s on with the pages' headers), or reinstall the
