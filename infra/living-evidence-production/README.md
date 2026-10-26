@@ -500,7 +500,23 @@ Its release, in this order, before the new image serves:
 4. The owner moves the findings drawn from YouTube comments of the cards stored
    before (ARF-0007, ARF-0012 and ARF-0209) with `move_youtube_findings`, and
    then deletes the earlier revisions GitHub keeps in each rewritten card's edit
-   history, as the reply lists them.
+   history, as the reply lists them. Owner answer 179a: if every finding of a
+   card and its later saves rests on YouTube comments, the move instead holds
+   each save's findings with no card number, its own checked card SHA-256,
+   save time, research question and topic. Only after every finding is reported
+   held does it delete all comments, tombstone the issue (title replaced,
+   labels removed, closed as not planned) and lock it. Its forgotten marker
+   records `cards: [issue number]`, `forgotten_at` (removal time) and
+   `reason: "youtube_findings_held_without_card"`, with no card text or thread
+   key. It reads as gone; the owner then deletes the stripped issue in GitHub,
+   which removes its edit history too. Every read and check comes first: an
+   unreadable save, any finding decision on a card that would go, a publication
+   whose card was not forgotten (withdrawn ones included), or a later save
+   with a finding to keep prevents removal and changes nothing. The latter
+   reports `later_save_kept_findings` and the save's comment; success reports
+   `moved_without_card` and each held finding's save day. Retrying finishes any
+   failed step without duplicate holds, including locking a tombstone. No new
+   migration is required.
 
 An image that serves before step 2 holds nothing (its holds fail, and each card
 is saved as before), and its owner's card view says the held findings cannot be
@@ -684,7 +700,15 @@ sign-in link, that `/atlas/auth/login` redirects to the tenant's `/authorize`
 with `scope=openid`, the tenant's own `/userinfo` audience (never its default
 audience, the MCP API, which admits only the connectors' applications),
 `code_challenge_method=S256` and the callback above, and, signed in, that a
-vote, a comment and its deletion round-trip. A reader who
+vote, a comment and its deletion round-trip. Check the header on home, changes, topic and finding pages: Sign in
+returns to that page; signed in, Your account shows the chosen display name (or no name before the first comment).
+`/atlas?done=signed-in` must show its status notice. Signed-in and known-notice pages must carry
+`Cache-Control: private, no-store` and `Vary: Cookie`; a subsequent signed-out request must contain no reader name
+in its header or session token. Check `/atlas/account` both signed out (a sign-in link, no error) and signed in, and its HEAD
+response with no body and the same private headers. From it, round-trip renaming, sign out, sign out everywhere and
+confirmed deletion; each returns to the account page with its notice, and the two sign-outs offer the login's own
+browser sign-out. Finding pages keep vote and comment forms and link to Your account for the other controls.
+A reader who
 reports a comment without signing in is counted by the address the apex block
 forwards (an IPv6 address by its /64); a public-site packet from before this
 change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every

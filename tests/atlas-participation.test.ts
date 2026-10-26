@@ -512,7 +512,7 @@ describe("signing in with the AskRigor login", () => {
     expect(anonymous.body).toContain(`href="${f.base}/atlas/auth/login?return=%2Fatlas%2Ffindings%2FP-1001"`);
     expect(anonymous.body).not.toContain('action="/atlas/findings/P-1001/vote"');
     const session = await f.signIn();
-    const page = await f.get("/atlas/findings/P-1001", session);
+    const page = await f.get("/atlas/account", session);
     const out = await f.post("/atlas/auth/logout", { csrf: tokenFor(page.body, "/atlas/auth/logout"),
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(out.status).toBe(303);
@@ -576,7 +576,8 @@ describe("votes and comments on a finding page", () => {
     // The author sees a delete button, and the comment form no longer asks for a name, which can now be changed.
     page = (await f.get("/atlas/findings/P-1001", session)).body;
     expect(page).not.toContain('id="display-name"');
-    expect(page).toContain('<input id="new-name" name="displayName" maxlength="40" required autocomplete="nickname" value="Jane">');
+    expect((await f.get("/atlas/account", session)).body)
+      .toContain('<input id="new-name" name="displayName" maxlength="40" required autocomplete="nickname" value="Jane">');
     const deleted = await f.post("/atlas/comments/C-1001/delete", {
       csrf: tokenFor(page, "/atlas/comments/C-1001/delete"), return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(deleted.headers.get("location")).toBe("/atlas/findings/P-1001?done=deleted#comments");
@@ -657,8 +658,8 @@ describe("votes and comments on a finding page", () => {
     expect(f.store.snapshot().participants).toEqual([]);
     await f.post("/atlas/findings/P-1001/comments", { csrf: tokenFor(page, "/atlas/findings/P-1001/comments"),
       displayName: "Jane", body: "First." }, { cookie: session });
-    page = (await f.get("/atlas/findings/P-1001", session)).body;
-    const renamed = await f.post("/atlas/account/name", { csrf: tokenFor(page, "/atlas/account/name"), displayName: "J. Doe",
+    const account = (await f.get("/atlas/account", session)).body;
+    const renamed = await f.post("/atlas/account/name", { csrf: tokenFor(account, "/atlas/account/name"), displayName: "J. Doe",
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(renamed.headers.get("location")).toBe("/atlas/findings/P-1001?done=renamed#comments");
     page = (await f.get("/atlas/findings/P-1001", session)).body;
@@ -666,7 +667,7 @@ describe("votes and comments on a finding page", () => {
       body: "Second." }, { cookie: session });
     // Newest first: the later comment under the new name, then the earlier one under the old.
     expect(f.store.pageParticipation("P-1001", null).comments.map(({ displayName }) => displayName)).toEqual(["J. Doe", "Jane"]);
-    const bad = await f.post("/atlas/account/name", { csrf: tokenFor(page, "/atlas/account/name"), displayName: "see me.com",
+    const bad = await f.post("/atlas/account/name", { csrf: tokenFor(account, "/atlas/account/name"), displayName: "see me.com",
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(bad.status).toBe(422);
   });
@@ -689,8 +690,9 @@ describe("deleting everything one holds", () => {
     await f.post("/atlas/comments/C-1001/report", { csrf: tokenFor(page, "/atlas/comments/C-1001/report"),
       return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(f.store.snapshot()).toMatchObject({ votes: 1, reports: [`p:${participantKeyFor(f.settings, SUBJECT)}`] });
-    expect(page).toContain('<input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>');
-    const csrf = tokenFor(page, "/atlas/account/delete");
+    const account = (await f.get("/atlas/account", session)).body;
+    expect(account).toContain('<input type="checkbox" id="forget-confirm" name="confirm" value="yes" required>');
+    const csrf = tokenFor(account, "/atlas/account/delete");
     const unticked = await f.post("/atlas/account/delete", { csrf, return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(unticked.status).toBe(422);
     expect(f.store.snapshot().votes).toBe(1);

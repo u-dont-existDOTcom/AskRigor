@@ -42,6 +42,16 @@ Status: design for building parts C, D and E of `2026-10-25-171-atlas-publishing
   an expiry (30 days), set only at sign-in; no server-side session store. Sign-out is a form post that clears it.
 - **Off switch:** `ASKRIGOR_ATLAS_PARTICIPATION=enabled` turns sign-in, votes and comments on; without it the pages
   show neither forms nor sign-in links, so a release can go out before the Auth0 application exists.
+- **Account entry (decision 171 follow-up):** while participation is on, every page's header offers Sign in,
+  returning to that page, or Your account with the signed-in reader's chosen display name, escaped as untrusted text.
+  `/atlas/account` answers GET and HEAD without caching: signed out it offers sign-in; signed in it holds the link to
+  the reader's votes and comments, the display-name form (after the first comment), sign out, sign out everywhere and
+  confirmed deletion of everything. Finding pages keep voting and commenting and link to this account page. Account
+  forms return there with their existing notices; sign-out notices also offer the AskRigor login's browser sign-out.
+  Home, changes, topic and finding pages check the current session, rendering signed-in responses privately with
+  `Cache-Control: private, no-store` and `Vary: Cookie`. Known `done` notices also bypass the shared cache and appear
+  on these pages, including `/atlas?done=signed-in`; signed-out pages retain their existing path cache. Nothing new
+  is collected, and the participation off switch preserves the original header and disables the account route.
 
 ## E. Votes and comments
 

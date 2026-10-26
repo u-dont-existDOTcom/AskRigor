@@ -32,7 +32,7 @@ import {
   type FindingsCard,
   type VerifiedBasis,
 } from "../apps/research-mcp/src/findings/card.js";
-import { GitHubFindingsReview, parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
+import { GitHubFindingsReview, parseFindingsRecordBody, tombstoneBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import {
   GitHubFindingsQueue,
   cardIssueBody,
@@ -1130,7 +1130,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       "was deleted.");
   });
 
-  it("changes nothing where a decision names a finding the move would remove or renumber, or where every finding rests on YouTube comments", async () => {
+  it("changes nothing where a decision names a finding the move would remove or renumber", async () => {
     const h = harness({ start: "2026-10-25T09:00:00.000Z" });
     // Finding 1 rests on comments and finding 2, decided, would become finding 1.
     const decidedCard = { ...CARD, findings: [FROM_AUDIT, STUDY] };
@@ -1145,24 +1145,196 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
       cardNumber: 9, itemKind: "finding", itemNumber: 1, decision: "rejected", cardSha256: "d".repeat(64),
       ownerReason: "A synthetic decision.", decidedAt: "2026-10-20T08:00:00.000Z", intent: null, recheckedPublicNumber: null,
     });
-    const onlyYouTube = storeCardBeforeSeventy(h.github, 10, { ...CARD, findings: [FROM_AUDIT] }, [["comment_audit"]],
-      "2026-10-10T08:00:00.000Z");
-    const before = [8, 10].map((number) => h.github.issue(number).body);
+    const before = h.github.issue(8).body;
 
-    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0008", "ARF-0009", "ARF-0010"] });
+    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0008", "ARF-0009"] });
     expect(moved.structured.youtubeFindings.cards.map(({ card, status, decidedFindings }: Record<string, unknown>) =>
       [card, status, decidedFindings])).toEqual([
       ["ARF-0008", "decisions_in_the_way", [2]],
       ["ARF-0009", "moved", []],
-      ["ARF-0010", "every_finding_youtube", []],
     ]);
     expect(moved.text).toContain("ARF-0008 has decisions on finding 2, which moving its findings drawn from YouTube " +
       "comments would remove or renumber; nothing was changed.");
-    expect(moved.text).toContain("Every finding on ARF-0010 rests on YouTube comments, so a card saved today would not " +
-      "be saved as a card; nothing was changed.");
-    expect([8, 10].map((number) => h.github.issue(number).body)).toEqual(before);
+    expect(h.github.issue(8).body).toEqual(before);
     expect(h.store.snapshot().map(({ cardNumber }) => cardNumber)).toEqual([9]);
-    expect(onlyYouTube.record.card.findings).toHaveLength(1);
+  });
+
+  /** Owner answer 179a: each save has its own checked card, wording, topic and time. */
+  function cardlessMoveFixture(h: Harness, keptLater: boolean | "study_only" = false) {
+    const own = storeCardBeforeSeventy(h.github, 12, {
+      ...YOUTUBE_ONLY_CARD, topic: TOPIC, findings: [YOUTUBE_FINDING, FROM_AUDIT],
+    }, [["comment_audit"], ["comment_audit"]], "2026-10-07T08:15:00.000Z");
+    const checked = findingsCardSchema.parse({
+      ...CARD, question: "Does exercise help walking with hip osteoarthritis?",
+      topic: { key: "hip-exercise", label: "Exercise for hip pain" },
+      findings: keptLater === "study_only" ? [STUDY] : keptLater ? [FROM_AUDIT, STUDY] : [FROM_AUDIT],
+    });
+    const record: FindingsRecord = {
+      schema: "askrigor.findings-card.v1", card: storedBeforeSeventy(checked,
+        keptLater === "study_only" ? [["full_text_audit"]] :
+          keptLater ? [["comment_audit"], ["full_text_audit"]] : [["comment_audit"]]),
+      card_sha256: findingsCardDigest(checked), stored_without: ["youtube_video_ids_and_links"],
+      stamp: stamp("2026-10-10T11:30:00.000Z"),
+    };
+    const metadata: OccurrenceMetadata = {
+      ...own.metadata, fingerprint: findingsCardFingerprint(checked), receipt_sha256: "b".repeat(64),
+      saved_at: record.stamp.saved_at, occurrence_count: 2,
+    };
+    h.github.comments.set(12, [
+      { id: 501, body: occurrenceComment(record, metadata) },
+      { id: 502, body: "A synthetic non-save comment, also removed with the card." },
+    ]);
+    return { own: own.record, later: record };
+  }
+
+  it("holds an all-YouTube card and its later saves without a card, then strips and locks the issue for the owner to delete", async () => {
+    const h = harness({ start: "2026-10-25T09:00:00.000Z" });
+    const { own, later } = cardlessMoveFixture(h);
+    const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] });
+    expect(moved.structured.youtubeFindings.cards).toEqual([{
+      card: "ARF-0012", status: "moved_without_card", held: [
+        { finding: 1, save: "card", savedOn: "2026-10-07" },
+        { finding: 2, save: "card", savedOn: "2026-10-07" },
+        { finding: 1, save: "later_save", savedOn: "2026-10-10" },
+      ], deleted: 0, cardRewritten: false, laterSavesRewritten: 0, laterSavesDeleted: 1,
+      decidedFindings: [], publishedFindings: [],
+    }]);
+    expect(h.store.snapshot()).toEqual([own, later].flatMap((record) => record.card.findings.map((finding, index) => ({
+      ...heldYouTubeFindingOf(finding, index + 1, ["comment_audit"]),
+      cardNumber: null, cardSha256: record.card_sha256, savedAt: record.stamp.saved_at,
+      question: record === own ? YOUTUBE_ONLY_QUESTION : record.card.question, topic: record.card.topic,
+    }))));
+    const tombstone = {
+      cards: [12], forgotten_at: "2026-10-25T09:00:00.000Z", reason: "youtube_findings_held_without_card" as const,
+    };
+    expect(h.github.issue(12)).toMatchObject({
+      title: "Forgotten findings card", body: tombstoneBody(tombstone), labels: [], state: "closed",
+      state_reason: "not_planned", locked: true,
+    });
+    expect(h.github.issue(12).body).not.toContain("contributor's request");
+    expect(h.github.comments.get(12)).toEqual([]);
+    expect(h.github.writes.map(({ method }) => method)).toEqual(["DELETE", "DELETE", "PATCH", "PUT"]);
+    expect(moved.text).toContain("with no card number, each save with its own research question and topic");
+    expect(moved.structured.youtubeFindings.ownerSteps).toEqual([
+      "Delete each stripped issue in GitHub; deleting the issue also removes its edit history: " +
+        "https://github.com/u-dont-existDOTcom/AskRigor-findings/issues/12. Its findings are held with no card number " +
+        "for your review.",
+    ]);
+    const inbox = new GitHubFindingsReview({ tokenProvider: { getToken: async () => "synthetic-token" },
+      fetch: h.github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY });
+    expect(await inbox.readCard(12)).toEqual({ status: "not_found" });
+    expect(await inbox.openCards()).toEqual([]);
+    expect(await inbox.repositoryIssues()).toEqual([expect.objectContaining({ number: 12, forgotten: tombstone })]);
+    expect((await h.call({ action: "inspect_finding", card: "ARF-0012" })).structured.error.code).toBe("card_not_found");
+    expect((await h.call({ action: "list_findings" })).structured.findings.cards).toEqual([]);
+    const listed = await h.call({ action: "list_youtube_findings" });
+    expect(listed.structured.heldWithoutCard.saves).toEqual(expect.arrayContaining([
+      expect.objectContaining({ cardSha256: own.card_sha256, question: YOUTUBE_ONLY_QUESTION, topic: TOPIC,
+        savedOn: "2026-10-07" }),
+      expect.objectContaining({ cardSha256: later.card_sha256, question: later.card.question, topic: later.card.topic,
+        savedOn: "2026-10-10" }),
+    ]));
+    const rows = h.store.snapshot();
+    const writes = structuredClone(h.github.writes);
+    const hold = vi.spyOn(h.store, "hold");
+    h.later(DAY);
+    const again = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] });
+    expect(again.structured.youtubeFindings.cards[0]).toMatchObject({ status: "moved_without_card", held: [] });
+    expect(hold).not.toHaveBeenCalled();
+    expect(h.store.snapshot()).toEqual(rows);
+    expect(h.github.writes).toEqual(writes);
+    h.github.deleteIssue(12);
+    expect((await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] }))
+      .structured.youtubeFindings.cards[0].status).toBe("not_found");
+    expect(h.store.snapshot()).toEqual(rows);
+  });
+
+  it.each(["decision", "github_decision", "publication", "later_save", "later_save_study_only", "unreadable"] as const)(
+    "changes nothing on an all-YouTube card blocked by %s", async (blocker) => {
+      const publications = new InMemoryAtlasPublicationStore();
+      const h = harness({ start: "2026-10-25T09:00:00.000Z", publications });
+      cardlessMoveFixture(h, blocker === "later_save_study_only" ? "study_only" : blocker === "later_save");
+      if (blocker === "decision") {
+        for (const itemNumber of [1, 2]) await h.review.decide({
+          cardNumber: 12, itemKind: "finding", itemNumber, decision: "rejected", cardSha256: "d".repeat(64),
+          ownerReason: "A synthetic decision.", decidedAt: h.clock().toISOString(), intent: null, recheckedPublicNumber: null,
+        });
+      }
+      if (blocker === "github_decision") {
+        const inbox = new GitHubFindingsReview({ tokenProvider: { getToken: async () => "synthetic-token" },
+          fetch: h.github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY });
+        await inbox.postDecision(12, { itemKind: "finding", itemNumber: 2, decision: "rejected", publicNumber: null,
+          decidedAt: h.clock().toISOString() });
+      }
+      if (blocker === "publication") {
+        // A publication of the card before it became all-YouTube remains an obstacle, even withdrawn.
+        storeCardBeforeSeventy(h.github, 99, CARD, [["full_text_audit"]], "2026-10-07T08:00:00.000Z");
+        await h.call({ action: "publish_cards", cards: ["ARF-0099"] });
+        const [row] = await publications.inspect({});
+        vi.spyOn(publications, "inspect").mockResolvedValue([{ ...row!, cardNumber: 12, state: "withdrawn" }]);
+      }
+      if (blocker === "unreadable") h.github.comments.get(12)![0]!.body += "\nBroken record tail.";
+      const issues = structuredClone(h.github.issues);
+      const comments = structuredClone(h.github.comments);
+      const writes = structuredClone(h.github.writes);
+      const hold = vi.spyOn(h.store, "hold");
+      const moved = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] });
+      expect(moved.structured.youtubeFindings.cards[0]).toMatchObject({
+        status: { decision: "decisions_in_the_way", github_decision: "decisions_in_the_way", publication: "published_in_the_way",
+          later_save: "later_save_kept_findings", later_save_study_only: "later_save_kept_findings", unreadable: "unreadable" }[blocker], held: [],
+        ...(blocker === "decision" ? { decidedFindings: [1, 2] } : {}),
+        ...(blocker === "github_decision" ? { decidedFindings: [2] } : {}),
+        ...(blocker === "publication" ? { publishedFindings: [1] } : {}),
+        ...(blocker === "later_save" || blocker === "later_save_study_only" ? { laterSave: 501 } : {}),
+      });
+      if (blocker === "later_save") expect(moved.text).toContain("later save in comment 501 has findings");
+      expect(hold).not.toHaveBeenCalled();
+      expect(h.store.snapshot()).toEqual([]);
+      expect(h.github.issues).toEqual(issues);
+      expect(h.github.comments).toEqual(comments);
+      expect(h.github.writes).toEqual(writes);
+    },
+  );
+
+  it.each(["partial", "throw"])("changes nothing in GitHub if holding a later save fails (%s), and retries without duplicates", async (failure) => {
+    const h = harness({ start: "2026-10-25T09:00:00.000Z" });
+    cardlessMoveFixture(h);
+    const issues = structuredClone(h.github.issues);
+    const comments = structuredClone(h.github.comments);
+    const originalHold = h.store.hold.bind(h.store);
+    const hold = vi.spyOn(h.store, "hold");
+    hold.mockImplementationOnce(originalHold);
+    if (failure === "partial") hold.mockResolvedValueOnce([]);
+    else hold.mockRejectedValueOnce(new Error("database unavailable"));
+    const failed = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] });
+    expect(failed.structured.youtubeFindings.cards[0].status).toBe("incomplete");
+    expect(h.github.issues).toEqual(issues);
+    expect(h.github.comments).toEqual(comments);
+    expect(h.github.writes).toEqual([]);
+    hold.mockRestore();
+    h.later(DAY);
+    expect((await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] }))
+      .structured.youtubeFindings.cards[0].status).toBe("moved_without_card");
+    expect(h.store.snapshot()).toHaveLength(3);
+  });
+
+  it.each(["comment", "tombstone", "lock"])("finishes a cardless move after a GitHub failure at %s", async (step) => {
+    const h = harness({ start: "2026-10-25T09:00:00.000Z" });
+    cardlessMoveFixture(h);
+    h.github.failWhen = ({ method, url }) =>
+      (step === "comment" && method === "DELETE" && url.endsWith("/502")) ||
+      (step === "tombstone" && method === "PATCH") || (step === "lock" && method === "PUT") ? 503 : undefined;
+    const half = await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] });
+    expect(half.structured.youtubeFindings.cards[0].status).toBe("incomplete");
+    expect(h.store.snapshot()).toHaveLength(3);
+    const rows = h.store.snapshot();
+    h.github.failWhen = undefined;
+    h.later(DAY);
+    expect((await h.call({ action: "move_youtube_findings", cards: ["ARF-0012"] }))
+      .structured.youtubeFindings.cards[0].status).toBe("moved_without_card");
+    expect(h.store.snapshot()).toEqual(rows);
+    expect(h.github.comments.get(12)).toEqual([]);
+    expect(h.github.issue(12)).toMatchObject({ locked: true, labels: [], state: "closed" });
   });
 
   it("holds before it rewrites: a database failure changes no card, and a GitHub failure is finished by calling again", async () => {

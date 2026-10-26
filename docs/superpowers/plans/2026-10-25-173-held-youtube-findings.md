@@ -48,11 +48,20 @@ The owner's decisions, 25 Oct 2026:
    each later save exactly as a save today would write it (`storedCardWithoutYouTubeFindings`, the same
    `withoutYouTubeData`, signed bases kept, the checked card's SHA-256, stamp and marker unchanged); a later save left
    with no finding is deleted. It holds before it rewrites, and rewrites nothing unless the store reports each finding
-   held, so a failure is finished by calling again. It changes nothing on a stored card whose findings all rest on
-   YouTube comments, or where a decision names a finding the move would remove or renumber (decisions name findings by
-   place). It also changes nothing if the card has any publication, including withdrawn ones, unless that
-   publication's card was forgotten; publications also name findings by place. The reply lists the GitHub edit
-   histories for the owner to clear.
+   held, so a failure is finished by calling again. Owner answer 179a: if every finding on the card and every later
+   save rests on YouTube comments, each save's findings are held with no card number, its own checked card SHA-256,
+   save time, research question and topic, exactly as a card not saved as a card keeps them today. Every comment is
+   then deleted, the issue tombstoned (title replaced, labels removed, closed as not planned) and locked, using the
+   inbox operations of `forget_card`. Its forgotten marker records only `cards: [issue number]`, `forgotten_at` (the
+   removal time) and `reason: "youtube_findings_held_without_card"`; its text explains this move, not a contributor's
+   deletion request. It reads as gone from the card tools and listings. A retry finishes an unlocked tombstone, and
+   holding again adds no duplicate and preserves the first save time. No migration is needed. Every read and check
+   comes before holding or changing GitHub: it changes nothing if a save does not read, if a decision names a finding
+   the move would remove or renumber (any finding when the whole card goes), or if the card has any publication,
+   including withdrawn ones, unless that publication's card was forgotten. Removing the whole card also refuses a
+   later save with any finding to keep (`later_save_kept_findings`, naming its comment); successful removal reports
+   `moved_without_card`, each held finding and its save day. The reply lists the GitHub edit histories of rewritten
+   cards for the owner to clear, or tells the owner to delete each stripped issue, which removes its edit history too.
 6. **Database access.** Six SECURITY DEFINER functions, each revoked from PUBLIC; no role gets the table, and each
    migrate removes every grant on it but the migrator's (the reader's default-privilege SELECT included). The
    research-access role (save path) executes `hold_youtube_findings` alone; the review role executes it,
@@ -75,7 +84,8 @@ connection, query and statement timeouts are 5 seconds.
   kept and never kept, the save path (failing, throwing and hanging stores; a card not saved as a card), that the
   server module runs no purge, the owner's actions and their access checks (the card view, the card-less list and its
   pages, both deletions, deleting them all only with `confirm: true`), the move (byte-for-byte card body, a save of
-  any age, a store that does not hold every finding, later saves, decisions, failures), and the user's words.
+  any age, a store that does not hold every finding, later saves, decisions, failures, and answer 179a's cardless move,
+  refusals, tombstone readback, owner step and retries at each GitHub step), and the user's words.
 - `tests/living-evidence-production-deployment.test.ts`: the migration's columns (no expiry), checks, indexes,
   functions, revokes and the exact grants of both provisioning scripts.
 - `scripts/research-contributor-access-postgres-acceptance.mts` (`verifyHeldYouTubeFindings`, Docker): the grants as
@@ -86,8 +96,12 @@ connection, query and statement timeouts are 5 seconds.
 ## Left to the owner
 
 The privacy page's paragraph is the owner's wording of 25 Oct; the effective date is unchanged. After the release:
-`move_youtube_findings` for ARF-0007, ARF-0012 and ARF-0209, then the GitHub edit histories. A save with no card has no
-`ARF-####` id for a deletion request to name, so its held findings go on the owner's word. `forget_card` deletes the
+`move_youtube_findings` for ARF-0007, ARF-0012 and ARF-0209, then the GitHub edit histories of rewritten cards or deletion
+of a stripped issue. On 25 Oct, ARF-0007 and ARF-0209 moved; ARF-0012 was refused by the earlier all-YouTube guard.
+Answer 179a's implementation in `claude/179a-cardless-hold-20261025` replaces that guard as described above; it remains
+uncommitted for the supervising Claude session to review and commit, with no push, merge or deployment authorized.
+A save with no card has no `ARF-####` id for a deletion request to name, so its held findings go on the owner's word.
+`forget_card` deletes the
 held findings of the person's own cards; those of the person's later saves on other people's cards stay, held under
 that card, until they are deleted (their comment, which alone tied them to the person, is deleted). With no 30-day
 deletion they no longer go by age: the owner deletes them with that card's held findings, or all at once.

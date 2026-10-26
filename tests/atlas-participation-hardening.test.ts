@@ -92,11 +92,15 @@ describe("what the page's last check refuses never reaches a page (review issue 
     const page = await f.get("/atlas/findings/P-1001", session);
     expect(page.response.status).toBe(200);
     expect(atlasPageProblems(page.body)).toEqual([]);
-    const renamed = await f.post("/atlas/account/name", { csrf: tokenFor(page.body, "/atlas/account/name"),
+    const account = await f.get("/atlas/account", session);
+    expect(account.response.status).toBe(200);
+    expect(atlasPageProblems(account.body)).toEqual([]);
+    expect(account.body).not.toContain("youtube.community");
+    expect(account.body).toContain('action="/atlas/auth/logout"');
+    expect(account.body).toContain('action="/atlas/account/delete"');
+    const renamed = await f.post("/atlas/account/name", { csrf: tokenFor(account.body, "/atlas/account/name"),
       displayName: "Jane", return: "/atlas/findings/P-1001" }, { cookie: session });
     expect(renamed.status).toBe(303);
-    expect(page.body).toContain('action="/atlas/auth/logout"');
-    expect(page.body).toContain('action="/atlas/account/delete"');
   });
 
   it("leaves out a home page pick whose reason the last check would refuse", async () => {
@@ -255,7 +259,7 @@ describe("signing in (review issue 5)", () => {
     const f = await fixture();
     const first = await f.signIn();
     const second = await f.signIn();
-    const page = (await f.get("/atlas/findings/P-1001", first)).body;
+    const page = (await f.get("/atlas/account", first)).body;
     const out = await f.post("/atlas/auth/logout-everywhere", { csrf: tokenFor(page, "/atlas/auth/logout-everywhere"),
       return: "/atlas/findings/P-1001" }, { cookie: first });
     expect(out.status).toBe(303);
@@ -281,7 +285,8 @@ describe("signing in (review issue 5)", () => {
     const fresh = (await f.get("/atlas/findings/P-1001", third)).body;
     expect(fresh).toContain('action="/atlas/findings/P-1001/vote"');
     // Deleting everything ends this session as well.
-    const forgotten = await f.post("/atlas/account/delete", { csrf: tokenFor(fresh, "/atlas/account/delete"), confirm: "yes",
+    const account = (await f.get("/atlas/account", third)).body;
+    const forgotten = await f.post("/atlas/account/delete", { csrf: tokenFor(account, "/atlas/account/delete"), confirm: "yes",
       return: "/atlas/findings/P-1001" }, { cookie: third });
     expect(forgotten.headers.getSetCookie()[0]).toContain(`${ATLAS_SESSION_COOKIE}=; Path=/; Max-Age=0`);
     const after = await f.post("/atlas/findings/P-1001/vote", { csrf: tokenFor(fresh, "/atlas/findings/P-1001/vote"),
@@ -443,9 +448,9 @@ describe("a reader's own comments (review issue 8)", () => {
     expect(anonymous.response.status).toBe(200);
     expect(anonymous.body).toContain(`${f.base}/atlas/auth/login?return=%2Fatlas%2Faccount%2Fcomments`);
     expect(anonymous.body).not.toContain("Later comment");
-    // The finding page links to it for a signed-in reader.
+    // The finding page links to the account controls for a signed-in reader.
     expect((await f.get("/atlas/findings/P-1001", session)).body)
-      .toContain('<a href="/atlas/account/comments">Your votes and comments</a>');
+      .toContain('<a href="/atlas/account">Your account</a>');
   });
 });
 
@@ -471,11 +476,13 @@ describe("when the session check cannot reach the database (review follow-up, it
     const signedIn = (await f.get("/atlas/findings/P-1001", session)).body;
     const csrf = tokenFor(signedIn, "/atlas/findings/P-1001/vote");
     failing = true;
-    const page = await f.get("/atlas/findings/P-1001", session);
-    expect(page.response.status).toBe(200);
-    expect(page.body).toContain("/atlas/auth/login?return=");
-    expect(page.body).not.toContain('action="/atlas/findings/P-1001/vote"');
-    expect(page.response.headers.getSetCookie()).toEqual([]);
+    for (const path of ["/atlas", "/atlas/changes", "/atlas/topics/velmor-syndrome", "/atlas/findings/P-1001", "/atlas/account"]) {
+      const page = await f.get(path, session);
+      expect(page.response.status, path).toBe(200);
+      expect(page.body).toContain("/atlas/auth/login?return=");
+      expect(page.body).not.toContain('action="/atlas/findings/P-1001/vote"');
+      expect(page.response.headers.getSetCookie()).toEqual([]);
+    }
     const vote = await f.post("/atlas/findings/P-1001/vote", { csrf, vote: "agree" }, { cookie: session });
     expect(vote.status).toBe(503);
     expect(f.store.snapshot().votes).toBe(0);

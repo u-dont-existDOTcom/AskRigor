@@ -34,9 +34,11 @@ import {
 import { escapeHtml, passesPageGuard } from "./page-guard.js";
 import {
   ATLAS_CSS,
+  ACCOUNT_PATH,
   OWN_COMMENTS_PATH,
   atlasPageProblems,
   findingPath,
+  renderAtlasAccount,
   renderAtlasChanges,
   renderAtlasFinding,
   renderAtlasHome,
@@ -46,6 +48,7 @@ import {
   renderAtlasTooManyRequests,
   renderAtlasTopic,
   renderAtlasUnavailable,
+  type AtlasPageReader,
 } from "./pages.js";
 import {
   ATLAS_LOGIN_COOKIE,
@@ -174,6 +177,7 @@ export type AtlasRoute =
   | { kind: "report-comment"; publicId: string }
   | { kind: "rename" }
   | { kind: "forget" }
+  | { kind: "account" }
   | { kind: "own-comments" };
 
 type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
@@ -211,6 +215,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/auth/logout-everywhere") return { kind: "sign-out-everywhere" };
   if (pathname === "/atlas/account/name") return { kind: "rename" };
   if (pathname === "/atlas/account/delete") return { kind: "forget" };
+  if (pathname === ACCOUNT_PATH) return { kind: "account" };
   if (pathname === "/atlas/account/comments") return { kind: "own-comments" };
   const findingForm = FINDING_FORM_ROUTE.exec(pathname);
   if (findingForm !== null) {
@@ -404,7 +409,7 @@ function declaresBody(request: IncomingMessage): boolean {
   return request.headers["transfer-encoding"] !== undefined || (length !== undefined && length !== "0");
 }
 
-/** The lines a finding page shows after a form, by the done= its redirect carries. */
+/** The lines a page shows after a form, by the done= its redirect carries. */
 const NOTICES: Readonly<Record<string, string>> = {
   "signed-in": "You are signed in: you can vote and comment.",
   "signed-out": "You are signed out.",
@@ -498,6 +503,24 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const signInHref = (settings: AtlasParticipationSettings, returnPath: string) =>
     `${settings.publicOrigin}${ATLAS_SIGN_IN_PATH}?return=${encodeURIComponent(returnPath)}`;
 
+  const signedOutReader = (path: string): AtlasPageReader | undefined => participation === undefined ? undefined : {
+    signInHref: signInHref(participation.settings, path), viewer: null,
+  };
+
+  /** A stored name is untrusted and must pass the same last check as a comment's name. */
+  const shownName = (name: string | null) => name === null ? null : passesPageGuard(name) ? name : "";
+
+  const readerFor = async (runtime: AtlasParticipationRuntime, path: string, session: AtlasSession | undefined,
+    done = ""): Promise<AtlasPageReader> => ({
+    signInHref: signInHref(runtime.settings, path),
+    viewer: session === undefined ? null : {
+      displayName: shownName((await runtime.store.inspectParticipant(session.participantKey))?.displayName ?? null),
+    },
+    notice: noticeOf(done),
+    tenantSignOutHref: session === undefined && (done === "signed-out" || done === "signed-out-everywhere")
+      ? tenantSignOutUrl(runtime.settings, runtime.signIn) : null,
+  });
+
   /** Every rendered page passes the last check: no script, no card reference, no YouTube link. */
   const checked = (page: RenderedAtlasPage): RenderedAtlasPage => {
     if (atlasPageProblems(page.html).length > 0) throw new Error("ATLAS_PAGE_REFUSED");
@@ -542,16 +565,12 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           deleteToken: session !== undefined && own.has(comment.publicId) ? token(`delete:${comment.publicId}`) : null,
         })),
       viewer: session === undefined ? null : {
-        displayName: viewerName === null ? null : passesPageGuard(viewerName) ? viewerName : "",
+        displayName: shownName(viewerName),
         stopped: raw.viewer?.stopped ?? false,
         vote: raw.viewer?.vote ?? null,
         tokens: {
           vote: token(`vote:${publicationNumber}`),
           comment: token(`comment:${publicationNumber}`),
-          name: token("name"),
-          signOut: token("sign-out"),
-          signOutEverywhere: token("sign-out-everywhere"),
-          forget: token("forget"),
         },
       },
       signInHref: signInHref(settings, findingPath(publicationNumber)),
@@ -573,21 +592,25 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     const model = await loadAtlasFinding(source, publicationNumber, participation === undefined ? {}
       : { participation: { participantKey: session?.participantKey ?? null,
         ...(extras.before === undefined ? {} : { before: extras.before }) } });
-    if (model === undefined) return checked({ status: 404, html: renderAtlasNotFound() });
-    return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, participationView(model, session, now, extras)) });
+    if (model === undefined) return checked({ status: 404, html: renderAtlasNotFound(participation === undefined ? undefined
+      : await readerFor(participation, findingPath(publicationNumber), session)) });
+    const view = participationView(model, session, now, extras);
+    const reader = signedOutReader(findingPath(publicationNumber));
+    if (reader !== undefined && view?.viewer) reader.viewer = { displayName: view.viewer.displayName };
+    return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
   const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>,
-    source: AtlasPageSource): Promise<RenderedAtlasPage> => {
+    source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "home":
-        return checked({ status: 200, html: renderAtlasHome(await loadAtlasHome(source)) });
+        return checked({ status: 200, html: renderAtlasHome(await loadAtlasHome(source), reader) });
       case "changes":
-        return checked({ status: 200, html: renderAtlasChanges(await loadAtlasChanges(source)) });
+        return checked({ status: 200, html: renderAtlasChanges(await loadAtlasChanges(source), reader) });
       case "topic": {
         const model = await loadAtlasTopic(source, route.topicKey);
-        return checked(model === undefined ? { status: 404, html: renderAtlasNotFound() }
-          : { status: 200, html: renderAtlasTopic(model) });
+        return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+          : { status: 200, html: renderAtlasTopic(model, reader) });
       }
       case "finding":
         return await findingPage(source, route.publicationNumber, undefined, clock());
@@ -595,10 +618,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   };
 
   /** A form or sign-in that cannot go ahead: a short page with the way back, or on. */
-  const message = (response: ServerResponse, status: number, title: string, text: string, back: string,
+  const messageFor = (reader?: AtlasPageReader) => (response: ServerResponse, status: number, title: string, text: string, back: string,
     cookies: readonly string[] = [], linkText = "Go back") => {
-    write(response, status, HTML, renderAtlasMessage(title, text, { href: back, text: linkText }), {
+    write(response, status, HTML, renderAtlasMessage(title, text, { href: back, text: linkText }, reader), {
       "cache-control": PRIVATE,
+      vary: "Cookie",
     }, cookies);
   };
 
@@ -625,10 +649,49 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return { session: current ? opened : undefined, clear: !current && present ? [clearSession] : [] };
   };
 
+  /** Error pages also carry the header, without turning a failed session lookup into a failed page. */
+  const failureReader = async (request: IncomingMessage, path: string) => {
+    let reader = signedOutReader(path);
+    let clear: string[] = [];
+    if (participation !== undefined) {
+      try {
+        const current = await currentSession(request, participation, clock(), "read-as-signed-out");
+        clear = current.clear;
+        reader = await readerFor(participation, path, current.session);
+      } catch {
+        // A failure response must still be writable when the participation store is unavailable.
+      }
+    }
+    return { reader, clear };
+  };
+
+  const failurePage = async (request: IncomingMessage, response: ServerResponse, status: number,
+    render: (reader?: AtlasPageReader) => string, extra: Record<string, string> = {}) => {
+    const { reader, clear } = await failureReader(request, "/atlas");
+    write(response, status, HTML, render(reader), {
+      ...(participation === undefined ? {} : { "cache-control": PRIVATE, vary: "Cookie" }), ...extra,
+    }, clear);
+  };
+
+  /** The rate-limit and outage pages: the plain header, no session lookup, so they add no load. */
+  const plainFailure = (response: ServerResponse, status: number, page: string, extra: Record<string, string> = {}) => {
+    write(response, status, HTML, page, {
+      ...(participation === undefined ? {} : { "cache-control": PRIVATE, vary: "Cookie" }), ...extra,
+    });
+  };
+
+  const requestMessage = async (request: IncomingMessage, response: ServerResponse, status: number, title: string,
+    text: string, back: string, cookies: readonly string[] = [], linkText = "Go back") => {
+    const { reader } = await failureReader(request, back);
+    messageFor(reader)(response, status, title, text, back, cookies, linkText);
+  };
+
   /** A signed-in reader's own comments: every one of theirs, in any state, each with its delete form. */
   const ownCommentsRoute = async (request: IncomingMessage, response: ServerResponse, runtime: AtlasParticipationRuntime,
     source: AtlasPageSource, now: Date) => {
     const { session, clear } = await currentSession(request, runtime, now);
+    const reader = await readerFor(runtime, OWN_COMMENTS_PATH, session);
+    const message = messageFor(reader);
     if (session === undefined) {
       message(response, 200, "Your comments", "Sign in to see every comment you posted in the Atlas and to delete any " +
         "of them.", signInHref(runtime.settings, OWN_COMMENTS_PATH), clear, "Sign in with your AskRigor account");
@@ -665,14 +728,27 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       olderHref: (fitting.length < model.comments.length || model.more) && last !== undefined
         ? `${OWN_COMMENTS_PATH}?before=${last.publicId}` : null,
       notice: noticeOf(query.get("done") ?? ""),
-    });
+    }, reader);
     const page = checked({ status: 200, html });
+    write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
+  };
+
+  const accountRoute = async (request: IncomingMessage, response: ServerResponse, runtime: AtlasParticipationRuntime,
+    now: Date) => {
+    const { session, clear } = await currentSession(request, runtime, now, "read-as-signed-out");
+    const reader = await readerFor(runtime, ACCOUNT_PATH, session, queryOf(request).get("done") ?? "");
+    const token = (purpose: string) => csrfToken(runtime.settings, session!, purpose);
+    const page = checked({ status: 200, html: renderAtlasAccount({
+      reader,
+      tokens: session === undefined ? null : { name: token("name"), signOut: token("sign-out"),
+        signOutEverywhere: token("sign-out-everywhere"), forget: token("forget") },
+    }) });
     write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
   };
 
   /** A form that needs a sign-in it does not have: the page links to signing in, as a form cannot leave this site. */
   const signInFirst = (response: ServerResponse, runtime: AtlasParticipationRuntime, back: string, cookies: string[]) =>
-    message(response, 403, "Sign in to continue", "You are not signed in, or your sign-in has ended. Nothing was changed.",
+    messageFor(signedOutReader(back))(response, 403, "Sign in to continue", "You are not signed in, or your sign-in has ended. Nothing was changed.",
       signInHref(runtime.settings, back), cookies, "Sign in with your AskRigor account");
 
   const signInRoute = async (route: Extract<AtlasRoute, { kind: "sign-in" | "callback" }>, request: IncomingMessage,
@@ -702,7 +778,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       ]);
     } catch (error) {
       if (!(error instanceof AtlasSignInError)) throw error;
-      message(response, 400, "Sign-in did not complete", error.refusal === "denied"
+      await requestMessage(request, response, 400, "Sign-in did not complete", error.refusal === "denied"
         ? "The sign-in was cancelled or refused, so you are not signed in."
         : "The sign-in could not be completed, or it took longer than 10 minutes. Nothing about you was kept; you can " +
           "try again.", signInHref(runtime.settings, "/atlas"), [clearLogin], "Try signing in again");
@@ -714,7 +790,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     runtime: AtlasParticipationRuntime, source: AtlasPageSource, addressKey: string, now: Date) => {
     const settings = runtime.settings;
     if (!sameSitePost(request, settings.publicOrigin)) {
-      message(response, 403, "Form refused", "The form did not come from the Atlas pages, so nothing was changed.", "/atlas");
+      await requestMessage(request, response, 403, "Form refused",
+        "The form did not come from the Atlas pages, so nothing was changed.", "/atlas");
       return;
     }
     let form: URLSearchParams;
@@ -732,6 +809,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         safeReturnPath(form.get("return")) === OWN_COMMENTS_PATH ? OWN_COMMENTS_PATH
       : route.kind === "vote" || route.kind === "comment" ? findingPath(route.publicationNumber)
         : safeReturnPath(form.get("return"));
+    const message = async (...args: Parameters<ReturnType<typeof messageFor>>) =>
+      messageFor(await readerFor(runtime, back, session))(...args);
     const expired = () => message(response, 403, "This form has expired",
       "The page was open too long, or you signed in or out since. Nothing was changed: reload the page and try again.", back,
       clear);
@@ -739,8 +818,10 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       cache.clear();
       redirect(response, 303, `${back}?done=${notice}#${anchor}`, cookies);
     };
-    const tooMany = () => write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60", "cache-control": PRIVATE },
-      clear);
+    const tooMany = async () => write(response, 429, HTML,
+      // A refused request costs nothing more: no database read for the header.
+      renderAtlasTooManyRequests(),
+      { "retry-after": "60", "cache-control": PRIVATE, vary: "Cookie" }, clear);
 
     if (route.kind === "report-comment") {
       const valid = validReportToken(settings, route.publicId, form.get("csrf"), now) ||
@@ -750,7 +831,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       if (!limits.reports.consume(reporter)) return tooMany();
       const outcome = await runtime.store.reportComment(reporter, route.publicId, now.toISOString());
       if (outcome === "not_found") {
-        message(response, 404, "Comment not found", "That comment is no longer on the Atlas pages.", back);
+        await message(response, 404, "Comment not found", "That comment is no longer on the Atlas pages.", back);
         return;
       }
       return done("reported", route.publicId);
@@ -781,7 +862,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         case "vote": {
           const choice = form.get("vote");
           if (choice !== "agree" && choice !== "disagree" && choice !== "clear") {
-            message(response, 400, "Vote not saved", "Choose agree or disagree.", back);
+            await message(response, 400, "Vote not saved", "Choose agree or disagree.", back);
             return;
           }
           if (!limits.votes.consume(key)) return tooMany();
@@ -808,7 +889,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         case "delete-comment": {
           if (!await runtime.store.deleteComment(key, route.publicId)) {
-            message(response, 404, "Comment not found", "That comment is not one of yours, or it is already deleted.", back);
+            await message(response, 404, "Comment not found", "That comment is not one of yours, or it is already deleted.", back);
             return;
           }
           return done("deleted", "comments");
@@ -817,7 +898,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           const named = normalizedDisplayName(form.get("displayName"));
           const problem = displayNameProblem(named);
           if (problem !== undefined) {
-            message(response, 422, "Display name not saved", problem, back);
+            await message(response, 422, "Display name not saved", problem, back);
             return;
           }
           if (!limits.names.consume(key)) return tooMany();
@@ -826,7 +907,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         case "forget": {
           if (form.get("confirm") !== "yes") {
-            message(response, 422, "Nothing was deleted", "Tick the box to confirm that you want everything you hold in " +
+            await message(response, 422, "Nothing was deleted", "Tick the box to confirm that you want everything you hold in " +
               "the Atlas deleted.", back);
             return;
           }
@@ -839,19 +920,19 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       if (!(error instanceof AtlasParticipationError)) throw error;
       switch (error.code) {
         case "NOT_SHOWN":
-          message(response, 404, "Finding not found", "That finding is no longer on the Atlas pages, so nothing was saved.",
+          await message(response, 404, "Finding not found", "That finding is no longer on the Atlas pages, so nothing was saved.",
             "/atlas");
           return;
         case "STOPPED":
-          message(response, 403, "Comment not posted", "Your account can't comment in the Atlas.", back);
+          await message(response, 403, "Comment not posted", "Your account can't comment in the Atlas.", back);
           return;
         case "DISPLAY_NAME_REQUIRED":
-          message(response, 422, route.kind === "rename" ? "Display name not saved" : "Comment not posted",
+          await message(response, 422, route.kind === "rename" ? "Display name not saved" : "Comment not posted",
             route.kind === "rename" ? "Your display name is chosen with your first comment." : "Choose a display name first.",
             back);
           return;
         default:
-          message(response, 400, "Not saved", "The form was not valid, so nothing was changed.", back);
+          await message(response, 400, "Not saved", "The form was not valid, so nothing was changed.", back);
           return;
       }
     }
@@ -884,11 +965,12 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       }
       const addressKey = addressLimitKey(atlasReaderAddress(request, publicHost, dispatchOptions.clientIp, proxySecret));
       if (!rateLimiter.consume(addressKey)) {
-        write(response, 429, HTML, renderAtlasTooManyRequests(), { "retry-after": "60" });
+        // Over the limit or unavailable: the plain header, with no session or database read.
+        plainFailure(response, 429, renderAtlasTooManyRequests(), { "retry-after": "60" });
         return true;
       }
       if (route === undefined) {
-        write(response, 404, HTML, renderAtlasNotFound());
+        await failurePage(request, response, 404, renderAtlasNotFound);
         return true;
       }
       const allowed = FORM_KINDS.has(route.kind) ? ["POST"] : SIGN_IN_KINDS.has(route.kind) ? ["GET"] : ["GET", "HEAD"];
@@ -902,7 +984,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       }
       const source = options.source;
       if (source === undefined) {
-        write(response, 503, HTML, renderAtlasUnavailable());
+        plainFailure(response, 503, renderAtlasUnavailable());
         return true;
       }
       try {
@@ -915,36 +997,40 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await formRoute(route as FormRoute, request, response, participation, source, addressKey, now);
           return true;
         }
+        if (participation !== undefined && route.kind === "account") {
+          await accountRoute(request, response, participation, now);
+          return true;
+        }
         if (participation !== undefined && route.kind === "own-comments") {
           await ownCommentsRoute(request, response, participation, source, now);
           return true;
         }
         const pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" }>;
-        if (participation !== undefined && pageRoute.kind === "finding") {
+        if (participation !== undefined) {
           const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");
           const query = queryOf(request);
           const done = query.get("done") ?? "";
           const notice = noticeOf(done);
-          const before = commentCursor(query.get("before"));
+          const before = pageRoute.kind === "finding" ? commentCursor(query.get("before")) : undefined;
           if (session !== undefined || notice !== null || before !== undefined) {
-            // A signed-in reader's page holds their forms' tokens: it is rendered for them, and never cached; so is a
-            // page of older comments.
-            const page = await findingPage(source, pageRoute.publicationNumber, session, now, {
+            // Reader names and form tokens never enter the shared cache; known notices and older comments also
+            // render afresh.
+            const page = pageRoute.kind === "finding" ? await findingPage(source, pageRoute.publicationNumber, session, now, {
               notice,
               signedOut: (done === "signed-out" || done === "signed-out-everywhere") && session === undefined,
               ...(before === undefined ? {} : { before }),
-            });
+            }) : await render(pageRoute, source, await readerFor(participation, pathname, session, done));
             write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, stale);
             return true;
           }
-          const page = await cache.get(pathname, () => render(pageRoute, source));
+          const page = await cache.get(pathname, () => render(pageRoute, source, signedOutReader(pathname)));
           write(response, page.status, HTML, page.html, { vary: "Cookie" }, stale);
           return true;
         }
         const page = await cache.get(pathname, () => render(pageRoute, source));
         write(response, page.status, HTML, page.html);
       } catch {
-        if (!response.headersSent) write(response, 503, HTML, renderAtlasUnavailable());
+        if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());
       }
       return true;
     },
