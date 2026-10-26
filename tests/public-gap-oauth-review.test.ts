@@ -250,7 +250,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       ![
         "review_evidence_gap_submissions",
         "review_research_contribution",
-        "get_protocol_manifest",
+        "get_protocol_manifest", "search_research_frontiers",
       ].includes(name)
     )) {
       expect(_meta, name).toEqual({

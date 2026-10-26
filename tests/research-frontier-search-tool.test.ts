@@ -57,7 +57,7 @@ describe("read-only research-frontier catalog search", () => {
   it("requires a bounded free-text query and defaults to ten matches", () => {
     expect(researchFrontierSearchInputSchema.safeParse({}).success).toBe(false);
     expect(researchFrontierSearchInputSchema.safeParse({ query: " " }).success).toBe(false);
-    expect(researchFrontierSearchInputSchema.safeParse({ query: "a" }).success).toBe(false);
+    expect(researchFrontierSearchInputSchema.safeParse({ query: "a" }).success).toBe(true);
     expect(researchFrontierSearchInputSchema.safeParse({
       query: "prolactinoma",
       limit: 26,

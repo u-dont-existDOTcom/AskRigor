@@ -12,6 +12,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import { atlasBasisSchema } from "../atlas/reuse.js";
 import {
   GITHUB_API_ROOT,
   GitHubApiError,
@@ -123,6 +124,7 @@ const storedRecordSchema = z.object({
       label: text(200),
     }).strict().optional(),
     open_leads: z.array(text(200)).max(6),
+    atlas_basis: z.array(atlasBasisSchema).max(300).optional(),
   }).strict(),
   card_sha256: z.string().regex(HEX_64),
   stored_without: z.array(z.enum(STORED_WITHOUT)).min(1).max(STORED_WITHOUT.length)
@@ -197,8 +199,9 @@ export function parseFindingsRecordBody(
   const findingsLeftOut = stored.stored_without?.includes("youtube_comment_findings") === true;
   if (!linkReplaced && !findingsLeftOut && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
   if (stored.stored_without === undefined) {
+    const { atlas_basis: _atlas, ...checkedCard } = stored.card;
     const checked = {
-      ...stored.card,
+      ...checkedCard,
       findings: stored.card.findings.map(({ verified_bases: _bases, ...finding }) => finding),
     };
     if (findingsCardDigest(checked) !== stored.card_sha256) return "tampered";

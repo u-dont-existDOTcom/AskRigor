@@ -1,3 +1,4 @@
+import { atlasBasisSchema } from "../atlas/reuse.js";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -683,6 +684,7 @@ export const atlasCardViewSchema = z.object({
   cardSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   question: z.string(),
   usualAnswer: z.string(),
+  atlasBasis: z.array(atlasBasisSchema).max(300),
   publicValue: z.object({
     scope: z.enum(PUBLIC_VALUE_SCOPES),
     whoElse: z.string().nullable(),
@@ -1352,6 +1354,8 @@ export class AtlasReview {
         outcome: "finding_inspected",
         card,
         text: `${id} (cardSha256 ${loaded.cardSha256}), saved ${card.savedOn}: ${card.question}\n` +
+          (card.atlasBasis.length === 0 ? "" : "Built on Atlas findings: " +
+            card.atlasBasis.map(({ number, relation }) => `${number} (${relation})`).join(", ") + "\n") +
           card.items.map((item) => `${item.item === "finding" ? "Finding" : "Open lead"} ${item.number}: ` +
             `${clip(item.text, 160)} -> ${item.decision === null
               ? wouldBecomeWords(item.wouldBecome, item.recheckOf)
@@ -3689,6 +3693,8 @@ function cardView(loaded: LoadedCard, findings: CardItem[], state: AtlasState, h
     cardSha256: loaded.cardSha256,
     question: card.record.card.question,
     usualAnswer: card.record.card.usual_answer,
+    atlasBasis: [...new Map([card.record, ...card.occurrences]
+      .flatMap((record) => record.card.atlas_basis ?? []).map((entry) => [`${entry.number}:${entry.relation}`, entry])).values()],
     publicValue: declared === undefined ? null : {
       scope: declared.scope,
       whoElse: declared.who_else ?? null,

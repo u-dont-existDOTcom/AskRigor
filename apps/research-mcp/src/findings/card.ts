@@ -13,6 +13,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import { atlasBasisSchema, type AtlasBasis } from "../atlas/reuse.js";
 import {
   containsSecretLikeData,
   screenPrivateText,
@@ -123,7 +124,7 @@ export const findingsCardSchema = z.object({
     answer_quote: cardText(1_000)
       .describe("The answer's sentence that states this finding, copied exactly from answer_draft."),
     sources: z.array(cardText(300)).min(1).max(10)
-      .describe("DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No " +
+      .describe("DOI, PMID or PMCID of a key source verified in this call or cited from a checked Atlas finding used here, or the ID of a video audited here. No " +
         "tool verifies a trial registration yet, so cite a trial through its published paper."),
     why_not_usual: cardText(300).describe("Why the usual answer misses this."),
     tags: z.array(z.enum(FINDING_TAGS)).max(FINDING_TAGS.length).default([])
@@ -424,7 +425,19 @@ export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & 
 };
 
 /** A card as the library stores it. */
-export type StoredFindingsCard = Omit<FindingsCard, "findings"> & { findings: StoredFinding[] };
+export type StoredFindingsCard = Omit<FindingsCard, "findings"> & {
+  findings: StoredFinding[];
+  /** Exact Atlas relationships checked in the final call, never automatic canonical links. */
+  atlas_basis?: AtlasBasis[];
+};
+export function atlasBasisFromReceipt(value: string | string[] | undefined): AtlasBasis[] {
+  const rows = value === undefined ? [] : Array.isArray(value) ? value : [value];
+  return rows.flatMap((row) => {
+    const [number, relation] = row.split(":");
+    const parsed = atlasBasisSchema.safeParse({ number, relation });
+    return parsed.success ? [parsed.data] : [];
+  });
+}
 
 const YOUTUBE_PAGE =
   "https?://(?:(?:www\\.|m\\.)?youtube\\.com/watch\\?v=[A-Za-z0-9_-]{11}(?:&t=\\d{1,6}s?)?" +

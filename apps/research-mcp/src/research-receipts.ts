@@ -28,6 +28,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
  */
 
 export const RESEARCH_RECEIPT_KINDS = [
+  "atlas_lookup",
   "youtube_survey",
   "youtube_search",
   "youtube_scout",
@@ -183,7 +184,11 @@ export function researchMapAccountBinding(secret: string, accountKey: string): s
 }
 
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const RESEARCH_RECEIPT_MAX_CHARACTERS = 2_048;
+// Atlas lookups carry bounded normalized words and public finding/source fingerprints, in any script.
+export const RESEARCH_RECEIPT_MAX_CHARACTERS = 32_768;
+const ORDINARY_RECEIPT_MAX_CHARACTERS = 2_048;
+const receiptLimit = (kind: string) => kind === "atlas_lookup" || kind === "finalization"
+  ? RESEARCH_RECEIPT_MAX_CHARACTERS : ORDINARY_RECEIPT_MAX_CHARACTERS;
 
 const PREFIX = "rr1";
 const SEPARATOR = "~";
@@ -232,7 +237,7 @@ export function issueResearchReceipt(
     .join(",");
   const body = [PREFIX, kind, encodedClaims, String(issuedSeconds)].join(SEPARATOR);
   const token = `${body}${SEPARATOR}${mac(options.secret, body)}`;
-  if (token.length > RESEARCH_RECEIPT_MAX_CHARACTERS) {
+  if (token.length > receiptLimit(kind)) {
     throw new Error("Research receipt exceeds its size limit");
   }
   return token;
@@ -247,7 +252,7 @@ export function verifyResearchReceipt(
     return { ok: false, reason: "malformed" };
   }
   const parts = token.trim().split(SEPARATOR);
-  if (parts.length !== 5 || parts[0] !== PREFIX) return { ok: false, reason: "malformed" };
+  if (token.length > receiptLimit(parts[1] ?? "") || parts.length !== 5 || parts[0] !== PREFIX) return { ok: false, reason: "malformed" };
   const [, kind, encodedClaims, issued, signature] = parts as [string, string, string, string, string];
   if (!/^[0-9]{1,12}$/u.test(issued)) return { ok: false, reason: "malformed" };
   const expected = Buffer.from(mac(options.secret, parts.slice(0, 4).join(SEPARATOR)), "base64url");

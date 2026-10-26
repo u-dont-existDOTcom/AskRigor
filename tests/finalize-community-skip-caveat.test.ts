@@ -1,3 +1,4 @@
+import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -31,7 +32,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   mechanism_claims: [], recommendations: [], answer_draft: `${LINKS}\n\n${SKIP}`, ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: ReadonlySet<string>) =>
-  assertNextStepsContract(finalizeResearch(base(overrides), {
+  assertNextStepsContract(finalizeResearch(withAtlasLookupFixture(base(overrides), { secret: SECRET }), {
     secret: SECRET, ...(protocolNames === undefined ? {} : { protocolNames })
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: ReadonlySet<string>) =>
