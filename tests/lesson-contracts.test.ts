@@ -1,3 +1,4 @@
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
 import { describe, expect, it } from "vitest";
 import {
   connectorLessonCandidateSchema,
@@ -78,23 +79,25 @@ describe("lesson candidate contract", () => {
   });
 });
 
+const connectorCandidate = { ...validCandidate, ...lessonDiagnostics };
+
 // Issue #357: a connector lesson may point to the public AskRigor issue that
 // reports the failure in detail, by number only.
 describe("connector lesson candidate contract", () => {
-  const withRelatedIssue = { ...validCandidate, related_issue: 357 };
+  const withRelatedIssue = { ...connectorCandidate, related_issue: 357 };
 
   it("accepts an optional related issue number on the connector only", () => {
-    expect(connectorLessonCandidateSchema.parse(validCandidate)).toEqual(validCandidate);
+    expect(connectorLessonCandidateSchema.parse(connectorCandidate)).toEqual(connectorCandidate);
     expect(connectorLessonCandidateSchema.parse(withRelatedIssue)).toEqual(withRelatedIssue);
     for (const related_issue of [1, 1_000_000]) {
-      expect(connectorLessonCandidateSchema.parse({ ...validCandidate, related_issue })).toEqual({
-        ...validCandidate,
+      expect(connectorLessonCandidateSchema.parse({ ...connectorCandidate, related_issue })).toEqual({
+        ...connectorCandidate,
         related_issue,
       });
     }
     // The Action's request shape and the generalized shape are unchanged.
-    expect(lessonCandidateSchema.safeParse(withRelatedIssue).success).toBe(false);
-    expect(generalizedLessonSchema.safeParse(withRelatedIssue).success).toBe(false);
+    expect(lessonCandidateSchema.safeParse({ ...validCandidate, related_issue: 357 }).success).toBe(false);
+    expect(generalizedLessonSchema.safeParse({ ...validCandidate, related_issue: 357 }).success).toBe(false);
   });
 
   it.each([
@@ -107,18 +110,55 @@ describe("connector lesson candidate contract", () => {
     ["not a number", Number.NaN],
     ["null", null],
   ])("rejects a related issue that is %s", (_name, related_issue) => {
-    expect(connectorLessonCandidateSchema.safeParse({ ...validCandidate, related_issue }).success).toBe(false);
+    expect(connectorLessonCandidateSchema.safeParse({ ...connectorCandidate, related_issue }).success).toBe(false);
   });
 
   it("takes no incident provenance", () => {
     expect(connectorLessonCandidateSchema.safeParse({
-      ...validCandidate,
+      ...connectorCandidate,
       incident_provenance: {
         incident_id: "ali_originalincident0001",
         incident_sha256: "b".repeat(64),
         preservation_status: "EXACT_TRANSCRIPT_PRESERVED",
       },
     }).success).toBe(false);
+  });
+
+  it.each(["existing_rules", "observed_behavior", "part_to_change"])("requires %s even without a detailed report", (field) => {
+    expect(connectorLessonCandidateSchema.safeParse({ ...connectorCandidate, [field]: undefined }).success).toBe(false);
+  });
+
+  it.each([
+    { existing_rules: { none: "" } },
+    { existing_rules: { none: "missing\nrule" } },
+    { existing_rules: { none: "x".repeat(301) } },
+    { existing_rules: { none: "No covering rule.", rules: [] } },
+    { existing_rules: { rules: [] } },
+    { existing_rules: { rules: Array.from({ length: 13 }, () => ({ name: "SymmetricCOI", status: "unknown", reason: "Unknown." })) } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "applied", reason: "Unknown." }] } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "unknown", reason: "" }] } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "unknown", reason: "one\ntwo" }] } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "unknown", reason: "x".repeat(301) }] } },
+    { existing_rules: { rules: [{ name: "SymmetricCOI", status: "unknown", reason: "Unknown.", transcript: "raw" }] } },
+    { observed_behavior: "x".repeat(19) },
+    { observed_behavior: "x".repeat(1_201) },
+    { part_to_change: { kind: "other", name: "finalize_research" } },
+    { part_to_change: { kind: "tool", name: "" } },
+    { part_to_change: { kind: "tool", name: "x".repeat(121) } },
+  ])("rejects malformed or over-bound diagnostic fields %j", (change) => {
+    expect(connectorLessonCandidateSchema.safeParse({ ...connectorCandidate, ...change }).success).toBe(false);
+  });
+
+  it("accepts bounded short diagnostics and none; the Action and model shapes keep rejecting them", () => {
+    const bounded = {
+      ...connectorCandidate,
+      existing_rules: { none: "x".repeat(300) },
+      observed_behavior: "x".repeat(1_200),
+      part_to_change: { kind: "tool", name: "x".repeat(120) },
+    };
+    expect(connectorLessonCandidateSchema.parse(bounded)).toEqual(bounded);
+    expect(lessonCandidateSchema.safeParse(bounded).success).toBe(false);
+    expect(generalizedLessonSchema.safeParse(bounded).success).toBe(false);
   });
 });
 
@@ -135,7 +175,7 @@ describe("connector lesson detailed report contract", () => {
     test_cases: [{ case: "An invented answer rates three abstracts as strong; the check refuses it.", negative_control: false }],
     uncertain: "Whether the model would still rate the evidence once the rule names the full-text read.",
   };
-  const withReport = (detailed_report: unknown) => ({ ...validCandidate, detailed_report });
+  const withReport = (detailed_report: unknown) => ({ ...connectorCandidate, detailed_report });
   const limits = DETAILED_LESSON_REPORT_LIMITS;
 
   it("accepts an optional detailed report on the connector only", () => {
@@ -155,8 +195,8 @@ describe("connector lesson detailed report contract", () => {
     };
     expect(connectorLessonCandidateSchema.safeParse(withReport(atLimits)).success).toBe(true);
     // The Action's request shape and the generalized shape are unchanged: there the report is an unknown field.
-    expect(lessonCandidateSchema.safeParse(withReport(report)).success).toBe(false);
-    expect(generalizedLessonSchema.safeParse(withReport(report)).success).toBe(false);
+    expect(lessonCandidateSchema.safeParse({ ...validCandidate, detailed_report: report }).success).toBe(false);
+    expect(generalizedLessonSchema.safeParse({ ...validCandidate, detailed_report: report }).success).toBe(false);
   });
 
   it("counts every text of the report, in order, for the screen and the total", () => {

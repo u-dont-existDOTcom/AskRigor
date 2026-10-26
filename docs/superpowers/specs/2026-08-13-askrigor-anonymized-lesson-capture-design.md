@@ -475,3 +475,26 @@ validated against complete protocols loaded by the protocol package, or `no_rule
 The final check requires the declaration beside the shown correction report. The lesson tool validates it again,
 screens missing-rule prose and preserves it outside generalization in “Rule that should have prevented the error”.
 Invalid declarations return `correction_rule_refused` / `invalid_preventing_rule`. The Action shape stays unchanged.
+
+### Every connector lesson inventories existing rules (issues 357 and 366)
+
+The connector requires `existing_rules`: either `{rules: [{name, status, reason}]}` (1–12 entries) or
+`{none: explanation}` identifying the missing rule. Names are exact current HRP/Universal elements, checked with
+the same complete-protocol loader as correction declarations. Each entry declares `not_loaded`,
+`loaded_not_applied`, `applied_but_insufficient`, `not_triggered` or `unknown` and a nonempty one-line reason of
+at most 300 characters; `none` needs the same bounded explanation. The description directs the model to inventory
+first and enforce or fix covering rules before proposing any new rule. The server checks form and exact names,
+not the diagnosis. Missing/malformed declarations return `existing_rules_refused` / `invalid_existing_rules`;
+non-element names return `existing_rules_refused` / `unknown_protocol_element`, without storing anything.
+
+Every connector request also requires `observed_behavior` (20–1,200 characters) and `part_to_change`
+(`{kind: tool|protocol_rule|final_check, name}` with the specific name at most 120 characters). Together with the
+existing expected behavior, failure reason, proposed lesson and synthetic regression, these preserve the failing
+step, expected result, implementation target and invented test even when detailed reports are off. Existing short
+field limits are unchanged. Every new prose field passes the existing lesson privacy screen. These diagnostics
+remain outside the legacy anonymizer and duplicate fingerprint and reach the private queue unchanged.
+
+Both a new issue and a repeat comment start with the inventory; repeats also retain their own short diagnostic
+fields so deduplication cannot discard a later reproduction. The tool directs the model to show these fields before
+consent. Detailed reports still require the existing account setting, and a stopped check still carries its signed
+report unchanged. No raw incident, personal-data class, rate-limit change or model/API call is added.

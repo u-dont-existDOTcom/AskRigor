@@ -79,6 +79,7 @@ import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
   DETAILED_REPORT_RULE,
+  EXISTING_RULES_RULE,
   connectorLessonInputSchema,
   connectorLessonOutputSchema,
   connectorLessonToolResult,
@@ -2541,7 +2542,7 @@ function defineResearchOperations(
     "submit_lesson_candidate",
     {
       description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. " +
-        DETAILED_REPORT_RULE + " For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
+        EXISTING_RULES_RULE + " " + DETAILED_REPORT_RULE + " For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
       inputSchema: connectorLessonInputSchema,
       outputSchema: connectorLessonOutputSchema,
       annotations: MUTATING_ANNOTATIONS,

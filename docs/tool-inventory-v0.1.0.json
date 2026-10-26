@@ -19806,7 +19806,7 @@
     },
     {
       "name": "submit_lesson_candidate",
-      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. Include detailed_report, shown to the user with the lesson before asking, only when manage_research_access shows this account's detailed lesson reports on. For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
+      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. Every lesson starts with existing_rules: inventory the exact current HRP or Universal element names that cover the failure and what happened to each, or none with the missing rule. When covering rules exist, propose enforcing or fixing them before any new rule. The server checks the declaration's form and exact names, not its diagnosis. Include observed_behavior, expected_behavior and part_to_change even when detailed reports are off; show these with the lesson before asking. Include detailed_report, shown to the user with the lesson before asking, only when manage_research_access shows this account's detailed lesson reports on. For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -19834,7 +19834,8 @@
           "expected_behavior": {
             "type": "string",
             "minLength": 40,
-            "maxLength": 1200
+            "maxLength": 1200,
+            "description": "What should have happened at that step; 40-1,200 characters. Keep the concrete expected result."
           },
           "failure_reason": {
             "type": "string",
@@ -19845,7 +19846,7 @@
             "type": "string",
             "minLength": 20,
             "maxLength": 1200,
-            "description": "A made-up case, with no real person's details."
+            "description": "A made-up reproduction and the expected test result, with no real person's details; 20-1,200 characters."
           },
           "evidence_basis": {
             "type": "string",
@@ -19896,6 +19897,102 @@
               "conversation"
             ],
             "description": "\"conversation\" only after the user said yes for the whole chat."
+          },
+          "existing_rules": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "not_loaded",
+                            "loaded_not_applied",
+                            "applied_but_insufficient",
+                            "not_triggered",
+                            "unknown"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300,
+                          "pattern": "^[^\\r\\n]+$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "status",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rules"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "none": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^[^\\r\\n]+$"
+                  }
+                },
+                "required": [
+                  "none"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "Required: {rules: [{name: exact current HRP/Universal element tag or selectable name/id, status: not_loaded|loaded_not_applied|applied_but_insufficient|not_triggered|unknown, reason: one line ≤300}]} (1-12 rules), or {none: one line ≤300 explaining the missing rule}. Load the current protocols first; do not invent a name or a cause. Enforce or fix covering rules before proposing a new one."
+          },
+          "observed_behavior": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200,
+            "description": "What AskRigor actually did, including the first observed failing step; 20-1,200 characters, generalized with no real person's details. Required even with detailed reports off."
+          },
+          "part_to_change": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "tool",
+                  "protocol_rule",
+                  "final_check"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "The part to inspect or change: kind tool, protocol_rule or final_check (the same kinds as detailed_report); name the specific tool, rule or check in ≤120 characters. Required even with detailed reports off."
           },
           "related_issue": {
             "description": "The number of an issue in u-dont-existDOTcom/AskRigor that reports this failure in detail, when the user filed one.",
@@ -20045,7 +20142,10 @@
           "failure_reason",
           "synthetic_regression_example",
           "evidence_basis",
-          "consent_scope"
+          "consent_scope",
+          "existing_rules",
+          "observed_behavior",
+          "part_to_change"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -20064,7 +20164,8 @@
               "github_unavailable",
               "detailed_report_refused",
               "check_report_refused",
-              "correction_rule_refused"
+              "correction_rule_refused",
+              "existing_rules_refused"
             ]
           },
           "retryable": {
