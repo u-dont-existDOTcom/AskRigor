@@ -130,7 +130,9 @@ describe("study audit reported_figures", () => {
     const { index, table, audit } = await submission();
     const figure = audit.reported_figures![0]!;
     expect(() => validateStudyMethodAudit(index, { ...audit, reported_figures: [{ ...figure, reported: "250" }] }))
-      .toThrow("Study audit reported figure \"participants assigned\" is not in its cited source block");
+      .toThrow("Study audit reported figure \"participants assigned\" is not in its cited source block. " +
+        "A figure worked out from printed numbers goes in worked_out: give operation and inputs, each with " +
+        "printed and evidence_block_id; reported is the worked-out value.");
     expect(() => validateStudyMethodAudit(index, { ...audit, reported_figures: [{
       ...figure, evidence_block_id: table.replace(/[0-9a-f]{12}$/u, "0".repeat(12))
     }] })).toThrow("Study audit cited an unknown source block");

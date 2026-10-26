@@ -126,6 +126,75 @@ describe("finalize_research compares the answer with the plain answer registered
       `It would also have said: “${claims[1]}” This research did not check that.`);
   });
 
+  it("completes a confirmation with evidence even when no answer quote was supplied", () => {
+    const result = check({ plain_answer_comparison: [
+      { claim: CLAIMS[0]!, outcome: "confirmed", sources: [DOI] },
+      COMPARISON[1]!
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.plain_answer_note).toContain("This research confirmed it, from a full-text audit of 1 study.");
+    expect(result.plain_answer_note).not.toContain("that,");
+    // Corrections and qualifications still need their checked answer quote, so neither emits an unfinished note.
+    for (const outcome of ["corrected", "qualified"] as const) {
+      const missing = check({ plain_answer_comparison: [
+        { claim: CLAIMS[0]!, outcome, sources: [DOI] }, COMPARISON[1]!
+      ] });
+      expect(missing.status).toBe("not_ready");
+      expect(missing).not.toHaveProperty("plain_answer_note");
+    }
+  });
+
+  it("does not reprint a quick-answer claim containing a figure absent from the checked draft", () => {
+    const claim = "Responders were 90.3% versus 24.2%, a difference of 66.1 points and a ratio of 3.73.";
+    const changed = "The research did not establish responder rates for this comparison.";
+    const fixedFor = {
+      confirmed: "Without AskRigor, a quick answer would have given figures that the answer above does not repeat.",
+      corrected: "Without AskRigor, a quick answer would have given figures this research does not support.",
+      qualified: "Without AskRigor, a quick answer would have given figures this research does not support.",
+      not_checked: "Without AskRigor, a quick answer would have given figures this research did not check."
+    } as const;
+    for (const outcome of ["confirmed", "corrected", "qualified", "not_checked"] as const) {
+      const fixed = fixedFor[outcome];
+      const result = check({
+        receipts: [plainReceipt(1_000, [claim]), audit()],
+        answer_draft: `${LINK}\n\n${changed}`,
+        plain_answer_comparison: [{ claim, outcome, ...(outcome === "not_checked" ? {} : {
+          answer_quote: changed, sources: [DOI]
+        }) }]
+      });
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.plain_answer_note).toContain(fixed);
+      for (const figure of ["90.3", "24.2", "66.1", "3.73"]) expect(result.plain_answer_note).not.toContain(figure);
+      expect(result.plain_answer_note).not.toContain(claim);
+      if (outcome !== "not_checked") {
+        expect(result.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study: “${changed}”`);
+      } else expect(result.plain_answer_note).toBe(fixed);
+    }
+  });
+
+  it("compares quick-answer figures exactly using the shared Unicode number comparison", () => {
+    const claim = "The measured result was １２,５%.";
+    const noteFor = (answer: string) => check({
+      receipts: [plainReceipt(1_000, [claim]), audit()], answer_draft: `${LINK}\n\n${answer}`,
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: answer, sources: [DOI] }]
+    });
+    const matching = noteFor("The measured result was 12.5%, with uncertainty.");
+    expect(matching.status).toBe("ready_with_limits");
+    expect(matching.plain_answer_note).toContain(`“${claim}”`);
+    const different = noteFor("The measured result was 112.5%, with uncertainty.");
+    expect(different.status).toBe("ready_with_limits");
+    expect(different.plain_answer_note).not.toContain(claim);
+    // A number hidden in a link destination is not a figure the checked answer gives its reader.
+    expect(noteFor("The [result](https://example.com/12.5) has uncertainty.").plain_answer_note).not.toContain(claim);
+    const codeClaim = "The measured result was `90.3%`.";
+    const codeResult = check({
+      receipts: [plainReceipt(1_000, [codeClaim]), audit()],
+      plain_answer_comparison: [{ claim: codeClaim, outcome: "not_checked" }]
+    });
+    expect(codeResult.status).toBe("ready_with_limits");
+    expect(codeResult.plain_answer_note).not.toContain("90.3");
+  });
+
   it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
     const result = check({ plain_answer_comparison: undefined });
     expect(result.status).toBe("not_ready");

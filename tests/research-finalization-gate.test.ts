@@ -2624,6 +2624,111 @@ describe("finalize_research gate", () => {
     expect(readAnyway.caveats).toContain(
       "YouTube's search limit stopped discovery, so the video read here was found another way, not by a complete search."
     );
+    // A video found another way whose audit read no comments still turned up: "before any video turned up" would be false.
+    const noComments = sign("youtube_video_audit", {
+      video: "aaaaaaaaaaa", state: "api_visible_complete", lock: "pass", records: 0
+    }, options);
+    const readNoComments = finalizeResearch({
+      ...firstPass,
+      receipts: [stoppedSurvey, noComments, study],
+      material_video_ids: [],
+      no_material_video_reason: "The video read does not show the routine asked about.",
+      open_leads: [
+        ...STUDY_FOCUSES,
+        { direction: "community", topic: "Firsthand experience with hip programs", why: "The daily quota stopped discovery." },
+        COMMUNITY_FOCUSES[1]
+      ]
+    }, options);
+    expect(readNoComments.caveats.join(" ")).not.toContain("before any video turned up");
+    expect(readNoComments.caveats).toContain(
+      "YouTube's search limit stopped discovery, so the video read here was found another way, not by a complete search."
+    );
+  });
+
+  it("requires caveats and check lines outside details, while allowing other text inside", () => {
+    const request = {
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
+      receipts: [survey, emptySearch, repeatScout, videoA, study], community_findings: findingsFor(["aaaaaaaaaaa"])
+    };
+    const draft = caveatedDraft(request, options);
+    const caveat = STUDY_FOCUS_CAVEATS[0]!;
+    const check = (answer_draft: string, extra = {}) => finalizeResearch({ ...request, answer_draft, ...extra }, options);
+    expect(check(draft).status).toBe("ready_with_limits");
+    for (const collapsed of [
+      `<details><summary>Limits</summary>\n\n${caveat}\n\n</details>`,
+      `<DETAILS open data-note="a > b"\n class='limits'><summary>${caveat}</summary></DETAILS>`,
+      `<details données='a > b'><summary>Limites</summary>\n\n${caveat}\n\n</details>`,
+      `<details><summary>Outer</summary><details><summary>Inner</summary>\n\n${caveat}\n\n</details></details>`,
+      `<details><summary>Limits</summary>\n\n![Chart](https://example.com/chart.png)\n\n${caveat}\n\n</details>`,
+      `<details><summary>Limits</summary>\n\n${caveat}`
+    ]) {
+      const result = check(draft.replace(caveat, collapsed));
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps, collapsed).toEqual(expect.arrayContaining([expect.stringContaining(
+        "Move these caveat sentences out of the <details> block so they are " +
+        `visible without expanding it: ${JSON.stringify(caveat)}`)]));
+    }
+    // An outside copy does not excuse a second copy inside the element.
+    expect(check(`${draft}\n\n<details><summary>Limits</summary>\n\n${caveat}\n\n</details>`).status).toBe("not_ready");
+    const rendering = "Étude à approfondir : des essais plus longs. Les essais lus duraient douze semaines.";
+    expect(check(draft.replace(caveat, `<details><summary>Limites</summary>\n\n${rendering}\n\n</details>`), {
+      answer_language: "fr", caveat_renderings: [{ caveat, text: rendering }]
+    }).next_steps.join("\n")).toContain(JSON.stringify(rendering));
+    for (const line of [
+      "Checked with AskRigor's final check.",
+      "Checked with AskRigor's final check, with the limits above.",
+      "AskRigor's final check has not passed: some of its statements were not checked."
+    ]) {
+      const result = check(`${draft}\n\n<details><summary>Check</summary>\n\n${line}\n\n</details>`);
+      expect(result.status).toBe("not_ready");
+      expect(result.next_steps).toContain("Move the check line or unchecked line out of the <details> block so its " +
+        "full sentence is visible without expanding it.");
+      expect(check(`${draft}\n\n${line}`).status).toBe("ready_with_limits");
+    }
+    expect(check(`${draft}\n\n<details><summary>Search log</summary>\n\nAdditional search notes.\n\n</details>`)
+      .status).toBe("ready_with_limits");
+    for (const literal of [
+      "`<details>`", "```html\n<details>\n```", "~~~html\n<details>\n~~~", "    <details>",
+      "<!-- <details> -->", '<span title="<details>">Example.</span>', "\\<details>",
+      "[Example](https://example.com/<details>)"
+    ]) {
+      expect(check(`${literal}\n\n${draft}`).status, literal).toBe("ready_with_limits");
+    }
+    expect(check(draft.replace(caveat,
+      `<details><summary>Limits</summary>\n\n\`</details>\`\n\n${caveat}\n\n</details>`))
+      .next_steps.join("\n")).toContain(`visible without expanding it: ${JSON.stringify(caveat)}`);
+    const linkedRequest = { ...request, receipts: [...request.receipts, videoB],
+      community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"]) };
+    const linkedDraft = caveatedDraft(linkedRequest, options);
+    const linkedCaveat = finalizeResearch(linkedRequest, options).caveats.find((text) => text.startsWith("Some comments on"))!;
+    expect(linkedCaveat).toContain("](https://");
+    expect(finalizeResearch({ ...linkedRequest, answer_draft: linkedDraft.replace(linkedCaveat,
+      `<details><summary>Limits</summary>\n\n${linkedCaveat}\n\n</details>`) }, options).next_steps)
+      .toContain("Move these caveat sentences out of the <details> block so they are visible without expanding it: " +
+        JSON.stringify(linkedCaveat));
+  });
+
+  it("adds a sentence end to study and community focuses only when needed", () => {
+    const result = finalizeResearch({
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      open_leads: [
+        { direction: "studies", topic: "Longer-term results.", why: "Could change confidence." },
+        { direction: "studies", topic: "高齢者の結果。", why: "Could change applicability." },
+        { direction: "community", topic: "People who stopped?", why: "Could reveal harms." },
+        { direction: "community", topic: "Named programs", why: "Could change detail." }
+      ]
+    }, options);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.caveats).toEqual(expect.arrayContaining([
+      "Study focus: Longer-term results. Could change confidence.",
+      "Study focus: 高齢者の結果。 Could change applicability.",
+      "Community focus: People who stopped? Could reveal harms.",
+      "Community focus: Named programs. Could change detail."
+    ]));
+    expect(result.caveats.join(" ")).not.toContain("..");
   });
 
   it("sends back an answer that leaves out a caveat the gate wrote", () => {
@@ -2862,6 +2967,36 @@ describe("finalize_research gate", () => {
       FORUM_LIMIT,
       OFFER_LIMIT
     ]);
+  });
+
+  it("requires missing-video caveats only when no verified audit shows comments read", () => {
+    const base = {
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      material_video_ids: [], no_material_video_reason: "The discovered videos do not match the exact routine.",
+      key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
+    };
+    const single = sign("youtube_survey", { access: "complete", videos: ["aaaaaaaaaaa"], q: "single" }, options);
+    const empty = sign("youtube_survey", { access: "complete", videos: [], q: "none" }, options);
+    const noComments = sign("youtube_video_audit", {
+      video: "aaaaaaaaaaa", state: "api_visible_complete", lock: "pass", records: 0
+    }, options);
+    const communityAudit = sign("youtube_community_audit", {
+      videos: ["aaaaaaaaaaa"], read: ["aaaaaaaaaaa"], q: "comments"
+    }, options);
+    for (const discovery of [[single, emptySearch], [survey, emptySearch, repeatScout], [empty, emptySearch]]) {
+      const without = finalizeResearch({ ...base, receipts: [...discovery, study] }, options);
+      expect(without.caveats.join(" ")).toContain("YouTube evidence on this is thin.");
+      for (const receipt of [videoA, communityAudit]) {
+        const withComments = finalizeResearch({ ...base, receipts: [...discovery, receipt, study] }, options);
+        expect(withComments.status).toBe("ready_with_limits");
+        expect(withComments.caveats.join(" ")).not.toContain("YouTube evidence on this is thin");
+        expect(withComments.caveats.join(" ")).not.toContain("evidence could not be checked yet");
+      }
+    }
+    for (const receipt of [noComments, `${videoA}changed`]) {
+      expect(finalizeResearch({ ...base, receipts: [single, emptySearch, receipt, study] }, options).caveats)
+        .toContain("The only video found was not worth a close look, so YouTube evidence on this is thin.");
+    }
   });
 
   it("counts the candidates a scout left to the model's judgment as found by its round", () => {

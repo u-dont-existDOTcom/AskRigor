@@ -29,6 +29,77 @@ export const LINK_OPEN = "\u0002";
 export const LINK_TARGET = "\u0003";
 export const LINK_CLOSE = "\u0004";
 
+/** Prose inside each outer details element, through its closing tag or the end of an unclosed element. */
+export function detailsProse(markdown: string): string[] {
+  // Use the same block and inline parser first: a details tag shown as code, in an image description or a link
+  // destination is not an element, and a closing tag there cannot end a real element.
+  const source = displayedProse(markdown, false, true).join("\n\n");
+  const blocks: string[] = [];
+  // tagEnd reads spaces; flatten only this scanning copy so multiline attributes keep their original offsets.
+  const tags = source.replace(/[\t\r\n]/gu, " ")
+    .replace(/\u0003[^\u0004]*\u0004/gu, (target) => " ".repeat(target.length));
+  const tagAt = (at: number): number | undefined => {
+    let before = at;
+    while (before > 0 && tags[before - 1] === "\\") before -= 1;
+    if ((at - before) % 2 === 1) return undefined;
+    // This structural boundary does not validate attribute names; only a quoted > differs from the tag's end.
+    if (/^<\/?details(?=[\s/>])/iu.test(tags.slice(at, at + 10))) {
+      let quote: string | undefined;
+      for (let end = at + 1; end < tags.length; end += 1) {
+        const character = tags[end];
+        if (quote !== undefined) {
+          if (character === quote) quote = undefined;
+        } else if (character === '"' || character === "'") quote = character;
+        else if (character === ">") return end + 1;
+        else if (character === "<") return undefined;
+      }
+      return undefined;
+    }
+    return rawHtmlEnd(tags, at);
+  };
+  let depth = 0;
+  let start = 0;
+  const collect = (end: number): void => {
+    // Read block structure too: an image or code in one paragraph cannot hide later paragraphs from this check.
+    // Removing tags first also exposes a caveat in summary or p, even when CommonMark treats that line as raw HTML.
+    const parts: string[] = [];
+    let from = start;
+    for (let at = tags.indexOf("<", start); at >= 0 && at < end;) {
+      const close = tagAt(at);
+      if (close === undefined) {
+        at = tags.indexOf("<", at + 1);
+        continue;
+      }
+      parts.push(source.slice(from, at));
+      from = Math.min(close, end);
+      at = tags.indexOf("<", from);
+    }
+    parts.push(source.slice(from, end));
+    // Block parsing already ran above. Keep its link marks intact while reading raw HTML's text as inline prose.
+    blocks.push(...parts.join("").split(/\n\s*\n/u).map((block) => shownInline(block)));
+  };
+  for (let at = tags.indexOf("<"); at >= 0;) {
+    const end = tagAt(at);
+    if (end === undefined) {
+      at = tags.indexOf("<", at + 1);
+      continue;
+    }
+    const detail = /^<(\/?)details(?=[\s/>])/iu.exec(tags.slice(at, end));
+    if (detail !== null) {
+      if (detail[1] === "") {
+        if (depth === 0) start = end;
+        depth += 1;
+      } else if (depth > 0) {
+        depth -= 1;
+        if (depth === 0) collect(at);
+      }
+    }
+    at = tags.indexOf("<", end);
+  }
+  if (depth > 0) collect(source.length);
+  return blocks;
+}
+
 const MAX_NESTING = 64;
 
 type OpenBlock =
@@ -39,12 +110,12 @@ type OpenBlock =
   | { type: "indented" }
   | { type: "html"; kind: number };
 
-/** preserveLines retains physical paragraph lines for source-local marker checks. */
-export function displayedProse(markdown: string, preserveLines = false): string[] {
+/** preserveLines retains physical paragraph lines; retainHtml keeps raw HTML for structural element checks. */
+export function displayedProse(markdown: string, preserveLines = false, retainHtml = false): string[] {
   const prose: string[] = [];
   const open: OpenBlock[] = [];
   const show = (text: string): void => {
-    prose.push(shownInline(text));
+    prose.push(shownInline(text, retainHtml));
   };
   // Closes the open blocks from index `from` on; a paragraph among them is shown.
   const close = (from: number): void => {
@@ -165,6 +236,7 @@ export function displayedProse(markdown: string, preserveLines = false): string[
       if (htmlKind !== undefined) {
         closeUnmatched();
         addChild({ type: "html", kind: htmlKind });
+        if (retainHtml) prose.push(line.slice(next));
         if (endsHtmlBlock(htmlKind, line, next)) open.length -= 1;
         leafTookLine = true;
         break;
@@ -208,6 +280,7 @@ export function displayedProse(markdown: string, preserveLines = false): string[
     const target = open.at(-1);
     if (target?.type === "fence" || target?.type === "indented") continue;
     if (target?.type === "html") {
+      if (retainHtml) prose.push(line.slice(at));
       if (endsHtmlBlock(target.kind, line, at)) open.length -= 1;
       continue;
     }
@@ -454,7 +527,7 @@ const BACKTICK = 96;
  * Reading link parts is bounded by a work budget; past it, the rest of the
  * text is left out. The whole text is read in linear time.
  */
-function shownInline(text: string): string {
+function shownInline(text: string, retainHtml = false): string {
   const runs: Array<{ start: number; end: number }> = [];
   for (let at = text.indexOf("`"); at >= 0; at = text.indexOf("`", at)) {
     const start = at;
@@ -492,6 +565,7 @@ function shownInline(text: string): string {
     if (character === "<") {
       const end = rawHtmlEnd(text, at);
       if (end !== undefined) {
+        if (retainHtml) parts.push(text.slice(at, end));
         at = end;
         continue;
       }

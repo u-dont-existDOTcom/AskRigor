@@ -225,6 +225,11 @@ is better; the model's `why_not_usual` stays on the card for the owner's review.
   Y, from full-text reads of 2 trials." The model copies it, in the answer's language, at the end of the answer before
   the check line. With no receipt, or one issued after research began, there is no note and nothing blocks the answer;
   the result tells the model why.
+  The 26 Oct regression fixes refine the note: a claim containing a figure absent from the checked draft is replaced
+  by a fixed sentence worded for its outcome (figures the research does not support, when corrected or qualified;
+  figures the answer does not repeat, when confirmed; figures it did not check), followed by what the research
+  found. Figures use the existing Unicode number comparison. A confirmation without an answer quote
+  ends as a complete sentence, including its evidence basis when supplied.
 - **Turning the note off:** a per-account setting through `manage_research_access` (stored, default on, in the
   research access store with its own migration and data-map row). Off removes the note only; the plain answer still
   guides the research.
@@ -233,7 +238,8 @@ is better; the model's `why_not_usual` stays on the card for the owner's review.
   the stored setting and the dev list.
 - **Tests:** a dev account and a paid account are asked to register, a free one is not; a receipt issued after a
   research receipt gives no note; a declared change without its basis is refused with its problem named; the note
-  quotes the registered claims exactly; the setting turns the note off and back on; the catalog stays at 33 tools.
+  quotes the registered claims exactly unless they contain a figure absent from the checked draft; the setting turns
+  the note off and back on; the catalog stays at 33 tools.
 
 ## 6. 146b, the Gemini model as a server setting (owner, 21 Oct)
 

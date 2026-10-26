@@ -205,7 +205,11 @@ describe("observation, test and correction declarations (109)", () => {
   it("requires both declarations with a draft and keeps their limits strict", () => {
     const input = base(); delete input.user_observations; delete input.proposed_tests;
     expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("user_observations is missing:");
-    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("proposed_tests is missing:");
+    const wording = "which attempt in user_observations it repeats (its index in repeats, left out if none)";
+    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain(
+      `proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, ${wording}`);
+    expect(finalizeResearchInputSchema.shape.proposed_tests.description).toContain(wording);
+    expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: false as never, blinded: true }] })).success).toBe(false);
     expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: null as never, blinded: true }] })).success).toBe(false);
     expect(finalizeResearchInputSchema.safeParse(base({ user_observations: [{ ...observation, observation: "甲".repeat(201) }] })).success).toBe(false);
   });

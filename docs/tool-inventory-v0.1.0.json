@@ -18554,7 +18554,7 @@
             }
           },
           "proposed_tests": {
-            "description": "With answer_draft: each test or self-measurement the answer proposes to the user, whether it repeats an attempt in user_observations, and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none.",
+            "description": "With answer_draft: each test or self-measurement the answer proposes to the user, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (HRP UserObservationLedger, MeasurementIsNotAttribution); an empty list if none.",
             "type": "array",
             "items": {
               "type": "object",
@@ -19332,7 +19332,7 @@
             "additionalProperties": false
           },
           "plain_answer_note": {
-            "description": "When ready, for a registered plain answer: the note the answer ends with, before saved_line and check_line, quoting each of its claims exactly and saying what the research found, and what backs each change.",
+            "description": "When ready, for a registered plain answer: the note the answer ends with, before saved_line and check_line, quoting its claims exactly except a claim with a figure absent from the checked draft, which is replaced by a fixed sentence, and saying what the research found and what backs each change.",
             "type": "string"
           },
           "carry_forward": {
