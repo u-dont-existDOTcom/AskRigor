@@ -1583,6 +1583,29 @@ The pages (section 4C) are built, not yet released, and switched off until
   chat holds until the card is forgotten. PostgreSQL keeps erased row versions
   until vacuum and the write-ahead log recycle them, as for wording erasure.
 
+## Atlas navigation and search
+
+Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public
+publication/canonical fields above. Topic maps add the canonical public question
+and unwithdrawn link relations; they never read a private card question or render
+link rationale. Shown-publication rules also govern counts, search and map nodes.
+No new database table, view, function, grant or migration is introduced.
+
+Search queries (`GET /atlas/search?q=…`, at most 300 UTF-16 code units and 20
+words) are request-local input. They are **not stored or logged**, not placed in
+an index or cache, not sent to PostgreSQL or a provider, and not associated with
+an account, session, address or reader record. The page does not inspect a session
+or participant, carries no reader data or tokens, sets no cookie, and uses
+`Cache-Control: private, no-store`; the HTML and response use `no-referrer`.
+It shows the query only as escaped text and in its GET paging links. The browser
+may keep a GET URL in its own history; that is not an AskRigor server record.
+Keep proxy request/access/error URL logging disabled or query-redacted as part
+of the runbook's page checks. The existing bounded, memory-only address limiter
+counts search requests without their query. Other public pages retain their
+existing bounded 60-second content cache; no reader identifiers enter its keys.
+Search's generic sign-in entry, when enabled, returns to the query-free path.
+With participation off the header still has the GET search form.
+
 ## Atlas votes and comments
 
 Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24
@@ -1591,7 +1614,7 @@ sections D and E), built, not yet released, and switched off until
 `ASKRIGOR_ATLAS_PARTICIPATION=enabled` with every part configured, the
 Atlas's Auth0 application (the owner's step) among them: people who sign in
 with an AskRigor account can vote on a published finding and comment on it.
-While it is off, the pages show no form and no sign-in link and keep nothing.
+While it is off, the pages show no participation form or sign-in link and keep nothing; the public GET search form remains.
 
 - **Signing in.** The AskRigor login of the apps, through the same Auth0
   tenant, as a regular web application with the authorization code flow and

@@ -10,14 +10,17 @@ import {
   type AtlasContestedPair,
   type AtlasFindingModel,
   type AtlasFindingParticipationView,
+  type AtlasFindingsModel,
   type AtlasHomeModel,
   type AtlasOwnerPick,
   type AtlasTopicModel,
+  type AtlasTopicsModel,
   type ShownFinding,
   type ShownNumber,
   type ShownRelated,
   type ShownSearch,
 } from "./page-data.js";
+import { ATLAS_SEARCH_MAX_LENGTH } from "./search.js";
 
 /**
  * The public Atlas pages' HTML (decision 171, section 4C): plain, semantic, server-rendered pages with no script and no
@@ -172,13 +175,14 @@ interface PageFrame {
   path: string | null;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account";
+  current?: "home" | "changes" | "account" | "findings" | "topics" | "search";
   reader?: AtlasPageReader;
+  noReferrer?: boolean;
   body: SafeHtml;
 }
 
 function page(frame: PageFrame): string {
-  const current = (name: "home" | "changes" | "account") => frame.current === name ? html` aria-current="page"` : "";
+  const current = (name: PageFrame["current"]) => frame.current === name ? html` aria-current="page"` : "";
   const reader = frame.reader;
   return html`<!doctype html>
 <html lang="en">
@@ -186,6 +190,7 @@ function page(frame: PageFrame): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="${frame.description}">
+${frame.noReferrer ? html`<meta name="referrer" content="no-referrer">` : ""}
 <title>${frame.title}</title>
 ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN}${frame.path}">
 `}<link rel="stylesheet" href="/atlas/atlas.css">
@@ -196,6 +201,8 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <a class="brand" href="/atlas">AskRigor Atlas</a>
 <nav aria-label="Atlas navigation"><ul class="nav-list">
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
+<li><a href="/atlas/findings"${current("findings")}>All findings</a></li>
+<li><a href="/atlas/topics"${current("topics")}>Topics</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
 ${reader === undefined ? "" : reader.viewer === null
     ? html`<li><a href="${reader.signInHref}">Sign in</a></li>
@@ -203,6 +210,7 @@ ${reader === undefined ? "" : reader.viewer === null
       ? html` (<bdi>${reader.viewer.displayName}</bdi>)` : ""}</a></li>
 `}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
 </ul></nav>
+${searchForm("atlas-header-query")}
 </div></header>
 <main id="content" class="shell">
 ${reader?.notice ? html`<p class="notice-line" role="status">${reader.notice}</p>
@@ -229,6 +237,57 @@ function tenantSignOutLine(href: string): SafeHtml {
 
 const shortened = (text: string, length: number) =>
   text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
+
+/** Queries may themselves name a forbidden card or host. Numeric entities show the exact escaped text without
+ * confusing the stored-content guard with user input. No input ever becomes markup, a source URL or a log entry. */
+const queryText = (text: string) => new SafeHtml(Array.from(text,
+  (character) => `&#${character.codePointAt(0)!};`).join(""));
+const queryParameter = (text: string) => Array.from(new TextEncoder().encode(text),
+  (byte) => `%${byte.toString(16).padStart(2, "0")}`).join("");
+
+function searchForm(id: string, query = ""): SafeHtml {
+  return html`<form class="atlas-search" role="search" method="get" action="/atlas/search">
+<label for="${id}">Search findings</label>
+<input id="${id}" name="q" type="search" maxlength="${ATLAS_SEARCH_MAX_LENGTH}" value="${queryText(query)}">
+<button type="submit">Search</button>
+</form>`;
+}
+
+const FILTER_WORDS = { all: "All", checked: "Checked", unreviewed: NOT_CHECKED_LABEL, contested: "Contested" } as const;
+
+export function renderAtlasFindings(model: AtlasFindingsModel, reader?: AtlasPageReader): string {
+  const filters = Object.entries(FILTER_WORDS).map(([filter, label]) => html`<li><a
+href="/atlas/findings?filter=${filter}"${filter === model.filter ? html` aria-current="page"` : ""}>${label}</a></li>`);
+  return page({ path: "/atlas/findings", title: "All findings | AskRigor Atlas", current: "findings", reader,
+    description: "Every finding published in the AskRigor Atlas, newest first.",
+    body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first.</p>
+<nav aria-label="Filter findings"><ul class="nav-list">${filters}</ul></nav>
+${model.findings.length === 0 ? html`<p>No findings in this list yet.</p>` : findingList(model.findings)}
+${model.before === null ? "" : html`<p><a rel="next" href="/atlas/findings?filter=${model.filter}&amp;before=${model.before}">Older findings</a></p>`}` });
+}
+
+export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader): string {
+  return page({ path: "/atlas/topics", title: "Topics | AskRigor Atlas", current: "topics", reader,
+    description: "Topics with published findings in the AskRigor Atlas.",
+    body: html`<h1>Topics</h1>
+${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<ul>${model.topics.map((topic) =>
+      html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}
+<p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>` });
+}
+
+export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasFindingsModel | null },
+  reader?: AtlasPageReader): string {
+  // Search never carries account state, a canonical query URL, form tokens or a personalized header.
+  return page({ path: null, title: "Search findings | AskRigor Atlas", current: "search", reader, noReferrer: true,
+    description: "Search the public findings in the AskRigor Atlas.",
+    body: html`<h1>Search findings</h1>
+${searchForm("atlas-query", model.text)}
+<p>Every word must match a word in the question, finding, whom it applies to, subject or topic. Case and accents are folded; there is no stemming.</p>
+${model.message === null ? "" : html`<p role="status">${model.message}</p>`}
+${model.results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
+${model.results.findings.length === 0 ? html`<p>No findings match these words.</p>` : findingList(model.results.findings)}
+${model.results.before === null ? "" : html`<p><a rel="next" href="/atlas/search?q=${queryParameter(model.text)}&amp;before=${model.results.before}">Older results</a></p>`}`}` });
+}
 
 // A finding in a list ---------------------------------------------------------------------------------------------------
 
@@ -331,10 +390,92 @@ const SECTION_NOTES: Partial<Record<AtlasTopicModel["sections"][number]["id"], s
   earlier: "Newer findings replace these.",
 };
 
+const MAP_PANEL_SIZE = 12;
+const MAP_COLUMNS = ["High", "Moderate", "Low", "Very low", "Not checked yet", "Open leads", "Unrated"];
+const RELATION_WORDS = { same_as: "same as", narrows: "narrows", contradicts: "contradicts", replaces: "replaces" } as const;
+const mapColumn = (finding: ShownFinding) => finding.status.kind === "unreviewed" ? 4
+  : finding.status.kind === "lead" ? 5 : finding.certainty === null ? 6
+    : ["high", "moderate", "low", "very_low"].indexOf(finding.certainty);
+const chunks = <T,>(items: readonly T[], size: number): T[][] =>
+  Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+
+/** Small diagrams keep labels and edges legible without a script or a giant dense graph. Finding panels place
+ * nodes by certainty; relationship panels draw each directed link separately, including cross-topic links. */
+function topicMap(model: AtlasTopicModel): SafeHtml {
+  const findings = model.sections.flatMap(({ findings }) => findings);
+  const questions = [...new Set(findings.flatMap(({ question }) => question === null ? [] : [question]))];
+  const questionNumber = (finding: ShownFinding) => finding.question === null ? "Question not recorded"
+    : `Q${questions.indexOf(finding.question) + 1}`;
+  const questionPanels = chunks(questions, MAP_PANEL_SIZE).map((panel, index) => html`<div class="map-scroll">
+<svg class="topic-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 ${panel.length * 48 + 40}"
+width="1120" height="${panel.length * 48 + 40}" role="img" aria-labelledby="questions-title-${index}">
+<title id="questions-title-${index}">${model.topic.label}: questions, part ${index + 1}</title>
+${panel.map((question, row) => {
+    const finding = findings.find((finding) => finding.question === question)!;
+    const y = row * 48 + 36;
+    return html`<a href="${findingPath(finding.publicationNumber)}"><title>${question}</title>
+<rect class="map-node" x="8" y="${y - 22}" width="1100" height="36" rx="5"/>
+<text x="18" y="${y}">${questionNumber(finding)}: ${Array.from(question).slice(0, 125).join("")}${Array.from(question).length > 125 ? "…" : ""}</text></a>`;
+  })}</svg></div>`);
+  const panels = chunks(findings, MAP_PANEL_SIZE).map((panel, index) => {
+    const rows = MAP_COLUMNS.map((_, column) => panel.filter((finding) => mapColumn(finding) === column));
+    const height = 65 + Math.max(1, ...rows.map(({ length }) => length)) * 88;
+    return html`<div class="map-scroll"><svg class="topic-map" xmlns="http://www.w3.org/2000/svg"
+viewBox="0 0 1120 ${height}" width="1120" height="${height}" role="img" aria-labelledby="map-title-${index} map-desc-${index}">
+<title id="map-title-${index}">${model.topic.label}: findings, part ${index + 1}</title>
+<desc id="map-desc-${index}">Columns group checked findings by certainty, with unreviewed findings and open leads apart. Q numbers refer to the questions in the text alternative below. Each node links to its finding.</desc>
+${rows.map((column, col) => html`<text class="map-heading" x="${col * 160 + 8}" y="25">${MAP_COLUMNS[col]}</text>
+${column.map((finding, row) => {
+      const x = col * 160 + 8;
+      const y = 45 + row * 88;
+      const claim = Array.from(finding.claim);
+      return html`<a href="${findingPath(finding.publicationNumber)}">
+<title>${finding.publicationNumber}: ${finding.question ?? "Question not recorded"}. ${finding.claim}. ${STATUS_WORDS[finding.status.kind]}.</title>
+<rect class="map-node" x="${x}" y="${y}" width="144" height="78" rx="5"/>
+<text x="${x + 6}" y="${y + 17}">${finding.publicationNumber} · ${finding.question === null ? "—" : questionNumber(finding)}</text>
+<text x="${x + 6}" y="${y + 36}">${claim.slice(0, 17).join("")}</text>
+<text x="${x + 6}" y="${y + 54}">${claim.slice(17, 33).join("")}${claim.length > 33 ? "…" : ""}</text>
+</a>`;
+    })}`)}
+</svg></div>`;
+  });
+  const edges = chunks(model.connections, MAP_PANEL_SIZE).map((panel, index) => html`<div class="map-scroll">
+<svg class="topic-map map-links" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 ${panel.length * 60 + 40}"
+width="760" height="${panel.length * 60 + 40}" role="img" aria-labelledby="links-title-${index}">
+<title id="links-title-${index}">${model.topic.label}: connections, part ${index + 1}</title>
+${panel.map((link, row) => {
+    const y = row * 60 + 36;
+    return html`<a href="${findingPath(link.from.publicationNumber!)}"><rect class="map-node" x="10" y="${y - 20}" width="180" height="35" rx="5"/>
+<text x="24" y="${y + 2}">${link.from.publicationNumber}</text></a>
+<path class="map-edge" d="M 195 ${y} H 540 l -8 -5 m 8 5 l -8 5"/>
+<text x="310" y="${y - 7}">${RELATION_WORDS[link.relation]}</text>
+<a href="${findingPath(link.to.publicationNumber!)}"><rect class="map-node" x="550" y="${y - 20}" width="180" height="35" rx="5"/>
+<text x="564" y="${y + 2}">${link.to.publicationNumber}</text></a>`;
+  })}</svg></div>`);
+  return html`<section aria-labelledby="topic-map"><h2 id="topic-map">Topic map</h2>
+<p>Findings by certainty, with open leads and findings not checked yet apart. Q numbers identify the questions below. Connections point from the first finding to the second.</p>
+${questionPanels}
+${findings.length === 0 ? html`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60" role="img" aria-label="No findings yet"><text x="10" y="35">No findings yet</text></svg>` : panels}
+${edges}
+<section aria-labelledby="map-text"><h3 id="map-text">Topic map: text alternative</h3>
+${questions.length === 0 ? html`<p>No public questions recorded yet.</p>` : html`<ul>${questions.map((question, index) =>
+    html`<li>Q${index + 1}: ${question}</li>`)}</ul>`}
+${findings.length === 0 ? html`<p>No findings yet.</p>` : html`<ul>${findings.map((finding) => html`<li>
+<a href="${findingPath(finding.publicationNumber)}">${finding.publicationNumber}: ${finding.claim}</a>.
+${questionNumber(finding)}. ${STATUS_WORDS[finding.status.kind]}.
+${finding.certainty === null ? "Certainty not recorded" : html`Certainty: ${CERTAINTY_WORDS[finding.certainty]}`}.
+${finding.status.kind === "lead" ? html`Open lead: ${finding.whatWouldChangeIt ?? "Further evidence needed"}.` : ""}
+</li>`)}</ul>`}
+${model.connections.length === 0 ? html`<p>No connections recorded between public findings.</p>` : html`<ul>${model.connections.map((link) =>
+    html`<li>${relatedLink(link.from)} ${RELATION_WORDS[link.relation]} ${relatedLink(link.to)}.</li>`)}</ul>`}
+</section></section>`;
+}
+
 export function renderAtlasTopic(model: AtlasTopicModel, reader?: AtlasPageReader): string {
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
 <h1>${model.topic.label}</h1>
 <p class="lede">Findings about ${model.topic.label}. Within each part, findings checked by supervisors come first.</p>
+${topicMap(model)}
 ${model.sections.map((section) => html`<section aria-labelledby="part-${section.id}">
 <h2 id="part-${section.id}">${section.heading}</h2>
 ${SECTION_NOTES[section.id] === undefined ? "" : html`<p>${SECTION_NOTES[section.id]!}</p>`}
@@ -871,6 +1012,16 @@ a:hover, a:focus-visible { color: var(--accent-hover); }
 
 .masthead, .footer-row, .nav-list { display: flex; align-items: center; gap: 1rem; }
 .masthead, .footer-row { justify-content: space-between; padding: 0.9rem 0; }
+.masthead, .nav-list { flex-wrap: wrap; }
+.atlas-search { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.atlas-search input { max-width: 18rem; min-width: 8rem; }
+.map-scroll { max-width: 100%; overflow-x: auto; margin: 1rem 0; }
+.topic-map { display: block; font-size: 12px; }
+.topic-map text { fill: currentColor; }
+.topic-map .map-heading { font-weight: bold; }
+.map-node { fill: var(--surface); stroke: currentColor; }
+.map-edge { fill: none; stroke: currentColor; }
+.topic-map a:focus .map-node { stroke-width: 3; }
 .brand { color: var(--text); font-size: 1.15rem; font-weight: 800; text-decoration: none; }
 .nav-list { flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
 .nav-list a[aria-current="page"] { color: var(--text); text-decoration: none; }

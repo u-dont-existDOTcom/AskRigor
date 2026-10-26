@@ -18,6 +18,7 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { passesPageGuard } from "./page-guard.js";
+import { atlasSearchWords, type AtlasSearchQuery } from "./search.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -76,6 +77,9 @@ export interface ShownRelated {
 
 export interface ShownFinding {
   publicationNumber: string;
+  /** Only the canonical public question; older/unreviewed publications have no published question. */
+  question: string | null;
+  links: AtlasPageFinding["links"];
   status: ShownStatus;
   topic: { key: string; label: string } | null;
   claim: string;
@@ -143,6 +147,7 @@ export type TopicSectionId = typeof TOPIC_SECTIONS[number]["id"];
 export interface AtlasTopicModel {
   topic: { key: string; label: string };
   sections: Array<{ id: TopicSectionId; heading: string; findings: ShownFinding[] }>;
+  connections: Array<{ from: ShownRelated; to: ShownRelated; relation: AtlasPageFinding["links"][number]["relation"] }>;
 }
 
 export interface AtlasFindingModel {
@@ -293,11 +298,18 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
   const findings = await readFindings(reads, numbers);
   const publications: AtlasPagePublication[] = [];
   for (let start = 0; start < numbers.length; start += READ_CHUNK) {
-    publications.push(...await reads.listPublications({
-      atlasNumbers: numbers.slice(start, start + READ_CHUNK),
-      states: ["accepted", "edited"],
-      limit: READ_CHUNK,
-    }));
+    let before: string | undefined;
+    for (;;) {
+      const page = await reads.listPublications({
+        atlasNumbers: numbers.slice(start, start + READ_CHUNK), states: ["accepted", "edited"], limit: READ_CHUNK,
+        ...(before === undefined ? {} : { before }),
+      });
+      publications.push(...page);
+      if (page.length < READ_CHUNK) break;
+      const next = page.at(-1)!.publicationNumber;
+      if (next === before) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
+      before = next;
+    }
   }
   for (const [atlasNumber, finding] of findings) {
     const publication = canonicalShows(finding)
@@ -311,6 +323,8 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
   return {
     publicationNumber: publication.publicationNumber,
+    question: null,
+    links: [],
     status: { kind: "unreviewed" },
     topic: published.topic === null ? null : { key: published.topic.key, label: published.topic.label },
     claim: published.claim,
@@ -363,6 +377,8 @@ function fromCanonical(
   const label = finding.label as Exclude<AtlasLabel, "withdrawn">;
   return {
     publicationNumber: publication.publicationNumber,
+    question: finding.question,
+    links: finding.links,
     status: {
       kind: label,
       atlasNumber: finding.atlasNumber,
@@ -449,6 +465,8 @@ function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
 
 /** Leads and superseded findings never go in a home lane (organization draft, sections 3 and 4). */
 const inLanes = (finding: ShownFinding) => finding.status.kind !== "lead" && finding.status.kind !== "superseded";
+/** The same link-derived canonical label defines the home lane and the all-findings contested filter. */
+const isContested = (finding: ShownFinding) => finding.status.kind === "contested";
 
 const CERTAINTY_RANK: Record<AtlasCertainty, number> = { high: 0, moderate: 1, low: 2, very_low: 3 };
 const certaintyRank = (finding: ShownFinding) => finding.certainty === null ? 4 : CERTAINTY_RANK[finding.certainty];
@@ -500,7 +518,7 @@ async function contestedPairs(reads: AtlasPageReads): Promise<AtlasContestedPair
   const shown = await shownFindings(reads, publications);
   const byNumber = new Map<string, ShownFinding>();
   for (const finding of shown) {
-    if (finding.status.kind === "contested" && !byNumber.has(finding.status.atlasNumber)) {
+    if (isContested(finding) && finding.status.kind !== "unreviewed" && !byNumber.has(finding.status.atlasNumber)) {
       byNumber.set(finding.status.atlasNumber, finding);
     }
   }
@@ -536,7 +554,98 @@ export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string):
       heading,
       findings: shown.filter((finding) => topicSectionOf(finding) === id).sort(order),
     })).filter(({ findings }) => findings.length > 0);
-    return { topic: { key: topicKey, label }, sections };
+    const byNumber = new Map(shown.flatMap((finding) => finding.status.kind === "unreviewed" ? []
+      : [[finding.status.atlasNumber, finding] as const]));
+    const related = await relatedFindings(reads, shown.flatMap(({ links }) => links.map(({ atlasNumber }) => atlasNumber)));
+    const connections: AtlasTopicModel["connections"] = [];
+    const seen = new Set<string>();
+    for (const [atlasNumber, finding] of byNumber) {
+      for (const link of finding.links) {
+        const target = related.get(link.atlasNumber);
+        // No node or wording for a held, missing, erased or withdrawn endpoint.
+        if (target?.publicationNumber == null || target.label === "withdrawn") continue;
+        const self = { atlasNumber, publicationNumber: finding.publicationNumber };
+        const other = { atlasNumber: link.atlasNumber,
+          publicationNumber: byNumber.get(link.atlasNumber)?.publicationNumber ?? target.publicationNumber };
+        const from = link.direction === "outgoing" ? self : other;
+        const to = link.direction === "outgoing" ? other : self;
+        const key = `${from.atlasNumber} ${link.relation} ${to.atlasNumber}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        connections.push({ from, to, relation: link.relation });
+      }
+    }
+    return { topic: { key: topicKey, label }, sections, connections };
+  });
+}
+
+export const ATLAS_FINDINGS_PER_PAGE = 20;
+export const ATLAS_FINDING_FILTERS = ["all", "checked", "unreviewed", "contested"] as const;
+export type AtlasFindingFilter = typeof ATLAS_FINDING_FILTERS[number];
+export interface AtlasFindingsModel {
+  findings: ShownFinding[];
+  before: string | null;
+  filter: AtlasFindingFilter;
+}
+export interface AtlasTopicsModel {
+  topics: Array<{ key: string; label: string; count: number }>;
+  withoutTopic: number;
+}
+
+/** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
+async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator<ShownFinding> {
+  let cursor = before;
+  for (;;) {
+    const publications = await reads.listPublications({ limit: READ_CHUNK, ...(cursor === undefined ? {} : { before: cursor }) });
+    for (const finding of await shownFindings(reads, publications)) yield finding;
+    if (publications.length < READ_CHUNK) return;
+    const next = publications.at(-1)!.publicationNumber;
+    if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
+    cursor = next;
+  }
+}
+
+/** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
+export async function loadAtlasFindings(source: AtlasPageSource, options: {
+  before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery;
+} = {}): Promise<AtlasFindingsModel> {
+  return await source.read(async (reads) => {
+    const filter = options.filter ?? "all";
+    const findings: ShownFinding[] = [];
+    for await (const finding of allShown(reads, options.before)) {
+      if ((filter === "checked" && finding.status.kind === "unreviewed") ||
+        (filter === "unreviewed" && finding.status.kind !== "unreviewed") ||
+        (filter === "contested" && !isContested(finding))) continue;
+      if (options.search !== undefined) {
+        const words = new Set([finding.question, finding.claim, finding.appliesTo, finding.subject, finding.topic?.label]
+          .flatMap((field) => field == null ? [] : atlasSearchWords(field)));
+        if (!options.search.words.every((word) => words.has(word))) continue;
+      }
+      findings.push(finding);
+      if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
+    }
+    const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
+    const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
+    return { findings: visible, filter, before: more ? visible.at(-1)!.publicationNumber : null };
+  });
+}
+
+export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTopicsModel> {
+  return await source.read(async (reads) => {
+    const topics = new Map<string, AtlasTopicsModel["topics"][number]>();
+    let withoutTopic = 0;
+    for await (const finding of allShown(reads)) {
+      if (finding.topic === null) { withoutTopic += 1; continue; }
+      const topic = topics.get(finding.topic.key);
+      if (topic === undefined) topics.set(finding.topic.key, { ...finding.topic, count: 1 });
+      else {
+        topic.count += 1;
+        // As on the topic page, prefer the canonical topic label over a card's earlier spelling.
+        if (finding.status.kind !== "unreviewed") topic.label = finding.topic.label;
+      }
+    }
+    return { topics: [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key)),
+      withoutTopic };
   });
 }
 
