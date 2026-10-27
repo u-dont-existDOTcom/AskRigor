@@ -18297,7 +18297,7 @@
                   "description": "Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."
                 },
                 "access_boundary": {
-                  "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; the searches found nothing relevant; or the community itself could not be found, with no site, group or forum under its name.",
+                  "description": "What stopped the search: this app has no web search; the site needs a login; the site refused access, such as a block page; a search or page fetch failed, such as an error or a timeout; the searches found nothing relevant; or the community itself could not be found, with no site, group or forum under its name; supplied_by_user: the user pasted the reports and AskRigor did not search the community itself.",
                   "type": "string",
                   "enum": [
                     "no_web_search",
@@ -18305,11 +18305,12 @@
                     "blocked",
                     "retrieval_failed",
                     "no_relevant_results",
-                    "not_found"
+                    "not_found",
+                    "supplied_by_user"
                   ]
                 },
                 "url": {
-                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name, unless the community could not be found (access_boundary not_found).",
+                  "description": "The community's own address (its forum, group or site link). Needed when no thread was read outside Reddit, so the community is known by its site rather than its name, unless the community could not be found (access_boundary not_found) or the reports were pasted by the user (supplied_by_user).",
                   "type": "string"
                 },
                 "review_corpora": {
@@ -19121,6 +19122,27 @@
               "type": "string"
             }
           },
+          "withdrawn_named_communities": {
+            "description": "Withdrawals of earlier-turn community names; each name matches an enforced carried name exactly.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "An exact name enforced from an earlier turn in the carried state."
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "Why that earlier-turn name is withdrawn."
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ]
+            }
+          },
           "corrections": {
             "description": "Records each material correction made during this research: the wrong statement as it read, the answer's sentence saying what changed, and whether the user pointed it out. The wrong statement must appear nowhere else in the answer, including its headings, tables and summaries; after a correction the user pointed out, the answer shows the bug report it would send and asks whether AskRigor may send it.",
             "type": "array",
@@ -19195,7 +19217,7 @@
             }
           },
           "plain_answer_comparison": {
-            "description": "With answer_draft, when a plain answer registered with manage_research_access before this research is passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and what backs it, checked against this call's receipts and declarations. From it the final check writes plain_answer_note, for the end of the answer.",
+            "description": "With answer_draft, when a plain answer registered with manage_research_access before this research is passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or qualified it, or did not check it. A confirmation, correction or qualification gives the answer's sentence stating it and what backs it, checked against this call's receipts and declarations. From it the final check writes plain_answer_note, for the end of the answer.",
             "type": "array",
             "items": {
               "type": "object",
@@ -19215,11 +19237,11 @@
                   "description": "confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds only in part or under conditions; not_checked: the research did not test it."
                 },
                 "answer_quote": {
-                  "description": "With corrected or qualified, and optionally with confirmed: the answer's sentence that states it, copied from answer_draft.",
+                  "description": "With confirmed, corrected or qualified: the answer's own sentence stating that item's finding, used for one item only, copied from answer_draft.",
                   "type": "string"
                 },
                 "sources": {
-                  "description": "What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were read here (video ID); left out when its sentence is one absence_claims or a correction the research found also declares."
+                  "description": "What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were read here (video ID); left out for a first-turn correction backed by the answer's own sentence, or when its sentence is one absence_claims or a correction the research found also declares."
                 }
               },
               "required": [
@@ -19397,7 +19419,7 @@
             "additionalProperties": false
           },
           "round": {
-            "description": "When the check did not pass: which of this turn's rounds this call was, and the limit.",
+            "description": "Which of this turn's rounds this call was, including a passing check, and the limit.",
             "type": "object",
             "properties": {
               "number": {
@@ -19417,7 +19439,7 @@
             "additionalProperties": false
           },
           "round_token": {
-            "description": "When not_ready: passed back exactly as round_token in this turn's next finalize_research call.",
+            "description": "When ready, ready_with_limits or not_ready: passed back exactly as round_token in this turn's next finalize_research call.",
             "type": "string"
           },
           "stuck_steps": {
@@ -20069,7 +20091,7 @@
             "properties": {
               "v": {
                 "type": "number",
-                "const": 1
+                "const": 2
               },
               "issued_at": {
                 "type": "string",
@@ -20146,6 +20168,15 @@
                   "maxLength": 120
                 }
               },
+              "current_turn_named_communities": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              },
               "last_status": {
                 "type": "string",
                 "enum": [
@@ -20202,7 +20233,8 @@
               "observations",
               "retracted",
               "rejected",
-              "named_communities"
+              "named_communities",
+              "current_turn_named_communities"
             ],
             "additionalProperties": false
           },

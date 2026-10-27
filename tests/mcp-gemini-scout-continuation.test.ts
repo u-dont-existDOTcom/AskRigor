@@ -210,7 +210,7 @@ describe("MCP Gemini scout continuation", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it("refuses a target the unchanged screen cannot read, and says to write it in English with the language apart", async () => {
+  it("q132: research_target_not_deidentified explains the scout form and its difference from finalize_research", async () => {
     const client = await connect();
     for (const [research_target, language] of [
       ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", "fr"],
@@ -226,6 +226,8 @@ describe("MCP Gemini scout continuation", () => {
       expect(text).toContain("research_target_not_deidentified");
       expect(text).toContain("Write research_target in English, whatever the person's language, as a group of people");
       expect(text).toContain("give the person's language in language (for example: fr).");
+      expect(text).toContain("Unlike finalize_research's research_target, which identifies the question all discovery used, the scout accepts only this deidentified population-and-goal form");
+      expect(text).toContain("adults with hip osteoarthritis trying to avoid a replacement");
     }
     expect(execute).not.toHaveBeenCalled();
 
@@ -245,7 +247,10 @@ describe("MCP Gemini scout continuation", () => {
         "Start a new scout without the continuation_token. Write research_target in English, whatever the " +
         "person's language, as a group of people and their goal in sentence case (for example: adults with hip " +
         "osteoarthritis trying to avoid a replacement), without first-person words, he or she, names, places, a " +
-        "person's age, contact details or links, and give the person's language in language (for example: fr)."
+        "person's age, contact details or links, and give the person's language in language (for example: fr). " +
+        "Unlike finalize_research's research_target, which identifies the question all discovery used, the scout " +
+        "accepts only this deidentified population-and-goal form; a question copied as-is from finalize_research " +
+        "may not meet that form."
     );
   });
 

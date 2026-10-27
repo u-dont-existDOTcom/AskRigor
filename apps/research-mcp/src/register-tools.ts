@@ -2892,7 +2892,9 @@ const SCOUT_TARGET_GUIDANCE =
   "Write research_target in English, whatever the person's language, as a group of people and their goal in " +
   "sentence case (for example: adults with hip osteoarthritis trying to avoid a replacement), without first-person " +
   "words, he or she, names, places, a person's age, contact details or links, and give the person's language in " +
-  "language (for example: fr).";
+  "language (for example: fr). Unlike finalize_research's research_target, which identifies the question all " +
+  "discovery used, the scout accepts only this deidentified population-and-goal form; a question copied as-is " +
+  "from finalize_research may not meet that form.";
 
 function scoutError(code: string, retryable: boolean, guidance?: string): CallToolResult {
   return {

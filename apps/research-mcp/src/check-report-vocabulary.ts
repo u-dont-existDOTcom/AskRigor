@@ -2145,6 +2145,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "superseded_proposal",
   "supervision",
   "supplement",
+  "supplied_by_user",
   "support_not_located",
   "supports",
   "symptom",

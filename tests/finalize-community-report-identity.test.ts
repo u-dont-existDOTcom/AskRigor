@@ -111,7 +111,7 @@ describe("forum report identity", () => {
   });
   it("reports the exact count line, including zero measurements", () => {
     const result = checked(base());
-    expect(result.status).toBe("ready_with_limits");
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
     expect(result.must_report).toContain("Mineral Forum, form A: 4 report(s) read; 1 firsthand report(s) of exactly this, 0 with a measurement after the change; 1 that don't say which form or product, 1 about something else and 1 advice or hearsay, not counted.");
     expect(result.caveats).not.toContain(zeroCaveat);
   });
@@ -181,7 +181,7 @@ describe("comparisons with declared doses", () => {
     [1, 1 + 5e-10, "mg", "mg"]
   ] as const)("accepts comparable daily doses %s %s %s %s", (a, b, unitA, unitB) => {
     const result = checked(base({ comparison_claims: [claim(a, b, unitA, unitB)] }));
-    expect(result.status).toBe("ready_with_limits");
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
     expect(result.limits).not.toContain(doseLimit);
     expect(result.caveats.some((line) => line.startsWith("Reports comparing two options"))).toBe(false);
   });
@@ -198,7 +198,7 @@ describe("comparisons with declared doses", () => {
   it.each([[null, 1, "mg", "mg"], [1, null, "mg", "mg"], [1, 1, null, "mg"], [1, 1, "mg", null]] as const)(
     "requires the missing-dose caveat for %j %j %j %j", (a, b, unitA, unitB) => {
       const result = checked(base({ comparison_claims: [claim(a, b, unitA, unitB)] }));
-      expect(result.status).toBe("ready_with_limits");
+      expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
       expect(result.limits).toContain(doseLimit);
       expect(result.caveats).toContain(missingDose);
     }
@@ -206,7 +206,7 @@ describe("comparisons with declared doses", () => {
   it("requires the same-people caveat and deduplicates repeated comparison caveats", () => {
     const c = { ...claim(null, 1), same_people: false };
     const result = checked(base({ comparison_claims: [c, c] }));
-    expect(result.status).toBe("ready_with_limits");
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
     expect(result.limits).toContain("The comparison of form A with form B rests on reports from people who did not use both; say so.");
     const direct = "Reports comparing two options did not come from people who used both, so they are not a direct comparison of the two: form A; form B.";
     expect(result.caveats.filter((line) => line === direct)).toEqual([direct]);
@@ -260,7 +260,7 @@ describe("communities named by the user and the visible check line", () => {
     expect(result.next_steps.join("\n")).not.toMatch(/records an access boundary but no url|The user named Ghost Forum/u);
     expect(result.caveats).toContain("A community I could not find: Ghost Forum. Reports there are not included.");
     expect(result.limits).toContain("Ghost Forum could not be found; say so.");
-    expect(result.status).toBe("ready_with_limits");
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
     // Found is not not_found: an address or a thread read contradicts it.
     const withAddress = base();
     withAddress.principal_communities!.push({ name: "Ghost Forum", platform: "forum", named_by_user: true });
@@ -301,7 +301,7 @@ describe("communities named by the user and the visible check line", () => {
   });
   it("returns the limited line separately, and omits it for not_ready and unavailable receipts", () => {
     const result = checked(base());
-    expect(result.status).toBe("ready_with_limits");
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
     expect(result.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
     expect(result.caveats).not.toContain(result.check_line);
     const notReady = run(base());
@@ -358,7 +358,7 @@ describe("strict declaration schemas", () => {
     return input;
   };
   const shown = (input: FinalizeResearchInput) => ({ ...input, answer_draft: `${input.answer_draft}\n\n${run(base()).caveats.join(" ")}` });
-  const withoutReceipt = ({ finalization_receipt: _receipt, carry_forward: _token, carried, ...rest }: ReturnType<typeof finalizeResearch>) => {
+  const withoutReceipt = ({ finalization_receipt: _receipt, carry_forward: _token, round_token: _roundToken, carried, ...rest }: ReturnType<typeof finalizeResearch>) => {
     const { issued_at: _issued, turn: _turn, ...state } = carried ?? {};
     return { ...rest, carried: state };
   };
@@ -409,5 +409,39 @@ describe("strict declaration schemas", () => {
     const parsed = finalizeResearchInputSchema.parse(input);
     expect(parsed.community_searches![0]!.report_identity![0]!.exposure).toBe("form A");
     expect(parsed.comparison_claims![0]!.arms[0]!.unit).toBe("mg");
+  });
+});
+
+
+describe("27 Oct user-supplied community report regressions", () => {
+  it.each(["b-book-reviews", "l27"])("%s: supplied reports stay included without requiring an unfound site's address", () => {
+    const input = base();
+    input.commercial_review_applicability = { status: "required", products: ["Synthetic book"] };
+    input.shopping = { status: "not_requested" };
+    input.principal_communities!.push({ name: "Synthetic Readers", platform: "review_site", named_by_user: true });
+    input.community_searches!.push({ community: "Synthetic Readers", platform: "review_site", queries: ["synthetic review selection"],
+      threads_read: [], access_boundary: "supplied_by_user",
+      review_corpora: [{ product: "Synthetic book", reviews_read: 2, selection: "other_partial", item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 0 }, outcome_search: { queries: ["synthetic outcomes"], directions: ["benefit", "no_effect", "worse"] } }] });
+    const result = checked(input);
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.caveats).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Readers.");
+    expect(result.caveats.join(" ")).not.toContain("not included");
+    expect(result.caveats.join(" ")).not.toContain("could not find");
+  });
+
+  it("l27: linked supplied reports do not become the model's own web search", () => {
+    const input = base();
+    input.principal_communities!.push({ name: "Synthetic Supplied Forum", platform: "forum", named_by_user: true });
+    input.community_searches!.push({ community: "Synthetic Supplied Forum", platform: "forum", queries: ["synthetic supplied reports"],
+      threads_read: [{ url: "https://supplied.example/reports" }], access_boundary: "supplied_by_user",
+      thread_selection: "all_found", report_identity: [identity()], ...FINDINGS, answer_quotes: { ...FINDINGS } });
+    input.answer_draft += `\n\n[Supplied reports](https://supplied.example/reports): ${Object.values(FINDINGS).join(" ")}`;
+    const result = checked(input);
+    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+    expect(result.caveats).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Supplied Forum.");
+    const ownSearch = result.caveats.filter((text) => text.includes("my own web search")).join(" ");
+    expect(ownSearch).not.toContain("Synthetic Supplied Forum");
+    expect(result.caveats.join(" ")).not.toContain("not included");
   });
 });

@@ -68,7 +68,7 @@ describe("finalize next-step identifier contract", () => {
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
       "read_depth", "answer_marker", "full_text_audited", "full_text_read", "partial_text", "abstract_only",
       "conference_abstract", "secondary_only", "metadata_only", "inaccessible", "route_error", "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
-      "none_established", "not_established", "finalize_research", "research_receipt", "checked_answer"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
+      "none_established", "not_established", "finalize_research", "research_receipt", "checked_answer", "withdrawn_named_communities", "current_turn_named_communities", "supplied_by_user"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
     ] } } } })).toEqual(new Set(["array", "nested_field", "enum_value", "literal_value"]));

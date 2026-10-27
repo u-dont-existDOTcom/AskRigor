@@ -2422,7 +2422,7 @@ describe("finalize_research gate", () => {
       .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
   });
 
-  it("keeps discovery open while YouTube's limits stop searches: an open lead in a first pass, a blocker in deep research", () => {
+  it("q132: quota-blocked deep discovery passes with a later-turn caveat; first passes keep their caveat", () => {
     const base = {
       community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
@@ -2434,21 +2434,19 @@ describe("finalize_research gate", () => {
     }, options);
     const receipts = [survey, emptySearch, mixedSurvey, videoA, study];
     const deep = finalizeResearch({ ...base, receipts, research_depth: "deep" }, options);
-    expect(deep.status).toBe("not_ready");
+    expect(deep.status).toBe("ready_with_limits");
     expect(deep.community.saturated).toBe(false);
-    expect(deep.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([expect.stringMatching(
-      /^1 search\(es\) in the latest discovery rounds did not complete, 1 stopped by YouTube's rate limit or daily quota\. Rerun them once it resets and pass the new research_receipt\./u
-    )]);
-    // Its own signed quota result defers the step even after it becomes stuck; no defect is inferred from that wait.
-    const quotaRequest = { ...base, receipts, research_depth: "deep" as const,
-      answer_draft: [CLEAN_DRAFT, ...deep.caveats, COMPLETE_CHECKS_TIP].join("\n\n") };
-    const second = finalizeResearch({ ...quotaRequest, round_token: deep.round_token }, options);
-    const stopped = finalizeResearch({ ...quotaRequest, round_token: second.round_token }, options);
-    expect(stopped.status).toBe("stopped");
-    expect(stopped.stopped).toMatchObject({ could_not: [], next_turn: [{
-      kind: "research", step: expect.stringContaining("Rerun them once it resets")
-    }] });
-    expect(stopped.bug_report).toBeUndefined();
+    expect(deep.next_steps).toEqual([]);
+    expect(deep.caveats).toContain("YouTube's daily search limit stopped 1 search in this research; a later turn can rerun it after the limit resets.");
+    // Rechecks retain a limit; it cannot become a stuck step.
+    const quotaRequest = { ...base, receipts, research_depth: "deep" as const };
+    let result = deep;
+    for (let round = 2; round <= 4; round += 1) {
+      result = finalizeResearch({ ...quotaRequest, round_token: result.round_token }, options);
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.next_steps).toEqual([]);
+      expect(result.stopped).toBeUndefined();
+    }
 
     // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
@@ -2482,8 +2480,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(withLeads.status).toBe("ready_with_limits");
     expect(withLeads.limits).toContain(
-      "YouTube's rate limit or daily quota stopped 1 search(es) in the latest discovery rounds; say so, and that " +
-        "another pass can rerun them once the limit resets."
+      "YouTube's rate limit or daily quota stopped 1 search(es) in the latest discovery rounds; a later turn can rerun them after the limit resets."
     );
     // The answer carries the gate's caveat itself; a denial of it does not count.
     const rateLimited = {
@@ -3740,5 +3737,42 @@ describe("findings card at the final gate", () => {
     }
     expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, findings_card: CARD }, { secret: undefined, findings: "private" }).findings_card)
       .toEqual({ status: "private", problems: [] });
+  });
+});
+
+
+describe("27 Oct quota-only check regressions", () => {
+  const target = "Synthetic community coverage fixture";
+  const declaration = { status: "not_applicable", reason: "Synthetic fixture isolates a search limit." };
+  const make = (incomplete = 2) => ({
+    receipts: [issueResearchReceipt("youtube_search", { target: researchTargetDigest(target),
+      access: "rate_limited", videos: [], rl: 2, inc: incomplete, open: 0, q: "synthetic-angle" }, options),
+      issueResearchReceipt("study_audit", { id: "10.1000/synthetic", status: "complete_no_unresolved_fields" }, options)],
+    research_target: target, research_depth: "deep", treatment_choice: "not_compared", community_evidence: "researched",
+    principal_communities: [{ name: "YouTube", platform: "youtube" }, { name: "Example Forum", platform: "forum" }],
+    community_searches: [{ community: "Example Forum", platform: "forum", queries: ["synthetic fixture"], threads_read: [],
+      access_boundary: "no_web_search", url: "https://forum.example/" }],
+    commercial_review_applicability: declaration, intervention_identity: declaration, lab_preparation: declaration,
+    full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates a search limit." },
+    key_sources: [{ id: "10.1000/synthetic", status: "validated", read_depth: "partial_text", answer_marker: "Study" }],
+    absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [],
+    safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
+    answer_draft: "[Study](https://doi.org/10.1000/synthetic) describes the synthetic fixture."
+  });
+  const checkQuota = (input: ReturnType<typeof make>) => {
+    const first = finalizeResearchBare(input, options);
+    return finalizeResearchBare({ ...input, answer_draft: input.answer_draft + "\n\n" + first.caveats.join("\n\n") }, options);
+  };
+  it("s360-studies: a quota rerun as the only open item passes with limits in the same call", () => {
+    const result = checkQuota(make());
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.stuck_steps).toBeUndefined();
+    expect(result.caveats).toContain("YouTube's daily search limit stopped 2 searches in this research; a later turn can rerun them after the limit resets.");
+  });
+  it("q132: a quota boundary does not hide a transient search failure that can still be retried", () => {
+    const result = checkQuota(make(3));
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps.some((step) => step.startsWith("1 search(es) in the latest discovery rounds did not complete. Rerun them"))).toBe(true);
   });
 });

@@ -81,7 +81,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       const direct = finalizeResearch(input, { secret: SECRET, findings: "closed" });
       // Separate calls start separate random turns; the signed state must still match the exact readable result.
       expect(output).toEqual({
-        ...direct, carry_forward: expect.any(String),
+        ...direct, carry_forward: expect.any(String), round_token: expect.any(String),
         carried: { ...direct.carried, turn: expect.stringMatching(/^[0-9a-f]{16}$/u) }
       });
       expect(verifyCarriedState(output.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: output.carried });

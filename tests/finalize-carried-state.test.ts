@@ -1,3 +1,4 @@
+import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { createHmac } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
@@ -13,14 +14,14 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   key_sources: [], answer_draft: "Synthetic answer.", absence_claims: [], scale_results: [], binary_results: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   user_observations: [], proposed_tests: [], ...overrides
 });
-const check = (overrides: Partial<FinalizeResearchInput> = {}) => finalizeResearch(base(overrides), { secret: SECRET, now: NOW });
+const check = (overrides: Partial<FinalizeResearchInput> = {}) => assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET, now: NOW }));
 const carriedSteps = (overrides: Partial<FinalizeResearchInput>) => check(overrides).next_steps.filter((step) => /earlier|carried_state|primary_outcome|rejected/.test(step));
 
 describe("conversation state carried between final checks", () => {
   it("returns signed, readable declarations, including on not_ready calls, and accepts the same observations next turn", () => {
     const first = check({ user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"], principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }] });
     expect(first.carry_forward).toBeDefined(); expect(verifyCarriedState(first.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: first.carried });
-    expect(first.carried).toMatchObject({ observations: [observation], primary_outcome: "Explain the effect", rejected: ["Option A"], named_communities: ["r/Example"] });
+    expect(first.carried).toMatchObject({ observations: [observation], primary_outcome: "Explain the effect", rejected: ["Option A"], named_communities: [], current_turn_named_communities: ["r/Example"] });
     expect(carriedSteps({ carried_state: first.carry_forward, user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"] })).toEqual([]);
     expect(check({ user_observations: [observation], proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).status).toBe("not_ready");
     expect(check({ proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).carry_forward).toBeDefined();
@@ -104,9 +105,9 @@ describe("conversation state carried between final checks", () => {
     expect(check({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true }).carried!.primary_outcome).toBe("Another goal");
     expect(carriedSteps({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true })).toEqual([]);
     const result = check({ carried_state: token, primary_outcome: "Explain why", principal_communities: [{ name: "YouTube", platform: "youtube" }] });
-    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched."); expect(result.carried!.named_communities).toContain("r/Example");
+    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or withdraw it in withdrawn_named_communities with name and reason."); expect(result.carried!.named_communities).toContain("r/Example");
   });
-  it("describes all six continuity steps as earlier in the conversation, including this turn's state", () => {
+  it("preserves observation, goal and rejection continuity without locking this turn’s community label", () => {
     const first = check({
       user_observations: [observation], rejected_options: ["Option A"], primary_outcome: "Explain why",
       principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }],
@@ -123,7 +124,6 @@ describe("conversation state carried between final checks", () => {
       `user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`,
       "rejected_options leaves out Option A, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.",
       'Give primary_outcome: the user\'s main goal carried from earlier in this conversation is "Explain why".',
-      "principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.",
       'The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.'
     ]);
     expect(carriedSteps({ ...current, primary_outcome: "Another goal" })).toContain(
@@ -145,7 +145,7 @@ describe("conversation state carried between final checks", () => {
 });
 
 function maximumState(text: (length: number) => string): CarriedState {
-  return { v: 1, issued_at: NOW().toISOString(), observations: Array.from({ length: 30 }, () => ({ ...observation, observation: text(200) })), retracted: Array.from({ length: 12 }, () => text(200)), primary_outcome: text(300), rejected: Array.from({ length: 12 }, () => text(120)), named_communities: Array.from({ length: 8 }, () => text(120)) };
+  return { v: 2, issued_at: NOW().toISOString(), observations: Array.from({ length: 30 }, () => ({ ...observation, observation: text(200) })), retracted: Array.from({ length: 12 }, () => text(200)), primary_outcome: text(300), rejected: Array.from({ length: 12 }, () => text(120)), named_communities: Array.from({ length: 8 }, () => text(120)), current_turn_named_communities: Array.from({ length: 8 }, () => text(120)) };
 }
 describe("carried-state ledger at its size limit", () => {
   it("lets a full ledger choose which observations and rejected options to keep", () => {
@@ -159,13 +159,13 @@ describe("carried-state ledger at its size limit", () => {
 });
 
 describe("carried-state token bounds and authentication", () => {
-  it("round-trips the optional turn fields without changing cs1 or the size limit", () => {
+  it("round-trips the optional turn fields in cs2 without changing the size limit", () => {
     const state: CarriedState = {
       ...maximumState((length) => "甲".repeat(length)), turn: "0123456789abcdef", first_turn: false,
       previous_open: ["input_invalid", "receipt_rejected", "research", "declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]
     };
     const token = issueCarriedState(state, { secret: SECRET })!;
-    expect(token).toMatch(/^cs1~/u);
+    expect(token).toMatch(/^cs2~/u);
     expect(token.length).toBeLessThanOrEqual(48_000);
     expect(verifyCarriedState(token, { secret: SECRET })).toEqual({ ok: true, state });
     for (const turn of ["0123456789ABCDEf", "0123456789abcde", "0123456789abcdef0"]) {
@@ -184,19 +184,19 @@ describe("carried-state token bounds and authentication", () => {
     expect(verifyCarriedState(token, { secret: SECRET })).toEqual({ ok: true, state });
     const escaped = JSON.stringify(state).replace(/[\s\S]/gu, (c) => c.charCodeAt(0) > 127 ? `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}` : c);
     expect(Buffer.byteLength(escaped)).toBeGreaterThan(64 * 1024);
-    const payload = deflateRawSync(Buffer.from(escaped)).toString("base64url"); const body = `cs1~${payload}`;
-    const key = createHmac("sha256", SECRET).update("askrigor carried state v1").digest();
+    const payload = deflateRawSync(Buffer.from(escaped)).toString("base64url"); const body = `cs2~${payload}`;
+    const key = createHmac("sha256", SECRET).update("askrigor carried state v2").digest();
     const signed = `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
     expect(verifyCarriedState(signed, { secret: SECRET })).toEqual({ ok: true, state });
   });
   it("rejects malformed, unsupported, wrongly signed and oversized inflated tokens without expiry", () => {
     const state = maximumState(() => "甲"); const token = issueCarriedState(state, { secret: SECRET })!;
     expect(verifyCarriedState("invalid", { secret: SECRET })).toEqual({ ok: false, reason: "malformed" });
-    expect(verifyCarriedState(token.replace(/^cs1/u, "cs2"), { secret: SECRET })).toEqual({ ok: false, reason: "unsupported_version" });
+    expect(verifyCarriedState(token.replace(/^cs2/u, "cs3"), { secret: SECRET })).toEqual({ ok: false, reason: "unsupported_version" });
     expect(verifyCarriedState(token, { secret: "other" })).toEqual({ ok: false, reason: "bad_signature" });
     expect(verifyCarriedState(issueCarriedState({ ...state, issued_at: "2000-01-01T00:00:00.000Z" }, { secret: SECRET })!, { secret: SECRET }).ok).toBe(true);
-    const payload = deflateRawSync(Buffer.from(" ".repeat(300_000))).toString("base64url"); const body = `cs1~${payload}`;
-    const key = createHmac("sha256", SECRET).update("askrigor carried state v1").digest();
+    const payload = deflateRawSync(Buffer.from(" ".repeat(300_000))).toString("base64url"); const body = `cs2~${payload}`;
+    const key = createHmac("sha256", SECRET).update("askrigor carried state v2").digest();
     expect(verifyCarriedState(`${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`, { secret: SECRET })).toEqual({ ok: false, reason: "malformed" });
   });
 });
@@ -238,5 +238,88 @@ describe("observation, test and correction declarations (109)", () => {
     const uncertain = { ...observation, observation: "r/Copper_deficiency report", response: "uncertain" as const };
     const first = check({ user_observations: [uncertain] });
     expect(check({ answer_draft: `Copper_deficiency. ${first.caveats.join(" ")}`, user_observations: [uncertain] }).next_steps.join("\n")).not.toContain("internal labels");
+  });
+});
+
+
+describe("27 Oct community carry regressions", () => {
+  it.each(["q82", "l30"])("%s: replaces an invented combined label within one turn", () => {
+    const first = check({ principal_communities: [{ name: "r/ExampleOne and r/ExampleTwo", platform: "reddit", named_by_user: true }] });
+    const second = check({ carried_state: first.carry_forward, round_token: first.round_token,
+      principal_communities: ["r/ExampleOne", "r/ExampleTwo"].map((name) => ({ name, platform: "reddit", named_by_user: true })) });
+    expect(second.next_steps.join("\n")).not.toContain("which the user named earlier");
+    expect(second.carried).toMatchObject({ v: 2, named_communities: [], current_turn_named_communities: ["r/ExampleOne", "r/ExampleTwo"] });
+    const nextTurn = check({ carried_state: second.carry_forward, principal_communities: [{ name: "YouTube", platform: "youtube" }] });
+    expect(nextTurn.carried!.named_communities).toEqual(["r/ExampleOne", "r/ExampleTwo"]);
+    expect(nextTurn.carried!.named_communities).not.toContain("r/ExampleOne and r/ExampleTwo");
+  });
+
+  it("o355-keto: a later same-turn declaration can remove named_by_user", () => {
+    const first = check({ principal_communities: [{ name: "r/ExampleOne", platform: "reddit", named_by_user: true }] });
+    const revised = check({ carried_state: first.carry_forward, round_token: first.round_token,
+      principal_communities: [{ name: "r/ExampleOne", platform: "reddit" }] });
+    expect(revised.next_steps.join("\n")).not.toContain("which the user named earlier");
+    expect(revised.carried!.current_turn_named_communities).toEqual([]);
+    expect(check({ carried_state: revised.carry_forward }).carried!.named_communities).toEqual([]);
+  });
+
+  it("l27: enforces earlier-turn names until exact withdrawal, without a caveat", () => {
+    const first = check({ principal_communities: [{ name: "r/ExampleOne", platform: "reddit", named_by_user: true }] });
+    const other = [{ name: "YouTube", platform: "youtube" as const }];
+    const later = check({ carried_state: first.carry_forward, principal_communities: other });
+    expect(later.next_steps.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    expect(check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other }).next_steps.join("\n"))
+      .toContain("principal_communities leaves out r/ExampleOne");
+    const withdrawn = check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other,
+      withdrawn_named_communities: [{ name: "r/ExampleOne", reason: "The combined label was misattributed." }] });
+    expect(withdrawn.next_steps.join("\n")).not.toContain("principal_communities leaves out");
+    expect(withdrawn.carried!.named_communities).toEqual([]);
+    expect(withdrawn.caveats.join(" ")).not.toContain("r/ExampleOne");
+    expect(check({ carried_state: withdrawn.carry_forward, principal_communities: other }).carried!.named_communities).toEqual([]);
+    const wrong = check({ carried_state: later.carry_forward, principal_communities: other,
+      withdrawn_named_communities: [{ name: "r/exampleone", reason: "The combined label was misattributed." }] });
+    expect(wrong.next_steps.join("\n")).toContain("withdrawn_named_communities[0].name is not an enforced earlier-turn name");
+    expect(wrong.carried!.named_communities).toEqual(["r/ExampleOne"]);
+    for (const reason of ["x".repeat(9), "x".repeat(301)]) expect(finalizeResearchInputSchema.safeParse(base({
+      withdrawn_named_communities: [{ name: "r/ExampleOne", reason }]
+    })).success).toBe(false);
+    for (const reason of ["x".repeat(10), "x".repeat(300)]) expect(finalizeResearchInputSchema.safeParse(base({
+      withdrawn_named_communities: [{ name: "r/ExampleOne", reason }]
+    })).success).toBe(true);
+    const currentOnly = check({ carried_state: first.carry_forward, round_token: first.round_token,
+      withdrawn_named_communities: [{ name: "r/ExampleOne", reason: "The combined label was misattributed." }] });
+    expect(currentOnly.next_steps.join("\n")).toContain("not an enforced earlier-turn name");
+  });
+
+  it("q82: promoting a full current-turn set never silently drops names to fit the state bound", () => {
+    const first = check();
+    const earlier = Array.from({ length: 8 }, (_, i) => `r/Earlier${i}`);
+    const latest = Array.from({ length: 8 }, (_, i) => `r/Latest${i}`);
+    const token = issueCarriedState({ ...first.carried!, named_communities: earlier,
+      current_turn_named_communities: latest }, { secret: SECRET });
+    const blocked = check({ carried_state: token });
+    expect(blocked.carry_forward).toBeUndefined();
+    expect(blocked.next_steps.join(" ")).toContain("No name is dropped automatically");
+    const withdrawn = check({ carried_state: token,
+      principal_communities: latest.map((name) => ({ name, platform: "reddit", named_by_user: true })),
+      withdrawn_named_communities: earlier.map((name) => ({ name, reason: "The user withdrew this earlier community." })) });
+    expect(withdrawn.carried!.named_communities).toEqual(latest);
+    expect(withdrawn.next_steps.join(" ")).not.toContain("principal_communities leaves out");
+  });
+
+  it("q82: accepts cs1 names as enforced earlier-turn names even with the same turn id", () => {
+    const first = check();
+    const { current_turn_named_communities: _current, ...state } = first.carried!;
+    const old = { ...state, v: 1, named_communities: ["r/ExampleOne"] };
+    const body = `cs1~${deflateRawSync(Buffer.from(JSON.stringify(old))).toString("base64url")}`;
+    const key = createHmac("sha256", SECRET).update("askrigor carried state v1").digest();
+    const token = `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
+    expect(verifyCarriedState(token, { secret: SECRET })).toMatchObject({ ok: true, state: {
+      v: 2, named_communities: ["r/ExampleOne"], current_turn_named_communities: []
+    } });
+    const second = check({ carried_state: token, round_token: first.round_token,
+      principal_communities: [{ name: "YouTube", platform: "youtube" }] });
+    expect(second.next_steps.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    expect(second.carry_forward).toMatch(/^cs2~/u);
   });
 });
