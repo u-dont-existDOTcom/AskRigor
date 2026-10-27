@@ -88,6 +88,8 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
+  reports, lessons naming existing rules, research building on the Atlas.
 - `audits/2026-10-20-carried-state-production-release.md`: release of #346 (owner questions 109 to 113, 117 and 120 to
   123, released on 124a): lessons #32 to #37 and carried state, with HRP 20.6.27, Universal 20.5.44, production
   acceptance and the Codex plugin refresh, and the owner regressions (13 of 30 cases met every criterion, none failed;
