@@ -34,7 +34,7 @@ export async function checkReportVocabulary(): Promise<{ tools: string[]; codes:
       ...text.matchAll(/\bz\.enum\(\s*\[([^\]]*)\]/gu),
       ...text.matchAll(/\b(?:code|reason_code|reasonCode|errorCode)\s*(?:=|:)\s*("[^"\n]*"|'[^'\n]*')/gu),
       ...text.matchAll(/\bz\.literal\(\s*("[^"\n]*"|'[^'\n]*')\s*\)/gu),
-      ...text.matchAll(/\btype\s+\w+\s*=((?:\s*\|?\s*(?:"[^"\n]*"|'[^'\n]*'))+)\s*;/gu),
+      ...text.matchAll(/\btype\s+\w+\s*=((?:\s*(?:\|\s*)?(?:"[^"\n]*"|'[^'\n]*'))+)\s*;/gu),
       ...text.matchAll(/\b(?:const|let)\s+\w*(?:CODES|STATUSES|KINDS|REASONS|STATES)\s*(?::[^=;]+)?=\s*(?:new Set(?:<[^>]+>)?\(\s*)?\[([^\]]*)\]/gu),
     ];
     // Resolve z.enum(NAME)'s static array in the same source. No evaluation of source code or caller data.
