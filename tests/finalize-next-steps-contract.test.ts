@@ -410,17 +410,19 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     const noStudies = await complete(base({ key_sources: [], commercial_review_applicability: undefined }));
     expect(noStudies.status).toBe("ready_with_limits");
   });
-  if (surface === "MCP endpoint") it("lists the additive contract in both schemas and returns it in get_protocol_manifest", async () => {
+  if (surface === "MCP endpoint") it("publishes a version-independent contract schema and returns its running value in get_protocol_manifest", async () => {
     const { tools } = await client!.listTools();
     expect(tools).toHaveLength(33);
     for (const name of ["finalize_research", "get_protocol_manifest"]) {
       const schema = tools.find((tool) => tool.name === name)!.outputSchema!;
-      expect((schema.properties as Record<string, unknown>).contract).toMatchObject({ const: "2026-10-07" });
+      const contract = (schema.properties as Record<string, unknown>).contract;
+      expect(contract).toMatchObject({ type: "string" });
+      expect(contract).not.toHaveProperty("const");
     }
     for (const protocol of ["hrp", "universal"]) {
       const result = await client!.callTool({ name: "get_protocol_manifest", arguments: { protocol } });
       expect(result.isError).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ ok: true, contract: "2026-10-07" });
+      expect(result.structuredContent).toMatchObject({ ok: true, contract: FINALIZE_RESEARCH_CONTRACT });
     }
   });
 });

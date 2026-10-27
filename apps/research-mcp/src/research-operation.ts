@@ -3,6 +3,7 @@ import type {
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { z } from "zod";
 
 export interface ResearchOperationExtra {
   authInfo?: AuthInfo;
@@ -28,4 +29,11 @@ export interface ResearchOperation {
   readonly actionEnabled?: boolean;
   readonly execute: ResearchOperationHandler;
   readonly mcpConfig: unknown;
+}
+
+/** Registered MCP operations retain their publication and runtime contracts separately. */
+export interface RegisteredResearchOperation extends ResearchOperation {
+  readonly publishedInputSchema: z.ZodObject;
+  readonly runtimeInputSchema: z.ZodObject;
+  readonly runtimeOutputSchema: z.ZodObject;
 }

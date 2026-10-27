@@ -1,3 +1,4 @@
+import { laterInputShape, mergeLaterInputs } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -294,7 +295,7 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
   "are given, in this turn or a later one.";
 
-// The plain answer a paid private or dev account registers before research (owner answer 140b, 2026-10-20), and how
+// The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.
 export const PLAIN_ANSWER_LIMITS = { textCharacters: 1_500, claims: 5, claimCharacters: 250 } as const;
 export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "not_checked"] as const;
@@ -937,7 +938,13 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
 
-export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
+// Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
+// merged; the top-level schema used by tools/list is unchanged.
+function finalizeResearchRuntimeInputSchema() {
+  const later = laterInputShape("finalize_research");
+  return finalizeResearchInputSchema.safeExtend<typeof later>(later);
+}
+export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
 /**
  * The inputs ChatGPT's app shows the model only as "unknown": a two-branch union, and an object or array nested below
@@ -1034,11 +1041,11 @@ export function finalizeResearchConnectorInputSchema(relaxed: boolean, toolListV
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
-export function parseFinalizeResearchInput(rawInput: unknown) {
+export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   const object = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
   const empty = (value: unknown) => Array.isArray(value) && value.length === 0;
-  if (!object(rawInput)) return finalizeResearchInputSchema.safeParse(rawInput);
+  if (!object(rawInput)) return rawInput;
   const input = { ...rawInput };
   if (empty(input.principal_communities)) delete input.principal_communities;
   if (object(input.intervention_identity)) {
@@ -1055,7 +1062,23 @@ export function parseFinalizeResearchInput(rawInput: unknown) {
     return copy;
   });
   if (object(input.findings_card) && empty(input.findings_card.findings)) delete input.findings_card;
-  return finalizeResearchInputSchema.safeParse(input);
+  return input;
+}
+
+/**
+ * The call merged with its later_inputs (owner answer 189a), then validated against the runtime schema. A problem
+ * with later_inputs comes back with the other input problems, so the not_ready result names it like any other.
+ */
+export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> {
+  const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
+  const parsed = finalizeResearchRuntimeInputSchema().safeParse(normalizeFinalizeResearchInput(input));
+  if (problems.length === 0) return parsed;
+  const issues: z.core.$ZodIssue[] = [
+    ...problems.map(({ path, message }) => ({ code: "custom" as const, path, message, input: undefined })),
+    ...(parsed.success ? [] : parsed.error.issues),
+  ];
+  return { success: false, error: new z.ZodError(issues) as z.ZodError<FinalizeResearchInput> };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -1371,7 +1394,7 @@ const finalizationStatusSchema = z.enum([
 const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string() }).strict();
 
 export const finalizeResearchOutputSchema = z.object({
-  contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
+  contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   checked_answer: z.string().optional()
     .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
@@ -1495,7 +1518,7 @@ export const finalizeResearchOutputSchema = z.object({
     claims: z.number().int().positive().optional(),
     reason: z.string().optional()
   }).strict().optional()
-    .describe("For a paid private or dev account: registered, a plain answer signed for this research target before " +
+    .describe("For an active research account: registered, a plain answer signed for this research target before " +
       "the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's " +
       "note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), " +
       "which holds nothing back."),
@@ -1534,7 +1557,7 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
-  // A paid private or dev account on the connector (owner answer 140b): a plain answer it registered before research
+  // An active research account on the connector (owner answer 140b): a plain answer it registered before research
   // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
   // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
   plainAnswer?: { note: boolean; account: string };
@@ -3141,7 +3164,7 @@ export function finalizeResearch(
     absences: acceptedAbsences.size,
     corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
   };
-  // Owner answer 140b (2026-10-20): a paid private or dev account registers, before research, the short answer it
+  // Owner answer 140b (2026-10-20): an active research account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
   // here is compared with the answer; one signed later or for another target, or none, gives no note and holds
   // nothing back.
@@ -4140,7 +4163,7 @@ export function researchMapReminder(work: VerifiedWork): string {
     "the answer's last line says the map was filed. Nothing here holds back the answer.";
 }
 
-// Why a paid private or dev account's answer ends without the plain-answer note; nothing is held back for it.
+// Why an active research account's answer ends without the plain-answer note; nothing is held back for it.
 const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
 const PLAIN_ANSWER_REASONS = {
   no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +

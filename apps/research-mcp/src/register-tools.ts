@@ -1,3 +1,5 @@
+import { withLaterInputs } from "./later-inputs.js";
+import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
@@ -14,7 +16,6 @@ import { ACCESS_STATUSES, errorEnvelope } from "@askrigor/contracts";
 import {
   PostgresEvidenceRepository,
   PUBLIC_PROLACTINOMA_GAP_SLUG,
-  RESEARCH_USE_NOTICE_VERSION,
   type PublicEvidenceGapIntakeService,
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
@@ -156,7 +157,7 @@ import {
   YoutubeAuditRestartRequiredError
 } from "./youtube-audit-continuation.js";
 import type {
-  ResearchOperation,
+  RegisteredResearchOperation,
   ResearchOperationExtra,
   ResearchOperationHandler
 } from "./research-operation.js";
@@ -168,7 +169,7 @@ import {
 } from "./evidence-gap-review-tool.js";
 import type { SignInState } from "./oauth-resource-server.js";
 import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
-import { type RunningVersions, runningVersionsText } from "./version.js";
+import { type RunningVersions, runningVersionsOf, versionPayload } from "./version.js";
 import {
   createManageResearchAccessHandler,
   createResearchAccessGuard,
@@ -185,6 +186,7 @@ import {
   researchUseSecurityMetadata,
   SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION,
   submitResearchContributionConnectorInputSchema,
+  submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
   submitServerSourceAnalysis,
   type ResearchMapOptions,
@@ -229,6 +231,8 @@ import {
   finalizeResearch,
   protocolNamesFrom,
   finalizeResearchConnectorInputSchema,
+  finalizeResearchInputSchema,
+  normalizeFinalizeResearchInput,
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   type FinalizeResearchOutput
@@ -798,7 +802,7 @@ export interface RegisterToolsOptions {
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
-  /** The versions this server runs, shown first in get_protocol_manifest's description. */
+  /** The versions this server runs, returned by get_protocol_manifest. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;
@@ -919,23 +923,21 @@ function defineResearchOperations(
   registrar.registerTool(
     "get_protocol_manifest",
     {
-      // Clients show tool descriptions in their plugin panels, so the versions
-      // lead; a client keeps the tool list until it is refreshed, so the
-      // description says when they applied and the tool gives the current ones.
-      description: (options.runningVersions === undefined
-        ? ""
-        : `Versions when this tool list was loaded: ${runningVersionsText(options.runningVersions)}. `) +
-        "Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.",
+      // Owner answer 189a supersedes the 2026-10-03 request for versions in the plugin panel's tool description.
+      // Versions remain in the handshake and this tool's result; the cached tool definition stays fixed.
+      description: "Lists canonical protocol identity, SHA-256 metadata, running versions and the finalize_research input contract version.",
       inputSchema: {
         protocol: protocolSchema.describe("Canonical protocol to inspect."),
         // Owner request (2026-10-22): the result says when this app's copy of AskRigor's tools is out of date.
         tool_list_version: toolListVersionField(options.toolListVersion)
       },
       outputSchema: {
-        contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
+        contract: z.string().describe("Records the server's finalize_research input contract version."),
         ok: z.boolean(),
         protocol: protocolSchema,
         manifest: manifestSchema.optional(),
+        running_versions: z.object({ hrp: z.string(), universal: z.string(), build: z.string() }).optional()
+          .describe("The running HRP and Universal versions and server build."),
         // Whether this connection's research calls will be accepted: this call needs no sign-in, so it can say why
         // the others are refused when a client shows only a generic error for them.
         connection: researchConnectionSchema.optional(),
@@ -944,7 +946,9 @@ function defineResearchOperations(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async ({ protocol, tool_list_version }, extra) => {
+      let running_versions = options.runningVersions;
       try {
+        running_versions ??= runningVersionsOf(await versionPayload());
         const manifest = await getProtocolManifest(protocol);
         const notice = toolListNotice(tool_list_version, options.toolListVersion);
         const connection = await researchConnection(extra, {
@@ -952,14 +956,17 @@ function defineResearchOperations(
           signIn: options.signIn,
         });
         return successfulToolResult(
-          `Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
+          `Running versions: HRP ${running_versions.hrp}, Universal ${running_versions.universal}, build ${running_versions.build}. Protocol manifest: ${manifest.name} ${manifest.version} (${manifest.revisionDate}); SHA-256 ${manifest.sha256}.` +
             (connection === undefined ? "" : ` ${researchConnectionSummary(connection)}`) +
             (notice === undefined ? "" : ` ${notice}`),
-          { contract: FINALIZE_RESEARCH_CONTRACT, ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
+          { contract: FINALIZE_RESEARCH_CONTRACT, running_versions, ok: true, protocol, manifest, ...(connection === undefined ? {} : { connection }) }
         );
       } catch (error) {
         const result = protocolErrorResult(protocol, error);
-        return { ...result, structuredContent: { ...result.structuredContent, contract: FINALIZE_RESEARCH_CONTRACT } };
+        return { ...result, content: [...(running_versions === undefined ? [] : [{ type: "text" as const,
+          text: `Running versions: HRP ${running_versions.hrp}, Universal ${running_versions.universal}, build ${running_versions.build}.` }]), ...result.content],
+          structuredContent: { ...result.structuredContent, contract: FINALIZE_RESEARCH_CONTRACT,
+            ...(running_versions === undefined ? {} : { running_versions }) } };
       }
     }
   );
@@ -1845,8 +1852,8 @@ function defineResearchOperations(
   registrar.registerTool(
     "manage_research_access",
     {
-      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Findings cards saved in free contributor mode are published in AskRigor's public Atlas as soon as they are saved, written without the person and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; this release offers no price or checkout. ` +
-        "For a paid private or dev account, inspect asks for a plain answer before research: register_plain_answer " +
+      description: `Shows or sets AskRigor's research-use mode. Inspecting it is the first step of research, and it shows why a research tool was refused. Free use requires explicit agreement to the notice version inspect returns: what AskRigor learns from the research (deidentified structured research progress and each finished answer's findings card) is saved for non-authoritative review. Findings cards saved in free contributor mode are published in AskRigor's public Atlas as soon as they are saved, written without the person and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them. Paid private mode saves an answer's findings card, files its research map or saves lesson feedback only when the user accepts that for that answer, and activates only for an existing verified entitlement; availability of a price or checkout is reported in the result. ` +
+        "For every account with active research access, inspect asks for a plain answer before research: register_plain_answer " +
         "signs the short answer you would give without AskRigor's tools, which the final check compares with the " +
         "checked answer in a note, and set_plain_answer_note turns that note off or on. " +
         // Owner question 154 (2026-10-21): detailed lesson reports, off unless the user turns them on.
@@ -1871,7 +1878,6 @@ function defineResearchOperations(
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         plainAnswer: {
-          devAccountKeys: () => devAccountKeysFromEnv(),
           sign: (claims, accountKey) => {
             const secret = researchReceiptSecretFromEnv();
             return secret === undefined
@@ -2325,8 +2331,8 @@ function defineResearchOperations(
         "the caveats offer its save, which also asks to file this research's map. A card whose public_value declares " +
         "its findings personal_only is neither saved nor offered; a public one gives its topic and, for each finding, " +
         "its kind, subject, direction, numbers and, for a search that found nothing, its searches. research_map " +
-        "says whether this research's map was filed or offered, or reminds a free contributor to file it. For a " +
-        "paid private or dev " +
+        "says whether this research's map was filed or offered, or reminds a free contributor to file it. For an " +
+        "active research " +
         "account whose plain answer was registered with " +
         "manage_research_access before the research, plain_answer_comparison gives what the research found for each " +
         "of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. " +
@@ -2373,10 +2379,10 @@ function defineResearchOperations(
         ...(readsOnMobile(extra._meta) ? { mobileClient: true } : {}),
         ...(options.toolListVersion === undefined ? {} : { toolListVersion: options.toolListVersion }),
         ...(redditLinks.length === 0 ? {} : { redditThreads: await lookupRedditThreads(redditLinks) }),
-        // Owner answer 140b: a paid private or dev account's plain answer, registered before research, is compared
+        // Owner answer 190a: every active research account's plain answer, registered before research, is compared
         // with the answer, on the MCP connector only.
         ...(researcher !== undefined && secret !== undefined && options.mcpSurface !== "/mcp/gemini" &&
-            plainAnswerRequested(researcher.mode, researcher.accountKey, devAccountKeysFromEnv())
+            plainAnswerRequested(researcher.mode)
           ? { plainAnswer: { note: researcher.plainAnswerNote, account: plainAnswerAccountBinding(secret, researcher.accountKey) } }
           : {}),
         // Owner answer 143a: this research's map, on the MCP connector. A paid private answer's save offer also asks,
@@ -3418,8 +3424,8 @@ export function registerTools(
 
 function collectResearchOperations(
   options: RegisterToolsOptions = {},
-): readonly ResearchOperation[] {
-  const operations: ResearchOperation[] = [];
+): readonly RegisteredResearchOperation[] {
+  const operations: RegisteredResearchOperation[] = [];
   const registrar = {
     registerTool(
       name: string,
@@ -3446,18 +3452,27 @@ function collectResearchOperations(
         : PUBLIC_READ_OPERATION_NAMES.has(name)
           ? optionalSignInSecurityMetadata()
           : researchUseSecurityMetadata();
+      const evolving = withLaterInputs(name, config.inputSchema, execute, undefined,
+        // Both validate their own input and word its problems in a result ChatGPT shows (RuntimeInputOptions.handler).
+        name === "finalize_research" ? { schema: finalizeResearchInputSchema, normalize: normalizeFinalizeResearchInput, handler: "merges" } :
+        name === "submit_research_contribution" ? { schema: submitResearchContributionInputSchema, handler: "validates" } : {});
+      const runtimeOutputSchema = config.outputSchema instanceof z.ZodObject
+        ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
+      const outputSchema = openToolOutputSchema(runtimeOutputSchema);
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
-        ? createResearchAccessGuard(execute, {
+        ? createResearchAccessGuard(evolving.execute, {
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
             signIn: options.signIn,
           })
-        : execute;
+        : evolving.execute;
       const mcpConfig = Object.freeze({
         ...config,
+        inputSchema: evolving.inputSchema,
+        outputSchema,
         annotations,
         _meta: Object.freeze({ ...config._meta, ..._meta }),
       });
@@ -3465,8 +3480,11 @@ function collectResearchOperations(
         name,
         actionPath: `/actions/research/${name}`,
         description: config.description,
-        inputSchema: config.inputSchema,
-        outputSchema: config.outputSchema,
+        inputSchema: evolving.inputSchema,
+        publishedInputSchema: evolving.publishedInputSchema,
+        runtimeInputSchema: evolving.runtimeSchema,
+        runtimeOutputSchema,
+        outputSchema,
         annotations,
         actionEnabled:
           !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name) &&

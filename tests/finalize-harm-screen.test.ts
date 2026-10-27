@@ -1,3 +1,4 @@
+import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -609,7 +610,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       type Node = { description?: string; type?: string; maxLength?: number; maxItems?: number; enum?: string[];
         items?: Node; properties?: Record<string, Node> };
       const published = finalizeResearchPublishedInputSchema({ relaxed }) as { properties: Record<string, Node> };
-      expect(tool.inputSchema).toEqual(published);
+      expect(withoutLaterInputs(tool.inputSchema)).toEqual(published);
       const screen = published.properties.harm_screen!;
       expect(screen.type).toBe("array");
       expect(screen.description).toContain("the serious harms plausible for this exposure, apart from its common side " +

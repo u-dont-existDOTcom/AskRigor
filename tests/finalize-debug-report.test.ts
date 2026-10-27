@@ -60,10 +60,13 @@ describe("the final check's private debug report", () => {
     expect(maskedRule(ruleParts("An untagged dynamic string"), allowed)).toBe("…");
   });
 
-  it("derives the vocabulary from source and the actual tool inventory", async () => {
+  it("derives the vocabulary from exact runtime schemas even when published output values are open", async () => {
     expect(await readFile(new URL("../apps/research-mcp/src/check-report-vocabulary.ts", import.meta.url), "utf8"))
       .toBe(await renderedCheckReportVocabulary());
     expect(allowed("youtube_video_audit_identifier_membership_boundary")).toBe(true);
+    for (const code of ["continue_research", "ledger_consistent_for_synthesis", "ATLAS_LINK_CYCLE"]) {
+      expect(allowed(code), code).toBe(true);
+    }
   });
 
   it("records the video-audit step instead of just saying research failed", () => {

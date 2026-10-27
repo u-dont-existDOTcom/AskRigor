@@ -60,10 +60,9 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
     expect(standard).toMatch(/^[0-9a-f]{16}$/u);
     // The same tools give the same version, so a release that changes none keeps it.
     expect(await toolListVersionOf(createAskRigorServer("standard"))).toBe(standard);
-    // Another catalog, or another tool description, gives another version: the HTTP server therefore takes it from
-    // a server made without the running versions, whose text changes at every release.
+    // Another catalog gives another version. Running versions are result-only and cannot change the cached list.
     expect(await toolListVersionOf(createAskRigorServer("gemini"))).not.toBe(standard);
-    expect(await toolListVersionOf(createAskRigorServer("standard", { runningVersions: RUNNING }))).not.toBe(standard);
+    expect(await toolListVersionOf(createAskRigorServer("standard", { runningVersions: RUNNING }))).toBe(standard);
   });
 
   it("publishes the surface's version in the field the model sends back, on the first calls of research", async () => {

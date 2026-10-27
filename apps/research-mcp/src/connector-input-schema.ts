@@ -46,8 +46,8 @@ export function relaxedConnectorInputSchema(strict: ConnectorJsonSchema): Connec
 }
 
 /**
- * Runtime acceptance is permissive on both surfaces; only the published schema differs. The SDK passes any arguments
- * to the handler, which validates them itself and reports every problem.
+ * SDK acceptance is permissive on every surface; only the published schema differs. withLaterInputs validates
+ * the merged arguments against the separate runtime schema and reports every problem.
  */
 export function permissiveConnectorInputSchema(published: ConnectorJsonSchema) {
   return z.looseObject(Object.fromEntries(Object.entries(published.properties!).map(([key, fragment]) =>
@@ -56,4 +56,16 @@ export function permissiveConnectorInputSchema(published: ConnectorJsonSchema) {
       // Override looseObject's generated additionalProperties too, including its absence on /mcp.
       additionalProperties: published.additionalProperties
     });
+}
+
+/** A retained output schema accepts later fields and values; its server-side parser stays unchanged (189a). */
+export function openToolOutputSchema(schema: unknown): z.ZodObject {
+  const original = schema instanceof z.ZodObject ? schema : z.object(schema as z.ZodRawShape);
+  const open = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(open);
+    if (value === null || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "enum" && key !== "const").map(([key, child]) =>
+      [key, key === "additionalProperties" && child === false ? true : open(child)]));
+  };
+  return original.meta(open(z.toJSONSchema(original, { target: "draft-7" })) as Record<string, unknown>);
 }

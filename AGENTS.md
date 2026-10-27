@@ -166,13 +166,18 @@ package/registration receipt and an explicit rollback path. Never infer
 plugin-package currency from source files, a working connector, or live
 manifests alone.
 
-The connector probe also compares the versions at the start of the first
-tool's description with the deployed build and protocols. A connector whose
-tool list was loaded before the release still answers manifest calls with
-the live versions, but it cannot send newer fields; on 2026-10-12 the
-ChatGPT app Codex reaches still listed build `27deb4a5` (HRP 20.6.10). Report
-a stale list as such, with the refresh as the owner's action in that app's
-settings; the owner's refresh reached Codex about 15 minutes later.
+The tool list is fixed (owner answer 189a, 2026-10-27):
+tests/fixtures/frozen-tool-lists holds each surface's tools/list, and a test
+fails on any change. A new input goes in the tool's later shape, sent in
+`later_inputs` (an existing input's newer form too); a new action or category
+goes only in the runtime enum; new guidance goes in results or the protocol.
+Only adding or removing a tool may change the list, and that release's record
+says the apps need one refresh. The connector probe sends
+get_protocol_manifest the `tool_list_version` its field description gives, and
+reads the running versions from the result. A result saying the app's copy is
+out of date means a stale list: report it as such, with the refresh as the
+owner's action in that app's settings. On 2026-10-12 the owner's refresh
+reached the ChatGPT app Codex reaches about 15 minutes later.
 
 When the accepted-contribution promotion timer is active, every backend release
 must also bind `/opt/askrigor/living-evidence-image.env` to the exact deployed
