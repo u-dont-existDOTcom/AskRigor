@@ -30,6 +30,7 @@ import {
 
 import { communitySkipCaveat, COMMUNITY_SKIP_LIMIT } from "./helpers/community-skip.js";
 import { assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
+import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
@@ -2439,7 +2440,8 @@ describe("finalize_research gate", () => {
       /^1 search\(es\) in the latest discovery rounds did not complete, 1 stopped by YouTube's rate limit or daily quota\. Rerun them once it resets and pass the new research_receipt\./u
     )]);
     // Its own signed quota result defers the step even after it becomes stuck; no defect is inferred from that wait.
-    const quotaRequest = { ...base, receipts, research_depth: "deep" as const };
+    const quotaRequest = { ...base, receipts, research_depth: "deep" as const,
+      answer_draft: [CLEAN_DRAFT, ...deep.caveats, COMPLETE_CHECKS_TIP].join("\n\n") };
     const second = finalizeResearch({ ...quotaRequest, round_token: deep.round_token }, options);
     const stopped = finalizeResearch({ ...quotaRequest, round_token: second.round_token }, options);
     expect(stopped.status).toBe("stopped");

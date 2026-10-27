@@ -1984,7 +1984,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   community lane (`answer_quotes`, inside `community_findings` and each
   `community_searches` entry) and the caveats, which an answer not in English
   gives in its own language (`caveat_renderings`, with the `answer_language`
-  tag). Caveat sentences and any check or unchecked line inside a `<details>` element must be moved outside it; other
+  tag). When the check passes (`ready` or `ready_with_limits`), `finalize_research`
+  returns the exact submitted draft, including its whitespace, as `checked_answer`
+  only to the caller that sent it. The final-check panel shows that answer as
+  plain text. This adds no recipient, storage or log; the answer remains
+  request-local and is never included in a receipt, carried state or debug report.
+  Caveat sentences and any check or unchecked line inside a `<details>` element must be moved outside it; other
   text may remain inside. This is a structural check of the server's sentences, not a judgment about other advice.
   The draft also supplies the sentences where it says something was not found, not studied
   or has no effect, or calls an intervention's evidence unconvincing, weak, not

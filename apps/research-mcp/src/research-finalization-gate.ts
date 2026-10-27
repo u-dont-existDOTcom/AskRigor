@@ -8,6 +8,7 @@ import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
 import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
+import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
@@ -661,7 +662,8 @@ export const finalizeResearchInputSchema = z.object({
     }).strict()).max(30).optional(),
     routes_searched: z.array(z.enum(["international_storefronts", "marketplaces", "exporters", "specialist_sellers", "secondary_marketplaces"])).max(5).optional()
   }).strict().optional().describe("Records destination-bound shopping declarations when commercial reviews are required: no request and no offers, live buy options linked in the draft, or a bounded no-result after at least three distinct international routes. These are model declarations, not provider-verified offers."),
-  answer_draft: z.string().trim().min(1).max(60_000).optional()
+  answer_draft: z.string().min(1).max(60_000).refine((draft) => draft.trim().length > 0,
+    "The answer must contain text.").optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
       "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
@@ -1138,7 +1140,8 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     }),
     ...(report ?? {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
+    limits: [], caveats: stopped === undefined ? [] : [COMPLETE_CHECKS_TIP],
+    must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
       first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
@@ -1344,6 +1347,9 @@ const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string
 export const finalizeResearchOutputSchema = z.object({
   contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
+  checked_answer: z.string().optional()
+    .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
+      "byte, returned only to its caller and shown in the result panel; not stored or logged."),
   next_steps: z.array(z.string()),
   next_step_kinds: z.array(z.enum(NEXT_STEP_KINDS))
     .describe("Each next step's kind, in the same order: input_invalid, the inputs failed and the check did not run; " +
@@ -3043,7 +3049,8 @@ export function finalizeResearch(
   }
   // Fixed sentences, or one holding a public Atlas number its schema checked: shown whole in bug reports.
   for (const caveat of atlasReuse.caveats) requireLimit(joinRules(caveat), caveat);
-  const draft = input.answer_draft;
+  // Preserve the submitted draft for checked_answer; checks and the receipt keep their existing trimmed form.
+  const draft = input.answer_draft?.trim();
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
   // checked card is saved by the agreement the user accepted, with nothing
@@ -3344,6 +3351,23 @@ export function finalizeResearch(
       call: callRound
     }
   );
+  if (checkRound?.status === "stopped") {
+    caveats.push(COMPLETE_CHECKS_TIP);
+    // Only a stopped answer needs this sentence. Check it after the round outcome is known, without opening
+    // another round or delaying the stop, through the same visible-sentence and translation check as other caveats.
+    if (draft !== undefined) {
+      for (const problem of answerCaveatProblems(draft, {
+        caveats: [COMPLETE_CHECKS_TIP],
+        ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
+        renderings: input.caveat_renderings ?? [], missingDeclaration: () => {}
+      })) {
+        const text = ruleText(problem);
+        if (!checkRound.couldNot.some((step) => step.text === text)) {
+          checkRound.couldNot.push({ kind: "answer_draft", text, rule: ruleParts(problem), consecutive: 1 });
+        }
+      }
+    }
+  }
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
   // Every step this check leaves open, asked for or not, for the carried state's open kinds.
   const openSteps: CheckStep[] = checkRound === undefined ? []
@@ -3391,6 +3415,7 @@ export function finalizeResearch(
     },
     sources: { validated: validatedSources, lead_only: leadSources },
     answer_checked: draft !== undefined,
+    ...(passed && input.answer_draft !== undefined ? { checked_answer: input.answer_draft } : {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard
   };
@@ -3758,6 +3783,18 @@ function answerDraftProblems(
       }
     }
   }
+  problems.push(...answerCaveatProblems(draft, context));
+  return problems;
+}
+
+function answerCaveatProblems(draft: string, context: {
+  caveats: readonly string[];
+  answerLanguage?: string;
+  renderings: ReadonlyArray<{ caveat: string; text: string }>;
+  missingDeclaration: () => void;
+}): RuleInput[] {
+  const problems: RuleInput[] = [];
+  const shownBlocks = displayedProse(draft);
   // Each caveat the server wrote must reach the answer as a sentence of its
   // own. Only prose a reader sees counts: not code, comments, quotations or
   // image descriptions. An answer in another language states each in that

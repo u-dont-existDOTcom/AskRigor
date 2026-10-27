@@ -1,4 +1,5 @@
 import { rule } from "../apps/research-mcp/src/check-rules.js";
+import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -42,7 +43,7 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
     absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [],
     safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth). Try it.\n\n" +
-      communitySkipCaveat("Synthetic fixture isolates the round limit."),
+      communitySkipCaveat("Synthetic fixture isolates the round limit.") + "\n\n" + COMPLETE_CHECKS_TIP,
     ...overrides
   };
 }
@@ -351,6 +352,62 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(openText).not.toContain("The final check stopped");
     expect(openText).toContain("what the next turn can do (the steps still open) and how to continue");
     expect(openText).not.toContain(STOPPED_CHECK_REPORT_OFFER);
+  });
+});
+
+describe("the stopped answer's completion tip (owner answer 187)", () => {
+  const withoutTip = () => fixture().answer_draft!.replace("\n\n" + COMPLETE_CHECKS_TIP, "");
+  const stop = (overrides: Partial<FinalizeResearchInput> = {}) => {
+    let result = check(fixture({ proposed_tests: [repeating(9)], ...overrides }));
+    for (let round = 2; round <= 3; round += 1) {
+      result = check(fixture({ proposed_tests: [repeating(9)], ...overrides, round_token: result.round_token }));
+    }
+    expect(result.status).toBe("stopped");
+    return result;
+  };
+
+  it("adds the exact fixed caveat only when stopped, including a check whose inputs failed", () => {
+    expect(COMPLETE_CHECKS_TIP).toBe('To give AskRigor\'s checks more room to finish, ask it to complete its checks, for example: "complete askrigor checks".');
+    expect(check(fixture({ answer_draft: withoutTip() }))).toMatchObject({ status: "ready_with_limits" });
+    expect(check(fixture({ answer_draft: withoutTip() })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(check(fixture({ proposed_tests: [repeating(9)] })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(stop().caveats).toContain(COMPLETE_CHECKS_TIP);
+    expect(stop().stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
+    let invalid = check({ research_target: 7 });
+    expect(invalid.caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    for (let round = 2; round <= 3; round += 1) invalid = check({ research_target: 7, round_token: invalid.round_token });
+    expect(invalid.status).toBe("stopped");
+    expect(invalid.caveats).toEqual([COMPLETE_CHECKS_TIP]);
+  });
+
+  it("refuses a stopped draft that leaves out the tip without opening another round", () => {
+    const result = stop({ answer_draft: withoutTip() });
+    expect(result.round?.number).toBe(3);
+    expect(result.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+    expect(result.next_steps).toEqual([]);
+    expect(result.round_token).toBeUndefined();
+    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.checked_answer).toBeUndefined();
+  });
+
+  it("accepts the declared translated sentence through caveat_renderings", () => {
+    const translated = 'Pour laisser davantage de temps aux vérifications d’AskRigor, demandez-lui de les terminer, par exemple : « complete askrigor checks ».';
+    const rendering = { caveat: COMPLETE_CHECKS_TIP, text: translated };
+    const result = stop({ answer_draft: withoutTip() + "\n\n" + translated, answer_language: "fr", caveat_renderings: [rendering] });
+    expect(result.caveats).toContain(COMPLETE_CHECKS_TIP);
+    expect(result.stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
+    // Declaring a translation does not count unless the answer visibly states it.
+    const missing = stop({ answer_draft: withoutTip(), answer_language: "fr", caveat_renderings: [rendering] });
+    expect(missing.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+  });
+
+  it.each([
+    `\`\`\`\n${COMPLETE_CHECKS_TIP}\n\`\`\``,
+    `<!-- ${COMPLETE_CHECKS_TIP} -->`,
+    `<details><summary>More</summary>\n\n${COMPLETE_CHECKS_TIP}\n\n</details>`,
+  ])("refuses the tip hidden from visible prose: %s", (hidden) => {
+    expect(stop({ answer_draft: withoutTip() + "\n\n" + hidden }).stopped!.could_not)
+      .toContainEqual({ kind: "answer_draft", step: expect.stringContaining("To give AskRigor's checks more room to finish") });
   });
 });
 

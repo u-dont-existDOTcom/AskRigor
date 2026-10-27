@@ -370,8 +370,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       expect(JSON.stringify(result.carried ?? {})).not.toContain(declared);
       expect(result.carry_forward ?? "").not.toContain(declared);
     }
-    // Only a class not researched or out of reach comes back, in its caveat and limit for this call; the query never does.
-    const output = JSON.stringify({ ...result, caveats: [], limits: [] });
+    // Outside the caller's checked answer, only a class not researched or out of reach comes back, in its caveat
+    // and limit for this call. The query and declarations still stay out of the receipt and carried state.
+    const output = JSON.stringify({ ...result, checked_answer: undefined, caveats: [], limits: [] });
     for (const declared of ["supplements", "inositol", "stimulation"]) expect(output).not.toContain(declared);
   });
 

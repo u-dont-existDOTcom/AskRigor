@@ -534,8 +534,9 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
       expect(JSON.stringify(result.carried ?? {})).not.toContain(declared);
       expect(result.carry_forward ?? "").not.toContain(declared);
     }
-    // Only a harm not checked comes back, in its caveat and limit for this call; the query never does.
-    const output = JSON.stringify({ ...result, caveats: [], limits: [] });
+    // Outside the caller's checked answer, only a harm not checked comes back, in its caveat and limit for this
+    // call. The query and declarations still stay out of the receipt and carried state.
+    const output = JSON.stringify({ ...result, checked_answer: undefined, caveats: [], limits: [] });
     for (const declared of ["allergic", "anaphylaxis", "rechallenge", "somatropin"]) expect(output).not.toContain(declared);
     expect(result.caveats).toContain(harmNotCheckedCaveat("stroke after rechallenge"));
   });

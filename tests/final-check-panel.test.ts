@@ -3,6 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
+import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
   finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
@@ -18,7 +19,7 @@ const SECRET = "final-check-panel-test-secret-01234567890123456789";
 
 // Same validated, full-text-audited fixture as finalize-read-depth.test.ts; its one limit is the community search its
 // no_real_world_outcome declaration skipped, which the answer states (owner question 125).
-function fixture(): FinalizeResearchInput {
+function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput {
   return {
     receipts: [issueResearchReceipt("study_audit", { doi: "10.1000/depth", content: "a".repeat(16) }, { secret: SECRET })],
     research_target: "Synthetic reading-depth declaration", research_depth: "deep", treatment_choice: "not_compared",
@@ -32,6 +33,7 @@ function fixture(): FinalizeResearchInput {
     absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth).\n\n" +
       communitySkipCaveat("Synthetic fixture isolates structural reading-depth checks."),
+    ...overrides,
   };
 }
 
@@ -71,6 +73,8 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         securitySchemes: expect.any(Array),
       });
       const input = fixture();
+      // Leading/trailing whitespace and CRLF survive both the connector input and output schemas.
+      input.answer_draft = ` \t\r\n${input.answer_draft}\r\n\t `;
       const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
       expect(result.isError).not.toBe(true);
       const output = result.structuredContent as FinalizeResearchOutput;
@@ -83,12 +87,45 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       expect(verifyCarriedState(output.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: output.carried });
       expect(result.structuredContent).toMatchObject({
         status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
+        checked_answer: input.answer_draft,
         next_steps: [], limits: [COMMUNITY_SKIP_LIMIT], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
       expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
-      // The panel draws one line from the structured result; nothing is sent only for it.
+      // The panel draws from the structured result; nothing is sent only for it.
       expect(result._meta).toBeUndefined();
     } finally { await client.close(); await server.close(); }
+  });
+});
+
+describe("the exact checked answer (owner answer 187)", () => {
+  it.each(["ready", "ready_with_limits"] as const)("returns the submitted bytes only after %s", (status) => {
+    const input = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    input.answer_draft = ` \t\r\n${input.answer_draft}\n\nRésumé e\u0301 中文 العربية.\r\n\t `;
+    const result = finalizeResearch(input, { secret: SECRET });
+    expect(result.status).toBe(status);
+    expect(result.caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(result.checked_answer).toBe(input.answer_draft);
+    expect(Buffer.from(result.checked_answer!)).toEqual(Buffer.from(input.answer_draft));
+    expect(result.carried).not.toHaveProperty("checked_answer");
+    // A separate caller gets only its own draft, never the previous caller's.
+    const other = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    expect(finalizeResearch(other, { secret: SECRET }).checked_answer).toBe(other.answer_draft);
+  });
+
+  it("omits checked_answer without a draft and whenever the check did not pass", () => {
+    const missing = finalizeResearch(fixture({ answer_draft: undefined }), { secret: SECRET });
+    const unavailable = finalizeResearch(fixture(), {});
+    const invalid = finalizeResearch({ answer_draft: "private draft" }, { secret: SECRET });
+    const blank = finalizeResearch(fixture({ answer_draft: " \t\r\n " }), { secret: SECRET });
+    expect(blank).toMatchObject({ status: "not_ready", answer_checked: false });
+    let open = finalizeResearch(fixture({ absence_claims: undefined }), { secret: SECRET });
+    expect(open.status).toBe("not_ready");
+    for (const result of [missing, unavailable, invalid, blank, open]) expect(result).not.toHaveProperty("checked_answer");
+    for (let round = 2; round <= 3; round += 1) {
+      open = finalizeResearch(fixture({ absence_claims: undefined, round_token: open.round_token }), { secret: SECRET });
+    }
+    expect(open.status).toBe("stopped");
+    expect(open).not.toHaveProperty("checked_answer");
   });
 });
 
@@ -158,6 +195,7 @@ describe("self-contained panel document", () => {
     const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]+)"/u.exec(html)![1]!;
     expect(csp).toBe("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:");
     expect(csp).not.toContain("connect-src");
+    expect(html).toContain("p { margin: 0; white-space: pre-wrap; }");
     // Schema/validation URL strings in the installed bundle are data, not resource loads.
     expect(html).not.toMatch(/\b(?:src|href|action)\s*=\s*["']?\s*(?:https?:|\/\/)/iu);
     expect(html).not.toMatch(/@import\s+(?:url\(\s*)?["']?\s*(?:https?:|\/\/)/iu);
@@ -195,23 +233,73 @@ function render(result: unknown, doc = documentShim()) {
   return doc.root;
 }
 
-// Owner question 108 (2026-10-16): the panel is one line for the reader, whether the final check passed on this answer.
+// The verdict line remains as owner question 108 specified; owner answer 187 adds the checked answer or stopped steps.
 describe("rendered final check result", () => {
   it.each([
     [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
     [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
     [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
     [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft."],
-    // Owner answer 172a: a stopped check is the turn's final result, so the panel says it was not checked, and why.
-    [{ status: "stopped", stopped: { short_reason: "research this answer needs is unfinished" } },
-      "Not checked: research this answer needs is unfinished."],
-    [{ status: "stopped" }, "Not checked by AskRigor's final check."],
     [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
     [{ status: "unknown" }, "AskRigor's final check could not run here."],
     [undefined, "AskRigor's final check could not run here."],
   ])("shows one line for %j", (result, line) => {
     const root = render(result);
     expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([["p", line]]);
+  });
+
+  it.each(["ready", "ready_with_limits"])("shows the exact checked answer as text for %s", (status) => {
+    const answer = ' \n<script>alert(1)</script>\n<img src=x onerror="alert(2)">\n**not rendered**\r\n ';
+    const root = render({ status, checked_answer: answer });
+    expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["p", status === "ready" ? "\u2713 Checked by AskRigor's final check." :
+        "\u2713 Checked by AskRigor's final check. The answer states its 0 limits."],
+      ["h2", "The answer as AskRigor checked it:"],
+      ["p", answer],
+    ]);
+    expect(root.all("script")).toEqual([]);
+    expect(root.all("img")).toEqual([]);
+  });
+
+  it.each([
+    [undefined, undefined], [[], []],
+    [[{ kind: "research", step: "Read the study's full text." }], []],
+    [[], [{ kind: "research", step: "Retry the search after its limit resets." }]],
+    [[{ kind: "declaration", step: "State what the reports showed." }, { kind: "answer_draft", step: "Show the missing caveat." }],
+      [{ kind: "research", step: "Read the next study." }]],
+  ])("shows stopped steps when present (%j, %j), ending with the exact tip", (couldNot, nextTurn) => {
+    const root = render({ status: "stopped", checked_answer: "must not show", stopped: {
+      short_reason: "research this answer needs is unfinished", could_not: couldNot, next_turn: nextTurn,
+    } });
+    expect(root.children[0]!.textContent).toBe("Not checked: research this answer needs is unfinished.");
+    expect(root.all("h2").map(({ textContent }) => textContent)).toEqual([
+      ...((couldNot?.length ?? 0) > 0 ? ["Checks AskRigor could not finish this turn:"] : []),
+      ...((nextTurn?.length ?? 0) > 0 ? ["What the next turn can do:"] : []),
+    ]);
+    expect(root.all("li").map(({ textContent }) => textContent)).toEqual([
+      ...(couldNot ?? []).map(({ step }) => step), ...(nextTurn ?? []).map(({ step }) => step),
+    ]);
+    expect(root.children.at(-1)!.textContent).toBe(COMPLETE_CHECKS_TIP);
+    expect(root.textContent).not.toContain("must not show");
+  });
+
+  it("keeps stopped steps as text and handles a missing stopped payload", () => {
+    const step = '<img src=x onerror="alert(1)">';
+    const root = render({ status: "stopped", stopped: { could_not: [{ kind: "research", step }] } });
+    expect(root.all("li")[0]!.textContent).toBe(step);
+    expect(root.all("img")).toEqual([]);
+    expect(render({ status: "stopped" }).children.map(({ textContent }) => textContent)).toEqual([
+      "Not checked by AskRigor's final check.", COMPLETE_CHECKS_TIP,
+    ]);
+  });
+
+  it("shows nothing new for not_ready even if extra answer or stopped fields are present", () => {
+    const root = render({ status: "not_ready", checked_answer: "must not show", stopped: {
+      could_not: [{ step: "hidden step" }], next_turn: [{ step: "hidden next turn" }],
+    } });
+    expect(root.children.map(({ textContent }) => textContent)).toEqual([
+      "AskRigor's final check asked for more work on this draft.",
+    ]);
   });
 
   it("shows only the verdict, never the check's lists or text, and never as HTML", () => {
@@ -227,7 +315,8 @@ describe("rendered final check result", () => {
 
   it("replaces a prior result", () => {
     const doc = documentShim();
-    render({ status: "not_ready" }, doc);
+    render({ status: "ready", checked_answer: "an earlier draft" }, doc);
+    render({ status: "stopped", stopped: { could_not: [{ step: "an earlier step" }] } }, doc);
     render({ status: "ready" }, doc);
     expect(doc.root.children.map((element) => element.textContent)).toEqual(["\u2713 Checked by AskRigor's final check."]);
   });

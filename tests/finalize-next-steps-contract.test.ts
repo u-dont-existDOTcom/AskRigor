@@ -16,6 +16,7 @@ import {
   allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers
 } from "./helpers/finalize-next-steps-contract.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 
 const SECRET = "finalizer-contract-links-test-secret-0123456789";
 const TARGET = "How clinoptilolite ion exchange works";
@@ -67,7 +68,7 @@ describe("finalize next-step identifier contract", () => {
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
       "read_depth", "answer_marker", "full_text_audited", "full_text_read", "partial_text", "abstract_only",
       "conference_abstract", "secondary_only", "metadata_only", "inaccessible", "route_error", "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
-      "none_established", "not_established", "finalize_research", "research_receipt"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
+      "none_established", "not_established", "finalize_research", "research_receipt", "checked_answer"]) expect(allowedNextStepIdentifiers.has(identifier)).toBe(true);
     expect(schemaIdentifiers({ properties: { array: { items: { anyOf: [
       { properties: { nested_field: { enum: ["enum_value"] } } }, { const: "literal_value" }
     ] } } } })).toEqual(new Set(["array", "nested_field", "enum_value", "literal_value"]));
@@ -76,8 +77,22 @@ describe("finalize next-step identifier contract", () => {
     for (const published of ["rediscovery_leads", "research_question", "broad_treatment_choice", "product_identity", "pmcid"])
       expect(allowedNextStepIdentifiers.has(published)).toBe(true);
   });
+  it("names only published fields in the stopped tip's missing-caveat step", () => {
+    const input = base({ absence_claims: undefined });
+    let result = finalizeResearch(input, { secret: SECRET });
+    for (let round = 2; round <= 3; round += 1) {
+      result = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET });
+    }
+    expect(result.status).toBe("stopped");
+    const steps = [...result.stopped!.could_not, ...result.stopped!.next_turn].map(({ step }) => step);
+    expect(steps.some((step) => step.includes(COMPLETE_CHECKS_TIP))).toBe(true);
+    expect(unknownNextStepIdentifiers(steps)).toEqual([]);
+  });
   it("pins descriptive catalog wording for the changed contract and link fields", () => {
     const tool = inventory.tools.find(({ name }) => name === "finalize_research")!;
+    const output = tool.outputSchema as { properties: Record<string, { description?: string }> };
+    expect(output.properties.checked_answer!.description).toBe("When ready or ready_with_limits with answer_draft: " +
+      "the exact answer_draft this check read, byte for byte, returned only to its caller and shown in the result panel; not stored or logged.");
     expect(tool.description).toContain(
       "visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm " +
       "statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); " +

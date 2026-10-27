@@ -19334,6 +19334,10 @@
               "receipts_unavailable"
             ]
           },
+          "checked_answer": {
+            "description": "When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for byte, returned only to its caller and shown in the result panel; not stored or logged.",
+            "type": "string"
+          },
           "next_steps": {
             "type": "array",
             "items": {
