@@ -1,8 +1,11 @@
+import { checkReportSchema, checkReportSection, type CheckReport } from "../check-report.js";
 import {
   PUBLIC_ASKRIGOR_REPOSITORY,
+  connectorLessonDiagnosticsSchema,
   detailedLessonReportSchema,
   relatedIssueSchema,
   type DetailedLessonReport,
+  type ConnectorLessonDiagnostics,
   type GeneralizedLesson,
 } from "./contracts.js";
 import {
@@ -36,6 +39,10 @@ export interface GitHubLessonSubmission {
    * the fingerprint nor the hidden metadata.
    */
   detailedReport?: DetailedLessonReport;
+  /** Screened connector diagnostics, preserved exactly outside the legacy anonymizer and duplicate key. */
+  diagnostics?: ConnectorLessonDiagnostics;
+  checkReport?: CheckReport;
+  correctionRule?: { name: string; missing?: string };
 }
 
 export interface GitHubLessonQueueResult {
@@ -126,7 +133,9 @@ export class GitHubLessonQueue {
     if (
       !FINGERPRINT_PATTERN.test(input.fingerprint) ||
       (input.relatedIssue !== undefined && !relatedIssueSchema.safeParse(input.relatedIssue).success) ||
-      (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success)
+      (input.detailedReport !== undefined && !detailedLessonReportSchema.safeParse(input.detailedReport).success) ||
+      (input.diagnostics !== undefined && !connectorLessonDiagnosticsSchema.safeParse(input.diagnostics).success) ||
+      (input.checkReport !== undefined && !checkReportSchema.safeParse(input.checkReport).success)
     ) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
@@ -215,7 +224,7 @@ export class GitHubLessonQueue {
     };
     const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input.relatedIssue, input.detailedReport) }),
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata, input) }),
     });
     if (!isRecord(created) || !isPositiveInteger(created.id)) {
       throw new GitHubApiError("github_service_unavailable", true);
@@ -299,6 +308,9 @@ export class GitHubLessonQueue {
           terminal?.number,
           input.relatedIssue,
           input.detailedReport,
+          input.checkReport,
+          input.correctionRule,
+          input.diagnostics,
         ),
         labels,
       }),
@@ -354,6 +366,9 @@ function buildIssueBody(
   priorIssueNumber: number | undefined,
   relatedIssue: number | undefined,
   detailedReport: DetailedLessonReport | undefined,
+  checkReport?: CheckReport,
+  correctionRule?: GitHubLessonSubmission["correctionRule"],
+  diagnostics?: ConnectorLessonDiagnostics,
 ): string {
   const versionContext = [
     `AskRigor: ${candidate.askrigor_version ? escapeMarkdown(candidate.askrigor_version) : "Not supplied"}`,
@@ -368,8 +383,11 @@ function buildIssueBody(
       : ["Protocols: Not supplied"]),
   ].join("\n");
   const sections = [
+    ...(diagnostics === undefined ? [] : [existingRulesSection(diagnostics)]),
     section("General lesson", escapeMarkdown(candidate.general_lesson)),
+    ...(diagnostics === undefined ? [] : [section("Observed behavior", escapeMarkdown(diagnostics.observed_behavior))]),
     section("Expected behavior", escapeMarkdown(candidate.expected_behavior)),
+    ...(diagnostics === undefined ? [] : [partToChangeSection(diagnostics)]),
     section("Failure reason", escapeMarkdown(candidate.failure_reason)),
     section("Synthetic regression", escapeMarkdown(candidate.synthetic_regression_example)),
     section("Evidence basis", escapeMarkdown(candidate.evidence_basis)),
@@ -381,6 +399,8 @@ function buildIssueBody(
     ...(relatedIssue === undefined
       ? []
       : [section("Related AskRigor issue", relatedIssueReference(relatedIssue))]),
+    ...(checkReport === undefined ? [] : [checkReportSection(checkReport)]),
+    ...(correctionRule === undefined ? [] : [correctionRuleSection(correctionRule)]),
     ...(detailedReport === undefined ? [] : [detailedReportSection(detailedReport)]),
     ...(metadata.incident_occurrences?.length
       ? [section(
@@ -405,10 +425,17 @@ function buildIssueBody(
 
 function buildOccurrenceComment(
   metadata: OccurrenceMetadata,
-  relatedIssue: number | undefined,
-  detailedReport: DetailedLessonReport | undefined,
+  input: GitHubLessonSubmission,
 ): string {
+  const { relatedIssue, detailedReport, checkReport, correctionRule, diagnostics, candidate } = input;
   return [
+    ...(diagnostics === undefined ? [] : [existingRulesSection(diagnostics), "",
+      section("General lesson", escapeMarkdown(candidate.general_lesson)), "",
+      section("Observed behavior", escapeMarkdown(diagnostics.observed_behavior)), "",
+      section("Expected behavior", escapeMarkdown(candidate.expected_behavior)), "",
+      partToChangeSection(diagnostics), "",
+      section("Failure reason", escapeMarkdown(candidate.failure_reason)), "",
+      section("Synthetic regression", escapeMarkdown(candidate.synthetic_regression_example)), ""]),
     "## Anonymous lesson occurrence",
     "",
     `Occurrence count: ${metadata.occurrence_count}`,
@@ -419,10 +446,23 @@ function buildOccurrenceComment(
     ...(metadata.incident_occurrence === undefined
       ? []
       : ["", "Opaque incident provenance:", formatIncidentOccurrence(metadata.incident_occurrence)]),
+    ...(checkReport === undefined ? [] : ["", checkReportSection(checkReport)]),
+    ...(correctionRule === undefined ? [] : ["", correctionRuleSection(correctionRule)]),
     ...(detailedReport === undefined ? [] : ["", detailedReportSection(detailedReport)]),
     "",
     occurrenceMetadataMarker(metadata),
   ].join("\n");
+}
+
+function existingRulesSection({ existing_rules: inventory }: ConnectorLessonDiagnostics): string {
+  return section("Existing rules", "rules" in inventory
+    ? inventory.rules.map(({ name, status, reason }) =>
+      `- ${escapeMarkdown(name)}: ${escapeMarkdown(status)} — ${escapeMarkdown(reason)}`).join("\n")
+    : `none: ${escapeMarkdown(inventory.none)}`);
+}
+
+function partToChangeSection({ part_to_change: part }: ConnectorLessonDiagnostics): string {
+  return section("Part to change", `${escapeMarkdown(part.kind)}: ${escapeMarkdown(part.name)}`);
 }
 
 // Owner question 154: rendered from the validated fields only, each text escaped as the lesson's are. The privacy
@@ -700,4 +740,9 @@ function raiseInvalidIncidentMetadata(): never {
 
 function isParseableTimestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function correctionRuleSection(rule: NonNullable<GitHubLessonSubmission["correctionRule"]>): string {
+  return section("Rule that should have prevented the error", escapeMarkdown(rule.name === "no_rule"
+    ? `no_rule: ${rule.missing}` : rule.name));
 }

@@ -1,3 +1,4 @@
+import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +39,7 @@ function base(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
     thread_selection: "all_found", report_identity: [identity()], ...FINDINGS, answer_quotes: { ...FINDINGS }
   }));
   return {
-    receipts: [sign("study_audit", { id: DOI, status: "complete_no_unresolved_fields" }),
+    receipts: [atlasLookupFixture(TARGET, { secret: SECRET }), sign("study_audit", { id: DOI, status: "complete_no_unresolved_fields" }),
       sign("treatment_coverage", { boundary: "ledger_consistent_for_synthesis", lock: "pass", broad: true,
         target: researchTargetDigest(TARGET) })],
     research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared", community_evidence: "researched",

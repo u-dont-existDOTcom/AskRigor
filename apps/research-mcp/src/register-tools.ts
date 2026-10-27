@@ -1,3 +1,6 @@
+import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
+import type { AtlasPageSource } from "@askrigor/evidence-repository";
+import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 
@@ -78,6 +81,7 @@ import type { AtlasReview } from "./findings/atlas-review.js";
 import { createConcurrencyLimiter } from "./rate-limit.js";
 import {
   DETAILED_REPORT_RULE,
+  EXISTING_RULES_RULE,
   connectorLessonInputSchema,
   connectorLessonOutputSchema,
   connectorLessonToolResult,
@@ -200,11 +204,7 @@ import {
   researchFrontierOutputSchema,
   researchFrontierToolResult
 } from "./research-frontier-tool.js";
-import {
-  researchFrontierSearchInputSchema,
-  researchFrontierSearchOutputSchema,
-  researchFrontierSearchToolResult,
-} from "./research-frontier-search-tool.js";
+
 import {
   acquireOpenFullTextActionInputSchema,
   availableOpenFullTextActionOutputSchema,
@@ -265,6 +265,7 @@ const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
   configuredOpenFullTextOptions(LIVING_EVIDENCE_READER)
 );
 const RESEARCH_FRONTIER_READER = LIVING_EVIDENCE_READER;
+const ATLAS_LOOKUP_SOURCE = configuredAtlasLookupSource();
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -754,9 +755,8 @@ const PRIVATE_MCP_OPERATION_NAMES = new Set([
   "review_evidence_gap_submissions",
   "review_research_contribution",
 ]);
-// Public protocol identity, the same as GET /version: it needs no sign-in or
-// research mode, so asking which version is loaded always gets an answer.
-const PUBLIC_IDENTITY_OPERATION_NAMES = new Set(["get_protocol_manifest"]);
+// Protocol identity and public Atlas lookup need no research enrollment or sign-in.
+const PUBLIC_READ_OPERATION_NAMES = new Set(["get_protocol_manifest", "search_research_frontiers"]);
 const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
   "submit_research_contribution",
@@ -784,6 +784,8 @@ export interface RegisterToolsOptions {
   researchContributionReviewService?: ResearchContributionReviewService;
   /** The owner's findings actions for the Atlas: their stores, canonical reader and GitHub inbox. */
   atlasReview?: AtlasReview;
+  atlasLookupSource?: AtlasPageSource;
+  atlasLookupReader?: import("./atlas/lookup-tool.js").AtlasLookupDependencies["reader"];
   /** Whether the findings actions are open; defaults to ASKRIGOR_ATLAS_REVIEW. */
   atlasReviewEnabled?: boolean;
   researchAccessRequired?: boolean;
@@ -900,6 +902,9 @@ export function uncheckedAnswerInstructions(result: FinalizeResearchOutput): str
       ? `this turn reached its limit of ${CHECK_ROUND_LIMIT} rounds`
       : `the only steps left came back unchanged ${STUCK_AFTER_ROUNDS} rounds running`}. This is the turn's final ` +
       "result: do not call finalize_research again in this turn, and give the answer now.") +
+    (result.check_report_token === undefined ? "" :
+      "\nIf the user says yes to sending this bug report, pass check_report_token exactly as returned to " +
+      "submit_lesson_candidate; do not rewrite the server report.") +
     "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or verdict " +
     "that a step still open could change, " +
     (reasons.length === 0 ? "" : `says before its last line, in plain words, ${reasons.join("; and ")}; `) +
@@ -1825,13 +1830,15 @@ function defineResearchOperations(
   registrar.registerTool(
     "search_research_frontiers",
     {
-      description: "Search the stored formal research-frontier catalog by topic labels, aliases, research questions, and structured question dimensions. Returns bounded selectors and explicit partial, blocked, gap, and currentness-not-assessed state; catalog matches are research control metadata, not evidence or health conclusions. Retrieval is read-only and never contributes or updates a frontier.",
-      inputSchema: researchFrontierSearchInputSchema,
-      outputSchema: researchFrontierSearchOutputSchema,
+      description: "Search the Atlas first, before research, so the answer builds on what is already known. Searches the public findings by words (the pages' same any-language search and bounds) or exact topic_key, and stored research plans for open trails. Returns bounded public P and F numbers, checked or not-checked state, certainty, wording, applicability, question, topic, source identifiers, links, page addresses and topic leads. Unchecked findings are leads, not established findings. Give the same research_target as finalize_research; pass its atlas_lookup receipt there and declare how the answer relates to every returned finding in atlas_reuse. Read-only and public, open to every account.",
+      inputSchema: atlasLookupInputSchema,
+      outputSchema: atlasLookupOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS,
     },
-    async (input) => researchFrontierSearchToolResult(input, {
-      reader: RESEARCH_FRONTIER_READER,
+    async (input) => atlasLookupToolResult(input, {
+      source: options.atlasLookupSource ?? ATLAS_LOOKUP_SOURCE,
+      reader: options.atlasLookupReader ?? RESEARCH_FRONTIER_READER,
+      ...(researchReceiptSecretFromEnv() === undefined ? {} : { receipt: { secret: researchReceiptSecretFromEnv()! } }),
     }),
   );
 
@@ -2267,7 +2274,7 @@ function defineResearchOperations(
         // Descriptive, not imperative: ChatGPT's safety check flagged the earlier wording ("Call before the final
         // answer", "do the required work anyway and say ...") as instructions inside a tool description
         // (owner report, 2026-10-07). What to do when receipts cannot be verified is in that result itself.
-        "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's " +
+        "Final check of a research answer before it is given. Research needs an atlas_lookup receipt from search_research_frontiers for its research_target. For every returned finding, atlas_reuse declares number and relation (confirms, updates, narrows, contradicts, not_relevant); each used finding also gives answer_quote copied from answer_draft with page_url linking its own Atlas page. A checked Atlas source may use key_sources.read_depth atlas_checked, without a fresh reading or audit. An unchecked finding needs a source read again here or lead_only true; its fixed caveat names it as not checked by supervisors. Input: the research_receipt values that AskRigor's " +
         "tools returned in this session; the research_target as given to the scout, search_youtube and the coverage " +
         "check, and as research_question to surveys and community audits (discovery for another target does not " +
         "count); whether community evidence was researched, or not relevant with its basis and reason " +
@@ -2358,6 +2365,8 @@ function defineResearchOperations(
       const finalizeOptions = {
         secret,
         protocolNames: await protocolNames(),
+        protocolElements: await currentProtocolElementNames(),
+        ...(options.runningVersions === undefined ? {} : { runningVersions: options.runningVersions }),
         findings: !library
           ? "closed" as const
           : account === undefined ? "private" as const : account.mode === "FREE_CONTRIBUTOR" ? "save" as const : "offer" as const,
@@ -2472,6 +2481,10 @@ function defineResearchOperations(
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
           uncheckedAnswerInstructions(result) +
+          ((checkedInput?.corrections ?? []).some(({ by_user, report }) => by_user === true && report !== undefined)
+            ? "\nWhen the user agrees to send the correction report, pass its preventing_rule and any missing_rule " +
+              "exactly as shown to submit_lesson_candidate."
+            : "") +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
               "so an answer given after it went out unchecked; if one did, this answer says what changed from it.") +
@@ -2531,7 +2544,7 @@ function defineResearchOperations(
     "submit_lesson_candidate",
     {
       description: "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. " +
-        DETAILED_REPORT_RULE,
+        EXISTING_RULES_RULE + " " + DETAILED_REPORT_RULE + " For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
       inputSchema: connectorLessonInputSchema,
       outputSchema: connectorLessonOutputSchema,
       annotations: MUTATING_ANNOTATIONS,
@@ -3428,12 +3441,12 @@ function collectResearchOperations(
       const annotations = Object.freeze({ ...config.annotations });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
-        : PUBLIC_IDENTITY_OPERATION_NAMES.has(name)
+        : PUBLIC_READ_OPERATION_NAMES.has(name)
           ? optionalSignInSecurityMetadata()
           : researchUseSecurityMetadata();
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
-          !PUBLIC_IDENTITY_OPERATION_NAMES.has(name) &&
+          !PUBLIC_READ_OPERATION_NAMES.has(name) &&
           !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
         ? createResearchAccessGuard(execute, {
             service: options.researchContributorAccessService,

@@ -1,12 +1,18 @@
+import { verifyCheckReportToken } from "../check-report.js";
+import { currentProtocolElementNames } from "../protocol-rule-names.js";
+import { researchReceiptSecretFromEnv } from "../research-receipts.js";
 import { z } from "zod";
 import {
   connectorLessonCandidateSchema,
   connectorLessonSubmissionResultSchema,
+  connectorLessonDiagnosticTexts,
+  existingRulesSchema,
   generalizedLessonSchema,
   lessonCandidateSchema,
   lessonSubmissionResultSchema,
   type ConnectorLessonCandidate,
   type ConnectorLessonSubmissionResult,
+  type ConnectorLessonDiagnostics,
   type DetailedLessonReport,
   type GeneralizedLesson,
   type LessonCandidate,
@@ -25,6 +31,7 @@ import {
   lessonFingerprint,
   screenDetailedLessonReport,
   screenLessonCandidate,
+  screenPrivateText,
   type CanonicalLesson,
   type PrivacyScreenResult,
 } from "./privacy-screen.js";
@@ -56,6 +63,8 @@ export interface LessonSubmissionServiceOptions {
   anonymizer: LessonAnonymizer;
   queue: Pick<GitHubLessonQueue, "submit">;
   pipeline?: LessonSubmissionPipeline;
+  reportSigningSecret?: () => string | undefined;
+  protocolElements?: () => Promise<ReadonlySet<string>>;
 }
 
 const defaultPipeline: LessonSubmissionPipeline = {
@@ -152,15 +161,50 @@ export class LessonSubmissionService {
         return detailedReportRefused();
       }
 
+      if (source === "connector" && isRecord(raw) && raw.check_report_token !== undefined &&
+        (typeof raw.check_report_token !== "string" || verifyCheckReportToken(raw.check_report_token,
+          (this.options.reportSigningSecret ?? researchReceiptSecretFromEnv)()) === undefined)) {
+        return { status: "check_report_refused", retryable: false, reason_code: "invalid_check_report_token" };
+      }
+
+      if (source === "connector") {
+        const inventory = existingRulesSchema.safeParse(isRecord(raw) ? raw.existing_rules : undefined);
+        if (!inventory.success) return {
+          status: "existing_rules_refused", retryable: false, reason_code: "invalid_existing_rules",
+        };
+        if ("rules" in inventory.data) {
+          const names = await (this.options.protocolElements ?? currentProtocolElementNames)();
+          if (inventory.data.rules.some(({ name }) => !names.has(name))) return {
+            status: "existing_rules_refused", retryable: false, reason_code: "unknown_protocol_element",
+          };
+        }
+      }
+
       const parsed = this.pipeline.parseCandidate(raw, source);
       if (!parsed) return privacyRejected();
       // A related public AskRigor issue (connector only) is a validated number
       // the queue renders as a reference, not lesson text. Like incident
       // provenance below, it stays out of the screen and the anonymizer, and
-      // the exact validated number reaches the queue. A detailed report
+      // the exact validated number reaches the queue. Connector diagnostics
+      // are screened field by field and preserved exactly, like a detailed report.
+      // A detailed report
       // (connector only) is screened here, field by field, and never reaches
       // the anonymizer either: the queue renders it from its validated fields.
-      const { candidate: parsedCandidate, relatedIssue, detailedReport } = splitConnectorFields(parsed);
+      const { candidate: parsedCandidate, relatedIssue, detailedReport, check_report_token: reportToken,
+        preventing_rule: preventingRule, missing_rule: missingRule, diagnostics } = splitConnectorFields(parsed);
+      const checkReport = reportToken === undefined ? undefined
+        : verifyCheckReportToken(reportToken, (this.options.reportSigningSecret ?? researchReceiptSecretFromEnv)());
+      if (reportToken !== undefined && checkReport === undefined) return {
+        status: "check_report_refused", retryable: false, reason_code: "invalid_check_report_token",
+      };
+      if ((missingRule !== undefined && preventingRule !== "no_rule") || (preventingRule !== undefined &&
+        (preventingRule === "no_rule" ? missingRule === undefined :
+          !(await (this.options.protocolElements ?? currentProtocolElementNames)()).has(preventingRule)))) {
+        return { status: "correction_rule_refused", retryable: false, reason_code: "invalid_preventing_rule" };
+      }
+      if (missingRule !== undefined && screenPrivateText(missingRule) !== undefined) return privacyRejected();
+      if (diagnostics !== undefined && connectorLessonDiagnosticTexts(diagnostics)
+        .some((text) => screenPrivateText(text) !== undefined)) return privacyRejected();
 
       const preScreen = this.pipeline.screen(parsedCandidate);
       if (!preScreen.safe) return privacyRejected();
@@ -219,6 +263,9 @@ export class LessonSubmissionService {
           source,
           ...(relatedIssue === undefined ? {} : { relatedIssue }),
           ...(detailedReport === undefined ? {} : { detailedReport }),
+          ...(diagnostics === undefined ? {} : { diagnostics }),
+          ...(checkReport === undefined ? {} : { checkReport }),
+          ...(preventingRule === undefined ? {} : { correctionRule: { name: preventingRule, ...(missingRule === undefined ? {} : { missing: missingRule }) } }),
         });
       } catch (error) {
         return githubUnavailable(error);
@@ -248,18 +295,25 @@ export class LessonSubmissionService {
 // anonymizer and the strict generalized parse never see it.
 function splitConnectorFields(
   parsed: LessonCandidate | ConnectorLessonCandidate,
-): { candidate: LessonCandidate; relatedIssue?: number; detailedReport?: DetailedLessonReport } {
-  // The Action's strict shape has neither key, so only a connector candidate gets past this.
-  if (!("related_issue" in parsed) && !("detailed_report" in parsed)) return { candidate: parsed };
+): { candidate: LessonCandidate; relatedIssue?: number; detailedReport?: DetailedLessonReport;
+  diagnostics?: ConnectorLessonDiagnostics; check_report_token?: string; preventing_rule?: string; missing_rule?: string } {
+  // The Action's strict shape has no inventory, so only a connector candidate gets past this.
+  if (!("existing_rules" in parsed)) return { candidate: parsed };
   const {
     related_issue: relatedIssue,
     detailed_report: detailedReport,
+    existing_rules, observed_behavior, part_to_change,
+    check_report_token, preventing_rule, missing_rule,
     ...candidate
   } = parsed as ConnectorLessonCandidate;
   return {
     candidate,
+    diagnostics: { existing_rules, observed_behavior, part_to_change },
     ...(relatedIssue === undefined ? {} : { relatedIssue }),
     ...(detailedReport === undefined ? {} : { detailedReport }),
+    ...(check_report_token === undefined ? {} : { check_report_token }),
+    ...(preventing_rule === undefined ? {} : { preventing_rule }),
+    ...(missing_rule === undefined ? {} : { missing_rule }),
   };
 }
 

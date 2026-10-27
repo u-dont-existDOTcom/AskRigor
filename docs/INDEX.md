@@ -142,6 +142,11 @@ complete XML protocol.
   The owner regressions on #372's build (80 cases, 25 to 26 Oct: 36 met every criterion, none failed, 8 checks
   stopped, 2 runs ended without an answer) are judged case by case in
   `audits/2026-10-26-owner-regressions-judgment.md`, with the carried state's turn problem (finding 1).
+- `audits/2026-10-26-regression-fixes-production-release.md`: release of #375 on owner answer 185b (26 October): the
+  fixes for the judgment of the 25 to 26 Oct regressions (the final check's turn identity, steps no call can close,
+  collapsed caveats and five small defects), `publish_cards` for the owner's cards saved before `public_value`
+  (182a, then 27 findings published), and the regression list's five study-given cases (184a). No migration or
+  site change; the plugin unchanged; the regression run waits for the owner's ChatGPT app refresh.
 - `audits/2026-10-22-owner-answer-149-protocol.md`: owner answer 149a, from the 21 Oct regression case Responders
   (question 136): HRP 20.6.30 adds the core rule `CountsNeedTheirGroupSizes` (no percentage, difference or ratio from
   counts until their group sizes are reconciled), with the new size, SHA-256 and tests; built, not yet released.

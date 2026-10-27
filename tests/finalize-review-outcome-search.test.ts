@@ -1,3 +1,4 @@
+import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -46,7 +47,7 @@ function packageFor(overrides: Partial<Corpus> = {}): FinalizeResearchInput {
   return {
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate review outcome searches." },
-    receipts: [issueResearchReceipt("study_audit", { id: "10.1000/liver", status: "complete_no_unresolved_fields" }, { secret: SECRET })],
+    receipts: [atlasLookupFixture(TARGET, { secret: SECRET }), issueResearchReceipt("study_audit", { id: "10.1000/liver", status: "complete_no_unresolved_fields" }, { secret: SECRET })],
     research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared", community_evidence: "researched",
     commercial_review_applicability: { status: "required", products: [PRODUCT] },
     intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient study intervention." },

@@ -34,8 +34,7 @@ a bug report when nothing can be done, otherwise how the next turn handles it).
   in `could_not`.
 - The split is structural, by kind: research the check still asks for, and the app's tool list (which the user
   refreshes), are for the next turn; a step that kept coming back, and at the limit a declaration, draft, record or
-  input the AI and the check could not settle, are what AskRigor could not do. The bug report names only kinds of
-  step, never their text, which can hold the user's topic. The model words the reasons in plain language; nothing is
+  input the AI and the check could not settle, are what AskRigor could not do. The bug report shows the first unmet rule with inserted values masked (the 26 Oct extension below). The model words the reasons in plain language; nothing is
   sent unless the user says yes and the model calls `submit_lesson_candidate`.
 - `unchecked_line` keeps its start ("AskRigor's final check has not passed") and gains "a research step kept failing"
   for stuck research. The result text tells the model, for a stopped check, not to call again and to answer now, and
@@ -52,3 +51,34 @@ partial and gives no ranking or verdict an open step could change. Neither was p
 ## 2026-10-26 quota steps
 
 Discovery marks steps stopped by YouTube's rate limit or daily quota as deferred until the next turn at generation time. Even after three unchanged rounds these go to `stopped.next_turn`, whose own text says to rerun them once YouTube's limit resets; alone they offer no bug report, while ordinary stuck research stays in `could_not`.
+
+## 2026-10-26 debug reports (owner request)
+
+Every generated step uses a tagged rule: its exact model-facing text, fixed template parts and inserted values.
+The text and the definition of an unchanged step are preserved. The report renders fixed parts verbatim; an inserted
+value survives only by exact membership in registered tool names, next-step kinds, schema-derived finalizer field
+paths (with array indexes), source-derived enumeration codes, whole numbers or current protocol versions. Every
+other value becomes `…`, regardless of language. Untagged dynamic strings are opaque and masked too.
+
+A stopped result also returns `check_report`: build/protocol versions, stop reason and round, each `could_not` and
+`next_turn` step's kind, consecutive count and masked rule, receipts counted by kind with verification rejection
+reasons, and masked gate limitations (including a no-DOI acquisition boundary). It holds at most 6,000 serialized
+characters; long rules and omitted steps, receipt groups and limitations have explicit counts. `bug_report` names
+the first rule the check could not satisfy and counts further unmet steps. A quota-only stop still goes to the next
+turn and offers no bug report.
+
+`check_report_token` carries that exact report with prefix `br1~`, a 128-bit HMAC-SHA256 signature and the separate
+domain `askrigor final check report v1`, using the existing receipt signing secret. Its maximum is 34,000 characters
+and it has no expiry. After the user agrees to the shown bug report, the model passes it unchanged to
+`submit_lesson_candidate.check_report_token`. Invalid, altered or foreign tokens return `check_report_refused` /
+`invalid_check_report_token` and store nothing. After the lesson passes its existing privacy pipeline, the queue
+adds the verified report verbatim under “The final check's report, as AskRigor recorded it”, including on repeat
+occurrences. It never reaches generalization and needs no detailed-reports opt-in: unlike `detailed_report`, it
+contains only masked server diagnostics.
+
+For a user correction with a report, `corrections[].preventing_rule` names an exact current HRP/Universal element
+(the tag or a selectable element's `name`/`id` identity, as `load_protocol` selects it). `no_rule` instead requires
+one line in `missing_rule`. The answer shows that declaration with the report; the lesson tool takes the same two
+fields, validates the identity again, screens missing-rule prose and preserves it outside generalization.
+
+Tests: `finalize-debug-report`, existing round-limit/unchecked-answer tests and the lesson queue/service tests.

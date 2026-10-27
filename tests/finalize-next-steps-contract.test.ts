@@ -1,3 +1,4 @@
+import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -96,7 +97,7 @@ describe("finalize next-step identifier contract", () => {
       "or a later one; left out before the conversation's first final check."
     );
     expect(input.properties.key_sources!.description).toBe(
-      "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
+      "Lists each study the conclusions depend on: validated after a full-text method audit or from a checked Atlas finding (read_depth atlas_checked), or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
@@ -371,7 +372,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     const result = await complete(base({ community_evidence: "researched", treatment_choice: "compared",
       commercial_review_applicability: { status: "required", products: ["Clinoptilolite"] }, shopping: { status: "not_requested" },
       option_classes: [researchedClass], answer_draft: CLASS_DRAFT,
-      receipts: [study(), classSearch(), sign("treatment_coverage", { target: researchTargetDigest(TARGET), broad: true, boundary: "bounded_nonranking_only" })],
+      receipts: [atlasLookupFixture(TARGET, { secret: SECRET }), study(), classSearch(), sign("treatment_coverage", { target: researchTargetDigest(TARGET), broad: true, boundary: "bounded_nonranking_only" })],
       principal_communities: [{ name: "Reviews", platform: "review_site" }, { name: "Forum", platform: "forum" }],
       community_searches: [
         { community: "Reviews", platform: "review_site", queries: [TARGET], threads_read: [], url: "https://reviews.example/", access_boundary: "no_web_search" },

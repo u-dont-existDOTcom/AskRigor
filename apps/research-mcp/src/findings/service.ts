@@ -1,3 +1,4 @@
+import { atlasBasisFromReceipt } from "./card.js";
 import { createHash, createHmac } from "node:crypto";
 
 import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
@@ -224,6 +225,8 @@ export class FindingsSaveService {
         ...(stored.omitted ? ["youtube_video_ids_and_links" as const] : []),
         ...(stored.findingsLeftOut > 0 ? ["youtube_comment_findings" as const] : []),
       ];
+      const atlasBasis = atlasBasisFromReceipt(receipt.claims.atlas);
+      if (atlasBasis.length > 0) card.atlas_basis = atlasBasis;
       const record: FindingsRecord = {
         schema: "askrigor.findings-card.v1",
         card,

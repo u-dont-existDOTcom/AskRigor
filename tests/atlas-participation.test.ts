@@ -781,7 +781,8 @@ describe("the forms' guards", () => {
     const f = await fixture({ participation: false });
     const page = await f.get("/atlas/findings/P-1001");
     expect(page.response.status).toBe(200);
-    expect(page.body).not.toMatch(/<form|auth\/login|Votes|Comments/u);
+    expect(page.body).not.toMatch(/method="post"|auth\/login|Votes|Comments/u);
+    expect(page.body).toContain('method="get" action="/atlas/search"');
     for (const path of ["/atlas/auth/login", "/atlas/auth/callback"]) expect((await f.get(path)).response.status, path).toBe(404);
     for (const path of ["/atlas/findings/P-1001/vote", "/atlas/findings/P-1001/comments", "/atlas/comments/C-1001/report",
       "/atlas/comments/C-1001/delete", "/atlas/account/name", "/atlas/auth/logout"]) {

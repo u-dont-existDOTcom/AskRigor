@@ -1,3 +1,4 @@
+import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,7 +36,7 @@ function packageFor(overrides: Partial<FinalizeResearchInput> = {}): FinalizeRes
   return {
     lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
     full_text_search: { status: "not_needed", reason: "Synthetic fixtures isolate product identity checks." },
-    receipts: [sign("study_audit", { id: STUDY, status: "complete_no_unresolved_fields" })],
+    receipts: [atlasLookupFixture(TARGET, { secret: SECRET }), sign("study_audit", { id: STUDY, status: "complete_no_unresolved_fields" })],
     community_evidence: "researched", commercial_review_applicability: { status: "required", products: [PRODUCT] },
     treatment_choice: "not_compared", research_target: TARGET, research_depth: "deep",
     principal_communities: [{ name: reviews.community, platform: reviews.platform }, { name: forum.community, platform: forum.platform }],

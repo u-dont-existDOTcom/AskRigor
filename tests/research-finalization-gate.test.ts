@@ -1,3 +1,4 @@
+import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
@@ -46,7 +47,7 @@ const REJECTED_RECEIPT_STEPS = {
 } as const;
 
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  assertNextStepsContract(finalizeResearchUnwrapped(...args));
+  assertNextStepsContract(finalizeResearchUnwrapped(withAtlasLookupFixture(args[0], args[1]), args[1]));
 
 // Detailed legacy assertions inspect diagnostics; the contract suite pins the refresh hint itself.
 const SECRET = "research-finalization-test-secret-0123456789";
@@ -2876,7 +2877,7 @@ describe("finalize_research gate", () => {
     };
     const round = sign("youtube_search", { videos: ["aaaaaaaaaaa"], q: "k1k1k1k1k1k1" }, options);
     const duplicated = finalizeResearch({ ...base, receipts: [round, round, round, round, videoA, study] }, options);
-    expect(duplicated.receipts_verified).toBe(3);
+    expect(duplicated.receipts_verified).toBe(4);
     expect(duplicated.community).toMatchObject({ discovery_rounds: 1, first_pass_complete: false });
     expect(duplicated.status).toBe("not_ready");
 
@@ -3148,7 +3149,7 @@ describe("finalize_research gate", () => {
       const result = finalizeResearch({ ...deep, receipts: [study, token] }, options);
       expect(result.status, reason).toBe("not_ready");
       expect(result.receipts_rejected, reason).toEqual([{ index: 1, reason }]);
-      expect(result.receipts_verified, reason).toBe(1);
+      expect(result.receipts_verified, reason).toBe(2);
       const steps = result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
       expect(steps, reason).toEqual([REJECTED_RECEIPT_STEPS[reason](1)]);
       // Nothing of the receipt or the signing secret is repeated.

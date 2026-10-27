@@ -130,6 +130,13 @@ the setting off, is refused with `detailed_report_refused`
 (`detailed_reports_off`) and nothing is stored; the model sends the lesson again
 without it. The data flow is in `docs/privacy-data-map.md`.
 
+With that setting off, every connector lesson still carries its required
+existing-rule inventory, generalized observed and expected behavior, specific
+part to change and invented regression. A stopped final check's signed, masked
+report can also accompany it without this setting. These short diagnostics pass
+the existing privacy screen; the setting continues to control only the optional
+model-authored detailed report.
+
 ## Findings-card saving for dev accounts
 
 Owner answer 171, default 5: findings-card saving is on by default. An active dev account listed in

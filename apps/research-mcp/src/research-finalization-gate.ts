@@ -1,3 +1,12 @@
+import { sourceIdentifierOf } from "./atlas/page-data.js";
+import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
+import { preventingRuleSchema } from "./protocol-rule-names.js";
+import { rule, joinRules, ruleText, ruleParts, type RuleInput, type CheckRule } from "./check-rules.js";
+import { buildCheckReport, checkReportSchema, issueCheckReportToken, type ReportReceipt } from "./check-report.js";
+import { reportValueCheck } from "./check-report-values.js";
+import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
+import { askrigorBuildCommitFromEnv } from "./config.js";
+import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 
 import { z } from "zod";
@@ -32,7 +41,7 @@ import {
 } from "./check-rounds.js";
 import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import {
-  toolListNotice, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
+  toolListNoticeRule, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
 } from "./tool-list-currency.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -55,6 +64,7 @@ import {
   issueResearchReceipt,
   RESEARCH_RECEIPT_MAX_AGE_MS,
   RESEARCH_RECEIPT_MAX_CHARACTERS,
+  RESEARCH_RECEIPT_KINDS,
   readPages,
   receiptIssueOrder,
   researchTargetDigest,
@@ -120,15 +130,17 @@ export const FINALIZE_RESEARCH_CONTRACT = "2026-10-07";
 // When the call sends the version its tool list gives (tool_list_version), the check knows: the same version means the
 // field is there, and no refresh is suggested; an older one gets toolListNotice's plain notice. In the 22 Oct
 // regressions an answer whose tool list was current told the user to refresh, reading this hint as a finding.
-export const TOOL_LIST_REFRESH_HINT = "If this chat's AskRigor tool has no such field, its tool list is outdated: " +
-  "tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that " +
-  "refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, " +
-  "its tool list is current: give the field, and say nothing to the user about refreshing.";
+const TOOL_LIST_REFRESH_RULE = joinRules("If this chat's AskRigor tool has no such field, its tool list is outdated: ",
+  "tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that ",
+  "refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, ",
+  "its tool list is current: give the field, and say nothing to the user about refreshing.");
+export const TOOL_LIST_REFRESH_HINT = ruleText(TOOL_LIST_REFRESH_RULE);
 
 // acquire_open_full_text signs a lead receipt only when the exact public-copy searches are recorded with it
 // (canSignFullTextLead), so a step that sends the AI there for one says so, or a retry without them loops.
-export const LEAD_RECEIPT_SEARCH = "A lead receipt needs the public-copy search recorded: search for the exact DOI " +
-  "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+const LEAD_RECEIPT_SEARCH_RULE = joinRules("A lead receipt needs the public-copy search recorded: search for the exact DOI ",
+  "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.");
+export const LEAD_RECEIPT_SEARCH = ruleText(LEAD_RECEIPT_SEARCH_RULE);
 
 // Community evidence declared not relevant because the question has no real-world outcome: the answer says so in this
 // sentence, completed by the reason the call declares (owner question 125, from lesson #38, where a question whether
@@ -155,18 +167,14 @@ export function communitySkipCaveat(reason: string): string {
 // What a receipt that failed verification needs, by the verifier's reason (UDA lane item
 // 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics): each gets its own step and way out. A step names
 // the receipt by its place in receipts and never repeats its contents.
-const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, string>> = {
-  signature_invalid: "does not verify, because it was changed in copying or issued by another AskRigor server: copy " +
-    "it again exactly as the tool returned it",
-  malformed: "is not a whole research receipt: copy the whole research_receipt value exactly as the tool returned it",
-  expired: `has expired, since a research receipt is valid for ${RESEARCH_RECEIPT_MAX_AGE_MS / 3_600_000} hours: ` +
-    "repeat the call it came from and pass the research_receipt it returns",
-  unknown_kind: "is a kind of receipt this AskRigor server does not know, perhaps from another version of AskRigor: " +
-    "repeat the call it came from and pass the research_receipt it returns"
+const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, RuleInput>> = {
+  signature_invalid: rule`does not verify, because it was changed in copying or issued by another AskRigor server: copy it again exactly as the tool returned it`,
+  malformed: rule`is not a whole research receipt: copy the whole research_receipt value exactly as the tool returned it`,
+  expired: rule`has expired, since a research receipt is valid for ${RESEARCH_RECEIPT_MAX_AGE_MS / 3_600_000} hours: repeat the call it came from and pass the research_receipt it returns`,
+  unknown_kind: rule`is a kind of receipt this AskRigor server does not know, perhaps from another version of AskRigor: repeat the call it came from and pass the research_receipt it returns`
 };
-const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): string =>
-  `receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it ` +
-  "then needs its call again.";
+const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): RuleInput =>
+  joinRules(rule`receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it `, rule`then needs its call again.`);
 
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
@@ -292,7 +300,7 @@ export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "no
 type PlainAnswerOutcome = typeof PLAIN_ANSWER_OUTCOMES[number];
 
 export const READ_DEPTH_VALUES = [
-  "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
+  "atlas_checked", "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
   "secondary_only", "metadata_only", "inaccessible", "route_error"
 ] as const;
 
@@ -323,6 +331,11 @@ export const OTHER_ROUTE_VALUES = ["read", "unavailable", "cost", "none"] as con
 export const finalizeResearchInputSchema = z.object({
   receipts: z.array(z.string().max(RESEARCH_RECEIPT_MAX_CHARACTERS)).max(300)
     .describe("Every research_receipt AskRigor tools returned during this research, copied exactly."),
+  atlas_reuse: z.array(atlasReuseSchema).max(300).optional().describe(
+    "For every finding returned by this research_target's Atlas lookups, one entry by its P or F number: relation " +
+    "confirms, updates, narrows, contradicts or not_relevant. Each used finding gives answer_quote copied exactly " +
+    "from answer_draft with a link to its own page_url. For an unchecked finding, read at least one source again " +
+    "here or declare lead_only true; the answer carries the finding's fixed not-checked-by-supervisors caveat."),
   full_text_search: z.object({
     status: z.enum(["run", "not_needed"]),
     queries: z.array(z.string().min(1).max(500)).min(1).max(10).optional()
@@ -545,7 +558,7 @@ export const finalizeResearchInputSchema = z.object({
     id: z.string().trim().min(1).max(300).describe("DOI, PMID or PMCID."),
     status: z.enum(["validated", "lead_only"]),
     read_depth: z.enum(READ_DEPTH_VALUES).optional()
-      .describe("Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
+      .describe("Records each source's required reading depth; atlas_checked cites a source as held by a checked Atlas finding used in atlas_reuse, without claiming a fresh reading or audit; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt."),
     answer_marker: z.string().trim().min(3).max(80).optional()
       .describe("Required with answer_draft: the visible label for this source, 3–80 characters, on the same line as its link."),
     reason: z.string().trim().min(1).max(1_000).optional(),
@@ -571,7 +584,7 @@ export const finalizeResearchInputSchema = z.object({
     target_time_horizon: z.enum(TARGET_MATCHES).optional()
       .describe("With named_target: as target_components, for the time horizon.")
   }).strict()).max(60)
-    .describe("Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only " +
+    .describe("Lists each study the conclusions depend on: validated after a full-text method audit or from a checked Atlas finding (read_depth atlas_checked), or lead_only " +
       "when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. " +
       "The audit's validation checks that its findings cite the document's own blocks and that every domain is " +
       "covered, not that each interpretation is right. " +
@@ -861,6 +874,10 @@ export const finalizeResearchInputSchema = z.object({
       .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
     change: answerQuote.describe("The answer's sentence saying what changed, copied from answer_draft."),
     report: answerQuote.optional().describe("With by_user true: the bug report the answer shows the user, a short general sentence with no personal details, copied from answer_draft."),
+    preventing_rule: preventingRuleSchema.optional()
+      .describe("With by_user true and report: the exact HRP or Universal XML element name that should have prevented the error, or no_rule."),
+    missing_rule: z.string().trim().min(1).max(300).regex(/^[^\r\n]+$/u).optional()
+      .describe("With preventing_rule no_rule: one line naming the missing rule, with no personal details; show it with the report and pass it to submit_lesson_candidate."),
     by_user: z.boolean().optional()
       .describe("true when the user pointed out the error and a recheck showed the user was right; false when the " +
         "research found it.")
@@ -943,6 +960,7 @@ export const FINALIZE_RESEARCH_HIDDEN_SHAPES: ReadonlyArray<{
     why_not_usual: "…", what_would_change_it: "…", kind: "nothing_found", subject: "…", subject_type: "treatment",
     direction: "descriptive", searches: [{ database: "pubmed", query: "…" }]
   }]] },
+  { paths: ["corrections[].preventing_rule"], examples: ["Rule", "no_rule"] },
   { paths: ["community_searches[].queries"], examples: [["…"]] },
   { paths: ["community_searches[].threads_read"], examples: [[{ url: "https://example.org/t/1", title: "…" }]] },
   { paths: ["community_searches[].report_identity"], note: "or one such object", examples: [[{
@@ -1033,10 +1051,30 @@ export function parseFinalizeResearchInput(rawInput: unknown) {
   return finalizeResearchInputSchema.safeParse(input);
 }
 
+const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
+let defaultReportValues: ((value: unknown) => boolean) | undefined;
+function stoppedReport(outcome: Extract<ReturnType<typeof advanceCheckRound>, { status: "stopped" }>,
+  options: FinalizeResearchOptions, receipts: readonly string[], offTarget: readonly number[] = [], limits: readonly CheckRule[] = []) {
+  const versions = options.runningVersions ?? { build: askrigorBuildCommitFromEnv(), ...REPORT_PROTOCOL_VERSIONS };
+  const allowed = options.runningVersions === undefined
+    ? defaultReportValues ??= reportValueCheck(finalizeResearchInputSchema, Object.values(REPORT_PROTOCOL_VERSIONS))
+    : reportValueCheck(finalizeResearchInputSchema, [versions.hrp, versions.universal]);
+  const passed: ReportReceipt[] = receipts.map((token, index) => {
+    const result = verifyResearchReceipt(token, { secret: options.secret!, ...(options.now === undefined ? {} : { now: options.now }) });
+    if (result.ok) return { kind: result.kind, ...(offTarget.includes(index) ? { reason: "research_target_mismatch" } : {}) };
+    const kind = token.split("~")[1];
+    return { kind: RESEARCH_RECEIPT_KINDS.some((name) => name === kind) ? kind! : REPORT_RECEIPT_REASONS[0], reason: result.reason };
+  });
+  const check_report = buildCheckReport(outcome, { versions, allowed, receipts: passed, limits });
+  const bug_report = stoppedCheckBugReport(outcome, allowed);
+  return { check_report, check_report_token: issueCheckReportToken(check_report, options.secret!),
+    ...(bug_report === undefined ? {} : { bug_report }) };
+}
+
 function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, rawInput: unknown): FinalizeResearchOutput {
   const pathOf = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) =>
     typeof part === "number" ? `${text}[${part}]` : `${text}${text === "" ? "" : "."}${String(part)}`, "") || "inputs";
-  const nextSteps = ["The call's inputs have problems, so the final check did not run. Fix each one and call again:"];
+  const nextSteps: RuleInput[] = [rule`The call's inputs have problems, so the final check did not run. Fix each one and call again:`];
   const messageOf = (issue: z.core.$ZodIssue, prefix: readonly PropertyKey[] = []): string => {
     if (issue.code === "invalid_value") return `Expected one of ${issue.values.join(", ")}.`;
     if (issue.code === "invalid_union") return issue.errors.map((branch) => branch.map((child) =>
@@ -1044,9 +1082,9 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     return issue.message;
   };
   for (const issue of error.issues.slice(0, 30)) {
-    nextSteps.push(`${pathOf(issue.path)}: ${messageOf(issue)}`);
+    nextSteps.push(rule`${pathOf(issue.path)}: ${messageOf(issue)}`);
   }
-  if (error.issues.length > 30) nextSteps.push(`and ${error.issues.length - 30} more.`);
+  if (error.issues.length > 30) nextSteps.push(rule`and ${error.issues.length - 30} more.`);
   const shapes = FINALIZE_RESEARCH_HIDDEN_SHAPES.flatMap((shape) => shape.paths.map((path) => ({ path, shape })));
   const given = new Set<string>();
   for (const issue of error.issues) {
@@ -1055,7 +1093,7 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
       .sort((a, b) => b.path.length - a.path.length)[0];
     if (match !== undefined && !given.has(match.path)) {
       given.add(match.path);
-      nextSteps.push(`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
+      nextSteps.push(rule`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
     }
   }
   // A second reading of no answer finds nothing, so every step here is about the inputs.
@@ -1073,7 +1111,7 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     now: options.now?.() ?? new Date()
   };
   const checkRound = roundOptions === undefined ? undefined : advanceCheckRound(
-    nextSteps.map((text) => ({ kind: "input_invalid" as const, text })),
+    nextSteps.map((value) => ({ kind: "input_invalid" as const, text: ruleText(value), rule: ruleParts(value) })),
     {
       ...roundOptions,
       call: readCheckRound(raw("round_token"), roundOptions),
@@ -1081,8 +1119,10 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     }
   );
   const stopped = checkRound?.status === "stopped" ? checkRound : undefined;
-  const steps = stopped === undefined ? nextSteps : [];
-  const report = stopped === undefined ? undefined : stoppedCheckBugReport(stopped);
+  const steps = stopped === undefined ? nextSteps.map(ruleText) : [];
+  const rawReceipts = rawInput !== null && typeof rawInput === "object" && "receipts" in rawInput && Array.isArray(rawInput.receipts)
+    ? rawInput.receipts.filter((token): token is string => typeof token === "string").slice(0, 300) : [];
+  const report = stopped === undefined ? undefined : stoppedReport(stopped, options, rawReceipts);
   return {
     contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
     next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
@@ -1096,7 +1136,7 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
         short_reason: "the check could not run"
       }
     }),
-    ...(report === undefined ? {} : { bug_report: report }),
+    ...(report ?? {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
@@ -1142,9 +1182,9 @@ const optionKey = (text: string) => text.trim().toLowerCase();
 
 // The ledger and the rejected list hold at most this many entries; at that size the model chooses which to keep.
 /** A push-only view of the check's steps that files each one under a kind, for a helper that only adds steps. */
-function stepSink(addStep: (kind: NextStepKind, ...steps: string[]) => void, kind: NextStepKind): Pick<string[], "push"> {
+function stepSink(addStep: (kind: NextStepKind, ...steps: RuleInput[]) => void, kind: NextStepKind): Pick<RuleInput[], "push"> {
   return {
-    push: (...steps: string[]) => {
+    push: (...steps: RuleInput[]) => {
       addStep(kind, ...steps);
       return steps.length;
     }
@@ -1189,7 +1229,7 @@ function roundReasonKinds(open: readonly CheckStep[], stuck: readonly CheckStep[
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
-function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: string, nextSteps: Pick<string[], "push">):
+function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: string, nextSteps: Pick<RuleInput[], "push">):
   { carried?: CarriedState; invalid: boolean; firstTurn: boolean; previousOpen?: NextStepKind[] } {
   let carried: CarriedState | undefined;
   let invalid = false;
@@ -1198,8 +1238,7 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
     if (verified.ok) carried = verified.state;
     else {
       invalid = true;
-      nextSteps.push("carried_state does not verify: pass exactly the carry_forward value from the last final check " +
-        "in this conversation that gave one, or leave carried_state out if none has.");
+      nextSteps.push(joinRules("carried_state does not verify: pass exactly the carry_forward value from the last final check ", "in this conversation that gave one, or leave carried_state out if none has."));
     }
   }
   const rejected = new Set((input.rejected_options ?? []).map(optionKey));
@@ -1210,25 +1249,25 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
     const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
       ? []
       : carried.observations.filter(({ observation }) => !observations.has(observation));
-    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
-    if (dropped.length > 10) nextSteps.push(`and ${dropped.length - 10} more earlier observations.`);
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(rule`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
+    if (dropped.length > 10) nextSteps.push(rule`and ${dropped.length - 10} more earlier observations.`);
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
-        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(`rejected_options leaves out ${option}, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.`);
+        if (!rejected.has(optionKey(option)) && !reopened.has(optionKey(option))) nextSteps.push(rule`rejected_options leaves out ${option}, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.`);
       }
     }
     if (carried.primary_outcome !== undefined) {
       const goal = carried.primary_outcome;
-      if (input.primary_outcome === undefined) nextSteps.push(`Give primary_outcome: the user's main goal carried from earlier in this conversation is ${JSON.stringify(goal)}.`);
-      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(`primary_outcome differs from the main goal carried from earlier in this conversation (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
+      if (input.primary_outcome === undefined) nextSteps.push(rule`Give primary_outcome: the user's main goal carried from earlier in this conversation is ${JSON.stringify(goal)}.`);
+      else if (input.primary_outcome.trim() !== goal.trim() && input.primary_outcome_changed !== true) nextSteps.push(rule`primary_outcome differs from the main goal carried from earlier in this conversation (${JSON.stringify(goal)}): keep it, or set primary_outcome_changed if the user changed it.`);
     }
     if (input.principal_communities !== undefined) {
       const named = new Set(input.principal_communities.filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name));
-      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.`);
+      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(rule`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.`);
     }
   }
   for (const [i, { intervention }] of (input.recommendations ?? []).entries()) {
-    if (rejected.has(optionKey(intervention)) && !reopened.has(optionKey(intervention))) nextSteps.push(`recommendations[${i}] puts forward ${intervention}, which the user rejected: leave it out, or list it in reopened if the user reopened it.`);
+    if (rejected.has(optionKey(intervention)) && !reopened.has(optionKey(intervention))) nextSteps.push(rule`recommendations[${i}] puts forward ${intervention}, which the user rejected: leave it out, or list it in reopened if the user reopened it.`);
   }
   const sameTurn = carried?.turn === turn;
   const previousOpen = sameTurn ? carried?.previous_open
@@ -1342,8 +1381,12 @@ export const finalizeResearchOutputSchema = z.object({
       "what AskRigor could not do this turn, what the next turn can do, and the short reason the answer's last line " +
       "and the result panel give."),
   bug_report: z.string().optional()
-    .describe("When stopped with steps AskRigor could not do: a short general bug report the answer shows before " +
+    .describe("When stopped with steps AskRigor could not do: the first masked rule and the number of other steps; shown before " +
       "asking whether AskRigor may send it."),
+  check_report: checkReportSchema.optional()
+    .describe("When stopped: the server's bounded debug report, with fixed rule wording and only exact server-owned names or whole numbers; all other inserted values are masked."),
+  check_report_token: z.string().optional()
+    .describe("When stopped: pass verbatim to submit_lesson_candidate as check_report_token only after the user agrees to send the shown bug report."),
   limits: z.array(z.string()),
   caveats: z.array(z.string())
     .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
@@ -1446,6 +1489,8 @@ export interface FinalizeResearchOptions {
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
   protocolNames?: ReadonlySet<string>;
+  protocolElements?: ReadonlySet<string>;
+  runningVersions?: RunningVersions;
   // What Reddit's public embed endpoint said about each cited Reddit thread, by
   // post id; the MCP tool looks them up before the gate runs.
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>;
@@ -1512,12 +1557,12 @@ export function finalizeResearch(
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, rawInput);
   const input = parsed.data;
   if (options.secret === undefined) {
-    const nextSteps: string[] = [];
+    const nextSteps: RuleInput[] = [];
     const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
     return {
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
-      next_steps: nextSteps,
+      next_steps: nextSteps.map(ruleText),
       next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
       limits: [
@@ -1587,37 +1632,39 @@ export function finalizeResearch(
     stepKinds.push(step.kind);
     checkSteps.push(step);
   };
-  const addStep = (kind: NextStepKind, ...steps: string[]): void => {
-    for (const text of steps) addCheckStep({ kind, text });
+  const addStep = (kind: NextStepKind, ...steps: RuleInput[]): void => {
+    for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) });
   };
   let missingDeclaration = false;
-  const requireDeclaration = (step: string): void => {
+  const requireDeclaration = (step: RuleInput): void => {
     missingDeclaration = true;
-    addStep("declaration", step);
+    addStep("declaration", rule`${step}`);
   };
   const limits: string[] = [];
+  const limitRules: CheckRule[] = [];
   // Each limit's sentences for the user, written here so the answer carries
   // them as they are: a caveat cannot be dropped, garbled or negated.
   const caveats: string[] = options.mobileClient === true ? [MOBILE_NOTICE] : [];
-  const requireLimit = (text: string, ...sentences: string[]): void => {
-    limits.push(text);
+  const requireLimit = (text: RuleInput, ...sentences: string[]): void => {
+    limits.push(ruleText(text));
+    limitRules.push(ruleParts(text));
     caveats.push(...sentences);
   };
-  const caveatOnce = (limit: string, caveat: string): void => {
-    if (!caveats.includes(caveat)) requireLimit(limit, caveat);
+  const caveatOnce = (limit: RuleInput, caveat: string): void => {
+    if (!caveats.includes(caveat)) requireLimit(rule`${limit}`, caveat);
   };
   const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   if (input.answer_draft !== undefined && input.treatment_choice === "compared" &&
       (input.community_searches ?? []).some(({ platform, threads_read }) =>
         platform !== "review_site" && threads_read.length > 0) && input.comparison_claims === undefined) {
-    requireDeclaration("Give comparison_claims: each comparison the answer draws from forum reports, with both sides' daily doses as numbers, or an empty list if it draws none.");
+    requireDeclaration(rule`Give comparison_claims: each comparison the answer draws from forum reports, with both sides' daily doses as numbers, or an empty list if it draws none.`);
   }
   for (const claim of input.comparison_claims ?? []) {
     const a = claim.arms[0]!;
     const b = claim.arms[1]!;
     if (!comparableDoses(a, b)) {
       caveatOnce(
-        `The comparison of ${a.exposure} with ${b.exposure} rests on reports whose doses differ or were not given; say it cannot show which works better.`,
+        rule`The comparison of ${a.exposure} with ${b.exposure} rests on reports whose doses differ or were not given; say it cannot show which works better.`,
         a.dose !== null && b.dose !== null && a.unit !== null && b.unit !== null
           ? completedCaveat("Reports comparing two options changed the dose as well, so they cannot show which works better:",
             `${a.exposure} at ${a.dose} ${a.unit}; ${b.exposure} at ${b.dose} ${b.unit}`)
@@ -1627,74 +1674,82 @@ export function finalizeResearch(
     }
     if (!claim.same_people) {
       caveatOnce(
-        `The comparison of ${a.exposure} with ${b.exposure} rests on reports from people who did not use both; say so.`,
+        rule`The comparison of ${a.exposure} with ${b.exposure} rests on reports from people who did not use both; say so.`,
         completedCaveat("Reports comparing two options did not come from people who used both, so they are not a direct comparison of the two:",
           `${a.exposure}; ${b.exposure}`)
       );
     }
   }
   if (input.answer_draft !== undefined && input.user_observations === undefined) {
-    requireDeclaration("user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).");
+    requireDeclaration(rule`user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).`);
   }
   if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
-    requireDeclaration("proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).");
+    requireDeclaration(rule`proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).`);
   }
   for (const { observation, response } of input.user_observations ?? []) {
     if (response === "uncertain") caveatOnce(
-      `The report of ${observation} is uncertain; say it counts neither for nor against an effect.`,
+      rule`The report of ${observation} is uncertain; say it counts neither for nor against an effect.`,
       `${completedCaveat("A report its source is no longer sure of:", observation)} It counts neither for nor against an effect.`);
     if (response === "withdrawn") caveatOnce(
-      `The report of ${observation} was withdrawn; say it counts neither for nor against an effect.`,
+      rule`The report of ${observation} was withdrawn; say it counts neither for nor against an effect.`,
       `${completedCaveat("A report its source has taken back:", observation)} It counts neither for nor against an effect.`);
   }
   for (const [index, test] of (input.proposed_tests ?? []).entries()) {
     if (test.repeats !== undefined) {
       const observation = input.user_observations?.[test.repeats]?.observation;
-      if (observation === undefined) addStep("declaration", `proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
-      else if (test.difference === undefined) addStep("declaration", `proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
+      if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
     if (!test.blinded) caveatOnce(
-      "A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.",
+      rule`A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.`,
       "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
   // The correction-report question rests on the model's declaration of who pointed the error out.
-  for (const [index, { by_user, report }] of (input.corrections ?? []).entries()) {
+  for (const [index, { by_user, report, preventing_rule, missing_rule }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
-      requireDeclaration(`Give corrections[${index}].report: the bug report the answer shows the user, copied from answer_draft.`);
+      requireDeclaration(rule`Give corrections[${index}].report: the bug report the answer shows the user, copied from answer_draft.`);
+    }
+    if (by_user === true && report !== undefined) {
+      if (preventing_rule === undefined) {
+        requireDeclaration(rule`Give corrections[${index}].preventing_rule: the exact HRP or Universal element name that should have prevented the error, or no_rule with missing_rule.`);
+      } else if (preventing_rule === "no_rule") {
+        if (missing_rule === undefined) requireDeclaration(rule`Give corrections[${index}].missing_rule: one line naming the rule that is missing, with no personal details.`);
+      } else if (!options.protocolElements?.has(preventing_rule)) {
+        requireDeclaration(rule`corrections[${index}].preventing_rule is not an element name in the current complete HRP or Universal protocol: give an exact element name, or no_rule with missing_rule.`);
+      }
+      const ruleLine = preventing_rule === undefined ? undefined : preventing_rule === "no_rule"
+        ? missing_rule === undefined ? undefined : `Missing rule: ${missing_rule}`
+        : options.protocolElements?.has(preventing_rule) ? `Rule that should have prevented the error: ${preventing_rule}` : undefined;
+      if (ruleLine !== undefined) caveatOnce(rule`Show the correction's preventing rule with its bug report.`, ruleLine);
     }
     if (by_user === undefined) {
-      requireDeclaration(`Give corrections[${index}].by_user: true when the user pointed out the error and a recheck ` +
-        "showed the user was right, false when the research found it.");
+      requireDeclaration(joinRules(rule`Give corrections[${index}].by_user: true when the user pointed out the error and a recheck `, "showed the user was right, false when the research found it."));
     }
   }
   if ((input.corrections ?? []).some(({ by_user }) => by_user === true)) {
-    requireLimit("The user's correction was right: ask, as the caveat does, whether AskRigor may send a bug report " +
-      "about it or the user wants to clarify first, and show the report it would send.", CORRECTION_REPORT_OFFER);
+    requireLimit(joinRules("The user's correction was right: ask, as the caveat does, whether AskRigor may send a bug report ", "about it or the user wants to clarify first, and show the report it would send."), CORRECTION_REPORT_OFFER);
   }
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
   let communitiesSearched: string[] = [];
   let communitiesRead: CommunityRead[] = [];
   let communitiesUnverified = 0;
-  for (const { index, reason } of rejected) addStep("receipt_rejected", rejectedReceiptStep(index, reason));
+  for (const { index, reason } of rejected) addStep("receipt_rejected", rule`${rejectedReceiptStep(index, reason)}`);
 
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
   const fullTextQueries = fullTextSearch?.status === "run" ? fullTextSearch.queries : undefined;
   if (fullTextSearch === undefined ? input.key_sources.length > 0
     : fullTextSearch.status === "run" ? fullTextQueries === undefined : fullTextSearch.reason === undefined) {
-    requireDeclaration("Give full_text_search: status run with queries searched in Europe PMC article sections, " +
-      "or status not_needed with reason.");
+    requireDeclaration(joinRules("Give full_text_search: status run with queries searched in Europe PMC article sections, ", "or status not_needed with reason."));
   } else if (fullTextQueries !== undefined) {
     for (const query of fullTextQueries) {
       const matches = verified.filter(({ kind, claims }) => kind === "literature_search" &&
         claims.src === "europepmc" && claims.q === discoveryQueryDigest([query]));
       if (!matches.some(({ claims }) => Array.isArray(claims.ft) && claims.ft.length > 0)) {
-        addStep("research", `full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt` +
-          (matches.length === 0 ? ". " : " (the matching receipt has no section fields). ") +
-          "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts.");
+        addStep("research", joinRules(joinRules(rule`full_text_search query ${JSON.stringify(query)} has no verified Europe PMC section-search receipt`, (matches.length === 0 ? ". " : " (the matching receipt has no section fields). ")), "Search that query with section fields using search_europe_pmc and pass its research_receipt in receipts."));
       }
     }
   }
@@ -1702,8 +1757,7 @@ export function finalizeResearch(
   const lab = input.lab_preparation;
   if (lab === undefined ? input.key_sources.length > 0
     : lab.status === "covered" ? lab.answer_quotes === undefined : lab.reason === undefined) {
-    requireDeclaration("Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
-      "conditions or preparation advice, or status not_applicable with reason.");
+    requireDeclaration(joinRules("Give lab_preparation: status covered with answer_quotes from answer_draft giving collection ", "conditions or preparation advice, or status not_applicable with reason."));
   }
 
   // Community evidence. Discovery receipts (surveys, one-call community audits,
@@ -1810,12 +1864,7 @@ export function finalizeResearch(
     // known only by searching, so it is researched with its boundary.
     if (input.not_relevant_basis === undefined || input.not_relevant_reason === undefined) {
       requireDeclaration(
-        "Community evidence is not_relevant only for a definition, calculation, or chemical or mechanistic question " +
-          "with no real-world outcome (not_relevant_basis no_real_world_outcome) or an emergency before triage " +
-          "(emergency_before_triage), with not_relevant_reason. Otherwise research it: name where people discussing " +
-          "this talk in principal_communities and search the dominant one and an independent one (YouTube with " +
-          "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search); a " +
-          "topic nobody discusses is searched and its access boundary recorded."
+        joinRules(joinRules(joinRules(joinRules(joinRules("Community evidence is not_relevant only for a definition, calculation, or chemical or mechanistic question ", "with no real-world outcome (not_relevant_basis no_real_world_outcome) or an emergency before triage "), "(emergency_before_triage), with not_relevant_reason. Otherwise research it: name where people discussing "), "this talk in principal_communities and search the dominant one and an independent one (YouTube with "), "scout_gemini_youtube_candidates and audit_youtube_video_community, the others with your web search); a "), "topic nobody discusses is searched and its access boundary recorded.")
       );
     }
     if (input.not_relevant_basis === "no_real_world_outcome") {
@@ -1828,23 +1877,16 @@ export function finalizeResearch(
       ];
       if (triggers.length > 0) {
         addStep("research", 
-          `community_evidence cannot be not_relevant with no_real_world_outcome when ${triggers.join("; ")}: ` +
-            "comparing options' real-world usefulness or a product people buy needs the community and buyer-review " +
-            "layer. Research that layer with community_evidence researched, principal_communities and " +
-            "community_searches, or complete it with an access_boundary."
+          joinRules(joinRules(joinRules(rule`community_evidence cannot be not_relevant with no_real_world_outcome when ${triggers.join("; ")}: `, "comparing options' real-world usefulness or a product people buy needs the community and buyer-review "), "layer. Research that layer with community_evidence researched, principal_communities and "), "community_searches, or complete it with an access_boundary.")
         );
       }
       // Owner answer 149a (2026-10-22): a symptom or a test result has a real-world side, what people with it found
       // and tried (HRP EvidenceLayersAreNotAFixedDiscoveryOrder), so its community evidence is not skipped. Which
       // kind the question is stays the model's declaration; the check is exact on what it declares.
       if (input.question_about === undefined) {
-        requireDeclaration("With community_evidence not_relevant for no_real_world_outcome, say whether the question " +
-          "is about a symptom or a test result (question_about symptom_or_test_result) or not (other).");
+        requireDeclaration(joinRules("With community_evidence not_relevant for no_real_world_outcome, say whether the question ", "is about a symptom or a test result (question_about symptom_or_test_result) or not (other)."));
       } else if (input.question_about === "symptom_or_test_result") {
-        addStep("research", "community_evidence cannot be not_relevant for a question about a symptom or a test " +
-          "result: what people with it found and tried is real-world evidence. Research it with community_evidence " +
-          "researched: name where people discussing it talk in principal_communities and search the dominant one " +
-          "and an independent one, or record the access_boundary that stopped you.");
+        addStep("research", joinRules(joinRules(joinRules("community_evidence cannot be not_relevant for a question about a symptom or a test ", "result: what people with it found and tried is real-world evidence. Research it with community_evidence "), "researched: name where people discussing it talk in principal_communities and search the dominant one "), "and an independent one, or record the access_boundary that stopped you."));
       }
       if (input.key_sources.length > 0) commercialReviewCoverage(input, { addStep, requireDeclaration });
       // The skip shows in the answer, with the reason this call declares (owner question 125). The reason reaches the
@@ -1852,11 +1894,9 @@ export function finalizeResearch(
       if (input.not_relevant_reason !== undefined) {
         const labels = internalLabels(input.not_relevant_reason, options.protocolNames ?? new Set());
         if (labels.length > 0) {
-          addStep("declaration", `not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}` +
-            `${labels.length > 8 ? ", and more" : ""}): the answer states this reason in its caveat, so give it in ` +
-            "plain words.");
+          addStep("declaration", joinRules(joinRules(rule`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer states this reason in its caveat, so give it in `), "plain words."));
         }
-        requireLimit(COMMUNITY_SKIP_LIMIT, communitySkipCaveat(input.not_relevant_reason));
+        requireLimit(joinRules(COMMUNITY_SKIP_LIMIT), communitySkipCaveat(input.not_relevant_reason));
       }
     }
   } else {
@@ -1872,19 +1912,12 @@ export function finalizeResearch(
       // YouTube's own search is capped at 100 calls a day per project.
       if (rounds.length === 0) {
         addStep("research", 
-          "Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is " +
-            "unavailable), audit each material video, and pass the remedies its comments name back to the scout as " +
-            "rediscovery_leads (a video or creator as video:<id>)." +
-            (offTarget.length === 0
-              ? ""
-              : ` ${offTarget.length} discovery receipt(s) passed here were made for another research target or none; ` +
-                "give every tool the same research_target (research_question for surveys and community audits).")
+          joinRules(joinRules(joinRules("Find community videos with scout_gemini_youtube_candidates (survey_youtube_community only if the scout is ", "unavailable), audit each material video, and pass the remedies its comments name back to the scout as "), "rediscovery_leads (a video or creator as video:<id>)."), (offTarget.length === 0 ? "" : joinRules(rule` ${offTarget.length} discovery receipt(s) passed here were made for another research target or none; `, "give every tool the same research_target (research_question for surveys and community audits).")))
         );
       }
       if (partialSurveys > 0) {
         requireLimit(
-          `${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); ` +
-            "say the community picture may be incomplete.",
+          joinRules(rule`${partialSurveys} community survey(s) were only partly completed (some searches failed or hit limits); `, "say the community picture may be incomplete."),
           "Some YouTube searches failed or hit limits, so the community picture may be incomplete."
         );
       }
@@ -1912,7 +1945,7 @@ export function finalizeResearch(
       } else if (!saturated) {
         discoveryContinues = true;
         for (const text of saturation.nextSteps) addCheckStep({
-          kind: "research", text, deferUntilNextTurn: saturation.deferUntilNextTurn
+          kind: "research", text: ruleText(text), rule: ruleParts(text), deferUntilNextTurn: saturation.deferUntilNextTurn
         });
       }
       if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
@@ -1922,8 +1955,7 @@ export function finalizeResearch(
             // no YouTube evidence was checked would be false, and a correction cannot take back the check's own caveat.
             // A video read with no comments still turned up, so it counts here, unlike for the thin-evidence caveats.
             requireLimit(
-              "YouTube's rate limit or daily quota stopped discovery, and the videos read were found another way; say " +
-                "that YouTube discovery was incomplete.",
+              joinRules("YouTube's rate limit or daily quota stopped discovery, and the videos read were found another way; say ", "that YouTube discovery was incomplete."),
               readVideos.size === 1
                 ? "YouTube's search limit stopped discovery, so the video read here was found another way, not by a " +
                   "complete search."
@@ -1932,27 +1964,24 @@ export function finalizeResearch(
             );
           } else if (saturation.rateLimited > 0) {
             requireLimit(
-              "No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube " +
-                "evidence could not be checked yet, not that it is thin.",
+              joinRules("No video turned up before YouTube's rate limit or daily quota stopped discovery; say that YouTube ", "evidence could not be checked yet, not that it is thin."),
               "YouTube's search limit stopped discovery before any video turned up, so YouTube evidence could not be " +
                 "checked yet."
             );
           } else if (commentVideos.size === 0) {
             requireLimit(
-              `No video turned up in ${rounds.length} discovery rounds; say that YouTube evidence on this is thin.`,
+              rule`No video turned up in ${rounds.length} discovery rounds; say that YouTube evidence on this is thin.`,
               `No relevant video turned up in ${rounds.length === 1 ? "1 round" : `${rounds.length} rounds`} of ` +
                 "searching, so YouTube evidence on this is thin."
             );
           }
         } else if (input.no_material_video_reason === undefined) {
           requireDeclaration(
-            `Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach ` +
-              "or substantial firsthand experience, or give no_material_video_reason."
+            joinRules(rule`Discovery found ${discovered.size} video(s) but none is in material_video_ids: audit each one that adds an approach `, "or substantial firsthand experience, or give no_material_video_reason.")
           );
         } else if (commentVideos.size === 0) {
           requireLimit(
-            `None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; ` +
-              "say that YouTube evidence on this is thin.",
+            joinRules(rule`None of the ${discovered.size} video(s) found in ${rounds.length} discovery rounds was worth auditing; `, "say that YouTube evidence on this is thin."),
             discovered.size === 1
               ? "The only video found was not worth a close look, so YouTube evidence on this is thin."
               : `None of the ${discovered.size} videos found was worth a close look, so YouTube evidence on this is thin.`
@@ -1963,31 +1992,26 @@ export function finalizeResearch(
       const unfinished: string[] = [];
       for (const video of materialVideos) {
         if (!discovered.has(video)) {
-          addStep("declaration", offTargetVideos.has(video)
-            ? `Video ${video} was found only by discovery for another research target; rerun discovery with this ` +
-              "research_target, or drop it from material_video_ids."
-            : `Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; ` +
-              "pass the receipt of the discovery call that found it, or drop it from material_video_ids.");
+          addStep("declaration", offTargetVideos.has(video) ? joinRules(rule`Video ${video} was found only by discovery for another research target; rerun discovery with this `, "research_target, or drop it from material_video_ids.") : joinRules(rule`Video ${video} is not among the videos found by the surveys, scouts or searches whose receipts were passed; `, "pass the receipt of the discovery call that found it, or drop it from material_video_ids."));
         }
         const audit = audited.get(video);
         if (audit === undefined) {
           addStep("research", 
-            (communityAudited.has(video) ? `Video ${video} has only a one-call community audit. ` : "") +
-              `Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`
+            joinRules((communityAudited.has(video) ? rule`Video ${video} has only a one-call community audit. ` : ""), rule`Audit video ${video} with audit_youtube_video_community and continue until the audit completes.`)
           );
           continue;
         }
         if (audit.state === "completed_with_access_boundary") {
-          requireLimit(`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
+          requireLimit(rule`Comments on video ${video} were only partly accessible; treat its community signal as bounded.`);
           if (audit.identifierBoundaryRecords !== undefined) {
             caveats.push(`The audit of ${videoLink(video, "this video")} stopped at ${audit.identifierBoundaryRecords} ` +
               "comments, before the end of its comments, so no complete-corpus claim is made.");
-            caveatOnce("An identifier-bounded video audit supports only bounded, non-ranking output.",
+            caveatOnce(rule`An identifier-bounded video audit supports only bounded, non-ranking output.`,
               "These comments support only a bounded account, so the answer does not use them to rank or recommend options.");
           } else partlyRead.push(video);
         } else if (audit.lock === "block") {
           requireLimit(
-            `The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
+            rule`The comment audit of video ${video} ended with blockers; its community signal cannot carry a conclusion on its own.`
           );
           unfinished.push(video);
         }
@@ -2020,8 +2044,7 @@ export function finalizeResearch(
   const findings = input.community_findings;
   if (commentVideos.size > 0 && findings === undefined) {
     requireDeclaration(
-      "Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, " +
-        "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral."
+      joinRules("Say what the comments you read showed: give community_findings (benefit, no-effect and adverse reports, ", "creators versus independent commenters, and the effect on the answer), even if the signal is weak or neutral.")
     );
   } else if (findings !== undefined) {
     const reviewed = new Set(findings.videos_reviewed);
@@ -2029,14 +2052,12 @@ export function finalizeResearch(
     const unaudited = [...reviewed].filter((video) => !auditedAtAll.has(video)).sort();
     if (unlisted.length > 0) {
       addStep("declaration", 
-        `Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the ` +
-          "findings must account for them."
+        joinRules(rule`Add ${unlisted.join(", ")} to community_findings.videos_reviewed: their comments were read, so the `, "findings must account for them.")
       );
     }
     if (unaudited.length > 0) {
       addStep("declaration", 
-        `community_findings.videos_reviewed lists ${unaudited.join(", ")}, but no comment-audit receipt passed here ` +
-          "covers them; pass the receipt or drop them."
+        joinRules(rule`community_findings.videos_reviewed lists ${unaudited.join(", ")}, but no comment-audit receipt passed here `, "covers them; pass the receipt or drop them.")
       );
     }
     if (unlisted.length === 0 && unaudited.length === 0) {
@@ -2056,7 +2077,7 @@ export function finalizeResearch(
   if (input.research_depth === "first_pass") {
     if (input.treatment_choice === "compared") {
       requireLimit(
-        "The treatment comparison rests on a first pass: present it as provisional, with no final ranking.",
+        rule`The treatment comparison rests on a first pass: present it as provisional, with no final ranking.`,
         "This comparison rests on a first pass through the evidence, so treat it as provisional; it does not rank the " +
           "options."
       );
@@ -2072,8 +2093,7 @@ export function finalizeResearch(
       .at(0);
     if (coverageChecks.length > 0 && coverage === undefined) {
       addStep("research", 
-        "No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one " +
-          "for this question, give research_target exactly as the check received it, or run the check again."
+        joinRules("No assess_treatment_landscape_coverage receipt passed here was made for this research_target; pass the one ", "for this question, give research_target exactly as the check received it, or run the check again.")
       );
     }
     coverageBoundary = coverage === undefined ? undefined : text(coverage.claims.boundary);
@@ -2082,33 +2102,29 @@ export function finalizeResearch(
     const foreignCoverageVideos = list(coverage?.claims.videos).filter((video) => !discovered.has(video));
     if (foreignCoverageVideos.length > 0) {
       addStep("research", 
-        `The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt ` +
-          "passed here found; pass the receipts of the discovery calls that found them, or rerun the check."
+        joinRules(rule`The treatment-coverage check judged video(s) ${foreignCoverageVideos.join(", ")} that no discovery receipt `, "passed here found; pass the receipts of the discovery calls that found them, or rerun the check.")
       );
     }
     if (coverage !== undefined && input.treatment_choice === "compared" && text(coverage.claims.broad) !== "true") {
       addStep("research", 
-        "A treatment comparison needs the coverage check run as a broad treatment choice: call " +
-          "assess_treatment_landscape_coverage again with broad_treatment_choice true."
+        joinRules("A treatment comparison needs the coverage check run as a broad treatment choice: call ", "assess_treatment_landscape_coverage again with broad_treatment_choice true.")
       );
     }
     if (coverageBoundary === undefined) {
       if (input.treatment_choice === "compared" && coverageChecks.length === 0) {
         addStep("research", 
-          "The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger " +
-            "and pass its research_receipt."
+          joinRules("The answer compares treatment options: call assess_treatment_landscape_coverage with the treatment ledger ", "and pass its research_receipt.")
         );
       }
     } else if (coverageBoundary === "bounded_nonranking_only") {
       requireLimit(
-        "The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.",
+        rule`The treatment-coverage check allows only a bounded answer: do not rank or recommend among the treatment options.`,
         "The evidence check allows only a limited comparison here, so this answer does not rank or recommend among the " +
           "options."
       );
     } else if (coverageBoundary !== "ledger_consistent_for_synthesis") {
       addStep("research", 
-        `The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth ` +
-          "blockers and call it again until it allows the answer (deep research needs ledger_consistent_for_synthesis)."
+        joinRules(rule`The latest assess_treatment_landscape_coverage result was ${coverageBoundary}: fix its selection and depth `, "blockers and call it again until it allows the answer (deep research needs ledger_consistent_for_synthesis).")
       );
     }
   }
@@ -2122,12 +2138,8 @@ export function finalizeResearch(
   // list reads the classes or the answer.
   const optionClasses = input.option_classes ?? [];
   if (input.answer_draft !== undefined && input.treatment_choice === "compared" && optionClasses.length === 0) {
-    (input.option_classes === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
-      `option_classes ${input.option_classes === undefined ? "is missing" : "lists no class"}: the answer compares ` +
-        "treatment options, so option_classes lists each materially plausible class of treatment and whether it was " +
-        "searched by name: researched, with the exact search_query of a literature search passed here and the " +
-        "answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was " +
-        "out of reach (at least one entry)."
+    (input.option_classes === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
+      joinRules(joinRules(joinRules(joinRules(rule`option_classes ${input.option_classes === undefined ? rule`is missing` : rule`lists no class`}: the answer compares `, rule`treatment options, so option_classes lists each materially plausible class of treatment and whether it was `), rule`searched by name: researched, with the exact search_query of a literature search passed here and the `), rule`answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was `), rule`out of reach (at least one entry).`)
     );
   }
   // Each entry's own field, as its state needs it; another state's field, if given, is not used.
@@ -2138,37 +2150,28 @@ export function finalizeResearch(
     // One class, one entry: names compared as harms are, so a repeat adds no second caveat.
     const first = listedClasses.get(caveatText(optionClass));
     if (first === undefined) listedClasses.set(caveatText(optionClass), index);
-    else addStep("declaration", `${at} names the same class as option_classes[${first}]: give each class one entry.`);
+    else addStep("declaration", rule`${at} names the same class as option_classes[${first}]: give each class one entry.`);
     if (entry.state === "researched") {
       // Searched with a query a literature-search receipt in this call signed, compared by its digest as a harm not
       // found is; nothing else shows that the search ran.
       const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
       if (query === undefined) {
-        addStep("declaration", `${at} is researched without search_query: give the exact query ${optionClass} was ` +
-          "searched by name with, and pass that search's research_receipt, or declare it not_researched.");
+        addStep("declaration", joinRules(rule`${at} is researched without search_query: give the exact query ${optionClass} was `, "searched by name with, and pass that search's research_receipt, or declare it not_researched."));
       } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
-        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ` +
-          `${optionClass} by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact ` +
-          "query, and pass its research_receipt, or declare it not_researched.");
+        addStep("research", joinRules(joinRules(rule`${at}.search_query is not the query of any literature search passed here: search `, rule`${optionClass} by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact `), "query, and pass its research_receipt, or declare it not_researched."));
       }
       if (entry.answer_quote === undefined) {
-        addStep("answer_draft", `${at} is researched without answer_quote: say in the answer what the search for ` +
-          `${optionClass} found, and copy that sentence from answer_draft.`);
+        addStep("answer_draft", joinRules(rule`${at} is researched without answer_quote: say in the answer what the search for `, rule`${optionClass} found, and copy that sentence from answer_draft.`));
       }
       continue;
     }
     // The class reaches the reader in the caveat, so it shows no internal labels, as a harm not checked does.
     const labels = internalLabels(entry.option_class, options.protocolNames ?? new Set());
     if (labels.length > 0) {
-      addStep("declaration", `${at}.option_class shows internal labels (${labels.slice(0, 8).join(", ")}` +
-        `${labels.length > 8 ? ", and more" : ""}): the answer names this class in its caveat, so give it in plain ` +
-        "words.");
+      addStep("declaration", joinRules(joinRules(rule`${at}.option_class shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names this class in its caveat, so give it in plain `), "words."));
     }
     if (first === undefined) {
-      caveatOnce(entry.state === "not_researched"
-        ? `A plausible class of treatment, ${optionClass}, was not researched: say so in the answer, as the caveat does.`
-        : `The research on a plausible class of treatment, ${optionClass}, was out of reach: say so in the answer, as ` +
-          "the caveat does.",
+      caveatOnce(entry.state === "not_researched" ? rule`A plausible class of treatment, ${optionClass}, was not researched: say so in the answer, as the caveat does.` : joinRules(rule`The research on a plausible class of treatment, ${optionClass}, was out of reach: say so in the answer, as `, "the caveat does."),
       optionClassCaveat(entry.state, entry.option_class));
     }
   }
@@ -2186,7 +2189,7 @@ export function finalizeResearch(
   // DOI -> the PMCIDs its full_text_lead receipts tried ("" when none was).
   const leadAttempts = new Map<string, Set<string>>();
   const readIds = new Set<string>();
-  const searchCopyCaveats = new Set<string>();
+  const searchCopyCaveats = new Map<string, CheckRule>();
   // Identifier -> the figures check its latest study audit signed (owner questions 87 and 89). Receipts
   // signed before audits checked figures carry none; every newer audit signs one, "not_declared" included.
   const studyFigures = new Map<string, { status: string; values: number[]; impossible: string[]; order: number }>();
@@ -2212,7 +2215,8 @@ export function finalizeResearch(
     if (kind === "study_audit" || kind === "review_audit") {
       if (claims.retrieval_provider === "client_search_index" && typeof claims.host === "string") {
         const study = typeof claims.doi === "string" ? claims.doi : text(claims.id);
-        searchCopyCaveats.add(`The full text of ${study} came from the AI's search-index copy of ${claims.host}; AskRigor did not fetch it.`);
+        const caveat = rule`The full text of ${study} came from the AI's search-index copy of ${claims.host}; AskRigor did not fetch it.`;
+        searchCopyCaveats.set(caveat.text, caveat);
       }
       for (const key of ["id", "doi", "pmid", "pmcid"]) {
         const value = claims[key];
@@ -2258,7 +2262,7 @@ export function finalizeResearch(
       }
     }
   }
-  for (const caveat of searchCopyCaveats) requireLimit(caveat, caveat);
+  for (const caveat of searchCopyCaveats.values()) requireLimit(caveat, caveat.text);
   // The PubMed Central copy PubMed links to a study, by PMID or by DOI.
   const pmcidFor = (id: string): string | undefined => {
     if (isPmid(id)) return pubmedPmcids.get(id);
@@ -2272,9 +2276,7 @@ export function finalizeResearch(
     const openCopy = pmcidFor(id);
     if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
     addStep("research", 
-      `PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not ` +
-        `try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new ` +
-        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH}`
+      joinRules(joinRules(rule`PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not `, rule`try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new `), rule`research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_RULE}`)
     );
     return true;
   };
@@ -2292,11 +2294,16 @@ export function finalizeResearch(
   const unreadStudies = new Map<string, string | undefined>();
   // Owner answer 147a: a lead the model declares it read through another of this app's tools.
   const readThroughOtherTool = (sourceId: string, id: string): void => {
-    requireLimit(`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
+    requireLimit(rule`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
     unreadStudies.set(id, "OTHER_TOOL");
   };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
   // 2026-10-15 owner regressions; its other copies and its publisher page since 16 October's).
+  const atlasSources = checkedAtlasSources(verified, targetDigest, input.atlas_reuse ?? []);
+  const checkedInAtlas = (id: string): boolean => {
+    const source = sourceIdentifierOf(id);
+    return source !== undefined && atlasSources.has(atlasSourceDigest(source));
+  };
   const keyLinks = input.key_sources.map((source) => {
     const id = normalizeIdentifier(source.id);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
@@ -2310,13 +2317,14 @@ export function finalizeResearch(
     const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
     const audited = ids.some((candidate) => validatedIds.has(candidate));
     const read = audited || ids.some((candidate) => readIds.has(candidate));
+    if (source.read_depth === "atlas_checked" && !checkedInAtlas(source.id)) {
+      addStep("declaration", rule`Key source ${source.id} has no checked Atlas finding used in atlas_reuse whose lookup receipt names it; pass that lookup and declaration, or give the depth read here.`);
+    }
     if (source.read_depth === undefined) {
-      requireDeclaration(`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
+      requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
-      addStep("declaration", `Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; ` +
-        `give read_depth ${read ? "full_text_read" : "partial_text or another lower value reflecting what was read"}, ` +
-        `or pass its matching research_receipt.`);
+      addStep("declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
     }
     if (input.answer_draft !== undefined) {
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
@@ -2333,19 +2341,20 @@ export function finalizeResearch(
         : undefined;
       const pages = keyStudyPages(id, linkIds, linkPages);
       if (source.answer_marker === undefined) {
-        requireDeclaration(`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
+        requireDeclaration(rule`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
       } else if (untied !== undefined) {
-        addStep("answer_draft", `Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: ` +
-          `link ${listOf(pages, "or")} instead` + (isDoi(id)
-            ? `, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is ` +
-              "registered to, and fetch_pubmed_record ties the study's PubMed page."
-            : "."));
+        addStep("answer_draft", joinRules(joinRules(rule`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: `, rule`link ${listOf(pages, "or")} instead`), (isDoi(id) ? joinRules(rule`, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is `, "registered to, and fetch_pubmed_record ties the study's PubMed page.") : ".")));
       } else if (!markerLinks.some((links) => links.some(linked))) {
-        addStep("answer_draft", `Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
+        addStep("answer_draft", rule`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
       if (identified && untied === undefined && !studyLinks.some(linked)) {
-        addStep("answer_draft", `Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+        addStep("answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
+    }
+    if (source.read_depth === "atlas_checked" && checkedInAtlas(source.id)) {
+      // Accepted provenance is citable as held; it does not enter validatedIds/readIds or earn a fresh-audit basis.
+      validatedSources.push(source.id);
+      continue;
     }
     if (ids.some((candidate) => validatedIds.has(candidate))) {
       validatedSources.push(source.id);
@@ -2354,21 +2363,21 @@ export function finalizeResearch(
     if (ids.some((candidate) => leadIds.has(candidate))) {
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, leadAttempts)) continue;
       leadSources.push(source.id);
-      const limits: Record<string, string> = {
-        NO_COPY_FOUND_AFTER_EXPANDED_SEARCH: "no public full text was found after an exact search",
-        PAYWALL_OR_LOGIN_REQUIRED: "its full text needs a login or a subscription",
-        CANDIDATE_FOUND_FETCH_BLOCKED: "a possible public copy was found, but AskRigor could not fetch it to check it",
-        ABSTRACT_ONLY: "only its abstract was readable",
-        PARTIAL_TEXT_READABLE: "only part of its text was readable",
-        IDENTITY_MISMATCH: "no copy found could be verified as the same paper"
+      const limits: Record<string, CheckRule> = {
+        NO_COPY_FOUND_AFTER_EXPANDED_SEARCH: rule`no public full text was found after an exact search`,
+        PAYWALL_OR_LOGIN_REQUIRED: rule`its full text needs a login or a subscription`,
+        CANDIDATE_FOUND_FETCH_BLOCKED: rule`a possible public copy was found, but AskRigor could not fetch it to check it`,
+        ABSTRACT_ONLY: rule`only its abstract was readable`,
+        PARTIAL_TEXT_READABLE: rule`only part of its text was readable`,
+        IDENTITY_MISMATCH: rule`no copy found could be verified as the same paper`
       };
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
         continue;
       }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
-      const limit = state === undefined ? "no open full text was available" : limits[state] ?? "no open full text was available";
-      requireLimit(`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
+      const limit = state === undefined ? rule`no open full text was available` : limits[state] ?? rule`no open full text was available`;
+      requireLimit(rule`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
       unreadStudies.set(id, state);
       continue;
     }
@@ -2377,8 +2386,7 @@ export function finalizeResearch(
     if (source.status === "lead_only" && failedForSource.length > 0) {
       const times = failedForSource.map(({ issued }) => issued);
       if (Math.max(...times) - Math.min(...times) < 60_000) {
-        addStep("research", `A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute ` +
-          "after the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead.");
+        addStep("research", joinRules(rule`A full-text service failed for ${source.id}: call acquire_open_full_text again at least a minute `, "after the first attempt; if it fails again, pass the research_receipt from each attempt and cite it as a lead."));
         continue;
       }
       const failedAttempts = new Map([...routeFailures].map(([doi, failures]) =>
@@ -2389,20 +2397,19 @@ export function finalizeResearch(
         readThroughOtherTool(source.id, id);
         continue;
       }
-      requireLimit(`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, ` +
-        "so its methods were not audited.");
+      requireLimit(joinRules(rule`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
       unreadStudies.set(id, "ROUTE_FAILED");
       continue;
     }
     if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) {
       addStep("declaration", 
-        `Identify ${source.id} by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.`
+        rule`Identify ${source.id} by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.`
       );
       continue;
     }
     if (isPmid(id) && pubmedDoi === undefined) {
       addStep("research", 
-        `Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
+        rule`Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
       );
       continue;
     }
@@ -2415,19 +2422,13 @@ export function finalizeResearch(
         continue;
       }
       requireLimit(
-        `Cite ${source.id} as a lead: ${isPmid(id) ? "PubMed lists no DOI" : "no DOI is known"}; ` +
-          "acquire_open_full_text requires a DOI, so its methods were not audited."
+        joinRules(rule`Cite ${source.id} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
       );
       unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
       continue;
     }
     const target = isDoi(id) ? source.id : knownDoi;
-    addStep("research", source.status === "validated"
-      ? `For ${source.id}: acquire_open_full_text${target === source.id ? "" : ` (DOI ${target})`}, continue_open_full_text until exhausted, ` +
-          "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, " +
-          `the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH}`
-      : `Try acquire_open_full_text for ${source.id}${target === source.id ? "" : ` (DOI ${target})`} ` +
-          `before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH}`);
+    addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text${target === source.id ? rule`` : rule` (DOI ${target})`}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id}${target === source.id ? rule`` : rule` (DOI ${target})`} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH_RULE}`));
   }
   if (unreadStudies.size > 0) caveats.push(...unreadStudiesCaveats(unreadStudies));
   // A key study's headline figures, as its audit recomputed them (owner
@@ -2444,21 +2445,16 @@ export function finalizeResearch(
   });
   for (const { source, figures, marker } of keyFigures) {
     if (figures.status === "not_declared") {
-      requireDeclaration(`The study audit of ${source.id} lists no reported_figures: validate it again with ` +
-        "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source " +
-        "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and " +
-        "reported_figures_none_reason when it reports no numeric result; a figure worked out from printed numbers, " +
-        "such as the analyzed group behind a rate, is listed with worked_out, its printed inputs and how; pass the " +
-        "research_receipt it returns.");
+      requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(rule`The study audit of ${source.id} lists no reported_figures: validate it again with `, "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source "), "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and "), "reported_figures_none_reason when it reports no numeric result; a figure worked out from printed numbers, "), "such as the analyzed group behind a rate, is listed with worked_out, its printed inputs and how; pass the "), "research_receipt it returns."));
       continue;
     }
     if (figures.status === "internally_inconsistent") {
-      caveatOnce("A key study's figures don't match its own data: say so, as the caveat does.",
+      caveatOnce(rule`A key study's figures don't match its own data: say so, as the caveat does.`,
         `${completedCaveat("A study whose reported figures don't match its own data:", marker)} Its results stay ` +
           "unreliable until they are reconciled.");
     }
     for (const value of figures.impossible) {
-      caveatOnce("A key study reports a value that is impossible as printed: say so, as the caveat does.",
+      caveatOnce(rule`A key study reports a value that is impossible as printed: say so, as the caveat does.`,
         `${completedCaveat("A value that is physically impossible as printed, so it is not used:", value)} ` +
           completedCaveat("Study:", marker));
     }
@@ -2470,7 +2466,7 @@ export function finalizeResearch(
         // Two studies the answer labels alike are named by their identifiers instead.
         const [a, b] = first.marker === second.marker
           ? [first.source.id, second.source.id] : [first.marker, second.marker];
-        caveatOnce("Two key studies report identical results: count them once, as the caveat does.",
+        caveatOnce(rule`Two key studies report identical results: count them once, as the caveat does.`,
           `${completedCaveat("Two studies that report identical results:", `${a}; ${b}`)} They are counted once, not ` +
             "as independent replication.");
       }
@@ -2478,7 +2474,7 @@ export function finalizeResearch(
   }
   if (input.key_sources.length === 0) {
     requireLimit(
-      "No study was declared decision-critical; say that no study's methods were checked in full text.",
+      rule`No study was declared decision-critical; say that no study's methods were checked in full text.`,
       "No study's methods were checked in full text for this answer."
     );
   }
@@ -2495,13 +2491,11 @@ export function finalizeResearch(
     const first = listedVideos.get(video);
     if (first === undefined) listedVideos.set(video, index);
     if (first !== undefined) {
-      addStep("declaration", `${at} names the same video as unwatched_videos[${first}]: give each video one entry.`);
+      addStep("declaration", rule`${at} names the same video as unwatched_videos[${first}]: give each video one entry.`);
     } else if (videosRead.has(video)) {
-      addStep("declaration", `${at} names video ${video}, which extract_youtube_video_claims read: leave it out.`);
+      addStep("declaration", rule`${at} names video ${video}, which extract_youtube_video_claims read: leave it out.`);
     } else if (!videosUnread.has(video)) {
-      addStep("declaration", `${at} names video ${video}, which no research_receipt passed here shows ` +
-        "extract_youtube_video_claims could not read: read it with extract_youtube_video_claims and pass the " +
-        "research_receipt it returns, or leave the entry out.");
+      addStep("declaration", joinRules(joinRules(rule`${at} names video ${video}, which no research_receipt passed here shows `, "extract_youtube_video_claims could not read: read it with extract_youtube_video_claims and pass the "), "research_receipt it returns, or leave the entry out."));
     } else unwatched.set(video, { index, from });
   }
   const target = input.named_target;
@@ -2511,64 +2505,38 @@ export function finalizeResearch(
     const from = unwatched.get(video)?.from ??
       (target?.video_id === video && target.described_from === "person" ? "person" : "description_only");
     const account = from === "person" ? "from what the person said about it" : "only from its title and description";
-    caveatOnce(unfinishedReadings.has(video)
-      ? `extract_youtube_video_claims was still reading video ${video} when it last returned, and no research_receipt ` +
-        "passed here shows the reading finished: finish it with its continuation_token and pass the research_receipt " +
-        `it returns, or say that the video was not watched and that what the answer says about it comes ${account}, ` +
-        "as the caveat does."
-      : `Video ${video} was not watched, so what the answer says about it comes ${account}: say so, as the caveat does.`,
+    caveatOnce(unfinishedReadings.has(video) ? joinRules(joinRules(joinRules(rule`extract_youtube_video_claims was still reading video ${video} when it last returned, and no research_receipt `, "passed here shows the reading finished: finish it with its continuation_token and pass the research_receipt "), rule`it returns, or say that the video was not watched and that what the answer says about it comes ${account}, `), "as the caveat does.") : rule`Video ${video} was not watched, so what the answer says about it comes ${account}: say so, as the caveat does.`,
     unwatchedVideoCaveat(video, from));
   }
   const matchOf = (source: FinalizeResearchInput["key_sources"][number], field: NamedTargetField) =>
     source[targetMatchField(field)];
   if (target === undefined) {
     if (videosRead.size > 0 || videosUnread.size > 0) {
-      requireDeclaration("Give named_target: the person gave a video, which extract_youtube_video_claims read or " +
-        "could not read, so the answer is about what it puts forward. Give its label as the answer names it; " +
-        "described_from, where its description comes from (video_read, video_description_only, person or " +
-        "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, " +
-        "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source " +
-        "then says how it matches each one (target_components to target_time_horizon: same, different or " +
-        "not_described).");
+      requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(joinRules("Give named_target: the person gave a video, which extract_youtube_video_claims read or ", "could not read, so the answer is about what it puts forward. Give its label as the answer names it; "), "described_from, where its description comes from (video_read, video_description_only, person or "), "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, "), "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source "), "then says how it matches each one (target_components to target_time_horizon: same, different or "), "not_described)."));
     }
     if (input.key_sources.some((source) => NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) !== undefined))) {
-      addStep("declaration", "key_sources gives target_components to target_time_horizon without named_target, what " +
-        "they are matched with: give named_target, or leave the matches out.");
+      addStep("declaration", joinRules("key_sources gives target_components to target_time_horizon without named_target, what ", "they are matched with: give named_target, or leave the matches out."));
     }
   } else {
     const video = target.video_id;
     const describedFrom = target.described_from;
     if (video === undefined && (describedFrom === "video_read" || describedFrom === "video_description_only")) {
-      addStep("declaration", `named_target is described_from ${describedFrom} without video_id: give the video's ` +
-        "11-character ID.");
+      addStep("declaration", joinRules(rule`named_target is described_from ${describedFrom} without video_id: give the video's `, "11-character ID."));
     } else if (describedFrom === "video_read" && video !== undefined && !videosRead.has(video)) {
-      addStep("declaration", unfinishedReadings.has(video)
-        ? `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
-          `${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
-          "described_from as the case is, video_description_only or person."
-        : videosUnread.has(video)
-          ? `named_target is described_from video_read, but extract_youtube_video_claims could not read video ` +
-            `${video}: give described_from as the case is, video_description_only or person.`
-          : `named_target is described_from video_read, but no research_receipt passed here shows that ` +
-            `extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or ` +
-            "give described_from as the case is.");
+      addStep("declaration", unfinishedReadings.has(video) ? joinRules(joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video `, rule`${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give `), "described_from as the case is, video_description_only or person.") : videosUnread.has(video) ? joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims could not read video `, rule`${video}: give described_from as the case is, video_description_only or person.`) : joinRules(joinRules(rule`named_target is described_from video_read, but no research_receipt passed here shows that `, rule`extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or `), "give described_from as the case is."));
     }
     const entry = video === undefined ? undefined : unwatched.get(video);
     const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
       ? "description_only" : undefined;
     if (entry !== undefined && declared !== undefined && entry.from !== declared) {
-      addStep("declaration", `named_target is described_from ${describedFrom} for video ${video}, but ` +
-        `unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`);
+      addStep("declaration", joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`));
     }
     // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
     // nothing, so no study is the same there or differs there.
     const unmatched = input.key_sources.filter((source) =>
       NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) === undefined));
     if (unmatched.length > 0) {
-      requireDeclaration(`named_target is given, so each key source says how it matches it: give ` +
-        `${listOf(unmatched.map(({ id }) => id), "and")} target_components, target_dose_or_intensity, ` +
-        "target_frequency_and_duration, target_population, target_outcome and target_time_horizon, each same, " +
-        "different or not_described (the study, or named_target, does not describe it).");
+      requireDeclaration(joinRules(joinRules(joinRules(rule`named_target is given, so each key source says how it matches it: give `, rule`${listOf(unmatched.map(({ id }) => id), "and")} target_components, target_dose_or_intensity, `), "target_frequency_and_duration, target_population, target_outcome and target_time_horizon, each same, "), "different or not_described (the study, or named_target, does not describe it)."));
     }
     const undescribed = NAMED_TARGET_FIELDS.filter((field) => isProgramNotDescribed(target[field]));
     for (const field of undescribed) {
@@ -2577,8 +2545,7 @@ export function finalizeResearch(
         return match === "same" || match === "different";
       });
       if (matched.length > 0) {
-        addStep("declaration", `named_target.${field} is "${PROGRAM_NOT_DESCRIBED}", so no study is the same there or ` +
-          `differs there: give ${listOf(matched.map(({ id }) => id), "and")} ${targetMatchField(field)} not_described.`);
+        addStep("declaration", joinRules(rule`named_target.${field} is "${PROGRAM_NOT_DESCRIBED}", so no study is the same there or `, rule`differs there: give ${listOf(matched.map(({ id }) => id), "and")} ${targetMatchField(field)} not_described.`));
       }
     }
     // A study tested it as described only when it is the same on all six fields.
@@ -2591,11 +2558,9 @@ export function finalizeResearch(
       // The label reaches the reader in the caveat, so it shows no internal labels, as a declared class does.
       const labels = internalLabels(target.label, options.protocolNames ?? new Set());
       if (labels.length > 0) {
-        addStep("declaration", `named_target.label shows internal labels (${labels.slice(0, 8).join(", ")}` +
-          `${labels.length > 8 ? ", and more" : ""}): the answer names it in its caveat, so give it in plain words.`);
+        addStep("declaration", joinRules(rule`named_target.label shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names it in its caveat, so give it in plain words.`));
       }
-      caveatOnce(`No key study is shown to have tested ${withoutEndPunctuation(target.label)} as described: say so, ` +
-        "as the caveat does.",
+      caveatOnce(joinRules(rule`No key study is shown to have tested ${withoutEndPunctuation(target.label)} as described: say so, `, "as the caveat does."),
       namedTargetCaveat(target.label, input.key_sources.length, fieldsWhere("different"), fieldsWhere("not_described")));
     }
   }
@@ -2615,35 +2580,23 @@ export function finalizeResearch(
     directions.forEach(({ direction, what }, index) => {
       const count = focuses[index]!.length;
       if (count > 3) {
-        addStep("declaration", `open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
+        addStep("declaration", rule`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
         return;
       }
       if (count >= 2) return;
       requireDeclaration(
-        `List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this ` +
-          "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising." +
-          (direction === "community" && unsaturatedFirstPass
-            ? " Discovery has not saturated, so include the topics where more community signal is likely" +
-              (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")
-            : "")
+        joinRules(joinRules(rule`List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this `, "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising."), (direction === "community" && unsaturatedFirstPass ? joinRules(" Discovery has not saturated, so include the topics where more community signal is likely", (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")) : ""))
       );
     });
     const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
     if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      (estimate === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
-        "Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in " +
-          "digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\")."
+      (estimate === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
+        joinRules(rule`Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in `, rule`digits and a unit (for example, "about 20 minutes and 15 YouTube searches").`)
       );
     } else if (focuses.every(twoOrThree)) {
       requireLimit(
-        `First pass only${unsaturatedFirstPass ? "; discovery had not saturated" : ""}. End the answer with the ` +
-          `${directions.length === 2 ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for ` +
-          "the user (no video IDs or internal codes): " +
-          directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
-            .join(" and ") +
-          ". Say what each focus could change in this answer and why it looks promising, give roughly what another " +
-          "pass would take, and ask which the user " +
-          "wants and which focus.",
+        joinRules(joinRules(joinRules(joinRules(joinRules(joinRules(rule`First pass only${unsaturatedFirstPass ? rule`; discovery had not saturated` : rule``}. End the answer with the `, rule`${directions.length === 2 ? rule`two ways` : rule`way`} to go deeper, a sentence or two each, in plain language for `), "the user (no video IDs or internal codes): "), rule`${directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
+            .join(" and ")}`), ". Say what each focus could change in this answer and why it looks promising, give roughly what another "), "pass would take, and ask which the user "), "wants and which focus."),
         ...directions.flatMap(({ caption }, index) =>
           focuses[index]!.map(({ topic, why }) => `${completedCaveat(`${caption}:`, topic)} ${asSentence(why)}`)),
         `${completedCaveat("What another pass would take:", estimate)} ` + (directions.length === 2
@@ -2653,8 +2606,7 @@ export function finalizeResearch(
     }
     if (firstPassRateLimited > 0) {
       requireLimit(
-        `YouTube's rate limit or daily quota stopped ${firstPassRateLimited} search(es) in the latest discovery ` +
-          "rounds; say so, and that another pass can rerun them once the limit resets.",
+        joinRules(rule`YouTube's rate limit or daily quota stopped ${firstPassRateLimited} search(es) in the latest discovery `, "rounds; say so, and that another pass can rerun them once the limit resets."),
         `YouTube's daily search limit stopped ${firstPassRateLimited === 1 ? "1 search" : `${firstPassRateLimited} searches`} ` +
           `in this first pass; another pass can rerun ${firstPassRateLimited === 1 ? "it" : "them"} after the limit resets.`
       );
@@ -2683,24 +2635,17 @@ export function finalizeResearch(
   const absenceClaims = input.absence_claims ?? [];
   if (input.answer_draft !== undefined && input.absence_claims === undefined) {
     requireDeclaration(
-      "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
-        "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
-        "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
-        "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence " +
-        "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
-        "with search coverage when none were."
+      joinRules(joinRules(joinRules(joinRules(joinRules("absence_claims is missing: it lists each sentence saying something was not found, not studied, has no ", "evidence or has no effect; that an option made no difference compared with another, worked as well as it, "), "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not "), "demonstrated or showing no benefit (an empty list means none). Evidence-strength sentences are absence "), "claims, declared with not_established and their key sources when studies were found, or support_not_located "), "with search coverage when none were.")
     );
   }
   if (input.answer_draft !== undefined && input.scale_results === undefined) {
     requireDeclaration(
-      "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
-        "reported in the answer (an empty list means none)."
+      joinRules("scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result ", "reported in the answer (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.binary_results === undefined) {
     requireDeclaration(
-      "binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two " +
-        "groups, or with a number needed to treat or harm (an empty list means none)."
+      joinRules("binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two ", "groups, or with a number needed to treat or harm (an empty list means none).")
     );
   }
   // Yes-or-no results (AskRigor#356; the 21 Oct q136 responders case, whose
@@ -2719,15 +2664,13 @@ export function finalizeResearch(
     const at = `binary_results[${index}]`;
     const overCounted = binaryGroups(result).filter(({ events, total }) => events > total);
     for (const { field, name } of overCounted) {
-      addStep("declaration", `${at} gives more events than people for ${name}: ${field}_events counts the people in that ` +
-        `group with the outcome, so it cannot exceed ${field}_total.`);
+      addStep("declaration", joinRules(rule`${at} gives more events than people for ${name}: ${field}_events counts the people in that `, rule`group with the outcome, so it cannot exceed ${field}_total.`));
     }
     const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
     if (overCounted.length > 0 || stated.length === 0) continue;
     const contrast = binaryContrast(result);
     if (contrast === undefined) {
-      addStep("declaration", `${at}'s counts give the same rate in both groups, so there is no number needed to treat or ` +
-        `harm: leave ${stated.join(" and ")} out.`);
+      addStep("declaration", joinRules(rule`${at}'s counts give the same rate in both groups, so there is no number needed to treat or `, rule`harm: leave ${stated.join(" and ")} out.`));
       continue;
     }
     // The option did better when a larger share had an outcome more people should have, or a smaller share one
@@ -2735,7 +2678,7 @@ export function finalizeResearch(
     const optionBetter = contrast.optionHigher === (result.better === "more");
     const supported = optionBetter ? "nnt" : "nnh";
     if (stated.length === 2) {
-      addStep("declaration", `${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
+      addStep("declaration", rule`${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
     } else {
       const field = stated[0]!;
       const value = result[field]!;
@@ -2743,22 +2686,17 @@ export function finalizeResearch(
         const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
           .map(withoutEndPunctuation);
         const share = contrast.optionHigher ? "larger" : "smaller";
-        addStep("declaration", `${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with ` +
-          `${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to ` +
-          `${optionBetter ? "treat" : "harm"}: give it as ${supported}.`);
+        addStep("declaration", joinRules(joinRules(rule`${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with `, rule`${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to `), rule`${optionBetter ? rule`treat` : rule`harm`}: give it as ${supported}.`));
       }
       // Only the reciprocal rounded up counts (owner answer 153b: "rounding the reciprocal up").
       if (value !== contrast.roundedUp) {
-        addStep("declaration", `${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates ` +
-          `is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded ` +
-          "up, recomputed from the groups' counts the answer uses, or correct the counts.");
+        addStep("declaration", joinRules(joinRules(rule`${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates `, rule`is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded `), "up, recomputed from the groups' counts the answer uses, or correct the counts."));
       }
     }
     // A number needed to treat the counts support has the harms beside it. An entry whose counts leave no number, or
     // make it a number needed to harm, is not asked for them: its own step changes the number first.
     if (supported === "nnt" && result.nnt !== undefined && result.harms_quote === undefined) {
-      addStep("answer_draft", `${at} gives nnt without harms_quote: give, beside the benefit figure, the harms measured ` +
-        "over the same follow-up, or say that none were found, and copy that sentence from answer_draft as harms_quote.");
+      addStep("answer_draft", joinRules(rule`${at} gives nnt without harms_quote: give, beside the benefit figure, the harms measured `, "over the same follow-up, or say that none were found, and copy that sentence from answer_draft as harms_quote."));
     }
   }
   // Harm and safety sentences, the terms a conclusion depends on, and
@@ -2772,31 +2710,22 @@ export function finalizeResearch(
   // Undeclared sentences are invisible to it, as with absence_claims.
   if (input.answer_draft !== undefined && input.safety_claims === undefined) {
     requireDeclaration(
-      "safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, " +
-        "is unsafe, toxic or risky, or should be avoided, and each sentence calling something safe or harmless, " +
-        "with its exposure, basis, what the evidence measured and its studies (an empty list means none)."
+      joinRules(joinRules("safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, ", "is unsafe, toxic or risky, or should be avoided, and each sentence calling something safe or harmless, "), "with its exposure, basis, what the evidence measured and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.key_terms === undefined) {
     requireDeclaration(
-      "key_terms is missing: with answer_draft, it lists each specialized term the answer's conclusions depend on, " +
-        "with the sentence that first explains it in plain words (an empty list means none)."
+      joinRules("key_terms is missing: with answer_draft, it lists each specialized term the answer's conclusions depend on, ", "with the sentence that first explains it in plain words (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.mechanism_claims === undefined) {
     requireDeclaration(
-      "mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or " +
-        "that it does not act through a mechanism, with the route of the use it describes, the route of the " +
-        "experiment it rests on and its studies (an empty list means none)."
+      joinRules(joinRules("mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or ", "that it does not act through a mechanism, with the route of the use it describes, the route of the "), "experiment it rests on and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.recommendations === undefined) {
     requireDeclaration(
-      "recommendations is missing: with answer_draft, it lists each intervention the answer recommends or puts " +
-        "forward for this person, or ranks among the treatments it compares, with the sentence that does so, whether " +
-        "this person's safety conflicts and inputs are resolved (for a general ranking, conditional, with what a " +
-        "clinician should confirm), and for long-term use its longest follow-up and whether stopping is covered (an " +
-        "empty list means none)."
+      joinRules(joinRules(joinRules(joinRules("recommendations is missing: with answer_draft, it lists each intervention the answer recommends or puts ", "forward for this person, or ranks among the treatments it compares, with the sentence that does so, whether "), "this person's safety conflicts and inputs are resolved (for a general ranking, conditional, with what a "), "clinician should confirm), and for long-term use its longest follow-up and whether stopping is covered (an "), "empty list means none).")
     );
   }
   // The key source a declared study names, by its own identifier or its PubMed record's DOI.
@@ -2815,8 +2744,7 @@ export function finalizeResearch(
   const undeclaredStudies = (at: string, studies: readonly string[]): void => {
     const missing = studies.filter((id) => keySourceFor(id) === undefined);
     if (missing.length > 0) {
-      addStep("declaration", `${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources ` +
-        "with its read depth and link, so its reading is checked like any key study.");
+      addStep("declaration", joinRules(rule`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources `, "with its read depth and link, so its reading is checked like any key study."));
     }
   };
   for (const [index, claim] of (input.safety_claims ?? []).entries()) {
@@ -2826,57 +2754,52 @@ export function finalizeResearch(
       // A share of selected reports may come from posts rather than a study.
       const studiesNeeded = claim.basis !== "share_of_reports";
       if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
-        requireDeclaration(`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined
-          ? "measured_exposure" : "studies"}: give what the cited evidence measured and the key sources it rests on, ` +
-          "or declare basis not_quantified.");
+        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or declare basis not_quantified."));
       }
       undeclaredStudies(at, claim.studies ?? []);
     }
     const numbers = extractUnsignedNumbers(claim.quote);
     if (claim.basis === "comparative_rates" && numbers.length < 2) {
-      addStep("answer_draft", `${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: ` +
-        "give the rate in each group in that sentence.");
+      addStep("answer_draft", joinRules(rule`${at} rests on rates against a comparator, but its sentence gives fewer than two numbers: `, "give the rate in each group in that sentence."));
     }
     if (claim.basis === "observed_rates" && numbers.length < 1) {
-      addStep("answer_draft", `${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
+      addStep("answer_draft", rule`${at} rests on an observed rate, but its sentence gives no number: give the rate in that sentence.`);
     }
     if (claim.basis === "share_of_reports" && numbers.length < 1) {
-      addStep("answer_draft", `${at} rests on a share of selected reports, but its sentence gives no number: give the share ` +
-        "in that sentence.");
+      addStep("answer_draft", joinRules(rule`${at} rests on a share of selected reports, but its sentence gives no number: give the share `, "in that sentence."));
     }
     const measured = claim.measured_exposure === undefined ? undefined : plainPhrase(claim.measured_exposure);
     if (claim.basis === "share_of_reports") {
       // A share of selected reports, posts or passages is not a share of people
       // (HRP QA3 and QA6; lesson #25 by owner question 92).
-      caveatOnce("A figure is a share of selected reports, not of people: say so, as the caveat does.",
+      caveatOnce(rule`A figure is a share of selected reports, not of people: say so, as the caveat does.`,
         claim.direction === "harm"
           ? "That figure is a share of selected reports, not of people, so how often this happens isn't known."
           : completedCaveat("That figure is a share of selected reports, not of people, so it doesn't show how safe " +
             "this exposure is:", exposure));
     } else if (claim.direction === "harm") {
       if (claim.basis === "case_reports") {
-        caveatOnce("A harm warning rests on case reports: say what they show, as the caveat does.",
+        caveatOnce(rule`A harm warning rests on case reports: say what they show, as the caveat does.`,
           "Case reports show that this harm can happen, not how often it happens.");
       } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
-        caveatOnce("A harm warning rests on a measurement, not on harm observed in people: say so, as the caveat does.",
+        caveatOnce(rule`A harm warning rests on a measurement, not on harm observed in people: say so, as the caveat does.`,
           `${completedCaveat("This warning rests on measurements, not on harm observed in people, so how often it " +
             "would cause harm wasn't measured. What was measured:", measured)} ` +
             completedCaveat("What people would use:", exposure));
       } else if (claim.basis === "not_quantified") {
-        caveatOnce("A harm warning has no rate: say so, as the caveat does.",
+        caveatOnce(rule`A harm warning has no rate: say so, as the caveat does.`,
           "How often this happens wasn't quantified in the sources found here.");
       }
     } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
-      caveatOnce("A safety claim rests on a measurement or an animal test, not on observed safety in people: say so, " +
-        "as the caveat does.",
+      caveatOnce(joinRules("A safety claim rests on a measurement or an animal test, not on observed safety in people: say so, ", "as the caveat does."),
         `${completedCaveat("This rests on a measurement or an animal test, not on observed safety in people, so " +
           "long-term or rare harms are unmeasured. What it rests on:", measured)} ` +
           completedCaveat("What people would use:", exposure));
     } else if (claim.basis === "case_reports") {
-      caveatOnce("A safety claim rests on case reports: say what they cannot show, as the caveat does.",
+      caveatOnce(rule`A safety claim rests on case reports: say what they cannot show, as the caveat does.`,
         completedCaveat("Case reports can show that a harm happens, but not that this exposure is safe:", exposure));
     } else if (claim.basis === "not_quantified") {
-      caveatOnce("A safety claim has no rate of harms behind it: say so, as the caveat does.",
+      caveatOnce(rule`A safety claim has no rate of harms behind it: say so, as the caveat does.`,
         completedCaveat("How often harms occur wasn't quantified in the sources found here for this exposure:", exposure));
     }
   }
@@ -2894,27 +2817,20 @@ export function finalizeResearch(
   // one reason: the answer's own safety statements, else the question, else the long-term medicine.
   if (input.answer_draft !== undefined && input.safety_question === undefined) {
     requireDeclaration(
-      "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user " +
-        "asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' " +
-        "safety; false otherwise."
+      joinRules(joinRules("safety_question is missing: with answer_draft, say whether the question is about safety: true when the user ", "asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' "), "safety; false otherwise.")
     );
   }
   const harmScreen = input.harm_screen ?? [];
   const harmScreenTrigger = (input.safety_claims ?? []).length > 0
-    ? "the answer makes safety statements (safety_claims)"
+    ? rule`the answer makes safety statements (safety_claims)`
     : input.safety_question === true
-      ? "the question is about safety (safety_question)"
+      ? rule`the question is about safety (safety_question)`
       : (input.recommendations ?? []).some(({ long_term_use }) => long_term_use)
-        ? "the answer recommends, puts forward or ranks a medicine likely to be taken for months or years " +
-          "(recommendations)"
+        ? rule`the answer recommends, puts forward or ranks a medicine likely to be taken for months or years (recommendations)`
         : undefined;
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
-    (input.harm_screen === undefined ? requireDeclaration : (step: string) => addStep("declaration", step))(
-      `harm_screen ${input.harm_screen === undefined ? "is missing" : "lists no harm"}: ${harmScreenTrigger}, so ` +
-        "harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each " +
-        "searched by name, with what the search found: label_warning or reported_signal with the answer's sentence " +
-        "as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked " +
-        "(at least one entry)."
+    (input.harm_screen === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
+      joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), rule`(at least one entry).`)
     );
   }
   // Each entry's own field, as its state needs it; another state's field, if given, is not used.
@@ -2925,42 +2841,35 @@ export function finalizeResearch(
     // One harm, one entry: names compared as caveats are, so a repeat adds no second caveat.
     const first = screenedHarms.get(caveatText(harm));
     if (first === undefined) screenedHarms.set(caveatText(harm), index);
-    else addStep("declaration", `${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
+    else addStep("declaration", rule`${at} names the same harm as harm_screen[${first}]: give each harm one entry.`);
     const sources = new Set(entry.sources_searched ?? []);
     if (entry.state !== "not_checked" && sources.size === 0) {
-      addStep("declaration", `${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
+      addStep("declaration", rule`${at} is ${entry.state} without sources_searched: give the kinds of source searched for ${harm}.`);
     }
     if (entry.state === "label_warning" && sources.size > 0 && !sources.has("label") && !sources.has("regulator_warning")) {
-      addStep("declaration", `${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the ` +
-        `one whose warning names ${harm}, or declare it reported_signal.`);
+      addStep("declaration", joinRules(rule`${at} is label_warning, but sources_searched lists neither label nor regulator_warning: add the `, rule`one whose warning names ${harm}, or declare it reported_signal.`));
     }
     if ((entry.state === "label_warning" || entry.state === "reported_signal") && entry.answer_quote === undefined) {
-      addStep("answer_draft", `${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that ` +
-        "sentence from answer_draft.");
+      addStep("answer_draft", joinRules(rule`${at} is ${entry.state} without answer_quote: report ${harm} in the answer, and copy that `, "sentence from answer_draft."));
     }
     if (entry.state === "not_found") {
       // A harm not found was searched with a query a literature-search receipt in this call signed, compared by its
       // digest as full_text_search queries are; nothing else shows that the search ran.
       const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
       if (query === undefined) {
-        addStep("declaration", `${at} is not_found without search_query: give the exact query ${harm} was searched with, and ` +
-          "pass that search's research_receipt, or declare it not_checked.");
+        addStep("declaration", joinRules(rule`${at} is not_found without search_query: give the exact query ${harm} was searched with, and `, "pass that search's research_receipt, or declare it not_checked."));
       } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
-        addStep("research", `${at}.search_query is not the query of any literature search passed here: search ${harm} by ` +
-          "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its " +
-          "research_receipt, or declare it not_checked.");
+        addStep("research", joinRules(joinRules(rule`${at}.search_query is not the query of any literature search passed here: search ${harm} by `, "name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its "), "research_receipt, or declare it not_checked."));
       }
     }
     if (entry.state === "not_checked") {
       // The harm reaches the reader in the caveat, so it shows no internal labels, as not_relevant_reason does.
       const labels = internalLabels(entry.harm, options.protocolNames ?? new Set());
       if (labels.length > 0) {
-        addStep("declaration", `${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}` +
-          `${labels.length > 8 ? ", and more" : ""}): the answer names this harm in its caveat, so give it in plain ` +
-          "words.");
+        addStep("declaration", joinRules(joinRules(rule`${at}.harm shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names this harm in its caveat, so give it in plain `), "words."));
       }
       if (first === undefined) {
-        caveatOnce(`A serious harm, ${harm}, was not checked: say so in the answer, as the caveat does.`,
+        caveatOnce(rule`A serious harm, ${harm}, was not checked: say so in the answer, as the caveat does.`,
           harmNotCheckedCaveat(entry.harm));
       }
     }
@@ -2975,18 +2884,18 @@ export function finalizeResearch(
     const marker = markerFor(claim.studies[0]!);
     const inAnimals = claim.evidence_in === "animals" && claim.evidence_route !== "in_vitro";
     if (claim.use_route !== claim.evidence_route) {
-      caveatOnce("A mechanism claim rests on evidence from another route: say which, as the caveat does.",
+      caveatOnce(rule`A mechanism claim rests on evidence from another route: say which, as the caveat does.`,
         completedCaveat(inAnimals
           ? `This finding comes from ${EVIDENCE_ROUTE_WORDS[claim.evidence_route]} in animals; ` +
             `${USE_ROUTE_WORDS[claim.use_route]} in people was not tested for it. Source:`
           : `This finding comes from ${EVIDENCE_ROUTE_WORDS[claim.evidence_route]}; ` +
             `${USE_ROUTE_WORDS[claim.use_route]} was not tested for it. Source:`, marker));
     } else if (inAnimals) {
-      caveatOnce("A mechanism claim rests on animal experiments: say so, as the caveat does.",
+      caveatOnce(rule`A mechanism claim rests on animal experiments: say so, as the caveat does.`,
         completedCaveat("This finding comes from animal experiments; it was not tested in people. Source:", marker));
     }
     if (claim.tissue !== undefined) {
-      caveatOnce("A mechanism claim applies a finding to another tissue: say where it was measured, as the caveat does.",
+      caveatOnce(rule`A mechanism claim applies a finding to another tissue: say where it was measured, as the caveat does.`,
         "This finding was measured in a different tissue from the one this answer applies it to. " +
           `${completedCaveat("Measured in:", plainPhrase(claim.tissue.measured))} ` +
           `${completedCaveat("Applied here to:", plainPhrase(claim.tissue.claimed))} ${completedCaveat("Source:", marker)}`);
@@ -3005,13 +2914,10 @@ export function finalizeResearch(
     const intervention = plainPhrase(recommendation.intervention);
     if (recommendation.safety_check !== "resolved") {
       if (recommendation.open_inputs === undefined) {
-        addStep("declaration", `${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety ` +
-          "inputs still open, in a few words.");
+        addStep("declaration", joinRules(rule`${at} is ${recommendation.safety_check} without open_inputs: name the conflicts or safety `, "inputs still open, in a few words."));
       } else {
         const open = plainPhrase(recommendation.open_inputs);
-        caveatOnce(recommendation.safety_check === "unresolved"
-          ? "A recommendation's safety check is unresolved: say it needs a clinician's review first, as the caveat does."
-          : "A recommendation depends on a condition a clinician should confirm: say so, as the caveat does.",
+        caveatOnce(recommendation.safety_check === "unresolved" ? rule`A recommendation's safety check is unresolved: say it needs a clinician's review first, as the caveat does.` : rule`A recommendation depends on a condition a clinician should confirm: say so, as the caveat does.`,
         recommendation.safety_check === "unresolved"
           ? `${completedCaveat("An option that needs a clinician's review before it could be recommended for you:", intervention)} ` +
             completedCaveat("What the review covers:", open)
@@ -3026,17 +2932,14 @@ export function finalizeResearch(
       ...(recommendation.stopping_covered === undefined ? ["stopping_covered"] : [])
     ];
     if (missing.length > 0) {
-      addStep("declaration", `${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its ` +
-        "evidence, whether it matches how long it would be taken, and whether the answer covers stopping.");
+      addStep("declaration", joinRules(rule`${at} is for long-term use without ${missing.join(", ")}: give the longest follow-up in its `, "evidence, whether it matches how long it would be taken, and whether the answer covers stopping."));
       continue;
     }
     if (recommendation.stopping_covered === false) {
-      addStep("answer_draft", `${at} puts ${intervention} forward for long-term use without ` +
-        "covering stopping: say what is known about stopping, withdrawal and lasting harms, or that they are " +
-        "unknown, and mark stopping_covered.");
+      addStep("answer_draft", joinRules(joinRules(rule`${at} puts ${intervention} forward for long-term use without `, "covering stopping: say what is known about stopping, withdrawal and lasting harms, or that they are "), "unknown, and mark stopping_covered."));
     }
     if (recommendation.follow_up_matches_use === false) {
-      caveatOnce("A medicine for long-term use rests on shorter evidence: say so, as the caveat does.",
+      caveatOnce(rule`A medicine for long-term use rests on shorter evidence: say so, as the caveat does.`,
         `${completedCaveat("An option for long-term use whose evidence followed people for less time:", intervention)} ` +
           `${completedCaveat("Longest follow-up in that evidence:", plainPhrase(recommendation.longest_follow_up!))} ` +
           "Its benefits and harms over years of use, and how easily people stop it, aren't established.");
@@ -3053,30 +2956,24 @@ export function finalizeResearch(
   for (const [index, claim] of absenceClaims.entries()) {
     if (claim.state === "support_not_located") continue;
     const verdict = claim.state === "not_established";
-    const stated = `absence_claims[${index}] states ` + (claim.state === "direct_null_evidence"
+    const stated = joinRules(rule`absence_claims[${index}] states `, (claim.state === "direct_null_evidence"
       ? "a direct null result"
-      : verdict ? "that studies do not establish the effect" : "a bounded exclusion");
+      : verdict ? "that studies do not establish the effect" : "a bounded exclusion"));
     const studies = claim.studies ?? [];
     const unaudited = studies.filter((id) => !auditedStudy(id));
     let accepted = true;
     if (studies.length === 0) {
       accepted = false;
-      requireDeclaration(`${stated} without the studies it rests on: ` + (verdict
-        ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
-        : "name them in studies, each read with a full-text method audit, or state it as support_not_located."));
+      requireDeclaration(joinRules(rule`${stated} without the studies it rests on: `, (verdict ? "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit." : "name them in studies, each read with a full-text method audit, or state it as support_not_located.")));
     } else if (unaudited.length > 0) {
       accepted = false;
-      addStep("research", `${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: ` + (verdict
-        ? "an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a " +
-          "full-text method audit."
-        : "an abstract or a lead cannot show a null result. Audit each, or state it as support_not_located."));
+      addStep("research", joinRules(rule`${stated} on ${unaudited.join(", ")}, which no full-text method audit here covers: `, (verdict ? joinRules("an abstract or a lead cannot establish this evidence-strength verdict. Each listed study needs a ", "full-text method audit.") : "an abstract or a lead cannot show a null result. Audit each, or state it as support_not_located.")));
     }
     // A verdict that studies do not establish an effect states no estimate.
     if (!verdict && !/\p{Nd}/u.test(claim.quote)) {
       accepted = false;
       addStep("answer_draft", 
-        `${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the ` +
-          "studies could have missed."
+        joinRules(rule`${stated}: give the estimate and its interval in that sentence, so a reader sees how large an effect the `, "studies could have missed.")
       );
     }
     if (accepted) acceptedAbsences.add(index);
@@ -3087,7 +2984,7 @@ export function finalizeResearch(
   if (notLocated || harmScreen.some(({ state }) => state === "not_found")) {
     if (fullTextQueries !== undefined) {
       requireLimit(
-        "The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.",
+        rule`The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.`,
         "Where it says something was not found, the full-text searches covered Europe PMC's full texts only, " +
           "about 30% of PubMed records."
       );
@@ -3104,15 +3001,14 @@ export function finalizeResearch(
     if (names.length === 0) {
       if (notLocated) {
         addStep("research", 
-          "The answer says something was not found, but no literature search receipt was passed: search with " +
-            "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
+          joinRules("The answer says something was not found, but no literature search receipt was passed: search with ", "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts.")
         );
       }
     } else {
       const covered = new Set(input.search_coverage ?? []);
       const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
       requireLimit(
-        "The answer says something was not found: bound that to the searches made here, as the caveat does.",
+        rule`The answer says something was not found: bound that to the searches made here, as the caveat does.`,
         `Where this answer says something was not found, it means the searches made here (${joinNames(names)}) did ` +
           `not find it${uncovered.length === 0 ? "" : `, and they did not cover ${joinNames(uncovered)}`}; that is ` +
           "not evidence that it does not exist."
@@ -3128,6 +3024,25 @@ export function finalizeResearch(
   // coverage result forbid, is not read from its words: no word list decides
   // that in every language, so the caveat saying it does not rank them is
   // what the gate enforces.
+  // Same short-lookup and pre-triage exemptions as the existing research/discovery routing. No content matcher
+  // decides whether a finding matters: the model declares it, and these checks compare only exact fields.
+  const shortLookup = input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "no_real_world_outcome" &&
+    input.question_about === "other" && input.treatment_choice !== "compared" &&
+    input.commercial_review_applicability?.status !== "required" &&
+    input.shopping?.status !== "buy_options" && input.shopping?.status !== "no_live_option_found";
+  const emergency = input.community_evidence === "not_relevant" &&
+    input.not_relevant_reason !== undefined && input.not_relevant_basis === "emergency_before_triage";
+  const atlasReuse = checkAtlasReuse({ receipts: verified, target: targetDigest,
+    required: !emergency && !shortLookup && (input.community_evidence === "researched" ||
+      input.key_sources.length > 0 || stepKinds.includes("research")),
+    declarations: input.atlas_reuse ?? [], draft: input.answer_draft });
+  for (const step of atlasReuse.steps) {
+    if (step.kind === "declaration") requireDeclaration(rule`${step.text}`);
+    else addStep("research", rule`${step.text}`);
+  }
+  // Fixed sentences, or one holding a public Atlas number its schema checked: shown whole in bug reports.
+  for (const caveat of atlasReuse.caveats) requireLimit(joinRules(caveat), caveat);
   const draft = input.answer_draft;
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
@@ -3204,7 +3119,7 @@ export function finalizeResearch(
   let compared: ComparedClaim[] | undefined;
   if (draft === undefined) {
     requireDeclaration(
-      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
+      rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
     );
   } else {
     // A card's findings each cite a study audited or read as a lead here, or a
@@ -3215,18 +3130,7 @@ export function finalizeResearch(
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && citable) {
       requireDeclaration(
-        (options.findings === "save"
-          ? "Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for " +
-            "the owner's review."
-          : "Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings " +
-            "library, and they are saved only if the user says yes.") +
-          " Put in the answer's best findings, none the user corrected, and no personal details, and say in " +
-          // Owner answer 156a (2026-10-22): asked with the card, so a first card has the declaration it needs.
-          "public_value whether they would help anyone beyond this person." +
-          // Atlas phase 3: the same for the fields a public card gives the pages.
-          " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers " +
-          "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description " +
-          "says."
+        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.")
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -3287,11 +3191,7 @@ export function finalizeResearch(
       const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
       const comparison = input.plain_answer_comparison;
       if (comparison === undefined) {
-        requireDeclaration(`Give plain_answer_comparison: for each of the ${count} of the plain answer registered ` +
-          "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, " +
-          "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the " +
-          "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the " +
-          "plain answer's research_receipt out of receipts: the answer then ends without the note.");
+        requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
       } else {
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
@@ -3300,13 +3200,12 @@ export function finalizeResearch(
           const at = `plain_answer_comparison[${index}]`;
           const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
           if (number < 0) {
-            addStep("declaration", `${at}.claim is not one of the ${count} of the plain answer registered before this ` +
-              "research: copy it exactly as manage_research_access listed it.");
+            addStep("declaration", joinRules(rule`${at}.claim is not one of the ${count} of the plain answer registered before this `, "research: copy it exactly as manage_research_access listed it."));
             continue;
           }
           const earlier = entryFor.get(number);
           if (earlier !== undefined) {
-            addStep("declaration", `${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
+            addStep("declaration", rule`${at} gives the same claim as plain_answer_comparison[${earlier}]: give each claim one entry.`);
             continue;
           }
           entryFor.set(number, index);
@@ -3317,19 +3216,14 @@ export function finalizeResearch(
           const sources = entry.sources ?? [];
           const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source));
           if (unbacked.length > 0) {
-            addStep("declaration", `${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment ` +
-              "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose " +
-              "comments were read here (video ID), or leave sources out.");
+            addStep("declaration", joinRules(joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment `, "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose "), "comments were read here (video ID), or leave sources out."));
           }
           const work = verifiedWork(sources, entry.answer_quote);
           const backed = basesOf(work).length > 0;
           if (entry.outcome !== "confirmed" && entry.answer_quote === undefined) {
-            addStep("declaration", `${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the ` +
-              "change from answer_draft.");
+            addStep("declaration", joinRules(rule`${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the `, "change from answer_draft."));
           } else if (entry.outcome !== "confirmed" && !backed) {
-            addStep("declaration", `${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give ` +
-              "in sources a study audited in full text here or a video whose comments were read here, or quote as " +
-              "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare.");
+            addStep("declaration", joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here or a video whose comments were read here, or quote as "), "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
           }
           found.set(number, {
             claim: entry.claim, outcome: entry.outcome,
@@ -3339,10 +3233,7 @@ export function finalizeResearch(
         }
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
-          addStep("declaration", `plain_answer_comparison leaves out ${left.length === 1 ? "claim" : "claims"} ` +
-            `${joinNames(left.map(String))} of the plain answer registered before this research, as ` +
-            "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
-            "corrected or qualified it, or did not check it.");
+          addStep("declaration", joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it."));
         } else {
           compared = registered.map((_, number) => found.get(number)!);
         }
@@ -3368,15 +3259,13 @@ export function finalizeResearch(
     for (const statement of carried?.retracted ?? []) {
       if (caveatHolding(statement, caveats) === undefined &&
           retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        addStep("carried_state", `The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
+        addStep("carried_state", rule`The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
       }
     }
     for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
       const caveat = caveatHolding(retracted, caveats);
       if (caveat !== undefined) {
-        addStep("declaration", `corrections[${index}] takes back words of the check's own caveat ${JSON.stringify(caveat)}, ` +
-          "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the " +
-          "wrong statement as your earlier answer put it, outside the caveat's words.");
+        addStep("declaration", joinRules(joinRules(rule`corrections[${index}] takes back words of the check's own caveat ${JSON.stringify(caveat)}, `, "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the "), "wrong statement as your earlier answer put it, outside the caveat's words."));
       }
     }
     // On a conversation's first turn the user has seen no answer yet, so a claim of the plain answer registered before
@@ -3385,15 +3274,13 @@ export function finalizeResearch(
     if (plainAnswer?.status === "registered" && firstTurn) {
       for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
         if (plainAnswer.claims.includes(plainAnswerClaimDigest(retracted))) {
-          addStep("declaration", `corrections[${index}] takes back a claim of the plain answer written before this ` +
-            "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records " +
-            "what the research changed.");
+          addStep("declaration", joinRules(joinRules(rule`corrections[${index}] takes back a claim of the plain answer written before this `, "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records "), "what the research changed."));
         }
       }
     }
     addStep("answer_draft", ...answerDraftProblems(draft, {
       videoIds: [...new Set([...discovered, ...auditedAtAll])],
-      protocolNames: options.protocolNames ?? new Set(),
+      protocolNames: new Set([...(options.protocolNames ?? [])].filter((name) => !(input.corrections ?? []).some(({ by_user, report, preventing_rule }) => by_user === true && report !== undefined && preventing_rule === name && options.protocolElements?.has(name)))),
       caveats,
       lanes,
       absenceQuotes: absenceClaims.map(({ quote }) => quote),
@@ -3442,8 +3329,8 @@ export function finalizeResearch(
   if (missingDeclaration) {
     const current = toolListVersionOrUndefined(options.toolListVersion);
     const declared = toolListVersionOrUndefined(input.tool_list_version);
-    if (current === undefined || declared === undefined) addStep("tool_list", TOOL_LIST_REFRESH_HINT);
-    else if (declared !== current) addStep("tool_list", toolListNotice(declared, current)!);
+    if (current === undefined || declared === undefined) addStep("tool_list", TOOL_LIST_REFRESH_RULE);
+    else if (declared !== current) addStep("tool_list", toolListNoticeRule(declared, current)!);
   }
 
   const secondReading = checkSecondReading(input, options.secondReading, stepSink(addStep, "second_reading"));
@@ -3529,8 +3416,7 @@ export function finalizeResearch(
         next_turn: checkRound.nextTurn.map(entry),
         short_reason: reasons === "" ? "the check stopped before it passed" : reasons
       };
-      const report = stoppedCheckBugReport(checkRound);
-      if (report !== undefined) output.bug_report = report;
+      Object.assign(output, stoppedReport(checkRound, options, input.receipts, offTarget.map(({ index }) => index), limitRules));
     }
   }
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
@@ -3580,7 +3466,8 @@ export function finalizeResearch(
       ...(findingsCard.status === "checked" && input.findings_card !== undefined
         ? {
             findings: findingsCardDigest(input.findings_card),
-            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) })
+            ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) }),
+            ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -3701,8 +3588,8 @@ function answerDraftProblems(
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
-): string[] {
-  const problems: string[] = [];
+): RuleInput[] {
+  const problems: RuleInput[] = [];
   // Links may carry IDs and underscores legitimately; the words around them may not.
   const prose = draft.replace(URL, " ");
   // What the answer must say is read from the prose a reader sees; what it must not show, from the whole draft.
@@ -3712,8 +3599,7 @@ function answerDraftProblems(
       [...text.matchAll(SNAKE_CASE_LABEL)].some(([caveatToken]) => caveatToken === token)));
   if (labels.length > 0) {
     problems.push(
-      `The answer shows internal labels (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? ", and more" : ""}): ` +
-        "say what each means in plain words, or leave it out."
+      joinRules(rule`The answer shows internal labels (${labels.slice(0, 8).join(", ")}${labels.length > 8 ? rule`, and more` : rule``}): `, "say what each means in plain words, or leave it out.")
     );
   }
   // Video IDs are letters, digits, "-" and "_", none of them special here.
@@ -3724,14 +3610,12 @@ function answerDraftProblems(
   ])].sort();
   if (bareIds.length > 0) {
     problems.push(
-      `The answer names video(s) by bare ID (${bareIds.slice(0, 10).join(", ")}` +
-        `${bareIds.length > 10 ? `, and ${bareIds.length - 10} more` : ""}): give each its linked title instead.`
+      joinRules(rule`The answer names video(s) by bare ID (${bareIds.slice(0, 10).join(", ")}`, rule`${bareIds.length > 10 ? rule`, and ${bareIds.length - 10} more` : rule``}): give each its linked title instead.`)
     );
   }
   if (PASTED_FORUM_TEMPLATE.test(draft)) {
     problems.push(
-      "The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to " +
-        "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\")."
+      joinRules("The answer pastes the full deep forum-audit prompt. Say what the deeper research would focus on and how to ", "start it, and offer the full prompt instead (\"Show me the full deeper-research prompt and help me fine-tune it\").")
     );
   }
   // Each lane researched reaches the answer, even when later sources dominate:
@@ -3746,9 +3630,7 @@ function answerDraftProblems(
     if (lane.quotes.length === 0) {
       context.missingDeclaration();
       problems.push(
-        `Give answer_quotes for ${lane.name} in ${lane.field}: for each finding, the sentence(s) of the answer that ` +
-          `report it, copied from answer_draft. The answer must report what ${lane.name} showed, even if the signal ` +
-          "is weak."
+        joinRules(joinRules(rule`Give answer_quotes for ${lane.name} in ${lane.field}: for each finding, the sentence(s) of the answer that `, rule`report it, copied from answer_draft. The answer must report what ${lane.name} showed, even if the signal `), "is weak.")
       );
       continue;
     }
@@ -3763,29 +3645,26 @@ function answerDraftProblems(
     }
     if (unshown.size > 0) {
       problems.push(
-        `For ${lane.name}, answer_quotes gives text the answer does not show (${[...unshown].join(", ")}): report ` +
-          "each finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item."
+        joinRules(rule`For ${lane.name}, answer_quotes gives text the answer does not show (${[...unshown].join(", ")}): report `, "each finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item.")
       );
     }
     if (lane.urls !== undefined && laneBlocks.size > 0) {
       const laneLinks = new Set([...laneBlocks].flatMap((index) =>
         [...linkTargets(shownBlocks[index]!).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
       if (!lane.urls.some((url) => laneLinks.has(comparableUrl(url)))) {
-        problems.push(`Link a thread you read from ${lane.name} in a paragraph that reports it, so a reader can check it.`);
+        problems.push(rule`Link a thread you read from ${lane.name} in a paragraph that reports it, so a reader can check it.`);
       }
     }
   }
   const unshownAbsence = context.absenceQuotes.flatMap((quote, index) => showing(quote).length === 0 ? [index] : []);
   if (unshownAbsence.length > 0) {
     problems.push(
-      `${unshownAbsence.map((index) => `absence_claims[${index}]`).join(", ")} ${unshownAbsence.length === 1 ? "gives" : "give"} ` +
-        "text the answer does not show: copy each sentence exactly from answer_draft."
+      joinRules(rule`${unshownAbsence.map((index) => `absence_claims[${index}]`).join(", ")} ${unshownAbsence.length === 1 ? rule`gives` : rule`give`} `, "text the answer does not show: copy each sentence exactly from answer_draft.")
     );
   }
   for (const [index, quote] of context.labPreparationQuotes.entries()) {
     if (showing(quote).length === 0) {
-      problems.push(`lab_preparation.answer_quotes[${index}] gives text the answer does not show: ` +
-        "the quote does not occur in answer_draft.");
+      problems.push(joinRules(rule`lab_preparation.answer_quotes[${index}] gives text the answer does not show: `, "the quote does not occur in answer_draft."));
     }
   }
   // As with absence_claims, undeclared results are invisible to this gate.
@@ -3794,23 +3673,23 @@ function answerDraftProblems(
   for (const [index, result] of context.scaleResults.entries()) {
     const at = `scale_results[${index}]`;
     if (showing(result.quote).length === 0) {
-      problems.push(`${at} gives text the answer does not show: the quote does not occur in answer_draft.`);
+      problems.push(rule`${at} gives text the answer does not show: the quote does not occur in answer_draft.`);
     }
     if (!result.quote.includes(result.scale)) {
-      problems.push(`${at} quotes no scale name: the quote does not contain the declared scale name.`);
+      problems.push(rule`${at} quotes no scale name: the quote does not contain the declared scale name.`);
     }
     const numbers = extractUnsignedNumbers(result.quote);
     const missing = (values: readonly number[]) => values.filter((value) => !includesAbsoluteNumber(numbers, value));
     const missingRange = missing([result.range.min, result.range.max]);
     if (missingRange.length > 0) {
-      problems.push(`${at} quotes no range: the quote does not contain ${missingRange.join(" and ")}.`);
+      problems.push(rule`${at} quotes no range: the quote does not contain ${missingRange.join(" and ")}.`);
     }
     const missingValues = missing(result.values);
     if (missingValues.length > 0) {
-      problems.push(`${at} quotes no declared values: the quote does not contain ${missingValues.join(" and ")}.`);
+      problems.push(rule`${at} quotes no declared values: the quote does not contain ${missingValues.join(" and ")}.`);
     }
     if (result.benchmark !== "none_established" && !includesAbsoluteNumber(numbers, result.benchmark.value)) {
-      problems.push(`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
+      problems.push(rule`${at} quotes no benchmark: the quote does not contain ${result.benchmark.value}.`);
     }
   }
   // Yes-or-no results (AskRigor#356; finalizeResearch checks their arithmetic): the quote shows each group's figure
@@ -3822,23 +3701,19 @@ function answerDraftProblems(
     const at = `binary_results[${index}]`;
     const shown = figureShown(result, result.quote);
     for (const { name, events, total, rate } of shown.groupsNotShown) {
-      problems.push(`${at} quotes no figure for ${name}: the quote contains neither its events and total ` +
-        `(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
+      problems.push(joinRules(rule`${at} quotes no figure for ${name}: the quote contains neither its events and total `, rule`(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`));
     }
     for (const field of shown.numbersNeededNotShown) {
-      problems.push(`${at} quotes no number needed to ${field === "nnt" ? "treat" : "harm"}: the quote does not ` +
-        `contain ${result[field]}.`);
+      problems.push(joinRules(rule`${at} quotes no number needed to ${field === "nnt" ? rule`treat` : rule`harm`}: the quote does not `, rule`contain ${result[field]}.`));
     }
     if ((result.nnt !== undefined || result.nnh !== undefined) && !shown.followUpShown) {
-      problems.push(`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain ` +
-        "the declared follow-up.");
+      problems.push(joinRules(rule`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain `, "the declared follow-up."));
     }
   }
   const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
   if (unshownDeclared.length > 0) {
     problems.push(
-      `${unshownDeclared.join(", ")} ${unshownDeclared.length === 1 ? "gives" : "give"} text the answer does not show: ` +
-        "copy each sentence exactly from answer_draft."
+      joinRules(rule`${unshownDeclared.join(", ")} ${unshownDeclared.length === 1 ? rule`gives` : rule`give`} text the answer does not show: `, "copy each sentence exactly from answer_draft.")
     );
   }
   // A corrected statement is gone from the whole answer, its headings, tables
@@ -3848,8 +3723,7 @@ function answerDraftProblems(
   if (context.corrections.length > 0) {
     for (const [index, { retracted, change }] of context.corrections.entries()) {
       if (retractedStatementShown(draft, retracted, [change])) {
-        problems.push(`corrections[${index}]'s wrong statement still appears in the answer outside its change ` +
-          "sentence: correct it everywhere, including headings, tables and summaries.");
+        problems.push(joinRules(rule`corrections[${index}]'s wrong statement still appears in the answer outside its change `, "sentence: correct it everywhere, including headings, tables and summaries."));
       }
     }
   }
@@ -3873,15 +3747,13 @@ function answerDraftProblems(
       const explanationForm = quoteForm(explanation.replace(MARKDOWN_LINK_TEXT, "$1"), fold);
       const start = explanationForm === "" ? -1 : shownText.indexOf(explanationForm);
       if (start < 0) {
-        problems.push(`${at} gives an explanation the answer does not show: copy the sentence exactly from answer_draft.`);
+        problems.push(rule`${at} gives an explanation the answer does not show: copy the sentence exactly from answer_draft.`);
       } else if (termOccurrences(explanationForm, termForm).length === 0) {
-        problems.push(`${at}'s explanation does not contain its term "${term}": give the sentence that explains it ` +
-          "where the answer uses it.");
+        problems.push(joinRules(rule`${at}'s explanation does not contain its term "${term}": give the sentence that explains it `, "where the answer uses it."));
       } else {
         const first = termOccurrences(shownText, termForm)[0]!;
         if (first < start || first >= start + explanationForm.length) {
-          problems.push(`The answer uses "${term}" before ${at}'s explanation: explain it in plain words where the ` +
-            "answer first uses it.");
+          problems.push(joinRules(rule`The answer uses "${term}" before ${at}'s explanation: explain it in plain words where the `, "answer first uses it."));
         }
       }
     }
@@ -3897,8 +3769,7 @@ function answerDraftProblems(
   if (context.renderings.length > 0 && !translated) {
     if (context.answerLanguage === undefined) context.missingDeclaration();
     problems.push(
-      "caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or " +
-        "state each caveat as written."
+      joinRules("caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or ", "state each caveat as written.")
     );
   }
   const renderingOf = new Map(translated
@@ -3914,12 +3785,10 @@ function answerDraftProblems(
     return [caveat, ...(rendering === undefined ? [] : [rendering])].filter(insideDetails);
   });
   if (hiddenCaveats.length > 0) {
-    problems.push("Move these caveat sentences out of the <details> block so they are visible without expanding it: " +
-      [...new Set(hiddenCaveats)].map((sentence) => JSON.stringify(sentence)).join(" "));
+    problems.push(joinRules("Move these caveat sentences out of the <details> block so they are visible without expanding it: ", rule`${[...new Set(hiddenCaveats)].map((sentence) => JSON.stringify(sentence)).join(" ")}`));
   }
   if ([CHECK_LINE, LIMITED_CHECK_LINE, UNCHECKED_LINE_START].some(insideDetails)) {
-    problems.push("Move the check line or unchecked line out of the <details> block so its full sentence is visible " +
-      "without expanding it.");
+    problems.push(joinRules("Move the check line or unchecked line out of the <details> block so its full sentence is visible ", "without expanding it."));
   }
   const unlinked: string[] = [];
   const missingCaveats = context.caveats.filter((caveat) => {
@@ -3935,16 +3804,12 @@ function answerDraftProblems(
   });
   if (unlinked.length > 0) {
     problems.push(
-      `caveat_renderings drops the link(s) of ${unlinked.length === 1 ? "this caveat" : "these caveats"}; keep each ` +
-        `link: ${unlinked.map((caveat) => `"${caveat}"`).join(" ")}`
+      joinRules(rule`caveat_renderings drops the link(s) of ${unlinked.length === 1 ? rule`this caveat` : rule`these caveats`}; keep each `, rule`link: ${unlinked.map((caveat) => `"${caveat}"`).join(" ")}`)
     );
   }
   if (missingCaveats.length > 0) {
     problems.push(
-      `The answer leaves out ${missingCaveats.length === 1 ? "this caveat" : "these caveats"}; include each as its ` +
-        "own sentence, as written (a link's text may change), or, in an answer not in English, in the answer's " +
-        "language with the same links, given in caveat_renderings: " +
-        missingCaveats.map((caveat) => `"${caveat}"`).join(" ")
+      joinRules(joinRules(joinRules(rule`The answer leaves out ${missingCaveats.length === 1 ? rule`this caveat` : rule`these caveats`}; include each as its `, "own sentence, as written (a link's text may change), or, in an answer not in English, in the answer's "), "language with the same links, given in caveat_renderings: "), rule`${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`)
     );
   }
   return problems;
@@ -3995,7 +3860,7 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
 function checkSecondReading(input: FinalizeResearchInput | undefined, reading: FinalizeResearchOptions["secondReading"],
-  nextSteps: Pick<string[], "push">): FinalizeResearchOutput["second_reading"] {
+  nextSteps: Pick<RuleInput[], "push">): FinalizeResearchOutput["second_reading"] {
   if (reading === undefined) return undefined;
   if (reading.status === "skipped") return { status: "skipped", reason: reading.reason, findings: 0, open: 0, dismissed: 0 };
   const labels = {
@@ -4021,7 +3886,7 @@ function checkSecondReading(input: FinalizeResearchInput | undefined, reading: F
         text.length > 0 && (text.includes(normalized[i]!) || normalized[i]!.includes(text))));
     if (covered) continue;
     open += 1;
-    nextSteps.push(`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
+    nextSteps.push(rule`A second reading found a sentence that looks like ${labels[kind]} not in the declarations: ${JSON.stringify(quote)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`);
   }
   return { status: "ran", findings: findings.length, open, dismissed };
 }
@@ -4081,29 +3946,27 @@ function findingsCardCheck(
     absenceStates: (quote: string) => readonly string[];
   }
 ): FindingsCardCheck {
-  const problems: string[] = [];
+  const problems: RuleInput[] = [];
   card.findings.forEach((finding, index) => {
     const at = `findings_card.findings[${index}]`;
     if (!context.shown(finding.answer_quote)) {
       problems.push(
-        `${at}.answer_quote gives text the answer does not show: copy the sentence that states this finding exactly ` +
-          "from answer_draft, from one paragraph or list item."
+        joinRules(rule`${at}.answer_quote gives text the answer does not show: copy the sentence that states this finding exactly `, "from answer_draft, from one paragraph or list item.")
       );
     }
     const unverified = finding.sources.filter((source) => !context.verified(source));
     if (unverified.length > 0) {
       problems.push(
-        `${at}.sources lists ${unverified.join(", ")}, which this call did not verify: cite key sources validated or ` +
-          "read as leads here, by DOI, PMID or PMCID, and videos audited here, by video ID."
+        joinRules(rule`${at}.sources lists ${unverified.join(", ")}, which this call did not verify: cite key sources validated or `, "read as leads here, by DOI, PMID or PMCID, and videos audited here, by video ID.")
       );
     }
     if (finding.tags.includes("full_text_read") && !finding.sources.some(context.studyAudited)) {
-      problems.push(`${at} is tagged full_text_read, but none of its sources was read with a full-text method audit here.`);
+      problems.push(rule`${at} is tagged full_text_read, but none of its sources was read with a full-text method audit here.`);
     }
     if (finding.tags.includes("community_checked") && !finding.sources.some(context.videoAudited)) {
-      problems.push(`${at} is tagged community_checked, but none of its sources is a video whose comments were audited here.`);
+      problems.push(rule`${at} is tagged community_checked, but none of its sources is a video whose comments were audited here.`);
     }
-    if (new Set(finding.tags).size < finding.tags.length) problems.push(`${at}.tags lists a tag more than once.`);
+    if (new Set(finding.tags).size < finding.tags.length) problems.push(rule`${at}.tags lists a tag more than once.`);
   });
   // Owner answer 156a (2026-10-22): only the declaration's presence and its fields are checked, exactly; whether the
   // findings would help other people stays the model's judgment, by the test the field describes. A card without it,
@@ -4112,18 +3975,14 @@ function findingsCardCheck(
   const declared = card.public_value;
   if (declared === undefined) {
     problems.push(
-      "findings_card.public_value is missing: say whether these findings would help other people, as " +
-        '{"scope":"public","who_else":"…","what_it_changes":"…"}, or only this person, as {"scope":"personal_only"}. ' +
-        "Without it the card is not saved or offered."
+      joinRules(joinRules("findings_card.public_value is missing: say whether these findings would help other people, as ", '{"scope":"public","who_else":"…","what_it_changes":"…"}, or only this person, as {"scope":"personal_only"}. '), "Without it the card is not saved or offered.")
     );
   } else if (declared.scope === "public") {
     if (declared.who_else === undefined) {
-      problems.push("findings_card.public_value.who_else is missing: with scope public, say who else faces these " +
-        "findings, in general terms.");
+      problems.push(joinRules("findings_card.public_value.who_else is missing: with scope public, say who else faces these ", "findings, in general terms."));
     }
     if (declared.what_it_changes === undefined) {
-      problems.push("findings_card.public_value.what_it_changes is missing: with scope public, say what these findings " +
-        "could change in what those people do or believe.");
+      problems.push(joinRules("findings_card.public_value.what_it_changes is missing: with scope public, say what these findings ", "could change in what those people do or believe."));
     }
   }
   // Atlas phase 3: the fields the pages need, required on a public card; a card without them, as from an app whose
@@ -4138,12 +3997,10 @@ function findingsCardCheck(
   for (const { field, reasonCode } of screenFindingsCard(card)) {
     if (reasonCode === "not_a_source_identifier") continue;
     problems.push(
-      `findings_card.${field} looks like it holds ${FINDINGS_PRIVACY_PROBLEMS[reasonCode]}: rewrite it in general ` +
-        "terms. The check is automatic and reads English, so if a numeral or an abbreviation tripped it, word that " +
-        "differently (for answer_quote, in the answer too)."
+      joinRules(joinRules(rule`findings_card.${field} looks like it holds ${FINDINGS_PRIVACY_PROBLEMS[reasonCode]}: rewrite it in general `, "terms. The check is automatic and reads English, so if a numeral or an abbreviation tripped it, word that "), "differently (for answer_quote, in the answer too).")
     );
   }
-  return problems.length === 0 ? { status: "checked", problems: [] } : { status: "rejected", problems };
+  return problems.length === 0 ? { status: "checked", problems: [] } : { status: "rejected", problems: problems.map(ruleText) };
 }
 
 /** A plain answer's claim with what the research found and, for a change, what backs it. */
@@ -4763,17 +4620,15 @@ function communitySearched(searched: ReadonlyMap<string, string>, name: string, 
 
 /** The declared buyer-review lane cannot be omitted behind forum or YouTube coverage. */
 interface DeclarationSteps {
-  addStep: (kind: NextStepKind, ...steps: string[]) => void;
-  requireDeclaration: (step: string) => void;
+  addStep: (kind: NextStepKind, ...steps: RuleInput[]) => void;
+  requireDeclaration: (step: RuleInput) => void;
 }
 
 function commercialReviewCoverage(input: FinalizeResearchInput, out: DeclarationSteps): void {
   const applicability = input.commercial_review_applicability;
   if (applicability === undefined) {
     out.requireDeclaration(
-      "State in commercial_review_applicability whether the question concerns a product or service people buy " +
-        "(a supplement, consumer health product, device, app, formulation, or health service). If it does, map " +
-        "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping)."
+      joinRules(joinRules("State in commercial_review_applicability whether the question concerns a product or service people buy ", "(a supplement, consumer health product, device, app, formulation, or health service). If it does, map "), "where its buyers review it and read those reviews as a community lane of their own (HRP PrincipalPlatformMapping).")
     );
     return;
   }
@@ -4782,31 +4637,25 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: Declaration
   if (applicability.status === "not_applicable") {
     if (applicability.reason === undefined) {
       out.requireDeclaration(
-        "Give reason in commercial_review_applicability when status is not_applicable: why no product or service " +
-          "people buy is involved."
+        joinRules("Give reason in commercial_review_applicability when status is not_applicable: why no product or service ", "people buy is involved.")
       );
     }
     if (sites.length > 0 || searches.length > 0) {
       out.addStep("declaration", 
-        "commercial_review_applicability is not_applicable, but principal_communities or community_searches lists " +
-          "platform review_site: change the declaration or the review-site entry so they agree."
+        joinRules("commercial_review_applicability is not_applicable, but principal_communities or community_searches lists ", "platform review_site: change the declaration or the review-site entry so they agree.")
       );
     }
     return;
   }
   if (applicability.products === undefined) {
     out.requireDeclaration(
-      "Give products in commercial_review_applicability when status is required: the products or services " +
-        "concerned, each exact product and variant when the user named one; for an ingredient, the product forms " +
-        "people buy."
+      joinRules(joinRules("Give products in commercial_review_applicability when status is required: the products or services ", "concerned, each exact product and variant when the user named one; for an ingredient, the product forms "), "people buy.")
     );
     return;
   }
   if (sites.length === 0) {
     out.requireDeclaration(
-      `Map where buyers review ${applicability.products.join(", ")} in principal_communities as platform ` +
-        "review_site, the main one in the user's country and language first; no single retailer is required. " +
-        "A forum, Reddit or YouTube does not stand in for buyer reviews (HRP PrincipalPlatformMapping)."
+      joinRules(joinRules(rule`Map where buyers review ${applicability.products.join(", ")} in principal_communities as platform `, "review_site, the main one in the user's country and language first; no single retailer is required. "), "A forum, Reddit or YouTube does not stand in for buyer reviews (HRP PrincipalPlatformMapping).")
     );
     return;
   }
@@ -4817,9 +4666,7 @@ function commercialReviewCoverage(input: FinalizeResearchInput, out: Declaration
   if ([...mapped.keys()].some((key) => searched.has(key))) return;
   for (const name of mapped.values()) {
     out.requireDeclaration(
-      `Search ${name} and record it in community_searches under platform review_site: the reviews read, with ` +
-        "review_corpora (each product, the reviews shown and read, and how they were chosen), or the access_boundary " +
-        "that stopped the search."
+      joinRules(joinRules(rule`Search ${name} and record it in community_searches under platform review_site: the reviews read, with `, "review_corpora (each product, the reviews shown and read, and how they were chosen), or the access_boundary "), "that stopped the search.")
     );
   }
   // communityCoverage checks matching searches' threads, corpora and access boundaries,
@@ -4831,19 +4678,19 @@ function productIdentityDeclarations(
   input: FinalizeResearchInput,
   rounds: readonly VerifiedReceipt[],
   verified: readonly VerifiedReceipt[],
-  out: DeclarationSteps & { requireLimit: (limit: string, ...caveats: string[]) => void; mustReport: string[] }
+  out: DeclarationSteps & { requireLimit: (limit: RuleInput, ...caveats: string[]) => void; mustReport: string[] }
 ): void {
   const applicability = input.commercial_review_applicability;
   if (applicability?.status === "required" && input.community_findings !== undefined) {
     const corpora = input.community_findings.product_corpora;
     if (corpora === undefined) {
-      out.requireDeclaration("Give community_findings.product_corpora: one entry per listed product, its admitted video_ids and exact_product_signal, with variant_unresolved_signal when present.");
+      out.requireDeclaration(rule`Give community_findings.product_corpora: one entry per listed product, its admitted video_ids and exact_product_signal, with variant_unresolved_signal when present.`);
     } else {
       const products = applicability.products ?? [];
       const labels = corpora.map(({ product }) => normalizeProductName(product));
       if (labels.length !== products.length || new Set(labels).size !== labels.length ||
           products.some((product) => !labels.includes(normalizeProductName(product)))) {
-        out.addStep("declaration", "community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.");
+        out.addStep("declaration", rule`community_findings.product_corpora needs exactly one entry for each commercial_review_applicability product, with the same product label.`);
       }
       const receipts = [...rounds.filter(({ kind }) => kind === "youtube_community_audit"),
         ...verified.filter(({ kind }) => kind === "youtube_video_audit")];
@@ -4856,10 +4703,10 @@ function productIdentityDeclarations(
             (list(claims.videos).includes(video) || text(claims.video) === video);
         }));
         if (uncovered.length > 0) {
-          out.addStep("research", `The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
+          out.addStep("research", rule`The product corpus for ${corpus.product} lists ${uncovered.join(", ")} without a comment-audit receipt for that product that admitted those videos; rerun audit_youtube_video_community for that product or remove them from the corpus.`);
         }
         const unreviewed = corpus.video_ids.filter((video) => !input.community_findings!.videos_reviewed.includes(video));
-        if (unreviewed.length > 0) out.addStep("declaration", `The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
+        if (unreviewed.length > 0) out.addStep("declaration", rule`The product corpus for ${corpus.product} lists ${unreviewed.join(", ")} outside community_findings.videos_reviewed; make the declarations agree.`);
         out.mustReport.push(`${corpus.product}: Exact product signal: ${corpus.exact_product_signal}` +
           (corpus.variant_unresolved_signal === undefined ? "" : ` Variant unresolved signal: ${corpus.variant_unresolved_signal}`));
       }
@@ -4869,18 +4716,18 @@ function productIdentityDeclarations(
     for (const corpus of search.review_corpora ?? []) {
       const counts = corpus.item_identity;
       if (counts === undefined) {
-        out.requireDeclaration(`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
+        out.requireDeclaration(rule`Give item_identity for ${corpus.product} in ${search.community}: exact_product, variant_unresolved and other_variant_excluded counts, adding up to reviews_read.`);
       } else if (counts.exact_product + counts.variant_unresolved + counts.other_variant_excluded !== corpus.reviews_read) {
-        out.addStep("declaration", `item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
+        out.addStep("declaration", rule`item_identity for ${corpus.product} in ${search.community} does not add up to reviews_read; count every review in exactly one identity class.`);
       } else {
         out.mustReport.push(`${search.community}, ${corpus.product}: ${counts.exact_product} exact-product review(s), ${counts.variant_unresolved} variant-unresolved review(s), ${counts.other_variant_excluded} other-variant review(s) excluded.`);
       }
       const outcomeSearch = corpus.outcome_search;
       const boundary = corpus.outcome_search_boundary;
       if (outcomeSearch === undefined && boundary === undefined) {
-        out.requireDeclaration(`Give outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}: the searches run within the review text for the outcome and their directions, or why that search could not run.`);
+        out.requireDeclaration(rule`Give outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}: the searches run within the review text for the outcome and their directions, or why that search could not run.`);
       } else if (outcomeSearch !== undefined && boundary !== undefined) {
-        out.addStep("declaration", `Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
+        out.addStep("declaration", rule`Give exactly one of outcome_search or outcome_search_boundary for ${corpus.product} in ${search.community}, so the declarations agree.`);
       }
       if (outcomeSearch !== undefined) {
         const directions = outcomeSearch.directions;
@@ -4890,15 +4737,15 @@ function productIdentityDeclarations(
           ...(directions.includes("worse") || directions.includes("adverse") ? [] : ["worse or adverse"])
         ];
         if (missing.length > 0) {
-          out.addStep("research", `outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
+          out.addStep("research", rule`outcome_search.directions for ${corpus.product} in ${search.community} is missing ${missing.join(", ")}; record searches for each missing direction.`);
         }
         // The community's own caveat already says AskRigor could not verify its searches; no second limit here.
       }
       if (boundary !== undefined || (outcomeSearch === undefined && PARTIAL_REVIEW_SELECTIONS.has(corpus.selection))) {
-        const preview = "The reviews on this site could not be searched for the outcome, so the " +
-          `${corpus.reviews_read} read are a preview, not a measure of how often it helps or harms. ` +
-          `${completedCaveat("Product:", corpus.product)} ${completedCaveat("Site:", search.community)}`;
-        out.requireLimit(preview, preview);
+        const preview = joinRules("The reviews on this site could not be searched for the outcome, so the ",
+          rule`${corpus.reviews_read} read are a preview, not a measure of how often it helps or harms. `,
+          rule`${completedCaveat("Product:", corpus.product)} ${completedCaveat("Site:", search.community)}`);
+        out.requireLimit(preview, ruleText(preview));
       }
       out.mustReport.push(`${search.community}, ${corpus.product}: ` +
         (corpus.ratings_shown === undefined ? "" : `${corpus.ratings_shown} star ratings shown; `) +
@@ -4911,59 +4758,59 @@ function productIdentityDeclarations(
   const intervention = input.intervention_identity;
   // Every answer resting on key studies says what each study actually tested (owner question 47).
   if (input.key_sources.length > 0 && intervention === undefined) {
-    out.requireDeclaration("Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded, branded, combination or multi-ingredient interventions (including co-administered drugs) and their whole-intervention identities.");
+    out.requireDeclaration(rule`Give intervention_identity for the key studies: not_applicable with a reason, or checked with the coded, branded, combination or multi-ingredient interventions (including co-administered drugs) and their whole-intervention identities.`);
   }
   if (intervention?.status === "not_applicable") {
-    if (intervention.reason === undefined) out.requireDeclaration("Give a reason for intervention_identity not_applicable.");
-    if (intervention.interventions !== undefined) out.addStep("declaration", "intervention_identity not_applicable cannot list interventions; make the declaration agree.");
+    if (intervention.reason === undefined) out.requireDeclaration(rule`Give a reason for intervention_identity not_applicable.`);
+    if (intervention.interventions !== undefined) out.addStep("declaration", rule`intervention_identity not_applicable cannot list interventions; make the declaration agree.`);
   } else if (intervention?.status === "checked") {
-    if (intervention.interventions === undefined) out.requireDeclaration("Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.");
+    if (intervention.interventions === undefined) out.requireDeclaration(rule`Give interventions for intervention_identity checked, with study_ids, label and resolved or unresolved status.`);
     const sources = new Set(input.key_sources.map(({ id }) => normalizeIdentifier(id)));
     for (const entry of intervention.interventions ?? []) {
       if (entry.study_ids.some((id) => !sources.has(normalizeIdentifier(id)))) {
-        out.addStep("declaration", `intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
+        out.addStep("declaration", rule`intervention_identity for ${entry.label} lists study_ids outside key_sources; make the source declarations agree.`);
       }
       if (entry.status === "resolved" && entry.identity === undefined) {
-        out.requireDeclaration(`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
+        out.requireDeclaration(rule`Give the resolved identity for ${entry.label}: registry_code, sponsor_or_maker and current_product.`);
       } else if (entry.status === "unresolved") {
-        if (entry.identity !== undefined) out.addStep("declaration", `The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
-        out.requireLimit(`The intervention ${entry.label} has not been traced to a current product.`,
+        if (entry.identity !== undefined) out.addStep("declaration", rule`The unresolved intervention ${entry.label} cannot also declare a resolved identity.`);
+        out.requireLimit(rule`The intervention ${entry.label} has not been traced to a current product.`,
           `${completedCaveat("Tested in a key study but not traced to a current product:", entry.label)} This answer does not present it as something to buy.`);
       }
     }
   }
   const shopping = input.shopping;
   if (applicability?.status === "required" && shopping === undefined) {
-    out.requireDeclaration("Give shopping: not_requested with no offers, buy_options for a destination, or no_live_option_found after at least three distinct international routes.");
+    out.requireDeclaration(rule`Give shopping: not_requested with no offers, buy_options for a destination, or no_live_option_found after at least three distinct international routes.`);
   }
   if (shopping === undefined) return;
   if (shopping.status === "not_requested") {
-    if ((shopping.offers?.length ?? 0) > 0) out.addStep("declaration", "shopping not_requested cannot list offers.");
+    if ((shopping.offers?.length ?? 0) > 0) out.addStep("declaration", rule`shopping not_requested cannot list offers.`);
     return;
   }
-  if (shopping.destination === undefined) out.requireDeclaration("Give the destination for shopping buy_options or no_live_option_found.");
+  if (shopping.destination === undefined) out.requireDeclaration(rule`Give the destination for shopping buy_options or no_live_option_found.`);
   const offers = shopping.offers ?? [];
   if (shopping.status === "buy_options" && !offers.some(({ role }) => role === "buy_option")) {
-    out.requireDeclaration("shopping buy_options needs at least one buy_option offer.");
+    out.requireDeclaration(rule`shopping buy_options needs at least one buy_option offer.`);
   }
   const links = new Set(input.answer_draft === undefined ? [] : displayedProse(input.answer_draft)
     .flatMap((block) => [...linkTargets(block).matchAll(LINKED_URL)].map(([url]) => comparableUrl(url))));
   for (const offer of offers) {
     if (offer.role !== "buy_option") continue;
     if (offer.offer_state !== "live_destination_orderable") {
-      out.addStep("declaration", `The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
+      out.addStep("declaration", rule`The buy option for ${offer.product} is ${offer.offer_state}; a buy_option for ${shopping.destination ?? "the destination"} must be live_destination_orderable.`);
     }
     if (input.answer_draft !== undefined && !links.has(comparableUrl(offer.url))) {
-      out.addStep("answer_draft", `The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
+      out.addStep("answer_draft", rule`The buy option for ${offer.product} is missing from answer_draft; include its link ${offer.url}.`);
     }
   }
   if (shopping.status === "no_live_option_found") {
-    if (offers.some(({ role }) => role === "buy_option")) out.addStep("declaration", "shopping no_live_option_found cannot list buy options.");
+    if (offers.some(({ role }) => role === "buy_option")) out.addStep("declaration", rule`shopping no_live_option_found cannot list buy options.`);
     if (new Set(shopping.routes_searched ?? []).size < 3) {
-      out.requireDeclaration("shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.");
+      out.requireDeclaration(rule`shopping no_live_option_found needs at least three distinct routes_searched: international_storefronts, marketplaces, exporters, specialist_sellers or secondary_marketplaces.`);
     }
     if (shopping.destination !== undefined) {
-      for (const product of applicability?.products ?? []) out.requireLimit(`No live destination offer was found for ${product}.`,
+      for (const product of applicability?.products ?? []) out.requireLimit(rule`No live destination offer was found for ${product}.`,
         `${completedCaveat("No seller with a live offer was found for this product:", product)} ` +
           completedCaveat("Destination:", shopping.destination));
     }
@@ -5059,7 +4906,7 @@ function comparableDoses(
 function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
-  out: DeclarationSteps & { requireLimit: (text: string, ...sentences: string[]) => void; lanes: string[] },
+  out: DeclarationSteps & { requireLimit: (text: RuleInput, ...sentences: string[]) => void; lanes: string[] },
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
@@ -5069,10 +4916,7 @@ function communityCoverage(
   const threadOwners = new Map<string, string>();
   if (communities === undefined) {
     out.requireDeclaration(
-      "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
-        "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
-        "least one independent one: YouTube with its tools, the others with your own web search, recorded in " +
-        "community_searches."
+      joinRules(joinRules(joinRules("Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, ", "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at "), "least one independent one: YouTube with its tools, the others with your own web search, recorded in "), "community_searches.")
     );
     return { searched: [], read: [], unverified: 0 };
   }
@@ -5091,33 +4935,27 @@ function communityCoverage(
     const name = search.community;
     if (search.platform === "review_site" && search.report_identity !== undefined) {
       out.addStep("declaration", 
-        `community_searches for ${name} gives report_identity, which is for threads outside review sites: review sites use review_corpora.`
+        rule`community_searches for ${name} gives report_identity, which is for threads outside review sites: review sites use review_corpora.`
       );
     }
     // Thread links and the community's own address are checked alike.
     const links = [...search.threads_read.map(({ url }) => url), ...(search.url === undefined ? [] : [search.url])];
     const hosts = links.map(hostOf);
     if (hosts.some((host) => YOUTUBE_HOST.test(host))) {
-      out.addStep("declaration", `community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
+      out.addStep("declaration", rule`community_searches for ${name} lists YouTube links; research YouTube with its own tools.`);
       continue;
     }
     // A platform with its own hosts links only there, and its hosts' links belong to it.
     const own = PLATFORM_HOSTS[search.platform];
     if (own !== undefined && hosts.some((host) => !own.host.test(host))) {
-      out.addStep("declaration", search.platform === "reddit"
-        ? `community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.`
-        : `community_searches for ${name} is on ${own.label} but lists links elsewhere; give the ${own.label} links ` +
-          "of the community and the posts you read.");
+      out.addStep("declaration", search.platform === "reddit" ? rule`community_searches for ${name} is on Reddit but lists links elsewhere; list the Reddit threads you read.` : joinRules(rule`community_searches for ${name} is on ${own.label} but lists links elsewhere; give the ${own.label} links `, "of the community and the posts you read."));
       continue;
     }
     const foreign = Object.entries(PLATFORM_HOSTS)
       .find(([platform, { host }]) => platform !== search.platform && hosts.some((link) => host.test(link)));
     if (foreign !== undefined) {
       const [platform, { label }] = foreign;
-      out.addStep("declaration", platform === "reddit"
-        ? `community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit ` +
-          "they are in."
-        : `community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
+      out.addStep("declaration", platform === "reddit" ? joinRules(rule`community_searches for ${name} lists Reddit links; record them under platform reddit, as the subreddit `, "they are in.") : rule`community_searches for ${name} lists ${label} links; record them under platform ${platform}.`);
       continue;
     }
     // There, a community is a group, a channel or a server, not any page of the platform.
@@ -5125,24 +4963,23 @@ function communityCoverage(
     const communityStep = COMMUNITY_LINK_STEPS[search.platform];
     if (communityStep !== undefined && (search.threads_read.some(({ url }) => community(url, true) === undefined) ||
       (search.url !== undefined && community(search.url, false) === undefined))) {
-      out.addStep("declaration", `community_searches for ${name} ${communityStep}`);
+      out.addStep("declaration", rule`community_searches for ${name} ${communityStep}`);
       continue;
     }
     // A subreddit is one community: its entry names it, and its threads are in it.
     if (search.platform === "reddit") {
       const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
       if (subreddit === undefined) {
-        out.addStep("declaration", `Name the Reddit community ${name} by its subreddit, as r/<name>.`);
+        out.addStep("declaration", rule`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
         continue;
       }
       if (search.url !== undefined && subredditHomeOf(search.url) !== subreddit) {
-        out.addStep("declaration", `community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
+        out.addStep("declaration", rule`community_searches for ${name} gives a url outside r/${subreddit}; give the subreddit's own link.`);
         continue;
       }
       if (search.threads_read.some(({ url }) => subredditOf(url) !== subreddit)) {
         out.addStep("declaration", 
-          `community_searches for ${name} lists links that are not threads in r/${subreddit}: list each thread you ` +
-            `read by its full link (reddit.com/r/${subreddit}/comments/…), under its own subreddit's entry.`
+          joinRules(rule`community_searches for ${name} lists links that are not threads in r/${subreddit}: list each thread you `, rule`read by its full link (reddit.com/r/${subreddit}/comments/…), under its own subreddit's entry.`)
         );
         continue;
       }
@@ -5161,20 +4998,17 @@ function communityCoverage(
         if (absent.length > 0 || elsewhere.length > 0 || retitled.length > 0) {
           if (absent.length > 0) {
             out.addStep("declaration", 
-              `community_searches for ${name} lists thread(s) Reddit does not have (${absent.join(", ")}): list only ` +
-                "threads you read, by the links you read them at."
+              joinRules(rule`community_searches for ${name} lists thread(s) Reddit does not have (${absent.join(", ")}): list only `, "threads you read, by the links you read them at.")
             );
           }
           if (elsewhere.length > 0) {
             out.addStep("declaration", 
-              `community_searches for ${name} lists thread(s) that Reddit files under another subreddit ` +
-                `(${elsewhere.join(", ")}): list each thread under its own subreddit's entry.`
+              joinRules(rule`community_searches for ${name} lists thread(s) that Reddit files under another subreddit `, rule`(${elsewhere.join(", ")}): list each thread under its own subreddit's entry.`)
             );
           }
           if (retitled.length > 0) {
             out.addStep("declaration", 
-              `community_searches for ${name} gives thread title(s) that differ from Reddit's (${retitled.join("; ")}): ` +
-                "check that each link is the thread you read, and give its title exactly as Reddit shows it."
+              joinRules(rule`community_searches for ${name} gives thread title(s) that differ from Reddit's (${retitled.join("; ")}): `, "check that each link is the thread you read, and give its title exactly as Reddit shows it.")
             );
           }
           continue;
@@ -5186,23 +5020,20 @@ function communityCoverage(
       .filter((thread) => (threadOwners.get(thread) ?? key) !== key);
     if (shared.length > 0) {
       out.addStep("declaration", 
-        `community_searches for ${name} lists a thread already listed for another community; list each thread under ` +
-          "the one community it belongs to."
+        joinRules(rule`community_searches for ${name} lists a thread already listed for another community; list each thread under `, "the one community it belongs to.")
       );
       continue;
     }
     for (const { url } of search.threads_read) threadOwners.set(comparableUrl(url), key);
     if (search.threads_read.length === 0 && search.access_boundary === undefined) {
       out.requireDeclaration(
-        `community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary ` +
-          "that stopped the search."
+        joinRules(rule`community_searches for ${name} lists no thread read: add the threads you read, or the access_boundary `, "that stopped the search.")
       );
       continue;
     }
     if (search.access_boundary === "no_relevant_results" && search.threads_read.length > 0) {
       out.addStep("declaration", 
-        `community_searches for ${name} gives both threads read and access_boundary no_relevant_results; keep one: ` +
-          "the threads and what they showed, or the boundary if nothing relevant turned up."
+        joinRules(rule`community_searches for ${name} gives both threads read and access_boundary no_relevant_results; keep one: `, "the threads and what they showed, or the boundary if nothing relevant turned up.")
       );
       continue;
     }
@@ -5210,10 +5041,7 @@ function communityCoverage(
     // asking for the address of communities nobody can find held both book cases and l24).
     if (search.access_boundary === "not_found" && (search.threads_read.length > 0 || search.url !== undefined)) {
       out.addStep("declaration",
-        `community_searches for ${name} gives access_boundary not_found with ` +
-          `${search.threads_read.length > 0 ? "threads read" : "an address"}: a community with ` +
-          `${search.threads_read.length > 0 ? "threads you read" : "an address"} was found, so record what stopped ` +
-          "the search instead, or the threads and what they showed."
+        joinRules(joinRules(joinRules(rule`community_searches for ${name} gives access_boundary not_found with `, rule`${search.threads_read.length > 0 ? rule`threads read` : rule`an address`}: a community with `), rule`${search.threads_read.length > 0 ? rule`threads you read` : rule`an address`} was found, so record what stopped `), "the search instead, or the threads and what they showed.")
       );
       continue;
     }
@@ -5221,15 +5049,13 @@ function communityCoverage(
     const corpora = search.review_corpora ?? [];
     if (corpora.length > 0 && search.platform !== "review_site") {
       out.addStep("declaration", 
-        `community_searches for ${name} gives review_corpora, which are for review sites: record the site's product ` +
-          "reviews under platform review_site, or leave review_corpora out."
+        joinRules(rule`community_searches for ${name} gives review_corpora, which are for review sites: record the site's product `, "reviews under platform review_site, or leave review_corpora out.")
       );
       continue;
     }
     if (search.platform === "review_site" && search.threads_read.length > 0 && corpora.length === 0) {
       out.requireDeclaration(
-        `community_searches for ${name} lists reviews read on a review site: give review_corpora, with each ` +
-          "product, how many reviews the site shows, how many you read and how you chose them."
+        joinRules(rule`community_searches for ${name} lists reviews read on a review site: give review_corpora, with each `, "product, how many reviews the site shows, how many you read and how you chose them.")
       );
       continue;
     }
@@ -5237,7 +5063,7 @@ function communityCoverage(
       shown !== undefined && (read > shown || (selection === "all" && read < shown)));
     if (miscounted.length > 0) {
       out.addStep("declaration", 
-        `community_searches for ${name} gives review counts that do not fit (${miscounted.map(({ product }) => product)
+        rule`community_searches for ${name} gives review counts that do not fit (${miscounted.map(({ product }) => product)
           .join(", ")}): reviews_read cannot exceed reviews_shown, and selection all means every review shown was read.`
       );
       continue;
@@ -5247,9 +5073,7 @@ function communityCoverage(
     if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined &&
         search.access_boundary !== "not_found") {
       out.requireDeclaration(
-        `community_searches for ${name} records an access boundary but no url: give the community's address (its ` +
-          "forum, group or site link), so it is known by its site rather than its name; or record access_boundary " +
-          "not_found when no site by that name could be found."
+        joinRules(joinRules(rule`community_searches for ${name} records an access boundary but no url: give the community's address (its `, "forum, group or site link), so it is known by its site rather than its name; or record access_boundary "), "not_found when no site by that name could be found.")
       );
       continue;
     }
@@ -5261,8 +5085,7 @@ function communityCoverage(
         ]);
     if (sites.size > 1) {
       out.addStep("declaration", 
-        `community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its ` +
-          "own entry."
+        joinRules(rule`community_searches for ${name} points to more than one site (${[...sites].join(", ")}); give each site its `, "own entry.")
       );
       continue;
     }
@@ -5270,8 +5093,7 @@ function communityCoverage(
     const owner = site === undefined ? undefined : siteOwners.get(site);
     if (owner !== undefined && owner !== key) {
       out.addStep("declaration", 
-        `community_searches for ${name} is on ${site}, as ${searched.get(owner) ?? "another entry"} is: ` +
-          "one site is one discussion pool, so list its threads under one entry and search an independent community."
+        joinRules(rule`community_searches for ${name} is on ${site}, as ${searched.get(owner) ?? "another entry"} is: `, "one site is one discussion pool, so list its threads under one entry and search an independent community.")
       );
       continue;
     }
@@ -5281,11 +5103,7 @@ function communityCoverage(
     if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
-        search.access_boundary === "no_relevant_results"
-          ? `The search of ${name} found no relevant reports; say so.`
-          : search.access_boundary === "not_found"
-            ? `${name} could not be found; say so.`
-            : `The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+        search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
         boundaryCaveat(name, search.access_boundary)
       );
     }
@@ -5293,7 +5111,7 @@ function communityCoverage(
     if (search.platform !== "review_site") {
       if (search.report_identity === undefined) {
         out.requireDeclaration(
-          `community_searches for ${name} reads threads without report_identity: for each exposure the answer draws on, count the reports you read: firsthand use of exactly it, form not stated, something else, and advice or hearsay, with how many gave a measurement after the change.`
+          rule`community_searches for ${name} reads threads without report_identity: for each exposure the answer draws on, count the reports you read: firsthand use of exactly it, form not stated, something else, and advice or hearsay, with how many gave a measurement after the change.`
         );
       }
       for (const report of search.report_identity ?? []) {
@@ -5301,7 +5119,7 @@ function communityCoverage(
         if (firsthand_exact + exposure_unclear + other_exposure + not_firsthand !== reports_read ||
             measured_after > firsthand_exact) {
           out.addStep("declaration", 
-            `report_identity for ${exposure} in ${name} does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.`
+            rule`report_identity for ${exposure} in ${name} does not add up: the four classes must add up to reports_read, and measured_after cannot exceed firsthand_exact.`
           );
           continue;
         }
@@ -5310,7 +5128,7 @@ function communityCoverage(
         );
         if (firsthand_exact === 0) {
           out.requireLimit(
-            `No one in ${name} described their own use of ${exposure}; say so.`,
+            rule`No one in ${name} described their own use of ${exposure}; say so.`,
             "No one in this community described their own use of what was asked about, so its reports are not " +
               `evidence about it. ${completedCaveat("Community:", name)} ${completedCaveat("Asked about:", exposure)}`
           );
@@ -5321,13 +5139,11 @@ function communityCoverage(
         : PARTIAL_THREAD_SELECTIONS.get(search.thread_selection);
       if (search.thread_selection === undefined) {
         out.requireDeclaration(
-          `community_searches for ${name} reads threads without thread_selection: say how they were chosen, such as ` +
-            "every relevant one the searches found, the ones ranked first, or ones found by searching for outcomes."
+          joinRules(rule`community_searches for ${name} reads threads without thread_selection: say how they were chosen, such as `, "every relevant one the searches found, the ones ranked first, or ones found by searching for outcomes.")
         );
       } else if (chosen !== undefined) {
         out.requireLimit(
-          `The ${name} threads you read were ${chosen}; say they show which experiences people report, not how ` +
-            "common each is.",
+          joinRules(rule`The ${name} threads you read were ${chosen}; say they show which experiences people report, not how `, "common each is."),
           `The threads I read in this community were ${chosen}, so they show which experiences people report, not ` +
             `how common each one is. ${completedCaveat("Community:", name)}`
         );
@@ -5337,8 +5153,7 @@ function communityCoverage(
       const chosen = PARTIAL_REVIEW_SELECTIONS.get(selection);
       if (chosen === undefined) continue;
       out.requireLimit(
-        `The ${read} ${name} review(s) of ${product} you read${shown === undefined ? "" : ` (of ${shown} shown)`} ` +
-          `were ${chosen}; say they show which experiences people report, not how common each is.`,
+        joinRules(rule`The ${read} ${name} review(s) of ${product} you read${shown === undefined ? rule`` : rule` (of ${shown} shown)`} `, rule`were ${chosen}; say they show which experiences people report, not how common each is.`),
         `The reviews I read on this site were ${chosen}, so they show which experiences people report, not how ` +
           `common each one is. ${completedCaveat("Product:", product)} ${completedCaveat("Site:", name)}`
       );
@@ -5346,8 +5161,7 @@ function communityCoverage(
     const missing = COMMUNITY_FINDINGS.filter((field) => search[field] === undefined);
     if (missing.length > 0) {
       out.requireDeclaration(
-        `Say what ${name} showed: give ${missing.join(", ")} in its community_searches entry, even if the signal is ` +
-          "weak or neutral."
+        joinRules(rule`Say what ${name} showed: give ${missing.join(", ")} in its community_searches entry, even if the signal is `, "weak or neutral.")
       );
     } else {
       out.lanes.push(forumLane(search));
@@ -5374,8 +5188,7 @@ function communityCoverage(
     const names = unconfirmed.map(({ name }) => name);
     const one = names.length === 1;
     out.requireLimit(
-      `The reports from ${joinNames(names)} come from your own web search, which AskRigor could not verify; say so, ` +
-        "and link the threads you read.",
+      joinRules(rule`The reports from ${joinNames(names)} come from your own web search, which AskRigor could not verify; say so, `, "and link the threads you read."),
       `Reports from ${one ? "this community" : "these communities"} come from my own web search, which AskRigor ` +
         `could not verify. ${completedCaveat(one ? "Community:" : "Communities:", names.join("; "))}`
     );
@@ -5385,8 +5198,7 @@ function communityCoverage(
     const names = confirmedRead.map(({ name }) => name);
     const one = names.length === 1;
     out.requireLimit(
-      `Reddit confirmed that the ${joinNames(names)} threads you cite exist there as cited, but AskRigor could not ` +
-        "check what they report; say so, and link the threads you read.",
+      joinRules(rule`Reddit confirmed that the ${joinNames(names)} threads you cite exist there as cited, but AskRigor could not `, "check what they report; say so, and link the threads you read."),
       `Reddit confirms that the threads linked here from ${one ? "this subreddit" : "these subreddits"} exist, but ` +
         "what they report is my own reading, which AskRigor could not verify. " +
         completedCaveat(one ? "Subreddit:" : "Subreddits:", names.join("; "))
@@ -5400,14 +5212,13 @@ function communityCoverage(
         !named.has(key)) {
       named.add(key);
       out.requireDeclaration(
-        `The user named ${name}: search it with your web search and record it in community_searches, or the access boundary that stops you.`
+        rule`The user named ${name}: search it with your web search and record it in community_searches, or the access boundary that stops you.`
       );
     }
   }
   if (dominant.platform !== "youtube" && !communitySearched(searched, dominant.name, dominant.platform)) {
     out.requireDeclaration(
-      `Search ${dominant.name}, the community listed first, with your web search and record it in ` +
-        "community_searches, or the access boundary that stops you."
+      joinRules(rule`Search ${dominant.name}, the community listed first, with your web search and record it in `, "community_searches, or the access boundary that stops you.")
     );
   }
   // A community that could not be found is no discussion pool, so it never makes the found one the only one.
@@ -5423,12 +5234,11 @@ function communityCoverage(
   if (listed.size === 1 && pools.size <= 1) {
     if (input.single_community_reason === undefined) {
       out.requireDeclaration(
-        "principal_communities lists one community: name an independent one (another platform, forum or discussion " +
-          "pool) and search it, or give single_community_reason."
+        joinRules("principal_communities lists one community: name an independent one (another platform, forum or discussion ", "pool) and search it, or give single_community_reason.")
       );
     } else {
       out.requireLimit(
-        "Only one community discusses this; say that the community evidence rests on it alone.",
+        rule`Only one community discusses this; say that the community evidence rests on it alone.`,
         "Only one community seems to discuss this, so the community evidence rests on a single group."
       );
     }
@@ -5438,15 +5248,7 @@ function communityCoverage(
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
     const found = [...searched].filter(([key]) => !unfound.has(key)).map(([, name]) => name);
     out.addStep("research", 
-      "Search at least one more community, independent of " +
-        `${found.length === 0 ? "the first" : found.join(", ")}` +
-        `${others.length === 0 ? "" : ` (${others.join(", ")})`}: YouTube with its tools, the others with your web ` +
-        "search recorded in community_searches, or record the access boundary that stops you." +
-        (pools.size < found.length
-          ? " Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that " +
-            "they are separate discussion pools."
-          : "") +
-        (unfound.size > 0 ? " A community that could not be found is not one of them." : "")
+      joinRules(joinRules(joinRules(joinRules(joinRules("Search at least one more community, independent of ", rule`${found.length === 0 ? rule`the first` : found.join(", ")}`), rule`${others.length === 0 ? rule`` : rule` (${others.join(", ")})`}: YouTube with its tools, the others with your web `), "search recorded in community_searches, or record the access boundary that stops you."), (pools.size < found.length ? joinRules(" Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that ", "they are separate discussion pools.") : "")), (unfound.size > 0 ? " A community that could not be found is not one of them." : ""))
     );
   }
   // Every community searched outside YouTube rests on the client's word.
@@ -5508,9 +5310,9 @@ const FOCUS_DIRECTIONS = [
 ] as const;
 const FIRST_PASS_ROUNDS = 2;
 
-const NEW_ANGLE_HINT =
-  "patient phrasing such as \"what finally worked\", a method, product or practitioner named in comments, " +
-  "or an alternative framing; a scout or a single search_youtube counts as a round";
+const NEW_ANGLE_HINT = joinRules(
+  "patient phrasing such as \"what finally worked\", a method, product or practitioner named in comments, ",
+  "or an alternative framing; a scout or a single search_youtube counts as a round");
 
 /**
  * Discovery stops at saturation, not at a count: the last two rounds, from
@@ -5523,10 +5325,10 @@ function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
   depth: "first_pass" | "deep"
-): { saturated: boolean; nextSteps: string[]; rateLimited: number; deferUntilNextTurn?: boolean } {
+): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferUntilNextTurn?: boolean } {
   const stop = depth === "first_pass"
-    ? ` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
-    : "";
+    ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
+    : rule``;
   const rounds = [...unordered].sort((left, right) =>
     receiptOrder(left) - receiptOrder(right) || left.index - right.index
   );
@@ -5542,11 +5344,7 @@ function discoverySaturation(
       rateLimited,
       deferUntilNextTurn: rateLimited > 0,
       nextSteps: [
-        `${incomplete} search(es) in the latest discovery rounds did not complete` +
-          (rateLimited > 0
-            ? `, ${rateLimited} stopped by YouTube's rate limit or daily quota. Rerun them once it resets`
-            : ". Rerun them") +
-          " and pass the new research_receipt." + stop
+        joinRules(joinRules(joinRules(rule`${incomplete} search(es) in the latest discovery rounds did not complete`, (rateLimited > 0 ? rule`, ${rateLimited} stopped by YouTube's rate limit or daily quota. Rerun them once it resets` : rule`. Rerun them`)), rule` and pass the new research_receipt.`), rule`${stop}`)
       ]
     };
   }
@@ -5555,8 +5353,7 @@ function discoverySaturation(
       saturated: false,
       rateLimited,
       nextSteps: [
-        `Run another discovery round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt. ` +
-          "Discovery is done when two rounds in a row add no new video worth auditing; a niche topic may end with one video or none." + stop
+        joinRules(joinRules(rule`Run another discovery round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt. `, rule`Discovery is done when two rounds in a row add no new video worth auditing; a niche topic may end with one video or none.`), rule`${stop}`)
       ]
     };
   }
@@ -5575,21 +5372,18 @@ function discoverySaturation(
   const unchecked = recent.some((round) => roundUnreadPages(round.claims, read) > 0);
   const angles = recent.map((round) => text(round.claims.q));
   const repeated = angles.includes("") || new Set(angles).size < angles.length;
-  const nextSteps: string[] = [];
+  const nextSteps: RuleInput[] = [];
   if (fresh.length > 0) {
     nextSteps.push(
-      `Discovery has not saturated: ${fresh.join(", ")} first turned up in the last two rounds. ` +
-        `Run another round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt.` + stop
+      joinRules(joinRules(rule`Discovery has not saturated: ${fresh.join(", ")} first turned up in the last two rounds. `, rule`Run another round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt.`), rule`${stop}`)
     );
   } else if (unchecked) {
     nextSteps.push(
-      "A recent round left results unchecked: unread result pages, or scout candidates it could not verify or look up. " +
-        "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, " +
-        `or run another round from a new angle (${NEW_ANGLE_HINT}).` + stop
+      joinRules(joinRules(joinRules("A recent round left results unchecked: unread result pages, or scout candidates it could not verify or look up. ", "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, "), rule`or run another round from a new angle (${NEW_ANGLE_HINT}).`), rule`${stop}`)
     );
   } else if (repeated) {
     nextSteps.push(
-      `The last two discovery rounds repeated the same searches; run one from a different angle (${NEW_ANGLE_HINT}).` + stop
+      joinRules(rule`The last two discovery rounds repeated the same searches; run one from a different angle (${NEW_ANGLE_HINT}).`, rule`${stop}`)
     );
   }
   return { saturated: nextSteps.length === 0, nextSteps, rateLimited };

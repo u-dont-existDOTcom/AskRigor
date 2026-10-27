@@ -719,12 +719,36 @@ location, medical history, upload, or raw quotation. The complete decoded JSON
 body is limited to 8,192 UTF-8 bytes.
 
 The connector's `submit_lesson_candidate` takes the same fields without
-`incident_provenance`, plus an optional `related_issue` (described below) and,
+`incident_provenance`, plus the required short diagnostics below, an optional
+`related_issue` (described below) and,
 only from an account that turned on detailed lesson reports, an optional
 `detailed_report` (owner question 154, 2026-10-21). Detailed lesson reports are
 off by default; the user turns them on or off with `manage_research_access`
 action `set_detailed_lesson_reports`, which stores only that choice, in
-`research_use_accounts.detailed_lesson_reports`. The report's fields are:
+`research_use_accounts.detailed_lesson_reports`.
+
+Every connector lesson requires these short diagnostics, including when detailed
+reports are off. The original short fields' bounds above are unchanged.
+
+| Connector field | Meaning and implemented bound |
+| --- | --- |
+| `existing_rules` | Either `{rules: [{name, status, reason}]}` with 1–12 entries, or `{none: explanation}`. Each name is an exact current HRP/Universal element tag or selectable `name`/`id`, at most 160 characters. Status is `not_loaded`, `loaded_not_applied`, `applied_but_insufficient`, `not_triggered` or `unknown`. Each reason, or the explanation of the missing rule, is one nonempty line of at most 300 characters. |
+| `observed_behavior` | What actually happened and the first observed failing step, 20–1,200 characters; generalized, with no real person's details. |
+| `part_to_change` | `{kind, name}`: kind is `tool`, `protocol_rule` or `final_check`, the same kinds named by a detailed report; the specific part's name is 1–120 characters. |
+
+The server checks every inventory name exactly against the parsed complete
+protocols used by `load_protocol`. It checks declaration form, not whether a
+rule covered the failure or why it was not followed. Every new prose field
+(reasons, missing-rule explanation, observed behavior and part name) passes the
+unchanged lesson privacy screen. These diagnostics stay outside the legacy
+anonymizer, duplicate fingerprint and hidden metadata; the validated fields are
+escaped and stored in the private issue or repeat comment. The tool tells the
+model to show the inventory first and propose enforcing or fixing covering rules
+before a new rule, and to show the short diagnostics before seeking consent.
+These fields collect no raw incident or personal-data class and do not change
+the detailed-report setting, rate limits, Action body limit, or anonymizer path.
+
+The optional detailed report's fields are:
 
 | Report field | Meaning and implemented bound |
 | --- | --- |
@@ -755,6 +779,10 @@ retryability, and an allowlisted reason code. On the connector only,
 `detailed_report_refused` returns only its status, `retryable:false` and the
 reason code `detailed_reports_off`. Results do not expose a private
 URL, GitHub issue number, candidate text, report text, or fingerprint.
+The connector also returns `existing_rules_refused`, `retryable:false`, with
+`invalid_existing_rules` for a missing/malformed inventory or
+`unknown_protocol_element` for a name outside the current protocol elements.
+Neither refusal echoes the submitted declaration or stores a lesson.
 
 ## Lesson screening, recipients, and storage
 
@@ -775,14 +803,19 @@ for a connector lesson, an optional number of a public `u-dont-existDOTcom/AskRi
 issue, rendered by the server as a reference with no free text; for a connector
 lesson from an account that turned on detailed lesson reports, its detailed
 report as a "Detailed report" section rendered by the server from the validated
-fields with the same escaping; an
+fields with the same escaping; for every connector lesson, the existing-rule
+inventory as the first section, observed behavior and the part to change; an
 initial anonymous occurrence count; first-seen timestamp; and a hidden
 deduplication fingerprint marker. Later duplicates leave that body unchanged
-and append private generated comments containing only the anonymous count,
+and append private generated comments containing the anonymous count,
 observation timestamp, the related issue reference when that repeat names one,
 the repeat's detailed report when it carries one, and canonical fingerprint
 marker. A detailed report is part of neither the fingerprint nor the hidden
 metadata, and it is stored only there, in the private lessons repository.
+For a connector repeat, the comment starts with that occurrence's inventory,
+then its general lesson, observed and expected behavior, part to change, failure
+reason and synthetic regression. This preserves occurrence-specific detail
+without changing the duplicate key or rewriting an earlier report.
 Neither the issue nor
 the generated comments store `consent_scope`, user identity, network identity,
 conversation identifier, raw chat, raw quotation, medical history, or upload.
@@ -1583,6 +1616,29 @@ The pages (section 4C) are built, not yet released, and switched off until
   chat holds until the card is forgotten. PostgreSQL keeps erased row versions
   until vacuum and the write-ahead log recycle them, as for wording erasure.
 
+## Atlas navigation and search
+
+Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public
+publication/canonical fields above. Topic maps add the canonical public question
+and unwithdrawn link relations; they never read a private card question or render
+link rationale. Shown-publication rules also govern counts, search and map nodes.
+No new database table, view, function, grant or migration is introduced.
+
+Search queries (`GET /atlas/search?q=…`, at most 300 UTF-16 code units and 20
+words) are request-local input. They are **not stored or logged**, not placed in
+an index or cache, not sent to PostgreSQL or a provider, and not associated with
+an account, session, address or reader record. The page does not inspect a session
+or participant, carries no reader data or tokens, sets no cookie, and uses
+`Cache-Control: private, no-store`; the HTML and response use `no-referrer`.
+It shows the query only as escaped text and in its GET paging links. The browser
+may keep a GET URL in its own history; that is not an AskRigor server record.
+Keep proxy request/access/error URL logging disabled or query-redacted as part
+of the runbook's page checks. The existing bounded, memory-only address limiter
+counts search requests without their query. Other public pages retain their
+existing bounded 60-second content cache; no reader identifiers enter its keys.
+Search's generic sign-in entry, when enabled, returns to the query-free path.
+With participation off the header still has the GET search form.
+
 ## Atlas votes and comments
 
 Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24
@@ -1591,7 +1647,7 @@ sections D and E), built, not yet released, and switched off until
 `ASKRIGOR_ATLAS_PARTICIPATION=enabled` with every part configured, the
 Atlas's Auth0 application (the owner's step) among them: people who sign in
 with an AskRigor account can vote on a published finding and comment on it.
-While it is off, the pages show no form and no sign-in link and keep nothing.
+While it is off, the pages show no participation form or sign-in link and keep nothing; the public GET search form remains.
 
 - **Signing in.** The AskRigor login of the apps, through the same Auth0
   tenant, as a regular web application with the authorization code flow and
@@ -1830,6 +1886,23 @@ pending-proposal stores have their own strict contracts and authority boundaries
   see the app's other tools and sends nothing to them; a study declared `read`
   is reported as read through another tool, not audited by AskRigor. These
   declarations are request-local and are not logged or persisted.
+- Public Atlas lookup (`search_research_frontiers`, 26 October 2026) receives bounded query words (300
+  characters, 20 words), an optional exact topic key and an optional research target. It reads only the public
+  Atlas page reader and stored formal-research plans; the Atlas content is public. No query is sent to an external
+  search/model provider. The `atlas_lookup` receipt returns the **normalized words themselves**, not just a digest:
+  they can name the user's research topic. It also contains the optional topic key, the usual research-target
+  digest (not the target's text), returned public P/F numbers and checked state, the public page origin, fingerprints
+  of sources' identifiers and the issue time. The client receives and holds this readable signed token
+  and sends it back to `finalize_research`; AskRigor verifies it in memory, expires it after 24 hours, and does not
+  persist or log the token or its query words. Atlas and finalization tokens have a 32,768-character ceiling;
+  other research receipt kinds retain 2,048. A lookup that could not run signs an attempt receipt marked failed, with
+  no findings, which the final check accepts with a stated limit; it is never read as an empty successful search.
+  The lookup needs sign-in but not research access: the Atlas content is public, and the stored research plans it
+  returns hold research trails, no findings and no personal details.
+  `atlas_reuse` sentences and page links are request-local and are not saved. A passing finalization receipt signs
+  only the **used public numbers and declared relations**, and the private GitHub findings card and each later save
+  retain those pairs as `atlas_basis` for owner review. They contain neither lookup words nor answer sentences.
+  `inspect_finding` exposes these pairs to the owner; they do not create canonical Atlas links or expose an account.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
@@ -1839,7 +1912,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   when product identity was declared, completion states, a refusal's fixed
   code for a video not read, counts, the publication dates a literature search
   was restricted to (two dates, no query text), and the issue
-  time; never comments, source text, questions, or user data. Discovery
+  time; never comments or source text. The Atlas-lookup exception below carries query words that may reveal the user's topic. Other receipt kinds carry no questions or user data. Discovery
   receipts (surveys, searches, scouts, one-call community audits) also carry
   `q`, the first 12 hex characters of a SHA-256 over the round's normalized
   search terms, so the gate can tell rounds from different angles apart, and
@@ -1988,10 +2061,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   does not affect its binding. Steps that came back unchanged three rounds running
   return in `stuck_steps`, and a check that stops (`stopped`, after ten rounds or
   when only such steps are left) returns the steps it could not do and the
-  steps the next turn can do, a short reason, and `bug_report`, a fixed server
-  sentence naming only kinds of step, which the answer shows before asking
-  whether AskRigor may send it; nothing is sent unless the user says yes and the
-  model then calls `submit_lesson_candidate`. A stopped check returns no
+  steps the next turn can do, a short reason, and `bug_report`, the first unmet
+  rule with inserted values masked, plus the number of other unmet steps. The
+  answer shows it before asking whether AskRigor may send it; nothing is sent
+  unless the user says yes and the model calls `submit_lesson_candidate` with
+  the signed `check_report_token` described below. A stopped check returns no
   finalization receipt. The
   finalization receipt signs the SHA-256 of the answer draft the check read,
   without leading and trailing white space (`answer`), so whoever holds the
@@ -2138,3 +2212,40 @@ more detailed implementation inventory. The August 16 Custom GPT research
 transport disclosure in `site/privacy/index.html` is candidate source, not a
 live-policy claim, until its transactional deployment is recorded. Re-review
 the live notice whenever processing changes.
+
+## Masked final-check debug reports (26 October 2026)
+
+`finalize_research` constructs `check_report` in memory when the check stops. The report holds the deployed build
+and protocol versions, stop reason and round; each step it could not do and each next-turn step, with its kind,
+consecutive round count and masked rule; the last call's receipt counts by kind and verification rejection reasons;
+and masked gate limitations, including a known missing-DOI boundary. It contains explicit counts of omitted steps,
+receipt groups, limitations and characters. Serialized JSON is bounded to 6,000 characters; each rule to 1,200.
+
+Privacy is enforced at construction, independently of language or privacy heuristics. A tagged rule retains its
+fixed server wording separately from inserted values. Each value is shown only if it is exactly a registered tool
+name, next-step kind, field path derived from the finalizer input schema (including valid array positions), a
+source-derived enumeration code, a whole number, or a protocol version. Everything else is `…`. Untagged dynamic
+strings are masked too. No free user prose can enter this report by construction: topics, names, study/video IDs,
+quotes, observations and URLs are never copied unless the whole inserted value itself equals one of the explicitly
+allowed names or numbers. No raw receipt, signature, research-target digest, account key, turn/conversation ID or
+provider response is included. Normal model-facing steps continue to hold the information needed for the research;
+the report is a separate masked projection.
+
+The caller receives this report and `check_report_token`, which carries its exact JSON, not the unmasked template
+values. Prefix `br1~` uses a domain-separated 128-bit HMAC-SHA256 signature (`askrigor final check report v1`) with
+the existing receipt-signing secret. Maximum token length is 34,000 characters; it has no expiry and is readable to
+anyone who can read the conversation. The server adds no state store or logging. After consent to the shown report,
+the model passes this token unchanged to the connector lesson tool. Invalid, altered, foreign-server or foreign-domain
+tokens return `check_report_refused` / `invalid_check_report_token`, without storing anything. After the existing
+lesson privacy pipeline passes, the exact verified JSON is added in “The final check's report, as AskRigor recorded
+it” in the private lesson issue or repeat comment. The token is not stored. Neither report nor token reaches the
+legacy anonymizer, duplicate fingerprint or public receipt. This masked server report needs no detailed-reports
+setting; model-authored `detailed_report` still requires it and still passes its existing privacy screen.
+
+For a user's confirmed correction with a report, the finalizer and connector lesson accept `preventing_rule`,
+an exact current HRP/Universal element tag or selectable `name`/`id`, or `no_rule` plus a one-line `missing_rule`
+(maximum 300 characters). Names are checked against parsed complete protocol files, including lowercase Universal
+names; missing-rule prose passes the existing lesson privacy screen. The answer shows the declaration with its
+report and the lesson stores it as a separate fixed section, outside generalization and the duplicate fingerprint.
+Invalid names or incomplete declarations return `correction_rule_refused` / `invalid_preventing_rule`. These
+connector fields do not broaden the Action's request shape or preserve raw incidents.

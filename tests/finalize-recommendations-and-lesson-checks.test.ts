@@ -206,15 +206,16 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   });
 
   it("requires the bug-report question after the user's correction, in the answer's language too", () => {
-    const byUser = { ...found, by_user: true, report: CHANGE };
+    const byUser = { ...found, by_user: true, report: CHANGE, preventing_rule: "no_rule", missing_rule: "Carry corrections through all rendered forms." };
+    const ruleLine = `Missing rule: ${byUser.missing_rule}`;
     const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
     expect(asked.status).toBe("not_ready");
-    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER, SKIP]);
-    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
+    expect(asked.caveats).toEqual([ruleLine, CORRECTION_REPORT_OFFER, SKIP]);
+    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${ruleLine}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
       .toBe("ready_with_limits");
     const rendering = "AskRigor peut-il envoyer un rapport de bogue sur cette correction, ou voulez-vous d'abord préciser quelque chose ?";
     expect(check({
-      answer_draft: `${LINKS}\n\n${CHANGE}\n\n${rendering}`, corrections: [byUser], answer_language: "fr",
+      answer_draft: `${LINKS}\n\n${CHANGE}\n\n${ruleLine}\n\n${rendering}`, corrections: [byUser], answer_language: "fr",
       caveat_renderings: [{ caveat: CORRECTION_REPORT_OFFER, text: rendering }]
     }).status).toBe("ready_with_limits");
     expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [found] }).caveats).toEqual([SKIP]);

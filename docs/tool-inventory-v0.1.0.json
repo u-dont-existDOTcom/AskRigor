@@ -10250,395 +10250,832 @@
     },
     {
       "name": "search_research_frontiers",
-      "description": "Search the stored formal research-frontier catalog by topic labels, aliases, research questions, and structured question dimensions. Returns bounded selectors and explicit partial, blocked, gap, and currentness-not-assessed state; catalog matches are research control metadata, not evidence or health conclusions. Retrieval is read-only and never contributes or updates a frontier.",
+      "description": "Search the Atlas first, before research, so the answer builds on what is already known. Searches the public findings by words (the pages' same any-language search and bounds) or exact topic_key, and stored research plans for open trails. Returns bounded public P and F numbers, checked or not-checked state, certainty, wording, applicability, question, topic, source identifiers, links, page addresses and topic leads. Unchecked findings are leads, not established findings. Give the same research_target as finalize_research; pass its atlas_lookup receipt there and declare how the answer relates to every returned finding in atlas_reuse. Read-only and public, open to every account.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "query": {
+            "description": "Words to search in the Atlas, exactly as its pages do: at most 300 characters and 20 words, in any language.",
+            "type": "string"
+          },
+          "topic_key": {
+            "description": "An exact Atlas topic key; may be combined with query.",
             "type": "string",
-            "minLength": 2,
-            "maxLength": 300,
-            "description": "Free-text lexical query over stored topic keys, labels, aliases, research questions, and structured question dimensions."
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,199}$"
+          },
+          "research_target": {
+            "description": "The research target, copied as given to discovery and finalize_research. Required for a lookup receipt that counts for the final check.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
           },
           "limit": {
             "default": 10,
-            "description": "Maximum catalog matches to return; defaults to 10 and cannot exceed 25.",
             "type": "integer",
             "minimum": 1,
-            "maximum": 25
+            "maximum": 20
           }
         },
-        "required": [
-          "query"
-        ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
       },
       "outputSchema": {
         "type": "object",
         "properties": {
-          "provider": {
-            "type": "string",
-            "const": "askrigor_living_evidence"
-          },
           "record_type": {
             "type": "string",
-            "const": "research_frontier_catalog"
+            "const": "atlas_lookup"
           },
           "retrieved_at": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
           },
-          "query": {
-            "type": "object",
-            "properties": {
-              "text": {
-                "type": "string"
-              },
-              "limit": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 25
-              }
-            },
-            "required": [
-              "text",
-              "limit"
-            ],
-            "additionalProperties": false
-          },
-          "source_identity": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false
-          },
-          "pagination": {
-            "type": "object",
-            "properties": {
-              "returned": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "has_more": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "returned",
-              "has_more"
-            ],
-            "additionalProperties": false
-          },
-          "access_status": {
+          "status": {
             "type": "string",
             "enum": [
               "complete",
-              "not_found",
+              "partial",
               "inaccessible",
               "error"
             ]
           },
-          "search_status": {
-            "type": "string",
-            "enum": [
-              "matched",
-              "no_match",
-              "repository_unavailable",
-              "error"
-            ]
-          },
-          "frontier_currency": {
-            "type": "string",
-            "const": "not_assessed"
-          },
-          "limitations": {
-            "minItems": 3,
+          "query_words": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "error": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              },
-              "retryable": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "code",
-              "message",
-              "retryable"
-            ],
-            "additionalProperties": false
+          "topic_key": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "data": {
-            "type": "object",
-            "properties": {
-              "catalog_schema": {
-                "type": "string",
-                "const": "askrigor.living-evidence.research-frontier-catalog.v1"
-              },
-              "result_count": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "has_more": {
-                "type": "boolean"
-              },
-              "matches": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "frontier_id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "topic": {
+          "findings": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "publication_number": {
+                  "type": "string"
+                },
+                "atlas_number": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "checked",
+                    "Not checked by supervisors yet"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "certainty": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "wording": {
+                  "type": "string"
+                },
+                "applies_to": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "question": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "topic": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "topic_id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        "canonical_key": {
+                        "key": {
                           "type": "string"
                         },
                         "label": {
                           "type": "string"
-                        },
-                        "aliases": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
                         }
                       },
                       "required": [
-                        "topic_id",
-                        "canonical_key",
-                        "label",
-                        "aliases"
+                        "key",
+                        "label"
                       ],
                       "additionalProperties": false
                     },
-                    "question": {
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
                       "type": "object",
                       "properties": {
-                        "question_id": {
+                        "scheme": {
                           "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          "enum": [
+                            "doi",
+                            "pmid",
+                            "pmcid",
+                            "nct"
+                          ]
                         },
-                        "normalized_question": {
+                        "value": {
                           "type": "string"
-                        },
-                        "dimensions": {
+                        }
+                      },
+                      "required": [
+                        "scheme",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "links": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "atlasNumber": {
+                        "type": "string"
+                      },
+                      "relation": {
+                        "type": "string",
+                        "enum": [
+                          "same_as",
+                          "narrows",
+                          "contradicts",
+                          "replaces"
+                        ]
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "incoming",
+                          "outgoing"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "atlasNumber",
+                      "relation",
+                      "direction"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "page_url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              },
+              "required": [
+                "publication_number",
+                "atlas_number",
+                "state",
+                "label",
+                "certainty",
+                "wording",
+                "applies_to",
+                "question",
+                "topic",
+                "sources",
+                "links",
+                "page_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "topic_leads": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "topic_key": {
+                  "type": "string"
+                },
+                "findings": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "publication_number": {
+                        "type": "string"
+                      },
+                      "atlas_number": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "checked",
+                          "Not checked by supervisors yet"
+                        ]
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "certainty": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "wording": {
+                        "type": "string"
+                      },
+                      "applies_to": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "question": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "topic": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sources": {
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "scheme": {
+                                "type": "string",
+                                "enum": [
+                                  "doi",
+                                  "pmid",
+                                  "pmcid",
+                                  "nct"
+                                ]
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "scheme",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "links": {
+                        "type": "array",
+                        "items": {
                           "type": "object",
                           "properties": {
-                            "population": {
-                              "type": [
-                                "string",
-                                "null"
+                            "atlasNumber": {
+                              "type": "string"
+                            },
+                            "relation": {
+                              "type": "string",
+                              "enum": [
+                                "same_as",
+                                "narrows",
+                                "contradicts",
+                                "replaces"
                               ]
                             },
-                            "program_or_exposure": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            },
-                            "comparator": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            },
-                            "outcome": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            },
-                            "horizon": {
-                              "type": [
-                                "string",
-                                "null"
-                              ]
-                            },
-                            "setting": {
-                              "type": [
-                                "string",
-                                "null"
+                            "direction": {
+                              "type": "string",
+                              "enum": [
+                                "incoming",
+                                "outgoing"
                               ]
                             }
                           },
                           "required": [
-                            "population",
-                            "program_or_exposure",
-                            "comparator",
-                            "outcome",
-                            "horizon",
-                            "setting"
+                            "atlasNumber",
+                            "relation",
+                            "direction"
                           ],
                           "additionalProperties": false
                         }
                       },
-                      "required": [
-                        "question_id",
-                        "normalized_question",
-                        "dimensions"
-                      ],
-                      "additionalProperties": false
+                      "page_url": {
+                        "type": "string",
+                        "format": "uri"
+                      }
                     },
-                    "frontier_state": {
-                      "type": "string",
-                      "enum": [
-                        "actionable",
-                        "blocked_terminal",
-                        "complete"
-                      ]
-                    },
-                    "coverage": {
+                    "required": [
+                      "publication_number",
+                      "atlas_number",
+                      "state",
+                      "label",
+                      "certainty",
+                      "wording",
+                      "applies_to",
+                      "question",
+                      "topic",
+                      "sources",
+                      "links",
+                      "page_url"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "has_more": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "topic_key",
+                "findings",
+                "has_more"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "frontier_catalog": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "const": "askrigor_living_evidence"
+              },
+              "record_type": {
+                "type": "string",
+                "const": "research_frontier_catalog"
+              },
+              "retrieved_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "query": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 25
+                  }
+                },
+                "required": [
+                  "text",
+                  "limit"
+                ],
+                "additionalProperties": false
+              },
+              "source_identity": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "returned": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "returned",
+                  "has_more"
+                ],
+                "additionalProperties": false
+              },
+              "access_status": {
+                "type": "string",
+                "enum": [
+                  "complete",
+                  "not_found",
+                  "inaccessible",
+                  "error"
+                ]
+              },
+              "search_status": {
+                "type": "string",
+                "enum": [
+                  "matched",
+                  "no_match",
+                  "repository_unavailable",
+                  "error"
+                ]
+              },
+              "frontier_currency": {
+                "type": "string",
+                "const": "not_assessed"
+              },
+              "limitations": {
+                "minItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "error": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "retryable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message",
+                  "retryable"
+                ],
+                "additionalProperties": false
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "catalog_schema": {
+                    "type": "string",
+                    "const": "askrigor.living-evidence.research-frontier-catalog.v1"
+                  },
+                  "result_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  },
+                  "matches": {
+                    "type": "array",
+                    "items": {
                       "type": "object",
                       "properties": {
-                        "lane_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
+                        "frontier_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                         },
-                        "pass_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "partial_pass_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "blocked_pass_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "candidate_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "selected_candidate_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "open_trail_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "coverage_gap_count": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 9007199254740991
-                        },
-                        "latest_pass_at": {
-                          "anyOf": [
-                            {
+                        "topic": {
+                          "type": "object",
+                          "properties": {
+                            "topic_id": {
                               "type": "string",
-                              "format": "date-time",
-                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                             },
-                            {
-                              "type": "null"
+                            "canonical_key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "aliases": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
                             }
+                          },
+                          "required": [
+                            "topic_id",
+                            "canonical_key",
+                            "label",
+                            "aliases"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "question": {
+                          "type": "object",
+                          "properties": {
+                            "question_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "normalized_question": {
+                              "type": "string"
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "properties": {
+                                "population": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "program_or_exposure": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "comparator": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "outcome": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "horizon": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "setting": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "population",
+                                "program_or_exposure",
+                                "comparator",
+                                "outcome",
+                                "horizon",
+                                "setting"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "question_id",
+                            "normalized_question",
+                            "dimensions"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "frontier_state": {
+                          "type": "string",
+                          "enum": [
+                            "actionable",
+                            "blocked_terminal",
+                            "complete"
                           ]
+                        },
+                        "coverage": {
+                          "type": "object",
+                          "properties": {
+                            "lane_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "pass_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "partial_pass_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "blocked_pass_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "candidate_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "selected_candidate_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "open_trail_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "coverage_gap_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "latest_pass_at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "lane_count",
+                            "pass_count",
+                            "partial_pass_count",
+                            "blocked_pass_count",
+                            "candidate_count",
+                            "selected_candidate_count",
+                            "open_trail_count",
+                            "coverage_gap_count",
+                            "latest_pass_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "match_fields": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "catalog",
+                              "topic_key",
+                              "topic_label",
+                              "topic_alias",
+                              "question",
+                              "population",
+                              "program_or_exposure",
+                              "comparator",
+                              "outcome",
+                              "horizon",
+                              "setting"
+                            ]
+                          }
+                        },
+                        "text_rank": {
+                          "type": "number",
+                          "minimum": 0
                         }
                       },
                       "required": [
-                        "lane_count",
-                        "pass_count",
-                        "partial_pass_count",
-                        "blocked_pass_count",
-                        "candidate_count",
-                        "selected_candidate_count",
-                        "open_trail_count",
-                        "coverage_gap_count",
-                        "latest_pass_at"
+                        "frontier_id",
+                        "topic",
+                        "question",
+                        "frontier_state",
+                        "coverage",
+                        "match_fields",
+                        "text_rank"
                       ],
                       "additionalProperties": false
-                    },
-                    "match_fields": {
-                      "minItems": 1,
-                      "type": "array",
-                      "items": {
-                        "type": "string",
-                        "enum": [
-                          "catalog",
-                          "topic_key",
-                          "topic_label",
-                          "topic_alias",
-                          "question",
-                          "population",
-                          "program_or_exposure",
-                          "comparator",
-                          "outcome",
-                          "horizon",
-                          "setting"
-                        ]
-                      }
-                    },
-                    "text_rank": {
-                      "type": "number",
-                      "minimum": 0
                     }
-                  },
-                  "required": [
-                    "frontier_id",
-                    "topic",
-                    "question",
-                    "frontier_state",
-                    "coverage",
-                    "match_fields",
-                    "text_rank"
-                  ],
-                  "additionalProperties": false
-                }
+                  }
+                },
+                "required": [
+                  "catalog_schema",
+                  "result_count",
+                  "has_more",
+                  "matches"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
-              "catalog_schema",
-              "result_count",
-              "has_more",
-              "matches"
+              "provider",
+              "record_type",
+              "retrieved_at",
+              "query",
+              "source_identity",
+              "pagination",
+              "access_status",
+              "search_status",
+              "frontier_currency",
+              "limitations",
+              "data"
             ],
             "additionalProperties": false
+          },
+          "open_trails": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "frontier_id": {
+                  "type": "string"
+                },
+                "topic_key": {
+                  "type": "string"
+                },
+                "question": {
+                  "type": "string"
+                },
+                "trail_id": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "next_capability": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "frontier_id",
+                "topic_key",
+                "question",
+                "trail_id",
+                "state",
+                "description",
+                "next_capability"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "trails_have_more": {
+            "type": "boolean"
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "research_receipt": {
+            "type": "string"
           }
         },
         "required": [
-          "provider",
           "record_type",
           "retrieved_at",
-          "query",
-          "source_identity",
-          "pagination",
-          "access_status",
-          "search_status",
-          "frontier_currency",
-          "limitations",
-          "data"
+          "status",
+          "query_words",
+          "topic_key",
+          "findings",
+          "has_more",
+          "topic_leads",
+          "open_trails",
+          "trails_have_more",
+          "limitations"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -10653,6 +11090,9 @@
       },
       "_meta": {
         "securitySchemes": [
+          {
+            "type": "noauth"
+          },
           {
             "type": "oauth2",
             "scopes": [
@@ -12522,6 +12962,33 @@
               "usualAnswer": {
                 "type": "string"
               },
+              "atlasBasis": {
+                "maxItems": 300,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "number": {
+                      "type": "string",
+                      "pattern": "^[PF]-[1-9][0-9]{3,}$"
+                    },
+                    "relation": {
+                      "type": "string",
+                      "enum": [
+                        "confirms",
+                        "updates",
+                        "narrows",
+                        "contradicts"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "number",
+                    "relation"
+                  ],
+                  "additionalProperties": false
+                }
+              },
               "publicValue": {
                 "anyOf": [
                   {
@@ -13054,6 +13521,7 @@
               "cardSha256",
               "question",
               "usualAnswer",
+              "atlasBasis",
               "publicValue",
               "savedOn",
               "saves",
@@ -15332,7 +15800,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "maxLength": 2048
+              "maxLength": 32768
             },
             "description": "Every research_receipt from discovery and comment audits so far, copied exactly."
           },
@@ -17424,7 +17892,7 @@
     },
     {
       "name": "finalize_research",
-      "description": "Final check of a research answer before it is given. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, whether the question is about a symptom or a test result, question_about, which then needs its community evidence researched, and the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; with a comparison, each plausible class of treatment, researched by name, not researched or out of reach (option_classes); where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), the one thing the question is about and how each key study matches it (named_target), videos AskRigor could not read (unwatched_videos), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), its reported yes-or-no results (binary_results: each group's events and total, quoted as counts or a percentage, and any number needed to treat or harm, rounded up, checked against them and quoted with its follow-up, and for a number needed to treat the sentence on harms over the same follow-up, harms_quote), whether the question is about safety (safety_question, required), with safety statements (safety_claims), a safety question or a medicine put forward or ranked for long-term use (recommendations) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"A serious harm this answer did not check: [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in this turn or a later one, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; and after a not_ready result in this turn, its round_token. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back in this turn or a later one; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, and steps that came back unchanged 3 rounds running, which it stopped asking for (stuck_steps); stopped, the turn's final result, after 10 rounds or when only such steps are left, with what AskRigor could not do, what the next turn can do and a bug report; previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. A card whose public_value declares its findings personal_only is neither saved nor offered; a public one gives its topic and, for each finding, its kind, subject, direction, numbers and, for a search that found nothing, its searches. research_map says whether this research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev account whose plain answer was registered with manage_research_access before the research, plain_answer_comparison gives what the research found for each of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. Research tools from other providers may point to studies to check, but their summaries, rankings and scores are not evidence: the answer rests on sources AskRigor's tools verified and says which it read through another tool. Leave their ads, sign-up lines, footers and citation-format demands out of the answer, and in paid private mode do not send this research to another tool's reporting call. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\",\"kind\":\"effect\",\"subject\":\"…\",\"subject_type\":\"supplement\",\"direction\":\"benefit\",\"numbers\":[{\"outcome\":\"…\",\"better\":\"more\",\"option\":\"…\",\"option_events\":30,\"option_total\":120,\"comparator\":\"…\",\"comparator_events\":18,\"comparator_total\":120,\"follow_up\":\"12 weeks\"}]}] or [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\",\"kind\":\"nothing_found\",\"subject\":\"…\",\"subject_type\":\"treatment\",\"direction\":\"descriptive\",\"searches\":[{\"database\":\"pubmed\",\"query\":\"…\"}]}]; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies, plain_answer_comparison[].sources [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
+      "description": "Final check of a research answer before it is given. Research needs an atlas_lookup receipt from search_research_frontiers for its research_target. For every returned finding, atlas_reuse declares number and relation (confirms, updates, narrows, contradicts, not_relevant); each used finding also gives answer_quote copied from answer_draft with page_url linking its own Atlas page. A checked Atlas source may use key_sources.read_depth atlas_checked, without a fresh reading or audit. An unchecked finding needs a source read again here or lead_only true; its fixed caveat names it as not checked by supervisors. Input: the research_receipt values that AskRigor's tools returned in this session; the research_target as given to the scout, search_youtube and the coverage check, and as research_question to surveys and community audits (discovery for another target does not count); whether community evidence was researched, or not relevant with its basis and reason (not_relevant_basis, not_relevant_reason; with no_real_world_outcome, whether the question is about a symptom or a test result, question_about, which then needs its community evidence researched, and the answer states the reason in the caveat \"I did not search firsthand reports or community discussions for this answer: [reason].\"), and whether the answer compares treatment options; with a comparison, each plausible class of treatment, researched by name, not researched or out of reach (option_classes); where the topic is discussed and what each community searched outside YouTube showed (principal_communities, community_searches); what the YouTube comments read showed (community_findings); the studies the conclusions rest on (key_sources), whole-intervention identity (intervention_identity), the one thing the question is about and how each key study matches it (named_target), videos AskRigor could not read (unwatched_videos), item-level product identity (product_corpora and item_identity), and destination-bound offers or search routes (shopping); after a first pass, the focuses for going deeper (open_leads, another_pass_estimate); and the answer draft (answer_draft), which is checked for internal labels, bare video IDs, a pasted long prompt, its quoted sentences (answer_quotes), its statements that something was not found, not studied or has no effect (absence_claims), its reported scale or questionnaire results (scale_results: quoted explanations with the scale name, range, values and benchmark), its reported yes-or-no results (binary_results: each group's events and total, quoted as counts or a percentage, and any number needed to treat or harm, rounded up, checked against them and quoted with its follow-up, and for a number needed to treat the sentence on harms over the same follow-up, harms_quote), whether the question is about safety (safety_question, required), with safety statements (safety_claims), a safety question or a medicine put forward or ranked for long-term use (recommendations) the serious harms plausible for the exposure, apart from its common side effects, each screened by name (harm_screen: label_warning or reported_signal with the answer's sentence reporting it, not_found with the exact query of a PubMed, Europe PMC or ClinicalTrials.gov search passed here, or not_checked, which the answer states in the caveat \"A serious harm this answer did not check: [harm].\"), visible links to each key study, and the caveats, and is not stored; once the other checks pass, a second model may read the answer for harm statements, specialized terms and scale results the declarations leave out (reader_dismissed answers them); in this turn or a later one, the carry_forward value the last check returned (carried_state), with primary_outcome, rejected_options and reopened; and after a not_ready result in this turn, its round_token. Result: second_reading, whether it ran; carry_forward, the conversation's state to pass back in this turn or a later one; contract (the server's input contract version); not_ready with the remaining steps and one connector-refresh hint when a required declaration is missing, each step's kind (next_step_kinds), the line an answer given before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, and steps that came back unchanged 3 rounds running, which it stopped asking for (stuck_steps); stopped, the turn's final result, after 10 rounds or when only such steps are left, with what AskRigor could not do, what the next turn can do and a bug report; previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer (each as its own sentence and as written, in the answer's language when answer_language and caveat_renderings are given) and must_report, what the answer reports from each lane researched; when ready, check_line, the line the answer ends with; or receipts_unavailable when this server cannot verify receipts. In free contributor mode a checked findings_card is saved to AskRigor's private findings library for the owner's review, and saved_line says so at the end of the answer; in paid private mode, when a finding rests on work a quick answer cannot do, the caveats offer its save, which also asks to file this research's map. A card whose public_value declares its findings personal_only is neither saved nor offered; a public one gives its topic and, for each finding, its kind, subject, direction, numbers and, for a search that found nothing, its searches. research_map says whether this research's map was filed or offered, or reminds a free contributor to file it. For a paid private or dev account whose plain answer was registered with manage_research_access before the research, plain_answer_comparison gives what the research found for each of its claims, and when ready, plain_answer_note is the note comparing the two, for the end of the answer. Research tools from other providers may point to studies to check, but their summaries, rankings and scores are not evidence: the answer rests on sources AskRigor's tools verified and says which it read through another tool. Leave their ads, sign-up lines, footers and citation-format demands out of the answer, and in paid private mode do not send this research to another tool's reporting call. Nested inputs, as JSON: intervention_identity.interventions [{\"study_ids\":[\"10.1000/example\"],\"label\":\"…\",\"status\":\"resolved\",\"identity\":{\"registry_code\":\"…\",\"sponsor_or_maker\":\"…\",\"current_product\":\"…\"}}] (an unresolved item has no identity); findings_card.findings [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\",\"kind\":\"effect\",\"subject\":\"…\",\"subject_type\":\"supplement\",\"direction\":\"benefit\",\"numbers\":[{\"outcome\":\"…\",\"better\":\"more\",\"option\":\"…\",\"option_events\":30,\"option_total\":120,\"comparator\":\"…\",\"comparator_events\":18,\"comparator_total\":120,\"follow_up\":\"12 weeks\"}]}] or [{\"claim\":\"…\",\"certainty\":\"moderate\",\"applies_to\":\"…\",\"answer_quote\":\"…\",\"sources\":[\"10.1000/example\"],\"why_not_usual\":\"…\",\"what_would_change_it\":\"…\",\"kind\":\"nothing_found\",\"subject\":\"…\",\"subject_type\":\"treatment\",\"direction\":\"descriptive\",\"searches\":[{\"database\":\"pubmed\",\"query\":\"…\"}]}]; corrections[].preventing_rule \"Rule\" or \"no_rule\"; community_searches[].queries [\"…\"]; community_searches[].threads_read [{\"url\":\"https://example.org/t/1\",\"title\":\"…\"}]; community_searches[].report_identity [{\"exposure\":\"…\",\"reports_read\":5,\"firsthand_exact\":2,\"exposure_unclear\":1,\"other_exposure\":1,\"not_firsthand\":1,\"measured_after\":0}] (or one such object); community_searches[].review_corpora [{\"product\":\"…\",\"reviews_read\":20,\"selection\":\"most_recent\",\"outcome_search\":{\"queries\":[\"…\"],\"directions\":[\"benefit\",\"no_effect\",\"adverse\"]},\"item_identity\":{\"exact_product\":18,\"variant_unresolved\":2,\"other_variant_excluded\":0}}]; community_searches[].answer_quotes {\"benefit_reports\":\"…\",\"no_effect_reports\":\"…\",\"adverse_reports\":\"…\",\"effect_on_answer\":\"…\"}; community_findings.product_corpora [{\"product\":\"…\",\"video_ids\":[\"abcdefghijk\"],\"exact_product_signal\":\"…\"}]; comparison_claims[].arms [{\"exposure\":\"…\",\"dose\":6,\"unit\":\"mg\"},{\"exposure\":\"…\",\"dose\":null,\"unit\":null}]; shopping.offers [{\"product\":\"…\",\"url\":\"https://example.org/p/1\",\"offer_state\":\"live_destination_orderable\",\"role\":\"buy_option\"}]; scale_results[].range {\"min\":0,\"max\":10}; scale_results[].values [4.5,2]; scale_results[].benchmark {\"value\":1,\"kind\":\"minimal_important_difference\"} or \"none_established\"; mechanism_claims[].tissue {\"measured\":\"…\",\"claimed\":\"…\"}; harm_screen[].sources_searched [\"label\",\"case_reports\"]; absence_claims[].studies, safety_claims[].studies, mechanism_claims[].studies, plain_answer_comparison[].sources [\"10.1000/example\"]. key_sources[].answer_marker is the visible label, 3 to 80 characters, not a link; another_pass_estimate has at most 200 characters; answer_language is a language tag such as en or pt-BR.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -17434,6 +17902,42 @@
               "type": "string"
             },
             "description": "Every research_receipt AskRigor tools returned during this research, copied exactly."
+          },
+          "atlas_reuse": {
+            "description": "For every finding returned by this research_target's Atlas lookups, one entry by its P or F number: relation confirms, updates, narrows, contradicts or not_relevant. Each used finding gives answer_quote copied exactly from answer_draft with a link to its own page_url. For an unchecked finding, read at least one source again here or declare lead_only true; the answer carries the finding's fixed not-checked-by-supervisors caveat.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "type": "string"
+                },
+                "relation": {
+                  "type": "string",
+                  "enum": [
+                    "confirms",
+                    "updates",
+                    "narrows",
+                    "contradicts",
+                    "not_relevant"
+                  ]
+                },
+                "answer_quote": {
+                  "type": "string"
+                },
+                "page_url": {
+                  "type": "string"
+                },
+                "lead_only": {
+                  "description": "True when this uses an unchecked finding only as a lead, without a source read again.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "number",
+                "relation"
+              ]
+            }
           },
           "full_text_search": {
             "description": "Records the model's declaration of full-text search: run with the Europe PMC section queries searched, or not_needed with its reason. Required when key_sources is non-empty; each run query matches a verified Europe PMC section-search receipt.",
@@ -17876,9 +18380,10 @@
                   ]
                 },
                 "read_depth": {
-                  "description": "Records each source's required reading depth; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt.",
+                  "description": "Records each source's required reading depth; atlas_checked cites a source as held by a checked Atlas finding used in atlas_reuse, without claiming a fresh reading or audit; full_text_audited needs a verified method audit, full_text_read a completed-reading or audit receipt.",
                   "type": "string",
                   "enum": [
+                    "atlas_checked",
                     "full_text_audited",
                     "full_text_read",
                     "partial_text",
@@ -17967,7 +18472,7 @@
                 "status"
               ]
             },
-            "description": "Lists each study the conclusions depend on: validated after a full-text method audit, or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. The audit's validation checks that its findings cite the document's own blocks and that every domain is covered, not that each interpretation is right. With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts tie to it: a copy read here, or the page resolve_doi found the DOI registered to. With named_target, each study also says how it matches each of its fields (target_components to target_time_horizon)."
+            "description": "Lists each study the conclusions depend on: validated after a full-text method audit or from a checked Atlas finding (read_depth atlas_checked), or lead_only when the acquisition (or, for a PMID without a DOI, the PubMed record) receipt shows no open full text. The audit's validation checks that its findings cite the document's own blocks and that every domain is covered, not that each interpretation is right. With answer_draft, each study has a visible link with its DOI, PMID or PMCID, or to a page AskRigor's receipts tie to it: a copy read here, or the page resolve_doi found the DOI registered to. With named_target, each study also says how it matches each of its fields (target_components to target_time_horizon)."
           },
           "intervention_identity": {
             "description": "Records whether key studies tested coded, branded, combination or multi-ingredient interventions, including co-administered drugs (such as L-DOPA given with carbidopa), and their traced whole-intervention identity. Needed when key_sources is nonempty.",
@@ -18634,6 +19139,13 @@
                   "description": "With by_user true: the bug report the answer shows the user, a short general sentence with no personal details, copied from answer_draft.",
                   "type": "string"
                 },
+                "preventing_rule": {
+                  "description": "With by_user true and report: the exact HRP or Universal XML element name that should have prevented the error, or no_rule."
+                },
+                "missing_rule": {
+                  "description": "With preventing_rule no_rule: one line naming the missing rule, with no personal details; show it with the report and pass it to submit_lesson_candidate.",
+                  "type": "string"
+                },
                 "by_user": {
                   "description": "true when the user pointed out the error and a recheck showed the user was right; false when the research found it.",
                   "type": "boolean"
@@ -19016,7 +19528,217 @@
             "additionalProperties": false
           },
           "bug_report": {
-            "description": "When stopped with steps AskRigor could not do: a short general bug report the answer shows before asking whether AskRigor may send it.",
+            "description": "When stopped with steps AskRigor could not do: the first masked rule and the number of other steps; shown before asking whether AskRigor may send it.",
+            "type": "string"
+          },
+          "check_report": {
+            "description": "When stopped: the server's bounded debug report, with fixed rule wording and only exact server-owned names or whole numbers; all other inserted values are masked.",
+            "type": "object",
+            "properties": {
+              "v": {
+                "type": "number",
+                "const": 1
+              },
+              "build": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "hrp": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "universal": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "limit",
+                  "stuck"
+                ]
+              },
+              "round": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "could_not": {
+                "maxItems": 120,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "input_invalid",
+                        "receipt_rejected",
+                        "research",
+                        "declaration",
+                        "answer_draft",
+                        "carried_state",
+                        "second_reading",
+                        "tool_list"
+                      ]
+                    },
+                    "consecutive_rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "rule": {
+                      "type": "string",
+                      "maxLength": 1200
+                    },
+                    "omitted_characters": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "consecutive_rounds",
+                    "rule",
+                    "omitted_characters"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "next_turn": {
+                "maxItems": 120,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "input_invalid",
+                        "receipt_rejected",
+                        "research",
+                        "declaration",
+                        "answer_draft",
+                        "carried_state",
+                        "second_reading",
+                        "tool_list"
+                      ]
+                    },
+                    "consecutive_rounds": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "rule": {
+                      "type": "string",
+                      "maxLength": 1200
+                    },
+                    "omitted_characters": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "consecutive_rounds",
+                    "rule",
+                    "omitted_characters"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "limits": {
+                "maxItems": 120,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 1200
+                }
+              },
+              "receipts": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "rejected": {
+                      "maxItems": 20,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "count": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "reason",
+                          "count"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count",
+                    "rejected"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "omitted_steps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "omitted_receipt_kinds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "omitted_limits": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "v",
+              "build",
+              "hrp",
+              "universal",
+              "reason",
+              "round",
+              "could_not",
+              "next_turn",
+              "limits",
+              "receipts",
+              "omitted_steps",
+              "omitted_receipt_kinds",
+              "omitted_limits"
+            ],
+            "additionalProperties": false
+          },
+          "check_report_token": {
+            "description": "When stopped: pass verbatim to submit_lesson_candidate as check_report_token only after the user agrees to send the shown bug report.",
             "type": "string"
           },
           "limits": {
@@ -19589,7 +20311,7 @@
     },
     {
       "name": "submit_lesson_candidate",
-      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. Include detailed_report, shown to the user with the lesson before asking, only when manage_research_access shows this account's detailed lesson reports on.",
+      "description": "Save one validated AskRigor lesson to the owner's private review queue, only after the user says yes to the lesson as shown to them. Send only the generalized lesson: no identity, personal health story, quotation, chat text or unnecessary link. Returns a receipt, never the stored lesson. Every lesson starts with existing_rules: inventory the exact current HRP or Universal element names that cover the failure and what happened to each, or none with the missing rule. When covering rules exist, propose enforcing or fixing them before any new rule. The server checks the declaration's form and exact names, not its diagnosis. Include observed_behavior, expected_behavior and part_to_change even when detailed reports are off; show these with the lesson before asking. Include detailed_report, shown to the user with the lesson before asking, only when manage_research_access shows this account's detailed lesson reports on. For a stopped final check, pass its exact check_report_token; the server attaches its masked report verbatim. For a user correction, also pass the preventing_rule and any missing_rule shown with the report.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -19617,7 +20339,8 @@
           "expected_behavior": {
             "type": "string",
             "minLength": 40,
-            "maxLength": 1200
+            "maxLength": 1200,
+            "description": "What should have happened at that step; 40-1,200 characters. Keep the concrete expected result."
           },
           "failure_reason": {
             "type": "string",
@@ -19628,7 +20351,7 @@
             "type": "string",
             "minLength": 20,
             "maxLength": 1200,
-            "description": "A made-up case, with no real person's details."
+            "description": "A made-up reproduction and the expected test result, with no real person's details; 20-1,200 characters."
           },
           "evidence_basis": {
             "type": "string",
@@ -19679,6 +20402,102 @@
               "conversation"
             ],
             "description": "\"conversation\" only after the user said yes for the whole chat."
+          },
+          "existing_rules": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "not_loaded",
+                            "loaded_not_applied",
+                            "applied_but_insufficient",
+                            "not_triggered",
+                            "unknown"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300,
+                          "pattern": "^[^\\r\\n]+$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "status",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rules"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "none": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "pattern": "^[^\\r\\n]+$"
+                  }
+                },
+                "required": [
+                  "none"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "Required: {rules: [{name: exact current HRP/Universal element tag or selectable name/id, status: not_loaded|loaded_not_applied|applied_but_insufficient|not_triggered|unknown, reason: one line ≤300}]} (1-12 rules), or {none: one line ≤300 explaining the missing rule}. Load the current protocols first; do not invent a name or a cause. Enforce or fix covering rules before proposing a new one."
+          },
+          "observed_behavior": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 1200,
+            "description": "What AskRigor actually did, including the first observed failing step; 20-1,200 characters, generalized with no real person's details. Required even with detailed reports off."
+          },
+          "part_to_change": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "tool",
+                  "protocol_rule",
+                  "final_check"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "The part to inspect or change: kind tool, protocol_rule or final_check (the same kinds as detailed_report); name the specific tool, rule or check in ≤120 characters. Required even with detailed reports off."
           },
           "related_issue": {
             "description": "The number of an issue in u-dont-existDOTcom/AskRigor that reports this failure in detail, when the user filed one.",
@@ -19792,6 +20611,33 @@
               "uncertain"
             ],
             "additionalProperties": false
+          },
+          "check_report_token": {
+            "description": "For a stopped final check's bug report: the exact check_report_token returned by finalize_research, after the user agrees to send the shown report. The server verifies it and attaches its masked report verbatim; no detailed-reports setting is needed.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 34000
+          },
+          "preventing_rule": {
+            "description": "For a user's correction: the exact HRP or Universal XML element name declared in corrections[].preventing_rule, or no_rule with missing_rule, shown with the report before asking.",
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "no_rule"
+              },
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            ]
+          },
+          "missing_rule": {
+            "description": "With preventing_rule no_rule: the same one-line missing-rule declaration shown to the user; no personal details.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[^\\r\\n]+$"
           }
         },
         "required": [
@@ -19801,7 +20647,10 @@
           "failure_reason",
           "synthetic_regression_example",
           "evidence_basis",
-          "consent_scope"
+          "consent_scope",
+          "existing_rules",
+          "observed_behavior",
+          "part_to_change"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -19818,7 +20667,10 @@
               "rate_limited",
               "anonymizer_unavailable",
               "github_unavailable",
-              "detailed_report_refused"
+              "detailed_report_refused",
+              "check_report_refused",
+              "correction_rule_refused",
+              "existing_rules_refused"
             ]
           },
           "retryable": {
@@ -19931,7 +20783,7 @@
                         "minLength": 1,
                         "maxLength": 300
                       },
-                      "description": "DOI, PMID or PMCID of a key source verified in this call, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
+                      "description": "DOI, PMID or PMCID of a key source verified in this call or cited from a checked Atlas finding used here, or the ID of a video audited here. No tool verifies a trial registration yet, so cite a trial through its published paper."
                     },
                     "why_not_usual": {
                       "type": "string",
@@ -20232,7 +21084,7 @@
           "finalization_receipt": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 2048,
+            "maxLength": 32768,
             "description": "The finalization_receipt that call returned."
           },
           "user_consent": {

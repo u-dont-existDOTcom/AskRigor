@@ -1,3 +1,6 @@
+import { lessonDiagnostics } from "./fixtures/lesson-diagnostics.js";
+import { buildCheckReport, issueCheckReportToken, checkReportSection, CHECK_REPORT_SECTION_TITLE, CHECK_REPORT_TOKEN_MAX_CHARACTERS } from "../apps/research-mcp/src/check-report.js";
+import { rule } from "../apps/research-mcp/src/check-rules.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DetailedLessonReport, GeneralizedLesson } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
@@ -22,6 +25,8 @@ const candidate: GeneralizedLesson = {
   protocol_identities: [{ name: "HRP", version: "20.5.17", sha256: "a".repeat(64) }],
   consent_scope: "once",
 };
+
+const connectorCandidate = { ...candidate, ...lessonDiagnostics };
 
 interface StoredIssue {
   number: number;
@@ -452,14 +457,14 @@ describe("private GitHub lesson queue", () => {
       queue: queue(github, () => now),
     });
 
-    await expect(service.submit(candidate, "connector")).resolves.toEqual({
+    await expect(service.submit(connectorCandidate, "connector")).resolves.toEqual({
       status: "submitted",
       candidate_id: "ARL-0001",
       occurrence_count: 1,
       retryable: false,
     });
     now = new Date(repeatAt);
-    const repeat = await service.submit({ ...candidate, related_issue: 357 }, "connector");
+    const repeat = await service.submit({ ...connectorCandidate, related_issue: 357 }, "connector");
 
     expect(repeat).toEqual({
       status: "existing_candidate",
@@ -472,7 +477,7 @@ describe("private GitHub lesson queue", () => {
     expect(github.issues).toHaveLength(1);
     expect(parseFinalMetadata(github.issues[0]!.body)).toMatchObject({ fingerprint: lessonFingerprintValue });
     expect(github.issues[0]!.body).not.toContain("Related AskRigor issue");
-    expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([[
+    expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([expect.stringContaining([
       "## Anonymous lesson occurrence",
       "",
       "Occurrence count: 2",
@@ -480,7 +485,7 @@ describe("private GitHub lesson queue", () => {
       "Related AskRigor issue: u-dont-existDOTcom/AskRigor#357",
       "",
       occurrenceMarker({ fingerprint: lessonFingerprintValue, occurrence_count: 2, observed_at: repeatAt }),
-    ].join("\n")]);
+    ].join("\n"))]);
   });
 
   // Owner question 154: a connector lesson from an account that turned detailed lesson reports on carries a detailed
@@ -659,13 +664,13 @@ describe("private GitHub lesson queue", () => {
         queue: queue(github, () => now),
       });
 
-      await expect(service.submit({ ...candidate, detailed_report: report }, "connector", { detailedReports: true }))
+      await expect(service.submit({ ...connectorCandidate, detailed_report: report }, "connector", { detailedReports: true }))
         .resolves.toEqual({ status: "submitted", candidate_id: "ARL-0001", occurrence_count: 1, retryable: false });
       now = new Date(repeatAt);
-      const repeat = await service.submit({ ...candidate, detailed_report: report }, "connector", { detailedReports: true });
+      const repeat = await service.submit({ ...connectorCandidate, detailed_report: report }, "connector", { detailedReports: true });
       expect(repeat).toEqual({ status: "existing_candidate", candidate_id: "ARL-0001", occurrence_count: 2, retryable: false });
       // Refused while the setting is off: no comment, and the count stays.
-      await expect(service.submit({ ...candidate, detailed_report: report }, "connector"))
+      await expect(service.submit({ ...connectorCandidate, detailed_report: report }, "connector"))
         .resolves.toMatchObject({ status: "detailed_report_refused" });
 
       const lessonFingerprintValue = lessonFingerprint(canonicalizeLesson(candidate));
@@ -677,7 +682,7 @@ describe("private GitHub lesson queue", () => {
         first_seen: observedAt,
         last_seen: observedAt,
       });
-      expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([[
+      expect(github.comments.get(1)?.map(({ body }) => body)).toEqual([expect.stringContaining([
         "## Anonymous lesson occurrence",
         "",
         "Occurrence count: 2",
@@ -686,7 +691,7 @@ describe("private GitHub lesson queue", () => {
         section,
         "",
         occurrenceMarker({ fingerprint: lessonFingerprintValue, occurrence_count: 2, observed_at: repeatAt }),
-      ].join("\n")]);
+      ].join("\n"))]);
       expect(JSON.stringify(repeat)).not.toContain("trials");
     });
   });
@@ -983,5 +988,99 @@ describe("private GitHub lesson queue", () => {
     const error = await outcome;
     expect(error).toMatchObject({ code: "github_service_unavailable", retryable: true });
     expect(String(error)).not.toContain("private hung GitHub request");
+  });
+});
+
+describe("the signed final-check report in a filed lesson", () => {
+  const secret = "server-final-check-report-secret-0123456789abcdef";
+  const makeReport = () => buildCheckReport({
+    status: "stopped", reason: "stuck", round: 3,
+    couldNot: [{ kind: "research", consecutive: 3, text: "Not exported", rule: rule`Audit video ${"private-video"} with audit_youtube_video_community.` }],
+    nextTurn: []
+  }, { versions: { build: "6f229e39", hrp: "20.6.31", universal: "20.5.46" }, receipts: [], allowed: () => false });
+  const subject = (github: FakeGitHub) => new LessonSubmissionService({
+    limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
+    anonymizer: createLocalLessonGeneralizer(), queue: queue(github), reportSigningSecret: () => secret,
+  });
+  it("files the server report verbatim after privacy screening, with detailed reports off, including repeats", async () => {
+    const github = new FakeGitHub();
+    const service = subject(github);
+    const report = makeReport();
+    const token = issueCheckReportToken(report, secret);
+    const raw = { ...connectorCandidate, check_report_token: token };
+    await expect(service.submit(raw, "connector")).resolves.toMatchObject({ status: "submitted" });
+    const body = github.issues[0]!.body;
+    expect(body.startsWith("## Existing rules\n\n")).toBe(true);
+    expect(body).toContain("claim\\_scope\\_predicate\\_alignment\\_gate: unknown");
+    expect(body).toContain("## Observed behavior\n\nThe answer ranked two invented interventions");
+    expect(body).toContain("## Expected behavior\n\nCite each material claim");
+    expect(body).toContain("## Part to change\n\nfinal\\_check: finalize\\_research claim\\-to\\-source check");
+    expect(body).toContain("## Synthetic regression\n\nA response ranks two interventions");
+    expect(body).not.toContain("## Detailed report");
+    expect(body).toContain(checkReportSection(report));
+    expect(body.indexOf("## Privacy gate")).toBeLessThan(body.indexOf(CHECK_REPORT_SECTION_TITLE));
+    expect(body).not.toContain(token);
+    expect(body).not.toContain("private-video");
+    // Same duplicate key, but distinct diagnostic detail must survive in the repeat's comment too.
+    const repeated = { ...raw, observed_behavior: "The second invented answer repeated the same unsupported ranking",
+      synthetic_regression_example: "A repeat-only fixture checks that a failed source comparison remains visible" };
+    await expect(service.submit(repeated, "connector")).resolves.toMatchObject({ status: "existing_candidate" });
+    const comment = github.comments.get(1)?.[0]!.body;
+    expect(comment?.startsWith("## Existing rules\n\n")).toBe(true);
+    expect(comment).toContain("## Observed behavior\n\n" + repeated.observed_behavior);
+    expect(comment).toContain("repeat\\-only fixture");
+    expect(comment).toContain(checkReportSection(report));
+    const unsafe = { ...raw, failure_reason: "Contact person@example.com for the private details of this failure." };
+    const before = github.calls.length;
+    await expect(service.submit(unsafe, "connector")).resolves.toMatchObject({ status: "privacy_rejected" });
+    expect(github.calls).toHaveLength(before);
+  });
+  it("starts a lesson and its repeat with none and its missing-rule explanation", async () => {
+    const github = new FakeGitHub();
+    const service = subject(github);
+    const raw = { ...connectorCandidate, existing_rules: {
+      none: "A rule is missing for verifying the invented menu label against its intended text",
+    } };
+    await expect(service.submit(raw, "connector")).resolves.toMatchObject({ status: "submitted" });
+    await expect(service.submit(raw, "connector")).resolves.toMatchObject({ status: "existing_candidate" });
+    for (const body of [github.issues[0]!.body, github.comments.get(1)![0]!.body]) {
+      expect(body.startsWith("## Existing rules\n\nnone: " + raw.existing_rules.none + "\n\n")).toBe(true);
+      expect(body).not.toContain("## Detailed report");
+    }
+  });
+  it("refuses altered, foreign-domain, foreign-server and oversized tokens without a queue request", async () => {
+    const github = new FakeGitHub();
+    const service = subject(github);
+    const token = issueCheckReportToken(makeReport(), secret);
+    const [prefix, payload, signature] = token.split("~");
+    const report = JSON.parse(Buffer.from(payload!, "base64url").toString());
+    report.could_not[0].rule = "An altered rule.";
+    for (const invalid of [
+      `${prefix}~${Buffer.from(JSON.stringify(report)).toString("base64url")}~${signature}`,
+      token.replace("br1", "cr2"), issueCheckReportToken(makeReport(), "another server"),
+      "a".repeat(CHECK_REPORT_TOKEN_MAX_CHARACTERS + 1),
+    ]) await expect(service.submit({ ...connectorCandidate, check_report_token: invalid }, "connector"))
+      .resolves.toEqual({ status: "check_report_refused", retryable: false, reason_code: "invalid_check_report_token" });
+    expect(github.calls).toHaveLength(0);
+  });
+  it("verifies and files the correction rule, screens a missing rule and keeps Action fields strict", async () => {
+    const github = new FakeGitHub();
+    const service = subject(github);
+    await expect(service.submit({ ...connectorCandidate, preventing_rule: "HarmWarningCalibration" }, "connector"))
+      .resolves.toMatchObject({ status: "submitted" });
+    expect(github.issues[0]!.body).toContain("HarmWarningCalibration");
+    await expect(service.submit({ ...connectorCandidate, preventing_rule: "no_rule", missing_rule: "Check the source identity before ranking." }, "connector"))
+      .resolves.toMatchObject({ status: "existing_candidate" });
+    expect(github.comments.get(1)?.[0]!.body).toContain("Check the source identity before ranking\\.");
+    const before = github.calls.length;
+    for (const extra of [{ preventing_rule: "not_an_actual_rule" }, { preventing_rule: "no_rule" }, { missing_rule: "Unpaired text" }]) {
+      await expect(service.submit({ ...connectorCandidate, ...extra }, "connector"))
+        .resolves.toEqual({ status: "correction_rule_refused", retryable: false, reason_code: "invalid_preventing_rule" });
+    }
+    await expect(service.submit({ ...connectorCandidate, preventing_rule: "no_rule", missing_rule: "Contact person@example.com about the missing rule." }, "connector"))
+      .resolves.toMatchObject({ status: "privacy_rejected" });
+    await expect(service.submit({ ...candidate, check_report_token: issueCheckReportToken(makeReport(), secret) }, "custom-gpt"))
+      .resolves.toMatchObject({ status: "privacy_rejected" });
+    expect(github.calls).toHaveLength(before);
   });
 });
