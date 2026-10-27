@@ -90,6 +90,8 @@ complete XML protocol.
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
   reports, lessons naming existing rules, research building on the Atlas.
+- `audits/2026-10-27-owner-regressions-judgment.md`: the owner regressions on #375's build `ddba2b79` (85 cases: 41 pass,
+  40 in part, 3 fail, 1 refused by OpenAI's filter), with three recurring classes found at the mechanism level.
 - `audits/2026-10-20-carried-state-production-release.md`: release of #346 (owner questions 109 to 113, 117 and 120 to
   123, released on 124a): lessons #32 to #37 and carried state, with HRP 20.6.27, Universal 20.5.44, production
   acceptance and the Codex plugin refresh, and the owner regressions (13 of 30 cases met every criterion, none failed;
