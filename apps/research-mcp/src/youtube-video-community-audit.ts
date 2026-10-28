@@ -14,6 +14,8 @@ import {
   getYoutubeVideo,
   parseYoutubeVideoId,
   youtubeCommentSchema,
+  youtubeCommentContentReadable,
+  unreadYoutubeCommentContent,
   youtubeVideoDataSchema,
   type YoutubeComment,
   type YoutubeCommentSegmentRuntime,
@@ -401,9 +403,10 @@ export async function auditYoutubeVideoCommunity(
             returnedIds.length !== sampleIds.length ||
             sampleIds.some((id) => !returnedIds.includes(id));
           sampleRefetchLimitations = refetched.limitations;
-          const comments = chronological(refetched.comments).map((comment) => identity === undefined ? comment : {
-            ...comment, product_class: classifyProductComment(identity, productClass!, comment.text)
-          });
+          const comments = chronological(refetched.comments).map((comment) => ({
+            ...comment, ...unreadYoutubeCommentContent(comment.text),
+            ...(identity === undefined ? {} : { product_class: classifyProductComment(identity, productClass!, comment.text) })
+          }));
           sample = {
             mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
                 !sampleRefetchBoundary
@@ -493,7 +496,7 @@ export async function auditYoutubeVideoCommunity(
       : []),
     ...(sampleFailure === undefined ? [] : [sampleFailure])
   ]);
-  const sampleComments = sample?.comments ?? [];
+  const sampleComments = (sample?.comments ?? []).filter(youtubeCommentContentReadable);
   const returnedTopLevel = sampleComments.filter(({ is_reply }) => !is_reply).length;
   const returnedReplies = sampleComments.length - returnedTopLevel;
   const resultAccessStatus: AccessStatus = completionState === "api_visible_complete"

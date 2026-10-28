@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fetchJson, UpstreamHttpError } from "./http.js";
 import {
   parseYoutubeVideoId,
+  unreadYoutubeCommentContent,
   type YoutubeComment,
   type YoutubeConfig,
   type YoutubeReplyCountMismatch
@@ -631,6 +632,7 @@ function normalizeComment(
       ? {}
       : { author_display_name: item.snippet.authorDisplayName }),
     text: item.snippet.textDisplay,
+    ...unreadYoutubeCommentContent(item.snippet.textDisplay),
     like_count: item.snippet.likeCount,
     published_at: item.snippet.publishedAt,
     updated_at: item.snippet.updatedAt

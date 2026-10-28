@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
-import { commentProductClassSchema, type YoutubeComment } from "@askrigor/sources";
+import { commentProductClassSchema, youtubeCommentContentAccessShape, youtubeCommentContentReadable,
+  unreadYoutubeCommentContent, type YoutubeComment } from "@askrigor/sources";
 import { z } from "zod";
 
 import { rankYoutubeCommentIdentifier } from "./youtube-audit-continuation.js";
@@ -27,7 +28,7 @@ import {
  * corpus hashes and the completion receipt still cover the whole corpus.
  */
 
-export const compactYoutubeCommentSchema = z.object({
+const publishedCompactYoutubeCommentSchema = z.object({
   product_class: commentProductClassSchema.optional(),
   id: z.string(),
   reply_to: z.string().optional(),
@@ -37,6 +38,9 @@ export const compactYoutubeCommentSchema = z.object({
   edited: z.literal(true).optional(),
   text: z.string()
 }).strict();
+const { $schema: _commentDraft, ...publishedCommentShape } = z.toJSONSchema(publishedCompactYoutubeCommentSchema, { target: "draft-7" });
+export const compactYoutubeCommentSchema = publishedCompactYoutubeCommentSchema.extend(youtubeCommentContentAccessShape)
+  .meta(publishedCommentShape);
 
 export const compactYoutubeAuditSampleSchema = z.object({
   mode: z.enum(["all", "deterministic_hash_chronological"]),
@@ -133,13 +137,14 @@ export function compactYoutubeAuditForMcp(
       left.published_at.localeCompare(right.published_at) ||
       left.comment_id.localeCompare(right.comment_id)
     );
-    const topLevel = selected.filter(({ is_reply }) => !is_reply).length;
+    const readable = selected.filter(youtubeCommentContentReadable);
+    const topLevel = readable.filter(({ is_reply }) => !is_reply).length;
     const trimmed = count < sample.comments.length;
     return {
       ...rest,
-      records_returned_for_analysis: count,
+      records_returned_for_analysis: readable.length,
       top_level_records_returned_for_analysis: topLevel,
-      reply_records_returned_for_analysis: count - topLevel,
+      reply_records_returned_for_analysis: readable.length - topLevel,
       limitations: trimmed
         ? [...new Set([...rest.limitations, boundedSampleLimitation])]
         : rest.limitations,
@@ -320,7 +325,8 @@ function compactComment(
     date: comment.published_at.slice(0, 10),
     likes: comment.like_count,
     ...(comment.updated_at !== comment.published_at ? { edited: true as const } : {}),
-    text: comment.text
+    text: comment.text,
+    ...unreadYoutubeCommentContent(comment.text)
   };
 }
 

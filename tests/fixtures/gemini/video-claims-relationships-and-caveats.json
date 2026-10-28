@@ -1,0 +1,26 @@
+{
+  "spoken_language": "en",
+  "claims": [{
+    "start": "01:10", "speaker": "creator", "quote": "The trial reported less pain.",
+    "claim": "The trial reported less pain.", "evidence": "named_study",
+    "evidence_detail": "An invented trial", "specifics": []
+  }],
+  "more_claims_not_listed": false,
+  "sponsorships": [
+    { "start": "00:30", "what": "A brand paid for this segment.", "relationship_type": "outside_paid_placement", "actor": "creator", "counterparty": "Example brand", "content_access": "model_report_unverified" },
+    { "start": "02:00", "what": "A link earns the creator a commission.", "relationship_type": "affiliate_commission", "actor": "creator", "counterparty": "Example shop", "content_access": "model_report_unverified" },
+    { "start": "03:00", "what": "The creator received a free sample.", "relationship_type": "gift", "actor": "creator", "counterparty": "Example maker", "content_access": "model_report_unverified" },
+    { "start": "04:00", "what": "Join my own paid membership.", "relationship_type": "own_offering", "actor": "creator", "counterparty": "Creator's membership", "content_access": "model_report_unverified" },
+    { "start": "05:00", "what": "I declined their sponsorship offer.", "relationship_type": "declined_sponsorship_offer", "actor": "creator", "counterparty": "Another brand", "content_access": "model_report_unverified" },
+    { "start": "12:20", "what": "The trial's manufacturer funded it; my article was unsponsored.", "relationship_type": "research_funding", "actor": "trial investigators", "counterparty": "Trial manufacturer", "content_access": "model_report_unverified" },
+    { "start": "13:00", "what": "A shop logo appears without a disclosed relationship.", "relationship_type": "unknown", "actor": "creator", "counterparty": "Unexplained shop", "content_access": "model_report_unverified" }
+  ],
+  "caveats": [
+    { "start": "06:00", "speaker": "creator", "kind": "claim_criticized", "quote": "They say it cures everything; that is the claim I am criticizing.", "caveat": "The cure claim is quoted for criticism, not endorsed." },
+    { "start": "07:00", "speaker": "creator", "kind": "methods", "quote": "This study had no control group.", "caveat": "There was no control group." },
+    { "start": "08:00", "speaker": "creator", "kind": "correction", "quote": "I used the wrong dose earlier.", "caveat": "The speaker corrects an earlier dose." },
+    { "start": "09:00", "speaker": "creator", "kind": "uncertainty", "quote": "We do not know the long-term effect.", "caveat": "Long-term effects are uncertain." },
+    { "start": "12:20", "speaker": "creator", "kind": "funding", "quote": "The manufacturer funded this trial; my article was unsponsored, and funding alone does not make the result false.", "caveat": "The trial was manufacturer-funded, separately from the unsponsored article; funding alone does not disprove it." }
+  ],
+  "on_screen_citations": []
+}

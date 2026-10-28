@@ -1,3 +1,5 @@
+import { youtubeCommentContentReadable } from "@askrigor/sources";
+
 import type {
   YoutubeDiscussionActionOutput,
   YoutubeTranscriptActionOutput
@@ -118,6 +120,7 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
       const next = cloneMutable(entries.get(key) ?? emptyMaterial(currentTime));
       next.lastTouchedAtMs = currentTime;
       for (const comment of output.sample?.comments ?? []) {
+        if (!youtubeCommentContentReadable(comment)) continue;
         const record_sha256 = sourceRecordSha256(comment);
         next.discussionComments.set(record_sha256, {
           record_sha256,

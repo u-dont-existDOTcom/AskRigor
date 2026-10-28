@@ -1935,6 +1935,61 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("accepts an exact channel id through later_inputs and excludes similarly named channels", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const page = JSON.parse(await youtubeFixture("search-page-1.json"));
+    const channelId = page.items[0].snippet.channelId;
+    page.items.push({ ...page.items[0], id: { kind: "youtube#video", videoId: "abcdefghijk" },
+      snippet: { ...page.items[0].snippet, channelId: "UCabcdefghijkl0123456789" } });
+    page.items.push({ ...page.items[0], id: { kind: "youtube#video", videoId: "lmnopqrstuv" }, snippet: { title: "Unknown channel" } });
+    page.pageInfo = { totalResults: 3, resultsPerPage: 3 };
+    delete page.nextPageToken;
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return Response.json(page);
+    }));
+    try {
+      for (const args of [{ later_inputs: { channel_id: channelId } }, { channel_id: channelId }]) {
+        const result = await client.callTool({ name: "search_youtube", arguments: { query: "Recorded health channel", ...args } });
+        expect(result.isError).not.toBe(true);
+        expect((result.structuredContent as any).data.map(({ channel_id }: any) => channel_id)).toEqual([channelId]);
+      }
+      expect(requests.every((url) => url.searchParams.get("channelId") === channelId)).toBe(true);
+      const duplicate = await client.callTool({ name: "search_youtube", arguments: {
+        query: "Recorded health channel", channel_id: channelId, later_inputs: { channel_id: channelId }
+      } });
+      expect(duplicate.isError).toBe(true);
+      expect(requests).toHaveLength(2);
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it.each(["get_youtube_comments", "search_youtube_comments"])("%s marks empty-text replies as found with unread content", async (name) => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const replies = JSON.parse(await youtubeFixture("comments-query-parent.json"));
+    replies.items[0].snippet.textDisplay = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => new URL(String(input)).pathname.endsWith("/commentThreads")
+      ? Response.json(JSON.parse(await youtubeFixture("comment-threads-query.json"))) : Response.json(replies)));
+    try {
+      const result = await client.callTool({ name, arguments: { video_id_or_url: "XpZHKGGCK-o",
+        ...(name === "search_youtube_comments" ? { query: "recorded episode" } : {}) } });
+      expect(result.isError).not.toBe(true);
+      const comments = (result.structuredContent as any).data.comments;
+      expect(comments.find(({ is_reply }: any) => is_reply)).toMatchObject({ text: "", comment_found: true,
+        content_read: false, source_modality: "unknown", content_verified: false, audio_available: null, transcript_read: false });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
   it("returns targeted YouTube comment search as query-bounded partial without isError", async () => {
     const { client, server } = await createInMemoryClient();
     const previous = process.env.YOUTUBE_API_KEY;

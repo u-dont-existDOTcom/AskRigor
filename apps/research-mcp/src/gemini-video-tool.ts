@@ -5,6 +5,9 @@ import {
   deleteGeminiVideoInteraction,
   formatVideoTime,
   geminiVideoWatchUrl,
+  geminiVideoClaimsReportSchema,
+  geminiVideoRelationshipSchema,
+  geminiVideoCaveatSchema,
   getYoutubeVideo,
   parseVideoTime,
   type GeminiVideoAdvance,
@@ -82,7 +85,7 @@ export const extractYoutubeVideoClaimsInputSchema = z.object({
 export type ExtractYoutubeVideoClaimsInput = z.output<typeof extractYoutubeVideoClaimsInputSchema>;
 
 const speakerSchema = z.enum(["creator", "guest", "other", "unclear"]);
-export const extractYoutubeVideoClaimsOutputSchema = z.object({
+const publishedVideoClaimsOutputSchema = z.object({
   // Owner answer 146b: a dev account's trial arm, its model and thinking level, and, once complete, its real cost.
   model_trial: z.object({
     arm: z.enum(GEMINI_MODEL_TRIAL_ARMS),
@@ -136,6 +139,11 @@ export const extractYoutubeVideoClaimsOutputSchema = z.object({
   source_note: z.string().optional(),
   research_receipt: z.string().optional()
 }).strict();
+// Owner answer 189a: the published output stays open for these later fields, without changing tools/list.
+export const extractYoutubeVideoClaimsOutputSchema = publishedVideoClaimsOutputSchema.extend({
+  sponsorships: z.array(geminiVideoRelationshipSchema.extend({ link: z.string().optional() })).optional(),
+  caveats: z.array(geminiVideoCaveatSchema.extend({ link: z.string(), time_outside_video: z.literal(true).optional() })).optional()
+}).meta(z.toJSONSchema(publishedVideoClaimsOutputSchema, { target: "draft-7" }));
 type Output = z.output<typeof extractYoutubeVideoClaimsOutputSchema>;
 
 // Gemini reads the video only. Products a creator sells are often in the
@@ -144,7 +152,9 @@ const SOURCE_NOTE =
   "Gemini's transcription and description of the video, not checked by AskRigor: Gemini can mishear words and " +
   "misplace times, so give each quote with its link for the person to check. Nothing here is evidence for or " +
   "against a claim. Gemini read the video only: read its description with get_youtube_video for affiliate links " +
-  "and products the creator sells.";
+  "and products the creator sells. Commercial relationships stay distinct: own offerings are not outside " +
+  "sponsorships, and declined offers do not show payment. Older reports may lack relationship types or caveats; " +
+  "missing fields do not establish their absence.";
 const SPEND_GUIDANCE =
   "The zero-spend policy allows Gemini only with a key that has no billing (ASKRIGOR_GEMINI_BILLING=none). Check " +
   "the claims the person reports from the video with the other tools, and say the video itself was not read.";
@@ -486,6 +496,7 @@ function passFields(
 }
 
 function claimsFields(report: GeminiVideoClaimsReport, videoId: string, duration: number): Partial<Output> {
+  report = geminiVideoClaimsReportSchema.parse(report);
   return {
     spoken_language: report.spoken_language,
     claims: report.claims.map((claim) => {
@@ -503,10 +514,15 @@ function claimsFields(report: GeminiVideoClaimsReport, videoId: string, duration
       };
     }),
     more_claims_not_listed: report.more_claims_not_listed,
-    sponsorships: report.sponsorships.map(({ start, what }) => {
+    sponsorships: report.sponsorships.map((entry) => {
+      const { start } = entry;
       const time = start === "" ? undefined : timeLink(start, videoId, duration);
-      return { start, ...(time === undefined || time.outside ? {} : { link: time.link }), what };
+      return { ...entry, ...(time === undefined || time.outside ? {} : { link: time.link }) };
     }),
+    ...(report.caveats === undefined ? {} : { caveats: report.caveats.map((entry) => {
+      const time = timeLink(entry.start, videoId, duration);
+      return { ...entry, link: time.link, ...(time.outside ? { time_outside_video: true as const } : {}) };
+    }) }),
     on_screen_citations: report.on_screen_citations.map(({ start, citation }) => ({
       start,
       link: timeLink(start, videoId, duration).link,

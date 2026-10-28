@@ -1,4 +1,4 @@
-import type { YoutubeComment } from "@askrigor/sources";
+import { youtubeCommentContentReadable, type YoutubeComment } from "@askrigor/sources";
 
 import { rankYoutubeCommentIdentifier } from "../youtube-audit-continuation.js";
 import {
@@ -58,13 +58,14 @@ function createBoundedCandidate(
   boundedSampleLimitation: string
 ): YoutubeVideoCommunityAuditOutput {
   const comments = chronological(selected);
-  const topLevel = comments.filter(({ is_reply }) => !is_reply).length;
+  const readable = comments.filter(youtubeCommentContentReadable);
+  const topLevel = readable.filter(({ is_reply }) => !is_reply).length;
   return youtubeVideoCommunityAuditOutputSchema.parse({
     ...original,
     analysis_limit: comments.length,
-    records_returned_for_analysis: comments.length,
+    records_returned_for_analysis: readable.length,
     top_level_records_returned_for_analysis: topLevel,
-    reply_records_returned_for_analysis: comments.length - topLevel,
+    reply_records_returned_for_analysis: readable.length - topLevel,
     limitations: [...new Set([
       ...original.limitations,
       boundedSampleLimitation

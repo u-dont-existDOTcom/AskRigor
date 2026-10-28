@@ -27,3 +27,25 @@ The PostgreSQL acceptance suite passes, including topic replacement with unchang
 runner initially caught the image's temporary initialization server; a scratch copy used a TCP readiness probe so the
 suite waited for the final server. No tracked runner change, migration or live server action. Topic inputs already
 exist in the published schema, so no later input is needed.
+
+Part 2: the source/MCP regressions exercise all seven commercial relationship types and a separate late funding caveat.
+Legacy sponsorship rows read as unknown/not recorded; absence of an older caveat list is preserved. Empty-text
+comments retain retrieval identity and unread markers, but analysis counters, compact transports and the evidence
+cache do not treat their missing content as evidence. Exact channel filtering is available through the runtime
+`channel_id` input and `later_inputs`, leaving published inputs unchanged. Existing published output metadata stays
+fixed while runtime schemas accept the added fields; all frozen fixtures remain untouched.
+
+Red evidence: source extraction, MCP extraction, empty comment normalization and channel filtering failed before the
+fixes; the corrected valid-input audit regression failed on the baseline count (2 versus 1), and cache/ingestion tests
+failed before those consumers were changed. Focused MCP/Action tests pass (132 tests), with loopback access allowed;
+the sandbox alone refused the pre-existing HTTP listener tests. Source/frozen/evidence consumer checks pass (253 tests).
+No live model/provider acceptance or live Atlas write was run. Full verification and final commit receipts belong in
+the requested scratchpad summary. No scientific method or final-check rule changed; lane parts A, E and F remain
+outside this implementation. No extra checkout or dependency cache was created.
+
+The single full `npm run verify` invocation reached 5,037 passing tests, 6 skipped and two synchronization failures:
+the initial no-later-inputs assertion and the generated diagnostic vocabulary. Updated the assertion to include only
+search_youtube's channel_id, and regenerated the vocabulary with `node --import tsx
+scripts/generate-check-report-vocabulary.mts --write` (ten fixed names, no check rules). The 42 affected/frozen tests
+then pass, and typecheck/build pass. The full command was not repeated, honoring the owner's once-only instruction;
+its original failure and tail are retained in the scratchpad report. These fixes are amended into the second commit.

@@ -130,6 +130,22 @@ describe("YouTube discovery", () => {
     expect(JSON.stringify(result)).not.toContain("fixture-youtube-key");
   });
 
+  it("filters a named channel's results by the caller's exact channel id", async () => {
+    const page = JSON.parse(await fixture("search-page-1.json"));
+    const wanted = page.items[0].snippet.channelId;
+    page.items.push({ ...page.items[0], id: { kind: "youtube#video", videoId: "abcdefghijk" },
+      snippet: { ...page.items[0].snippet, channelId: "UCabcdefghijkl0123456789", channelTitle: "Similar name" } });
+    page.pageInfo = { totalResults: 2, resultsPerPage: 2 };
+    delete page.nextPageToken;
+    const fetchMock = vi.fn(async (_input: URL | RequestInfo) => Response.json(page));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await searchYoutube({ query: "Recorded health channel", channelId: wanted }, youtubeConfig);
+    expect(result.access_status).toBe("complete");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.channel_id).toBe(wanted);
+    expect(new URL(String(fetchMock.mock.calls[0]?.[0])).searchParams.get("channelId")).toBe(wanted);
+  });
+
   it("reports a successful zero-hit search as complete rather than an error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       await fixture("search-empty.json"), { status: 200 }

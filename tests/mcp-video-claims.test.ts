@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -103,6 +103,24 @@ const complete = (report: unknown = REPORT): GeminiVideoAdvance => ({
 });
 
 describe("extract_youtube_video_claims", () => {
+  it("returns relationship types and the late caveat with their own time links, without adding claim rows", async () => {
+    const report = JSON.parse(await readFile(new URL("fixtures/gemini/video-claims-relationships-and-caveats.json", import.meta.url), "utf8"));
+    const { deps } = dependencies();
+    deps.advance.mockResolvedValueOnce(complete(report));
+    const done = await extractYoutubeVideoClaims({ video: VIDEO }, deps);
+    expect(done.result.isError).not.toBe(true);
+    const output = done.result.structuredContent as any;
+    expect(output.claims).toHaveLength(1);
+    expect(output.sponsorships.map(({ relationship_type }: any) => relationship_type)).toEqual([
+      "outside_paid_placement", "affiliate_commission", "gift", "own_offering", "declined_sponsorship_offer", "research_funding", "unknown"
+    ]);
+    expect(output.sponsorships[3]).toMatchObject({ actor: "creator", counterparty: "Creator's membership", content_access: "model_report_unverified" });
+    expect(output.caveats).toHaveLength(5);
+    expect(output.caveats[4]).toMatchObject({ kind: "funding", start: "12:20", link: `https://www.youtube.com/watch?v=${VIDEO}&t=740s`,
+      quote: report.caveats[4].quote });
+    expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 1 });
+  });
+
   it("reads only an ID from a pasted link, dropping share codes and times", () => {
     for (const link of [
       VIDEO,
@@ -274,9 +292,11 @@ describe("extract_youtube_video_claims", () => {
       start: "21:00", link: `https://www.youtube.com/watch?v=${VIDEO}`, time_outside_video: true
     });
     expect(output.sponsorships).toEqual([
-      { start: "00:45", link: `https://www.youtube.com/watch?v=${VIDEO}&t=45s`, what: "Discount code JOINTS" },
-      { start: "", what: "Shop link banner" }
+      { start: "00:45", link: `https://www.youtube.com/watch?v=${VIDEO}&t=45s`, what: "Discount code JOINTS",
+        relationship_type: "unknown", actor: "", counterparty: "", content_access: "not_recorded" },
+      { start: "", what: "Shop link banner", relationship_type: "unknown", actor: "", counterparty: "", content_access: "not_recorded" }
     ]);
+    expect(output).not.toHaveProperty("caveats");
     expect(output.source_note).toMatch(/^Gemini's transcription and description of the video, not checked by AskRigor/u);
     expect(output.source_note).toContain("read its description with get_youtube_video for affiliate links");
     expect(done.receipt).toEqual({ video: VIDEO, mode: "claims", n: 2 });

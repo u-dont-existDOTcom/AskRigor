@@ -12,6 +12,10 @@ import type { ResearchOperationHandler } from "./research-operation.js";
  */
 const LATER_INPUT_SHAPES = Object.freeze({
   finalize_research: {},
+  search_youtube: {
+    channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
+      .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
+  },
 } satisfies Record<string, z.ZodRawShape>);
 
 type LaterInputShape<Tool extends string> = Tool extends keyof typeof LATER_INPUT_SHAPES

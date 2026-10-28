@@ -16,6 +16,21 @@ afterEach(() => {
 });
 
 describe("resumable YouTube comment segments", () => {
+  it("keeps an empty-text reply as found with unread content, including an exact-id refetch", async () => {
+    const threads = JSON.parse(await fixture("comment-threads-query.json"));
+    const replies = JSON.parse(await fixture("comments-query-parent.json"));
+    replies.items[0].snippet.textDisplay = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => Response.json(
+      new URL(String(input)).pathname.endsWith("/commentThreads") ? threads : replies
+    )));
+    const segment = await getYoutubeCommentSegment({ video: "XpZHKGGCK-o" }, YOUTUBE);
+    const unread = { comment_found: true, content_read: false, content_verified: false,
+      source_modality: "unknown", audio_available: null, transcript_read: false };
+    expect(segment.comments.find(({ is_reply }) => is_reply)).toMatchObject({ text: "", ...unread });
+    const refetched = await getYoutubeCommentsByIds("XpZHKGGCK-o", [replies.items[0].id], YOUTUBE);
+    expect(refetched.comments[0]).toMatchObject(unread);
+  });
+
   it("requests and validates the provider maximum of 100 top-level threads", async () => {
     const requests: URL[] = [];
     const threads = Array.from({ length: 100 }, (_, index) => ({

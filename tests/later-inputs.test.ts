@@ -35,12 +35,13 @@ async function connected<T>(server: McpServer, use: (client: Client) => Promise<
 
 describe("later_inputs (owner answer 189a)", () => {
   afterEach(() => vi.restoreAllMocks());
-  it("starts with no later inputs for any tool, rejects unknown keys with the tool and exact allowed names", async () => {
+  it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
-      expect(laterInputNames(operation.name)).toEqual([]);
+      const expected = operation.name === "search_youtube" ? ["channel_id"] : [];
+      expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);
-      const message = `Unknown later input "synthetic_future_input" for ${operation.name}. Its later inputs: none.`;
+      const message = `Unknown later input "synthetic_future_input" for ${operation.name}. Its later inputs: ${expected.join(", ") || "none"}.`;
       if (operation.name === "finalize_research") {
         // The final check names input problems in its own not_ready result, which ChatGPT shows the model.
         expect(result.isError, operation.name).not.toBe(true);

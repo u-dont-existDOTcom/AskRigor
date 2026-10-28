@@ -57,6 +57,7 @@ import {
   searchYoutubeComments,
   youtubeCommentDataSchema,
   youtubeCommentFailureDataSchema,
+  youtubeCommentContentReadable,
   youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
@@ -1445,10 +1446,13 @@ function defineResearchOperations(
       outputSchema: youtubeSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ query, page_size, cursor, research_target, product_identity }) => {
+    async (input) => {
+      const { query, page_size, cursor, research_target, product_identity } = input;
+      const { channel_id } = input as { channel_id?: string };
       try {
         const result = await searchYoutube({
           query,
+          ...(channel_id === undefined ? {} : { channelId: channel_id }),
           ...(page_size === undefined ? {} : { pageSize: page_size }),
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig());
@@ -1646,7 +1650,7 @@ function defineResearchOperations(
           isError: true
         };
       }
-      const read = view.videos.filter(({ sample }) => (sample?.comments.length ?? 0) > 0).map(({ video_id }) => video_id);
+      const read = view.videos.filter(({ sample }) => sample?.comments.some(youtubeCommentContentReadable)).map(({ video_id }) => video_id);
       // Every video with comments shows the same number of them, so either
       // each shows some or, when even one per video does not fit, none does.
       const unshown = view.videos.some(({ sample }) => sample !== undefined && sample.corpus_count > 0 && sample.comments.length === 0);
@@ -1806,7 +1810,7 @@ function defineResearchOperations(
           isError: true
         };
       }
-      const shown = view.sample?.comments.length ?? 0;
+      const shown = view.records_returned_for_analysis;
       const text = !complete
         ? summary
         : shown > 0
