@@ -81,6 +81,17 @@ function recordOf(card: object, bases: string[][] = [], savedAt = NOW.toISOStrin
 }
 
 describe("what the Atlas publishes of a finding", () => {
+  it("projects an owner's topic only when the stored card declares none, without changing the card", () => {
+    const record = recordOf(VELMOR_CARD);
+    const { topic: declared, ...card } = record.card;
+    const older = { ...record, card };
+    const ownerTopic = { key: "medicinal-plants.overlooked-clinical-leads",
+      label: "Overlooked medicinal plants with human clinical evidence" };
+    expect(publishedFindingOf(older, 1, ownerTopic)?.topic).toEqual(ownerTopic);
+    expect(publishedFindingOf(record, 1, ownerTopic)?.topic).toEqual(declared);
+    expect(older.card).not.toHaveProperty("topic");
+  });
+
   it("projects the card's topic and the finding's fields, with raw counts, and nothing that ties it to a person", () => {
     const record = recordOf(VELMOR_CARD, [["full_text_audit"], []]);
     const effect = publishedFindingOf(record, 1)!;

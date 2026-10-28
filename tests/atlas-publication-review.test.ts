@@ -124,6 +124,7 @@ function harness(options: { enabled?: boolean; publications?: boolean } = {}) {
   let contributor = 0;
   return {
     github,
+    canonical,
     review,
     publications,
     library,
@@ -359,6 +360,81 @@ describe("the publications through the owner's review", () => {
     await h.call({ action: "set_aside_cards", cards: ["ARF-0042"] });
     expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"] })).structured.publications.cards[0])
       .toMatchObject({ outcome: "not_published", problems: ["set_aside"] });
+  });
+
+  it("files topicless publications under the owner's topic in place, keeping their P numbers", async () => {
+    const h = harness();
+    const { topic: _topic, ...card } = VELMOR_CARD;
+    await h.save(card);
+    const before = await h.publications.inspect({ cardNumbers: [42] });
+    expect(before.map(({ published }) => published?.topic)).toEqual([null, null]);
+    const withdraw = vi.spyOn(h.publications, "withdraw");
+    const publish = vi.spyOn(h.publications, "publish");
+    const topicKey = "medicinal-plants.overlooked-clinical-leads";
+    const topicLabel = "Overlooked medicinal plants with human clinical evidence";
+    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel });
+    expect(reply.isError, reply.text).toBe(false);
+    const after = await h.publications.inspect({ cardNumbers: [42] });
+    expect(after.map(({ publicationNumber }) => publicationNumber)).toEqual(before.map(({ publicationNumber }) => publicationNumber));
+    expect(after.map(({ published }) => published?.topic)).toEqual([{ key: topicKey, label: topicLabel }, { key: topicKey, label: topicLabel }]);
+    expect(after.map(({ publishedAt }) => publishedAt)).toEqual(before.map(({ publishedAt }) => publishedAt));
+    expect(withdraw).toHaveBeenCalledWith(expect.objectContaining({ reason: "owner_unpublished",
+      ownerReason: `filed under ${topicKey} (owner answer 191b)` }));
+    expect(withdraw.mock.invocationCallOrder[0]).toBeLessThan(publish.mock.invocationCallOrder[0]!);
+    expect(publish).toHaveBeenCalledWith(expect.objectContaining({ revive: true }));
+    expect(reply.text).toContain("withdrawn as owner_unpublished");
+    expect(reply.text).toContain("published again");
+    expect(reply.text).toContain(topicLabel);
+    expect(reply.text).toContain(topicKey);
+    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel })).isError).toBe(false);
+    expect(withdraw).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the owner's topic for an unpublished older card and keeps a declared topic", async () => {
+    const h = harness();
+    const { topic: _topic, ...card } = DOI_CARD;
+    await h.save(card, null);
+    await h.save(VELMOR_CARD, null);
+    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042", "ARF-0043"],
+      topicKey: "plants", topicLabel: "Medicinal plants" });
+    expect(reply.isError, reply.text).toBe(false);
+    expect((await h.publications.inspect({ cardNumbers: [42] }))[0]?.published?.topic)
+      .toEqual({ key: "plants", label: "Medicinal plants" });
+    expect((await h.publications.inspect({ cardNumbers: [43] })).every(({ published }) =>
+      published?.topic?.key === VELMOR_CARD.topic.key)).toBe(true);
+    expect(reply.text).toContain("ARF-0043 keeps its declared topic");
+  });
+
+  it("requires a new topic's label, reuses a stored topic's label, and validates topic inputs", async () => {
+    const h = harness();
+    const { topic: _topic, ...card } = DOI_CARD;
+    await h.save(card, null);
+    const call = (extra: object) => h.call({ action: "publish_cards", cards: ["ARF-0042"], ...extra });
+    for (const extra of [{ topicKey: "plants" }, { topicLabel: "Plants" },
+      { topicKey: "Bad key", topicLabel: "Plants" }, { topicKey: "plants", topicLabel: "x".repeat(201) }]) {
+      expect((await call(extra)).isError).toBe(true);
+      expect(await h.publications.inspect({})).toEqual([]);
+    }
+    // Atlas findings and research frontiers use the same canonical topics table.
+    h.canonical.seedTopic({ topicId: deterministicUuid("frontier-topic"), canonicalKey: "plants", label: "Stored plants" });
+    const reply = await call({ topicKey: "plants", topicLabel: "Ignored replacement label" });
+    expect(reply.isError, reply.text).toBe(false);
+    expect(reply.text).toContain("Stored plants");
+    expect((await h.publications.inspect({}))[0]?.published?.topic).toEqual({ key: "plants", label: "Stored plants" });
+    expect((await call({ topicKey: "plants" })).isError).toBe(false);
+  });
+
+  it.each([
+    ["plants", "See ARF-0042", "card_reference"],
+    ["arf-0042", "Plants", "card_reference"],
+    ["plants", "Write plants@example.test", "email_address"],
+  ])("screens the owner's topic %s / %s as publication text", async (topicKey, topicLabel, heldBecause) => {
+    const h = harness();
+    const { topic: _topic, ...card } = DOI_CARD;
+    await h.save(card, null);
+    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel });
+    expect(reply.isError, reply.text).toBe(false);
+    expect((await h.publications.inspect({}))[0]).toMatchObject({ state: "held", heldBecause: [heldBecause] });
   });
 
   it("sets cards aside by a range, withdrawing their publications, and the waiting list leaves them out", async () => {

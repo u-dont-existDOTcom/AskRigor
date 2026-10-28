@@ -107,19 +107,20 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
 }
 
 /**
- * What the Atlas publishes of a card's finding (findingNumber from 1), a pure projection of the stored card: the card's
- * topic; the finding's claim, certainty, applies_to, kind, subject, subject type, direction, numbers block (the raw
- * counts and follow-up; rates, NNT and NNH are worked out when the pages render), searches, source identifiers,
+ * What the Atlas publishes of a card's finding (findingNumber from 1): the card's topic, or the owner's when the card
+ * declares none (owner answer 191b); the finding's claim, certainty, applies_to, kind, subject, subject type, direction,
+ * numbers block (the raw counts and follow-up; rates, NNT and NNH are worked out when the pages render), searches, source identifiers,
  * why_not_usual and what_would_change_it; its verified bases; the day the card was saved; and the AskRigor version from
  * its stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface, the
  * reported model, a YouTube video id or count. Every text is written without text-direction controls, which could show
  * reversed characters as an address the contact-details check never sees (contact-check.ts). Undefined when the card has
  * no such finding or its fields do not make a publication.
  */
-export function publishedFindingOf(record: FindingsRecord, findingNumber: number): AtlasPublishedFinding | undefined {
+export function publishedFindingOf(record: FindingsRecord, findingNumber: number,
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
   const finding = record.card.findings[findingNumber - 1];
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
-  const topic = record.card.topic;
+  const topic = record.card.topic ?? ownerTopic;
   const plain = withoutDirectionControls;
   const parsed = atlasPublishedFindingSchema.safeParse({
     schema: ATLAS_PUBLICATION_SCHEMA,
@@ -247,6 +248,8 @@ export function planCardPublication(input: {
   route: CardPublicationRoute;
   /** The owner's decisions on the card's findings, by finding number. */
   decided?: ReadonlyMap<number, DecidedPublicationState>;
+  /** publish_cards only: a topic for a card that declares none. */
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>;
 }): CardPublicationPlan {
   const problems = cardPublicationProblems(input.record, input.setAside, input.route);
   if (problems.length > 0) return { problems, drafts: [], leftOut: [] };
@@ -263,16 +266,16 @@ export function planCardPublication(input: {
       leftOut.push({ findingNumber, reason: "rejected" });
       return;
     }
-    const published = publishedFindingOf(input.record, findingNumber);
+    const published = publishedFindingOf(input.record, findingNumber, input.ownerTopic);
     if (published === undefined) {
       leftOut.push({ findingNumber, reason: "not_publishable" });
       return;
     }
-    if (decided !== undefined) {
+    const held = publicationHoldReasons(published);
+    if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
       drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null, published });
       return;
     }
-    const held = publicationHoldReasons(published);
     drafts.push(held.length === 0
       ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published }
       : { findingNumber, state: "held", atlasNumber: null, heldBecause: held, published });

@@ -1519,7 +1519,9 @@ The pages (section 4C) are built, not yet released, and switched off until
   the SHA-256 the final check signed of the card with the finding's place on it,
   kept apart from the published fields, for moderation and so that publishing
   is idempotent; the published fields, projected from the stored card: the
-  card's topic (key and label); the finding's claim, certainty, whom it applies
+  card's topic (key and label), or the owner's `publish_cards` topic when the card
+  declares none (owner answer 191b), through the same publication privacy screen;
+  the finding's claim, certainty, whom it applies
   to, kind, subject and its type, direction, numbers block (each group's counts
   and the follow-up; rates, the number needed to treat and the number needed to
   harm are worked out when the pages render, so the card's are not kept), the
@@ -1554,7 +1556,12 @@ The pages (section 4C) are built, not yet released, and switched off until
   consent for the owner's own cards, so the notice and dev-account checks do not
   apply; it never publishes a card whose marker says it was saved in paid
   private mode, and it publishes again what was set aside, replaced or
-  unpublished. Accepting or editing a finding whose card has no publication of
+  unpublished. For a card that declares no topic, `publish_cards` can use the owner's
+  topic key and label (an existing canonical topic, including a research frontier's,
+  supplies its stored label). A live topicless publication is withdrawn as
+  `owner_unpublished`, with the private reason `filed under <topic key> (owner answer 191b)`,
+  then revived with the new topic and the same P number. The stored card and its
+  digest are unchanged. Accepting or editing a finding whose card has no publication of
   it (a paid private card, whose findings are published only after the owner
   accepts them, or one of the owner's own older cards that `publish_cards` has
   not published) publishes it in that state, with the card's published fields,
