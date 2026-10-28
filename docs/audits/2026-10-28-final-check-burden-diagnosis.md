@@ -48,8 +48,9 @@ In the two runs of 27 to 28 Oct (124 research runs, 663 final-check calls):
 - the check passed on its first call in 1 run of 124, and never passed in 12 (11 stopped at the round limit);
 - 476 calls (72%) came back `not_ready`, and 140 (21%) failed on their inputs before the check ran;
 - of the 3,904 next steps the check gave, 376 (9.6%) asked for more research. The rest asked for paperwork:
-  1,561 (40.0%) a declaration (most often a list that was missing: `proposed_tests`, `user_observations`,
-  `key_terms`, `mechanism_claims`, `another_pass_estimate`, `open_leads`, `scale_results`), 987 (25.3%) exact
+  1,561 (40.0%) a declaration (511 of them a list or field that was missing, such as `proposed_tests`,
+  `user_observations`, `key_terms`, `mechanism_claims` or `scale_results`; 237 a request for more, such as
+  `another_pass_estimate` or `open_leads`; 813 another problem with a declaration), 987 (25.3%) exact
   wording in the answer (caveats copied as written, terms explained in a set way), 966 (24.7%) input format, and 14
   other;
 - 462 of the 966 input steps were one field: `harm_screen[].sources_searched`, where the AI wrote "PubMed",
