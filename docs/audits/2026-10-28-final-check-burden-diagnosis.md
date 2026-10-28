@@ -25,28 +25,30 @@ maintainer's laptop under `/home/joel/askrigor-releases/<run>/regress/logs` (lan
 - `history.tsv`: each regression case's verdict in the judgments of 22, 23, 26 and 27 Oct (parsed from
   `docs/audits/2026-10-2{2,3,6,7}-owner-regressions-judgment.md`).
 
-A "step" is one problem named in one result, so a problem repeated over rounds counts each time.
+A "step" is one problem named in one result, so a problem repeated over rounds counts each time. A call whose inputs
+failed came back, before 20 Oct, with no status and the text "Parameters failed connector schema validation", and
+since then as a `not_ready` result whose first step says the inputs have problems; both count as input failures.
 
 ## The final check, run by run
 
 | Run (build) | Fields filled per call | Calls to the first pass (median) | Calls whose inputs failed before the check ran |
 |---|---|---|---|
-| 15 Oct | 19.0 | 4 | 0% |
-| 16 Oct | 22.8 | 4 | 0% |
-| 17 Oct | 24.6 | 3 | 0% |
-| 20 Oct | 28.4 | 4 | 11% |
+| 15 Oct | 19.0 | 4 | 53% |
+| 16 Oct | 22.8 | 4 | 39% |
+| 17 Oct | 24.6 | 3 | 17% |
+| 20 Oct | 28.4 | 4 | 12% |
 | 21 Oct | 29.3 | 4 | 21% |
 | 22 Oct | 32.7 | 4 | 22% |
 | 23 Oct (`1582f06`) | 36.5 | 5 | 19% |
 | 25 to 26 Oct (`ea672a3`) | 36.2 | 5 | 23% |
 | 26 Oct (`ddba2b7`) | 37.7 | 5 | 20% |
 | 27 to 28 Oct (`0a315a9`), regressions | 39.2 | 5 | 21% |
-| 28 Oct (`0a315a9`), lane questions | 37.9 | 5 | 22% |
+| 28 Oct (`0a315a9`), lane questions | 37.9 | 5 | 24% |
 
 In the two runs of 27 to 28 Oct (124 research runs, 663 final-check calls):
 
 - the check passed on its first call in 1 run of 124, and never passed in 12 (11 stopped at the round limit);
-- 476 calls (72%) came back `not_ready`, and 140 (21%) failed on their inputs before the check ran;
+- 476 calls (72%) came back `not_ready`, and 145 (22%) failed on their inputs before the check ran;
 - of the 3,904 next steps the check gave, 376 (9.6%) asked for more research. The rest asked for paperwork:
   1,561 (40.0%) a declaration (511 of them a list or field that was missing, such as `proposed_tests`,
   `user_observations`, `key_terms`, `mechanism_claims` or `scale_results`; 237 a request for more, such as
@@ -84,7 +86,8 @@ present, that a sentence is copied, that a number appears in it, that a receipt 
 research was good: whether a study was missed, a question drifted, or a comparison was fair. So a report about research
 judgment became a declaration the AI fills in to pass. Filling it in leaves the research as it was, so the cases keep
 failing in part, while each rule adds paperwork: the fields per call doubled (19 to 39), the calls to a pass rose (3 to
-4, then 5), and one call in five now fails on format. This is the recurring-finding check's case (a fix that adds
+4, then 5), and format failures, cut from half the calls on 15 Oct to one in eight by 20 Oct (#341 gave the first
+call the exact shapes ChatGPT hides), are back at one in five as fields were added: a fixed class that returned. This is the recurring-finding check's case (a fix that adds
 another rule to a list is a local exception, not a repair) and the requirement-accretion case (UDA
 `patterns/owner-goal-followup-and-requirement-accretion.md`): added controls degraded the path they were meant to
 protect.
