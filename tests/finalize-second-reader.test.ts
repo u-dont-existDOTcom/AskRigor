@@ -1,3 +1,4 @@
+import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -64,14 +65,14 @@ describe("second reader in the final check", () => {
   it("waits for passing checks and a usable answer, including after recoverable input problems", async () => {
     const readAnswer = vi.fn<SecondReader["readAnswer"]>().mockResolvedValue({ status: "ran", findings: [] });
     await withTool({ enabled: true, readAnswer }, async (call) => {
-      for (const input of [base({ answer_draft: QUOTE }), base({ answer_draft: undefined })]) {
-        expect((await call(input)).status).toBe("not_ready");
-      }
-      expect(readAnswer).not.toHaveBeenCalled();
+      expect((await call(base({ answer_draft: QUOTE }))).status).toBe("ready_with_limits");
+      expect(readAnswer).toHaveBeenCalledOnce();
+      expect((await call(base({ answer_draft: undefined }))).status).toBe("not_ready");
+      expect(readAnswer).toHaveBeenCalledOnce();
       const recovered = await call({ ...base(), receipts: 7 });
       expect(recovered.status).toBe("ready_with_limits");
       expect(recovered.notes).toHaveLength(1);
-      expect(readAnswer).toHaveBeenCalledOnce();
+      expect(readAnswer).toHaveBeenCalledTimes(2);
     });
   });
   it.each([
@@ -82,12 +83,12 @@ describe("second reader in the final check", () => {
     const readAnswer = vi.fn<SecondReader["readAnswer"]>().mockResolvedValue({ status: "ran", findings: [finding(kind)] });
     await withTool({ enabled: true, readAnswer }, async (call) => {
       const result = await call(base());
-      expect(result.status).toBe("not_ready");
-      expect(result.next_steps).toEqual([
+      expect(result.status).toBe("ready_with_limits");
+      expect(advisoryNotes(result)).toEqual([
         `A second reading found a sentence that looks like ${label} not in the declarations: ${JSON.stringify(QUOTE)}. Declare it in ${kind}, or list it in reader_dismissed with a one-line reason.`
       ]);
       expect(result.second_reading).toEqual({ status: "ran", findings: 1, open: 1, dismissed: 0 });
-      expect(result).not.toHaveProperty("finalization_receipt");
+      expect(result.finalization_receipt).toEqual(expect.any(String));
       expect(readAnswer).toHaveBeenCalledExactlyOnceWith(base().answer_draft, declarations);
     });
   });
@@ -99,7 +100,7 @@ describe("second reader in the final check", () => {
       // An answer with safety statements screens its serious harms (owner answer "128b").
       const shown = withHarmScreen(base({ ...input, answer_draft: `${found}\n\n${input.answer_draft}` }));
       const result = check(shown, { status: "ran", findings: [finding("safety_claims", found.toUpperCase())] });
-      expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+      expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
       expect(result.second_reading).toEqual({ status: "ran", findings: 1, open: 0, dismissed: 0 });
     }
   });
@@ -107,7 +108,7 @@ describe("second reader in the final check", () => {
     const quote = "Elemental dose means the amount of the element.";
     const result = check(base({ answer_draft: `${quote}\n\n${LIMIT}`, key_terms: [{ term: "Elemental dose", explanation: quote }] }),
       { status: "ran", findings: [finding("key_terms", quote)] });
-    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+    expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.second_reading?.open).toBe(0);
     const unrelated = check(base({ answer_draft: `Although it varies.\n\n${LIMIT}`, key_terms: [{ term: "alt", explanation: "alt" }] }),
       { status: "ran", findings: [finding("key_terms", "Although it varies.")] });
@@ -117,7 +118,7 @@ describe("second reader in the final check", () => {
     const quote = "The Test scale runs from 0 to 10, and the average was 2.";
     const result = check(base({ answer_draft: `${quote}\n\n${LIMIT}`, scale_results: [{ quote, scale: "Test", range: { min: 0, max: 10 },
       better: "lower", values: [2], benchmark: "none_established" }] }), { status: "ran", findings: [finding("scale_results", quote)] });
-    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+    expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.second_reading?.open).toBe(0);
   });
   it.each(["safety_claims", "key_terms", "scale_results"] as const)("accepts an exact normalized dismissal of %s", (kind) => {
@@ -132,8 +133,8 @@ describe("second reader in the final check", () => {
       { status: "ran", findings: [finding()] });
     expect(result.second_reading?.open).toBe(1);
     const absent = check(base({ reader_dismissed: [{ quote: "Not in the answer.", reason: "A reason." }] }));
-    expect(absent.status).toBe("not_ready");
-    expect(absent.next_steps.join("\n")).toContain("reader_dismissed[0] gives text the answer does not show");
+    expect(absent.status).toBe("ready_with_limits");
+    expect(advisoryNotes(absent).join("\n")).toContain("reader_dismissed[0] gives text the answer does not show");
   });
   it("drops quotes outside the displayed answer, including link targets and code, using the existing locator", () => {
     const result = check(base({ answer_draft: `[The extract](https://example.com/hidden) can cause nausea.\n\n\`\`\`\nHidden sentence.\n\`\`\`\n\n${LIMIT}` }),

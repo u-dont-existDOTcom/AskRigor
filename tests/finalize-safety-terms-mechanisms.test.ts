@@ -1,10 +1,11 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
   FINALIZE_REMINDER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
 
 // Owner questions 86, 88 and 89 (issues #324, #325, #328, #330 and #331): harm and safety sentences, the terms a
@@ -40,7 +41,7 @@ const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks."
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
   assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type SafetyClaim = NonNullable<FinalizeResearchInput["safety_claims"]>[number];
 const claim = (overrides: Partial<SafetyClaim>): SafetyClaim => ({
   quote: "Nausea occurred in 18% on the extract and 4% on placebo.", direction: "harm",
@@ -94,8 +95,9 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
       expect(result.caveats).toEqual([SKIP, caveat]);
       expect(result.status).toBe("ready_with_limits");
       const missing = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
-      expect(missing.status).toBe("not_ready");
-      expect(missing.next_steps.join(" ")).toContain(`"${caveat}"`);
+      expect(missing.status).toBe("ready_with_limits");
+      expect(missing.limits).toContain(caveat);
+      expect(missing.next_steps).toEqual([]);
     }
   });
 
@@ -195,7 +197,7 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
       studies: [RAT]
     };
     const missing = check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] });
-    expect(missing.status).toBe("not_ready");
+    expect(missing.status).toBe("ready_with_limits");
     expect(missing.caveats).toEqual([SKIP, CAVEAT]);
     const stated = check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, mechanism_claims: [mechanism] });
     expect(stated.status).toBe("ready_with_limits");
@@ -226,9 +228,9 @@ describe("the three declarations are required with an answer draft", () => {
     const input = base();
     delete input[field];
     const result = assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.startsWith(`${field} is missing:`))).toBe(true);
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.startsWith(`${field} is missing:`))).toBe(true);
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
 
   it("states the research-result reminder as one sentence", () => {

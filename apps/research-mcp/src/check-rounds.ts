@@ -141,7 +141,7 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
     }
   }
   if ((steps.length > 0 && (open.length === 0 || round >= CHECK_ROUND_LIMIT)) ||
-      (previous?.n ?? 0) >= CHECK_ROUND_LIMIT) {
+      (steps.length > 0 && (previous?.n ?? 0) >= CHECK_ROUND_LIMIT)) {
     const reason = steps.length > 0 && open.length === 0 ? "stuck" : "limit";
     // What the next turn can do: research the check still asks for, and the app's tool list, which the user
     // refreshes. Everything else is what AskRigor could not do this turn: a step that kept coming back, or, at the

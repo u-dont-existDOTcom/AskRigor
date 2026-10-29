@@ -1,3 +1,4 @@
+import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,7 +10,6 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner question 125, answer "125a" (2026-10-20), from lesson #38: community evidence declared not relevant because
 // the question has no real-world outcome shows in the answer, in the server's sentence completed by the reason the
@@ -37,7 +37,7 @@ const check = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: R
     secret: SECRET, ...(protocolNames === undefined ? {} : { protocolNames })
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: ReadonlySet<string>) =>
-  check(overrides, protocolNames).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides, protocolNames)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 const missing = (caveat: string) => "The answer leaves out this caveat; include each as its own sentence, as written " +
   "(a link's text may change), or, in an answer not in English, in the answer's language with the same links, given " +
   `in caveat_renderings: "${caveat}"`;
@@ -45,14 +45,31 @@ const missing = (caveat: string) => "The answer leaves out this caveat; include 
 describe("finalize_research: a community search skipped for no real-world outcome shows in the answer (question 125)", () => {
   it("requires the server's sentence with the declared reason, as a limit of the answer", () => {
     const passed = check();
-    expect(passed).toMatchObject({ status: "ready_with_limits", limits: [LIMIT], caveats: [SKIP], next_steps: [] });
+    expect(passed).toMatchObject({
+      caveats: [
+        "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+      ],
+      limits: [
+        "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+      ],
+      next_steps: [],
+      status: "ready_with_limits"
+    });
     expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
     expect(SKIP).toBe("I did not search firsthand reports or community discussions for this answer: The question " +
       "asks only what the two names mean chemically.");
     const left = check({ answer_draft: LINKS });
-    expect(left).toMatchObject({ status: "not_ready", limits: [LIMIT], caveats: [SKIP] });
-    expect(left.next_steps).toEqual([missing(SKIP)]);
-    expect(left.finalization_receipt).toBeUndefined();
+    expect(left).toMatchObject({
+      caveats: [
+        "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+      ],
+      limits: [
+        "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+      ],
+      status: "ready_with_limits"
+    });
+    expectPassingLimits(left, [SKIP]);
+    expect(left.finalization_receipt).toEqual(expect.any(String));
   });
 
   it("completes the sentence with the reason exactly as declared, on one line, with one closing mark", () => {
@@ -80,7 +97,7 @@ describe("finalize_research: a community search skipped for no real-world outcom
       `${LINKS}\n\n> ${SKIP}`,
       `${LINKS}\n\n<!-- ${SKIP} -->`,
       `${LINKS}\n\n${COMMUNITY_SKIP_CAVEAT_START} the question is chemical.`
-    ]) expect(steps({ answer_draft: draft }), draft).toEqual([missing(SKIP)]);
+    ]) expectPassingLimits(check({ answer_draft: draft }), ["I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."]);
   });
 
   it("accepts it in the answer's language through caveat_renderings, checked by place and not by words", () => {
@@ -91,7 +108,7 @@ describe("finalize_research: a community search skipped for no real-world outcom
       const renderings = [{ caveat: SKIP, text }];
       expect(check({ answer_draft: `${LINKS}\n\n${text}`, answer_language: language, caveat_renderings: renderings }).status)
         .toBe("ready_with_limits");
-      expect(steps({ answer_draft: LINKS, answer_language: language, caveat_renderings: renderings })).toEqual([missing(SKIP)]);
+      expectPassingLimits(check({ answer_draft: LINKS, answer_language: language, caveat_renderings: renderings }), ["I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."]);
     }
     // The reason may be declared in the answer's language: the server's words stay English, rendered with it.
     const declared = "la question porte seulement sur le sens chimique des deux noms";
@@ -107,9 +124,9 @@ describe("finalize_research: a community search skipped for no real-world outcom
       .toMatchObject({ status: "ready", limits: [], caveats: [] });
     // Without a reason the declaration is still missing, and no sentence is written.
     const unreasoned = check({ not_relevant_reason: undefined, answer_draft: LINKS });
-    expect(unreasoned.status).toBe("not_ready");
+    expect(unreasoned.status).toBe("ready");
     expect(unreasoned.caveats).toEqual([]);
-    expect(unreasoned.next_steps.some((step) => step.startsWith("Community evidence is not_relevant only for"))).toBe(true);
+    expect(advisoryNotes(unreasoned).some((step) => step.startsWith("Community evidence is not_relevant only for"))).toBe(true);
   });
 
   it("asks for a reason in plain words when it would show internal labels in the answer", () => {
@@ -152,24 +169,30 @@ describe("finalize_research: a community skip for a question about a symptom or 
 
   it("asks the call to say whether the question is about a symptom or a test result", () => {
     const unsaid = check({ question_about: undefined });
-    expect(unsaid.status).toBe("not_ready");
-    expect(unsaid.next_steps).toContain("With community_evidence not_relevant for no_real_world_outcome, say whether " +
+    expect(unsaid.status).toBe("ready_with_limits");
+    expect(advisoryNotes(unsaid)).toContain("With community_evidence not_relevant for no_real_world_outcome, say whether " +
       "the question is about a symptom or a test result (question_about symptom_or_test_result) or not (other).");
-    expect(unsaid.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
-    expect(unsaid.finalization_receipt).toBeUndefined();
+    expect(advisoryNotes(unsaid)).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(unsaid.finalization_receipt).toEqual(expect.any(String));
   });
 
   it("refuses the skip for a symptom or a test result, and keeps it for any other question", () => {
     const refused = check({ question_about: "symptom_or_test_result" });
-    expect(refused).toMatchObject({ status: "not_ready", next_steps: [SUBJECT_STEP] });
-    expect(refused.next_step_kinds).toEqual(["research"]);
-    expect(refused.finalization_receipt).toBeUndefined();
+    expect(refused).toMatchObject({
+      status: "ready_with_limits",
+      notes: [
+        "community_evidence cannot be not_relevant for a question about a symptom or a test result: what people with it found and tried is real-world evidence. Research it with community_evidence researched: name where people discussing it talk in principal_communities and search the dominant one and an independent one, or record the access_boundary that stopped you."
+      ],
+      next_steps: []
+    });
+    expect(refused.next_step_kinds).toEqual([]);
+    expect(refused.finalization_receipt).toEqual(expect.any(String));
     expect(check({ question_about: "other" })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
   });
 
   it("asks nothing of an emergency before triage", () => {
     const emergency = check({ not_relevant_basis: "emergency_before_triage", question_about: undefined });
-    expect(emergency.next_steps.join("\n")).not.toContain("question_about");
+    expect(advisoryNotes(emergency).join("\n")).not.toContain("question_about");
   });
 });
 
@@ -204,7 +227,14 @@ describe("finalize_research documents the reason on both surfaces (question 125)
       expect(published.properties.question_about).toMatchObject({ enum: ["symptom_or_test_result", "other"] });
       const response = await client.callTool({ name: "finalize_research", arguments: { ...base(), receipts: [] } });
       expect(response.isError).not.toBe(true);
-      expect(response.structuredContent).toMatchObject({ caveats: [SKIP], limits: expect.arrayContaining([LIMIT]) });
+      expect(response.structuredContent).toMatchObject({
+        caveats: [
+          "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+        ],
+        limits: [
+          "I did not search firsthand reports or community discussions for this answer: The question asks only what the two names mean chemically."
+        ]
+      });
       const text = (response.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
       expect(text).toContain(`The answer must contain, as written: ${SKIP}`);
     } finally {

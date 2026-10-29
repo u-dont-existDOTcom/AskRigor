@@ -27,7 +27,7 @@ import {
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
-import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
 
 const TOOL_NAMES = [
@@ -920,8 +920,10 @@ describe("AskRigor MCP tools", () => {
         receipts_rejected: [{ index: 0, reason: "signature_invalid" }]
       });
       const steps = (unsupported.structuredContent as { next_steps: string[] }).next_steps.join(" ");
-      expect(steps).toContain("survey_youtube_community");
-      expect(steps).toContain("For 10.1000/forged: acquire_open_full_text");
+      expect(steps).toContain("Key source 10.1000/forged has no receipt");
+      const notes = (unsupported.structuredContent as { notes: string[] }).notes.join(" ");
+      expect(notes).toContain("survey_youtube_community");
+      expect(notes).toContain("For 10.1000/forged: acquire_open_full_text");
 
       const dosing = {
         receipts: [],
@@ -945,15 +947,9 @@ describe("AskRigor MCP tools", () => {
         arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
       });
       expect(uncaveated.structuredContent).toMatchObject({
-        status: "not_ready",
-        caveats: [skip, noStudy],
-        next_steps: [
-          "The answer leaves out these caveats; include each as its own sentence, as written (a link's text may " +
-            "change), or, in an answer not in English, in the answer's language with the same links, given in " +
-            `caveat_renderings: "${skip}" "${noStudy}"`
-        ]
+        status: "ready_with_limits", caveats: [skip, noStudy], limits: [skip, noStudy], next_steps: []
       });
-      expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
+      expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toEqual(expect.any(String));
       const declined = await client.callTool({
         name: "finalize_research",
         arguments: {
@@ -966,8 +962,8 @@ describe("AskRigor MCP tools", () => {
         status: "ready_with_limits",
         answer_checked: true,
         limits: [
-          COMMUNITY_SKIP_LIMIT,
-          "No study was declared decision-critical; say that no study's methods were checked in full text."
+          skip,
+          noStudy
         ]
       });
       // An answer in another language states each caveat in that language and says which sentence it is.
@@ -1001,14 +997,14 @@ describe("AskRigor MCP tools", () => {
         }
       });
       expect(leaky.structuredContent).toMatchObject({
-        status: "not_ready",
+        status: "ready_with_limits",
         answer_checked: true,
-        next_steps: [
+        next_steps: [], notes: [
           "The answer shows internal labels (DeepForumAuditActivationPrompt, LimitsNote): say what each means in " +
             "plain words, or leave it out."
         ]
       });
-      expect((leaky.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
+      expect((leaky.structuredContent as { finalization_receipt?: string }).finalization_receipt).toEqual(expect.any(String));
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousFinalizationSecret);
@@ -2557,7 +2553,8 @@ describe("AskRigor MCP tools", () => {
         expect(verifyResearchReceipt(receipt, { secret: "literature-search-secret-value-32-bytes" })).toMatchObject({
           ok: true, kind: "literature_search", claims: { src: "europepmc", ret: "2", n: "3" }
         });
-        expect(receipt).not.toContain("example");
+        expect(receipt).not.toContain("example%20intervention");
+        expect(receipt).not.toContain("example intervention");
       } finally {
         restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
       }
@@ -2663,6 +2660,7 @@ describe("AskRigor MCP tools", () => {
       expect(content.data).toHaveLength(35);
       expect(content.pagination).toMatchObject({ returned: 35, exhausted: true });
       expect(receipt).toMatchObject({ ok: true, kind: "literature_search", claims: { src: "pubmed", ret: "35", n: "35" } });
+      expect(receipt.ok && receipt.claims.ids).toEqual((content.data as Array<{ pmid: string }>).map(({ pmid }) => pmid));
     });
 
     it("pages PubMed as asked past 50 records and after the first page", async () => {

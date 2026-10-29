@@ -763,7 +763,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     // Turning saving off never relaxes the card requirement or a failing check.
     const { findings_card: _card, ...withoutCard } = request();
     expect((await finalize(withoutCard, "auth0|free")).structuredContent)
-      .toMatchObject({ status: "not_ready", findings_card: { status: "absent" } });
+      .toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
     expect(calls).toEqual([]);
     await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
     const on = await finalize(request(), "auth0|free");
@@ -778,8 +778,8 @@ describe("finalize_research, save_research_findings and the findings library", (
     const { findings_card: _card, ...withoutCard } = request();
     const result = await finalize(withoutCard, "auth0|free");
     expect(result.structuredContent).toMatchObject({
-      status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
+      status: "ready_with_limits",
+      next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);
@@ -837,7 +837,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
-      status: "not_ready", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
+      status: "ready_with_limits", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
     });
     const offered = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({

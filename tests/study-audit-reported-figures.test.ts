@@ -265,8 +265,9 @@ describe("finalize_research reads each key study's figures check", () => {
 
   it("asks a new audit without figures to declare them, and leaves audits signed before the check alone", () => {
     const missing = check([sign({ id: A, fig: "not_declared" }), sign({ id: B, fig: "none_reported" })]);
-    expect(missing.status).toBe("not_ready");
-    expect(missing.next_steps).toEqual([
+    expect(missing.status).toBe("ready_with_limits");
+    expect(missing.next_steps).toEqual([]);
+    expect(missing.notes).toEqual([
       `The study audit of ${A} lists no reported_figures: validate it again with reported_figures, each headline ` +
         "result (not a dose or group size) as the paper prints it with its source block, recomputed from the " +
         "paper's own tables or with why that isn't possible, or with an empty list and reported_figures_none_reason " +

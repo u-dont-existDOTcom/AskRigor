@@ -188,7 +188,7 @@ export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Atlas lookups carry bounded normalized words and public finding/source fingerprints, in any script.
 export const RESEARCH_RECEIPT_MAX_CHARACTERS = 32_768;
 const ORDINARY_RECEIPT_MAX_CHARACTERS = 2_048;
-const receiptLimit = (kind: string) => kind === "atlas_lookup" || kind === "finalization"
+const receiptLimit = (kind: string) => kind === "atlas_lookup" || kind === "finalization" || kind === "literature_search"
   ? RESEARCH_RECEIPT_MAX_CHARACTERS : ORDINARY_RECEIPT_MAX_CHARACTERS;
 
 const PREFIX = "rr1";

@@ -1,3 +1,4 @@
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,6 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "read-depth-test-secret-01234567890123456789";
 const DOI = "10.1000/depth";
@@ -51,10 +51,11 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
   };
   it("requires every source's declaration and gives one refresh hint", async () => {
     const result = await call({ key_sources: [{ id: DOI, status: "validated" }] });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain(`Give key_sources.read_depth for ${DOI}: ${READ_DEPTH_VALUES.join(", ")}.`);
-    expect(result.next_steps.join(" ")).toContain("key_sources.answer_marker");
-    expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result)).toContain(`Give key_sources.read_depth for ${DOI}: ${READ_DEPTH_VALUES.join(", ")}.`);
+    expect(advisoryNotes(result).join(" ")).toContain("key_sources.answer_marker");
+    expect(advisoryNotes(result).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
   });
   it.each(READ_DEPTH_VALUES.filter((depth) => depth !== "atlas_checked"))("accepts %s with an audit receipt", async (read_depth) => {
     expect((await call({ key_sources: [{ id: DOI, status: "validated", read_depth, answer_marker: MARKER }] })).status).toBe("ready_with_limits");
@@ -96,20 +97,21 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
     `> ${MARKER} [Étude](https://doi.org/${DOI})`,
     `[Étude](https://doi.org/${DOI} "${MARKER}")`,
     `${MARKER} [Other](https://doi.org/${OTHER})\n[Étude](https://doi.org/${DOI})`
-  ])("refuses a marker outside the source's visible link line: %s", async (answer_draft) => {
+  ].map((answer_draft, index) => ({ answer_draft, linkShown: index !== 4 && index !== 5 })))("keeps marker placement advisory while checking a visible source link: $answer_draft", async ({ answer_draft, linkShown }) => {
     const result = await call({ answer_draft });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).toContain("no answer_marker on the same line");
+    expect(result.status).toBe(linkShown ? "ready_with_limits" : "not_ready");
+    expect(result.next_steps).toEqual(linkShown ? [] : [expect.stringContaining("no link in the answer")]);
+    expect(advisoryNotes(result).join(" ")).toContain("no answer_marker on the same line");
   });
   it("keeps marker diagnostics limited to published fields", async () => {
     const result = await call({ key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "unpublished_marker_text" }] });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).not.toContain("unpublished_marker_text");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).not.toContain("unpublished_marker_text");
   });
   it("rejects a marker consisting only of formatting", async () => {
     const result = await call({ key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "***" }] });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).toContain("no answer_marker on the same line");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).toContain("no answer_marker on the same line");
   });
   it("accepts a Markdown table row", async () => {
     expect((await call({ answer_draft: `| Source | Reading |\n| --- | --- |\n| [Étude](https://doi.org/${DOI}) | ${MARKER} |` })).status).toBe("ready_with_limits");
@@ -121,7 +123,7 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
   it("does not require a marker before an answer draft", async () => {
     const result = await call({ answer_draft: undefined,
       key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited" }] });
-    expect(result.next_steps.join(" ")).not.toContain("answer_marker");
+    expect(advisoryNotes(result).join(" ")).not.toContain("answer_marker");
   });
   it("matches a PMID's verified DOI alias", async () => {
     expect((await call({ receipts: [sign("study_audit"), issueResearchReceipt("pubmed_record", { pmid: "1234", doi: DOI }, { secret: SECRET })],

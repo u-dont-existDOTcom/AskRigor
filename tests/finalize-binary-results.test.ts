@@ -1,3 +1,4 @@
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -19,8 +20,7 @@ import {
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
-import { COMMUNITY_SKIP_LIMIT, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
 
 // AskRigor#356 and the 21 Oct q136 responders case, whose answer computed a ratio from counts that conflicted with the
@@ -118,13 +118,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     call({ answer_draft: result.nnt === undefined || result.harms_quote === undefined ? result.quote
       : `${result.quote} ${result.harms_quote}`, binary_results: [result], ...overrides });
   // Its one limit is the community search skipped for no real-world outcome (owner question 125).
-  const ready = (result: FinalizeResearchOutput) => {
+  const ready = (result: FinalizeResearchOutput, screened = false) => {
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.limits).toEqual([COMMUNITY_SKIP_LIMIT]);
+    expect(result.limits).toEqual([
+      communitySkipCaveat(packageFor().not_relevant_reason!),
+      ...(screened ? ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."] : [])
+    ]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
       ok: true, kind: "finalization", claims: { status: "ready_with_limits" }
     });
+  };
+  const advised = (result: FinalizeResearchOutput, notes: string[]) => {
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result).filter((note) => note !== TOOL_LIST_REFRESH_HINT)).toEqual(notes);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   };
   const blocked = (result: FinalizeResearchOutput, steps: string[]) => {
     expect(result.status).toBe("not_ready");
@@ -137,18 +146,18 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     ready(await one(sertraline, { safety_claims: [{
       quote: SERTRALINE, direction: "harm", exposure: "sertraline", basis: "comparative_rates",
       measured_exposure: "sertraline for 10 to 13 weeks", studies: [DOI]
-    }] }));
+    }] }), true);
     ready(await call());
   });
 
   it("requires binary_results with answer_draft, while accepting an explicit empty list", async () => {
     const missing = await call({ binary_results: undefined });
-    blocked(missing, [
+    advised(missing, [
       "binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two " +
         "groups, or with a number needed to treat or harm (an empty list means none)."
     ]);
     // A chat whose tool list predates binary_results is told the way out once.
-    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(advisoryNotes(missing).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no yes-or-no outcome.", binary_results: [] }));
   });
 
@@ -160,11 +169,11 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   });
 
   it("rejects a quote absent from the answer", async () => {
-    blocked(await call({ answer_draft: `The drug helped some people. ${HARMS}` }), [
+    advised(await call({ answer_draft: `The drug helped some people. ${HARMS}` }), [
       "binary_results[0] gives text the answer does not show: copy each sentence exactly from answer_draft."
     ]);
     // Its harms sentence is a quote too.
-    blocked(await call({ answer_draft: "The drug helped some people." }), [
+    advised(await call({ answer_draft: "The drug helped some people." }), [
       "binary_results[0], binary_results[0].harms_quote give text the answer does not show: copy each sentence " +
         "exactly from answer_draft."
     ]);
@@ -383,8 +392,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
     it("needs harms_quote with an nnt, as a step on the answer, without the refresh hint", async () => {
       const result = await one(declaration({ harms_quote: undefined }));
-      blocked(result, [NO_HARMS()]);
-      expect(result.next_step_kinds).toEqual(["answer_draft"]);
+      advised(result, [NO_HARMS()]);
+      expect(result.next_step_kinds).toEqual([]);
       expect(result.next_steps).not.toContain(TOOL_LIST_REFRESH_HINT);
     });
 
@@ -404,9 +413,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     it("needs the answer to show it", async () => {
       for (const draft of [GOOD, `${GOOD}\n\n\`\`\`\n${HARMS}\n\`\`\``, `${GOOD}\n\n> ${HARMS}`, `${GOOD} <!-- ${HARMS} -->`]) {
         const result = await call({ answer_draft: draft, binary_results: [declaration()] });
-        blocked(result, ["binary_results[0].harms_quote gives text the answer does not show: copy each sentence " +
+        advised(result, ["binary_results[0].harms_quote gives text the answer does not show: copy each sentence " +
           "exactly from answer_draft."]);
-        expect(result.next_step_kinds).toEqual(["answer_draft"]);
+        expect(result.next_step_kinds).toEqual([]);
       }
     });
 
@@ -437,16 +446,17 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
     it("names the missing harms with the entry's other steps, each with its own kind", async () => {
       const result = await one(declaration({ quote: responders("6"), nnt: 6, harms_quote: undefined }));
-      blocked(result, [recompute("nnt", 6, "6.7", 7), NO_HARMS()]);
-      expect(result.next_step_kinds).toEqual(["declaration", "answer_draft"]);
+      blocked(result, [recompute("nnt", 6, "6.7", 7)]);
+      expect(result.next_step_kinds).toEqual(["declaration"]);
+      expect(advisoryNotes(result)).toContain(NO_HARMS());
       // Both numbers given, the one the counts support is kept, so its harms are asked for too.
       blocked(await one(declaration({ nnh: 7, harms_quote: undefined })), [
-        "binary_results[0] gives both nnt and nnh: give only nnt, the one its counts support.", NO_HARMS()
+        "binary_results[0] gives both nnt and nnh: give only nnt, the one its counts support."
       ]);
       // Each entry by its index.
       const second = "After 12 weeks, 50 of 100 people taking the drug had a remission, against 30 of 100 taking " +
         "placebo, a number needed to treat of 5.";
-      blocked(await call({ answer_draft: `${GOOD} ${HARMS} ${second}`, binary_results: [declaration(),
+      advised(await call({ answer_draft: `${GOOD} ${HARMS} ${second}`, binary_results: [declaration(),
         declaration({ quote: second, outcome: "a remission", option_events: 50, nnt: 5, harms_quote: undefined })] }),
       [NO_HARMS(1)]);
     });

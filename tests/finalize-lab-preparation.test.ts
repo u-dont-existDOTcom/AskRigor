@@ -1,3 +1,5 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -8,7 +10,6 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "lab-preparation-test-secret-01234567890123456789";
 const DOI = "10.1000/lab";
@@ -58,19 +59,19 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
 
   it("requires the declaration with key sources and supplies one refresh hint", async () => {
     const result = await call();
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       "Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
         "conditions or preparation advice, or status not_applicable with reason.",
       TOOL_LIST_REFRESH_HINT
     ]);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   });
   // One object, not two alternatives (ChatGPT's app showed the union as "unknown", 2026-10-16): a status without its
   // field gets the declaration step, and a field the status does not use is left unused.
   it.each([{ status: "covered" as const }, { status: "not_applicable" as const }])(
     "asks for the field %j needs", async (lab_preparation) => {
-      expect((await call({ lab_preparation })).next_steps).toEqual([
+      expect(advisoryNotes((await call({ lab_preparation })))).toEqual([
         "Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
           "conditions or preparation advice, or status not_applicable with reason.",
         TOOL_LIST_REFRESH_HINT
@@ -103,11 +104,11 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
   });
   it("rejects a quote absent from the answer with the existing quote failure wording", async () => {
     const result = await call({ lab_preparation: covered([QUOTE, "This sentence is missing from the answer."]) });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       "lab_preparation.answer_quotes[1] gives text the answer does not show: the quote does not occur in answer_draft."
     ]);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   });
   it("requires an answer draft when covered is declared", async () => {
     const result = await call({ lab_preparation: covered(), answer_draft: undefined });
@@ -131,7 +132,7 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
       ...base(), lab_preparation: { status: "not_applicable", reason: "short" }
     } });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: true });
+    expect(result.structuredContent).toMatchObject({ status: "ready_with_limits", answer_checked: true });
     expect((result.structuredContent!.notes as string[]).join("\n")).toContain("lab_preparation.reason:");
   });
 });

@@ -1,10 +1,11 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
   finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "contested-evidence-test-secret-0123456789012345";
 const DOI = "10.1000/contested";
@@ -29,7 +30,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
   assertNextStepsContract(finalizeResearch(withCommunitySkip(base(overrides)), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 
 describe("declared contested intervention evidence-strength verdicts", () => {
   it.each([
@@ -45,8 +46,8 @@ describe("declared contested intervention evidence-strength verdicts", () => {
   it.each([undefined, []])("requires key sources when studies is %s", (studies) => {
     const input = { absence_claims: [{ quote, state: "not_established" as const, studies }] };
     const result = check(input);
-    expect(result.status).toBe("not_ready");
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.finalization_receipt).toEqual(expect.any(String));
     expect(steps(input)).toEqual([
       "absence_claims[0] states that studies do not establish the effect without the studies it rests on: " +
         "studies lists its key sources (DOI, PMID or PMCID), each covered by a full-text method audit."
@@ -74,8 +75,8 @@ describe("declared contested intervention evidence-strength verdicts", () => {
   });
   it("requires a declaration but never infers a sentence's meaning", () => {
     const missing = check({ absence_claims: undefined });
-    expect(missing.status).toBe("not_ready");
-    expect(missing.next_steps).toContain(
+    expect(missing.status).toBe("ready_with_limits");
+    expect(advisoryNotes(missing)).toContain(
       "absence_claims is missing: it lists each sentence saying something was not found, not studied, has no " +
         "evidence or has no effect; that an option made no difference compared with another, worked as well as it, " +
         "or did no better or no worse than it; or calling an intervention's evidence unconvincing, weak, not " +
@@ -83,7 +84,7 @@ describe("declared contested intervention evidence-strength verdicts", () => {
         "claims, declared with not_established and their key sources when studies were found, or support_not_located " +
         "with search coverage when none were."
     );
-    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(advisoryNotes(missing).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(check({ absence_claims: [] }).status).toBe("ready_with_limits");
   });
   it.each(["direct_null_evidence", "bounded_exclusion"] as const)("preserves %s source and numeric checks", (state) => {
@@ -103,7 +104,7 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     );
     const receipts = [...base().receipts, sign("literature_search", { src: "pubmed", q: "a".repeat(12), ret: 0, n: 0 })];
     const result = check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"] });
-    expect(result.status).toBe("not_ready");
+    expect(result.status).toBe("ready_with_limits");
     const notFound = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
       "not find it; that is not evidence that it does not exist.";
     expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);

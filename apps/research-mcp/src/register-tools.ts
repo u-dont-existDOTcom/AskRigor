@@ -2746,7 +2746,7 @@ const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
 function literatureSearchReceipt(
   source: "pubmed" | "europepmc" | "ctgov",
   query: string,
-  result: { error?: unknown; pagination: { returned: number } },
+  result: { error?: unknown; pagination: { returned: number }; data: unknown },
   total: number | undefined,
   // The publication dates the search was restricted to (review finding 8), signed as "start/end", so a search that
   // found nothing within them is carried with its range; a search without one signs none.
@@ -2758,6 +2758,10 @@ function literatureSearchReceipt(
     src: source,
     q: discoveryQueryDigest([query]),
     ret: result.pagination.returned,
+    // Bind only identifiers actually returned by this search, never caller-supplied candidates.
+    ids: Array.isArray(result.data) ? [...new Set(result.data.flatMap((record: Record<string, unknown>) =>
+      ["doi", "pmid", "pmcid", "nct_id", "id"].flatMap((key) =>
+        typeof record[key] === "string" ? [record[key] as string] : [])))] : [],
     ...(sections.length === 0 ? {} : { ft: sections }),
     ...(total === undefined ? {} : { n: total }),
     ...(dateRange === undefined ? {} : { dr: `${dateRange.start}/${dateRange.end}` })

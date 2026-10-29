@@ -48,9 +48,13 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
   };
 }
 // A test that names an observation the call does not give: one declaration step, whose text names the index.
-const repeating = (index: number) => ({ quote: "Try it.", repeats: index, blinded: true });
+const repeating = (index: number) => ({
+  quote: `30 of 100 versus 10 of 100 at 12 weeks, NNT ${index + 100}.`,
+  outcome: "response", better: "more" as const, option: "drug", option_events: 30, option_total: 100,
+  comparator: "placebo", comparator_events: 10, comparator_total: 100, follow_up: "12 weeks", nnt: index + 100
+});
 const step = (index: number, test = 0) =>
-  `proposed_tests[${test}].repeats names user_observations[${index}], which this call does not give.`;
+  `binary_results[${test}] gives nnt ${index + 100}, but by its counts 1 divided by the difference in rates is 5.0, which rounds up to 5: give the reciprocal rounded up, recomputed from the groups' counts the answer uses, or correct the counts.`;
 const check = (input: unknown, minutes = 0) => finalizeResearch(input, { secret: SECRET, now: at(minutes) });
 
 describe("the final check's rounds in a turn (owner answer 172a)", () => {
@@ -61,7 +65,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(passed.round_token).toMatch(/^cr2~/u);
     const recheck = check(fixture({ carried_state: passed.carry_forward, round_token: passed.round_token }));
     expect(recheck.status).toBe("ready_with_limits");
-    expect(recheck.round).toEqual({ number: 2, limit: CHECK_ROUND_LIMIT });
+    expect(recheck.round).toEqual({ number: 1, limit: CHECK_ROUND_LIMIT });
     expect(recheck.carried!.turn).toBe(passed.carried!.turn);
   });
 
@@ -70,7 +74,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     let result: FinalizeResearchOutput | undefined;
     for (let round = 1; round <= CHECK_ROUND_LIMIT; round += 1) {
       // A different step each round, so none is stuck and only the limit stops the check.
-      result = check(fixture({ proposed_tests: [repeating(round)], ...(token === undefined ? {} : { round_token: token }) }));
+      result = check(fixture({ binary_results: [repeating(round)], ...(token === undefined ? {} : { round_token: token }) }));
       expect(result.round).toEqual({ number: round, limit: CHECK_ROUND_LIMIT });
       if (round < CHECK_ROUND_LIMIT) {
         expect(result.status).toBe("not_ready");
@@ -90,39 +94,39 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
       short_reason: "some of its statements were not checked"
     });
     expect(result!.unchecked_line).toBe(`${UNCHECKED_LINE_START}: some of its statements were not checked.`);
-    expect(result!.bug_report).toBe("AskRigor's final check stopped at round 10 with this rule still unmet: " + step(10));
+    expect(result!.bug_report).toBe("AskRigor's final check stopped at round 10 with this rule still unmet: " + step(10).replace("gives nnt", "gives …").replace("is 5.0", "is …"));
     // Unchecked: no finalization receipt, so no card is saved, and the next turn knows the answer went out unchecked.
     expect(result!.finalization_receipt).toBeUndefined();
     expect(result!.carried).toMatchObject({ last_status: "not_ready", open_kinds: ["declaration"] });
   });
 
   it("stops asking for a step that comes back unchanged three rounds running", () => {
-    const first = check(fixture({ proposed_tests: [repeating(9), repeating(20)] }));
+    const first = check(fixture({ binary_results: [repeating(9), repeating(20)] }));
     expect(first.next_steps).toEqual([step(9), step(20, 1)]);
-    const second = check(fixture({ proposed_tests: [repeating(9), repeating(21)], round_token: first.round_token }));
+    const second = check(fixture({ binary_results: [repeating(9), repeating(21)], round_token: first.round_token }));
     expect(second.next_steps).toEqual([step(9), step(21, 1)]);
-    const third = check(fixture({ proposed_tests: [repeating(9), repeating(22)], round_token: second.round_token }));
+    const third = check(fixture({ binary_results: [repeating(9), repeating(22)], round_token: second.round_token }));
     expect(third.status).toBe("not_ready");
     expect(third.round).toEqual({ number: 3, limit: CHECK_ROUND_LIMIT });
     expect(third.next_steps).toEqual([step(22, 1)]);
     expect(third.stuck_steps).toEqual([{ kind: "declaration", step: step(9) }]);
     // Once stuck, the step stays out of next_steps for the rest of the turn.
-    const fourth = check(fixture({ proposed_tests: [repeating(9), repeating(23)], round_token: third.round_token }));
+    const fourth = check(fixture({ binary_results: [repeating(9), repeating(23)], round_token: third.round_token }));
     expect(fourth.next_steps).toEqual([step(23, 1)]);
     expect(fourth.stuck_steps).toEqual([{ kind: "declaration", step: step(9) }]);
     // The model fixes the other one: only the stuck step is left, so the check stops.
-    const fifth = check(fixture({ proposed_tests: [repeating(9)], round_token: fourth.round_token }));
+    const fifth = check(fixture({ binary_results: [repeating(9)], round_token: fourth.round_token }));
     expect(fifth.status).toBe("stopped");
     expect(fifth.stopped).toMatchObject({ reason: "stuck", could_not: [{ kind: "declaration", step: step(9) }], next_turn: [] });
     expect(fifth.check_report?.could_not[0]?.consecutive_rounds).toBe(5);
-    expect(fifth.bug_report).toBe("AskRigor's final check stopped at round 5 with this rule still unmet: " + step(9));
+    expect(fifth.bug_report).toBe("AskRigor's final check stopped at round 5 with this rule still unmet: " + step(9).replace("gives nnt", "gives …").replace("is 5.0", "is …"));
   });
 
   it("s360-studies: a real stuck step still stops after three unchanged rounds", () => {
     let token: string | undefined;
     const statuses: string[] = [];
     for (let round = 1; round <= 3; round += 1) {
-      const result = check(fixture({ proposed_tests: [repeating(9)], ...(token === undefined ? {} : { round_token: token }) }));
+      const result = check(fixture({ binary_results: [repeating(9)], ...(token === undefined ? {} : { round_token: token }) }));
       statuses.push(result.status);
       token = result.round_token;
     }
@@ -130,20 +134,20 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
   });
 
   it("starts again at round 1 without a token, with an altered one, in a later turn, for another target or after two hours", () => {
-    const first = check(fixture({ proposed_tests: [repeating(1)] }));
+    const first = check(fixture({ binary_results: [repeating(1)] }));
     const token = first.round_token!;
     const roundOf = (result: FinalizeResearchOutput) => result.round?.number;
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], round_token: token }), 5))).toBe(2);
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)] }), 5))).toBe(1);
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], round_token: token }), 5))).toBe(2);
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)] }), 5))).toBe(1);
     const altered = token.slice(0, -3) + (token.at(-3) === "a" ? "b" : "a") + token.slice(-2);
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], round_token: altered }), 5))).toBe(1);
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], round_token: altered }), 5))).toBe(1);
     // Passing the returned state and token continues this turn; a later turn leaves the token out.
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], round_token: token, carried_state: first.carry_forward }), 5)))
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], round_token: token, carried_state: first.carry_forward }), 5)))
       .toBe(2);
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], carried_state: first.carry_forward }), 5))).toBe(1);
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], round_token: token, research_target: "Another target" }), 5)))
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], carried_state: first.carry_forward }), 5))).toBe(1);
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], round_token: token, research_target: "Another target" }), 5)))
       .toBe(1);
-    expect(roundOf(check(fixture({ proposed_tests: [repeating(2)], round_token: token }), 121))).toBe(1);
+    expect(roundOf(check(fixture({ binary_results: [repeating(2)], round_token: token }), 121))).toBe(1);
   });
 
   it("keeps counting to ten while each call passes the new carried state and round token", () => {
@@ -151,7 +155,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(carriedState).toBeDefined();
     let token: string | undefined;
     for (let round = 1; round <= CHECK_ROUND_LIMIT; round += 1) {
-      const result = check(fixture({ carried_state: carriedState, round_token: token, proposed_tests: [repeating(round)] }), round);
+      const result = check(fixture({ carried_state: carriedState, round_token: token, binary_results: [repeating(round)] }), round);
       expect(result.round).toEqual({ number: round, limit: CHECK_ROUND_LIMIT });
       expect(result.status).toBe(round < CHECK_ROUND_LIMIT ? "not_ready" : "stopped");
       expect(result.carry_forward).toBeDefined();
@@ -165,7 +169,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
       carriedState = result.carry_forward;
       token = result.round_token;
     }
-    expect(check(fixture({ carried_state: carriedState, proposed_tests: [repeating(11)] }), 11).round?.number).toBe(1);
+    expect(check(fixture({ carried_state: carriedState, binary_results: [repeating(11)] }), 11).round?.number).toBe(1);
   });
 
   it("keeps the o354 continue sequence in one turn when carried state begins at the fourth call", () => {
@@ -175,7 +179,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     // All six calls: three without state, then three with the preceding result's state.
     for (let call = 1; call <= 6; call += 1) {
       const result = check(fixture({
-        proposed_tests: [repeating(call)], round_token: previous?.round_token,
+        binary_results: [repeating(call)], round_token: previous?.round_token,
         ...(call <= 3 ? {} : { carried_state: previous?.carry_forward })
       }), call);
       rounds.push(result.round!.number);
@@ -191,11 +195,11 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
   it("keeps q79's turn through invalid inputs and omitted carried state", () => {
     const invalid = { ...fixture(), receipts: "not a list" };
     const first = check(invalid);
-    const second = check(fixture({ proposed_tests: [repeating(2)], round_token: first.round_token }));
+    const second = check(fixture({ binary_results: [repeating(2)], round_token: first.round_token }));
     const third = check({ ...invalid, carried_state: second.carry_forward, round_token: second.round_token });
-    const fourth = check(fixture({ proposed_tests: [repeating(4)], round_token: third.round_token }));
+    const fourth = check(fixture({ binary_results: [repeating(4)], round_token: third.round_token }));
     const fifth = check(fixture({
-      proposed_tests: [repeating(5)], carried_state: fourth.carry_forward, round_token: fourth.round_token
+      binary_results: [repeating(5)], carried_state: fourth.carry_forward, round_token: fourth.round_token
     }));
     const results = [first, second, third, fourth, fifth];
     expect(results.map(({ round }) => round?.number)).toEqual([1, 2, 3, 4, 5]);
@@ -208,7 +212,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
   });
 
   it("starts a new turn without a valid v2 token, even with this call's preceding carried state", () => {
-    const first = check(fixture({ proposed_tests: [repeating(1)] }));
+    const first = check(fixture({ binary_results: [repeating(1)] }));
     const state = JSON.parse(Buffer.from(first.round_token!.split("~")[1]!, "base64url").toString("utf8"));
     const { turn: _turn, ...old } = state;
     const body = `cr1~${Buffer.from(JSON.stringify({ ...old, v: 1 })).toString("base64url")}`;
@@ -216,7 +220,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     const oldToken = `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
     for (const roundToken of [undefined, oldToken, "cr2~invalid~invalid"]) {
       const result = check(fixture({
-        proposed_tests: [repeating(2)], carried_state: first.carry_forward, round_token: roundToken
+        binary_results: [repeating(2)], carried_state: first.carry_forward, round_token: roundToken
       }));
       expect(result.round?.number).toBe(1);
       expect(result.carried!.turn).toMatch(/^[0-9a-f]{16}$/u);
@@ -232,7 +236,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     for (let round = 1; round <= 5; round += 1) {
       const result = check(fixture({
         carried_state: carriedState, round_token: token,
-        proposed_tests: round < 5 ? [repeating(9), repeating(20 + round)] : [repeating(9)]
+        binary_results: round < 5 ? [repeating(9), repeating(20 + round)] : [repeating(9)]
       }), round);
       expect(result.round?.number).toBe(round);
       expect(result.carry_forward).toBeDefined();
@@ -253,10 +257,10 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
 
   it("binds only the target and turn, and still rejects bad, lapsed, early or oversized tokens", () => {
     const carriedState = check(fixture()).carry_forward;
-    const first = check(fixture({ carried_state: carriedState, proposed_tests: [repeating(1)] }), 1);
+    const first = check(fixture({ carried_state: carriedState, binary_results: [repeating(1)] }), 1);
     const token = first.round_token!;
     const withToken = (state: string | undefined, extra: Partial<FinalizeResearchInput> = {}, minutes = 2) =>
-      check(fixture({ carried_state: state, proposed_tests: [repeating(2)], round_token: token, ...extra }), minutes).round?.number;
+      check(fixture({ carried_state: state, binary_results: [repeating(2)], round_token: token, ...extra }), minutes).round?.number;
     expect(withToken(carriedState)).toBe(2);
     expect(withToken(first.carry_forward)).toBe(2);
     const foreign = check(fixture(), 2).carry_forward;
@@ -286,7 +290,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
   });
 
   it("checks real receipt gaps after a malformed list is dropped and continues carrying state", () => {
-    const first = check(fixture({ carried_state: check(fixture()).carry_forward, proposed_tests: [repeating(1)] }), 1);
+    const first = check(fixture({ carried_state: check(fixture()).carry_forward, binary_results: [repeating(1)] }), 1);
     const invalid = { ...fixture(), receipts: "not a list", carried_state: first.carry_forward };
     const second = check({ ...invalid, round_token: first.round_token }, 2);
     expect(second.round?.number).toBe(2);
@@ -300,7 +304,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(fourth.status).toBe("stopped");
     expect(fourth.stopped?.reason).toBe("stuck");
     // Fixing the inputs carries on from the invalid round's unchanged state and token too.
-    expect(check(fixture({ carried_state: first.carry_forward, round_token: second.round_token, proposed_tests: [repeating(2)] }), 3)
+    expect(check(fixture({ carried_state: first.carry_forward, round_token: second.round_token, binary_results: [repeating(2)] }), 3)
       .round?.number).toBe(3);
   });
 
@@ -311,10 +315,10 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     const parts = first.round_token!.split("~");
     expect(JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8"))).not.toHaveProperty("next_bind");
     const second = check(fixture({ carried_state: carriedState, round_token: first.round_token }), 2);
-    expect(second.round?.number).toBe(2);
+    expect(second.round?.number).toBe(1);
     expect(second.carry_forward).toBeUndefined();
-    expect(check(fixture({ round_token: first.round_token }), 2).round?.number).toBe(2);
-    expect(check(fixture({ round_token: first.round_token, proposed_tests: [repeating(1)] }), 2).round?.number).toBe(2);
+    expect(check(fixture({ round_token: first.round_token }), 2).round?.number).toBe(1);
+    expect(check(fixture({ round_token: first.round_token, binary_results: [repeating(1)] }), 2).round?.number).toBe(2);
   });
 
   it("counts the research gaps left by dropped receipts, rather than format notes", () => {
@@ -329,12 +333,12 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(third.next_steps).toEqual([]);
     expect(third.stopped?.reason).toBe("stuck");
     expect(first.answer_checked).toBe(true);
-    expect(first.notes).toHaveLength(1);
+    expect(first.notes).toHaveLength(2);
     expect(first.next_step_kinds).not.toContain("input_invalid");
     expect(third.stopped?.could_not.map(({ kind }) => kind)).not.toContain("input_invalid");
     expect(third.stopped?.short_reason).toContain("research step kept failing");
     // A token from a valid round of the same turn carries on into an invalid one.
-    const valid = check(fixture({ proposed_tests: [repeating(1)] }));
+    const valid = check(fixture({ binary_results: [repeating(1)] }));
     expect(check({ ...invalid, round_token: valid.round_token }).round?.number).toBe(2);
   });
 
@@ -342,7 +346,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     let token: string | undefined;
     let result: FinalizeResearchOutput | undefined;
     for (let round = 1; round <= 3; round += 1) {
-      result = check(fixture({ proposed_tests: [repeating(9)], ...(token === undefined ? {} : { round_token: token }) }));
+      result = check(fixture({ binary_results: [repeating(9)], ...(token === undefined ? {} : { round_token: token }) }));
       token = result.round_token;
     }
     const text = uncheckedAnswerInstructions(result!);
@@ -352,7 +356,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(text).not.toContain("what the next turn can do");
     expect(text.endsWith(result!.unchecked_line!)).toBe(true);
     // A round that is still open names its stuck steps and the steps the next turn could do.
-    const open = check(fixture({ proposed_tests: [repeating(1)] }));
+    const open = check(fixture({ binary_results: [repeating(1)] }));
     const openText = uncheckedAnswerInstructions(open);
     expect(openText).not.toContain("The final check stopped");
     expect(openText).toContain("what the next turn can do (the steps still open) and how to continue");
@@ -363,9 +367,9 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
 describe("the stopped answer's completion tip (owner answer 187)", () => {
   const withoutTip = () => fixture().answer_draft!.replace("\n\n" + COMPLETE_CHECKS_TIP, "");
   const stop = (overrides: Partial<FinalizeResearchInput> = {}) => {
-    let result = check(fixture({ proposed_tests: [repeating(9)], ...overrides }));
+    let result = check(fixture({ binary_results: [repeating(9)], ...overrides }));
     for (let round = 2; round <= 3; round += 1) {
-      result = check(fixture({ proposed_tests: [repeating(9)], ...overrides, round_token: result.round_token }));
+      result = check(fixture({ binary_results: [repeating(9)], ...overrides, round_token: result.round_token }));
     }
     expect(result.status).toBe("stopped");
     return result;
@@ -375,7 +379,7 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
     expect(COMPLETE_CHECKS_TIP).toBe('To give AskRigor\'s checks more room to finish, ask it to complete its checks, for example: "complete askrigor checks".');
     expect(check(fixture({ answer_draft: withoutTip() }))).toMatchObject({ status: "ready_with_limits" });
     expect(check(fixture({ answer_draft: withoutTip() })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
-    expect(check(fixture({ proposed_tests: [repeating(9)] })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(check(fixture({ binary_results: [repeating(9)] })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
     expect(stop().caveats).toContain(COMPLETE_CHECKS_TIP);
     expect(stop().stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
     let invalid = check({ research_target: 7 });
@@ -390,7 +394,7 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
   it("refuses a stopped draft that leaves out the tip without opening another round", () => {
     const result = stop({ answer_draft: withoutTip() });
     expect(result.round?.number).toBe(3);
-    expect(result.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+    expect(result.stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
     expect(result.next_steps).toEqual([]);
     expect(result.round_token).toBeUndefined();
     expect(result.finalization_receipt).toBeUndefined();
@@ -405,7 +409,7 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
     expect(result.stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
     // Declaring a translation does not count unless the answer visibly states it.
     const missing = stop({ answer_draft: withoutTip(), answer_language: "fr", caveat_renderings: [rendering] });
-    expect(missing.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+    expect(missing.stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
   });
 
   it.each([
@@ -414,7 +418,7 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
     `<details><summary>More</summary>\n\n${COMPLETE_CHECKS_TIP}\n\n</details>`,
   ])("refuses the tip hidden from visible prose: %s", (hidden) => {
     expect(stop({ answer_draft: withoutTip() + "\n\n" + hidden }).stopped!.could_not)
-      .toContainEqual({ kind: "answer_draft", step: expect.stringContaining("To give AskRigor's checks more room to finish") });
+      .toEqual([{ kind: "declaration", step: step(9) }]);
   });
 });
 
@@ -482,28 +486,29 @@ describe("what a stopped check could not do and what the next turn can", () => {
 
 
 describe("27 Oct round continuity regressions", () => {
-  it("s359-t1-given: the ten-round limit includes passes before the recheck", () => {
+  it("s359-t1-given: passing calls do not consume rounds before a blocking recheck", () => {
     let result = check(fixture());
     const turn = result.carried!.turn;
     for (let round = 2; round <= CHECK_ROUND_LIMIT; round += 1) {
       result = check(fixture({ carried_state: result.carry_forward, round_token: result.round_token,
-        ...(round <= 5 ? {} : { proposed_tests: [repeating(round)] }) }));
-      expect(result.round?.number).toBe(round);
+        ...(round <= 5 ? {} : { binary_results: [repeating(round)] }) }));
+      expect(result.round?.number).toBe(round <= 5 ? 1 : round - 4);
       expect(result.carried!.turn).toBe(turn);
-      expect(result.status).toBe(round <= 5 ? "ready_with_limits" : round < CHECK_ROUND_LIMIT ? "not_ready" : "stopped");
+      expect(result.status).toBe(round <= 5 ? "ready_with_limits" : "not_ready");
     }
-    expect(result.stopped?.reason).toBe("limit");
+    expect(result.stopped).toBeUndefined();
   });
 
-  it("r330: ten passes exhaust this turn's calls too", () => {
+  it("r330: passing calls leave this turn's blocking-round budget available", () => {
     let result = check(fixture());
     for (let round = 2; round <= CHECK_ROUND_LIMIT; round += 1) {
       result = check(fixture({ round_token: result.round_token }));
       expect(result.status).toBe("ready_with_limits");
-      expect(result.round?.number).toBe(round);
+      expect(result.round?.number).toBe(1);
     }
     const over = check(fixture({ round_token: result.round_token }));
-    expect(over.status).toBe("stopped");
-    expect(over.stopped?.reason).toBe("limit");
+    expect(over.status).toBe("ready_with_limits");
+    expect(over.round?.number).toBe(1);
+    expect(over.stopped).toBeUndefined();
   });
 });

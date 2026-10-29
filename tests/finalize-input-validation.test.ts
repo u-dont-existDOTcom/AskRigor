@@ -1,3 +1,4 @@
+import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -38,7 +39,7 @@ describe("final check format recovery (owner answer 193a)", () => {
       harm_screen: [{ harm: "Synthetic harm", state: "not_found", sources_searched: ["PubMed"] }]
     }, options);
     expect(result.answer_checked).toBe(true);
-    expect(result.notes).toHaveLength(2);
+    expect(result.notes).toHaveLength(4);
     expect(result.notes!.join(" ")).toContain("sources_searched[0]");
     expect(result.notes!.join(" ")).toContain("invented");
     expect(result.next_step_kinds).not.toContain("input_invalid");
@@ -143,11 +144,16 @@ describe("finalize_research published schemas and handler validation", () => {
       const response = await client.callTool({ name: "finalize_research", arguments: { ...base, ...overrides } });
       expect(response.isError).not.toBe(true);
       const result = response.structuredContent!;
-      expect(result).toMatchObject({ status: "not_ready", receipts_verified: 0, receipts_rejected: [], answer_checked: true });
+      expect(result).toMatchObject({
+        answer_checked: true,
+        receipts_rejected: [],
+        receipts_verified: 0,
+        status: "ready_with_limits"
+      });
       const notes = (result.notes as string[]).join("\n");
       expect(notes).toContain(path); expect(notes).toContain(detail);
       expect(result.next_step_kinds).not.toContain("input_invalid");
-      expect(result).toHaveProperty("carry_forward"); expect(result).not.toHaveProperty("finalization_receipt");
+      expect(result).toHaveProperty("carry_forward"); expect(result.finalization_receipt).toEqual(expect.any(String));
     });
   });
 

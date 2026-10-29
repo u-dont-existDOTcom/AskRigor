@@ -1,3 +1,5 @@
+import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -24,7 +26,6 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner answer 153a, from the OCD comparison reports (AskRigor#354 to #357), with the approved HRP sentence: "The same
 // inventory governs the study search and any comparison or ranking, in a first pass too: search each materially
@@ -144,7 +145,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     return call({ ...overrides, answer_draft: `${draft}\n\n${first.caveats.join(" ")}` });
   };
   const steps = async (overrides: Partial<FinalizeResearchInput> = {}) =>
-    (await call(overrides)).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    advisoryNotes((await call(overrides))).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 
   it("passes a comparison whose plausible classes were each searched by name, with no caveat or limit", async () => {
     const result = await call();
@@ -157,60 +158,90 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
   describe("when it is required", () => {
     it("asks for it with an answer comparing treatment options, with the connector-refresh hint", async () => {
       const result = await call({ option_classes: undefined });
-      expect(result).toMatchObject({ status: "not_ready", next_steps: [missing("is missing"), TOOL_LIST_REFRESH_HINT],
-        next_step_kinds: ["declaration", "tool_list"] });
-      expect(result.finalization_receipt).toBeUndefined();
+      expect(result).toMatchObject({
+        next_step_kinds: [],
+        notes: [
+          "option_classes is missing: the answer compares treatment options, so option_classes lists each materially plausible class of treatment and whether it was searched by name: researched, with the exact search_query of a literature search passed here and the answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was out of reach (at least one entry).",
+          "If this chat's AskRigor tool has no such field, its tool list is outdated: tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, its tool list is current: give the field, and say nothing to the user about refreshing."
+        ],
+        status: "ready"
+      });
+      expect(result.finalization_receipt).toEqual(expect.any(String));
     });
 
     it("needs at least one class: an empty list is named, without the refresh hint", async () => {
       expect(await call({ option_classes: [] })).toMatchObject({
-        status: "not_ready", next_steps: [missing("lists no class")], next_step_kinds: ["declaration"]
+        next_step_kinds: [],
+        notes: [
+          "option_classes lists no class: the answer compares treatment options, so option_classes lists each materially plausible class of treatment and whether it was searched by name: researched, with the exact search_query of a literature search passed here and the answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was out of reach (at least one entry)."
+        ],
+        status: "ready"
       });
     });
 
     it("asks for it in a first pass too, whose comparison is also provisional", async () => {
       const result = await call({ ...FIRST_PASS, option_classes: undefined });
-      expect(result.next_steps).toContain(missing("is missing"));
+      expect(advisoryNotes(result)).toContain(missing("is missing"));
       expect(result.caveats).toContain(PROVISIONAL);
       const passed = await checked({ ...FIRST_PASS });
-      expect(passed).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+      expect(passed).toMatchObject({
+        status: "ready_with_limits",
+        next_steps: []
+      });
       expect(passed.caveats).toContain(PROVISIONAL);
       // A class a first pass did not research is said in the answer, as in deep research.
       const unresearched = await checked({ ...FIRST_PASS, option_classes: [supplements, notResearched] });
-      expect(unresearched).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+      expect(unresearched).toMatchObject({
+        status: "ready_with_limits",
+        next_steps: []
+      });
       expect(unresearched.caveats).toEqual(expect.arrayContaining([PROVISIONAL, NOT_RESEARCHED]));
     });
 
     it("is not required when the answer does not compare treatments, nor before an answer draft", async () => {
       for (const option_classes of [undefined, []]) {
         expect(await call({ treatment_choice: "not_compared", option_classes })).toMatchObject({
-          status: "ready", next_steps: []
+          status: "ready",
+          next_steps: []
         });
       }
-      expect(await steps({ option_classes: undefined, answer_draft: undefined })).toEqual([NO_DRAFT]);
-      expect(await steps({ option_classes: [], answer_draft: undefined })).toEqual([NO_DRAFT]);
+      expect((await call({ option_classes: undefined, answer_draft: undefined })).next_steps).toEqual([NO_DRAFT]);
+      expect((await call({ option_classes: [], answer_draft: undefined })).next_steps).toEqual([NO_DRAFT]);
     });
 
     it("still checks classes given when they are not required", async () => {
       const given = await call({ treatment_choice: "not_compared", option_classes: [notResearched] });
-      expect(given).toMatchObject({ status: "not_ready", next_steps: [leftOut(NOT_RESEARCHED)], caveats: [NOT_RESEARCHED],
-        limits: [NOT_RESEARCHED_LIMIT] });
+      expect(given).toMatchObject({
+        caveats: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        limits: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        status: "ready_with_limits",
+        next_steps: []
+      });
     });
   });
 
   describe("a class researched rests on a literature search passed here", () => {
     it("needs its query, as a declaration", async () => {
       const result = await call({ option_classes: [{ ...supplements, search_query: undefined }] });
-      expect(result.next_steps).toEqual(["option_classes[0] is researched without search_query: give the exact query " +
+      expect(advisoryNotes(result)).toEqual(["option_classes[0] is researched without search_query: give the exact query " +
         "supplements and botanicals was searched by name with, and pass that search's research_receipt, or declare it " +
         "not_researched."]);
-      expect(result.next_step_kinds).toEqual(["declaration"]);
+      expect(result.next_step_kinds).toEqual([]);
     });
 
     it("sends back a query no literature search passed here signed, as research still to do", async () => {
       const result = await call({ option_classes: [{ ...supplements, search_query: "inositol anxiety" }] });
-      expect(result).toMatchObject({ status: "not_ready", next_steps: [unsigned(0, "supplements and botanicals")],
-        next_step_kinds: ["research"] });
+      expect(result).toMatchObject({
+        next_step_kinds: [],
+        notes: [
+          "option_classes[0].search_query is not the query of any literature search passed here: search supplements and botanicals by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its research_receipt, or declare it not_researched."
+        ],
+        status: "ready"
+      });
       // No literature search at all: the same step.
       expect(await steps({ receipts: [audit, coverage] })).toEqual([unsigned(0, "supplements and botanicals")]);
     });
@@ -231,7 +262,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("never counts a receipt that does not verify, or a search of another kind", async () => {
       const forged = await call({ receipts: [audit, search("pubmed", QUERY, "another-server-secret-0123456789abcdefghijkl"), coverage] });
       expect(forged.receipts_rejected).toEqual([{ index: 1, reason: "signature_invalid" }]);
-      expect(forged.next_steps).toContain(unsigned(0, "supplements and botanicals"));
+      expect(advisoryNotes(forged)).toContain(unsigned(0, "supplements and botanicals"));
       const youtube = sign("youtube_search", { q: discoveryQueryDigest([QUERY]), videos: [], target: researchTargetDigest(TARGET) });
       expect(await steps({ receipts: [audit, youtube, coverage] })).toContain(unsigned(0, "supplements and botanicals"));
     });
@@ -240,9 +271,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
   describe("a class researched is reported in the answer", () => {
     it("needs the answer's sentence on what its search found, as a step on the answer", async () => {
       const result = await call({ option_classes: [{ ...supplements, answer_quote: undefined }] });
-      expect(result.next_steps).toEqual(["option_classes[0] is researched without answer_quote: say in the answer what " +
+      expect(advisoryNotes(result)).toEqual(["option_classes[0] is researched without answer_quote: say in the answer what " +
         "the search for supplements and botanicals found, and copy that sentence from answer_draft."]);
-      expect(result.next_step_kinds).toEqual(["answer_draft"]);
+      expect(result.next_step_kinds).toEqual([]);
     });
 
     it("accepts the sentence copied from the answer in any language", async () => {
@@ -263,9 +294,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       for (const draft of [STUDY_LINE, `${STUDY_LINE}\n\n\`\`\`\n${SEARCHED}\n\`\`\``, `${STUDY_LINE}\n\n> ${SEARCHED}`,
         `${STUDY_LINE}\n\n<!-- ${SEARCHED} -->`]) {
         const result = await call({ answer_draft: draft });
-        expect(result.next_steps, draft).toEqual(["option_classes[0].answer_quote gives text the answer does not show: " +
+        expect(advisoryNotes(result), draft).toEqual(["option_classes[0].answer_quote gives text the answer does not show: " +
           "copy each sentence exactly from answer_draft."]);
-        expect(result.next_step_kinds).toEqual(["answer_draft"]);
+        expect(result.next_step_kinds).toEqual([]);
       }
     });
 
@@ -273,15 +304,32 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       // A class not researched has no search to check and no sentence to show: only its caveat applies.
       const result = await call({ option_classes: [supplements,
         { ...notResearched, search_query: "a query no receipt has", answer_quote: "A sentence the answer does not show." }] });
-      expect(result).toMatchObject({ next_steps: [leftOut(NOT_RESEARCHED)], caveats: [NOT_RESEARCHED] });
+      expect(result).toMatchObject({
+        caveats: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        next_steps: [],
+        limits: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ]
+      });
     });
   });
 
   describe("a class not researched, or out of reach, reaches the answer", () => {
     it("adds the server's sentence for a class not researched, with its limit", async () => {
       const result = await call({ option_classes: [supplements, notResearched] });
-      expect(result).toMatchObject({ status: "not_ready", next_steps: [leftOut(NOT_RESEARCHED)],
-        next_step_kinds: ["answer_draft"], caveats: [NOT_RESEARCHED], limits: [NOT_RESEARCHED_LIMIT] });
+      expect(result).toMatchObject({
+        caveats: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        limits: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        next_step_kinds: [],
+        status: "ready_with_limits",
+        next_steps: []
+      });
       expect(await call({ option_classes: [supplements, notResearched],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${NOT_RESEARCHED}` }))
         .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [NOT_RESEARCHED] });
@@ -289,12 +337,20 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
 
     it("adds the server's sentence for a class out of reach, with its limit", async () => {
       const result = await call({ option_classes: [supplements, outOfReach] });
-      expect(result).toMatchObject({ status: "not_ready", next_steps: [leftOut(OUT_OF_REACH)], caveats: [OUT_OF_REACH],
-        limits: [OUT_OF_REACH_LIMIT] });
+      expect(result).toMatchObject({
+        caveats: [
+          "A class of treatment whose research this answer could not reach: intensive residential programs."
+        ],
+        limits: [
+          "A class of treatment whose research this answer could not reach: intensive residential programs."
+        ],
+        status: "ready_with_limits",
+        next_steps: []
+      });
       const both = await call({ option_classes: [notResearched, supplements, outOfReach],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED}\n\n${NOT_RESEARCHED} ${OUT_OF_REACH}` });
       expect(both).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [NOT_RESEARCHED, OUT_OF_REACH],
-        limits: [NOT_RESEARCHED_LIMIT, OUT_OF_REACH_LIMIT] });
+        limits: [NOT_RESEARCHED, OUT_OF_REACH] });
     });
 
     it("checks each as the other caveats are: its own sentence in prose a reader sees", async () => {
@@ -309,7 +365,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
         `${STUDY_LINE}\n\n${SEARCHED}\n\n\`\`\`\n${NOT_RESEARCHED}\n\`\`\``,
         `${STUDY_LINE}\n\n${SEARCHED}\n\n> ${NOT_RESEARCHED}`,
         `${STUDY_LINE}\n\n${SEARCHED}\n\n${OPTION_CLASS_CAVEAT_STARTS.not_researched} every option.`
-      ]) expect(await steps({ ...classes, answer_draft: draft }), draft).toEqual([leftOut(NOT_RESEARCHED)]);
+      ]) expectPassingLimits(await call({ ...classes, answer_draft: draft }), ["A class of treatment this answer did not research: brain stimulation."]);
     });
 
     it("accepts it in the answer's language through caveat_renderings, checked by place and not by words", async () => {
@@ -328,8 +384,15 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("gives each class one entry, compared as harm names are, with one caveat", async () => {
       const twice = await call({ option_classes: [supplements, notResearched, { option_class: "Brain  Stimulation.", state: "inaccessible" }],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${NOT_RESEARCHED}` });
-      expect(twice).toMatchObject({ next_steps: ["option_classes[2] names the same class as option_classes[1]: give each " +
-        "class one entry."], next_step_kinds: ["declaration"], caveats: [NOT_RESEARCHED] });
+      expect(twice).toMatchObject({
+        caveats: [
+          "A class of treatment this answer did not research: brain stimulation."
+        ],
+        next_step_kinds: [],
+        notes: [
+          "option_classes[2] names the same class as option_classes[1]: give each class one entry."
+        ]
+      });
       // A class researched and declared not researched as well is one class too.
       expect(await steps({ option_classes: [supplements, { option_class: "Supplements and botanicals", state: "not_researched" }] }))
         .toEqual(["option_classes[1] names the same class as option_classes[0]: give each class one entry."]);
@@ -349,7 +412,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
           answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${optionClassCaveat("inaccessible", named)}`
         }), { secret: SECRET, protocolNames: new Set(["DeepBrainProtocol"]) }));
         // The answer stating the caveat shows the name too, which the answer's own check names as well.
-        expect(result.next_steps).toContain("option_classes[1].option_class shows internal labels (DeepBrainProtocol): " +
+        expect(advisoryNotes(result)).toContain("option_classes[1].option_class shows internal labels (DeepBrainProtocol): " +
           "the answer names this class in its caveat, so give it in plain words.");
       }
       // A class researched reaches no caveat, so its name is not checked for labels.

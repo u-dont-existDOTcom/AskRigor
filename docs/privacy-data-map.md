@@ -1887,8 +1887,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   and compares the answer's links with them for that call only; no URL is
   fetched, logged or stored for this.
   `key_sources.read_depth` records declared reading depth, and `answer_marker`
-  records the visible source label (3–80 characters), checked on the source
-  link's line without judging its meaning. For a lead, `key_sources.other_route`
+  records the visible source label (3–80 characters). A missing or misplaced label is advisory; the source's
+  receipt and a visible link tied to that source remain blocking checks, without judging the label's meaning. For a lead, `key_sources.other_route`
   (owner answer 147a) records how the model says it used another full-text tool
   the app has connected: `read`, `unavailable`, `cost` or `none`. AskRigor cannot
   see the app's other tools and sends nothing to them; a study declared `read`
@@ -1903,7 +1903,7 @@ pending-proposal stores have their own strict contracts and authority boundaries
   of sources' identifiers and the issue time. The client receives and holds this readable signed token
   and sends it back to `finalize_research`; AskRigor verifies it in memory, expires it after 24 hours, and does not
   persist or log the token or its query words. Atlas and finalization tokens have a 32,768-character ceiling;
-  other research receipt kinds retain 2,048. A lookup that could not run signs an attempt receipt marked failed, with
+  literature-search tokens share that ceiling to carry their returned identifiers; other research receipt kinds retain 2,048. A lookup that could not run signs an attempt receipt marked failed, with
   no findings, which the final check accepts with a stated limit; it is never read as an empty successful search.
   The lookup needs sign-in but not research access: the Atlas content is public, and the stored research plans it
   returns hold research trails, no findings and no personal details.
@@ -1911,6 +1911,10 @@ pending-proposal stores have their own strict contracts and authority boundaries
   only the **used public numbers and declared relations**, and the private GitHub findings card and each later save
   retain those pairs as `atlas_basis` for owner review. They contain neither lookup words nor answer sentences.
   `inspect_finding` exposes these pairs to the owner; they do not create canonical Atlas links or expose an account.
+- Literature-search receipts also sign the public identifiers actually returned in that result (`ids`: DOI, PMID,
+  PMCID, registry or provider record ID). This lets the final check distinguish a source found in this research
+  from a caller's unsupported declaration. They contain no query text, article body or additional provider output,
+  are returned only to the same caller, expire after 24 hours, and are not stored or logged.
 - MCP research receipts (`research_receipt`) are HMAC-SHA256 tokens under a
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube

@@ -1,3 +1,5 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -16,7 +18,6 @@ import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mc
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { COMMUNITY_SKIP_LIMIT, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "scale-results-test-secret-01234567890123456789";
 // These are the owner's regression sentences, used as synthetic gate fixtures,
@@ -84,20 +85,23 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   // Its one limit is the community search skipped for no real-world outcome (owner question 125).
   const ready = (result: FinalizeResearchOutput) => {
     expect(result.status).toBe("ready_with_limits");
-    expect(result.limits).toEqual([COMMUNITY_SKIP_LIMIT]);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(result.limits).toEqual([
+  "I did not search firsthand reports or community discussions for this answer: Isolates exact declaration checks with synthetic receipts and text."
+]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
       ok: true, kind: "finalization", claims: { status: "ready_with_limits" }
     });
   };
-  const blocked = (result: FinalizeResearchOutput, steps: string[]) => {
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(steps);
-    expect(result.finalization_receipt).toBeUndefined();
+  const advised = (result: FinalizeResearchOutput, steps: string[]) => {
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(steps);
+    expect(result.next_steps).toEqual([]);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   };
 
   it("blocks GPT's unexplained ISI sentence and accepts its explained paragraph", async () => {
-    blocked(await call({ answer_draft: BAD, scale_results: [declaration({ quote: BAD })] }), [
+    advised(await call({ answer_draft: BAD, scale_results: [declaration({ quote: BAD })] }), [
       "scale_results[0] quotes no range: the quote does not contain 0 and 28.",
       "scale_results[0] quotes no declared values: the quote does not contain 6.8 and 9.7.",
       "scale_results[0] quotes no benchmark: the quote does not contain 6."
@@ -107,12 +111,12 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
 
   it("requires scale_results with answer_draft, while accepting an explicit empty list", async () => {
     const missing = await call({ scale_results: undefined });
-    blocked(missing, [
+    advised(missing, [
       "scale_results is missing: with answer_draft, the declaration lists each scale or questionnaire result " +
         "reported in the answer (an empty list means none)."
     ]);
     // A chat whose tool list predates scale_results is told the way out once.
-    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(advisoryNotes(missing).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no scale scores.", scale_results: [], user_observations: [], proposed_tests: [], safety_claims: [], key_terms: [], mechanism_claims: [], recommendations: [] }));
   });
 
@@ -120,11 +124,11 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     const result = await call({ answer_draft: undefined, scale_results: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.answer_checked).toBe(false);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("scale_results");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).not.toContain("scale_results");
   });
 
   it("rejects a quote absent from the answer", async () => {
-    blocked(await call({ scale_results: [declaration({ quote: `${GOOD} This extra sentence was never shown.` })] }), [
+    advised(await call({ scale_results: [declaration({ quote: `${GOOD} This extra sentence was never shown.` })] }), [
       "scale_results[0] gives text the answer does not show: the quote does not occur in answer_draft."
     ]);
   });
@@ -132,7 +136,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   it.each(["fenced code", "blockquote", "HTML comment"])("rejects a quote hidden in %s", async (location) => {
     const hidden = location === "fenced code" ? `\n\n\`\`\`\n${GOOD}\n\`\`\``
       : location === "blockquote" ? `\n\n> ${GOOD}` : `\n\n<!-- ${GOOD} -->`;
-    blocked(await call({ answer_draft: `The explanation is missing.${hidden}` }), [
+    advised(await call({ answer_draft: `The explanation is missing.${hidden}` }), [
       "scale_results[0] gives text the answer does not show: the quote does not occur in answer_draft."
     ]);
   });
@@ -143,7 +147,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
 
   it("requires the scale name in the quote", async () => {
-    blocked(await call({ scale_results: [declaration({ scale: "PSQI" })] }), [
+    advised(await call({ scale_results: [declaration({ scale: "PSQI" })] }), [
       "scale_results[0] quotes no scale name: the quote does not contain the declared scale name."
     ]);
   });
@@ -156,19 +160,19 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   it.each([
     { min: 1, max: 28, missing: "1" }, { min: 0, max: 29, missing: "29" }
   ])("checks each range endpoint ($missing missing)", async ({ min, max, missing }) => {
-    blocked(await call({ scale_results: [declaration({ range: { min, max } })] }), [
+    advised(await call({ scale_results: [declaration({ range: { min, max } })] }), [
       `scale_results[0] quotes no range: the quote does not contain ${missing}.`
     ]);
   });
 
   it("checks every declared value, including the fourth, as a whole number", async () => {
-    blocked(await call({ scale_results: [declaration({ values: [6.8, 9.7, 2.9, 9] })] }), [
+    advised(await call({ scale_results: [declaration({ values: [6.8, 9.7, 2.9, 9] })] }), [
       "scale_results[0] quotes no declared values: the quote does not contain 9."
     ]);
   });
 
   it("checks numbers in the quote rather than elsewhere in the answer", async () => {
-    blocked(await call({ scale_results: [declaration({ quote: BAD })] }), [
+    advised(await call({ scale_results: [declaration({ quote: BAD })] }), [
       "scale_results[0] gives text the answer does not show: the quote does not occur in answer_draft.",
       "scale_results[0] quotes no range: the quote does not contain 0 and 28.",
       "scale_results[0] quotes no declared values: the quote does not contain 6.8 and 9.7.",
@@ -179,7 +183,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   it.each(["minimal_important_difference", "clinical_cutoff", "other"] as const)(
     "checks the benchmark number for kind %s", async (kind) => {
       ready(await call({ scale_results: [declaration({ benchmark: { value: 6, kind } })] }));
-      blocked(await call({ scale_results: [declaration({ benchmark: { value: 7, kind } })] }), [
+      advised(await call({ scale_results: [declaration({ benchmark: { value: 7, kind } })] }), [
         "scale_results[0] quotes no benchmark: the quote does not contain 7."
       ]);
     }
@@ -196,7 +200,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
       range: { min: 0, max: -28 }, values: [-6.8, -9.7, -2.9 - 0.5e-9],
       benchmark: { value: -6 - 0.5e-9, kind: "other" }
     })] }));
-    blocked(await call({ scale_results: [declaration({ values: [2.9 + 2e-9] })] }), [
+    advised(await call({ scale_results: [declaration({ values: [2.9 + 2e-9] })] }), [
       `scale_results[0] quotes no declared values: the quote does not contain ${2.9 + 2e-9}.`
     ]);
   });
@@ -218,7 +222,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   });
 
   it("reports each failed entry by its index", async () => {
-    blocked(await call({ scale_results: [declaration(), declaration({ scale: "PSQI" })] }), [
+    advised(await call({ scale_results: [declaration(), declaration({ scale: "PSQI" })] }), [
       "scale_results[1] quotes no scale name: the quote does not contain the declared scale name."
     ]);
   });

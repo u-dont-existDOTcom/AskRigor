@@ -1,3 +1,5 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { createHash } from "node:crypto";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -28,7 +30,6 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { CARD } from "./helpers/findings-fixtures.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // Owner answer 190a (2026-10-27) extends 140b to every active account. Originally, 140b (2026-10-20): "for paid and dev accounts at once. Before research, the AI writes the short answer
 // it would give without AskRigor's tools and AskRigor signs it with the time; the research checks each of its claims
@@ -79,7 +80,7 @@ const check = (overrides: Partial<FinalizeResearchInput> = {}, note: boolean | n
     secret: SECRET, ...(note === null ? {} : { plainAnswer: { note, account: ACCOUNT } })
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 const NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D supplements prevent colds in most " +
   "adults.” This research corrected that, from a full-text audit of 1 study: “In three large trials, " +
   "vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
@@ -130,10 +131,10 @@ describe("finalize_research compares the answer with the plain answer registered
     const result = check({ plain_answer_comparison: [
       { claim: CLAIMS[0]!, outcome: "confirmed", sources: [DOI] }, COMPARISON[1]!
     ] });
-    expect(result.status).toBe("not_ready");
+    expect(result.status).toBe("ready_with_limits");
     expect(result.plain_answer_note).toBeUndefined();
-    expect(result.next_steps).toContain("plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft.");
-    expect(result.next_step_kinds[result.next_steps.findIndex((step) => step.includes("without answer_quote"))]).toBe("declaration");
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft.");
+    expect(result.next_step_kinds).toEqual([]);
   });
 
   it("does not reprint a quick-answer claim containing a figure absent from the checked draft", () => {
@@ -154,7 +155,7 @@ describe("finalize_research compares the answer with the plain answer registered
           answer_quote: changed, sources: [DOI]
         }) }]
       });
-      expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+      expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
       expect(result.plain_answer_note).toContain(fixed);
       for (const figure of ["90.3", "24.2", "66.1", "3.73"]) expect(result.plain_answer_note).not.toContain(figure);
       expect(result.plain_answer_note).not.toContain(claim);
@@ -189,8 +190,8 @@ describe("finalize_research compares the answer with the plain answer registered
 
   it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
     const result = check({ plain_answer_comparison: undefined });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       "Give plain_answer_comparison: for each of the 2 claims of the plain answer registered before this research, " +
         "copied exactly as manage_research_access listed it, whether the research confirmed, corrected or qualified " +
         "it, or did not check it (outcome); a confirmation, correction or qualification also gives the answer's sentence stating " +
@@ -199,7 +200,7 @@ describe("finalize_research compares the answer with the plain answer registered
       TOOL_LIST_REFRESH_HINT
     ]);
     expect(result).not.toHaveProperty("plain_answer_note");
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.finalization_receipt).toEqual(expect.any(String));
     expect(check({ plain_answer_comparison: undefined, receipts: [audit()] }).status).toBe("ready_with_limits");
   });
 
@@ -250,7 +251,10 @@ describe("finalize_research compares the answer with the plain answer registered
       absence_claims: [{ quote: absent, state: "support_not_located" }],
       plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: absent }]
     });
-    expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(result).toMatchObject({
+      status: "ready_with_limits",
+      next_steps: []
+    });
     expect(result.plain_answer_note).toContain("This research qualified that, from a check of what the evidence does " +
       `not show: “${absent}”`);
     const fixed = "Earlier I gave the dose in milligrams; it is 1,000 IU, about 25 micrograms.";
@@ -259,7 +263,10 @@ describe("finalize_research compares the answer with the plain answer registered
       corrections: [{ retracted: "The dose is 1,000 mg a day.", change: fixed, by_user: false }],
       plain_answer_comparison: [COMPARISON[0]!, { claim: CLAIMS[1]!, outcome: "corrected", answer_quote: fixed }]
     });
-    expect(corrected).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(corrected).toMatchObject({
+      status: "ready_with_limits",
+      next_steps: []
+    });
     expect(corrected.plain_answer_note).toContain("This research corrected that, from a correction the research made " +
       `to an earlier statement: “${fixed}”`);
   });
@@ -277,22 +284,22 @@ describe("finalize_research compares the answer with the plain answer registered
     const problem = "corrections[0] takes back a claim of the plain answer written before this " +
       "research, which the user has not been shown: leave it out of corrections; plain_answer_comparison records what " +
       "the research changed.";
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain(problem);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toContain(problem);
     expect(result.carried!.first_turn).toBe(true);
     const withinTurn = check({ ...correction, carried_state: result.carry_forward, round_token: result.round_token });
-    expect(withinTurn.round?.number).toBe(2);
+    expect(withinTurn.round?.number).toBe(1);
     expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
-    expect(withinTurn.next_steps).toContain(problem);
+    expect(advisoryNotes(withinTurn)).toContain(problem);
     // A new turn passes the earlier state's token without the round token: that claim may have been shown.
     const later = check({ ...correction, carried_state: result.carry_forward });
     expect(later.status).toBe("ready_with_limits");
-    expect(later.next_steps).not.toContain(problem);
+    expect(advisoryNotes(later)).not.toContain(problem);
     expect(later.carried!.first_turn).toBe(false);
     // An unverifiable state remains a later turn, and gets no replacement, as before.
     const invalid = check({ ...correction, carried_state: "invalid", round_token: result.round_token });
-    expect(invalid.next_steps.join("\n")).toContain("carried_state does not verify");
-    expect(invalid.next_steps).not.toContain(problem);
+    expect(advisoryNotes(invalid).join("\n")).toContain("carried_state does not verify");
+    expect(advisoryNotes(invalid)).not.toContain(problem);
     expect(invalid.carry_forward).toBeUndefined();
   });
 
@@ -344,12 +351,15 @@ describe("finalize_research compares the answer with the plain answer registered
       }
     });
     expect(off).not.toHaveProperty("plain_answer_note");
-    expect(check({ plain_answer_comparison: undefined }, false).status).toBe("not_ready");
+    expect(check({ plain_answer_comparison: undefined }, false).status).toBe("ready_with_limits");
   });
 
   it("counts a plain-answer receipt for nothing from an account not asked for one", () => {
     const free = check({}, null);
-    expect(free).toMatchObject({ status: "ready_with_limits", next_steps: [] });
+    expect(free).toMatchObject({
+      status: "ready_with_limits",
+      next_steps: []
+    });
     expect(free).not.toHaveProperty("plain_answer");
     expect(free).not.toHaveProperty("plain_answer_note");
     expect(check({ plain_answer_comparison: undefined }, null).status).toBe("ready_with_limits");
@@ -644,38 +654,38 @@ describe("27 Oct exact plain-answer note regressions", () => {
   });
   it.each(["confirmed", "corrected", "qualified"] as const)("q137: %s requires a quote in the checked draft", (outcome) => {
     const missing = checkedItem(outcome);
-    expect(missing.status).toBe("not_ready");
-    expect(missing.next_steps.join(" ")).toContain("plain_answer_comparison[0]");
+    expect(missing.status).toBe("ready_with_limits");
+    expect(advisoryNotes(missing).join(" ")).toContain("plain_answer_comparison[0]");
     const stale = checkedItem(outcome, "The previous draft used different synthetic words.");
-    expect(stale.status).toBe("not_ready");
-    expect(stale.next_steps).toContain("plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.");
+    expect(stale.status).toBe("ready_with_limits");
+    expect(advisoryNotes(stale)).toContain("plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.");
     expect(checkedItem(outcome, finding).status).toBe("ready_with_limits");
   });
   it.each(["i44", "q136-weak-lead", "r331"])("%s: one quote cannot back two items", () => {
     const claims = [claim, "A second synthetic fixture suggests an effect."];
     const result = check({ receipts: [plainReceipt(1_000, claims), audit()], answer_draft: `${LINK}\n\n${finding}`,
       plain_answer_comparison: claims.map((claim) => ({ claim, outcome: "confirmed", answer_quote: finding })) });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain("plain_answer_comparison[1].answer_quote repeats plain_answer_comparison[0].answer_quote: one quote backs only one item.");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[1].answer_quote repeats plain_answer_comparison[0].answer_quote: one quote backs only one item.");
   });
   it("r332: a quote ending in a colon is a lead-in, not the item's sentence", () => {
     const lead = "Synthetic results:";
     const result = check({ receipts: [plainReceipt(1_000, [claim]), audit()], answer_draft: `${LINK}\n\n${lead} ${finding}`,
       plain_answer_comparison: [{ claim, outcome: "confirmed", answer_quote: lead }] });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain("plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.");
   });
   it("q136-responders: a first-turn correction uses the answer's sentence without inventing a prior delivered error", () => {
     const result = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "corrected", answer_quote: finding }] });
-    expect(result.status, result.next_steps.join("\n")).toBe("ready_with_limits");
+    expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
     expect(result.plain_answer_note).toContain(`This research corrected that: “${finding}”`);
     const missing = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "corrected" }] });
-    expect(missing.next_steps.join(" ")).not.toContain("corrections");
+    expect(advisoryNotes(missing).join(" ")).not.toContain("corrections");
     const qualified = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding }] });
-    expect(qualified.next_steps.join(" ")).not.toContain("corrections");
+    expect(advisoryNotes(qualified).join(" ")).not.toContain("corrections");
   });
 });

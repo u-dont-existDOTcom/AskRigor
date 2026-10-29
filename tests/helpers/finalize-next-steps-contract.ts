@@ -68,3 +68,15 @@ export function fixtureStudyLinks(input: Record<string, unknown>): string {
     return url === undefined ? "" : `[Study](${url})`;
   }).join(" ");
 }
+
+/** Owner 195: advisory diagnostics remain actionable without entering the blocking step list. */
+export function advisoryNotes(result: FinalizeResearchOutput): string[] {
+  return result.notes ?? [];
+}
+
+/** A limit remains available independently of how the draft phrases or omits it (owner 195). */
+export function expectPassingLimits(result: FinalizeResearchOutput, limits: readonly string[]): void {
+  expect(result.next_steps).toEqual([]);
+  expect(result.status).toBe("ready_with_limits");
+  for (const limit of limits) expect(result.limits).toContain(limit);
+}

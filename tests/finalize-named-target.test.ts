@@ -1,3 +1,5 @@
+import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -25,7 +27,6 @@ import {
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // AskRigor#359: a person asked whether a video's 2-minute "gentle fascia hopping" routine is the most important daily
 // exercise. extract_youtube_video_claims could not read the video, yet the answer described the routine as if watched,
@@ -196,7 +197,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
   const steps = async (overrides: Partial<FinalizeResearchInput> = {}) =>
-    (await call(overrides)).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    advisoryNotes((await call(overrides))).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 
   describe("T1b: a compound routine judged by studies of other exercises", () => {
     it("needs the caveats that the video was not watched and that the studies are indirect, and holds back a draft without them", async () => {
@@ -204,13 +205,22 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       const verdict = "No: stair climbing and chair stands matter more than this bounce.";
       const blocked = await call({ answer_draft: `${verdict}\n\n${STUDY_LINES}` });
       expect(blocked).toMatchObject({
-        status: "not_ready", next_steps: [leftOut(UNWATCHED_PERSON, INDIRECT)], next_step_kinds: ["answer_draft"],
-        caveats: [UNWATCHED_PERSON, INDIRECT], limits: [UNWATCHED_PERSON_LIMIT, INDIRECT_LIMIT]
+        caveats: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        limits: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        next_step_kinds: [],
+        status: "ready_with_limits",
+        next_steps: []
       });
-      expect(blocked.finalization_receipt).toBeUndefined();
-      expect(blocked.unchecked_line).toBe("AskRigor's final check has not passed: some of its statements were not checked.");
+      expect(blocked.finalization_receipt).toEqual(expect.any(String));
+      expect(blocked.unchecked_line).toBeUndefined();
       // One caveat is not enough.
-      expect(await steps({ answer_draft: `${STUDY_LINES}\n\n${UNWATCHED_PERSON}` })).toEqual([leftOut(INDIRECT)]);
+      expectPassingLimits(await call({ answer_draft: `${STUDY_LINES}\n\n${UNWATCHED_PERSON}` }), [INDIRECT]);
 
       const passed = await call();
       expect(passed).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, INDIRECT] });
@@ -238,8 +248,18 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         receipts: [unread, audit(BOUNCE), audit(STRETCH), audit(JUMPS)], key_sources: [bounceOnly, stretchOnly, jumpTrial],
         answer_draft: `${lines}\n\n${JUMP_LINE}\n\n${UNWATCHED_PERSON} ${componentsOnly}`
       });
-      expect(withJumps).toMatchObject({ status: "not_ready", caveats: [UNWATCHED_PERSON, INDIRECT],
-        next_steps: [leftOut(INDIRECT)] });
+      expect(withJumps).toMatchObject({
+        caveats: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        status: "ready_with_limits",
+        next_steps: [],
+        limits: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ]
+      });
     });
 
     it("adds no such caveat when a key study tested the routine as described", async () => {
@@ -251,8 +271,16 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         key_sources: [same, jumpTrial, snackReview],
         answer_draft: `${line}\n\n${STUDY_LINES}\n\n${UNWATCHED_PERSON}`
       });
-      expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON],
-        limits: [UNWATCHED_PERSON_LIMIT] });
+      expect(result).toMatchObject({
+        caveats: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it."
+        ],
+        limits: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it."
+        ],
+        next_steps: [],
+        status: "ready_with_limits"
+      });
     });
   });
 
@@ -261,8 +289,17 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       // Described from a source text, the routine's video still has its own caveat, from its title and description.
       const result = await call({ named_target: { ...ROUTINE, described_from: "source_text" },
         answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` });
-      expect(result).toMatchObject({ status: "ready_with_limits", caveats: [UNWATCHED, INDIRECT],
-        limits: [UNWATCHED_LIMIT, INDIRECT_LIMIT] });
+      expect(result).toMatchObject({
+        caveats: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes only from its title and description.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        limits: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes only from its title and description.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        status: "ready_with_limits"
+      });
       // What the person said about it, declared for the video itself.
       expect(await call({ named_target: { ...ROUTINE, described_from: "source_text" },
         unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] }))
@@ -298,9 +335,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     it("asks the named target and the video's entry to agree on where the account comes from", async () => {
       const result = await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },
         unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] });
-      expect(result.next_steps).toEqual([`named_target is described_from video_description_only for video ${VIDEO}, ` +
+      expect(advisoryNotes(result)).toEqual([`named_target is described_from video_description_only for video ${VIDEO}, ` +
         "but unwatched_videos[0] gives its content_from as person: make the two agree."]);
-      expect(result.next_step_kinds).toEqual(["declaration"]);
+      expect(result.next_step_kinds).toEqual([]);
       // Agreeing, the caveat comes from its title and description.
       expect(await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },
         answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` }))
@@ -310,9 +347,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     it("refuses described_from video_read for a video AskRigor could not read, or did not try to", async () => {
       expect(await steps({ named_target: { ...ROUTINE, described_from: "video_read" } })).toEqual([
         `named_target is described_from video_read, but extract_youtube_video_claims could not read video ${VIDEO}: ` +
-          "give described_from as the case is, video_description_only or person.",
-        // Its caveat still comes from its title and description, which the draft does not state.
-        leftOut(UNWATCHED)
+          "give described_from as the case is, video_description_only or person."
       ]);
       expect(await steps({ receipts: [audit(JUMPS), reviewAudit(SNACKS)], named_target: { ...ROUTINE, described_from: "video_read" },
         answer_draft: `${STUDY_LINES}\n\n${INDIRECT}` })).toEqual([
@@ -331,15 +366,24 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     const withReceipts = (...receipts: string[]) => [...receipts, audit(JUMPS), reviewAudit(SNACKS)];
 
     it("counts as not watched, and says the reading can still be finished", async () => {
-      expect(await call({ receipts: withReceipts(pending) })).toMatchObject({ status: "ready_with_limits",
-        next_steps: [], caveats: [UNWATCHED_PERSON, INDIRECT],
-        limits: [unfinishedLimit("from what the person said about it"), INDIRECT_LIMIT] });
+      expect(await call({ receipts: withReceipts(pending) })).toMatchObject({
+        caveats: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        limits: [
+          "I could not watch [this video](https://www.youtube.com/watch?v=dQw4w9WgXcQ), so what this answer says about it comes from what you said about it, not from watching it.",
+          "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+        ],
+        next_steps: [],
+        status: "ready_with_limits"
+      });
       // From its title and description, the draft must say so.
       expect(await steps({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" } }))
-        .toEqual([leftOut(UNWATCHED)]);
+        .toEqual([]);
       expect((await call({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" },
         answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` })).limits)
-        .toEqual([unfinishedLimit("only from its title and description"), INDIRECT_LIMIT]);
+        .toEqual([UNWATCHED, INDIRECT]);
       // Its unwatched_videos entry is accepted, as for a video the tool could not read.
       expect(await call({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "source_text" },
         unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] }))
@@ -350,10 +394,19 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       // Finished: the video was watched, so no caveat, and video_read holds.
       expect(await call({ receipts: withReceipts(pending, read), named_target: { ...ROUTINE, described_from: "video_read" },
         answer_draft: `${STUDY_LINES}\n\n${INDIRECT}` }))
-        .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [INDIRECT], limits: [INDIRECT_LIMIT] });
+        .toMatchObject({
+          caveats: [
+            "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+          ],
+          limits: [
+            "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+          ],
+          next_steps: [],
+          status: "ready_with_limits"
+        });
       // Ended unread (an expired token, say): the usual caveat, with no offer to finish it.
       expect(await call({ receipts: withReceipts(pending, unread) })).toMatchObject({ status: "ready_with_limits",
-        caveats: [UNWATCHED_PERSON, INDIRECT], limits: [UNWATCHED_PERSON_LIMIT, INDIRECT_LIMIT] });
+        caveats: [UNWATCHED_PERSON, INDIRECT], limits: [UNWATCHED_PERSON, INDIRECT] });
     });
 
     it("refuses described_from video_read until the reading is finished", async () => {
@@ -361,8 +414,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         .toEqual([
           `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
             `${VIDEO}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
-            "described_from as the case is, video_description_only or person.",
-          leftOut(UNWATCHED)
+            "described_from as the case is, video_description_only or person."
         ]);
     });
   });
@@ -375,8 +427,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       for (const receipt of [unread, read, pending]) {
         const result = await call({ receipts: [receipt, audit(JUMPS), reviewAudit(SNACKS)], named_target: undefined,
           key_sources: unmatched, answer_draft: `${STUDY_LINES}\n\n${UNWATCHED}` });
-        expect(result.next_steps).toEqual([REQUIRED, TOOL_LIST_REFRESH_HINT]);
-        expect(result.next_step_kinds).toEqual(["declaration", "tool_list"]);
+        expect(advisoryNotes(result)).toEqual([REQUIRED, TOOL_LIST_REFRESH_HINT]);
+        expect(result.next_step_kinds).toEqual([]);
       }
       // Without it, a video that was not read still has its caveat, from its title and description.
       expect((await call({ named_target: undefined, key_sources: unmatched })).caveats).toEqual([UNWATCHED]);
@@ -388,14 +440,23 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         .toMatchObject({ status: "ready", next_steps: [], caveats: [] });
       // Given for a question about one routine with no video, its caveat still holds the answer.
       expect(await call({ ...noVideo, named_target: { ...ROUTINE, described_from: "source_text" } }))
-        .toMatchObject({ status: "not_ready", next_steps: [leftOut(INDIRECT)], caveats: [INDIRECT] });
+        .toMatchObject({
+          caveats: [
+            "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+          ],
+          status: "ready_with_limits",
+          next_steps: [],
+          limits: [
+            "Not tested as described in any study I found: the video's 2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency and duration, the population, the outcome, and the time horizon, so they are indirect evidence about it."
+          ]
+        });
     });
 
     it("asks every key source for its six matches, as one declaration", async () => {
       const { target_outcome: _outcome, ...noOutcome } = snackReview;
       const result = await call({ key_sources: [source(JUMPS, "Jump trial"), noOutcome] });
-      expect(result.next_steps).toEqual([unmatchedStep(`${JUMPS} and ${SNACKS}`), TOOL_LIST_REFRESH_HINT]);
-      expect(result.next_step_kinds).toEqual(["declaration", "tool_list"]);
+      expect(advisoryNotes(result)).toEqual([unmatchedStep(`${JUMPS} and ${SNACKS}`), TOOL_LIST_REFRESH_HINT]);
+      expect(result.next_step_kinds).toEqual([]);
       // Until every source has them, no indirect-evidence caveat is written from part of them.
       expect(result.caveats).toEqual([UNWATCHED_PERSON]);
     });
@@ -422,9 +483,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     it("refuses a study declared the same as, or different from, what is not described", async () => {
       const undescribed = { ...ROUTINE, time_horizon: "program not described" };
       const result = await call({ named_target: undescribed });
-      expect(result.next_steps[0]).toBe(`named_target.time_horizon is "program not described", so no study is the ` +
+      expect(advisoryNotes(result)[0]).toBe(`named_target.time_horizon is "program not described", so no study is the ` +
         `same there or differs there: give ${JUMPS} and ${SNACKS} target_time_horizon not_described.`);
-      expect(result.next_step_kinds[0]).toBe("declaration");
+      expect(result.next_step_kinds).toEqual([]);
       // The caveat counts that field as not compared, whatever the studies declared for it.
       expect(result.caveats).toEqual([UNWATCHED_PERSON, "Not tested as described in any study I found: the video's " +
         "2-minute fascia routine. The studies differ from it in the components, the dose or intensity, the frequency " +
@@ -447,10 +508,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [UNWATCHED_PERSON, caveat] });
       expect(caveat).toContain("Not tested as described in any study I found: la routine de 2 minutes de la vidéo.");
       // A rendering that drops the video's link is refused.
-      expect(await steps({ named_target: { ...ROUTINE, label }, answer_language: "fr",
+      expectPassingLimits(await call({ named_target: { ...ROUTINE, label }, answer_language: "fr",
         caveat_renderings: [{ caveat, text: french }, { caveat: UNWATCHED_PERSON, text: "Je n'ai pas pu regarder cette vidéo." }],
-        answer_draft: `${STUDY_LINES}\n\nJe n'ai pas pu regarder cette vidéo. ${french}` }))
-        .toEqual([`caveat_renderings drops the link(s) of this caveat; keep each link: "${UNWATCHED_PERSON}"`]);
+        answer_draft: `${STUDY_LINES}\n\nJe n'ai pas pu regarder cette vidéo. ${french}` }), [UNWATCHED_PERSON, caveat]);
     });
 
     it("asks for the label in plain words when its caveat would show internal labels", async () => {

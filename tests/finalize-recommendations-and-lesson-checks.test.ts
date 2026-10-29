@@ -1,10 +1,11 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
   CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
 
 // Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
@@ -41,7 +42,7 @@ const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks."
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
   assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];
 
 describe("finalize_research recommendations (owner question 90, lesson #23)", () => {
@@ -101,9 +102,9 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const input = base();
     delete input.recommendations;
     const result = assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.startsWith("recommendations is missing:"))).toBe(true);
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.startsWith("recommendations is missing:"))).toBe(true);
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
 });
 
@@ -184,7 +185,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     const problem = "corrections[0]'s wrong statement still appears in the answer outside its change sentence: " +
       "correct it everywhere, including headings, tables and summaries.";
     for (const leftover of [`## ${WRONG}`, `| Effect | Note |\n|---|---|\n| Cold | ${WRONG} |`]) {
-      expect(steps({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] })).toEqual([problem]);
+      expect(check({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] }).next_steps).toEqual([problem]);
     }
   });
 
@@ -197,7 +198,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   // Universal's correction-report rule (owner question 78; the owner's 16 Oct lemon conversation said "You're right"
   // and offered no report): after a correction the user pointed out, the answer asks whether to send a bug report.
   it("asks who pointed the error out, once", () => {
-    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] }).next_steps)
+    expect(advisoryNotes(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] })))
       .toEqual([
         "Give corrections[0].by_user: true when the user pointed out the error and a recheck showed the user was " +
           "right, false when the research found it.",
@@ -209,7 +210,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     const byUser = { ...found, by_user: true, report: CHANGE, preventing_rule: "no_rule", missing_rule: "Carry corrections through all rendered forms." };
     const ruleLine = `Missing rule: ${byUser.missing_rule}`;
     const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
-    expect(asked.status).toBe("not_ready");
+    expect(asked.status).toBe("ready_with_limits");
     expect(asked.caveats).toEqual([ruleLine, CORRECTION_REPORT_OFFER, SKIP]);
     expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${ruleLine}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
       .toBe("ready_with_limits");
@@ -226,7 +227,7 @@ describe("finalize_research key-source links (the 2026-10-15 owner regressions)"
   const PMID = "25959135";
   const pubmed = issueResearchReceipt("pubmed_record", { pmid: PMID, doi: DOI }, { secret: SECRET });
   const VIA_PUBMED = `[Trial](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) and [Rat study](https://doi.org/${RAT}) were read.`;
-  const linkSteps = (receipts: string[]) => steps({ answer_draft: VIA_PUBMED, receipts })
+  const linkSteps = (receipts: string[]) => check({ answer_draft: VIA_PUBMED, receipts }).next_steps
     .filter((step) => step.startsWith(`Key study ${DOI} `) || step.startsWith(`Key source ${DOI} has no answer_marker`));
 
   it("accepts a DOI key source's PubMed page once a PubMed receipt matched the two", () => {
