@@ -2389,6 +2389,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "youtube_video_claims",
   "youtube_video_community_audit",
   "youtube_video_id_invalid",
+  "youtube_video_metadata",
   "youtube_video_not_found",
   "youtube_video_pending",
   "youtube_video_unread"

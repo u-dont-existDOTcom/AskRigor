@@ -1885,7 +1885,7 @@ export function finalizeResearch(
       // candidates whose YouTube title differs from the scout's, and YouTube's
       // closest results for a title it could not find. Auditing one is that
       // judgment, so they count as found by the round.
-      for (const video of [...list(claims.videos), ...list(claims.alt)]) discovered.add(video);
+      for (const video of [...list(claims.videos), ...list(claims.alt), ...(kind === "youtube_scout" ? list(claims.unres) : [])]) discovered.add(video);
     }
     if (kind === "youtube_video_claims") {
       // A video the person gave, which Gemini read, counts as found: auditing
@@ -2002,7 +2002,7 @@ export function finalizeResearch(
         );
       }
       materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
-      const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
+      const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth, verified, targetDigest);
       saturated = saturation.saturated;
       if (input.research_depth === "first_pass") firstPassDeferredStep = saturation.deferredStep;
       else if (saturation.deferredStep !== undefined) addCheckStep(saturation.deferredStep);
@@ -5380,7 +5380,9 @@ const NEW_ANGLE_HINT = joinRules(
 function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
-  depth: "first_pass" | "deep"
+  depth: "first_pass" | "deep",
+  receipts: readonly VerifiedReceipt[],
+  target: string
 ): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferredStep?: CheckStep } {
   const stop = depth === "first_pass"
     ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done.`
@@ -5425,7 +5427,7 @@ function discoverySaturation(
   const firstFound = new Map<string, number>();
   for (const round of rounds) {
     const order = receiptOrder(round);
-    for (const video of [...list(round.claims.videos), ...list(round.claims.alt)]) {
+    for (const video of [...list(round.claims.videos), ...list(round.claims.alt), ...(round.kind === "youtube_scout" ? list(round.claims.unres) : [])]) {
       const known = firstFound.get(video);
       if (known === undefined || order < known) firstFound.set(video, order);
     }
@@ -5433,7 +5435,29 @@ function discoverySaturation(
   const fresh = [...material].filter((video) => (firstFound.get(video) ?? -Infinity) >= recentFrom).sort();
   // A later page's receipt signs the page it read, which settles the page before it.
   const read = readPages(rounds);
-  const unchecked = recent.some((round) => roundUnreadPages(round.claims, read) > 0);
+  const unreadPages = recent.some((round) =>
+    (round.kind !== "youtube_scout" || round.claims.nx !== undefined) && roundUnreadPages(round.claims, read) > 0);
+  const scouts = recent.filter(({ kind }) => kind === "youtube_scout").map((round) => {
+    const open = signedCount([round], "open");
+    const identified = [...new Set(list(round.claims.unres))];
+    const settled = new Set<string>();
+    for (const receipt of receipts) {
+      if (receiptOrder(receipt) <= receiptOrder(round)) continue;
+      const { kind, claims } = receipt;
+      if (claims.target !== undefined && text(claims.target) !== target) continue;
+      const videos = kind === "youtube_video_audit" && TERMINAL_VIDEO_STATES.has(text(claims.state))
+        ? [text(claims.video)]
+        : kind === "youtube_video_metadata" && ["complete", "api_visible_complete"].includes(text(claims.access)) ? [text(claims.video)]
+          : kind === "youtube_search" && text(claims.target) === target ? list(claims.videos)
+            : kind === "treatment_coverage" && text(claims.target) === target ? list(claims.screened) : [];
+      for (const video of videos) settled.add(video);
+    }
+    return {
+      open: Math.max(0, open - identified.filter((video) => settled.has(video)).length),
+      anonymous: Math.max(0, open - identified.length)
+    };
+  });
+  const uncheckedCandidates = scouts.reduce((sum, scout) => sum + scout.open, 0);
   const angles = recent.map((round) => text(round.claims.q));
   const repeated = angles.includes("") || new Set(angles).size < angles.length;
   const nextSteps: RuleInput[] = [];
@@ -5441,7 +5465,16 @@ function discoverySaturation(
     nextSteps.push(
       joinRules(joinRules(rule`Discovery has not saturated: ${fresh.join(", ")} first turned up in the last two rounds. `, rule`Run another round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt.`), rule`${stop}`)
     );
-  } else if (unchecked) {
+  } else if (uncheckedCandidates > 0 && !unreadPages) {
+    nextSteps.push(joinRules(
+      rule`A recent scout left ${uncheckedCandidates} ${uncheckedCandidates === 1 ? "candidate" : "candidates"} unchecked. `,
+      "Settle identified videos with audit_youtube_video_community or get_youtube_video, find a named candidate with " +
+      "search_youtube using its exact title, or pass a signed screening from assess_treatment_landscape_coverage.",
+      scouts.some(({ anonymous }) => anonymous > 0)
+        ? " Candidates without signed identities cannot be matched to later receipts." : "",
+      stop
+    ));
+  } else if (unreadPages) {
     nextSteps.push(
       joinRules(joinRules(joinRules("A recent round left results unchecked: unread result pages, or scout candidates it could not verify or look up. ", "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, "), rule`or run another round from a new angle (${NEW_ANGLE_HINT}).`), rule`${stop}`)
     );

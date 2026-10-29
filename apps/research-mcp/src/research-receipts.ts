@@ -32,6 +32,7 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_survey",
   "youtube_search",
   "youtube_scout",
+  "youtube_video_metadata",
   "youtube_video_audit",
   "youtube_community_audit",
   "youtube_video_claims",

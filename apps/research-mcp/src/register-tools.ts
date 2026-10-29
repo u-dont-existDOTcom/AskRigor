@@ -1507,10 +1507,12 @@ function defineResearchOperations(
     async ({ video_id_or_url }) => {
       try {
         const result = await getYoutubeVideo(video_id_or_url, youtubeConfig());
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube video retrieval finished with access status ${result.access_status}.`,
           result
-        );
+        ), (result.access_status === "complete" || result.access_status === "api_visible_complete") && "video_id" in result.data
+          ? researchReceipt("youtube_video_metadata", { video: result.data.video_id, access: result.access_status })
+          : undefined);
       } catch (_error) {
         return youtubeToolResult(
           "YouTube video retrieval finished with access status error.",
@@ -1997,6 +1999,13 @@ function defineResearchOperations(
         lock: result.synthesis_lock,
         videos: result.videos_actually_audited.map(({ video_id }) => video_id),
         target: researchTargetDigest(ledger.research_target),
+        ...(result.receipt_derivation.input_problems.length > 0 ? {} : {
+          // Bound the signed screening list to the ordinary receipt budget.
+          screened: [...new Set([
+            ...ledger.not_material_videos.flatMap(({ video_ids }) => video_ids),
+            ...ledger.screened_videos.filter(({ materiality }) => materiality === "not_material").map(({ video_id }) => video_id)
+          ])].slice(0, 100)
+        }),
         // The checker widens a narrow label when the ledger shows a broad
         // space, so a true label is the stricter of the two.
         broad: ledger.broad_treatment_choice
@@ -3463,8 +3472,9 @@ function collectResearchOperations(
         name === "submit_research_contribution" ? { schema: submitResearchContributionInputSchema, handler: "validates" } : {});
       const publishedOutputSchema = config.outputSchema instanceof z.ZodObject
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
-      const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema : publishedOutputSchema;
-      const outputSchema = openToolOutputSchema(publishedOutputSchema);
+      const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
+        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE) : publishedOutputSchema;
+      const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&

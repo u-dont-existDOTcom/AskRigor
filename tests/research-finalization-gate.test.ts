@@ -2366,7 +2366,7 @@ describe("finalize_research gate", () => {
 
     const openScout = sign("youtube_scout", { videos: [], open: 3, q: "i9i9i9i9i9i9" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, openScout, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
-      .toEqual([expect.stringMatching(/^A recent round left results unchecked/u)]);
+      .toEqual([expect.stringMatching(/^A recent scout left 3 candidates unchecked/u)]);
 
     // A search whose results continue on an unread page is not a settled round.
     const unreadPage = sign("youtube_search", { videos: [], open: 1, q: "j0j0j0j0j0j0" }, options);
@@ -2391,6 +2391,60 @@ describe("finalize_research gate", () => {
     const pageTwo = sign("youtube_search", { videos: [], open: 0, pg: next, q: "j0j0j0j0j0j0" }, options);
     expect(finalizeResearch({ ...base, receipts: [survey, pageOne, pageTwo, videoA, study] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toEqual([expect.stringMatching(/^The last two discovery rounds repeated the same searches/u)]);
+  });
+
+  it("settles identified scout candidates with later signed screenings while keeping material candidates and unread pages open", () => {
+    const base = {
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      research_depth: "deep", material_video_ids: ["aaaaaaaaaaa"],
+      key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }]
+    };
+    const first = sign("youtube_scout", { videos: [], open: 1, unres: ["ddddddddddd"], q: "scout-angle-one" }, options);
+    const second = sign("youtube_scout", { videos: [], open: 1, unres: ["eeeeeeeeeee"], q: "scout-angle-two" }, options);
+    const screening = sign("treatment_coverage", {
+      boundary: "ledger_consistent_for_synthesis", lock: "pass", target: researchTargetDigest(TARGET), screened: ["ddddddddddd", "eeeeeeeeeee"]
+    }, options);
+    const receipts = [survey, first, second, videoA, study];
+    const pending = finalizeResearch({ ...base, receipts }, options);
+    expect(pending.status).toBe("not_ready");
+    expect(pending.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+      expect.stringMatching(/^A recent scout left 2 candidates unchecked\./u)
+    ]);
+    expect(pending.next_steps.join(" ")).not.toContain("unread result pages");
+    for (const call of ["audit_youtube_video_community", "get_youtube_video", "search_youtube", "assess_treatment_landscape_coverage"]) {
+      expect(pending.next_steps.join(" ")).toContain(call);
+    }
+    const settled = finalizeResearch({ ...base, receipts: [...receipts, screening] }, options);
+    expect(settled.next_steps).toEqual([]);
+    expect(settled.status).toBe("ready_with_limits");
+    expect(settled.community.saturated).toBe(true);
+    const oneLeft = sign("treatment_coverage", { boundary: "ledger_consistent_for_synthesis", lock: "pass", target: researchTargetDigest(TARGET), screened: ["ddddddddddd"] }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, oneLeft] }, options).next_steps.join(" "))
+      .toContain("A recent scout left 1 candidate unchecked.");
+    const wrongTarget = sign("treatment_coverage", { target: researchTargetDigest("Other target"), screened: ["ddddddddddd", "eeeeeeeeeee"] }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, wrongTarget] }, options).community.saturated).toBe(false);
+    const earlier = sign("treatment_coverage", {
+      boundary: "ledger_consistent_for_synthesis", lock: "pass", target: researchTargetDigest(TARGET), screened: ["ddddddddddd", "eeeeeeeeeee"], t: 1
+    }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, earlier] }, options).community.saturated).toBe(false);
+    const page = sign("youtube_search", { videos: [], open: 1, nx: "unread-page", q: "page-angle" }, options);
+    const unread = finalizeResearch({ ...base, receipts: [...receipts, screening, page] }, options);
+    expect(unread.status).toBe("not_ready");
+    expect(unread.next_steps.join(" ")).toContain("unread result pages");
+    // A count without candidate identities cannot be discharged by a coincidentally matching number of receipts.
+    const anonymous = sign("youtube_scout", { videos: [], open: 2, q: "anonymous-angle" }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, screening, anonymous] }, options).next_steps.join(" "))
+      .toContain("without signed identities");
+    const metadata = sign("youtube_video_metadata", { video: "ddddddddddd", access: "complete" }, options);
+    const metadataC = sign("youtube_video_metadata", { video: "eeeeeeeeeee", access: "complete" }, options);
+    const materialPending = finalizeResearch({ ...base, material_video_ids: ["aaaaaaaaaaa", "ddddddddddd"],
+      receipts: [...receipts, metadata, metadataC] }, options);
+    expect(materialPending.status).toBe("not_ready");
+    expect(materialPending.community.saturated).toBe(false);
+    const search = sign("youtube_search", { videos: ["eeeeeeeeeee"], q: "exact-title", open: 0 }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, metadata, search] }, options).community.saturated).toBe(true);
+    const auditB = sign("youtube_video_audit", { video: "ddddddddddd", state: "api_visible_complete", lock: "pass", records: 0 }, options);
+    expect(finalizeResearch({ ...base, receipts: [...receipts, auditB, search] }, options).community.saturated).toBe(true);
   });
 
   it("q132: quota-blocked deep discovery passes with a later-turn caveat; first passes keep their caveat", () => {

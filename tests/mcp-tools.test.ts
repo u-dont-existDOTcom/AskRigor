@@ -1642,6 +1642,29 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("signs a successful video metadata lookup for later scout settlement", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    const secret = "metadata-receipt-secret-0123456789abcdef";
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = secret;
+    const body = await youtubeFixture("video-found.json");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    try {
+      const result = await client.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(result.isError).not.toBe(true);
+      expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret })).toMatchObject({
+        ok: true, kind: "youtube_video_metadata", claims: { video: "XpZHKGGCK-o", access: "api_visible_complete" }
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("returns deterministic structured YouTube search and video successes through MCP", async () => {
     const { client, server } = await createInMemoryClient();
     const previous = process.env.YOUTUBE_API_KEY;
@@ -3014,7 +3037,7 @@ describe("AskRigor MCP tools", () => {
         manifest: {
           name: "HRP",
           version: "20.6.32",
-          revisionDate: "2026-10-22",
+          revisionDate: "2026-10-29",
           sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb"
         },
         scope: "full",
@@ -3155,7 +3178,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it.each(["hrp", "universal"] as const)("loads every %s core section in one call, each as its exact bytes", async (protocol) => {
+  it.each(["hrp", "universal"] as const)("loads every %s core section losslessly, continuing pages when needed", async (protocol) => {
     const { client, server } = await createInMemoryClient();
     const file = protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml";
     const canonicalBytes = await readFile(new URL(`../protocols/${file}`, import.meta.url));
@@ -3181,17 +3204,25 @@ describe("AskRigor MCP tools", () => {
       const expected = sections
         .map(({ byte_start, byte_end_exclusive }) => canonicalBytes.subarray(byte_start, byte_end_exclusive).toString("utf8"))
         .join("\n\n");
+      const pages = protocol === "hrp" ? 2 : 1;
       expect(core.structuredContent).toMatchObject({
-        ok: true, protocol, scope: "section", section: "core", page: 1, page_count: 1, complete: true,
+        ok: true, protocol, scope: "section", section: "core", page: 1, page_count: pages, complete: pages === 1,
         scope_bytes: Buffer.byteLength(expected, "utf8"),
-        scope_sha256: createHash("sha256").update(expected, "utf8").digest("hex"),
-        text: expected
+        scope_sha256: createHash("sha256").update(expected, "utf8").digest("hex")
       });
+      let served = core.structuredContent!.text as string;
+      for (let page = 2; page <= pages; page += 1) {
+        const next = await client.callTool({ name: "load_protocol", arguments: { protocol, section: "core", page } });
+        expect(next.isError).not.toBe(true);
+        served += next.structuredContent!.text as string;
+      }
+      expect(served).toBe(expected);
       expect(core.structuredContent).not.toHaveProperty("byte_start");
       const { manifest } = core.structuredContent as { manifest: { name: string } };
       expect((core.content as Array<{ text: string }>)[0]!.text).toBe(
-        `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of 1 ` +
-          "(exact canonical bytes of each, in this order, a blank line between two)."
+        `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of ${pages} ` +
+          "(exact canonical bytes of each, in this order, a blank line between two)." +
+          (pages === 1 ? "" : " Call load_protocol again with the same section and page 2 to continue.")
       );
     } finally {
       await server.close();
@@ -3251,7 +3282,7 @@ describe("AskRigor MCP tools", () => {
     [{ protocol: "hrp", section: "Purpose, FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
     [{ protocol: "hrp", section: "index, core" }, "protocol_section_not_found"],
     [{ protocol: "hrp", section: " , " }, "protocol_request_invalid"],
-    [{ protocol: "hrp", section: "core", page: 2 }, "protocol_page_out_of_range"],
+    [{ protocol: "hrp", section: "core", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],
