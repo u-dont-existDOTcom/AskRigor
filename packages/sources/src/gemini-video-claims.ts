@@ -81,7 +81,9 @@ const configSchema = z.object({
 const videoTimeSchema = z.string().trim().regex(/^(?:\d{1,2}:[0-5]\d|\d{1,3}):[0-5]\d$/u);
 const speakerSchema = z.enum(["creator", "guest", "other", "unclear"]);
 const relationshipTypes = ["outside_paid_placement", "affiliate_commission", "gift", "own_offering",
-  "declined_sponsorship_offer", "research_funding", "unknown"] as const;
+  "declined_sponsorship_offer", "research_funding", "creator_product_advisory",
+  "research_author_employment_or_equity", "patent_or_licensing_interest", "unknown"] as const;
+const relationshipScopes = ["this_content", "creator_other_business", "underlying_study", "unknown"] as const;
 const caveatKinds = ["funding", "methods", "correction", "uncertainty", "claim_criticized"] as const;
 
 export const geminiVideoRelationshipSchema = z.object({
@@ -89,6 +91,9 @@ export const geminiVideoRelationshipSchema = z.object({
   what: z.string().trim().min(1).max(300),
   // Older reports do not say which relationship was reported; never infer it from their wording.
   relationship_type: z.enum(relationshipTypes).default("unknown"),
+  // A business advisory role, study-author interest, and payment for this video are different claims.
+  relationship_scope: z.enum(relationshipScopes).default("unknown"),
+  quote: z.string().trim().max(600).default(""),
   actor: z.string().trim().max(200).default(""),
   counterparty: z.string().trim().max(200).default(""),
   content_access: z.enum(["model_report_unverified", "not_recorded"]).default("not_recorded")
@@ -270,14 +275,19 @@ const CLAIMS_PROMPT = [
   `List at most ${GEMINI_VIDEO_MAX_CLAIMS} claims. If the video makes more, list the ${GEMINI_VIDEO_MAX_CLAIMS} ` +
     "that matter most for health and set more_claims_not_listed to true; otherwise set it to false.",
   "",
-  "sponsorships: inventory commercial relationships as said or shown, each with start, what, actor, counterparty, " +
-    "relationship_type and content_access. relationship_type is outside_paid_placement, affiliate_commission, gift, " +
-    "own_offering (the creator's product, course or membership), declined_sponsorship_offer, research_funding, or " +
-    "unknown. Keep these types apart. A creator's own membership is not an outside sponsorship. " +
-    "A declined offer does not show anyone was paid. Record who is involved and the counterparty's stated name, " +
-    "or an empty string if unknown; never infer payment. Keep research funding scoped to the study, separately " +
-    "from any sponsorship of the video or article. content_access is model_report_unverified: this is only your " +
-    "report of the video. Give its start time (an empty string only when it has none, such as a standing banner).",
+  "sponsorships: inventory financial and commercial relationships as said or shown, each with start, what, " +
+    "quote, actor, counterparty, relationship_type, relationship_scope and content_access. relationship_type is " +
+    "outside_paid_placement, affiliate_commission, gift, own_offering (own product, course or membership), " +
+    "declined_sponsorship_offer, research_funding, creator_product_advisory (formulation/advisory/consulting role " +
+    "at an outside seller), research_author_employment_or_equity, patent_or_licensing_interest, or unknown. " +
+    "Keep types apart: an advisory role is not proof of a paid video. A creator's own membership is not an outside sponsorship. " +
+    "A declined offer does not show anyone was paid. Record relationship_scope as this_content (this video), " +
+    "creator_other_business (a relationship beyond this video), underlying_study (study/authors), or unknown. " +
+    "quote is the exact short speaker/on-screen wording for the relationship, or an empty string if no " +
+    "verbatim span was accessible. Record actor and stated counterparty, blank when unknown; never infer " +
+    "compensation, contract or endorsement of company marketing. A study's funding is not a video sponsorship. " +
+    "Do not claim to have read external company pages not actually shown in the video. content_access is " +
+    "model_report_unverified, not independently authenticated. Give a start time, blank only for a timeless banner.",
   "caveats: independently inventory the speaker's qualifications throughout the entire video, including late caveats " +
     "after the health claims. Each has start, speaker, kind (funding, methods, correction, uncertainty or " +
     "claim_criticized), quote (exact words in the language spoken, at most 40 words) and caveat (a plain summary). " +
@@ -334,9 +344,12 @@ const CLAIMS_RESPONSE_SCHEMA: Record<string, unknown> = {
       type: "array",
       items: {
         type: "object",
-        properties: { start: STRING, what: STRING, relationship_type: { type: "string", enum: relationshipTypes },
+        properties: { start: STRING, what: STRING, quote: STRING,
+          relationship_type: { type: "string", enum: relationshipTypes },
+          relationship_scope: { type: "string", enum: relationshipScopes },
           actor: STRING, counterparty: STRING, content_access: { type: "string", enum: ["model_report_unverified"] } },
-        required: ["start", "what", "relationship_type", "actor", "counterparty", "content_access"],
+        required: ["start", "what", "quote", "relationship_type", "relationship_scope",
+          "actor", "counterparty", "content_access"],
         additionalProperties: false
       }
     },

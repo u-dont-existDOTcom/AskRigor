@@ -5,6 +5,7 @@ import {
   GEMINI_VIDEO_MAX_POLLS,
   advanceGeminiVideoPass,
   buildGeminiVideoRequest,
+  geminiVideoClaimsReportSchema,
   formatVideoTime,
   parseVideoTime
 } from "../packages/sources/src/gemini-video-claims.js";
@@ -116,8 +117,29 @@ describe("Gemini video reading pass", () => {
     expect(prompt).toContain("A declined offer does not show anyone was paid");
     expect(prompt).toContain("including late caveats");
     const schema = (request.response_format as { schema: any }).schema;
-    expect(schema.properties.sponsorships.items.required).toEqual(expect.arrayContaining(["relationship_type", "actor", "counterparty", "content_access"]));
+    expect(schema.properties.sponsorships.items.required).toEqual(expect.arrayContaining([
+      "relationship_type", "relationship_scope", "quote", "actor", "counterparty", "content_access"
+    ]));
     expect(schema.required).toContain("caveats");
+    expect(prompt).toContain("an advisory role is not proof of a paid video");
+    expect(prompt).toContain("A study's funding is not a video sponsorship");
+    const relationships = geminiVideoClaimsReportSchema.parse(report).sponsorships;
+    expect(relationships.filter((entry) => entry.relationship_type === "outside_paid_placement")).toHaveLength(1);
+    expect(relationships.find((entry) => entry.relationship_type === "creator_product_advisory")).toMatchObject({
+      relationship_scope: "creator_other_business",
+      quote: "I advise on their supplement formulas.",
+      content_access: "model_report_unverified"
+    });
+    expect(relationships.find((entry) => entry.relationship_type === "research_author_employment_or_equity")).toMatchObject({
+      relationship_scope: "underlying_study"
+    });
+    expect(relationships.find((entry) => entry.relationship_type === "patent_or_licensing_interest")).toMatchObject({
+      relationship_scope: "underlying_study"
+    });
+    // Older untyped records stay unknown. A missing field never becomes a sponsorship or a checked quote.
+    expect(relationships.find((entry) => entry.relationship_type === "unknown")).toMatchObject({
+      quote: "", relationship_scope: "unknown"
+    });
   });
 
   it("starts a background pass, polls it, and deletes the stored copy before reporting", async () => {
