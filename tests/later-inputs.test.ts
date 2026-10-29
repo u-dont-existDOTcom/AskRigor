@@ -38,7 +38,8 @@ describe("later_inputs (owner answer 189a)", () => {
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
-        : operation.name === "finalize_research" ? ["open_leads", "another_pass_estimate"] : [];
+        : operation.name === "finalize_research" ? ["open_leads", "another_pass_estimate"]
+          : operation.name === "validate_study_method_audit" ? ["audit"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

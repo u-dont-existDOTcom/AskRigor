@@ -117,6 +117,28 @@ describe("study audit reported_figures", () => {
     }] }).reported_figures_check?.status).toBe("internally_inconsistent");
   });
 
+  it("recomputes a printed percentage from its structured counts even when the auditor repeats the printed error", async () => {
+    const { index, table, audit } = await submission({}, "<td>2 (0.002%)</td><td>768 visits</td><td>0.26%</td><td>0.3%</td>");
+    const checked = (printed: number, decimal_places?: number) => validateStudyMethodAudit(index, {
+      ...audit,
+      reported_figures: [{
+        label: "serious adverse events per visit", evidence_block_id: table, reported: `${printed}%`,
+        recomputed: printed, recomputation: "The auditor repeated the source's printed rate.", plausibility: "consistent",
+        percentage: { count: 2, denominator: 768, printed, ...(decimal_places === undefined ? {} : { decimal_places }) }
+      }]
+    }).reported_figures_check;
+    expect(checked(0.002)).toMatchObject({ status: "internally_inconsistent", mismatched: ["serious adverse events per visit"] });
+    expect(checked(0.002, 0)).toMatchObject({ status: "internally_inconsistent" });
+    expect(checked(0.26)).toMatchObject({ status: "consistent", mismatched: [] });
+    expect(checked(0.3)).toMatchObject({ status: "consistent", mismatched: [] });
+    expect(checked(0.3, 2)).toMatchObject({ status: "internally_inconsistent" });
+    // Structured roles still cite the source: a made-up count cannot supply the server's arithmetic.
+    expect(() => validateStudyMethodAudit(index, { ...audit, reported_figures: [{
+      ...audit.reported_figures![0]!, evidence_block_id: table, reported: "0.002%",
+      percentage: { count: 999, denominator: 768, printed: 0.002 }
+    }] })).toThrow("percentage count is not in its cited source block");
+  });
+
   it("keeps an impossible value exactly as printed", async () => {
     const { index, table, audit } = await submission();
     expect(validateStudyMethodAudit(index, { ...audit, reported_figures: [{

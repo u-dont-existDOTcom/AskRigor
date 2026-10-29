@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
 import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 
 /**
@@ -22,6 +23,7 @@ const LATER_INPUT_SHAPES = Object.freeze({
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
   },
+  validate_study_method_audit: { audit: studyMethodAuditSubmissionSchema.optional() },
 } satisfies Record<string, z.ZodRawShape>);
 
 type LaterInputShape<Tool extends string> = Tool extends keyof typeof LATER_INPUT_SHAPES

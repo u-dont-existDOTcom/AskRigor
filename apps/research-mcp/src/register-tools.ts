@@ -218,6 +218,8 @@ import {
   reviewMethodAuditActionInputSchema,
   reviewMethodAuditActionOutputSchema,
   studyMethodAuditActionInputSchema,
+  studyMethodAuditPublishedActionInputSchema,
+  studyMethodAuditPublishedRouteOutputSchema,
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
 import type { ReportedFiguresCheck } from "./actions/study-method-audit.js";
@@ -3152,8 +3154,8 @@ function registerOpenFullTextMcpTools(
     "validate_study_method_audit",
     {
       description: "Validates a full-text, source-linked individual-study audit on the exact exhausted document_handle. Accepts a newly performed audit or the repository_analysis_version_id advertised by the same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required records the need for a newly performed audit. Validated coverage binds the acquisition handle and content hash. Audits of client_supplied copies sign search-index provenance for the required finalization caveat. Validation checks that the findings cite the document's own blocks and that every domain is covered, not that each interpretation is right.",
-      inputSchema: studyMethodAuditActionInputSchema,
-      outputSchema: studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
+      inputSchema: studyMethodAuditPublishedActionInputSchema,
+      outputSchema: studyMethodAuditPublishedRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => stageValidatedAnalysis(
@@ -3469,11 +3471,14 @@ function collectResearchOperations(
       const evolving = withLaterInputs(name, config.inputSchema, execute, undefined,
         // Both validate their own input and word its problems in a result ChatGPT shows (RuntimeInputOptions.handler).
         name === "finalize_research" ? { schema: finalizeResearchInputSchema, normalize: normalizeFinalizeResearchInput, handler: "merges" } :
+        name === "validate_study_method_audit" ? { schema: studyMethodAuditActionInputSchema } :
         name === "submit_research_contribution" ? { schema: submitResearchContributionInputSchema, handler: "validates" } : {});
       const publishedOutputSchema = config.outputSchema instanceof z.ZodObject
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
-        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE) : publishedOutputSchema;
+        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+          : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+            : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
