@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { coreSectionNames, getProtocolManifest, loadProtocol, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoOwnerAnswer193Hrp } from "./helpers/undo-read-depth.js";
+import { undoLesson51AndUda444Hrp, undoOwnerAnswer193Hrp } from "./helpers/undo-read-depth.js";
 
 describe("owner answer 193a: HRP 20.6.32", () => {
   it("preserves the new sentences in each of the seven owner-edited rules, all outside the core", async () => {
@@ -55,12 +55,15 @@ describe("owner answer 193a: HRP 20.6.32", () => {
   });
 
   it("binds the exact owner-edited bytes and reverses them to HRP 20.6.31", async () => {
-    const text = await loadProtocol("hrp");
-    expect(XMLValidator.validate(text)).toBe(true);
     expect(await getProtocolManifest("hrp")).toMatchObject({
-      version: "20.6.32", revisionDate: "2026-10-29",
-      sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89",
+      version: "20.6.33", revisionDate: "2026-10-29",
+      sha256: "6bac4fc9d673cdd737975ef62f382f4a5ddeeb33e76986ecec9eeeecf7fd4dea",
     });
+    // HRP 20.6.33 (lesson #51 and UDA #444) is the layer above this one.
+    const text = await undoLesson51AndUda444Hrp(await loadProtocol("hrp"));
+    expect(XMLValidator.validate(text)).toBe(true);
+    expect(createHash("sha256").update(text).digest("hex"))
+      .toBe("62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89");
     const prior = await undoOwnerAnswer193Hrp(text);
     expect(XMLValidator.validate(prior)).toBe(true);
     expect(createHash("sha256").update(prior).digest("hex"))
