@@ -42,8 +42,8 @@ const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },
 };
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
-const PAID: FindingsSaveAccount = { mode: "PAID_PRIVATE", noticeVersion: null, devAccount: false };
+const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
+const PAID: FindingsSaveAccount = { mode: "PAID_PRIVATE", noticeVersion: null };
 /** The low-dose card, cited by its DOI, so only Crossref is asked. */
 const DOI_CARD = {
   ...LOW_DOSE_CARD,

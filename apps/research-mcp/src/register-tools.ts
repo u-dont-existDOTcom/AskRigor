@@ -2616,19 +2616,14 @@ function registerFindingsSave(
 }
 
 /**
- * What the Atlas reads of the saving account (decision 171, section 4B), all exact: its mode, the free contributor
- * notice it accepted, and whether ASKRIGOR_DEV_ACCOUNT_KEYS lists it. Never stored with the card.
+ * What the Atlas reads of the saving account (decision 171, section 4B), all exact: its mode and the free contributor
+ * notice it accepted. Never stored with the card.
  */
 function findingsSaveAccount(account: {
   mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
-  accountKey: string;
   noticeVersion: string | null;
 }): FindingsSaveAccount {
-  return {
-    mode: account.mode,
-    noticeVersion: account.noticeVersion,
-    devAccount: isDevAccount(account.accountKey, devAccountKeysFromEnv()),
-  };
+  return { mode: account.mode, noticeVersion: account.noticeVersion };
 }
 
 /** The work's result, or `late` once the deadline passes; the work itself carries on. */

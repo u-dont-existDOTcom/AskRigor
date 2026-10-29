@@ -36,7 +36,7 @@ import { LOW_DOSE_CARD, VELMOR_CARD } from "./atlas-scenario.js";
 // The Atlas's sign-in, votes and comments over HTTP for the tests (decision 171, sections 4D and 4E): two synthetic
 // cards' publications, an in-memory store, a fake Auth0 tenant and the research server's HTTP handler.
 
-export const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+export const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 export const SAVED_AT = "2026-11-04T09:00:00.000Z";
 export const ISSUER = "https://askrigor-test.example.auth0.com/";
 export const CLIENT_ID = "atlas-web-client";

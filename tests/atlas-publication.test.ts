@@ -49,7 +49,7 @@ import { FakeGitHub } from "./helpers/fake-github-findings.js";
 const SECRET = "atlas-publication-test-secret-0123456789";
 const NOW = new Date("2026-11-04T09:00:00.000Z");
 const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }];
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 
 /**
  * A stored record of a card, as the library saves it, with the bases a receipt signed for each finding; olderFindings
@@ -167,14 +167,13 @@ describe("which findings and cards are published", () => {
     expect(drawnFromYouTubeComments(finding({ verified_bases: ["full_text_audit", "comment_audit"] }))).toBe(true);
   });
 
-  it("publishes at the save only a free contributor's card under the current notice, from no dev account", () => {
+  it("publishes at the save only a free contributor's card under the current notice", () => {
     expect(accountPublicationProblems(FREE)).toEqual([]);
     expect(accountPublicationProblems(undefined)).toEqual(["not_free_contributor"]);
     expect(accountPublicationProblems({ ...FREE, mode: "PAID_PRIVATE", noticeVersion: null })).toEqual(["not_free_contributor"]);
     for (const earlier of [...EARLIER_RESEARCH_USE_NOTICE_VERSIONS, null]) {
       expect(accountPublicationProblems({ ...FREE, noticeVersion: earlier })).toEqual(["notice_not_current"]);
     }
-    expect(accountPublicationProblems({ ...FREE, devAccount: true })).toEqual(["dev_account"]);
     const record = recordOf(VELMOR_CARD);
     expect(cardPublicationProblems(record, false, { route: "save", account: FREE })).toEqual([]);
     expect(cardPublicationProblems(record, true, { route: "save", account: FREE })).toEqual(["set_aside"]);
@@ -183,7 +182,7 @@ describe("which findings and cards are published", () => {
       expect(cardPublicationProblems({ ...record, card: publicValue === undefined ? card : { ...card, public_value: publicValue } },
         false, { route: "save", account: FREE })).toEqual(["not_public"]);
     }
-    // The owner's choice of a card is the consent for the owner's own cards: no notice or dev check, but never a paid
+    // The owner's choice of a card is the consent for the owner's own cards: no notice check, but never a paid
     // private card, whose findings wait for acceptance.
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: false })).toEqual([]);
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: true })).toEqual(["not_free_contributor"]);
@@ -312,10 +311,9 @@ describe("publishing at the save", () => {
     expect(markerOf(h.github.issue(42).body)).not.toHaveProperty("paid_private");
   });
 
-  it("publishes nothing for a paid private, dev, earlier-notice or unknown account, and marks a paid private card", async () => {
+  it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {
     for (const [account, paid] of [
-      [{ mode: "PAID_PRIVATE", noticeVersion: null, devAccount: false }, true],
-      [{ ...FREE, devAccount: true }, false],
+      [{ mode: "PAID_PRIVATE", noticeVersion: null }, true],
       [{ ...FREE, noticeVersion: EARLIER_RESEARCH_USE_NOTICE_VERSIONS.at(-1)! }, false],
       [undefined, false],
     ] as Array<[FindingsSaveAccount | undefined, boolean]>) {

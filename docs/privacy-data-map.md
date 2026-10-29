@@ -1499,8 +1499,10 @@ The pages (section 4C) are built, not yet released, and switched off until
 - **What is published, and when.** Right after a confirmed save, without the
   answer waiting for it, the server publishes the card's findings when every
   exact check holds: the card was saved in free contributor mode by an account
-  whose accepted notice is the current one (`RESEARCH_USE_NOTICE_VERSION`) and
-  which `ASKRIGOR_DEV_ACCOUNT_KEYS` does not list; the card does not carry the
+  whose accepted notice is the current one (`RESEARCH_USE_NOTICE_VERSION`),
+  a dev account listed in `ASKRIGOR_DEV_ACCOUNT_KEYS` included (owner answer
+  196a, 29 Oct 2026: a regression run switches its card saving off, so it saves
+  no card); the card does not carry the
   `set-aside` label; and it declares its findings public. A finding drawn from
   YouTube comments (a YouTube video among its sources, the `community_checked`
   tag or a comment-audit basis, the rule the save applies, which also covers

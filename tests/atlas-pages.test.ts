@@ -56,7 +56,7 @@ import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
 // accepted findings (phase 2). Everything here is synthetic: Velmor syndrome, zentarine, the trials and their
 // identifiers (10.0000/ marks synthetic DOIs) are invented.
 
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 const SAVED_AT = "2026-11-04T09:00:00.000Z";
 const CSP = "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; " +
   "base-uri 'none'; object-src 'none'";
