@@ -258,6 +258,33 @@ set a cap, and get the credit back when a run fails for AskRigor's reasons.
    - sharing your question to improve AskRigor is your choice, per answer.
 8. **Not medical advice.**
 
+### Draft wording, for the owner's edit
+
+> **Pay for the research, not a subscription.** An AI model reads the studies for you. You pay what that reading
+> costs at the model maker's price, plus AskRigor's share, and you see the price before you start.
+>
+> **Free, in your own AI app.** Connect AskRigor to ChatGPT, Claude or another AI app that takes connectors, and your AI does the research with
+> AskRigor's tools. Every answer passes AskRigor's five checks:
+>
+> - its sources are real and named;
+> - each study is described the way it was read;
+> - its numbers add up;
+> - any safety statement rests on a search for harms;
+> - nothing it took back comes back.
+>
+> What AskRigor learns from free research is published in its public Atlas, written without you.
+>
+> **Checked, in your own AI app: about $1 an answer.** Everything in Free, plus a second AI reads your answer against
+> its sources and flags what code can't judge: a claim its study doesn't support, a number out of context, a harm left
+> out, certainty overstated. You get a clearer final answer, checked again, and your findings stay private.
+>
+> **AskRigor on the web: from about $4 an answer.** AskRigor does the whole research itself, with the model you
+> choose, and gives you one clear, checked answer. The price depends on the model and on how much reading your
+> question needs. You see an estimate first and set a limit. If a run fails on our side, your credit comes back.
+>
+> **What no check can do.** AskRigor finds and checks published evidence. It isn't a doctor, and it can't tell you
+> about a study nobody has found yet.
+
 ## Sharing questions and answers to improve AskRigor (question 200)
 
 [Filled in: what OpenAI and Anthropic do now.]
