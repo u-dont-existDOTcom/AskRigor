@@ -1,4 +1,5 @@
 import { laterInputShape, mergeLaterInputs } from "./later-inputs.js";
+import { checkDocumentaryEvidence } from "./documentary-evidence.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -1712,6 +1713,15 @@ export function finalizeResearch(
   const caveatOnce = (limit: RuleInput, caveat: string): void => {
     if (!caveats.includes(caveat)) requireLimit(rule`${limit}`, caveat);
   };
+  // Documentary evidence has its own attributed proof purpose. It is not a biomedical efficacy study:
+  // inspect the source-section declaration and its answer scope without bypassing any key_sources audit.
+  if (input.documentary_evidence !== undefined) {
+    const documentary = checkDocumentaryEvidence(input.documentary_evidence, input.answer_draft);
+    for (const step of documentary.steps) addStep("declaration", step);
+    for (const caveat of documentary.caveats) {
+      caveatOnce("Separate documentary relationship attribution from clinical-effect evidence.", caveat);
+    }
+  }
   const plainPhrase = (text: string): string => text.trim().replace(/[\s.;:!?]+$/u, "");
   if (input.answer_draft !== undefined && input.treatment_choice === "compared" &&
       (input.community_searches ?? []).some(({ platform, threads_read }) =>

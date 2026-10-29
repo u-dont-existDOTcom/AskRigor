@@ -112,7 +112,8 @@ describe("extract_youtube_video_claims", () => {
     const output = done.result.structuredContent as any;
     expect(output.claims).toHaveLength(1);
     expect(output.sponsorships.map(({ relationship_type }: any) => relationship_type)).toEqual([
-      "outside_paid_placement", "affiliate_commission", "gift", "own_offering", "declined_sponsorship_offer", "research_funding", "unknown"
+      "outside_paid_placement", "affiliate_commission", "gift", "own_offering", "declined_sponsorship_offer", "research_funding",
+      "creator_product_advisory", "research_author_employment_or_equity", "patent_or_licensing_interest", "unknown"
     ]);
     expect(output.sponsorships[3]).toMatchObject({ actor: "creator", counterparty: "Creator's membership", content_access: "model_report_unverified" });
     expect(output.caveats).toHaveLength(5);
@@ -293,8 +294,10 @@ describe("extract_youtube_video_claims", () => {
     });
     expect(output.sponsorships).toEqual([
       { start: "00:45", link: `https://www.youtube.com/watch?v=${VIDEO}&t=45s`, what: "Discount code JOINTS",
-        relationship_type: "unknown", actor: "", counterparty: "", content_access: "not_recorded" },
-      { start: "", what: "Shop link banner", relationship_type: "unknown", actor: "", counterparty: "", content_access: "not_recorded" }
+        relationship_type: "unknown", relationship_scope: "unknown", quote: "",
+        actor: "", counterparty: "", content_access: "not_recorded" },
+      { start: "", what: "Shop link banner", relationship_type: "unknown", relationship_scope: "unknown",
+        quote: "", actor: "", counterparty: "", content_access: "not_recorded" }
     ]);
     expect(output).not.toHaveProperty("caveats");
     expect(output.source_note).toMatch(/^Gemini's transcription and description of the video, not checked by AskRigor/u);

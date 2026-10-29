@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
+import { documentaryEvidenceSchema } from "./documentary-evidence.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -11,7 +12,7 @@ import type { ResearchOperationHandler } from "./research-operation.js";
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
 const LATER_INPUT_SHAPES = Object.freeze({
-  finalize_research: {},
+  finalize_research: { documentary_evidence: documentaryEvidenceSchema.optional() },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
