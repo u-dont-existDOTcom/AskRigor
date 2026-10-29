@@ -42,7 +42,7 @@ const STUDY = "10.1000/unchecked";
 describe("an answer given before the final check passes (AskRigor#354)", () => {
   it("gives every next step its kind, in order", () => {
     const invalid = check({ research_target: 7 });
-    expect(invalid.next_step_kinds.length).toBeGreaterThan(1);
+    expect(invalid.next_step_kinds).toEqual(["input_invalid"]);
     expect(new Set(invalid.next_step_kinds)).toEqual(new Set(["input_invalid"]));
 
     const undeclared = check(base({ absence_claims: undefined }));

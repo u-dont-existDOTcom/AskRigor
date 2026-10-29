@@ -559,7 +559,7 @@ describe("finalize_research gate", () => {
     const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
 
     // No map: YouTube alone does not finish the community lane.
-    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...youtubeOnly, community_findings: findingsFor(["aaaaaaaaaaa"]) }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
+    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...youtubeOnly, answer_draft: CLEAN_DRAFT, community_findings: findingsFor(["aaaaaaaaaaa"]) }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT))
       .toContain(
         "Name where people discussing this actually talk in principal_communities, the dominant first (subreddits, " +
           "specialist forums, Facebook groups, patient organizations, YouTube). Then search the dominant one and at " +
@@ -1063,7 +1063,7 @@ describe("finalize_research gate", () => {
       ...base, commercial_review_applicability: NONCOMMERCIAL_EXERCISE,
       intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." },
       community_findings: findingsFor(["aaaaaaaaaaa"]), community_searches: searches(trtTitle),
-      ...(draft === undefined ? {} : { answer_draft: draft, absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [] })
+      ...(draft === undefined ? { answer_draft: CLEAN_DRAFT } : { answer_draft: draft, absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [] })
     }, { ...options, redditThreads: reddit(trt) });
 
     // Both confirmed: the answer says Reddit confirmed the threads, not their content.
@@ -1227,7 +1227,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched",
       commercial_review_applicability: { status: "required", products: ["Humic Drops 2 oz"] },
       treatment_choice: "not_compared",
-      research_target: TARGET,
+      research_target: TARGET, answer_draft: CLEAN_DRAFT,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "https://doi.org/10.1002/ART.41142", status: "validated" }],
       principal_communities: [
         { name: "Amazon", platform: "review_site" },
@@ -1269,7 +1269,7 @@ describe("finalize_research gate", () => {
     expect(mentions.caveats.filter((sentence) => sentence.includes("how common each one is"))).toEqual([]);
 
     // Missing, misplaced or impossible counts go back to the model.
-    expect(finalizeResearchBare(request(), options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
+    expect(finalizeResearchBare({ ...request(), answer_draft: lanes }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "community_searches for Amazon lists reviews read on a review site: give review_corpora, with each product, how " +
         "many reviews the site shows, how many you read and how you chose them."
     );
@@ -1331,7 +1331,7 @@ describe("finalize_research gate", () => {
     const withoutDraft = finalizeResearchRaw(request, options);
     expect(withoutDraft).toMatchObject({ status: "not_ready", answer_checked: false });
     expect(withoutDraft.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it."
+      "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered."
     ]);
     expect(withoutDraft.finalization_receipt).toBeUndefined();
 
@@ -2745,13 +2745,15 @@ describe("finalize_research gate", () => {
     for (const fields of [
       { open_leads: "Longer trials", another_pass_estimate: 20 },
       { open_leads: [{ direction: "unknown", topic: "x", why: "y" }], another_pass_estimate: "x".repeat(201) },
-      { open_leads: Array.from({ length: 13 }, () => leads[0]) }
     ]) {
       const dropped = finalizeResearch({ ...request, ...fields }, options);
       expect(dropped.status).toBe("ready_with_limits");
       expect(dropped.next_steps).toEqual([]);
       expect(dropped.community.open_leads).toEqual([]);
     }
+    const bounded = finalizeResearch({ ...request, open_leads: Array.from({ length: 13 }, () => leads[0]) }, options);
+    expect(bounded.community.open_leads).toHaveLength(12);
+    expect(bounded.notes!.join(" ")).toContain("size limit");
   });
 
   it("preserves planning punctuation without making it answer text", () => {
@@ -3577,17 +3579,17 @@ describe("findings card at the final gate", () => {
   });
 
   it("checks a card only with the answer, on a server that can verify receipts", () => {
-    expect(finalizeResearchRaw({ ...READY, findings_card: CARD }, options).findings_card).toEqual({
-      status: "rejected",
-      problems: ["A findings card is checked against the answer: pass answer_draft with it."]
-    });
-    const unverifiable = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, findings_card: CARD }, { secret: undefined, findings: "save" });
+    const noAnswer = finalizeResearchRaw({ ...READY, findings_card: CARD }, options);
+    expect(noAnswer).toMatchObject({ status: "not_ready", answer_checked: false });
+    expect(noAnswer.next_steps).toHaveLength(1);
+    expect(noAnswer.next_steps[0]).toContain("needs usable answer_draft");
+    const unverifiable = finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, answer_draft: CLEAN_DRAFT, findings_card: CARD }, { secret: undefined, findings: "save" });
     expect(unverifiable.status).toBe("receipts_unavailable");
     expect(unverifiable.findings_card).toEqual({
       status: "rejected",
       problems: ["This AskRigor server cannot verify research receipts, so it cannot check or save a findings card."]
     });
-    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
+    expect(finalizeResearchBare({ intervention_identity: { status: "not_applicable", reason: "No coded or multi-ingredient product is involved." }, ...READY, answer_draft: CLEAN_DRAFT }, { secret: undefined }).findings_card).toEqual({ status: "absent", problems: [] });
   });
 
   it("while the library is closed, needs no card and checks none", () => {

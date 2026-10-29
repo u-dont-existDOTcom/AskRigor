@@ -226,14 +226,15 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
   it.each([
     { values: [] }, { values: [1, 2, 3, 4, 5] }, { better: "unknown" }, { range: { min: 0 } },
     { benchmark: { value: 6, kind: "unknown" } }, { benchmark: undefined }, { extra: "unexpected" }
-  ])("rejects malformed declarations (%j)", async (invalid) => {
+  ])("notes malformed declarations (%j) while checking the answer", async (invalid) => {
     const input = { ...packageFor(), scale_results: [{ ...declaration(), ...invalid }] };
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     if (surface === "MCP endpoint") {
       const result = await client!.callTool({ name: "finalize_research", arguments: input });
       expect(result.isError).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: false, receipts_verified: 0 });
-      expect((result.structuredContent!.next_steps as string[]).join("\n")).toContain("scale_results[0]");
+      expect(result.structuredContent!.answer_checked).toBe(true);
+      expect((result.structuredContent!.notes as string[]).length).toBeGreaterThan(0);
+      expect((result.structuredContent!.notes as string[]).join("\n")).toContain("scale_results[0]");
     }
   });
 

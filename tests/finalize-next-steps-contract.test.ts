@@ -355,7 +355,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   it("does not check study links before an answer draft is present", async () => {
     const result = await call(base({ answer_draft: undefined }));
     expect(result.next_steps.join(" ")).not.toContain("has no link");
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.next_steps).toHaveLength(1);
+    expect(result.next_steps[0]).toContain("needs usable answer_draft");
   });
 
   it("refuses the apple pectin versus clinoptilolite comparison's not_relevant bypass", async () => {

@@ -908,6 +908,7 @@ describe("AskRigor MCP tools", () => {
           community_evidence: "researched",
           treatment_choice: "not_compared",
           research_target: "Adults with hip osteoarthritis comparing treatment programs",
+          answer_draft: "Synthetic answer awaiting receipt verification.",
           intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
           key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/forged", status: "validated" }]
         }

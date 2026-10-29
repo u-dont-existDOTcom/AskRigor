@@ -61,13 +61,17 @@ describe("second reader in the final check", () => {
       expect(readAnswer).not.toHaveBeenCalled();
     });
   });
-  it("waits for passing checks, a parsed input and an answer draft", async () => {
-    const readAnswer = vi.fn<SecondReader["readAnswer"]>();
+  it("waits for passing checks and a usable answer, including after recoverable input problems", async () => {
+    const readAnswer = vi.fn<SecondReader["readAnswer"]>().mockResolvedValue({ status: "ran", findings: [] });
     await withTool({ enabled: true, readAnswer }, async (call) => {
-      for (const input of [base({ answer_draft: QUOTE }), base({ answer_draft: undefined }), { ...base(), receipts: 7 }]) {
+      for (const input of [base({ answer_draft: QUOTE }), base({ answer_draft: undefined })]) {
         expect((await call(input)).status).toBe("not_ready");
       }
       expect(readAnswer).not.toHaveBeenCalled();
+      const recovered = await call({ ...base(), receipts: 7 });
+      expect(recovered.status).toBe("ready_with_limits");
+      expect(recovered.notes).toHaveLength(1);
+      expect(readAnswer).toHaveBeenCalledOnce();
     });
   });
   it.each([
@@ -149,10 +153,10 @@ describe("second reader in the final check", () => {
     expect(JSON.stringify(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET,
       now: () => new Date("2026-10-17T12:00:00Z") }))).not.toMatch(/second_reading|reader_dismissed|nausea/);
   });
-  it("reports a supplied reading even without a draft, receipt secret or valid input", () => {
+  it("reports a supplied reading on usable inputs without a secret, and skips unusable calls", () => {
     const secondReading = { status: "ran" as const, findings: [finding()] };
-    expect(check(base({ answer_draft: undefined }), secondReading).second_reading).toEqual({ status: "ran", findings: 0, open: 0, dismissed: 0 });
-    expect(finalizeResearch({}, { secret: SECRET, secondReading }).second_reading).toEqual({ status: "ran", findings: 0, open: 0, dismissed: 0 });
+    expect(check(base({ answer_draft: undefined }), secondReading).second_reading).toBeUndefined();
+    expect(finalizeResearch({}, { secret: SECRET, secondReading }).second_reading).toBeUndefined();
     expect(finalizeResearch(base(), { secret: undefined, secondReading: { status: "skipped", reason: "off" } }).second_reading)
       .toEqual({ status: "skipped", reason: "off", findings: 0, open: 0, dismissed: 0 });
   });

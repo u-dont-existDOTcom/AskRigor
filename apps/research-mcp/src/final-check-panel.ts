@@ -59,6 +59,12 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
+  if (Array.isArray(result.notes) && result.notes.length > 0) {
+    appendText("h2", "Notes about the call:");
+    const list = doc.createElement("ul");
+    for (const note of result.notes) if (typeof note === "string") appendText("li", note, list);
+    root.appendChild(list);
+  }
   if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
     appendText("h2", "The answer as AskRigor checked it:");
     appendText("p", result.checked_answer);

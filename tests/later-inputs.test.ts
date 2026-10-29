@@ -38,7 +38,7 @@ describe("later_inputs (owner answer 189a)", () => {
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
-        : operation.name === "finalize_research" ? ["open_leads", "another_pass_estimate"]
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate"]
           : operation.name === "validate_study_method_audit" ? ["audit"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
@@ -48,8 +48,8 @@ describe("later_inputs (owner answer 189a)", () => {
         // The final check names input problems in its own not_ready result, which ChatGPT shows the model.
         expect(result.isError, operation.name).not.toBe(true);
         expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: false });
-        expect((result.structuredContent!.next_steps as string[]).join("\n"))
-          .toContain(`later_inputs.synthetic_future_input: ${message}`);
+        expect((result.structuredContent!.notes as string[]).join("\n"))
+          .toContain(`later_inputs.synthetic_future_input: dropped. ${message}`);
         continue;
       }
       expect(result.isError, operation.name).toBe(true);

@@ -235,6 +235,16 @@ function render(result: unknown, doc = documentShim()) {
 
 // The verdict line remains as owner question 108 specified; owner answer 187 adds the checked answer or stopped steps.
 describe("rendered final check result", () => {
+  it("shows all input notes as text without turning them into steps or caveats", () => {
+    const notes = ["A source type was dropped.", "<script>A field was unknown.</script>"];
+    const root = render({ status: "ready", notes });
+    expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["p", "\u2713 Checked by AskRigor's final check."],
+      ["h2", "Notes about the call:"], ["ul", notes.join("")]
+    ]);
+    expect(root.all("script")).toEqual([]);
+  });
+
   it.each([
     [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
     [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],

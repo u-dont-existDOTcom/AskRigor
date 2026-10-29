@@ -285,12 +285,12 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(withToken(first.carry_forward, { round_token: token + "a".repeat(ROUND_TOKEN_MAX_CHARACTERS) })).toBe(1);
   });
 
-  it("carries the round count through invalid-input calls without replacing the carried state", () => {
+  it("checks real receipt gaps after a malformed list is dropped and continues carrying state", () => {
     const first = check(fixture({ carried_state: check(fixture()).carry_forward, proposed_tests: [repeating(1)] }), 1);
     const invalid = { ...fixture(), receipts: "not a list", carried_state: first.carry_forward };
     const second = check({ ...invalid, round_token: first.round_token }, 2);
     expect(second.round?.number).toBe(2);
-    expect(second.carry_forward).toBeUndefined();
+    expect(second.carry_forward).toBeDefined();
     const parts = second.round_token!.split("~");
     expect(JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8"))).not.toHaveProperty("next_bind");
     const third = check({ ...invalid, round_token: second.round_token }, 3);
@@ -317,7 +317,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(check(fixture({ round_token: first.round_token, proposed_tests: [repeating(1)] }), 2).round?.number).toBe(2);
   });
 
-  it("counts inputs that fail as rounds, their list as one step", () => {
+  it("counts the research gaps left by dropped receipts, rather than format notes", () => {
     const invalid = { ...fixture(), receipts: "not a list" };
     const first = check(invalid);
     expect(first.status).toBe("not_ready");
@@ -328,10 +328,11 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(third.status).toBe("stopped");
     expect(third.next_steps).toEqual([]);
     expect(third.stopped?.reason).toBe("stuck");
-    expect(third.stopped?.short_reason).toBe("the check could not run");
-    expect(third.stopped?.could_not.map(({ kind }) => kind)).toEqual(first.next_steps.map(() => "input_invalid"));
-    expect(third.bug_report).toBe("AskRigor's final check stopped at round 3 with this rule still unmet: " +
-      "The call's inputs have problems, so the final check did not run. There is 1 more unmet step.");
+    expect(first.answer_checked).toBe(true);
+    expect(first.notes).toHaveLength(1);
+    expect(first.next_step_kinds).not.toContain("input_invalid");
+    expect(third.stopped?.could_not.map(({ kind }) => kind)).not.toContain("input_invalid");
+    expect(third.stopped?.short_reason).toContain("research step kept failing");
     // A token from a valid round of the same turn carries on into an invalid one.
     const valid = check(fixture({ proposed_tests: [repeating(1)] }));
     expect(check({ ...invalid, round_token: valid.round_token }).round?.number).toBe(2);
@@ -370,7 +371,7 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
     return result;
   };
 
-  it("adds the exact fixed caveat only when stopped, including a check whose inputs failed", () => {
+  it("adds the fixed caveat only when stopped; an unusable call keeps its single message", () => {
     expect(COMPLETE_CHECKS_TIP).toBe('To give AskRigor\'s checks more room to finish, ask it to complete its checks, for example: "complete askrigor checks".');
     expect(check(fixture({ answer_draft: withoutTip() }))).toMatchObject({ status: "ready_with_limits" });
     expect(check(fixture({ answer_draft: withoutTip() })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
@@ -380,8 +381,10 @@ describe("the stopped answer's completion tip (owner answer 187)", () => {
     let invalid = check({ research_target: 7 });
     expect(invalid.caveats).not.toContain(COMPLETE_CHECKS_TIP);
     for (let round = 2; round <= 3; round += 1) invalid = check({ research_target: 7, round_token: invalid.round_token });
-    expect(invalid.status).toBe("stopped");
-    expect(invalid.caveats).toEqual([COMPLETE_CHECKS_TIP]);
+    expect(invalid.status).toBe("not_ready");
+    expect(invalid.caveats).toEqual([]);
+    expect(invalid.next_steps).toHaveLength(1);
+    expect(invalid.round).toBeUndefined();
   });
 
   it("refuses a stopped draft that leaves out the tip without opening another round", () => {

@@ -82,8 +82,7 @@ const unsigned = (index: number, optionClass: string) => `option_classes[${index
 const leftOut = (caveat: string) => "The answer leaves out this caveat; include each as its own sentence, as written " +
   "(a link's text may change), or, in an answer not in English, in the answer's language with the same links, given " +
   `in caveat_renderings: "${caveat}"`;
-const NO_DRAFT = "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final " +
-  "check reads it.";
+const NO_DRAFT = "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered.";
 const FIRST_PASS: Partial<FinalizeResearchInput> = {
   research_depth: "first_pass", another_pass_estimate: "about 20 minutes and 10 literature searches",
   open_leads: [
@@ -379,15 +378,16 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
   it.each([
     { state: "partly" }, { option_class: "" }, { option_class: "o".repeat(121) }, { search_query: "q".repeat(501) },
     { answer_quote: "a".repeat(1_001) }, { extra: "unexpected" }
-  ])("rejects a malformed entry (%j) with every problem named and the check not run", async (invalid) => {
+  ])("notes a malformed entry (%j) and still checks the answer", async (invalid) => {
     const input = { ...packageFor(), option_classes: [{ ...supplements, ...invalid }] };
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     const result = surface === "gate"
       ? finalizeResearch(input, { secret: SECRET })
       : (await client!.callTool({ name: "finalize_research", arguments: input })).structuredContent as FinalizeResearchOutput;
-    expect(result).toMatchObject({ status: "not_ready", answer_checked: false, receipts_verified: 0 });
-    expect(result.next_steps.join("\n")).toContain("option_classes[0]");
-    expect(new Set(result.next_step_kinds)).toEqual(new Set(["input_invalid"]));
+    expect(result.answer_checked).toBe(true);
+    expect(result.notes!.length).toBeGreaterThan(0);
+    expect(result.notes!.join("\n")).toContain("option_classes[0]");
+    expect(result.next_step_kinds).not.toContain("input_invalid");
   });
 
   it("bounds the list at 20 entries and each class at 120 characters", async () => {
@@ -397,8 +397,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     expect(atLimit.answer_checked).toBe(true);
     expect(atLimit.caveats).toHaveLength(20);
     const over = await call({ option_classes: [...twenty, notResearched] });
-    expect(over).toMatchObject({ status: "not_ready", answer_checked: false });
-    expect(over.next_steps).toContain("option_classes: Too big: expected array to have <=20 items");
+    expect(over.answer_checked).toBe(true);
+    expect(over.caveats).toHaveLength(20);
+    expect(over.notes).toContain("option_classes: kept at most 20 items to stay within the list's size limit.");
   });
 
   if (surface === "MCP endpoint") it("publishes option_classes flat, with its catalog text", async () => {

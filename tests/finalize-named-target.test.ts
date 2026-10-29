@@ -492,14 +492,15 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     { named_target: { ...ROUTINE, extra: "unexpected" } },
     { key_sources: [{ ...jumpTrial, target_outcome: "similar" }] },
     { unwatched_videos: [{ video_id: VIDEO, content_from: "transcript" }] }
-  ])("rejects a malformed declaration (%j) with every problem named and the check not run", async (invalid) => {
+  ])("notes a malformed declaration (%j) and still checks the answer", async (invalid) => {
     const input = { ...packageFor(), ...invalid };
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     const result = surface === "gate"
       ? finalizeResearch(input, { secret: SECRET })
       : (await client!.callTool({ name: "finalize_research", arguments: input })).structuredContent as FinalizeResearchOutput;
-    expect(result).toMatchObject({ status: "not_ready", answer_checked: false, receipts_verified: 0 });
-    expect(new Set(result.next_step_kinds)).toEqual(new Set(["input_invalid"]));
+    expect(result.answer_checked).toBe(true);
+    expect(result.notes!.length).toBeGreaterThan(0);
+    expect(result.next_step_kinds).not.toContain("input_invalid");
   });
 
   if (surface === "MCP endpoint") it("publishes the declarations flat, with their catalog text", async () => {

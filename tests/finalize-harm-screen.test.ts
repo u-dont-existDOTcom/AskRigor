@@ -94,8 +94,7 @@ const CONDITIONAL = "An option that depends on something a clinician should conf
 const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, say whether the question is about " +
   "safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer " +
   "compares options' safety; false otherwise.";
-const NO_DRAFT = "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final " +
-  "check reads it.";
+const NO_DRAFT = "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered.";
 const NOT_CHECKED = "A serious harm this answer did not check: anaphylaxis.";
 const NOT_CHECKED_LIMIT = "A serious harm, anaphylaxis, was not checked: say so in the answer, as the caveat does.";
 const BOUNDED = (names: string) => `Where this answer says something was not found, it means the searches made here ` +
@@ -464,42 +463,39 @@ describe("finalize_research harm_screen: bounded input, every problem at once", 
   const problems = (harm_screen: unknown, extra: Record<string, unknown> = {}) => {
     const result = finalizeResearch({ ...base(), harm_screen, ...extra }, { secret: SECRET });
     expect(result.status).toBe("not_ready");
-    expect(result.answer_checked).toBe(false);
-    return result.next_steps;
+    expect(result.answer_checked).toBe(true);
+    expect(result.next_step_kinds).not.toContain("input_invalid");
+    return result.notes;
   };
-  const INTRO = "The call's inputs have problems, so the final check did not run. Fix each one and call again:";
 
   it("bounds the entries and their text", () => {
     expect(problems(Array.from({ length: 21 }, (_, index) => ({ harm: `harm ${index}`, state: "not_checked" }))))
-      .toEqual([INTRO, "harm_screen: Too big: expected array to have <=20 items"]);
+      .toEqual(["harm_screen: kept at most 20 items to stay within the list's size limit."]);
     expect(problems([{ harm: "h".repeat(151), state: "not_checked" }]))
-      .toEqual([INTRO, "harm_screen[0].harm: Too big: expected string to have <=150 characters"]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters."]);
     expect(problems([{ ...notFound, search_query: "q".repeat(501) }]))
-      .toEqual([INTRO, "harm_screen[0].search_query: Too big: expected string to have <=500 characters"]);
+      .toEqual(["harm_screen[0].search_query: dropped: needs at most 500 characters."]);
     expect(problems([{ ...onLabel, answer_quote: "a".repeat(1_001) }]))
-      .toEqual([INTRO, "harm_screen[0].answer_quote: Too big: expected string to have <=1000 characters"]);
+      .toEqual(["harm_screen[0].answer_quote: dropped: needs at most 1000 characters."]);
     expect(problems([{ harm: "   ", state: "not_checked" }]))
-      .toEqual([INTRO, "harm_screen[0].harm: Too small: expected string to have >=1 characters"]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 characters."]);
     // At the limits, the call runs.
     const twenty = Array.from({ length: 20 }, (_, index) => ({ harm: `harm ${index} ${"h".repeat(140)}`, state: "not_checked" as const }));
     const atLimit = finalizeResearch({ ...base(), harm_screen: [onLabel, ...twenty.slice(1)] }, { secret: SECRET });
     expect(atLimit.caveats).toHaveLength(19);
   });
 
-  it("names every problem in one answer, with the JSON of the part ChatGPT's app hides", () => {
+  it("names every problem together as notes without adding format steps", () => {
     expect(problems([
       { harm: "anaphylaxis", state: "suspected", sources_searched: ["label", "forum"] },
       { harm: "stroke", state: "not_checked", sources_searched: "label", severity: "high" }
-    ], { safety_question: "yes" })).toEqual([
-      INTRO,
-      "safety_question: Invalid input: expected boolean, received string",
-      "harm_screen[0].state: Expected one of label_warning, reported_signal, not_found, not_checked.",
-      "harm_screen[0].sources_searched[1]: Expected one of label, regulator_warning, post_marketing, " +
-        "trial_serious_events, case_reports, community.",
-      "harm_screen[1].sources_searched: Invalid input: expected array, received string",
-      "harm_screen[1]: Unrecognized key: \"severity\"",
-      "harm_screen[].sources_searched as JSON: [\"label\",\"case_reports\"]"
-    ]);
+    ], { safety_question: "yes" })).toEqual(expect.arrayContaining([
+      "safety_question: dropped: expected boolean.",
+      "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
+      "harm_screen[0].sources_searched[1]: dropped: not a supported value; use label, regulator_warning, post_marketing, trial_serious_events, case_reports, community.",
+      "harm_screen[1].sources_searched: dropped: expected a list.",
+      "harm_screen[1].severity: dropped an unknown field."
+    ]));
   });
 
   it("never echoes a receipt or the signing secret in its steps", () => {
@@ -665,12 +661,11 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       expect(ranked.result.next_steps).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
       // Both surfaces accept any input and answer it with AskRigor's own validation.
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
-      expect(invalid.result).toMatchObject({ status: "not_ready", next_steps: [
-        "The call's inputs have problems, so the final check did not run. Fix each one and call again:",
-        "harm_screen[0].state: Expected one of label_warning, reported_signal, not_found, not_checked.",
-        "harm_screen[0].sources_searched: Invalid input: expected array, received string",
-        "harm_screen[].sources_searched as JSON: [\"label\",\"case_reports\"]"
+      expect(invalid.result).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
+        "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
+        "harm_screen[0].sources_searched: dropped: expected a list."
       ] });
+      expect(invalid.result.next_step_kinds).not.toContain("input_invalid");
       // Nothing is logged about the call, its harms or its answer.
       for (const spy of logged) {
         expect(JSON.stringify(spy.mock.calls)).not.toContain("anaphylaxis");

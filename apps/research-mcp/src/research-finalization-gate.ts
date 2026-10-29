@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 
 import { z } from "zod";
+import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
@@ -943,7 +944,7 @@ export const finalizeResearchInputSchema = z.object({
 // merged; the top-level schema used by tools/list is unchanged.
 function finalizeResearchRuntimeInputSchema() {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.safeExtend<typeof later>(later);
+  return finalizeResearchInputSchema.extend<typeof later>(later);
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1048,9 +1049,6 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   const empty = (value: unknown) => Array.isArray(value) && value.length === 0;
   if (!object(rawInput)) return rawInput;
   const input = { ...rawInput };
-  for (const field of ["open_leads", "another_pass_estimate"] as const) {
-    if (!finalizeResearchInputSchema.shape[field].safeParse(input[field]).success) delete input[field];
-  }
   if (empty(input.principal_communities)) delete input.principal_communities;
   if (object(input.intervention_identity)) {
     input.intervention_identity = { ...input.intervention_identity };
@@ -1069,20 +1067,35 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   return input;
 }
 
-/**
- * The call merged with its later_inputs (owner answer 189a), then validated against the runtime schema. A problem
- * with later_inputs comes back with the other input problems, so the not_ready result names it like any other.
- */
-export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> {
+/** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
+export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
+  notes: string[]; droppedFindingsCard: boolean;
+} {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
-  const parsed = finalizeResearchRuntimeInputSchema().safeParse(normalizeFinalizeResearchInput(input));
-  if (problems.length === 0) return parsed;
-  const issues: z.core.$ZodIssue[] = [
-    ...problems.map(({ path, message }) => ({ code: "custom" as const, path, message, input: undefined })),
-    ...(parsed.success ? [] : parsed.error.issues),
-  ];
-  return { success: false, error: new z.ZodError(issues) as z.ZodError<FinalizeResearchInput> };
+  const notes = problems.map(({ path, message }) => `${inputPath(path)}: dropped. ${message}`);
+  const runtime = finalizeResearchRuntimeInputSchema();
+  const object = input !== null && typeof input === "object" && !Array.isArray(input);
+  const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
+    const field = key as "answer_draft" | "research_target";
+    const value = (input as Record<string, unknown>)[field];
+    const checked = finalizeResearchInputSchema.shape[field].safeParse(value);
+    return checked.success && value !== undefined ? [] : [{ code: "custom" as const, path: [field],
+      message: `The final check needs usable ${field}.` }];
+  }) : [{ code: "custom" as const, path: [], message: "The final check needs a call object with answer_draft and research_target." }];
+  if (essential.length > 0) return { success: false, error: new z.ZodError(essential) as z.ZodError<FinalizeResearchInput>, notes, droppedFindingsCard: false };
+  const normalized = normalizeFinalizeResearchInput(input) as Record<string, unknown>;
+  let droppedFindingsCard = false;
+  if (normalized.findings_card !== undefined) {
+    const card = finalizeResearchInputSchema.shape.findings_card.safeParse(normalized.findings_card);
+    if (!card.success) {
+      notes.push(...droppedInputNotes(card.error.issues, ["findings_card"]));
+      delete normalized.findings_card;
+      droppedFindingsCard = true;
+    }
+  }
+  const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
+  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -1105,77 +1118,18 @@ function stoppedReport(outcome: Extract<ReturnType<typeof advanceCheckRound>, { 
     ...(bug_report === undefined ? {} : { bug_report }) };
 }
 
-function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, rawInput: unknown): FinalizeResearchOutput {
-  const pathOf = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) =>
-    typeof part === "number" ? `${text}[${part}]` : `${text}${text === "" ? "" : "."}${String(part)}`, "") || "inputs";
-  const nextSteps: RuleInput[] = [rule`The call's inputs have problems, so the final check did not run. Fix each one and call again:`];
-  const messageOf = (issue: z.core.$ZodIssue, prefix: readonly PropertyKey[] = []): string => {
-    if (issue.code === "invalid_value") return `Expected one of ${issue.values.join(", ")}.`;
-    if (issue.code === "invalid_union") return issue.errors.map((branch) => branch.map((child) =>
-      `${pathOf([...prefix, ...issue.path, ...child.path])}: ${messageOf(child, [...prefix, ...issue.path])}`).join("; ")).join(" or ");
-    return issue.message;
-  };
-  for (const issue of error.issues.slice(0, 30)) {
-    nextSteps.push(rule`${pathOf(issue.path)}: ${messageOf(issue)}`);
-  }
-  if (error.issues.length > 30) nextSteps.push(rule`and ${error.issues.length - 30} more.`);
-  const shapes = FINALIZE_RESEARCH_HIDDEN_SHAPES.flatMap((shape) => shape.paths.map((path) => ({ path, shape })));
-  const given = new Set<string>();
-  for (const issue of error.issues) {
-    const path = pathOf(issue.path).replace(/\[\d+\]/gu, "[]");
-    const match = shapes.filter(({ path: prefix }) => path === prefix || path.startsWith(`${prefix}.`) || path.startsWith(`${prefix}[`))
-      .sort((a, b) => b.path.length - a.path.length)[0];
-    if (match !== undefined && !given.has(match.path)) {
-      given.add(match.path);
-      nextSteps.push(rule`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
-    }
-  }
-  // A second reading of no answer finds nothing, so every step here is about the inputs.
-  const secondReading = options.secondReading === undefined
-    ? undefined : checkSecondReading(undefined, options.secondReading, nextSteps);
-  // Owner answer 172a: inputs that fail count as rounds too. The list counts as one step, since its first line repeats.
-  const raw = (key: string): string | undefined => {
-    const value = rawInput !== null && typeof rawInput === "object" && !Array.isArray(rawInput)
-      ? (rawInput as Record<string, unknown>)[key] : undefined;
-    return typeof value === "string" ? value : undefined;
-  };
-  const roundOptions = options.secret === undefined ? undefined : {
-    secret: options.secret,
-    bind: roundBinding(raw("research_target")?.trim()),
-    now: options.now?.() ?? new Date()
-  };
-  const checkRound = roundOptions === undefined ? undefined : advanceCheckRound(
-    nextSteps.map((value) => ({ kind: "input_invalid" as const, text: ruleText(value), rule: ruleParts(value) })),
-    {
-      ...roundOptions,
-      call: readCheckRound(raw("round_token"), roundOptions),
-      wholeList: true
-    }
-  );
-  const stopped = checkRound?.status === "stopped" ? checkRound : undefined;
-  const steps = stopped === undefined ? nextSteps.map(ruleText) : [];
-  const rawReceipts = rawInput !== null && typeof rawInput === "object" && "receipts" in rawInput && Array.isArray(rawInput.receipts)
-    ? rawInput.receipts.filter((token): token is string => typeof token === "string").slice(0, 300) : [];
-  const report = stopped === undefined ? undefined : stoppedReport(stopped, options, rawReceipts);
+function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, notes: string[]): FinalizeResearchOutput {
+  const fields = [...new Set(error.issues.map(({ path }) => path[0]).filter((field) => typeof field === "string"))];
+  const message = fields.length === 0
+    ? "The final check needs a call object with answer_draft and research_target."
+    : `The final check needs usable ${fields.join(" and ")}: answer_draft is the answer to check; research_target is the question the research answered.`;
   return {
-    contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
-    next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
-    ...(checkRound === undefined ? {} : { round: { number: checkRound.round, limit: CHECK_ROUND_LIMIT } }),
-    ...(checkRound?.status === "open" ? { round_token: checkRound.token } : {}),
-    ...(stopped === undefined ? {} : {
-      stopped: {
-        reason: stopped.reason,
-        could_not: stopped.couldNot.map(({ kind, text }) => ({ kind, step: text })),
-        next_turn: [],
-        short_reason: "the check could not run"
-      }
-    }),
-    ...(report ?? {}),
-    ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    limits: [], caveats: stopped === undefined ? [] : [COMPLETE_CHECKS_TIP],
-    must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
+    contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: [message],
+    next_step_kinds: ["input_invalid"], unchecked_line: uncheckedLine(["input_invalid"]),
+    ...(notes.length === 0 ? {} : { notes }),
+    limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
-    community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
+    community: { decision: "not_declared", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
       first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
     findings_card: options.findings === "private" ? privateFindings() : options.findings === "closed" ? closedFindingsLibrary() : noFindingsCard()
   };
@@ -1410,6 +1364,7 @@ export const finalizeResearchOutputSchema = z.object({
   contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   research_plan: researchPlanSchema.optional(),
+  notes: z.array(z.string()).optional(),
   checked_answer: z.string().optional()
     .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
       "byte, returned only to its caller and shown in the result panel; not stored or logged."),
@@ -1468,7 +1423,7 @@ export const finalizeResearchOutputSchema = z.object({
     reason: z.string()
   }).strict()),
   community: z.object({
-    decision: z.enum(["researched", "not_relevant"]),
+    decision: z.enum(["researched", "not_relevant", "not_declared"]),
     surveys: z.number().int().nonnegative(),
     discovery_rounds: z.number().int().nonnegative(),
     saturated: z.boolean(),
@@ -1549,7 +1504,7 @@ export const finalizeResearchOutputSchema = z.object({
     "which the server sent to the owner's review inbox.")
 }).strict();
 
-export const finalizeResearchPublishedOutputSchema = finalizeResearchOutputSchema.omit({ research_plan: true })
+export const finalizeResearchPublishedOutputSchema = finalizeResearchOutputSchema.omit({ research_plan: true, notes: true })
   .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
@@ -1626,7 +1581,7 @@ export function finalizeResearch(
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
   const parsed = parseFinalizeResearchInput(rawInput);
-  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, rawInput);
+  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   if (options.secret === undefined) {
     const nextSteps: RuleInput[] = [];
@@ -1634,6 +1589,7 @@ export function finalizeResearch(
     return {
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
+      ...(parsed.notes.length === 0 ? {} : { notes: parsed.notes }),
       next_steps: nextSteps.map(ruleText),
       next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
@@ -1647,7 +1603,7 @@ export function finalizeResearch(
       receipts_verified: 0,
       receipts_rejected: [],
       community: {
-        decision: input.community_evidence,
+        decision: input.community_evidence ?? "not_declared",
         surveys: 0,
         discovery_rounds: 0,
         saturated: false,
@@ -1979,7 +1935,7 @@ export function finalizeResearch(
         requireLimit(joinRules(COMMUNITY_SKIP_LIMIT), communitySkipCaveat(input.not_relevant_reason));
       }
     }
-  } else {
+  } else if (input.community_evidence === "researched") {
     const communities = input.principal_communities;
     const youtubeResearched = rounds.length > 0 || audited.size > 0 || communityAudited.size > 0;
     // YouTube is one of the places people talk, not the whole community lane:
@@ -3091,7 +3047,9 @@ export function finalizeResearch(
   // neither saved nor offered (owner answer 156a, 2026-10-22).
   let findingsCard: FindingsCardCheck = options.findings === "private"
     ? privateFindings()
-    : input.findings_card === undefined
+    : parsed.droppedFindingsCard
+      ? { status: "rejected", problems: ["The malformed findings card was dropped; see the notes about the call."] }
+      : input.findings_card === undefined
       ? noFindingsCard()
       : !findingsOpen(options)
         ? closedFindingsLibrary()
@@ -3165,7 +3123,7 @@ export function finalizeResearch(
     // and is not asked for one (the 2026-10-15 owner regressions).
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
-    if (findingsOpen(options) && input.findings_card === undefined && citable) {
+    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.")
       );
@@ -3388,7 +3346,8 @@ export function finalizeResearch(
     checkSteps,
     {
       ...roundOptions,
-      call: callRound
+      call: callRound,
+      countRound: parsed.notes.length === 0 || checkSteps.some(({ deferUntilNextTurn }) => deferUntilNextTurn !== true)
     }
   );
   if (checkRound?.status === "stopped") {
@@ -3433,6 +3392,7 @@ export function finalizeResearch(
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
+    ...(parsed.notes.length === 0 ? {} : { notes: parsed.notes }),
     ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
@@ -3442,7 +3402,7 @@ export function finalizeResearch(
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
     community: {
-      decision: input.community_evidence,
+      decision: input.community_evidence ?? "not_declared",
       surveys,
       discovery_rounds: rounds.length,
       saturated,

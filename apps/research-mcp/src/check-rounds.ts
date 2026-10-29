@@ -115,11 +115,12 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
   bind: string;
   now: Date;
   wholeList?: boolean;
+  countRound?: boolean;
 }): RoundOutcome {
   // Tool-state limits become caveats at their source in the gate, never work for this turn's round tracker.
   steps = steps.filter(({ deferUntilNextTurn }) => deferUntilNextTurn !== true);
   const previous = options.call.previous;
-  const round = Math.min((previous?.n ?? 0) + 1, CHECK_ROUND_LIMIT);
+  const round = Math.min(Math.max(1, (previous?.n ?? 0) + (options.countRound === false ? 0 : 1)), CHECK_ROUND_LIMIT);
   const counts = new Map(previous?.steps ?? []);
   const stuckBefore = new Set(previous?.stuck ?? []);
   const units = options.wholeList === true && steps.length > 0

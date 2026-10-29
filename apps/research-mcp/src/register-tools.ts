@@ -2482,6 +2482,7 @@ function defineResearchOperations(
       const toolResult = successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
+          (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
           result.caveats.map((caveat) => `\nThe answer must contain, as written: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
           (result.plain_answer_note === undefined ? "" :

@@ -113,8 +113,7 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     const result = await call({ lab_preparation: covered(), answer_draft: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.next_steps).toEqual([
-      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.",
-      TOOL_LIST_REFRESH_HINT
+      "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered."
     ]);
   });
   it("accepts not_applicable with a valid reason without judging applicability", async () => {
@@ -132,8 +131,8 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
       ...base(), lab_preparation: { status: "not_applicable", reason: "short" }
     } });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: false });
-    expect((result.structuredContent!.next_steps as string[]).join("\n")).toContain("lab_preparation.reason:");
+    expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: true });
+    expect((result.structuredContent!.notes as string[]).join("\n")).toContain("lab_preparation.reason:");
   });
 });
 
