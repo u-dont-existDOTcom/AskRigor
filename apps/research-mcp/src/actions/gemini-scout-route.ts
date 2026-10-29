@@ -735,13 +735,56 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  * tool contract still asks the calling model for a population-level target.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
-  if (!isDeidentifiedResearchTarget(value)) return false;
+  return researchTargetScreenFailures(value).length === 0;
+}
+
+/**
+ * The parts of the scout's target screen a research target fails, in the
+ * screen's own words, so a refusal can say which part failed and the caller can
+ * fix the target in one try. A target that fails the de-identification screen
+ * reports that part alone; otherwise every person marker found is reported,
+ * then a missing group word. Empty when the target passes.
+ */
+export function researchTargetScreenFailures(value: string): ResearchTargetScreenPart[] {
+  const deidentification = deidentificationFailure(value);
+  if (deidentification !== undefined) return [deidentification];
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
   const text = value.replace(/\s+/gu, " ");
+  const failures = personMarkers(text);
   const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
-  if (!words.some((word) => POPULATION_WORDS.has(word))) return false;
-  return !mayDescribeAPerson(text);
+  if (!words.some((word) => POPULATION_WORDS.has(word))) failures.push("no_group_word");
+  return failures;
+}
+
+/** What each part of the screen refuses, as a refusal states it after "it has". */
+export const RESEARCH_TARGET_SCREEN_PARTS = {
+  hidden_characters: "control or invisible characters",
+  first_person: "a first-person word (I, my, me, we or our)",
+  contact_details: "an email address, or a run of digits that could be a phone number",
+  secret: "something shaped like an API key or a private key",
+  link: "a link",
+  chat_roles: "a chat role tag or line",
+  record_field: "a record field label (name:, address:, date of birth: and the like)",
+  instructions: "an instruction to ignore earlier instructions",
+  pronoun: "he, she, him, his or her",
+  title: "a title before a capitalized word (Dr, Mr, Mrs, Ms or Prof)",
+  age: "one person's age",
+  example_marker: "an identity or example marker (named, called, aka, including, such as, e.g., i.e., or like before " +
+    "a word that is not a group word)",
+  name_like_pair: "two capitalized words in a row that are not a condition, test or method name, which could be a name",
+  named_subject: "a capitalized word before has, is, wants or a similar verb, which could be a name",
+  no_group_word: "no word the screen recognises as naming a group of people: it knows only a fixed list of English " +
+    "words, for example people, adults, patients, women, men or children"
+} as const;
+
+export type ResearchTargetScreenPart = keyof typeof RESEARCH_TARGET_SCREEN_PARTS;
+
+/** The refusal's sentence naming the parts of the screen a target failed; empty when it failed none. */
+export function researchTargetScreenRefusal(failures: readonly ResearchTargetScreenPart[]): string {
+  if (failures.length === 0) return "";
+  return `This research_target was refused because it has ${
+    failures.map((part) => RESEARCH_TARGET_SCREEN_PARTS[part]).join("; and ")}.`;
 }
 
 /**
@@ -764,31 +807,37 @@ const MAXIMUM_LEAD_WORDS = 8;
 
 /** Person markers shared by the target and lead screens; text has single spaces. */
 function mayDescribeAPerson(text: string): boolean {
-  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return true;
-  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return true;
+  return personMarkers(text).length > 0;
+}
+
+/** Every kind of person marker in text, in the screen's order; text has single spaces. */
+function personMarkers(text: string): ResearchTargetScreenPart[] {
+  const found = new Set<ResearchTargetScreenPart>();
+  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) found.add("pronoun");
+  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) found.add("title");
   if (
     /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
       .test(text)
-  ) return true;
-  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return true;
-  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return true;
+  ) found.add("age");
+  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) found.add("age");
+  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) found.add("age");
   // Identity and example markers work in any capitalization: a target names a
   // group, not an example person ("adults like xiomara garcia") or a list.
-  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) return true;
+  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) found.add("example_marker");
   for (const [, next] of text.matchAll(/\blike (\p{L}+)/giu)) {
-    if (!POPULATION_WORDS.has(next!.toLowerCase())) return true;
+    if (!POPULATION_WORDS.has(next!.toLowerCase())) found.add("example_marker");
   }
   for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
     const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
     const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);
     const styling = TITLE_CASE_FUNCTION_WORDS.has(head) || TITLE_CASE_FUNCTION_WORDS.has(tail) ||
       POPULATION_WORDS.has(head);
-    if (!eponym && !styling) return true;
+    if (!eponym && !styling) found.add("name_like_pair");
   }
   for (const [, subject] of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
-    if (!POPULATION_WORDS.has(subject!.toLowerCase())) return true;
+    if (!POPULATION_WORDS.has(subject!.toLowerCase())) found.add("named_subject");
   }
-  return false;
+  return [...found];
 }
 
 // Words that describe a group of people rather than one person.
@@ -820,17 +869,22 @@ const TITLE_CASE_FUNCTION_WORDS: ReadonlySet<string> = new Set([
 ]);
 
 export function isDeidentifiedResearchTarget(value: string): boolean {
-  if (/[\u0000-\u001F\u007F]/u.test(value)) return false;
+  return deidentificationFailure(value) === undefined;
+}
+
+/** The first part of the de-identification screen value fails, or undefined when it passes. */
+function deidentificationFailure(value: string): ResearchTargetScreenPart | undefined {
+  if (/[\u0000-\u001F\u007F]/u.test(value)) return "hidden_characters";
   if (/[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(value)) {
-    return false;
+    return "hidden_characters";
   }
-  if (/\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu.test(value)) return false;
-  if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)) return false;
-  if (/(?:\+?\d[\d .()-]{6,}\d)/u.test(value)) return false;
+  if (/\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu.test(value)) return "first_person";
+  if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)) return "contact_details";
+  if (/(?:\+?\d[\d .()-]{6,}\d)/u.test(value)) return "contact_details";
   if (/\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u.test(value)) {
-    return false;
+    return "secret";
   }
-  if (/https?:\/\//iu.test(value)) return false;
+  if (/https?:\/\//iu.test(value)) return "link";
   const lowerValue = value.toLocaleLowerCase("en-US");
   const compactValue = lowerValue.replace(/\s/gu, "");
   const hasChatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
@@ -841,15 +895,15 @@ export function isDeidentifiedResearchTarget(value: string): boolean {
       .some((prefix) => trimmed.startsWith(prefix));
   });
   if (hasChatTag || hasChatRoleLine) {
-    return false;
+    return "chat_roles";
   }
   if (/\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu.test(value)) {
-    return false;
+    return "record_field";
   }
   if (/\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/iu.test(value)) {
-    return false;
+    return "instructions";
   }
-  return true;
+  return undefined;
 }
 
 /**

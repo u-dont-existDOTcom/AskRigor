@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { isPopulationLevelResearchTarget, isPublicLeadTerm } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import {
+  isPopulationLevelResearchTarget, isPublicLeadTerm, RESEARCH_TARGET_SCREEN_PARTS, researchTargetScreenFailures,
+  researchTargetScreenRefusal
+} from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 import { CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET } from "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 
 describe("population-level scout targets", () => {
@@ -45,6 +48,34 @@ describe("population-level scout targets", () => {
       // A condition with no group of people is refused; the error asks for one.
       "Hip osteoarthritis: avoiding a hip replacement"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(false);
+  });
+
+  it("names every part of the screen a refused target failed, so one retry can fix it (29 Oct runs)", () => {
+    for (const [target, failures] of [
+      // On 27 and 28 Oct the screen refused 6 of 15 runs' scouts, among them two forms of copper "in humans":
+      // the word list has no "humans". The refusal states that limit instead of the list growing.
+      ["Two forms of copper in humans", ["no_group_word"]],
+      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", ["no_group_word"]],
+      ["A 47-year-old woman with knee pain", ["age", "no_group_word"]],
+      ["She wants to avoid a hip replacement", ["pronoun", "named_subject", "no_group_word"]],
+      ["Jane Doe, age 47, in Boston has a rare cancer", ["age", "name_like_pair", "named_subject", "no_group_word"]],
+      ["Adults like Xiomara Garcia with a rare cancer", ["example_marker", "name_like_pair"]],
+      ["Dr. Smith's patient with a torn meniscus", ["title", "no_group_word"]],
+      // A target that fails the de-identification screen reports that part alone.
+      ["My knee hurts and I want to avoid surgery", ["first_person"]],
+      ["Adults with knee pain, see https://example.com", ["link"]],
+      ["Adults with knee pain\u200b", ["hidden_characters"]],
+      ["Adults with hip osteoarthritis trying to avoid a replacement", []],
+    ] as const) {
+      expect(researchTargetScreenFailures(target), target).toEqual(failures);
+      expect(isPopulationLevelResearchTarget(target), target).toBe(failures.length === 0);
+    }
+    expect(researchTargetScreenRefusal(["age", "no_group_word"])).toBe(
+      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.age}; and ` +
+        `${RESEARCH_TARGET_SCREEN_PARTS.no_group_word}.`
+    );
+    expect(RESEARCH_TARGET_SCREEN_PARTS.no_group_word).toContain("it knows only a fixed list of English words");
+    expect(researchTargetScreenRefusal([])).toBe("");
   });
 
   it("accepts a rediscovery lead only as a short public term", () => {

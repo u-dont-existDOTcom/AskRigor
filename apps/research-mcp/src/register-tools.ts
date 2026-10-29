@@ -114,8 +114,9 @@ import {
   deleteResumedGeminiScoutInteraction,
   executeResumableAutomatedGeminiScout,
   geminiKeyDeclaredUnbilled,
-  isPopulationLevelResearchTarget,
-  isPublicLeadTerm
+  isPublicLeadTerm,
+  researchTargetScreenFailures,
+  researchTargetScreenRefusal
 } from "./actions/gemini-scout-route.js";
 import {
   decodeScoutContinuation,
@@ -2099,9 +2100,12 @@ function defineResearchOperations(
           }
           arm = input.model_trial;
         }
-        // Only screened, population-level text reaches Gemini.
-        if (!isPopulationLevelResearchTarget(target.research_target)) {
-          return scoutError("research_target_not_deidentified", false, SCOUT_TARGET_GUIDANCE);
+        // Only screened, population-level text reaches Gemini. The refusal names
+        // every part of the screen the target failed, so one retry can fix it.
+        const failures = researchTargetScreenFailures(target.research_target);
+        if (failures.length > 0) {
+          return scoutError("research_target_not_deidentified", false,
+            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(failures)}`);
         }
         if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
           return scoutError("rediscovery_lead_not_public_term", false,
@@ -2132,7 +2136,8 @@ function defineResearchOperations(
       if ("controller_boundary" in execution) {
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
-          ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE}`
+          ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
+            researchTargetScreenRefusal(researchTargetScreenFailures(target.research_target))}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."

@@ -12,6 +12,7 @@ import {
   researchTargetDigest,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
+import { RESEARCH_TARGET_SCREEN_PARTS } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 
 const execute = vi.hoisted(() => vi.fn());
 const deleteResumed = vi.hoisted(() => vi.fn());
@@ -228,6 +229,8 @@ describe("MCP Gemini scout continuation", () => {
       expect(text).toContain("give the person's language in language (for example: fr).");
       expect(text).toContain("Unlike finalize_research's research_target, which identifies the question all discovery used, the scout accepts only this deidentified population-and-goal form");
       expect(text).toContain("adults with hip osteoarthritis trying to avoid a replacement");
+      // The refusal names the part of the screen the target failed.
+      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.no_group_word}.`);
     }
     expect(execute).not.toHaveBeenCalled();
 
@@ -472,7 +475,11 @@ describe("MCP Gemini scout continuation", () => {
     });
     expect(execute).not.toHaveBeenCalled();
     expect(named.isError).toBe(true);
-    expect((named.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
+    const text = (named.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("research_target_not_deidentified");
+    for (const part of ["age", "name_like_pair", "named_subject", "no_group_word"] as const) {
+      expect(text).toContain(RESEARCH_TARGET_SCREEN_PARTS[part]);
+    }
   });
 
   it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {
