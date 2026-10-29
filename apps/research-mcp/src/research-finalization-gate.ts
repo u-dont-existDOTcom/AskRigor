@@ -20,7 +20,8 @@ import {
   USE_ROUTE_WORDS
 } from "./administration-routes.js";
 import {
-  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
+  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, researchPlanSchema,
+  userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { binaryContrast, binaryGroups, figureShown, withoutEndPunctuation } from "./binary-results.js";
@@ -1047,6 +1048,9 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   const empty = (value: unknown) => Array.isArray(value) && value.length === 0;
   if (!object(rawInput)) return rawInput;
   const input = { ...rawInput };
+  for (const field of ["open_leads", "another_pass_estimate"] as const) {
+    if (!finalizeResearchInputSchema.shape[field].safeParse(input[field]).success) delete input[field];
+  }
   if (empty(input.principal_communities)) delete input.principal_communities;
   if (object(input.intervention_identity)) {
     input.intervention_identity = { ...input.intervention_identity };
@@ -1329,6 +1333,14 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
  * changes it. The call's turn id, first-turn flag and earlier turn's open kinds distinguish state passed within
  * this turn from state passed into a later one; the round token alone identifies the call's turn.
  */
+function researchPlan(input: FinalizeResearchInput): CarriedState["research_plan"] {
+  return input.open_leads === undefined && input.another_pass_estimate === undefined ? undefined : {
+    research_target: input.research_target,
+    ...(input.open_leads === undefined ? {} : { open_leads: input.open_leads }),
+    ...(input.another_pass_estimate === undefined ? {} : { another_pass_estimate: input.another_pass_estimate })
+  };
+}
+
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
   check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
     turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
@@ -1365,6 +1377,7 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
   const state: CarriedState = {
     v: 2, issued_at: (options.now?.() ?? new Date()).toISOString(),
     observations, retracted: latest,
+    ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     ...(goal === undefined ? {} : { primary_outcome: goal }),
     rejected,
     named_communities: namedCommunities,
@@ -1396,6 +1409,7 @@ const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string
 export const finalizeResearchOutputSchema = z.object({
   contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
+  research_plan: researchPlanSchema.optional(),
   checked_answer: z.string().optional()
     .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
       "byte, returned only to its caller and shown in the result panel; not stored or logged."),
@@ -1534,6 +1548,9 @@ export const finalizeResearchOutputSchema = z.object({
     "study and review analyses this account's research validated and had not yet filed, in this chat or another, " +
     "which the server sent to the owner's review inbox.")
 }).strict();
+
+export const finalizeResearchPublishedOutputSchema = finalizeResearchOutputSchema.omit({ research_plan: true })
+  .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
 
@@ -1765,6 +1782,11 @@ export function finalizeResearch(
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
+  if (carried?.research_plan !== undefined &&
+      researchTargetDigest(carried.research_plan.research_target) === researchTargetDigest(input.research_target)) {
+    input.open_leads ??= carried.research_plan.open_leads;
+    input.another_pass_estimate ??= carried.research_plan.another_pass_estimate;
+  }
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report, preventing_rule, missing_rule }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -1913,8 +1935,6 @@ export function finalizeResearch(
   let firstPassComplete = false;
   // A first pass that stopped at its cap before discovery saturated, and the
   // searches a rate limit stopped in it; or discovery that must go on first.
-  let unsaturatedFirstPass = false;
-  let firstPassRateLimited = 0;
   let firstPassDeferredStep: CheckStep | undefined;
   let discoveryContinues = false;
   const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
@@ -1999,12 +2019,7 @@ export function finalizeResearch(
       firstPassComplete = input.research_depth === "first_pass" &&
         (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
           saturation.rateLimited > 0);
-      if (!saturated && firstPassComplete) {
-        // Its unsaturated topics become community focuses of the offer that
-        // ends every first pass (below), with any searches a limit stopped.
-        unsaturatedFirstPass = true;
-        firstPassRateLimited = saturation.rateLimited;
-      } else if (!saturated) {
+      if (!saturated && !firstPassComplete) {
         discoveryContinues = saturation.nextSteps.length > 0;
         addStep("research", ...saturation.nextSteps);
       }
@@ -2625,45 +2640,11 @@ export function finalizeResearch(
     }
   }
 
-  // After a first pass of research the answer offers the two ways to go
-  // deeper, a deeper study review and deeper community research, with two or
-  // three focuses each, and asks which the user wants (HRP LimitsNote); an
-  // answer that researched neither studies nor communities has none to offer.
-  // Discovery that must go on comes first.
+  // Planning stays in the result and carried state; the answer needs only the first-pass limit.
   const researched = input.community_evidence === "researched" || input.key_sources.length > 0;
   if (input.research_depth === "first_pass" && researched && !discoveryContinues) {
-    const directions = FOCUS_DIRECTIONS.filter(({ direction }) =>
-      direction === "studies" || input.community_evidence === "researched");
-    const focuses = directions.map(({ direction }) =>
-      (input.open_leads ?? []).filter((lead) => lead.direction === direction));
-    const twoOrThree = (leads: readonly unknown[]) => leads.length >= 2 && leads.length <= 3;
-    directions.forEach(({ direction, what }, index) => {
-      const count = focuses[index]!.length;
-      if (count > 3) {
-        addStep("declaration", rule`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
-        return;
-      }
-      if (count >= 2) return;
-      requireDeclaration(
-        joinRules(joinRules(rule`List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this `, "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising."), (direction === "community" && unsaturatedFirstPass ? joinRules(" Discovery has not saturated, so include the topics where more community signal is likely", (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")) : ""))
-      );
-    });
-    const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
-    if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      (estimate === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
-        joinRules(rule`Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in `, rule`digits and a unit (for example, "about 20 minutes and 15 YouTube searches").`)
-      );
-    } else if (focuses.every(twoOrThree)) {
-      requireLimit(
-        joinRules(joinRules(joinRules(joinRules(joinRules(joinRules(rule`First pass only${unsaturatedFirstPass ? rule`; discovery had not saturated` : rule``}. End the answer with the `, rule`${directions.length === 2 ? rule`two ways` : rule`way`} to go deeper, a sentence or two each, in plain language for `), "the user (no video IDs or internal codes): "), rule`${directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
-            .join(" and ")}`), ". Say what each focus could change in this answer and why it looks promising, give roughly what another "), "pass would take, and ask which the user "), "wants and which focus."),
-        ...directions.flatMap(({ caption }, index) =>
-          focuses[index]!.map(({ topic, why }) => `${completedCaveat(`${caption}:`, topic)} ${asSentence(why)}`)),
-        `${completedCaveat("What another pass would take:", estimate)} ` + (directions.length === 2
-          ? "Would you like to go deeper into the studies or the communities, and which focus matters most to you?"
-          : "Would you like to go deeper into the studies, and which focus matters most to you?")
-      );
-    }
+    requireLimit("This was a first pass: some studies and communities were not reached yet.",
+      "This was a first pass: some studies and communities were not reached yet.");
   }
 
   if (firstPassDeferredStep !== undefined) addCheckStep(firstPassDeferredStep);
@@ -3452,6 +3433,7 @@ export function finalizeResearch(
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
+    ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
     limits,
@@ -4378,16 +4360,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
     "No copies of {links} could be verified as the same papers"
   ]
 };
-
-const asSentence = (text: string): string => {
-  const trimmed = text.trim();
-  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  return /\p{STerm}$/u.test(capitalized) ? capitalized : `${capitalized}.`;
-};
-
-// What another pass would take carries a number in digits, of any script; its
-// unit, in the answer's language, is the model's to give.
-const PASS_COST_NUMBER = /\p{Nd}/u;
 
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
@@ -5392,21 +5364,6 @@ const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
 
 /** A first pass stops at saturation or at this many audited material videos or discovery rounds. */
 const FIRST_PASS_AUDITED_VIDEOS = 3;
-// The two ways a first pass offers to go deeper, and how the answer names each focus.
-const FOCUS_DIRECTIONS = [
-  {
-    direction: "studies",
-    label: "a deeper study review",
-    caption: "Study focus",
-    what: "studies whose methods were not audited in full text, or questions not yet searched"
-  },
-  {
-    direction: "community",
-    label: "deeper community research",
-    caption: "Community focus",
-    what: "communities, options or subgroups not yet reached"
-  }
-] as const;
 const FIRST_PASS_ROUNDS = 2;
 
 const NEW_ANGLE_HINT = joinRules(
@@ -5426,7 +5383,7 @@ function discoverySaturation(
   depth: "first_pass" | "deep"
 ): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferredStep?: CheckStep } {
   const stop = depth === "first_pass"
-    ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
+    ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done.`
     : rule``;
   const rounds = [...unordered].sort((left, right) =>
     receiptOrder(left) - receiptOrder(right) || left.index - right.index

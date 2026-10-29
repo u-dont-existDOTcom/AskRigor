@@ -132,8 +132,7 @@ const communityDefaults = (input: Record<string, unknown>) =>
     principal_communities: [{ name: "YouTube", platform: "youtube" }, { name: "r/HipOA", platform: "reddit" }],
     community_searches: [REDDIT_SEARCH]
   };
-// Every first pass ends by offering a deeper study review and deeper community
-// research, with two or three focuses each; tests of other checks get two of each.
+// Optional planning used by fixtures; the answer carries only the first-pass limit.
 const STUDY_FOCUSES = [
   { direction: "studies", topic: "Longer trials", why: "The trials read lasted twelve weeks." },
   { direction: "studies", topic: "Results in people over 70", why: "Few trial participants were that old." }
@@ -146,30 +145,8 @@ const offerDefaults = (input: Record<string, unknown>) =>
   input.research_depth === "deep" || "open_leads" in input ? {} : {
     open_leads: input.community_evidence === "researched" ? [...STUDY_FOCUSES, ...COMMUNITY_FOCUSES] : STUDY_FOCUSES
   };
-const offerLimit = (community = true, unsaturated = false) =>
-  `First pass only${unsaturated ? "; discovery had not saturated" : ""}. End the answer with the ` +
-  `${community ? "two ways" : "way"} to go deeper, a sentence or two each, in plain language for the user (no video ` +
-  "IDs or internal codes): a deeper study review (Longer trials; Results in people over 70)" +
-  (community ? " and deeper community research (Named walking programs; People who stopped)" : "") +
-  ". Say what each focus could change in this answer and why it looks promising, give roughly what another pass " +
-  "would take, and ask which the user wants and which focus.";
-const OFFER_LIMIT = offerLimit();
-const STUDY_FOCUS_CAVEATS = [
-  "Study focus: Longer trials. The trials read lasted twelve weeks.",
-  "Study focus: Results in people over 70. Few trial participants were that old."
-];
-const OFFER_CAVEATS = [
-  ...STUDY_FOCUS_CAVEATS,
-  "Community focus: Named walking programs. Several were named but none was looked at closely.",
-  "Community focus: People who stopped. Few described why they stopped.",
-  `What another pass would take: ${PASS_ESTIMATE}. Would you like to go deeper into the studies or the communities, ` +
-    "and which focus matters most to you?"
-];
-const STUDIES_OFFER_CAVEATS = [
-  ...STUDY_FOCUS_CAVEATS,
-  `What another pass would take: ${PASS_ESTIMATE}. Would you like to go deeper into the studies, and which focus ` +
-    "matters most to you?"
-];
+const FIRST_PASS_LIMIT = "This was a first pass: some studies and communities were not reached yet.";
+const FIRST_PASS_CAVEATS = [FIRST_PASS_LIMIT];
 // How the gate asks for the caveats an answer left out.
 const leftOut = (...caveats: string[]) =>
   `The answer leaves out ${caveats.length === 1 ? "this caveat" : "these caveats"}; include each as its own ` +
@@ -350,7 +327,7 @@ describe("finalize_research gate", () => {
         ...base, research_depth: "first_pass", receipts, treatment_choice: "compared"
       }, options);
       expect(firstPassComparison.status).toBe("ready_with_limits");
-      expect(firstPassComparison.limits).toEqual([FORUM_LIMIT, provisional, OFFER_LIMIT]);
+      expect(firstPassComparison.limits).toEqual([FORUM_LIMIT, provisional, FIRST_PASS_LIMIT]);
       expect(verifyResearchReceipt(firstPassComparison.finalization_receipt!, options))
         .toMatchObject({ ok: true, claims: { coverage: "none" } });
     }
@@ -521,7 +498,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
-    expect(result.limits).toEqual([FORUM_LIMIT, OFFER_LIMIT]);
+    expect(result.limits).toEqual([FORUM_LIMIT, FIRST_PASS_LIMIT]);
     expect(result.community).toEqual({
       decision: "researched",
       surveys: 1,
@@ -578,7 +555,7 @@ describe("finalize_research gate", () => {
       "most long-term users reported better recovery, several saw no difference from growth hormone, and some " +
       "reported joint pain and raised blood sugar, which supports naming its side effects first. Reports from this " +
       "community come from my own web search, which AskRigor could not verify. Community: r/trt. " +
-      OFFER_CAVEATS.join(" ");
+      FIRST_PASS_CAVEATS.join(" ");
     const gate = (input: Record<string, unknown>) => finalizeResearch({ ...youtubeOnly, ...input }, options);
 
     // No map: YouTube alone does not finish the community lane.
@@ -605,7 +582,7 @@ describe("finalize_research gate", () => {
     expect(searched.status).toBe("ready_with_limits");
     expect(searched.caveats).toEqual([
       "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/trt.",
-      ...OFFER_CAVEATS
+      ...FIRST_PASS_CAVEATS
     ]);
     // AskRigor cannot see the client's web search: the permit records the subreddit as unverified.
     expect(verifyResearchReceipt(searched.finalization_receipt!, options))
@@ -635,7 +612,7 @@ describe("finalize_research gate", () => {
     ]);
     // The answer must report it: the model copies the sentences that report each finding, the answer must show
     // them, and a paragraph that reports it links a thread read there.
-    const offer = OFFER_CAVEATS.join(" ");
+    const offer = FIRST_PASS_CAVEATS.join(" ");
     const withoutForums = `${CLEAN_DRAFT.replace(/ On Reddit, .*$/u, "")} Reports from this community come from my ` +
       `own web search, which AskRigor could not verify. Community: r/trt. ${offer}`;
     const unshown = "For r/trt, answer_quotes gives text the answer does not show (benefit_reports, no_effect_reports, " +
@@ -1458,13 +1435,7 @@ describe("finalize_research gate", () => {
       [FORUM_CAVEAT, "Los relatos de r/HipOA vienen de mi propia búsqueda web, que AskRigor no pudo verificar."],
       [leadCaveat, "El texto completo de [este estudio](https://doi.org/10.1016/j.joca.2020.01.001) no estaba " +
         "disponible en abierto, así que no se revisaron sus métodos."],
-      [OFFER_CAVEATS[0]!, "Enfoque de estudios: ensayos más largos. Los ensayos leídos duraron doce semanas."],
-      [OFFER_CAVEATS[1]!, "Enfoque de estudios: resultados en mayores de 70 años. Pocos participantes tenían esa edad."],
-      [OFFER_CAVEATS[2]!, "Enfoque comunitario: programas de caminata con nombre. Se nombraron varios, pero ninguno " +
-        "se examinó a fondo."],
-      [OFFER_CAVEATS[3]!, "Enfoque comunitario: quienes lo dejaron. Pocos explicaron por qué."],
-      [OFFER_CAVEATS[4]!, "Otra pasada llevaría unos 20 minutos y 15 búsquedas en YouTube. ¿Quieres profundizar en " +
-        "los estudios o en las comunidades, y qué enfoque te importa más?"]
+      [FIRST_PASS_LIMIT, "Esta fue una primera revisión: aún no se llegó a algunos estudios y comunidades."]
     ]);
     const lanes = "El ejercicio tiene la mejor evidencia para la artrosis de cadera. Quienes comentaron videos de " +
       "YouTube sobre el tema dijeron tener menos dolor tras varios meses; unos pocos no notaron cambios y nadie " +
@@ -1510,7 +1481,7 @@ describe("finalize_research gate", () => {
     };
     const check = (input: Record<string, unknown>) => finalizeResearchRaw({ ...request, ...input }, options);
     const result = check({});
-    expect(result.caveats).toEqual([FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS]);
+    expect(result.caveats).toEqual([FORUM_CAVEAT, leadCaveat, ...FIRST_PASS_CAVEATS]);
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
     // A link's text may change in a rendering too.
@@ -1528,7 +1499,7 @@ describe("finalize_research gate", () => {
     // Renderings count only for an answer declared in another language: an English one states each caveat as written.
     const englishOnly = "caveat_renderings counts only for an answer not in English: give answer_language (such as fr " +
       "or es), or state each caveat as written.";
-    const allLeftOut = leftOut(FORUM_CAVEAT, leadCaveat, ...OFFER_CAVEATS);
+    const allLeftOut = leftOut(FORUM_CAVEAT, leadCaveat, ...FIRST_PASS_CAVEATS);
     expect(check({ answer_language: undefined }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([englishOnly, allLeftOut]);
     expect(check({ answer_language: "en-GB" }).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([englishOnly, allLeftOut]);
     // A rendering stands as a sentence of its own, as a caveat does: embedded, it is not stated.
@@ -2116,7 +2087,7 @@ describe("finalize_research gate", () => {
       FORUM_LIMIT,
       "Cite 10.1016/j.joca.2020.01.001 as a lead: no open full text was available, so its methods were not audited.",
       "Cite PMID: 31234567 as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.",
-      OFFER_LIMIT
+      FIRST_PASS_LIMIT
     ]);
     expect(result.finalization_receipt).toBeDefined();
 
@@ -2129,7 +2100,7 @@ describe("finalize_research gate", () => {
         "methods were not checked.",
       "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
         "lists without a DOI, so its methods were not checked.",
-      ...OFFER_CAVEATS
+      ...FIRST_PASS_CAVEATS
     ]);
     // The subreddit's caveat is in CLEAN_DRAFT, and the drafts below are deep
     // research's, with no first-pass offer; the checks concern the others.
@@ -2274,7 +2245,7 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
       "1 community survey(s) were only partly completed (some searches failed or hit limits); say the community picture may be incomplete.",
       FORUM_LIMIT,
-      OFFER_LIMIT
+      FIRST_PASS_LIMIT
     ]);
   });
 
@@ -2450,26 +2421,11 @@ describe("finalize_research gate", () => {
 
     // A first pass cannot rerun them until the limit resets, so it ends with them as open leads.
     const firstPass = { ...base, receipts, research_depth: "first_pass" as const };
-    expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
-        "confidence, or only detail) and why it looks promising.",
-      "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
-        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
-        "is likely and the searches YouTube's rate limit or daily quota stopped."
-    ]);
-    // Two or three focuses each, not more.
+    expect(finalizeResearch({ ...firstPass, open_leads: [] }, options).next_steps).toEqual([]);
     expect(finalizeResearch({
       ...firstPass,
-      open_leads: [
-        ...STUDY_FOCUSES,
-        ...STUDY_FOCUSES.map((lead) => ({ ...lead, topic: `${lead.topic}, in more depth` })),
-        ...COMMUNITY_FOCUSES
-      ]
-    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "open_leads lists 4 focuses with direction studies; keep the two or three most promising."
-    ]);
+      open_leads: [...STUDY_FOCUSES, ...STUDY_FOCUSES, ...COMMUNITY_FOCUSES]
+    }, options).next_steps).toEqual([]);
     const withLeads = finalizeResearch({
       ...firstPass,
       open_leads: [
@@ -2652,7 +2608,7 @@ describe("finalize_research gate", () => {
       receipts: [survey, emptySearch, repeatScout, videoA, study], community_findings: findingsFor(["aaaaaaaaaaa"])
     };
     const draft = caveatedDraft(request, options);
-    const caveat = STUDY_FOCUS_CAVEATS[0]!;
+    const caveat = FIRST_PASS_CAVEATS[0]!;
     const check = (answer_draft: string, extra = {}) => finalizeResearch({ ...request, answer_draft, ...extra }, options);
     expect(check(draft).status).toBe("ready_with_limits");
     for (const collapsed of [
@@ -2709,7 +2665,42 @@ describe("finalize_research gate", () => {
         JSON.stringify(linkedCaveat));
   });
 
-  it("adds a sentence end to study and community focuses only when needed", () => {
+  it("keeps first-pass planning optional, carries it forward, and requires only the short first-pass limit", () => {
+    const request = {
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
+      receipts: [survey, emptySearch, repeatScout, videoA, study],
+      open_leads: undefined, another_pass_estimate: undefined
+    };
+    const shortLimit = "This was a first pass: some studies and communities were not reached yet.";
+    const absent = finalizeResearch(request, options);
+    expect(absent.status).toBe("ready_with_limits");
+    expect(absent.next_steps).toEqual([]);
+    expect(absent.caveats).toContain(shortLimit);
+    expect(absent.caveats.join(" ")).not.toMatch(/Study focus:|Community focus:|What another pass would take:|Would you like/u);
+    const leads = [{ direction: "studies", topic: "Longer trials", why: "Could change confidence." }];
+    const provided = finalizeResearch({ ...request, open_leads: leads, another_pass_estimate: "A longer review" }, options);
+    expect(provided.caveats).toEqual(absent.caveats);
+    expect(provided.research_plan).toEqual({ research_target: TARGET, open_leads: leads, another_pass_estimate: "A longer review" });
+    expect(provided.carried!.research_plan).toEqual(provided.research_plan);
+    const next = finalizeResearch({ ...request, carried_state: provided.carry_forward }, options);
+    expect(next.research_plan).toEqual(provided.research_plan);
+    expect(next.community.open_leads).toEqual(["Longer trials"]);
+    const other = finalizeResearch({ ...request, research_target: "Another question", carried_state: provided.carry_forward }, options);
+    expect(other.research_plan).toBeUndefined();
+    for (const fields of [
+      { open_leads: "Longer trials", another_pass_estimate: 20 },
+      { open_leads: [{ direction: "unknown", topic: "x", why: "y" }], another_pass_estimate: "x".repeat(201) },
+      { open_leads: Array.from({ length: 13 }, () => leads[0]) }
+    ]) {
+      const dropped = finalizeResearch({ ...request, ...fields }, options);
+      expect(dropped.status).toBe("ready_with_limits");
+      expect(dropped.next_steps).toEqual([]);
+      expect(dropped.community.open_leads).toEqual([]);
+    }
+  });
+
+  it("preserves planning punctuation without making it answer text", () => {
     const result = finalizeResearch({
       community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "full_text_audited", answer_marker: "Study", id: "10.1002/art.41142", status: "validated" }],
@@ -2722,13 +2713,10 @@ describe("finalize_research gate", () => {
       ]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.caveats).toEqual(expect.arrayContaining([
-      "Study focus: Longer-term results. Could change confidence.",
-      "Study focus: 高齢者の結果。 Could change applicability.",
-      "Community focus: People who stopped? Could reveal harms.",
-      "Community focus: Named programs. Could change detail."
-    ]));
-    expect(result.caveats.join(" ")).not.toContain("..");
+    expect(result.caveats).toEqual([FORUM_CAVEAT, FIRST_PASS_LIMIT]);
+    expect(result.research_plan!.open_leads!.map(({ topic }) => topic)).toEqual([
+      "Longer-term results.", "高齢者の結果。", "People who stopped?", "Named programs"
+    ]);
   });
 
   it("sends back an answer that leaves out a caveat the gate wrote", () => {
@@ -2754,32 +2742,16 @@ describe("finalize_research gate", () => {
     const check = (answerDraft: string) => finalizeResearchRaw({ ...request, answer_draft: answerDraft }, options);
 
     const partialCaveat = "Some YouTube searches failed or hit limits, so the community picture may be incomplete.";
-    const leadCaveats = [
-      "Community focus: Gelatin and collagen for hip pain. Several commenters report it.",
-      "Community focus: Named physiotherapy programs. Comments name two programs no search covered."
-    ];
-    const passCaveat = "What another pass would take: about 20 minutes and 15 YouTube searches. Would you like to go " +
-      "deeper into the studies or the communities, and which focus matters most to you?";
-    const expected = [partialCaveat, ...STUDY_FOCUS_CAVEATS, ...leadCaveats, passCaveat];
+    const expected = [partialCaveat, FIRST_PASS_LIMIT];
     expect(check(CLEAN_DRAFT)).toMatchObject({
-      status: "not_ready", caveats: [partialCaveat, FORUM_CAVEAT, ...expected.slice(1)], next_steps: [leftOut(...expected)]
+      status: "not_ready", caveats: [partialCaveat, FORUM_CAVEAT, FIRST_PASS_LIMIT], next_steps: [leftOut(...expected)]
     });
     expect(check([CLEAN_DRAFT, ...expected].join(" "))).toMatchObject({ status: "ready_with_limits", next_steps: [] });
-    // Naming the leads in other words is not the caveat.
-    const studies = STUDY_FOCUS_CAVEATS.join(" ");
-    expect(check(`${CLEAN_DRAFT} ${partialCaveat} ${studies} Collagen and physiotherapy are mentioned above. ${passCaveat}`)
-      .next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut(...leadCaveats)]);
-    // A lead of short words must appear itself, not just words around it.
+    // Planning remains optional even when the provided topics do not appear in the answer.
     expect(finalizeResearchRaw({
-      ...request,
-      open_leads: [
-        ...STUDY_FOCUSES,
-        { direction: "community", topic: "PRP for hip pain", why: "Two commenters credit injections with relief." },
-        COMMUNITY_FOCUSES[1]
-      ],
-      answer_draft: `${CLEAN_DRAFT} ${partialCaveat} ${studies} Comments suggest hip pain needs more study. ` +
-        `${OFFER_CAVEATS[3]} ${passCaveat}`
-    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([leftOut("Community focus: PRP for hip pain. Two commenters credit injections with relief.")]);
+      ...request, open_leads: [{ direction: "community", topic: "PRP for hip pain", why: "Could change confidence." }],
+      answer_draft: [CLEAN_DRAFT, ...expected].join(" ")
+    }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     // A long draft is read in linear time, however many brackets or backticks it has.
     const started = Date.now();
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("not_ready");
@@ -2788,14 +2760,9 @@ describe("finalize_research gate", () => {
     expect(check(`${CLEAN_DRAFT} ${Array.from({ length: 11_000 }, (_, index) => `${"`".repeat(index % 7 + 1)}a`).join("")}`).status)
       .toBe("not_ready");
     expect(Date.now() - started).toBeLessThan(1_000);
-    // Another pass needs an estimate with a number, in digits of any script, and a unit in any language.
-    const estimateStep = "Give another_pass_estimate: roughly what another pass over the open leads would take, with " +
-      "a number in digits and a unit (for example, \"about 20 minutes and 15 YouTube searches\").";
-    const estimated = (estimate: string | undefined) =>
-      finalizeResearchRaw({ ...request, another_pass_estimate: estimate, answer_draft: CLEAN_DRAFT }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
-    for (const estimate of [undefined, "a while", "half an hour"]) expect(estimated(estimate)).toContain(estimateStep);
-    for (const estimate of ["unas 2 horas y 10 b\u00FAsquedas", "\u7D04\uFF12\uFF10\u5206", "\u062D\u0648\u0627\u0644\u064A \u0662\u0660 \u062F\u0642\u064A\u0642\u0629"]) {
-      expect(estimated(estimate)).not.toContain(estimateStep);
+    for (const estimate of [undefined, "a while", "half an hour", "unas 2 horas y 10 búsquedas", "約２０分"]) {
+      expect(finalizeResearchRaw({ ...request, another_pass_estimate: estimate,
+        answer_draft: [CLEAN_DRAFT, ...expected].join(" ") }, options).next_steps).toEqual([]);
     }
   });
 
@@ -2807,17 +2774,9 @@ describe("finalize_research gate", () => {
     const receipts = [survey, round("m3m3m3m3m3m3", ["eeeeeeeeeee"]), videoA, lateVideo, study];
 
     const noLeads = finalizeResearch({ ...base, receipts, open_leads: [] }, options);
-    expect(noLeads.status).toBe("not_ready");
+    expect(noLeads.status).toBe("ready_with_limits");
     expect(noLeads.community).toMatchObject({ saturated: false, first_pass_complete: true });
-    expect(noLeads.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      "List two or three open_leads with direction studies: studies whose methods were not audited in full text, or " +
-        "questions not yet searched, each with what it could change in this answer (the conclusion, a ranking, the " +
-        "confidence, or only detail) and why it looks promising.",
-      "List two or three open_leads with direction community: communities, options or subgroups not yet reached, each " +
-        "with what it could change in this answer (the conclusion, a ranking, the confidence, or only detail) and why " +
-        "it looks promising. Discovery has not saturated, so include the topics where more community signal " +
-        "is likely."
-    ]);
+    expect(noLeads.next_steps).toEqual([]);
 
     const withLeads = finalizeResearch({
       ...base,
@@ -2834,21 +2793,17 @@ describe("finalize_research gate", () => {
     ]);
     expect(withLeads.limits).toEqual([
       FORUM_LIMIT,
-      "First pass only; discovery had not saturated. End the answer with the two ways to go deeper, a sentence or two " +
-        "each, in plain language for the user (no video IDs or internal codes): a deeper study review (Longer trials; " +
-        "Results in people over 70) and deeper community research (Gelatin and collagen for hip pain; Named " +
-        "physiotherapy programs). Say what each focus could change in this answer and why it looks promising, give " +
-        "roughly what another pass would take, and ask which the user wants and which focus."
+      FIRST_PASS_LIMIT
     ]);
-    // Without community research, the answer offers the study review alone.
+    // Without community research, the answer still states its first-pass limit.
     const studiesOnly = finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome",
       not_relevant_reason: "A question about one lab value.",
       treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1002/art.41142", status: "validated" as const }]
     }, options);
-    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
-    expect(studiesOnly.caveats).toEqual([communitySkipCaveat("A question about one lab value."), ...STUDIES_OFFER_CAVEATS]);
+    expect(studiesOnly).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, FIRST_PASS_LIMIT] });
+    expect(studiesOnly.caveats).toEqual([communitySkipCaveat("A question about one lab value."), ...FIRST_PASS_CAVEATS]);
     // An answer that researched neither studies nor communities has nothing to offer.
     expect(finalizeResearch({
       receipts: [], community_evidence: "not_relevant", not_relevant_reason: "A dose arithmetic question.",
@@ -2936,16 +2891,16 @@ describe("finalize_research gate", () => {
     }, options);
     expect(nothing.status).toBe("ready_with_limits");
     expect(nothing.limits).toEqual([
-      "No video turned up in 2 discovery rounds; say that YouTube evidence on this is thin.", FORUM_LIMIT, OFFER_LIMIT
+      "No video turned up in 2 discovery rounds; say that YouTube evidence on this is thin.", FORUM_LIMIT, FIRST_PASS_LIMIT
     ]);
     const thinCaveat = "No relevant video turned up in 2 rounds of searching, so YouTube evidence on this is thin.";
-    expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT, ...OFFER_CAVEATS]);
+    expect(nothing.caveats).toEqual([thinCaveat, FORUM_CAVEAT, ...FIRST_PASS_CAVEATS]);
     expect(nothing.must_report).toContain(FORUM_REPORT_LINE);
     expect(nothing.caveats.join(" ")).toContain("YouTube evidence on this is thin");
     expect(nothing.caveats.join(" ")).not.toContain("community evidence on this is thin");
     const thinDraft = (text: string) => finalizeResearchRaw({
       ...base, receipts: [emptySurvey, emptySearch, study], another_pass_estimate: PASS_ESTIMATE,
-      answer_draft: `${CLEAN_DRAFT} ${text} ${OFFER_CAVEATS.join(" ")}`
+      answer_draft: `${CLEAN_DRAFT} ${text} ${FIRST_PASS_CAVEATS.join(" ")}`
     }, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     expect(thinDraft("A few commenters on YouTube reported relief.")).toEqual([
       leftOut(thinCaveat)
@@ -2965,7 +2920,7 @@ describe("finalize_research gate", () => {
     expect(explained.limits).toEqual([
       "None of the 3 video(s) found in 3 discovery rounds was worth auditing; say that YouTube evidence on this is thin.",
       FORUM_LIMIT,
-      OFFER_LIMIT
+      FIRST_PASS_LIMIT
     ]);
   });
 
@@ -3117,8 +3072,8 @@ describe("finalize_research gate", () => {
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "PMC10518852", status: "validated" }]
     }, options);
     // Its limits are the skipped community search, which the answer states with the reason (owner question 125), and
-    // the first pass's offer of a deeper study review.
-    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, offerLimit(false)] });
+    // the first pass's short limit.
+    expect(reasoned).toMatchObject({ status: "ready_with_limits", limits: [COMMUNITY_SKIP_LIMIT, FIRST_PASS_LIMIT] });
     expect(finalizeResearch({
       receipts: [study], community_evidence: "not_relevant", treatment_choice: "not_compared", research_target: TARGET,
       not_relevant_basis: "no_real_world_outcome",

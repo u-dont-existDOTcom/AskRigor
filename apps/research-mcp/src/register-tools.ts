@@ -236,6 +236,7 @@ import {
   normalizeFinalizeResearchInput,
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
+  finalizeResearchPublishedOutputSchema,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
@@ -2347,7 +2348,7 @@ function defineResearchOperations(
         // inputs its type hides, from which the regression's first calls invented fields.
         FINALIZE_RESEARCH_SHAPES_DESCRIPTION,
       inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude", options.toolListVersion),
-      outputSchema: finalizeResearchOutputSchema,
+      outputSchema: finalizeResearchPublishedOutputSchema,
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
         _meta: {
           ui: { resourceUri: FINAL_CHECK_PANEL_URI },
@@ -3460,9 +3461,10 @@ function collectResearchOperations(
         // Both validate their own input and word its problems in a result ChatGPT shows (RuntimeInputOptions.handler).
         name === "finalize_research" ? { schema: finalizeResearchInputSchema, normalize: normalizeFinalizeResearchInput, handler: "merges" } :
         name === "submit_research_contribution" ? { schema: submitResearchContributionInputSchema, handler: "validates" } : {});
-      const runtimeOutputSchema = config.outputSchema instanceof z.ZodObject
+      const publishedOutputSchema = config.outputSchema instanceof z.ZodObject
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
-      const outputSchema = openToolOutputSchema(runtimeOutputSchema);
+      const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema : publishedOutputSchema;
+      const outputSchema = openToolOutputSchema(publishedOutputSchema);
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&

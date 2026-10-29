@@ -2,6 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
+import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 
 /**
@@ -11,7 +12,12 @@ import type { ResearchOperationHandler } from "./research-operation.js";
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
 const LATER_INPUT_SHAPES = Object.freeze({
-  finalize_research: {},
+  finalize_research: {
+    open_leads: openLeadsSchema.optional()
+      .describe("Optional planning for a later pass: studies or communities not yet reached, with what each could change."),
+    another_pass_estimate: researchPlanSchema.shape.another_pass_estimate
+      .describe("Optional estimate of what another pass would take, at most 200 characters.")
+  },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
