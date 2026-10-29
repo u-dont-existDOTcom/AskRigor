@@ -174,7 +174,7 @@ the hash-bound inspect/decide functions, the read-only review context
 function, the five Atlas review functions and the six held YouTube findings
 functions, and cannot read tables directly.
 
-Owner answer 140b (2026-10-20): paid private accounts and dev accounts register
+Owner answer 190a (2026-10-27), extending 140b: all active research accounts, including free contributors, register
 a plain answer before research, and their checked answers end with a note
 comparing the two. Mark an account dev with `ASKRIGOR_DEV_ACCOUNT_KEYS` in the
 same runtime environment: a comma-separated list of account references, the

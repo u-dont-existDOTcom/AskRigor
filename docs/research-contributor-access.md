@@ -86,10 +86,9 @@ already accepted deidentified canonical record.
 
 ## The plain answer first
 
-Owner answer 140b (2026-10-20): a paid private account, or an account the
-server's settings list in `ASKRIGOR_DEV_ACCOUNT_KEYS` (comma-separated account
-references, the 12 characters `manage_research_access` shows the signed-in
-user, or whole research account keys), is asked by `inspect` to register, before any research call, the
+Owner answer 190a (2026-10-27), extending 140b: every account with active
+research access, including free contributor accounts, is asked by `inspect`
+to register, before any research call, the
 short answer it would give without AskRigor's tools. `register_plain_answer`
 takes that text (at most 1,500 characters), one to five claims, each one or
 more whole sentences copied exactly from the text (at most 250 characters), and
@@ -107,7 +106,9 @@ and nothing is held back. `set_plain_answer_note`
 turns the note off or on; migration `0013_research_plain_answer_note` stores the
 choice in `research_use_accounts.plain_answer_note`, on by default. The note
 setting removes only the note: the plain answer still guides the research. Only
-the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not.
+the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not,
+and Gemini's catalog does not list it. Neither the plain answer nor its comparison
+is sent to the second reader or saved in a findings card or the Atlas.
 
 ## Detailed lesson reports
 

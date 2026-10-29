@@ -1,4 +1,5 @@
 import { rule } from "../apps/research-mcp/src/check-rules.js";
+import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -42,7 +43,7 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
     absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [],
     safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: "[Texte lu] [Étude](https://doi.org/10.1000/depth). Try it.\n\n" +
-      communitySkipCaveat("Synthetic fixture isolates the round limit."),
+      communitySkipCaveat("Synthetic fixture isolates the round limit.") + "\n\n" + COMPLETE_CHECKS_TIP,
     ...overrides
   };
 }
@@ -53,11 +54,15 @@ const step = (index: number, test = 0) =>
 const check = (input: unknown, minutes = 0) => finalizeResearch(input, { secret: SECRET, now: at(minutes) });
 
 describe("the final check's rounds in a turn (owner answer 172a)", () => {
-  it("passes without a round when nothing is open", () => {
+  it("q81: a pass returns this turn’s round and a token for rechecks", () => {
     const passed = check(fixture());
     expect(passed.status).toBe("ready_with_limits");
-    expect(passed.round).toBeUndefined();
-    expect(passed.round_token).toBeUndefined();
+    expect(passed.round).toEqual({ number: 1, limit: CHECK_ROUND_LIMIT });
+    expect(passed.round_token).toMatch(/^cr2~/u);
+    const recheck = check(fixture({ carried_state: passed.carry_forward, round_token: passed.round_token }));
+    expect(recheck.status).toBe("ready_with_limits");
+    expect(recheck.round).toEqual({ number: 2, limit: CHECK_ROUND_LIMIT });
+    expect(recheck.carried!.turn).toBe(passed.carried!.turn);
   });
 
   it("numbers each round with a signed token and stops at the tenth with the reasons", () => {
@@ -113,7 +118,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     expect(fifth.bug_report).toBe("AskRigor's final check stopped at round 5 with this rule still unmet: " + step(9));
   });
 
-  it("stops at the third unchanged round when that step is all that is left", () => {
+  it("s360-studies: a real stuck step still stops after three unchanged rounds", () => {
     let token: string | undefined;
     const statuses: string[] = [];
     for (let round = 1; round <= 3; round += 1) {
@@ -308,7 +313,7 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
     const second = check(fixture({ carried_state: carriedState, round_token: first.round_token }), 2);
     expect(second.round?.number).toBe(2);
     expect(second.carry_forward).toBeUndefined();
-    expect(check(fixture({ round_token: first.round_token }), 2).round?.number).toBeUndefined();
+    expect(check(fixture({ round_token: first.round_token }), 2).round?.number).toBe(2);
     expect(check(fixture({ round_token: first.round_token, proposed_tests: [repeating(1)] }), 2).round?.number).toBe(2);
   });
 
@@ -354,6 +359,62 @@ describe("the final check's rounds in a turn (owner answer 172a)", () => {
   });
 });
 
+describe("the stopped answer's completion tip (owner answer 187)", () => {
+  const withoutTip = () => fixture().answer_draft!.replace("\n\n" + COMPLETE_CHECKS_TIP, "");
+  const stop = (overrides: Partial<FinalizeResearchInput> = {}) => {
+    let result = check(fixture({ proposed_tests: [repeating(9)], ...overrides }));
+    for (let round = 2; round <= 3; round += 1) {
+      result = check(fixture({ proposed_tests: [repeating(9)], ...overrides, round_token: result.round_token }));
+    }
+    expect(result.status).toBe("stopped");
+    return result;
+  };
+
+  it("adds the exact fixed caveat only when stopped, including a check whose inputs failed", () => {
+    expect(COMPLETE_CHECKS_TIP).toBe('To give AskRigor\'s checks more room to finish, ask it to complete its checks, for example: "complete askrigor checks".');
+    expect(check(fixture({ answer_draft: withoutTip() }))).toMatchObject({ status: "ready_with_limits" });
+    expect(check(fixture({ answer_draft: withoutTip() })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(check(fixture({ proposed_tests: [repeating(9)] })).caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    expect(stop().caveats).toContain(COMPLETE_CHECKS_TIP);
+    expect(stop().stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
+    let invalid = check({ research_target: 7 });
+    expect(invalid.caveats).not.toContain(COMPLETE_CHECKS_TIP);
+    for (let round = 2; round <= 3; round += 1) invalid = check({ research_target: 7, round_token: invalid.round_token });
+    expect(invalid.status).toBe("stopped");
+    expect(invalid.caveats).toEqual([COMPLETE_CHECKS_TIP]);
+  });
+
+  it("refuses a stopped draft that leaves out the tip without opening another round", () => {
+    const result = stop({ answer_draft: withoutTip() });
+    expect(result.round?.number).toBe(3);
+    expect(result.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+    expect(result.next_steps).toEqual([]);
+    expect(result.round_token).toBeUndefined();
+    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.checked_answer).toBeUndefined();
+  });
+
+  it("accepts the declared translated sentence through caveat_renderings", () => {
+    const translated = 'Pour laisser davantage de temps aux vérifications d’AskRigor, demandez-lui de les terminer, par exemple : « complete askrigor checks ».';
+    const rendering = { caveat: COMPLETE_CHECKS_TIP, text: translated };
+    const result = stop({ answer_draft: withoutTip() + "\n\n" + translated, answer_language: "fr", caveat_renderings: [rendering] });
+    expect(result.caveats).toContain(COMPLETE_CHECKS_TIP);
+    expect(result.stopped!.could_not).toEqual([{ kind: "declaration", step: step(9) }]);
+    // Declaring a translation does not count unless the answer visibly states it.
+    const missing = stop({ answer_draft: withoutTip(), answer_language: "fr", caveat_renderings: [rendering] });
+    expect(missing.stopped!.could_not).toContainEqual({ kind: "answer_draft", step: expect.stringContaining(COMPLETE_CHECKS_TIP) });
+  });
+
+  it.each([
+    `\`\`\`\n${COMPLETE_CHECKS_TIP}\n\`\`\``,
+    `<!-- ${COMPLETE_CHECKS_TIP} -->`,
+    `<details><summary>More</summary>\n\n${COMPLETE_CHECKS_TIP}\n\n</details>`,
+  ])("refuses the tip hidden from visible prose: %s", (hidden) => {
+    expect(stop({ answer_draft: withoutTip() + "\n\n" + hidden }).stopped!.could_not)
+      .toContainEqual({ kind: "answer_draft", step: expect.stringContaining("To give AskRigor's checks more room to finish") });
+  });
+});
+
 describe("what a stopped check could not do and what the next turn can", () => {
   const options = { secret: SECRET, bind: roundBinding("target"), now: START };
   const advance = (steps: readonly CheckStep[], token?: string) => advanceCheckRound(steps, {
@@ -395,14 +456,13 @@ describe("what a stopped check could not do and what the next turn can", () => {
       .toBe("AskRigor's final check stopped at round 3 with this rule still unmet: Read the study's full text.");
   });
 
-  it("leaves a stuck tool-limit step to the next turn by its marker, without reading its text", () => {
+  it("s360-studies: a source-marked tool limit is never a round step, regardless of its prose", () => {
     const deferred: CheckStep = { ...research, deferUntilNextTurn: true };
     let outcome = advance([deferred]);
-    for (let round = 2; round <= 3; round += 1) {
+    for (let round = 1; round <= 4; round += 1) {
+      expect(outcome).toMatchObject({ status: "open", round, open: [], stuck: [] });
       outcome = advance([deferred], outcome.status === "open" ? outcome.token : undefined);
     }
-    expect(outcome).toMatchObject({ status: "stopped", reason: "stuck", couldNot: [], nextTurn: [deferred] });
-    expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : "open").toBeUndefined();
   });
 
   it("gives no bug report when everything left is for the next turn", () => {
@@ -414,5 +474,33 @@ describe("what a stopped check could not do and what the next turn can", () => {
     }
     expect(outcome).toMatchObject({ status: "stopped", couldNot: [], nextTurn: [toolList] });
     expect(outcome.status === "stopped" ? stoppedCheckBugReport(outcome) : "open").toBeUndefined();
+  });
+});
+
+
+describe("27 Oct round continuity regressions", () => {
+  it("s359-t1-given: the ten-round limit includes passes before the recheck", () => {
+    let result = check(fixture());
+    const turn = result.carried!.turn;
+    for (let round = 2; round <= CHECK_ROUND_LIMIT; round += 1) {
+      result = check(fixture({ carried_state: result.carry_forward, round_token: result.round_token,
+        ...(round <= 5 ? {} : { proposed_tests: [repeating(round)] }) }));
+      expect(result.round?.number).toBe(round);
+      expect(result.carried!.turn).toBe(turn);
+      expect(result.status).toBe(round <= 5 ? "ready_with_limits" : round < CHECK_ROUND_LIMIT ? "not_ready" : "stopped");
+    }
+    expect(result.stopped?.reason).toBe("limit");
+  });
+
+  it("r330: ten passes exhaust this turn's calls too", () => {
+    let result = check(fixture());
+    for (let round = 2; round <= CHECK_ROUND_LIMIT; round += 1) {
+      result = check(fixture({ round_token: result.round_token }));
+      expect(result.status).toBe("ready_with_limits");
+      expect(result.round?.number).toBe(round);
+    }
+    const over = check(fixture({ round_token: result.round_token }));
+    expect(over.status).toBe("stopped");
+    expect(over.stopped?.reason).toBe("limit");
   });
 });

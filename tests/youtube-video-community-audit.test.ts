@@ -88,6 +88,33 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it("keeps an unread reply in the sample but excludes it from records returned for analysis, including MCP", async () => {
+  const comments = makeComments(2);
+  comments[1] = { ...comments[1]!, text: "", is_reply: true, parent_id: comments[0]!.comment_id };
+  const original = await auditYoutubeVideoCommunity({ video_id_or_url: VIDEO_ID }, CONFIG,
+    { now: () => NOW, dependencies: completeDependencies(comments) });
+  expect(original.records_retrieved_cumulative).toBe(2);
+  expect(original.records_returned_for_analysis).toBe(1);
+  expect(original.reply_records_returned_for_analysis).toBe(0);
+  const view = compactYoutubeAuditForMcp(original, 40_000, "MCP bounded sample.");
+  expect(view.sample?.sampled_count).toBe(2);
+  expect(view.records_returned_for_analysis).toBe(1);
+  expect(view.sample?.comments.find(({ id }) => id === comments[1]!.comment_id))
+    .toMatchObject({ comment_found: true, content_read: false, content_verified: false, text: "" });
+});
+
+it("keeps unread records out of analysis counts when an Action trims its sample", async () => {
+  const comments = makeComments(20).map((comment) => ({ ...comment, text: "" }));
+  const original = await auditYoutubeVideoCommunity({ video_id_or_url: VIDEO_ID }, CONFIG,
+    { now: () => NOW, dependencies: completeDependencies(comments) });
+  const bounded = boundYoutubeAuditForAction(original, Buffer.byteLength(JSON.stringify(original)) - 50);
+  expect(bounded.sample!.comments.length).toBeGreaterThan(0);
+  expect(bounded.sample!.comments.length).toBeLessThan(20);
+  expect(bounded.records_returned_for_analysis).toBe(0);
+  expect(bounded.top_level_records_returned_for_analysis).toBe(0);
+  expect(bounded.sample!.comments.every((comment) => comment.content_read === false)).toBe(true);
+});
+
 describe("adaptive per-video YouTube community audit", () => {
   it("returns all 399 records with explicit provider, retrieved, and analyzed counts", async () => {
     const dependencies = completeDependencies(makeComments(399));

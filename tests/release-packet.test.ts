@@ -683,15 +683,10 @@ describe("AskRigor public-review packet", () => {
         properties: {
           receipt: {
             properties: {
-              scope: { const: YOUTUBE_COMMUNITY_AUDIT_SCOPE },
-              comment_retrieval_state: { enum: [
-                "api_visible_complete",
-                "complete_no_candidates",
-                "completed_with_access_boundary",
-                "incomplete"
-              ] },
-              youtube_comments_lock: { enum: ["pass", "block"] },
-              query_bounded_comments_used_as_corpus: { const: false }
+              scope: { type: "string" },
+              comment_retrieval_state: { type: "string" },
+              youtube_comments_lock: { type: "string" },
+              query_bounded_comments_used_as_corpus: { type: "boolean" }
             }
           }
         }
@@ -729,7 +724,7 @@ describe("AskRigor public-review packet", () => {
           continuation_recommended: { type: "boolean" },
           continuation_token: { type: "string", maxLength: 65536 },
           receipt: {
-            properties: { video_comments_lock: { enum: ["pass", "block"] } }
+            properties: { video_comments_lock: { type: "string" } }
           }
         }
       }

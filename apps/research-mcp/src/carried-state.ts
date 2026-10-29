@@ -13,13 +13,14 @@ export const userObservationSchema = z.object({
 }).strict();
 
 export const carriedStateSchema = z.object({
-  v: z.literal(1),
+  v: z.literal(2),
   issued_at: z.iso.datetime(),
   observations: z.array(userObservationSchema).max(30),
   retracted: z.array(z.string().max(200)).max(12),
   primary_outcome: z.string().trim().min(1).max(300).optional(),
   rejected: z.array(z.string().trim().min(1).max(120)).max(12),
   named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
+  current_turn_named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
   // The last final check's status and the kinds of step it left open (AskRigor#354), so the next check in this
   // conversation knows that an answer given after an earlier turn's check that did not pass went out unchecked.
   // The round token identifies the call's turn; state returned within it preserves its first-turn flag and the
@@ -30,13 +31,15 @@ export const carriedStateSchema = z.object({
   first_turn: z.boolean().optional(),
   previous_open: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional()
 }).strict();
+const previousCarriedStateSchema = carriedStateSchema.omit({ current_turn_named_communities: true })
+  .extend({ v: z.literal(1) });
 export type CarriedState = z.output<typeof carriedStateSchema>;
 type Options = { secret: string };
 type Verification = { ok: true; state: CarriedState } |
   { ok: false; reason: "malformed" | "bad_signature" | "unsupported_version" };
 
-function mac(body: string, secret: string): Buffer {
-  const key = createHmac("sha256", secret).update("askrigor carried state v1").digest();
+function mac(body: string, secret: string, version: 1 | 2): Buffer {
+  const key = createHmac("sha256", secret).update(`askrigor carried state v${version}`).digest();
   return createHmac("sha256", key).update(body).digest().subarray(0, 16);
 }
 
@@ -47,9 +50,10 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
   for (;;) {
     // Deliberately fixed key order, independent of the caller's object order.
     const ordered: CarriedState = {
-      v: 1, issued_at: checked.issued_at, observations: checked.observations, retracted,
+      v: 2, issued_at: checked.issued_at, observations: checked.observations, retracted,
       ...(checked.primary_outcome === undefined ? {} : { primary_outcome: checked.primary_outcome }),
       rejected: checked.rejected, named_communities: checked.named_communities,
+      current_turn_named_communities: checked.current_turn_named_communities,
       ...(checked.last_status === undefined ? {} : { last_status: checked.last_status }),
       ...(checked.open_kinds === undefined ? {} : { open_kinds: checked.open_kinds }),
       ...(checked.turn === undefined ? {} : { turn: checked.turn }),
@@ -57,8 +61,8 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
       ...(checked.previous_open === undefined ? {} : { previous_open: checked.previous_open })
     };
     const payload = deflateRawSync(Buffer.from(JSON.stringify(ordered))).toString("base64url");
-    const body = `cs1~${payload}`;
-    const token = `${body}~${mac(body, secret).toString("base64url")}`;
+    const body = `cs2~${payload}`;
+    const token = `${body}~${mac(body, secret, 2).toString("base64url")}`;
     if (token.length <= CARRIED_STATE_MAX_CHARACTERS) return token;
     if (retracted.length === 0) return undefined;
     retracted.shift();
@@ -72,17 +76,23 @@ export function verifyCarriedState(token: string, { secret }: Options): Verifica
       !/^[A-Za-z0-9_-]+$/u.test(parts[1]!) || !/^[A-Za-z0-9_-]{22}$/u.test(parts[2]!)) {
     return { ok: false, reason: "malformed" };
   }
-  if (parts[0] !== "cs1") return { ok: false, reason: "unsupported_version" };
+  if (parts[0] !== "cs1" && parts[0] !== "cs2") return { ok: false, reason: "unsupported_version" };
+  const version = parts[0] === "cs1" ? 1 : 2;
   const body = `${parts[0]}~${parts[1]}`;
   const signature = Buffer.from(parts[2]!, "base64url");
   if (signature.length !== 16 || signature.toString("base64url") !== parts[2] ||
-      !timingSafeEqual(mac(body, secret), signature)) return { ok: false, reason: "bad_signature" };
+      !timingSafeEqual(mac(body, secret, version), signature)) return { ok: false, reason: "bad_signature" };
   try {
     const payload = Buffer.from(parts[1]!, "base64url");
     if (payload.toString("base64url") !== parts[1]) return { ok: false, reason: "malformed" };
     const raw: unknown = JSON.parse(inflateRawSync(payload, { maxOutputLength: 256 * 1024 }).toString("utf8"));
-    if (typeof raw === "object" && raw !== null && "v" in raw && raw.v !== 1) {
+    if (typeof raw === "object" && raw !== null && "v" in raw && raw.v !== version) {
       return { ok: false, reason: "unsupported_version" };
+    }
+    if (version === 1) {
+      const parsed = previousCarriedStateSchema.safeParse(raw);
+      return parsed.success ? { ok: true, state: { ...parsed.data, v: 2, current_turn_named_communities: [] } }
+        : { ok: false, reason: "malformed" };
     }
     const parsed = carriedStateSchema.safeParse(raw);
     return parsed.success ? { ok: true, state: parsed.data } : { ok: false, reason: "malformed" };

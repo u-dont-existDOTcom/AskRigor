@@ -208,9 +208,8 @@ is better; the model's `why_not_usual` stays on the card for the owner's review.
 
 ## 5. 140b, the plain answer first
 
-- **Which accounts:** paid private accounts, and accounts marked dev in a server setting
-  (`ASKRIGOR_DEV_ACCOUNT_KEYS`, a comma-separated list of research account keys; not a secret). The owner's account
-  key goes into production's `runtime.env` at the release that ships this, as 140b says.
+- **Which accounts (extended by owner answer 190a, 2026-10-27):** every account with active research access,
+  including free contributor accounts. The original 140b paid/private and dev restriction is superseded.
 - **Registration, before research:** for those accounts, `manage_research_access`'s `inspect` result asks the model,
   before any research call, to write the short answer it would give without AskRigor's tools and register it through
   a new `manage_research_access` action: its text and its claims, each claim a sentence quoted exactly from the text

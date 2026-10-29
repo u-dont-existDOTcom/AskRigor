@@ -12,6 +12,7 @@ import {
   emptyCommentProductCounts,
   PRODUCT_SNIPPET_LIMITATION,
   getYoutubeComments,
+  unreadYoutubeCommentContent,
   getYoutubeVideo,
   searchYoutube,
   youtubeCommentDataSchema,
@@ -246,6 +247,7 @@ export async function auditYoutubeCommunity(
       (commentsResult.access_status === "partial" && commentData.data.comments.length > 0)
     )) {
       const comments = commentData.data.comments.map((comment) => {
+        comment = { ...comment, ...unreadYoutubeCommentContent(comment.text) };
         if (parsed.product_identity === undefined) return comment;
         const product_class = classifyProductComment(parsed.product_identity, classes.get(videoId)!, comment.text);
         video.comment_product_counts![product_class] += 1;

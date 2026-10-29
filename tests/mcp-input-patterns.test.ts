@@ -1,12 +1,10 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { finalizeResearchInputSchema } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { submitResearchContributionInputSchema } from "../apps/research-mcp/src/research-contributor-access-tool.js";
+import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
 
 const UPPERCASE_DOIS = ["10.1002/14651858.CD014682.pub2", "10.23736/S1128-9155.18.00455-7"];
 const DOI_SAMPLES = UPPERCASE_DOIS.flatMap((doi) => [
@@ -74,17 +72,10 @@ describe("published MCP input patterns", () => {
   it.each(["/mcp", "/mcp/claude", "/mcp/gemini"] as const)(
     "preserves registered Zod matching on %s without unpublishable flags",
     async (surface) => {
-      // Observe registration without replacing it; tools/list still comes from
-      // the real server and its surface-specific catalog projection.
-      const registration = vi.spyOn(McpServer.prototype, "registerTool");
-      let server: ReturnType<typeof createAskRigorServer>;
-      let inputs: Map<string, unknown>;
-      try {
-        server = createAskRigorServer(surface === "/mcp/gemini" ? "gemini" : "standard", { mcpSurface: surface });
-        inputs = new Map(registration.mock.calls.map(([name, config]) => [name, config.inputSchema]));
-      } finally {
-        registration.mockRestore();
-      }
+      // Every SDK parser is permissive (189a); exact pattern matching belongs to the separate runtime schema.
+      // tools/list still comes from the real server and its surface-specific catalog projection.
+      const server = createAskRigorServer(surface === "/mcp/gemini" ? "gemini" : "standard", { mcpSurface: surface });
+      const inputs = new Map(RESEARCH_OPERATIONS.map(({ name, runtimeInputSchema }) => [name, runtimeInputSchema]));
       const client = new Client({ name: "input-pattern-test", version: "0.1.0" });
       const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
       try {
@@ -95,16 +86,6 @@ describe("published MCP input patterns", () => {
         // Gemini deliberately publishes pattern constraints as prose hints.
         // Check every registered input even when its pattern is not published.
         const patterns = new Map([...inputs].map(([name, input]) => [name, inspectZod(input, `${surface} ${name}`)]));
-        if (inputs.has("finalize_research")) {
-          // Its connector wrapper publishes metadata from this schema; the
-          // handler parses with it after accepting the permissive transport.
-          patterns.set("finalize_research", inspectZod(finalizeResearchInputSchema, `${surface} finalize_research`));
-        }
-        if (inputs.has("submit_research_contribution")) {
-          // The same for the contribution (owner question 127): the intake checks every call with this contract.
-          patterns.set("submit_research_contribution",
-            inspectZod(submitResearchContributionInputSchema, `${surface} submit_research_contribution`));
-        }
         let publishedPatterns = 0;
         let doiFields = 0;
         for (const tool of tools) {

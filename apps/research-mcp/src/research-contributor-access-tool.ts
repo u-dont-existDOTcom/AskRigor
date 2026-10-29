@@ -56,9 +56,9 @@ import { toolListNotice, toolListVersionField } from "./tool-list-currency.js";
 // could not accept it (owner report, 2026-10-03). The service still accepts
 // only the current notice; manage_research_access names it when it differs.
 const noticeVersionSchema = z.string().regex(/^free-contributor-v[0-9]{1,3}-[0-9]{4}-[0-9]{2}-[0-9]{2}$/u)
-  .describe(`The notice version the user accepted, exactly as inspect returns it (now ${RESEARCH_USE_NOTICE_VERSION}).`);
+  .describe("The notice version the user accepted, exactly as inspect returns it.");
 
-// The plain answer a paid private or dev account registers before research (owner answer 140b, 2026-10-20).
+// The plain answer any active research account registers before research (owner answer 190a, 2026-10-27).
 const plainAnswerInputSchema = z.object({
   researchTarget: z.string().trim().min(1).max(5_000)
     .describe("The research target, exactly as you will give it to finalize_research and the discovery tools."),
@@ -106,7 +106,7 @@ const researchAccessViewSchema = z.object({
   notice: z.string().min(1),
   contributionRequired: z.boolean(),
   privateEntitlementRequired: z.boolean(),
-  paidCheckoutAvailable: z.literal(false),
+  paidCheckoutAvailable: z.boolean(),
   activatedAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
 }).strict();
@@ -135,7 +135,7 @@ export const manageResearchAccessOutputSchema = z.object({
   access: researchAccessViewSchema.optional(),
   plainAnswer: z.object({
     requested: z.literal(true)
-      .describe("This account registers a plain answer before research: a paid private or dev account."),
+      .describe("This account has active research access and registers a plain answer before research."),
     note: z.boolean().describe("Whether its checked answers end with the note comparing them with the plain answer."),
     claims: z.number().int().min(1).max(PLAIN_ANSWER_LIMITS.claims).optional()
       .describe("With register_plain_answer: how many claims were signed."),
@@ -280,27 +280,15 @@ export interface ResearchMapOptions {
 
 export interface PlainAnswerOptions {
   /**
-   * The account references of the accounts the server's settings mark as dev accounts (ASKRIGOR_DEV_ACCOUNT_KEYS,
-   * references or whole keys).
-   */
-  devAccountKeys: () => ReadonlySet<string>;
-  /**
    * Signs a plain-answer research receipt bound to the account (plainAnswerAccountBinding), or undefined when this
    * server cannot sign receipts.
    */
   sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
 }
 
-/**
- * Whether an active account registers a plain answer before research (owner answer 140b, 2026-10-20): a paid private
- * account, or one the server's settings mark as a dev account.
- */
-export function plainAnswerRequested(
-  mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE",
-  accountKey: string,
-  devAccountKeys: ReadonlySet<string>,
-): boolean {
-  return mode === "PAID_PRIVATE" || isDevAccount(accountKey, devAccountKeys);
+/** Whether this mode has active research access and registers a plain answer (owner answer 190a). */
+export function plainAnswerRequested(mode: string | null | undefined): boolean {
+  return mode === "FREE_CONTRIBUTOR" || mode === "PAID_PRIVATE";
 }
 
 /** Whether the server's settings list this account as a dev account, by its reference (owner answer 140b). */
@@ -308,8 +296,9 @@ export function isDevAccount(accountKey: string, devAccountKeys: ReadonlySet<str
   return devAccountKeys.has(researchAccountReference(accountKey));
 }
 
-const PLAIN_ANSWER_NOT_REQUESTED = "AskRigor asks paid private accounts and the dev accounts its settings list for a " +
-  "plain answer before research; this account is neither, so its research goes ahead without one.";
+const PLAIN_ANSWER_NOT_REQUESTED = "AskRigor asks every account with active research access for a " +
+  "plain answer before research; this account has no active research access.";
+const PLAIN_ANSWER_SURFACE_UNAVAILABLE = "This surface does not offer plain-answer registration or its note.";
 const NOTE_ON = "The final check then writes a short note comparing the checked answer with this plain answer, for " +
   "the end of the answer.";
 const NOTE_OFF = "This account has turned off the note comparing the checked answer with the plain answer; the plain " +
@@ -553,14 +542,14 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       const accountKey = options.service.accountKeyForSubject(auth.subject);
       const accountReference = researchAccountReference(accountKey);
       const devAccount = isDevAccount(accountKey, options.devAccountKeys?.() ?? new Set());
-      // An active account's settings, read once: an active paid private or dev account is asked for its plain answer
-      // before research (owner answer 140b), and any active account's lessons carry a detailed report only when it
+      // An active account's settings, read once: every active account is asked for its plain answer
+      // before research (owner answer 190a), and any active account's lessons carry a detailed report only when it
       // turned detailed lesson reports on (owner question 154).
       const settings = access.status === "ACTIVE" && access.mode !== null
         ? await options.service.activeAccount(auth.subject).catch(() => undefined)
         : undefined;
       const plain = settings !== undefined && options.plainAnswer !== undefined &&
-          plainAnswerRequested(settings.mode, accountKey, options.plainAnswer.devAccountKeys())
+          plainAnswerRequested(settings.mode)
         ? { note: settings.plainAnswerNote }
         : undefined;
       return {
@@ -594,7 +583,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
 }
 
 /**
- * The active account asked for a plain answer (owner answer 140b), with its key and note setting; undefined for any
+ * The active account asked for a plain answer (owner answer 190a), with its key and note setting; undefined for any
  * other account, or on a surface without the plain answer. Throws as activeAccount does for an inactive account.
  */
 async function plainAnswerAccount(
@@ -605,7 +594,7 @@ async function plainAnswerAccount(
   if (plain === undefined) return undefined;
   const accountKey = service.accountKeyForSubject(subject);
   const account = await service.activeAccount(subject);
-  return plainAnswerRequested(account.mode, accountKey, plain.devAccountKeys())
+  return plainAnswerRequested(account.mode)
     ? { accountKey, note: account.plainAnswerNote }
     : undefined;
 }
@@ -624,7 +613,7 @@ async function registerPlainAnswer(
   plain: PlainAnswerOptions | undefined,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
-  if (account === undefined) return accessError("plain_answer_not_requested", PLAIN_ANSWER_NOT_REQUESTED);
+  if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
   const stands = sentencesOf(plainAnswer.text);
   const problems: string[] = [];
   plainAnswer.claims.forEach((claim, index) => {
@@ -675,7 +664,7 @@ async function setPlainAnswerNote(
   plain: PlainAnswerOptions | undefined,
 ): Promise<CallToolResult> {
   if (await plainAnswerAccount(service, subject, plain) === undefined) {
-    return accessError("plain_answer_not_requested", PLAIN_ANSWER_NOT_REQUESTED);
+    return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
   }
   await service.setPlainAnswerNote(subject, enabled);
   return {

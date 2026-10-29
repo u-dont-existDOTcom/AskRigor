@@ -10,6 +10,7 @@ import {
   type AtlasPublicationStore,
   type AtlasPublicationView,
   type AtlasReviewStore,
+  type AtlasStateReader,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -109,6 +110,8 @@ export interface AtlasPublicationRequest {
   cards?: string[];
   cardsFrom?: string;
   cardsTo?: string;
+  topicKey?: string;
+  topicLabel?: string;
 }
 
 export interface AtlasPublicationResult {
@@ -122,6 +125,7 @@ export interface AtlasPublicationResult {
 export interface AtlasPublicationReviewDependencies {
   publications: AtlasPublicationStore;
   store: Pick<AtlasReviewStore, "inspectCards" | "inspectIntents">;
+  reader: AtlasStateReader;
   inbox: Pick<FindingsCardInbox, "readCard" | "openCards" | "repositoryIssues" | "setAside">;
   now: () => Date;
 }
@@ -265,6 +269,17 @@ export class AtlasPublicationReview {
   // publish_cards -----------------------------------------------------------------------------------------------------
 
   private async publishCards(request: AtlasPublicationRequest): Promise<AtlasPublicationResult> {
+    let ownerTopic: { key: string; label: string } | undefined;
+    if (request.topicKey !== undefined) {
+      const state = await this.deps.reader.readAtlasState({ topicKeys: [request.topicKey] });
+      const stored = state.topics.find(({ canonicalKey }) => canonicalKey === request.topicKey);
+      const queued = (await this.deps.store.inspectIntents(null)).find((intent) => intent.status === "PENDING" &&
+        intent.payload.kind === "accept" && intent.payload.topic.key === request.topicKey && intent.payload.topic.label !== null);
+      const label = stored?.label ?? (queued?.payload.kind === "accept" ? queued.payload.topic.label : null) ?? request.topicLabel;
+      if (label === undefined) return invalid(`${request.topicKey} is not an Atlas topic or a stored research frontier's ` +
+        "topic yet: give topicLabel with topicKey.");
+      ownerTopic = { key: request.topicKey, label };
+    }
     const numbers = [...new Set(request.cards!.map((card) => findingsCardNumber(card)!))];
     const cards: AtlasPublications["cards"] = [];
     const items: AtlasPublicationItem[] = [];
@@ -287,6 +302,7 @@ export class AtlasPublicationReview {
         setAside: isSetAside(card.labels),
         route: { route: "owner", paidPrivate: card.marks.paidPrivate },
         decided,
+        ...(ownerTopic === undefined ? {} : { ownerTopic }),
       });
       const leftOut = plan.leftOut.map(({ findingNumber, reason }) => ({ finding: findingNumber, reason }));
       if (plan.problems.length > 0 || plan.drafts.length === 0) {
@@ -295,6 +311,22 @@ export class AtlasPublicationReview {
           ? listed(plan.problems.map((problem) => PROBLEM_WORDS[problem]))
           : `every finding is left out (${leftOutWords(leftOut)})`}.`);
         continue;
+      }
+      if (ownerTopic !== undefined && card.record.card.topic === undefined) {
+        const live = (await this.deps.publications.inspect({ cardNumbers: [number], limit: 500 })).filter((row) =>
+          row.cardSha256 === card.record.card_sha256 && row.published?.topic === null &&
+          row.state !== "withdrawn" && row.state !== "rejected" &&
+          plan.drafts.some(({ findingNumber }) => findingNumber === row.findingNumber));
+        if (live.length > 0) {
+          const withdrawn = await this.deps.publications.withdraw({
+            reason: "owner_unpublished",
+            publicationNumbers: live.map(({ publicationNumber }) => publicationNumber),
+            ownerReason: `filed under ${ownerTopic.key} (owner answer 191b)`,
+            withdrawnAt: this.deps.now().toISOString(),
+          });
+          lines.push(`${id}: ${withdrawn.map(({ publicationNumber }) => publicationNumber).join(", ")} withdrawn as ` +
+            "owner_unpublished to file under the topic; publishing again follows.");
+        }
       }
       const rows = await this.deps.publications.publish({
         cardNumber: number,
@@ -312,6 +344,12 @@ export class AtlasPublicationReview {
         publications: rows.map(({ publicationNumber }) => publicationNumber),
       });
       items.push(...rows.map(itemOf));
+      if (ownerTopic !== undefined) {
+        const declared = card.record.card.topic;
+        lines.push(declared === undefined
+          ? `${id}: topic label used: ${ownerTopic.label} (${ownerTopic.key}).`
+          : `${id} keeps its declared topic: ${declared.label} (${declared.key}).`);
+      }
       lines.push(`${id}: ${rows.map((row) => `finding ${row.findingNumber} ${row.outcome === "existing"
         ? `was already ${row.publicationNumber} (${STATE_WORDS[row.state]})`
         : `${row.outcome === "revived" ? "published again" : "published"} as ${row.publicationNumber} ` +

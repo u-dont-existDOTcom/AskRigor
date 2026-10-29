@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
+import { deflateRawSync } from "node:zlib";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -6,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { issueCarriedState, verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
+import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
   TOOL_LIST_REFRESH_HINT, finalizeResearch, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
@@ -19,6 +20,11 @@ import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.
 // "continue" turn that did not know. The server never sees the delivered answer, so each step says what kind of gap it
 // is, a not_ready result gives the line such an answer ends with, the finalization receipt signs the checked draft's
 // SHA-256, and the carried state tells the next check that the last one did not pass.
+const issueLegacyCarriedState = (state: Record<string, unknown>, { secret }: { secret: string }): string => {
+  const body = `cs1~${deflateRawSync(Buffer.from(JSON.stringify(state))).toString("base64url")}`;
+  const key = createHmac("sha256", secret).update("askrigor carried state v1").digest();
+  return `${body}~${createHmac("sha256", key).update(body).digest().subarray(0, 16).toString("base64url")}`;
+};
 const SECRET = "unchecked-answer-fixture-secret-0123456789abcdef";
 const NOW = () => new Date("2026-10-21T21:00:00.000Z");
 const PASSING_DRAFT = "No study's methods were checked in full text for this answer.";
@@ -107,7 +113,7 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
     expect(check(base({ carried_state: next.carry_forward })).previous_check).toBeUndefined();
 
     // A token issued before these fields existed still verifies, and says nothing about an earlier check.
-    const older = issueCarriedState({
+    const older = issueLegacyCarriedState({
       v: 1, issued_at: NOW().toISOString(), observations: [], retracted: [], rejected: [], named_communities: []
     }, { secret: SECRET })!;
     expect(verifyCarriedState(older, { secret: SECRET })).toMatchObject({ ok: true });
@@ -124,12 +130,12 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
     expect(second.previous_check).toBeUndefined();
     expect(second.carried).toMatchObject({ turn: first.carried!.turn, first_turn: true });
     expect(second.carried).not.toHaveProperty("previous_open");
-    // The turn is read even when this call passes and returns no round token.
+    // The turn is read even when this call passes and returns a round token.
     const passed = check(base({ carried_state: second.carry_forward, round_token: second.round_token }));
     expect(passed.status).toBe("ready_with_limits");
     expect(passed.previous_check).toBeUndefined();
     expect(passed.carried).toMatchObject({ turn: first.carried!.turn, first_turn: true });
-    expect(passed.round_token).toBeUndefined();
+    expect(passed.round_token).toMatch(/^cr2~/u);
   });
 
   it("keeps an earlier turn's unfinished check through each returned state in the new turn", () => {
@@ -155,7 +161,7 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
 
   it("reads a state without turn fields as an earlier turn's, including an empty list of open kinds", () => {
     for (const open of [["research" as const], []]) {
-      const older = issueCarriedState({
+      const older = issueLegacyCarriedState({
         v: 1, issued_at: NOW().toISOString(), observations: [], retracted: [], rejected: [], named_communities: [],
         last_status: "not_ready", open_kinds: open
       }, { secret: SECRET })!;
@@ -213,7 +219,7 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(blocked.text).toContain("This was round 1 of 10 in this turn. Pass this as round_token in this turn's next " +
       "finalize_research call: cr2~");
     expect(blocked.text).toContain("Pass this as carried_state in this conversation's next finalize_research call, " +
-      "in this turn or a later one: cs1~");
+      "in this turn or a later one: cs2~");
     expect(blocked.text).not.toContain("End the answer with this line");
     expect(blocked.text).not.toContain("word for word");
 

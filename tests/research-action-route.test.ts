@@ -93,6 +93,12 @@ describe("read-only research Action routes", () => {
     expect(calls).toBe(0);
   });
 
+  it("keeps wrapper-level input failures as HTTP 422 before checking a success output schema", async () => {
+    const route = createResearchActionRoutes().find(({ operationId }) => operationId === "search_pubmed")!;
+    expect(await route.handle(context({}))).toEqual({ status: 422,
+      body: { error: { code: "action_input_invalid", retryable: false } } });
+  });
+
   it("returns only schema-valid structured content and fails closed otherwise", async () => {
     const module = await import("../apps/research-mcp/src/index.js") as Record<string, unknown>;
     const factory = module.createResearchActionRoutes as

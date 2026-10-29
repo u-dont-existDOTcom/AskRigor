@@ -2,6 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
+import { LATER_INPUTS_DESCRIPTION } from "./later-inputs.js";
+
 import { RESEARCH_OPERATIONS } from "./register-tools.js";
 
 const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
@@ -56,11 +58,21 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
     name: operation.name,
     description: operation.description,
     inputSchema: withoutInputs(
-      geminiCompatibleInputSchema(operation.inputSchema),
+      geminiCompatibleInputSchema(operation.publishedInputSchema),
       FINALIZATION_ONLY_INPUTS[operation.name] ?? []
     ),
     annotations: operation.annotations
     }));
+
+  // Owner answer 189a permits Gemini-only envelope omissions if every envelope cannot fit. Preserve every
+  // existing tool/input; at the minimum tool-description length, omit envelopes from the end of this fixed order.
+  // The served-list fixture records the exact omissions, so a release cannot silently change them.
+  while (Buffer.byteLength(JSON.stringify({ tools: compactTools(GEMINI_DESCRIPTION_MIN_CHARACTERS) }), "utf8") >= GEMINI_CATALOG_MAX_BYTES) {
+    const tool = fullTools.findLast(({ inputSchema }) =>
+      Object.hasOwn(inputSchema.properties as Record<string, unknown>, "later_inputs"));
+    if (tool === undefined) throw new Error("Gemini tool catalog exceeds its byte budget without later inputs");
+    tool.inputSchema = withoutInputs(tool.inputSchema, ["later_inputs"]);
+  }
 
   // Input growth must not defeat the transport's total catalog budget.
   // Keep every tool and input; reduce description length only as needed.
@@ -167,6 +179,7 @@ function sanitizeNamedSchemas(value: unknown): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(value).map(([name, schema]) => [
       name,
+      name === "later_inputs" ? { type: "object", description: LATER_INPUTS_DESCRIPTION } :
       typeof schema === "object" && schema !== null && !Array.isArray(schema)
         ? sanitizeGeminiFunctionSchema(schema as Record<string, unknown>)
         : {}

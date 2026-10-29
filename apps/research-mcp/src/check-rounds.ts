@@ -9,7 +9,7 @@ import { maskedRule } from "./check-rules.js";
  * The final check's rounds within one turn (owner answer 172a, 2026-10-24): at most ten calls, and a step that comes
  * back unchanged three rounds running is stuck, so the check stops asking for it and counts it as a reason. When the
  * limit is reached, or every step left is stuck, the check stops and gives a final result, which says why it did not
- * pass. A not-ready result gives a signed round token that the next call in the same turn passes back, so the server
+ * pass. A passing or not-ready result gives a signed round token that the next call in the same turn passes back, so the server
  * keeps no state. The v2 token binds only the research target and carries a random turn id, independent of carried
  * state; a later turn passes no round token and starts at round 1 with a new turn id.
  * It lapses two hours after the round that issued it.
@@ -43,6 +43,8 @@ export interface CheckStep {
   consecutive?: number;
   /** The generating tool's limit cannot reset during this turn. Never inferred from the step's prose. */
   deferUntilNextTurn?: boolean;
+  /** Fixed user-facing boundary, supplied with a deferred step by its source. */
+  deferredCaveat?: string;
 }
 
 export type RoundOutcome =
@@ -103,7 +105,7 @@ export function readCheckRound(token: string | undefined, options: {
 }
 
 /**
- * One round of a check that did not pass. `wholeList` counts the steps as one unit, for the invalid-input result,
+ * One round of a check, including a pass with no steps. `wholeList` counts the steps as one unit, for the invalid-input result,
  * whose first line is a heading that repeats while the problems under it change. Every issued token keeps the
  * call's turn, whether or not the call passed carried state.
  */
@@ -114,6 +116,8 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
   now: Date;
   wholeList?: boolean;
 }): RoundOutcome {
+  // Tool-state limits become caveats at their source in the gate, never work for this turn's round tracker.
+  steps = steps.filter(({ deferUntilNextTurn }) => deferUntilNextTurn !== true);
   const previous = options.call.previous;
   const round = Math.min((previous?.n ?? 0) + 1, CHECK_ROUND_LIMIT);
   const counts = new Map(previous?.steps ?? []);
@@ -135,13 +139,14 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
       open.push(...unitSteps.map((step) => ({ ...step, consecutive: count })));
     }
   }
-  if (open.length === 0 || round >= CHECK_ROUND_LIMIT) {
-    const reason = open.length === 0 ? "stuck" : "limit";
+  if ((steps.length > 0 && (open.length === 0 || round >= CHECK_ROUND_LIMIT)) ||
+      (previous?.n ?? 0) >= CHECK_ROUND_LIMIT) {
+    const reason = steps.length > 0 && open.length === 0 ? "stuck" : "limit";
     // What the next turn can do: research the check still asks for, and the app's tool list, which the user
     // refreshes. Everything else is what AskRigor could not do this turn: a step that kept coming back, or, at the
     // limit, a declaration, draft or record the AI and the check could not settle in ten rounds.
     const nextTurn = (step: CheckStep, wasStuck: boolean) =>
-      step.deferUntilNextTurn === true || step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
+      step.kind === "tool_list" || (step.kind === "research" && !wasStuck);
     return {
       status: "stopped",
       round,

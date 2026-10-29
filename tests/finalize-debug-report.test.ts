@@ -60,10 +60,13 @@ describe("the final check's private debug report", () => {
     expect(maskedRule(ruleParts("An untagged dynamic string"), allowed)).toBe("…");
   });
 
-  it("derives the vocabulary from source and the actual tool inventory", async () => {
+  it("derives the vocabulary from exact runtime schemas even when published output values are open", async () => {
     expect(await readFile(new URL("../apps/research-mcp/src/check-report-vocabulary.ts", import.meta.url), "utf8"))
       .toBe(await renderedCheckReportVocabulary());
     expect(allowed("youtube_video_audit_identifier_membership_boundary")).toBe(true);
+    for (const code of ["continue_research", "ledger_consistent_for_synthesis", "ATLAS_LINK_CYCLE"]) {
+      expect(allowed(code), code).toBe(true);
+    }
   });
 
   it("records the video-audit step instead of just saying research failed", () => {
@@ -95,12 +98,13 @@ describe("the final check's private debug report", () => {
     expect(result.bug_report).toContain("rule still unmet:");
   });
 
-  it("keeps quota-stopped searches under next_turn, with their count and masked rule", () => {
+  it("q132: records quota-stopped searches as limits, never round steps in a stopped report", () => {
     const result = stopped(base({ community_evidence: "researched", not_relevant_basis: undefined,
       receipts: [receipt("youtube_search", { target: researchTargetDigest(TARGET), videos: [], inc: 5, rl: 5, q: "one" })] }));
-    const quota = result.check_report!.next_turn.find(({ rule }) => rule.includes("daily quota"));
-    expect(quota).toMatchObject({ kind: "research", consecutive_rounds: 3 });
-    expect(quota!.rule).toContain("5 stopped by YouTube's rate limit or daily quota");
+    expect(result.check_report!.next_turn.some(({ rule }) => rule.includes("daily quota"))).toBe(false);
+    expect(result.check_report!.could_not.some(({ rule }) => rule.includes("daily quota"))).toBe(false);
+    expect(JSON.stringify(result.check_report!.limits)).toContain("YouTube's rate limit or daily quota stopped 5 search(es)");
+    expect(result.caveats).toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
     expect(JSON.stringify(result.check_report)).not.toContain(TARGET);
   });
 

@@ -396,7 +396,7 @@ export function atlasPagesEnabledFromEnv(
 /**
  * The dev accounts (owner answer 140b, 2026-10-20): ASKRIGOR_DEV_ACCOUNT_KEYS, a comma-separated list of account
  * references, the 12 characters manage_research_access shows a signed-in user (owner question, 2026-10-21), or of the
- * 64-character keys research_use_accounts stores. Like a paid private account, a dev account registers a plain answer
+ * 64-character keys research_use_accounts stores. Like every active research account, a dev account registers a plain answer
  * before research and its checked answer ends with the note comparing the two. Each entry is kept as its reference;
  * references and keys are pseudonymous, not secrets, and an entry that is neither is ignored.
  */

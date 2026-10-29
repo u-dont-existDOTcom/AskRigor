@@ -145,7 +145,7 @@ export interface AskRigorMcpServerOptions {
   findingsLibrary?: boolean;
   /** The endpoint this server answers on; saved findings cards record it. */
   mcpSurface?: McpSurface;
-  /** The versions this server runs: its title and version, and the manifest tool's description. */
+  /** The versions this server runs: its title and version, and the manifest tool's result. */
   runningVersions?: RunningVersions;
   /** This surface's tool list version (toolListVersionOf), which a call's tool_list_version is compared with. */
   toolListVersion?: string;

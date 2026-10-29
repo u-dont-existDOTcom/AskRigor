@@ -247,6 +247,9 @@ function createResearchActionRoute(
       }
       try {
         const result = await operation.execute(operationInput, { surface: "action" });
+        if (result.isError === true && result._meta?.["askrigor/errorCode"] === "invalid_input") {
+          return { status: 422, body: { error: { code: "action_input_invalid", retryable: false } } };
+        }
         // Research receipts serve MCP's finalize_research. The Custom GPT's
         // session controller keeps its own ledger, so Actions return none.
         const { research_receipt: _receipt, ...structuredContent } = result.structuredContent ?? {};

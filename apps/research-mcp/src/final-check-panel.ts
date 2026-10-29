@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -26,13 +27,14 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 }
 
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
-// One line for the reader (owner question 108): whether AskRigor's final check passed on this answer, in AskRigor's own
-// words. The limits are in the answer itself, which the check made sure of.
+// The verdict line (owner question 108), followed by the exact checked answer or the unfinished steps and a tip
+// for continuing (owner answer 187). All result text stays plain text in the sandboxed panel.
 // A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
 // usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
 // completion check failed"). An answer given before the check passed says so in its own last line. A stopped check is
 // the turn's final result (owner answer 172a), so its line says it was not checked, and why.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
+const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
@@ -51,6 +53,29 @@ function renderFinalCheck(doc, structuredContent) {
   const paragraph = doc.createElement("p");
   paragraph.textContent = line;
   root.appendChild(paragraph);
+  const appendText = (tag, text, parent = root) => {
+    const element = doc.createElement(tag);
+    element.textContent = text;
+    parent.appendChild(element);
+    return element;
+  };
+  if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
+    appendText("h2", "The answer as AskRigor checked it:");
+    appendText("p", result.checked_answer);
+  }
+  if (result.status === "stopped") {
+    const appendSteps = (heading, steps) => {
+      const texts = Array.isArray(steps) ? steps.filter((entry) => entry && typeof entry.step === "string") : [];
+      if (texts.length === 0) return;
+      appendText("h2", heading);
+      const list = doc.createElement("ul");
+      for (const entry of texts) appendText("li", entry.step, list);
+      root.appendChild(list);
+    };
+    appendSteps("Checks AskRigor could not finish this turn:", result.stopped?.could_not);
+    appendSteps("What the next turn can do:", result.stopped?.next_turn);
+    appendText("p", COMPLETE_CHECKS_TIP);
+  }
 }
 `;
 
@@ -84,6 +109,8 @@ export function finalCheckPanelHtml(): string {
 body { margin: 0; padding: 10px 16px; }
 main { max-width: 72ch; margin: auto; overflow-wrap: anywhere; }
 p { margin: 0; white-space: pre-wrap; }
+h2 { font-size: 1em; margin: 12px 0 4px; }
+ul { margin: 0 0 12px; padding-left: 20px; white-space: pre-wrap; }
 @media (prefers-color-scheme: dark) { :root { color: #e7e9ed; background: #191b20; } }
 </style>
 </head>

@@ -1,3 +1,4 @@
+import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +27,7 @@ describe("finalize_research published schemas and handler validation", () => {
   it.each(["/mcp", "/mcp/claude"] as const)("publishes the derived schema exactly on %s and passes invalid arguments to the handler", async (surface) => {
     await withClient(surface, async (client) => {
       const listed = (await client.listTools()).tools.find(({ name }) => name === "finalize_research")!;
-      expect(listed.inputSchema).toEqual(finalizeResearchPublishedInputSchema({ relaxed: surface === "/mcp" }));
+      expect(withoutLaterInputs(listed.inputSchema)).toEqual(finalizeResearchPublishedInputSchema({ relaxed: surface === "/mcp" }));
       const invalid = { ...base, receipts: 9, invented: "field" };
       expect(finalizeResearchInputSchema.safeParse(invalid).success).toBe(false);
       const response = await client.callTool({ name: "finalize_research", arguments: invalid });

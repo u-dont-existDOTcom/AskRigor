@@ -1,3 +1,4 @@
+import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -534,8 +535,9 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
       expect(JSON.stringify(result.carried ?? {})).not.toContain(declared);
       expect(result.carry_forward ?? "").not.toContain(declared);
     }
-    // Only a harm not checked comes back, in its caveat and limit for this call; the query never does.
-    const output = JSON.stringify({ ...result, caveats: [], limits: [] });
+    // Outside the caller's checked answer, only a harm not checked comes back, in its caveat and limit for this
+    // call. The query and declarations still stay out of the receipt and carried state.
+    const output = JSON.stringify({ ...result, checked_answer: undefined, caveats: [], limits: [] });
     for (const declared of ["allergic", "anaphylaxis", "rechallenge", "somatropin"]) expect(output).not.toContain(declared);
     expect(result.caveats).toContain(harmNotCheckedCaveat("stroke after rechallenge"));
   });
@@ -608,7 +610,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       type Node = { description?: string; type?: string; maxLength?: number; maxItems?: number; enum?: string[];
         items?: Node; properties?: Record<string, Node> };
       const published = finalizeResearchPublishedInputSchema({ relaxed }) as { properties: Record<string, Node> };
-      expect(tool.inputSchema).toEqual(published);
+      expect(withoutLaterInputs(tool.inputSchema)).toEqual(published);
       const screen = published.properties.harm_screen!;
       expect(screen.type).toBe("array");
       expect(screen.description).toContain("the serious harms plausible for this exposure, apart from its common side " +

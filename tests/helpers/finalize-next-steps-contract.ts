@@ -2,6 +2,7 @@ import { z } from "zod";
 import { expect } from "vitest";
 import { createToolInventory } from "../../scripts/generate-tool-inventory.mts";
 import { finalizeResearchInputSchema, normalizeIdentifier, type FinalizeResearchOutput } from "../../apps/research-mcp/src/research-finalization-gate.js";
+import { RESEARCH_OPERATIONS } from "../../apps/research-mcp/src/register-tools.js";
 
 // Receipt field returned by retrieval and audit tools, referenced by the final check.
 export const NEXT_STEP_OUTPUT_FIELDS = ["research_receipt"] as const;
@@ -26,10 +27,15 @@ export function schemaIdentifiers(schema: unknown, identifiers = new Set<string>
 
 // This is the MCP server's tools/list, rather than a hand-maintained copy of its schema.
 export const inventory = await createToolInventory();
-// A next step may name any field or value the published contract exposes: finalize_research's own inputs, another
-// AskRigor tool's inputs (an explicitly named operation), or a value a tool returns that the caller has already seen.
+// Published values are open (189a). A next step may also name exact runtime enum/literal values that AskRigor
+// returns or accepts, including later inputs. Runtime output declarations stay exact independently of their
+// open publication; this helper never uses a hand-maintained code list.
 export const allowedNextStepIdentifiers = schemaIdentifiers(
   [...inventory.tools.flatMap((tool) => [tool.inputSchema, (tool as { outputSchema?: unknown }).outputSchema]),
+    ...RESEARCH_OPERATIONS.flatMap((tool) => [
+      z.toJSONSchema(tool.runtimeInputSchema, { target: "draft-7", io: "input" }),
+      z.toJSONSchema(tool.runtimeOutputSchema, { target: "draft-7" }),
+    ]),
     z.toJSONSchema(finalizeResearchInputSchema, { target: "draft-7", io: "input" })],
   new Set([...inventory.tools.map(({ name }) => name), ...NEXT_STEP_OUTPUT_FIELDS])
 );

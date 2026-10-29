@@ -43,7 +43,9 @@ export const researchContributionReviewInputSchema = z.object({
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
       "findings: list_youtube_findings, move_youtube_findings, delete_youtube_findings or delete_all_youtube_findings. " +
       "Publications in the Atlas: " +
-      "list_publications, unpublish_finding, publish_cards or set_aside_cards. Comments and the home page: " +
+      "list_publications, unpublish_finding, publish_cards or set_aside_cards. publish_cards takes topicKey and " +
+      "topicLabel for cards that declare no topic; a stored topic's label is reused, and topicless publications " +
+      "are withdrawn then published again with their P numbers. Comments and the home page: " +
       "list_comments, hide_comment, show_comment, remove_comment, stop_commenter, restore_commenter or set_picks."),
   proposalId: z.string().uuid().optional().describe("Proposals: the proposal's ID."),
   expectedPayloadSha256: z.string().regex(/^[a-f0-9]{64}$/u).optional()

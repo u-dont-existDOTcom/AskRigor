@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type {
   YoutubeComment
 } from "@askrigor/sources";
-import { youtubeTranscriptSegmentSchema } from "@askrigor/sources";
+import { youtubeCommentContentReadable, youtubeTranscriptSegmentSchema } from "@askrigor/sources";
 import { z } from "zod";
 
 import type { ResearchCandidateDiscoveryState } from
@@ -370,7 +370,7 @@ export function createVideoEvidenceWorkPackage(
     discussion_receipt_sha256: discussionHash,
     transcript_record_count: material?.transcript_segments.length ??
       transcript.receipt.pagination.records_returned_cumulative,
-    discussion_analysis_record_count: material?.discussion_comments.length ??
+    discussion_analysis_record_count: material?.discussion_comments.filter(youtubeCommentContentReadable).length ??
       discussion.receipt.records_returned_for_analysis
   });
 }
@@ -393,7 +393,7 @@ export function ingestVideoEvidenceSubmission(
     segment.record_sha256,
     segment
   ]));
-  const commentsByHash = new Map(material.discussion_comments.map((comment) => [
+  const commentsByHash = new Map(material.discussion_comments.filter(youtubeCommentContentReadable).map((comment) => [
     comment.record_sha256,
     comment
   ]));

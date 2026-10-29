@@ -80,6 +80,27 @@ const configSchema = z.object({
  */
 const videoTimeSchema = z.string().trim().regex(/^(?:\d{1,2}:[0-5]\d|\d{1,3}):[0-5]\d$/u);
 const speakerSchema = z.enum(["creator", "guest", "other", "unclear"]);
+const relationshipTypes = ["outside_paid_placement", "affiliate_commission", "gift", "own_offering",
+  "declined_sponsorship_offer", "research_funding", "unknown"] as const;
+const caveatKinds = ["funding", "methods", "correction", "uncertainty", "claim_criticized"] as const;
+
+export const geminiVideoRelationshipSchema = z.object({
+  start: z.union([videoTimeSchema, z.literal("")]),
+  what: z.string().trim().min(1).max(300),
+  // Older reports do not say which relationship was reported; never infer it from their wording.
+  relationship_type: z.enum(relationshipTypes).default("unknown"),
+  actor: z.string().trim().max(200).default(""),
+  counterparty: z.string().trim().max(200).default(""),
+  content_access: z.enum(["model_report_unverified", "not_recorded"]).default("not_recorded")
+}).strict();
+
+export const geminiVideoCaveatSchema = z.object({
+  start: videoTimeSchema,
+  speaker: speakerSchema,
+  kind: z.enum(caveatKinds),
+  quote: z.string().trim().min(1).max(600),
+  caveat: z.string().trim().min(1).max(600)
+}).strict();
 
 export const geminiVideoClaimSchema = z.object({
   start: videoTimeSchema,
@@ -95,10 +116,9 @@ export const geminiVideoClaimsReportSchema = z.object({
   spoken_language: z.string().trim().max(35),
   claims: z.array(geminiVideoClaimSchema).max(GEMINI_VIDEO_MAX_CLAIMS),
   more_claims_not_listed: z.boolean(),
-  sponsorships: z.array(z.object({
-    start: z.union([videoTimeSchema, z.literal("")]),
-    what: z.string().trim().min(1).max(300)
-  }).strict()).max(12),
+  sponsorships: z.array(geminiVideoRelationshipSchema).max(12),
+  // Absent in an older report means not recorded, not that the speaker gave no caveats.
+  caveats: z.array(geminiVideoCaveatSchema).max(40).optional(),
   on_screen_citations: z.array(z.object({
     start: videoTimeSchema,
     citation: z.string().trim().min(1).max(400)
@@ -250,9 +270,19 @@ const CLAIMS_PROMPT = [
   `List at most ${GEMINI_VIDEO_MAX_CLAIMS} claims. If the video makes more, list the ${GEMINI_VIDEO_MAX_CLAIMS} ` +
     "that matter most for health and set more_claims_not_listed to true; otherwise set it to false.",
   "",
-  "sponsorships: each sponsorship, paid promotion, affiliate link or discount code, and each product the creator " +
-    "sells or promotes, as said or shown, with its start time (an empty string when it has none, such as a " +
-    "standing on-screen banner).",
+  "sponsorships: inventory commercial relationships as said or shown, each with start, what, actor, counterparty, " +
+    "relationship_type and content_access. relationship_type is outside_paid_placement, affiliate_commission, gift, " +
+    "own_offering (the creator's product, course or membership), declined_sponsorship_offer, research_funding, or " +
+    "unknown. Keep these types apart. A creator's own membership is not an outside sponsorship. " +
+    "A declined offer does not show anyone was paid. Record who is involved and the counterparty's stated name, " +
+    "or an empty string if unknown; never infer payment. Keep research funding scoped to the study, separately " +
+    "from any sponsorship of the video or article. content_access is model_report_unverified: this is only your " +
+    "report of the video. Give its start time (an empty string only when it has none, such as a standing banner).",
+  "caveats: independently inventory the speaker's qualifications throughout the entire video, including late caveats " +
+    "after the health claims. Each has start, speaker, kind (funding, methods, correction, uncertainty or " +
+    "claim_criticized), quote (exact words in the language spoken, at most 40 words) and caveat (a plain summary). " +
+    "Keep claims quoted for criticism apart from claims the speaker endorses; do not add caveats as health claim rows. " +
+    "Return an empty list only when none are given.",
   "on_screen_citations: each study, paper, website or other source shown on screen, as written, with its start " +
     "time.",
   "spoken_language: the main spoken language as a BCP 47 tag, for example en, fr or pt-BR."
@@ -304,8 +334,18 @@ const CLAIMS_RESPONSE_SCHEMA: Record<string, unknown> = {
       type: "array",
       items: {
         type: "object",
-        properties: { start: STRING, what: STRING },
-        required: ["start", "what"],
+        properties: { start: STRING, what: STRING, relationship_type: { type: "string", enum: relationshipTypes },
+          actor: STRING, counterparty: STRING, content_access: { type: "string", enum: ["model_report_unverified"] } },
+        required: ["start", "what", "relationship_type", "actor", "counterparty", "content_access"],
+        additionalProperties: false
+      }
+    },
+    caveats: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { start: TIME, speaker: SPEAKER, kind: { type: "string", enum: caveatKinds }, quote: STRING, caveat: STRING },
+        required: ["start", "speaker", "kind", "quote", "caveat"],
         additionalProperties: false
       }
     },
@@ -319,7 +359,7 @@ const CLAIMS_RESPONSE_SCHEMA: Record<string, unknown> = {
       }
     }
   },
-  required: ["spoken_language", "claims", "more_claims_not_listed", "sponsorships", "on_screen_citations"],
+  required: ["spoken_language", "claims", "more_claims_not_listed", "sponsorships", "caveats", "on_screen_citations"],
   additionalProperties: false
 };
 

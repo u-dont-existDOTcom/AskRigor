@@ -53,9 +53,8 @@ async function readProtocolIdentities(): Promise<VersionPayload["protocols"]> {
 
 /**
  * The versions a running server announces where clients show it: its title and
- * version in the MCP handshake, and the start of get_protocol_manifest's
- * description (owner, 2026-10-03: "make sure the version number is in the
- * plugin info panel so i don't have to ask it what version it is").
+ * version in the MCP handshake, and get_protocol_manifest's result. Owner answer
+ * 189a supersedes the 2026-10-03 request to also put them in a tool description.
  */
 export interface RunningVersions {
   hrp: string;

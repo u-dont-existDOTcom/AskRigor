@@ -154,12 +154,14 @@ describe("AskRigor MCP tools", () => {
       expect(review.description).toContain("A paid private card's findings are published only after you accept them.");
       expect(review.description).toContain("this call never writes canonical evidence");
       const input = review.inputSchema as { properties: Record<string, { enum?: string[]; type?: string; pattern?: string }> };
-      expect(input.properties.action!.enum).toEqual(["inspect", "status", "accept", "reject", "list_findings",
+      expect(input.properties.action).toMatchObject({ type: "string" });
+      expect(input.properties.action).not.toHaveProperty("enum");
+      for (const action of ["inspect", "status", "accept", "reject", "list_findings",
         "inspect_finding", "accept_finding", "edit_finding", "reject_finding", "withdraw_finding", "link_findings",
         "forget_card", "list_youtube_findings", "move_youtube_findings", "delete_youtube_findings",
         "delete_all_youtube_findings", "list_publications", "unpublish_finding", "publish_cards", "set_aside_cards",
         "list_comments", "hide_comment", "show_comment", "remove_comment", "stop_commenter", "restore_commenter",
-        "set_picks"]);
+        "set_picks"]) expect(input.properties.action).toMatchObject({ description: expect.stringContaining(action) });
       expect(review.description).toContain("forget_card (card ARF-0142) removes what ties a card to its contributor");
       // Owner answer 173: the held YouTube findings ride on the same tool, so the catalog stays at 33 tools.
       // Kept until deleted, on request or if YouTube asks (the owner's rule, 25 Oct): no deletion by age.
@@ -178,7 +180,7 @@ describe("AskRigor MCP tools", () => {
         "subjectType", "direction", "wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt", "question", "sources",
         "numbers", "note", "correction", "eraseWording", "confirm", "relation", "to", "disagreement", "rationale",
         "cursor", "includeSetAside", "publicationState", "publication", "cardsFrom", "cardsTo", "reported", "comment",
-        "commenter", "picks"]);
+        "commenter", "picks", "later_inputs"]);
       for (const field of ["kind", "subjectType", "direction"]) {
         expect(input.properties[field]!.type, field).toBe("string");
         expect(input.properties[field]!.enum!.length, field).toBeGreaterThan(1);
@@ -191,7 +193,8 @@ describe("AskRigor MCP tools", () => {
       expect(input.properties.card!.pattern).toBe("^[Aa][Rr][Ff]-[0-9]{1,9}$");
       const output = review.outputSchema as { properties: Record<string, unknown>; required?: string[] };
       expect(output.required).toEqual(["ok", "canonicalEvidenceChangedByThisCall"]);
-      expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ const: false });
+      expect(output.properties.canonicalEvidenceChangedByThisCall).toMatchObject({ type: "boolean" });
+      expect(output.properties.canonicalEvidenceChangedByThisCall).not.toHaveProperty("const");
       expect(Object.keys(output.properties)).toEqual(["ok", "outcome", "proposal", "findings", "card", "atlas", "checks",
         "retry", "forget", "youtubeFindings", "heldWithoutCard", "publications", "participation",
         "canonicalEvidenceChangedByThisCall", "error"]);
@@ -407,7 +410,7 @@ describe("AskRigor MCP tools", () => {
             "provider", "record_type", "retrieved_at", "research_question",
             "access_status", "limitations", "searches", "candidates"
           ],
-          additionalProperties: false
+          additionalProperties: true
         }
       });
       expect(survey!.outputSchema.properties.candidates.items.properties).toMatchObject({
@@ -428,7 +431,7 @@ describe("AskRigor MCP tools", () => {
             analysis_limit: { type: "integer", minimum: 1, maximum: 500, default: 500 }
           }
         },
-        outputSchema: { type: "object", additionalProperties: false }
+        outputSchema: { type: "object", additionalProperties: true }
       });
       expect(audit!.outputSchema.required).toEqual(expect.arrayContaining([
         "top_level_comments_retrieved_cumulative",
@@ -448,7 +451,7 @@ describe("AskRigor MCP tools", () => {
           "top_level_pagination_exhausted", "replies_reconciled",
           "query_bounded_comments_used_as_corpus", "blockers"
         ],
-        additionalProperties: false
+        additionalProperties: true
       });
     } finally {
       await server.close();
@@ -505,7 +508,7 @@ describe("AskRigor MCP tools", () => {
             "provider", "record_type", "retrieved_at", "research_question",
             "access_status", "limitations", "selection", "searches", "videos", "receipt"
           ],
-          additionalProperties: false
+          additionalProperties: true
         }
       });
       expect(audit!.outputSchema.properties.receipt).toMatchObject({
@@ -518,7 +521,7 @@ describe("AskRigor MCP tools", () => {
           "replies_reconciled_for_complete_videos",
           "query_bounded_comments_used_as_corpus", "blockers"
         ],
-        additionalProperties: false
+        additionalProperties: true
       });
     } finally {
       await server.close();
@@ -1545,7 +1548,7 @@ describe("AskRigor MCP tools", () => {
       });
       expect(search!.outputSchema.properties.data.items).toMatchObject({
         type: "object",
-        additionalProperties: false
+        additionalProperties: true
       });
       expect(search!.outputSchema.properties.data.items.properties).toMatchObject({
         video_id: { type: "string", pattern: "^[A-Za-z0-9_-]{11}$" },
@@ -1564,11 +1567,11 @@ describe("AskRigor MCP tools", () => {
       expect(videoDataVariants[0].properties.video_id).toMatchObject({ pattern: "^[A-Za-z0-9_-]{11}$" });
       expect(videoDataVariants[0].properties.statistics.properties.view_count).toMatchObject({ pattern: "^\\d+$" });
       expect(videoDataVariants[0].properties.published_at).toMatchObject({ pattern: expect.any(String) });
-      expect(videoDataVariants[0].properties.live_broadcast_content).toMatchObject({ enum: ["none", "live", "upcoming"] });
-      expect(videoDataVariants[0].properties.privacy_status).toMatchObject({ enum: ["public", "private", "unlisted"] });
+      expect(videoDataVariants[0].properties.live_broadcast_content).toEqual({ type: "string" });
+      expect(videoDataVariants[0].properties.privacy_status).toEqual({ type: "string" });
       expect(videoDataVariants[1]).toMatchObject({
         type: "object",
-        additionalProperties: false
+        additionalProperties: true
       });
     } finally {
       await server.close();
@@ -1868,7 +1871,7 @@ describe("AskRigor MCP tools", () => {
         expect(commentData).toMatchObject({
           type: "object",
           required: ["comments", "manifest"],
-          additionalProperties: false
+          additionalProperties: true
         });
         expect(commentData.properties.comments.items).toMatchObject({
           type: "object",
@@ -1876,7 +1879,7 @@ describe("AskRigor MCP tools", () => {
             "video_id", "comment_id", "parent_id", "top_level_comment_id",
             "is_reply", "text", "like_count", "published_at", "updated_at"
           ],
-          additionalProperties: false
+          additionalProperties: true
         });
         expect(commentData.properties.manifest).toMatchObject({
           type: "object",
@@ -1885,7 +1888,7 @@ describe("AskRigor MCP tools", () => {
             "replies_retrieved", "total_comments_and_replies",
             "reply_count_mismatches", "pages", "extraction_coverage"
           ],
-          additionalProperties: false
+          additionalProperties: true
         });
       }
     } finally {
@@ -1926,6 +1929,61 @@ describe("AskRigor MCP tools", () => {
         }
       });
       expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("accepts an exact channel id through later_inputs and excludes similarly named channels", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const page = JSON.parse(await youtubeFixture("search-page-1.json"));
+    const channelId = page.items[0].snippet.channelId;
+    page.items.push({ ...page.items[0], id: { kind: "youtube#video", videoId: "abcdefghijk" },
+      snippet: { ...page.items[0].snippet, channelId: "UCabcdefghijkl0123456789" } });
+    page.items.push({ ...page.items[0], id: { kind: "youtube#video", videoId: "lmnopqrstuv" }, snippet: { title: "Unknown channel" } });
+    page.pageInfo = { totalResults: 3, resultsPerPage: 3 };
+    delete page.nextPageToken;
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return Response.json(page);
+    }));
+    try {
+      for (const args of [{ later_inputs: { channel_id: channelId } }, { channel_id: channelId }]) {
+        const result = await client.callTool({ name: "search_youtube", arguments: { query: "Recorded health channel", ...args } });
+        expect(result.isError).not.toBe(true);
+        expect((result.structuredContent as any).data.map(({ channel_id }: any) => channel_id)).toEqual([channelId]);
+      }
+      expect(requests.every((url) => url.searchParams.get("channelId") === channelId)).toBe(true);
+      const duplicate = await client.callTool({ name: "search_youtube", arguments: {
+        query: "Recorded health channel", channel_id: channelId, later_inputs: { channel_id: channelId }
+      } });
+      expect(duplicate.isError).toBe(true);
+      expect(requests).toHaveLength(2);
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it.each(["get_youtube_comments", "search_youtube_comments"])("%s marks empty-text replies as found with unread content", async (name) => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    const replies = JSON.parse(await youtubeFixture("comments-query-parent.json"));
+    replies.items[0].snippet.textDisplay = "";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => new URL(String(input)).pathname.endsWith("/commentThreads")
+      ? Response.json(JSON.parse(await youtubeFixture("comment-threads-query.json"))) : Response.json(replies)));
+    try {
+      const result = await client.callTool({ name, arguments: { video_id_or_url: "XpZHKGGCK-o",
+        ...(name === "search_youtube_comments" ? { query: "recorded episode" } : {}) } });
+      expect(result.isError).not.toBe(true);
+      const comments = (result.structuredContent as any).data.comments;
+      expect(comments.find(({ is_reply }: any) => is_reply)).toMatchObject({ text: "", comment_found: true,
+        content_read: false, source_modality: "unknown", content_verified: false, audio_available: null, transcript_read: false });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
@@ -3284,7 +3342,7 @@ describe("AskRigor Streamable HTTP server", () => {
     }
   });
 
-  it("shows its versions where plugin panels look: its title and version, and the first tool's description", async () => {
+  it("shows running versions in the handshake and manifest result, with a fixed tool description", async () => {
     // Owner, 2026-10-03: "make sure the version number is in the plugin info panel so i don't have to ask it what
     // version it is". The build is read when the server starts, so it is set first.
     const [hrp, universal] = await Promise.all([getProtocolManifest("hrp"), getProtocolManifest("universal")]);
@@ -3303,8 +3361,13 @@ describe("AskRigor Streamable HTTP server", () => {
           const { tools } = await client.listTools();
           expect(tools[0]?.name).toBe("get_protocol_manifest");
           expect(tools[0]?.description).toBe(
-            `Versions when this tool list was loaded: ${versions}. Lists canonical protocol identity, SHA-256 metadata and the finalize_research input contract version.`
+            "Lists canonical protocol identity, SHA-256 metadata, running versions and the finalize_research input contract version."
           );
+          const result = await client.callTool({ name: "get_protocol_manifest", arguments: { protocol: "hrp" } });
+          expect(result.structuredContent).toMatchObject({ running_versions: {
+            hrp: hrp.version, universal: universal.version, build: "5640e6d2cfef",
+          } });
+          expect(JSON.stringify(result.content)).toContain(`Running versions: ${versions}`);
         } finally {
           await client.close();
         }
@@ -3347,8 +3410,8 @@ describe("AskRigor Streamable HTTP server", () => {
     const before = await listed("5640e6d2cfef");
     const after = await listed("8c0ffee5a1b2");
     expect(before.version).toMatch(/^[0-9a-f]{16}$/u);
-    // The release's version text changed; the tools did not, so the version stays.
-    expect(after.description).not.toBe(before.description);
+    // The build changed; the fixed tools and their version stay the same.
+    expect(after.description).toBe(before.description);
     expect(after.version).toBe(before.version);
   });
 

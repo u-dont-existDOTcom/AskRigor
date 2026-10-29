@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -102,6 +103,23 @@ describe("Gemini video reading request", () => {
 });
 
 describe("Gemini video reading pass", () => {
+  it("preserves typed relationships and a late funding caveat apart from health claims", async () => {
+    const report = JSON.parse(await readFile(new URL("fixtures/gemini/video-claims-relationships-and-caveats.json", import.meta.url), "utf8"));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(interaction("completed", report))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 })));
+    const done = await advanceGeminiVideoPass({ mode: "claims", video_id: VIDEO }, CONFIG,
+      { interaction_id: "interaction-1", poll_attempts: 0 });
+    expect(done).toMatchObject({ kind: "complete", report: { mode: "claims", claims: report } });
+    const request = buildGeminiVideoRequest({ mode: "claims", video_id: VIDEO });
+    const prompt = (request.input as Array<{ text?: string }>)[1]!.text!;
+    expect(prompt).toContain("A creator's own membership is not an outside sponsorship");
+    expect(prompt).toContain("A declined offer does not show anyone was paid");
+    expect(prompt).toContain("including late caveats");
+    const schema = (request.response_format as { schema: any }).schema;
+    expect(schema.properties.sponsorships.items.required).toEqual(expect.arrayContaining(["relationship_type", "actor", "counterparty", "content_access"]));
+    expect(schema.required).toContain("caveats");
+  });
+
   it("starts a background pass, polls it, and deletes the stored copy before reporting", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(interaction("in_progress"))

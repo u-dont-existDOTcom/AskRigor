@@ -1,3 +1,4 @@
+import { laterInputShape, mergeLaterInputs } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -8,6 +9,7 @@ import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
 import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
+import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 
 import { z } from "zod";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
@@ -293,7 +295,7 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
   "are given, in this turn or a later one.";
 
-// The plain answer a paid private or dev account registers before research (owner answer 140b, 2026-10-20), and how
+// The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.
 export const PLAIN_ANSWER_LIMITS = { textCharacters: 1_500, claims: 5, claimCharacters: 250 } as const;
 export const PLAIN_ANSWER_OUTCOMES = ["confirmed", "corrected", "qualified", "not_checked"] as const;
@@ -487,16 +489,16 @@ export const finalizeResearchInputSchema = z.object({
       .transform((identity) => Array.isArray(identity) ? identity : [identity]).optional()
       .describe("Outside review sites, for each exposure the answer draws on from this community's threads: how the reports you read divide. The four classes add up to reports_read (HRP ScopeAxesBeforeSampling, ObjectiveSubjectiveSeparation)."),
     access_boundary: z.enum([
-      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results", "not_found"
+      "no_web_search", "login_required", "blocked", "retrieval_failed", "no_relevant_results", "not_found", "supplied_by_user"
     ]).optional()
       .describe("What stopped the search: this app has no web search; the site needs a login; the site refused " +
         "access, such as a block page; a search or page fetch failed, such as an error or a timeout; the " +
         "searches found nothing relevant; or the community itself could not be found, with no site, group or forum " +
-        "under its name."),
+        "under its name; supplied_by_user: the user pasted the reports and AskRigor did not search the community itself."),
     url: z.string().trim().url().max(2_048).optional()
       .describe("The community's own address (its forum, group or site link). Needed when no thread was read outside " +
         "Reddit, so the community is known by its site rather than its name, unless the community could not be " +
-        "found (access_boundary not_found)."),
+        "found (access_boundary not_found) or the reports were pasted by the user (supplied_by_user)."),
     review_corpora: z.array(z.object({
       product: z.string().trim().min(1).max(200).describe("The exact product and variant, as its label names it."),
       ratings_shown: z.number().int().min(0).optional()
@@ -661,7 +663,8 @@ export const finalizeResearchInputSchema = z.object({
     }).strict()).max(30).optional(),
     routes_searched: z.array(z.enum(["international_storefronts", "marketplaces", "exporters", "specialist_sellers", "secondary_marketplaces"])).max(5).optional()
   }).strict().optional().describe("Records destination-bound shopping declarations when commercial reviews are required: no request and no offers, live buy options linked in the draft, or a bounded no-result after at least three distinct international routes. These are model declarations, not provider-verified offers."),
-  answer_draft: z.string().trim().min(1).max(60_000).optional()
+  answer_draft: z.string().min(1).max(60_000).refine((draft) => draft.trim().length > 0,
+    "The answer must contain text.").optional()
     .describe("The answer you are about to give, exactly as the user will see it. Needed before the gate reports ready; " +
       "it is checked for internal labels, bare video IDs, a pasted long prompt, the sentences answer_quotes copies " +
       "and the caveats (each as its own sentence, as written or as caveat_renderings gives it), and is not stored."),
@@ -869,6 +872,11 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Every option the user has rejected, earlier ones included, named as the answer names them."),
   reopened: z.array(z.string().trim().min(1).max(120)).max(12).optional()
     .describe("Options from an earlier rejected list that the user has reopened."),
+  withdrawn_named_communities: z.array(z.object({
+    name: z.string().trim().min(1).max(120).describe("An exact name enforced from an earlier turn in the carried state."),
+    reason: z.string().trim().min(10).max(300).describe("Why that earlier-turn name is withdrawn.")
+  }).strict()).max(8).optional()
+    .describe("Withdrawals of earlier-turn community names; each name matches an enforced carried name exactly."),
   corrections: z.array(z.object({
     retracted: z.string().trim().min(1).max(1_000)
       .describe("The wrong statement as it read before the correction, such as a rate given under the wrong compound."),
@@ -903,16 +911,16 @@ export const finalizeResearchInputSchema = z.object({
       .describe("confirmed: the research supports it; corrected: the research shows it is wrong; qualified: it holds " +
         "only in part or under conditions; not_checked: the research did not test it."),
     answer_quote: answerQuote.optional()
-      .describe("With corrected or qualified, and optionally with confirmed: the answer's sentence that states it, " +
+      .describe("With confirmed, corrected or qualified: the answer's own sentence stating that item's finding, used for one item only, " +
         "copied from answer_draft."),
     sources: z.array(z.string().trim().min(1).max(300)).max(10).optional()
       .describe("What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were " +
-        "read here (video ID); left out when its sentence is one absence_claims or a correction the research found " +
+        "read here (video ID); left out for a first-turn correction backed by the answer's own sentence, or when its sentence is one absence_claims or a correction the research found " +
         "also declares.")
   }).strict()).max(PLAIN_ANSWER_LIMITS.claims).optional()
     .describe("With answer_draft, when a plain answer registered with manage_research_access before this research is " +
       "passed in receipts: for each of its claims, copied exactly, whether the research confirmed, corrected or " +
-      "qualified it, or did not check it. A correction or a qualification gives the answer's sentence stating it and " +
+      "qualified it, or did not check it. A confirmation, correction or qualification gives the answer's sentence stating it and " +
       "what backs it, checked against this call's receipts and declarations. From it the final check writes " +
       "plain_answer_note, for the end of the answer."),
   findings_card: findingsCardSchema.optional()
@@ -930,7 +938,13 @@ export const finalizeResearchInputSchema = z.object({
     .describe("Your model's name as your app reports it; kept, unverified, with a saved findings card.")
 }).strict();
 
-export type FinalizeResearchInput = z.output<typeof finalizeResearchInputSchema>;
+// Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
+// merged; the top-level schema used by tools/list is unchanged.
+function finalizeResearchRuntimeInputSchema() {
+  const later = laterInputShape("finalize_research");
+  return finalizeResearchInputSchema.safeExtend<typeof later>(later);
+}
+export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
 /**
  * The inputs ChatGPT's app shows the model only as "unknown": a two-branch union, and an object or array nested below
@@ -1027,11 +1041,11 @@ export function finalizeResearchConnectorInputSchema(relaxed: boolean, toolListV
 }
 
 /** Optional empty lists mean none. Clone only the affected containers, preserving the raw call. */
-export function parseFinalizeResearchInput(rawInput: unknown) {
+export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   const object = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
   const empty = (value: unknown) => Array.isArray(value) && value.length === 0;
-  if (!object(rawInput)) return finalizeResearchInputSchema.safeParse(rawInput);
+  if (!object(rawInput)) return rawInput;
   const input = { ...rawInput };
   if (empty(input.principal_communities)) delete input.principal_communities;
   if (object(input.intervention_identity)) {
@@ -1048,7 +1062,23 @@ export function parseFinalizeResearchInput(rawInput: unknown) {
     return copy;
   });
   if (object(input.findings_card) && empty(input.findings_card.findings)) delete input.findings_card;
-  return finalizeResearchInputSchema.safeParse(input);
+  return input;
+}
+
+/**
+ * The call merged with its later_inputs (owner answer 189a), then validated against the runtime schema. A problem
+ * with later_inputs comes back with the other input problems, so the not_ready result names it like any other.
+ */
+export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> {
+  const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
+  const parsed = finalizeResearchRuntimeInputSchema().safeParse(normalizeFinalizeResearchInput(input));
+  if (problems.length === 0) return parsed;
+  const issues: z.core.$ZodIssue[] = [
+    ...problems.map(({ path, message }) => ({ code: "custom" as const, path, message, input: undefined })),
+    ...(parsed.success ? [] : parsed.error.issues),
+  ];
+  return { success: false, error: new z.ZodError(issues) as z.ZodError<FinalizeResearchInput> };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -1138,7 +1168,8 @@ function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResear
     }),
     ...(report ?? {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
+    limits: [], caveats: stopped === undefined ? [] : [COMPLETE_CHECKS_TIP],
+    must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
     community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
       first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
@@ -1229,6 +1260,12 @@ function roundReasonKinds(open: readonly CheckStep[], stuck: readonly CheckStep[
 const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
+/** Earlier turns are enforced; the current turn's latest declaration is still revisable. */
+function earlierNamedCommunities(carried: CarriedState | undefined, turn: string): string[] {
+  return [...new Set([...(carried?.named_communities ?? []),
+    ...(carried?.turn === turn ? [] : carried?.current_turn_named_communities ?? [])])];
+}
+
 function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: string, nextSteps: Pick<RuleInput[], "push">):
   { carried?: CarriedState; invalid: boolean; firstTurn: boolean; previousOpen?: NextStepKind[] } {
   let carried: CarriedState | undefined;
@@ -1243,6 +1280,13 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
   }
   const rejected = new Set((input.rejected_options ?? []).map(optionKey));
   const reopened = new Set((input.reopened ?? []).map(optionKey));
+  const earlierNames = earlierNamedCommunities(carried, turn);
+  const withdrawn = new Set((input.withdrawn_named_communities ?? []).map(({ name }) => name));
+  for (const [index, { name }] of (input.withdrawn_named_communities ?? []).entries()) {
+    if (!earlierNames.includes(name)) nextSteps.push(rule`withdrawn_named_communities[${index}].name is not an enforced earlier-turn name in carried_state: give an exact enforced name.`);
+  }
+  if (earlierNames.filter((name) => !withdrawn.has(name)).length > 8) nextSteps.push(
+    rule`carried_state has more earlier-turn community names than principal_communities can hold: use withdrawn_named_communities with name and reason to keep at most eight. No name is dropped automatically.`);
   if (carried !== undefined) {
     const declared = input.user_observations ?? [];
     const observations = new Set(declared.map(({ observation }) => observation));
@@ -1263,7 +1307,7 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
     }
     if (input.principal_communities !== undefined) {
       const named = new Set(input.principal_communities.filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name));
-      for (const name of carried.named_communities) if (!named.has(name)) nextSteps.push(rule`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or record why it is not searched.`);
+      for (const name of earlierNames) if (!withdrawn.has(name) && !named.has(name)) nextSteps.push(rule`principal_communities leaves out ${name}, which the user named earlier in this conversation: keep it with named_by_user, or withdraw it in withdrawn_named_communities with name and reason.`);
     }
   }
   for (const [i, { intervention }] of (input.recommendations ?? []).entries()) {
@@ -1280,7 +1324,7 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
 }
 
 /**
- * The state only grows or changes by declaration: what a call leaves out is carried on (and the check says so), so a
+ * Earlier-turn state only grows or changes by declaration: what a call leaves out is carried on (and the check says so), so a
  * later call cannot shed it by passing this call's token. A withdrawn mark, a reopened option or a changed goal
  * changes it. The call's turn id, first-turn flag and earlier turn's open kinds distinguish state passed within
  * this turn from state passed into a later one; the round token alone identifies the call's turn.
@@ -1313,13 +1357,21 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
       input.primary_outcome.trim() !== carriedGoal.trim() && input.primary_outcome_changed !== true)
     ? carriedGoal ?? input.primary_outcome
     : input.primary_outcome;
+  const earlierNames = earlierNamedCommunities(carried, check.turn);
+  const withdrawn = new Set((input.withdrawn_named_communities ?? []).map(({ name }) => name)
+    .filter((name) => earlierNames.includes(name)));
+  const namedCommunities = earlierNames.filter((name) => !withdrawn.has(name));
+  if (namedCommunities.length > 8) return "too_large";
   const state: CarriedState = {
-    v: 1, issued_at: (options.now?.() ?? new Date()).toISOString(),
+    v: 2, issued_at: (options.now?.() ?? new Date()).toISOString(),
     observations, retracted: latest,
     ...(goal === undefined ? {} : { primary_outcome: goal }),
     rejected,
-    named_communities: [...new Set([...(carried?.named_communities ?? []),
-      ...(input.principal_communities ?? []).filter(({ named_by_user }) => named_by_user === true).map(({ name }) => name)])].slice(0, 8),
+    named_communities: namedCommunities,
+    current_turn_named_communities: input.principal_communities === undefined
+      ? carried?.turn === check.turn ? carried.current_turn_named_communities.filter((name) => !withdrawn.has(name)) : []
+      : [...new Set(input.principal_communities.filter(({ name, named_by_user }) => named_by_user === true && !withdrawn.has(name))
+        .map(({ name }) => name))],
     last_status: check.status,
     ...(check.status === "not_ready" ? { open_kinds: check.open } : {}),
     turn: check.turn,
@@ -1342,8 +1394,11 @@ const finalizationStatusSchema = z.enum([
 const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string() }).strict();
 
 export const finalizeResearchOutputSchema = z.object({
-  contract: z.literal(FINALIZE_RESEARCH_CONTRACT).describe("Records the server's finalize_research input contract version."),
+  contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
+  checked_answer: z.string().optional()
+    .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
+      "byte, returned only to its caller and shown in the result panel; not stored or logged."),
   next_steps: z.array(z.string()),
   next_step_kinds: z.array(z.enum(NEXT_STEP_KINDS))
     .describe("Each next step's kind, in the same order: input_invalid, the inputs failed and the check did not run; " +
@@ -1365,9 +1420,9 @@ export const finalizeResearchOutputSchema = z.object({
     number: z.number().int().min(1).max(CHECK_ROUND_LIMIT),
     limit: z.literal(CHECK_ROUND_LIMIT)
   }).strict().optional()
-    .describe("When the check did not pass: which of this turn's rounds this call was, and the limit."),
+    .describe("Which of this turn's rounds this call was, including a passing check, and the limit."),
   round_token: z.string().optional()
-    .describe("When not_ready: passed back exactly as round_token in this turn's next finalize_research call."),
+    .describe("When ready, ready_with_limits or not_ready: passed back exactly as round_token in this turn's next finalize_research call."),
   stuck_steps: z.array(roundStepSchema).optional()
     .describe("When not_ready: steps that came back unchanged three rounds running, which the check stopped asking " +
       "for. An answer given now names them as what AskRigor could not do."),
@@ -1463,7 +1518,7 @@ export const finalizeResearchOutputSchema = z.object({
     claims: z.number().int().positive().optional(),
     reason: z.string().optional()
   }).strict().optional()
-    .describe("For a paid private or dev account: registered, a plain answer signed for this research target before " +
+    .describe("For an active research account: registered, a plain answer signed for this research target before " +
       "the research, which plain_answer_comparison compares with the answer; note_off, the same with the account's " +
       "note turned off; or why there is none to compare (no_receipt, other_account, other_target, after_research), " +
       "which holds nothing back."),
@@ -1502,7 +1557,7 @@ export interface FinalizeResearchOptions {
   // waits for the user's yes; "private" for a caller with no research
   // account, whose card is neither checked nor saved.
   findings?: "closed" | "save" | "offer" | "private";
-  // A paid private or dev account on the connector (owner answer 140b): a plain answer it registered before research
+  // An active research account on the connector (owner answer 140b): a plain answer it registered before research
   // is compared with the answer, and the note doing so is written unless the account turned it off. `account` is the
   // binding its plain-answer receipts sign (plainAnswerAccountBinding). Other callers' receipts count for nothing.
   plainAnswer?: { note: boolean; account: string };
@@ -1628,6 +1683,10 @@ export function finalizeResearch(
   const stepKinds: NextStepKind[] = [];
   const checkSteps: CheckStep[] = [];
   const addCheckStep = (step: CheckStep): void => {
+    if (step.deferUntilNextTurn === true) {
+      caveatOnce(step.rule ?? step.text, step.deferredCaveat!);
+      return;
+    }
     nextSteps.push(step.text);
     stepKinds.push(step.kind);
     checkSteps.push(step);
@@ -1856,6 +1915,7 @@ export function finalizeResearch(
   // searches a rate limit stopped in it; or discovery that must go on first.
   let unsaturatedFirstPass = false;
   let firstPassRateLimited = 0;
+  let firstPassDeferredStep: CheckStep | undefined;
   let discoveryContinues = false;
   const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
   if (input.community_evidence === "not_relevant") {
@@ -1924,6 +1984,8 @@ export function finalizeResearch(
       materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
       const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
       saturated = saturation.saturated;
+      if (input.research_depth === "first_pass") firstPassDeferredStep = saturation.deferredStep;
+      else if (saturation.deferredStep !== undefined) addCheckStep(saturation.deferredStep);
       // A first pass is a broad sweep with a cap: it may stop before saturation
       // once enough is audited or searched, and then hands back its open leads.
       // Its rounds come from new angles, so a repeated query does not count.
@@ -1933,7 +1995,7 @@ export function finalizeResearch(
       const angles = new Set(rounds.filter((round) => signedCount([round], "inc") === 0)
         .map((round) => text(round.claims.q) || `${round.kind}#${round.index}`)).size;
       // A search YouTube's rate limit or daily quota stopped cannot rerun until
-      // it resets, so it ends a first pass as an open lead; deep research waits.
+      // it resets, so it is a limit in either depth, with later-turn work in its caveat.
       firstPassComplete = input.research_depth === "first_pass" &&
         (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
           saturation.rateLimited > 0);
@@ -1943,12 +2005,10 @@ export function finalizeResearch(
         unsaturatedFirstPass = true;
         firstPassRateLimited = saturation.rateLimited;
       } else if (!saturated) {
-        discoveryContinues = true;
-        for (const text of saturation.nextSteps) addCheckStep({
-          kind: "research", text: ruleText(text), rule: ruleParts(text), deferUntilNextTurn: saturation.deferUntilNextTurn
-        });
+        discoveryContinues = saturation.nextSteps.length > 0;
+        addStep("research", ...saturation.nextSteps);
       }
-      if (materialVideos.length === 0 && (saturated || firstPassComplete)) {
+      if (materialVideos.length === 0 && (saturated || firstPassComplete || saturation.deferredStep !== undefined)) {
         if (discovered.size === 0) {
           if (saturation.rateLimited > 0 && readVideos.size > 0) {
             // Videos read after the quota stopped discovery were found another way (s359 T1b of 23 Oct): saying that
@@ -2604,14 +2664,9 @@ export function finalizeResearch(
           : "Would you like to go deeper into the studies, and which focus matters most to you?")
       );
     }
-    if (firstPassRateLimited > 0) {
-      requireLimit(
-        joinRules(rule`YouTube's rate limit or daily quota stopped ${firstPassRateLimited} search(es) in the latest discovery `, "rounds; say so, and that another pass can rerun them once the limit resets."),
-        `YouTube's daily search limit stopped ${firstPassRateLimited === 1 ? "1 search" : `${firstPassRateLimited} searches`} ` +
-          `in this first pass; another pass can rerun ${firstPassRateLimited === 1 ? "it" : "them"} after the limit resets.`
-      );
-    }
   }
+
+  if (firstPassDeferredStep !== undefined) addCheckStep(firstPassDeferredStep);
 
   // Absence claims. Where the answer says something was not found, not
   // studied, or has no evidence or no effect, or calls an intervention's
@@ -3043,7 +3098,8 @@ export function finalizeResearch(
   }
   // Fixed sentences, or one holding a public Atlas number its schema checked: shown whole in bug reports.
   for (const caveat of atlasReuse.caveats) requireLimit(joinRules(caveat), caveat);
-  const draft = input.answer_draft;
+  // Preserve the submitted draft for checked_answer; checks and the receipt keep their existing trimmed form.
+  const draft = input.answer_draft?.trim();
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
   // checked card is saved by the agreement the user accepted, with nothing
@@ -3108,7 +3164,7 @@ export function finalizeResearch(
     absences: acceptedAbsences.size,
     corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
   };
-  // Owner answer 140b (2026-10-20): a paid private or dev account registers, before research, the short answer it
+  // Owner answer 140b (2026-10-20): an active research account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
   // here is compared with the answer; one signed later or for another target, or none, gives no note and holds
   // nothing back.
@@ -3191,11 +3247,13 @@ export function finalizeResearch(
       const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
       const comparison = input.plain_answer_comparison;
       if (comparison === undefined) {
-        requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a correction or a qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
+        requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
       } else {
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
         const found = new Map<number, ComparedClaim>();
+        const usedQuotes: Array<{ quote: string; index: number }> = [];
+        const showingComparison = quoteLocator(displayedProse(draft));
         for (const [index, entry] of comparison.entries()) {
           const at = `plain_answer_comparison[${index}]`;
           const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
@@ -3220,10 +3278,21 @@ export function finalizeResearch(
           }
           const work = verifiedWork(sources, entry.answer_quote);
           const backed = basesOf(work).length > 0;
-          if (entry.outcome !== "confirmed" && entry.answer_quote === undefined) {
-            addStep("declaration", joinRules(rule`${at} is ${entry.outcome} without answer_quote: copy the answer's sentence that states the `, "change from answer_draft."));
-          } else if (entry.outcome !== "confirmed" && !backed) {
-            addStep("declaration", joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here or a video whose comments were read here, or quote as "), "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
+          if (entry.answer_quote === undefined) {
+            addStep("declaration", rule`${at} is ${entry.outcome} without answer_quote: copy the answer's own sentence for this item from answer_draft.`);
+          } else {
+            if (showingComparison(entry.answer_quote).length === 0) addStep("declaration", rule`${at}.answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.`);
+            const reused = usedQuotes.find(({ quote }) => sameQuote(quote, entry.answer_quote!));
+            if (reused !== undefined) addStep("declaration", rule`${at}.answer_quote repeats plain_answer_comparison[${reused.index}].answer_quote: one quote backs only one item.`);
+            usedQuotes.push({ quote: entry.answer_quote, index });
+            if (entry.answer_quote.trimEnd().endsWith(":")) addStep("declaration", rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
+            // A first-turn plain answer was never delivered: its correction is the answer's own sentence, not a
+            // retraction of something the user saw. Qualified items still name their research basis.
+            if (entry.outcome !== "confirmed" && !(firstTurn && entry.outcome === "corrected") && !backed) {
+              addStep("declaration", joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here or a video whose comments were read here, or quote as "), firstTurn
+                ? "answer_quote a sentence that absence_claims also declares."
+                : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
+            }
           }
           found.set(number, {
             claim: entry.claim, outcome: entry.outcome,
@@ -3310,10 +3379,7 @@ export function finalizeResearch(
         ]),
         ...(input.corrections ?? []).flatMap(({ report }, index) => report === undefined ? [] :
           [{ at: `corrections[${index}].report`, quote: report }]),
-        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change })),
-        ...(plainAnswer?.status === "registered" ? input.plain_answer_comparison ?? [] : [])
-          .flatMap(({ outcome, answer_quote: quote }, index) => outcome === "not_checked" || quote === undefined ? [] :
-            [{ at: `plain_answer_comparison[${index}].answer_quote`, quote }])
+        ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
       ],
       corrections: (input.corrections ?? []).filter(({ retracted }) => caveatHolding(retracted, caveats) === undefined),
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
@@ -3337,13 +3403,30 @@ export function finalizeResearch(
 
   // Owner answer 172a: at most ten rounds in a turn, and a step that comes back unchanged three rounds running is no
   // longer asked for. The steps left stay in next_steps; a stopped check has none, and says why in `stopped`.
-  const checkRound = nextSteps.length === 0 ? undefined : advanceCheckRound(
+  const checkRound = advanceCheckRound(
     checkSteps,
     {
       ...roundOptions,
       call: callRound
     }
   );
+  if (checkRound?.status === "stopped") {
+    caveats.push(COMPLETE_CHECKS_TIP);
+    // Only a stopped answer needs this sentence. Check it after the round outcome is known, without opening
+    // another round or delaying the stop, through the same visible-sentence and translation check as other caveats.
+    if (draft !== undefined) {
+      for (const problem of answerCaveatProblems(draft, {
+        caveats: [COMPLETE_CHECKS_TIP],
+        ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
+        renderings: input.caveat_renderings ?? [], missingDeclaration: () => {}
+      })) {
+        const text = ruleText(problem);
+        if (!checkRound.couldNot.some((step) => step.text === text)) {
+          checkRound.couldNot.push({ kind: "answer_draft", text, rule: ruleParts(problem), consecutive: 1 });
+        }
+      }
+    }
+  }
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
   // Every step this check leaves open, asked for or not, for the carried state's open kinds.
   const openSteps: CheckStep[] = checkRound === undefined ? []
@@ -3391,9 +3474,11 @@ export function finalizeResearch(
     },
     sources: { validated: validatedSources, lead_only: leadSources },
     answer_checked: draft !== undefined,
+    ...(passed && input.answer_draft !== undefined ? { checked_answer: input.answer_draft } : {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
     findings_card: findingsCard
   };
+  output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
   if (status === "ready") output.check_line = CHECK_LINE;
   else if (status === "ready_with_limits") {
     output.check_line = LIMITED_CHECK_LINE;
@@ -3758,6 +3843,18 @@ function answerDraftProblems(
       }
     }
   }
+  problems.push(...answerCaveatProblems(draft, context));
+  return problems;
+}
+
+function answerCaveatProblems(draft: string, context: {
+  caveats: readonly string[];
+  answerLanguage?: string;
+  renderings: ReadonlyArray<{ caveat: string; text: string }>;
+  missingDeclaration: () => void;
+}): RuleInput[] {
+  const problems: RuleInput[] = [];
+  const shownBlocks = displayedProse(draft);
   // Each caveat the server wrote must reach the answer as a sentence of its
   // own. Only prose a reader sees counts: not code, comments, quotations or
   // image descriptions. An answer in another language states each in that
@@ -4066,7 +4163,7 @@ export function researchMapReminder(work: VerifiedWork): string {
     "the answer's last line says the map was filed. Nothing here holds back the answer.";
 }
 
-// Why a paid private or dev account's answer ends without the plain-answer note; nothing is held back for it.
+// Why an active research account's answer ends without the plain-answer note; nothing is held back for it.
 const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
 const PLAIN_ANSWER_REASONS = {
   no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
@@ -4132,14 +4229,9 @@ function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): str
     const figuresNotShown = extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
     const said = figuresNotShown ? `${lead} ${FIGURES_NOT_SHOWN[outcome]}` : `${lead} said: ${quotation(claim)}`;
     if (outcome === "not_checked") return figuresNotShown ? said : `${said} This research did not check that.`;
-    // Only a confirmation may come without the answer's sentence: "that, from ..." with no quote after it reads as
-    // unfinished (q132 of 25 Oct), so the basis follows "it".
-    if (quote === undefined) {
-      return work === undefined ? `${said} This research ${outcome} that.`
-        : `${said} This research ${outcome} it, from ${verifiedWorkPhrase(work)}.`;
-    }
+    // Non-not_checked entries reach a passing note only with their checked quote.
     const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
-    return `${said} This research ${outcome} that${from}: ${quotation(quote)}`;
+    return `${said} This research ${outcome} that${from}: ${quotation(quote!)}`;
   }).join(" ");
 }
 
@@ -4826,6 +4918,7 @@ interface CommunityRead {
   quotes: Array<Readonly<Record<string, string>>>;
   // Reddit confirmed every thread listed for it: in its subreddit, under its title.
   confirmed: boolean;
+  supplied: boolean;
 }
 
 /**
@@ -4863,6 +4956,7 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
     case "retrieval_failed": return left("A community whose pages could not be retrieved:");
     case "no_relevant_results": return completedCaveat("A community where a search turned up no relevant reports:", name);
     case "not_found": return left("A community I could not find:");
+    case "supplied_by_user": return completedCaveat("Reports the user pasted from a community AskRigor did not search itself:", name);
   }
 }
 
@@ -4924,6 +5018,8 @@ function communityCoverage(
   const searched = new Map<string, string>();
   // Keys of communities recorded as not found (access_boundary not_found).
   const unfound = new Set<string>();
+  // Neither an unfound community nor supplied reports establish a community search by AskRigor.
+  const unsearched = new Set<string>();
   // One site is one discussion pool, whatever its entries are called: outside
   // Reddit, a community's identity is the site its threads are on (HRP
   // MultipleIndependentCommunities: stable source identifiers, not names).
@@ -5071,7 +5167,7 @@ function communityCoverage(
     // Outside Reddit, whose subreddit names it, a community read nowhere is
     // known by its address, never by its name alone.
     if (search.platform !== "reddit" && search.threads_read.length === 0 && search.url === undefined &&
-        search.access_boundary !== "not_found") {
+        search.access_boundary !== "not_found" && search.access_boundary !== "supplied_by_user") {
       out.requireDeclaration(
         joinRules(joinRules(rule`community_searches for ${name} records an access boundary but no url: give the community's address (its `, "forum, group or site link), so it is known by its site rather than its name; or record access_boundary "), "not_found when no site by that name could be found.")
       );
@@ -5101,9 +5197,10 @@ function communityCoverage(
     searched.set(key, name);
     // Recorded, so a community the user named is not asked for again, but no discussion pool of its own.
     if (search.access_boundary === "not_found") unfound.add(key);
+    if (search.access_boundary === "not_found" || search.access_boundary === "supplied_by_user") unsearched.add(key);
     if (search.access_boundary !== undefined) {
       out.requireLimit(
-        search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+        search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
         boundaryCaveat(name, search.access_boundary)
       );
     }
@@ -5167,15 +5264,17 @@ function communityCoverage(
       out.lanes.push(forumLane(search));
       const urls = search.threads_read.map(({ url }) => url);
       const quotes = search.answer_quotes === undefined ? [] : [search.answer_quotes];
-      const confirmed = search.platform === "reddit" &&
+      const supplied = search.access_boundary === "supplied_by_user";
+      const confirmed = !supplied && search.platform === "reddit" &&
         urls.every((url) => redditThreads?.get(redditPostOf(url) ?? "")?.state === "found");
       const known = readByKey.get(key);
       if (known === undefined) {
-        readByKey.set(key, { name, platform: search.platform, urls, quotes: [...quotes], confirmed });
+        readByKey.set(key, { name, platform: search.platform, urls, quotes: [...quotes], confirmed, supplied });
       } else {
         known.urls.push(...urls);
         known.quotes.push(...quotes);
         known.confirmed &&= confirmed;
+        known.supplied &&= supplied;
       }
     }
   }
@@ -5183,7 +5282,7 @@ function communityCoverage(
   // AskRigor cannot see the client's web search, so these reports carry no
   // receipt: the answer says so and links the threads, which readers can check.
   // Reddit can confirm its threads exist as cited, but not what they report.
-  const unconfirmed = read.filter(({ confirmed }) => !confirmed);
+  const unconfirmed = read.filter(({ confirmed, supplied }) => !confirmed && !supplied);
   if (unconfirmed.length > 0) {
     const names = unconfirmed.map(({ name }) => name);
     const one = names.length === 1;
@@ -5223,11 +5322,11 @@ function communityCoverage(
   }
   // A community that could not be found is no discussion pool, so it never makes the found one the only one.
   const listed = new Set(communities.map(({ name, platform }) => communityKey(name, platform))
-    .filter((key) => !unfound.has(key)));
+    .filter((key) => !unsearched.has(key)));
   // A Facebook group, Telegram channel or Discord server is known by links the
   // server cannot tie to one identity (a group's name or number, a server's
   // many invites), so each of those platforms counts once toward independence.
-  const pools = new Set([...searched.keys()].filter((key) => !unfound.has(key)).map((key) => {
+  const pools = new Set([...searched.keys()].filter((key) => !unsearched.has(key)).map((key) => {
     const platform = key.split(":")[0]!;
     return COMMUNITY_LINK_STEPS[platform] === undefined ? key : platform;
   }));
@@ -5246,7 +5345,7 @@ function communityCoverage(
     const others = [...new Map(communities
       .filter(({ name, platform }) => !communitySearched(searched, name, platform))
       .map(({ name, platform }) => [communityKey(name, platform), name])).values()];
-    const found = [...searched].filter(([key]) => !unfound.has(key)).map(([, name]) => name);
+    const found = [...searched].filter(([key]) => !unsearched.has(key)).map(([, name]) => name);
     out.addStep("research", 
       joinRules(joinRules(joinRules(joinRules(joinRules("Search at least one more community, independent of ", rule`${found.length === 0 ? rule`the first` : found.join(", ")}`), rule`${others.length === 0 ? rule`` : rule` (${others.join(", ")})`}: YouTube with its tools, the others with your web `), "search recorded in community_searches, or record the access boundary that stops you."), (pools.size < found.length ? joinRules(" Communities on one of Facebook, Telegram or Discord count once together: their links cannot show that ", "they are separate discussion pools.") : "")), (unfound.size > 0 ? " A community that could not be found is not one of them." : ""))
     );
@@ -5325,7 +5424,7 @@ function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
   depth: "first_pass" | "deep"
-): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferUntilNextTurn?: boolean } {
+): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferredStep?: CheckStep } {
   const stop = depth === "first_pass"
     ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
     : rule``;
@@ -5339,12 +5438,20 @@ function discoverySaturation(
   const incomplete = signedCount(recent, "inc");
   const rateLimited = signedCount(recent, "rl");
   if (incomplete > 0) {
+    const retryableNow = Math.max(0, incomplete - rateLimited);
+    const deferredRule = rule`YouTube's rate limit or daily quota stopped ${rateLimited} search(es) in the latest discovery rounds; a later turn can rerun them after the limit resets.`;
     return {
       saturated: false,
       rateLimited,
-      deferUntilNextTurn: rateLimited > 0,
-      nextSteps: [
-        joinRules(joinRules(joinRules(rule`${incomplete} search(es) in the latest discovery rounds did not complete`, (rateLimited > 0 ? rule`, ${rateLimited} stopped by YouTube's rate limit or daily quota. Rerun them once it resets` : rule`. Rerun them`)), rule` and pass the new research_receipt.`), rule`${stop}`)
+      ...(rateLimited === 0 ? {} : { deferredStep: {
+        kind: "research" as const, text: ruleText(deferredRule), rule: ruleParts(deferredRule), deferUntilNextTurn: true,
+        deferredCaveat: `YouTube's daily search limit stopped ${rateLimited === 1 ? "1 search" : `${rateLimited} searches`} ` +
+          (depth === "first_pass"
+            ? `in this first pass; another pass can rerun ${rateLimited === 1 ? "it" : "them"} after the limit resets.`
+            : `in this research; a later turn can rerun ${rateLimited === 1 ? "it" : "them"} after the limit resets.`)
+      } }),
+      nextSteps: retryableNow === 0 ? [] : [
+        joinRules(rule`${retryableNow} search(es) in the latest discovery rounds did not complete. Rerun them and pass the new research_receipt.`, stop)
       ]
     };
   }

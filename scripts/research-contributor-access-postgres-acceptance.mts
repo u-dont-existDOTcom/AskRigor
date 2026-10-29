@@ -2492,6 +2492,26 @@ export async function verifyAtlasPublications(context: {
       "ATLAS_PUBLICATION_ERASE_OR_EDIT_AFTER_FORGET_MISMATCH");
     checks.push("atlas_publications_of_a_forgotten_card_lose_their_digest_and_all_but_the_accepted_are_withdrawn_and_erased");
 
+    // Owner answer 191b: the existing withdrawal/revival path replaces the projection without renumbering it.
+    const topicless = [1, 2].map((number) => draft(number, { published: { ...published(`Older finding ${number}.`), topic: null } }));
+    const fileInput = { cardNumber: 7005, cardSha256: atlasHex("synthetic-topicless-card"), findings: topicless };
+    const beforeFiling = await store.publish({ ...fileInput, publishedAt: tick(), revive: false });
+    const topic = { key: "medicinal-plants.overlooked-clinical-leads",
+      label: "Overlooked medicinal plants with human clinical evidence" };
+    const filedDrafts = topicless.map((entry) => ({ ...entry, published: { ...entry.published, topic } }));
+    const stillLive = await store.publish({ ...fileInput, findings: filedDrafts, publishedAt: tick(), revive: true });
+    assert(stillLive.every(({ outcome, published }) => outcome === "existing" && published?.topic === null),
+      "ATLAS_LIVE_PUBLICATION_UNEXPECTEDLY_REPLACED");
+    const withdrawnForFiling = await store.withdraw({ reason: "owner_unpublished",
+      publicationNumbers: beforeFiling.map(({ publicationNumber }) => publicationNumber),
+      ownerReason: `filed under ${topic.key} (owner answer 191b)`, withdrawnAt: tick() });
+    const filed = await store.publish({ ...fileInput, findings: filedDrafts, publishedAt: tick(), revive: true });
+    assert(withdrawnForFiling.length === 2 && filed.every((row, index) => row.outcome === "revived" &&
+      row.publicationNumber === beforeFiling[index]!.publicationNumber &&
+      row.publishedAt === beforeFiling[index]!.publishedAt && isDeepStrictEqual(row.published?.topic, topic)),
+      "ATLAS_TOPIC_FILING_CHANGED_NUMBERS_OR_LOST_TOPIC");
+    checks.push("atlas_topicless_publications_are_filed_by_withdrawing_then_reviving_with_the_same_numbers");
+
     // The table's checks refuse what no publication may hold, whoever writes.
     const insert = (columns: Record<string, unknown>) => {
       const row = {

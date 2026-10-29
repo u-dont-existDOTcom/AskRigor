@@ -88,6 +88,17 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
+  reports, lessons naming existing rules, research building on the Atlas.
+- `audits/2026-10-27-owner-regressions-judgment.md`: the owner regressions on #375's build `ddba2b79` (85 cases: 41 pass,
+  40 in part, 3 fail, 1 refused by OpenAI's filter), with three recurring classes found at the mechanism level.
+- `audits/2026-10-28-final-check-burden-diagnosis.md`: why the owner's bug reports keep coming back (owner answer
+  192c): exact counts over the regression and lane runs since 15 Oct (fields per final-check call 19 to 39, a median
+  of 5 calls to a pass, 9.6% of next steps asking for research, full passes flat at 36 to 41), the diagnosis, and the
+  change put to the owner as question 193.
+- `audits/2026-10-28-owner-regressions-judgment.md`: the owner regressions on #380's build `0a315a91` (85 cases: 41
+  pass, 42 in part, 1 fails, 1 refused by OpenAI's filter); 51 of the 62 unmet criteria are the AI's own research, and
+  five of the six stopped checks were the check's own fault.
 - `audits/2026-10-20-carried-state-production-release.md`: release of #346 (owner questions 109 to 113, 117 and 120 to
   123, released on 124a): lessons #32 to #37 and carried state, with HRP 20.6.27, Universal 20.5.44, production
   acceptance and the Codex plugin refresh, and the owner regressions (13 of 30 cases met every criterion, none failed;

@@ -40,7 +40,8 @@ const providerIdentifierSchema = z.string().min(1).max(512);
 const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
-  cursor: z.string().min(1).max(4_096).optional()
+  cursor: z.string().min(1).max(4_096).optional(),
+  channelId: channelIdSchema.optional()
 }).strict();
 const snippetSchema = z.object({
   publishedAt: youtubeTimestampSchema.optional(),
@@ -161,7 +162,7 @@ const commentsResponseSchema = z.object({
 
 export interface YoutubeConfig { apiKey: string; }
 export interface YoutubeRequestRuntime { max_elapsed_ms?: number; }
-export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?: string; }
+export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?: string; channelId?: string; }
 export interface YoutubeSearchRecord {
   product_class?: VideoProductClass;
   video_id: string;
@@ -231,6 +232,32 @@ export interface YoutubeComment {
   like_count: number;
   published_at: string;
   updated_at: string;
+  comment_found?: true;
+  content_read?: false;
+  content_verified?: false;
+  source_modality?: "unknown";
+  audio_available?: null;
+  transcript_read?: false;
+}
+
+export const youtubeCommentContentAccessShape = {
+  comment_found: z.literal(true).optional(),
+  content_read: z.literal(false).optional(),
+  content_verified: z.literal(false).optional(),
+  source_modality: z.literal("unknown").optional(),
+  audio_available: z.null().optional(),
+  transcript_read: z.literal(false).optional()
+};
+
+/** An empty textDisplay proves a record was found, not its words or even whether audio is available. */
+export function unreadYoutubeCommentContent(text: string): Pick<YoutubeComment,
+  "comment_found" | "content_read" | "content_verified" | "source_modality" | "audio_available" | "transcript_read"> {
+  return text.trim().length > 0 ? {} : { comment_found: true, content_read: false, content_verified: false,
+    source_modality: "unknown", audio_available: null, transcript_read: false };
+}
+
+export function youtubeCommentContentReadable(comment: Pick<YoutubeComment, "text" | "content_read">): boolean {
+  return comment.content_read !== false && comment.text.trim().length > 0;
 }
 export interface YoutubeReplyCountMismatch {
   parent_comment_id: string;
@@ -282,7 +309,7 @@ export const youtubeVideoDataSchema = z.object({
   privacy_status: youtubePrivacyStatusSchema.optional()
 }).strict();
 export const youtubeVideoFailureDataSchema = z.object({}).strict();
-export const youtubeCommentSchema = z.object({
+const publishedYoutubeCommentSchema = z.object({
   product_class: commentProductClassSchema.optional(),
   video_id: youtubeVideoIdSchema,
   comment_id: providerIdentifierSchema,
@@ -296,6 +323,10 @@ export const youtubeCommentSchema = z.object({
   published_at: youtubeTimestampSchema,
   updated_at: youtubeTimestampSchema
 }).strict();
+// The retained published output is open to these later fields (owner answer 189a).
+const { $schema: _commentDraft, ...publishedCommentShape } = z.toJSONSchema(publishedYoutubeCommentSchema, { target: "draft-7" });
+export const youtubeCommentSchema = publishedYoutubeCommentSchema.extend(youtubeCommentContentAccessShape)
+  .meta(publishedCommentShape);
 export const youtubeReplyCountMismatchSchema = z.object({
   parent_comment_id: providerIdentifierSchema,
   expected: z.number().int().nonnegative(),
@@ -353,12 +384,14 @@ export const searchYoutube = async (
     url.searchParams.set("q", query);
     url.searchParams.set("maxResults", String(pageSize));
     if (cursor !== undefined) url.searchParams.set("pageToken", cursor);
+    if (parsedInput.data.channelId !== undefined) url.searchParams.set("channelId", parsedInput.data.channelId);
     url.searchParams.set("key", parsedConfig.data);
     const parsedResponse = searchResponseSchema.safeParse(await fetchJson(url.toString()));
     if (!parsedResponse.success || !isCoherentSearchResponse(parsedResponse.data, pageSize, cursor)) {
       throw new YoutubeResponseError();
     }
-    const records = parsedResponse.data.items.map(normalizeSearchRecord);
+    const records = parsedResponse.data.items.map(normalizeSearchRecord).filter((record) =>
+      parsedInput.data.channelId === undefined || record.channel_id === parsedInput.data.channelId);
     return okEnvelope({
       provider: "youtube",
       recordType: "youtube_search_result",
@@ -1204,6 +1237,7 @@ const normalizeComment = (
     ? {}
     : { author_display_name: item.snippet.authorDisplayName }),
   text: item.snippet.textDisplay,
+  ...unreadYoutubeCommentContent(item.snippet.textDisplay),
   like_count: item.snippet.likeCount,
   published_at: item.snippet.publishedAt,
   updated_at: item.snippet.updatedAt

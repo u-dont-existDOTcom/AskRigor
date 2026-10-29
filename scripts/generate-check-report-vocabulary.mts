@@ -1,6 +1,8 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { z } from "zod";
+import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
 
 const root = new URL("../", import.meta.url);
 /** Extract only structural declarations: JSON Schema enums/consts, z.enum/z.literal, literal unions and named code arrays. */
@@ -17,6 +19,12 @@ export async function checkReportVocabulary(): Promise<{ tools: string[]; codes:
     Object.values(object).forEach(walk);
   };
   walk(inventory);
+  // Published values are open (189a); diagnostics still name exact runtime enum/literal values. Reading their
+  // structural declarations preserves codes imported from other packages without scraping descriptive prose.
+  for (const tool of RESEARCH_OPERATIONS) {
+    walk(z.toJSONSchema(tool.runtimeInputSchema, { target: "draft-7", io: "input" }));
+    walk(z.toJSONSchema(tool.runtimeOutputSchema, { target: "draft-7" }));
+  }
   const files = async (directory: URL): Promise<URL[]> => {
     const found: URL[] = [];
     for (const entry of await readdir(directory, { withFileTypes: true })) {

@@ -1,3 +1,4 @@
+import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import type { Server as HttpServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -106,15 +107,16 @@ describe("submit_research_contribution's published input", () => {
       await client.connect(clientTransport);
       const tool = (await client.listTools()).tools.find(({ name }) => name === "submit_research_contribution")!;
       const relaxed = surface === "/mcp";
-      expect(tool.inputSchema).toEqual(submitResearchContributionPublishedInputSchema({ relaxed }));
+      const original = withoutLaterInputs(tool.inputSchema);
+      expect(original).toEqual(submitResearchContributionPublishedInputSchema({ relaxed }));
       expect(tool.description).toBe(SUBMIT_RESEARCH_CONTRIBUTION_DESCRIPTION);
       const payload = (tool.inputSchema.properties as Record<string, Record<string, unknown>>).payload!;
       if (relaxed) {
         // ChatGPT's app hides payload's type and nested constraints, so it publishes none.
         expect(payload).toEqual({ description: "The record proposalKind names, shaped as this tool's description shows." });
-        expect(JSON.stringify(tool.inputSchema)).not.toMatch(/"(?:pattern|format|minLength|maxLength|additionalProperties)"/u);
+        expect(JSON.stringify(original)).not.toMatch(/"(?:pattern|format|minLength|maxLength|additionalProperties)"/u);
       } else {
-        expect(tool.inputSchema).toEqual(z.toJSONSchema(submitResearchContributionInputSchema, { target: "draft-7", io: "input" }));
+        expect(original).toEqual(z.toJSONSchema(submitResearchContributionInputSchema, { target: "draft-7", io: "input" }));
         expect(payload.anyOf).toEqual([
           z.toJSONSchema(researchFrontierContributionSchema, { target: "draft-7", io: "input" }),
           z.toJSONSchema(livingEvidenceContributionSchema, { target: "draft-7", io: "input" }),

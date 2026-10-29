@@ -428,7 +428,7 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   // Decision 171: the publications.
   list_publications: ["publicationState", "cursor"],
   unpublish_finding: ["publication", "reason"],
-  publish_cards: ["cards"],
+  publish_cards: ["cards", "topicKey", "topicLabel"],
   set_aside_cards: ["cards", "cardsFrom", "cardsTo"],
   // Decision 171: the comments and the home page's picks.
   list_comments: ["reported", "cursor"],
@@ -553,6 +553,7 @@ export function refineAtlasReviewInput(
       if (!has("reason")) issue("unpublish_finding needs the owner's reason, which stays private", "reason");
       return;
     case "publish_cards":
+      if (has("topicLabel") && !has("topicKey")) issue("topicLabel goes with topicKey", "topicLabel");
       if (!has("cards")) issue("publish_cards needs cards, such as [\"ARF-0142\"]", "cards");
       else if ((value.cards as unknown[]).length > PUBLISH_CARDS_PER_CALL) {
         issue(`publish_cards takes at most ${PUBLISH_CARDS_PER_CALL} cards in one call`, "cards");
@@ -1097,6 +1098,7 @@ export class AtlasReview {
     const result = await new AtlasPublicationReview({
       publications,
       store: this.deps.store,
+      reader: this.deps.reader,
       inbox: this.deps.inbox,
       now: this.now,
     }).run({
@@ -1108,6 +1110,8 @@ export class AtlasReview {
       ...(request.cards === undefined ? {} : { cards: request.cards }),
       ...(request.cardsFrom === undefined ? {} : { cardsFrom: request.cardsFrom }),
       ...(request.cardsTo === undefined ? {} : { cardsTo: request.cardsTo }),
+      ...(request.topicKey === undefined ? {} : { topicKey: request.topicKey }),
+      ...(request.topicLabel === undefined ? {} : { topicLabel: request.topicLabel }),
     });
     return {
       ok: result.ok,

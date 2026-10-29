@@ -167,6 +167,10 @@ describe("bounded selected-video evidence", () => {
     expect(serialized).not.toContain("Private Author Name");
     expect(serialized).not.toContain("Segment 0");
 
+    const unread = { ...material, discussion_comments: material.discussion_comments.map((comment) => ({ ...comment, text: "" })) };
+    expect(() => ingestVideoEvidenceSubmission(state.bounded_evidence, state.candidate_discovery, state.video_depth,
+      unread, submission)).toThrow(/outside the exact analysis sample/u);
+
     expect(() => ingestVideoEvidenceSubmission(
       state.bounded_evidence,
       state.candidate_discovery,
@@ -245,6 +249,19 @@ describe("bounded selected-video evidence", () => {
     expect(serializedCheckpointState).not.toContain(
       material.discussion_comments[0]!.comment_id
     );
+  });
+
+  it("does not cache an empty-text comment as source material for a finding", () => {
+    const { material, transcript } = videoFrontier();
+    const discussion = discussionOutput(material.video_id, { comments: material.discussion_comments.map(
+      ({ record_sha256: _hash, author_channel_id: _channel, ...comment }) => ({ ...comment, text: "" })) });
+    const cache = createInMemoryResearchEvidenceMaterialCache();
+    cache.captureTranscript({ sessionId: SESSION_ID, videoId: material.video_id, output: transcript });
+    cache.captureDiscussion({ sessionId: SESSION_ID, videoId: material.video_id, output: discussion });
+    const cached = cache.get({ sessionId: SESSION_ID, videoId: material.video_id,
+      transcriptReceiptSha256: sourceRecordSha256(transcript.coverage_receipt),
+      discussionReceiptSha256: sourceRecordSha256(discussion.coverage_receipt) });
+    expect(cached?.discussion_comments).toEqual([]);
   });
 
   it("keeps raw public material process-local and returns it only for exact receipt hashes", () => {

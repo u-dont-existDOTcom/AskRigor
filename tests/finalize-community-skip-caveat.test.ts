@@ -1,3 +1,4 @@
+import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -187,7 +188,7 @@ describe("finalize_research documents the reason on both surfaces (question 125)
       const published = finalizeResearchPublishedInputSchema({ relaxed: surface === "/mcp" }) as {
         properties: Record<string, { description?: string; type?: string; maxLength?: number }>;
       };
-      expect(tool.inputSchema).toEqual(published);
+      expect(withoutLaterInputs(tool.inputSchema)).toEqual(published);
       const field = published.properties.not_relevant_reason!;
       expect(field.type).toBe("string");
       expect(field.description).toBe("Needed with not_relevant: why firsthand reports cannot matter, in plain words. " +
