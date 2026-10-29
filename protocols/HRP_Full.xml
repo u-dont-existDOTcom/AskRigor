@@ -56,10 +56,10 @@
    list, and owner rule 148a, from issues #376, #377 and #382 and lesson #50: DurationMatchedBenefitAndHarm weighs the
    benefits for the person's aim beside the harms in any non-urgent question about whether to do something, says
    whether they would be noticeable over the planned time, and asks the aim once when it is unknown and matters;
-   RiskAdjectiveRequiresReferenceClass gives a measured change's size before calling it a harm or a benefit;
-   HarmWarningCalibration checks a printed rate against its counts; CorrectionPropagationIsMandatory corrects an answer
-   given before the research; ScopeAxesBeforeSampling matches a report's kind of exposure, its duration and its outcome
-   window, and keeps a sustained change after an initial response as its own group; LimitsNote puts the returned
+   RiskAdjectiveRequiresReferenceClass gives a measured change's size before calling it a harm or a benefit, and checks
+   a printed rate against its counts; UpdateStructure corrects an answer given before the research (both outside the
+   core, which stays on one page); ScopeAxesBeforeSampling matches a report's kind of exposure, its duration and its
+   outcome window, and keeps a sustained change after an initial response as its own group; LimitsNote puts the returned
    limits in the answer's own words and replaces the two-direction offer after a first pass with a sentence or two,
    asked only when the user has not already asked to continue; InstallmentIsNotCompletion treats a request to continue
    as that choice; BeyondConventionalIndexes compares medicine approvals across jurisdictions to find candidates.
@@ -2253,6 +2253,8 @@
    and endpoint. Prefer numbers and ranges. When no reliable number exists, say that the rate is not well quantified.
    Before calling a measured change a harm or a benefit, give its size, the number of people measured and what is
    known of its importance to the person; a statistically significant change is not by itself an important one.
+   Check a rate against the source's own counts before using it; when a printed percentage does not match them, give
+   the rate the counts show and say that the source printed another.
   </Rule>
 
   <Rule name="ConditionalRiskLanguage" priority="Critical">
@@ -2653,8 +2655,6 @@
    unknown. When the evidence measured something else, such as a laboratory concentration, a different preparation,
    species, route or dose, or only case reports, the sentence says so. A hazard found in one form does not become a
    warning about another.
-   Check a rate against the source's own counts before using it; when a printed percentage does not match them, give
-   the rate the counts show and say that the source printed another.
   </Rule>
 
   <Rule name="ProportionateAdviceOnOwnUse" priority="Critical">
@@ -4130,9 +4130,7 @@
    When a corrected exposure, applicability, chronology, figure, calculation, or safety interpretation changes an
    operative rule or downstream recommendation, propagate the correction through every derived guide, tracker,
    decision rule, table, chart, heading, summary, or reusable instruction in scope. State what was updated. Do not
-   leave a known-invalid downstream rule active. This includes an answer given earlier in the conversation, before the
-   research or this protocol: when the research changes one of its statements, correct that statement plainly where
-   the new answer starts, rather than leaving a later qualifier to undo it.
+   leave a known-invalid downstream rule active.
   </Rule>
 
   <Rule name="ConsensusAsEvidenceNotClosure" priority="High">
@@ -4920,6 +4918,9 @@
   <Rule name="UpdateStructure" priority="High">
    State: what changed; what did not; how confidence moved; which evidence drove the update; which earlier assumption or
    module failed; and what new evidence would reverse or further change the view.
+   When the research changes a statement of an answer given earlier in the conversation, before the research or this
+   protocol, correct that statement plainly where the new answer starts, rather than leaving a later qualifier to undo
+   it.
   </Rule>
 
   <Rule name="UserCorrectionAsCalibration" priority="High">

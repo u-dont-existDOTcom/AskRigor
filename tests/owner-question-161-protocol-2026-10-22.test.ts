@@ -172,7 +172,7 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
       name: "HRP", version: "20.6.32", revisionDate: "2026-10-29",
-      sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb",
+      sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89",
     });
   });
 
@@ -221,7 +221,7 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     }
   });
 
-  it("is outside the core, in a runtime section of one page that load_protocol serves with the rule, and serves the paginated current core", async () => {
+  it("is outside the core, in a runtime section of one page that load_protocol serves with the rule, and the core is unchanged", async () => {
     expect(coreSectionNames("hrp")).not.toContain(RULE.section);
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot("hrp");
@@ -254,16 +254,7 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core" } });
       expect(response.isError).not.toBe(true);
-      const pages = Math.ceil(size(core) / PROTOCOL_PAGE_MAX_BYTES);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: pages === 1, page_count: pages });
-      let servedCore = (response.structuredContent as { text: string }).text;
-      for (let page = 2; page <= pages; page += 1) {
-        const next = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page } });
-        expect(next.isError).not.toBe(true);
-        expect(next.structuredContent).toMatchObject({ ok: true, complete: page === pages, page_count: pages });
-        servedCore += (next.structuredContent as { text: string }).text;
-      }
-      expect(servedCore).toBe(core);
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
       for (const sentence of RULE.sentences) expect(normalize(core)).not.toContain(sentence);
       // Each new stress case by its id.
       for (const [id] of CASES) {

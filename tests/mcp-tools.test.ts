@@ -3039,13 +3039,13 @@ describe("AskRigor MCP tools", () => {
           name: "HRP",
           version: "20.6.32",
           revisionDate: "2026-10-29",
-          sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb"
+          sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb"
+        scope_sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([
@@ -3179,7 +3179,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it.each(["hrp", "universal"] as const)("loads every %s core section losslessly, continuing pages when needed", async (protocol) => {
+  it.each(["hrp", "universal"] as const)("loads every %s core section in one call, each as its exact bytes", async (protocol) => {
     const { client, server } = await createInMemoryClient();
     const file = protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml";
     const canonicalBytes = await readFile(new URL(`../protocols/${file}`, import.meta.url));
@@ -3205,25 +3205,17 @@ describe("AskRigor MCP tools", () => {
       const expected = sections
         .map(({ byte_start, byte_end_exclusive }) => canonicalBytes.subarray(byte_start, byte_end_exclusive).toString("utf8"))
         .join("\n\n");
-      const pages = protocol === "hrp" ? 2 : 1;
       expect(core.structuredContent).toMatchObject({
-        ok: true, protocol, scope: "section", section: "core", page: 1, page_count: pages, complete: pages === 1,
+        ok: true, protocol, scope: "section", section: "core", page: 1, page_count: 1, complete: true,
         scope_bytes: Buffer.byteLength(expected, "utf8"),
-        scope_sha256: createHash("sha256").update(expected, "utf8").digest("hex")
+        scope_sha256: createHash("sha256").update(expected, "utf8").digest("hex"),
+        text: expected
       });
-      let served = core.structuredContent!.text as string;
-      for (let page = 2; page <= pages; page += 1) {
-        const next = await client.callTool({ name: "load_protocol", arguments: { protocol, section: "core", page } });
-        expect(next.isError).not.toBe(true);
-        served += next.structuredContent!.text as string;
-      }
-      expect(served).toBe(expected);
       expect(core.structuredContent).not.toHaveProperty("byte_start");
       const { manifest } = core.structuredContent as { manifest: { name: string } };
       expect((core.content as Array<{ text: string }>)[0]!.text).toBe(
-        `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of ${pages} ` +
-          "(exact canonical bytes of each, in this order, a blank line between two)." +
-          (pages === 1 ? "" : " Call load_protocol again with the same section and page 2 to continue.")
+        `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of 1 ` +
+          "(exact canonical bytes of each, in this order, a blank line between two)."
       );
     } finally {
       await server.close();
@@ -3283,7 +3275,7 @@ describe("AskRigor MCP tools", () => {
     [{ protocol: "hrp", section: "Purpose, FoundationBeforeOptimization" }, "protocol_section_ambiguous"],
     [{ protocol: "hrp", section: "index, core" }, "protocol_section_not_found"],
     [{ protocol: "hrp", section: " , " }, "protocol_request_invalid"],
-    [{ protocol: "hrp", section: "core", page: 999 }, "protocol_page_out_of_range"],
+    [{ protocol: "hrp", section: "core", page: 2 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 999 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 0 }, "protocol_page_out_of_range"],
     [{ protocol: "hrp", page: 1.5 }, "protocol_page_out_of_range"],

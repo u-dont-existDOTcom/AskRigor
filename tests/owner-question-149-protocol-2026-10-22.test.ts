@@ -30,7 +30,7 @@ const PINS = {
 const REVISION_DATE = "2026-10-22";
 // The current file also includes owner answer 193a (HRP 20.6.32, 2026-10-29); the undo chain removes later layers.
 const CURRENT = {
-  version: "20.6.32", revisionDate: "2026-10-29", sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb",
+  version: "20.6.32", revisionDate: "2026-10-29", sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89",
 } as const;
 // Universal does not change.
 const UNIVERSAL = {
@@ -180,7 +180,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
     expect(follows).toBe(ruleXml(RULE.follows, plain(element(text, "Rule", "name", RULE.follows))));
   });
 
-  it("is in the core, which every research answer loads, and load_protocol serves it in the paginated current core", async () => {
+  it("is in the core, which every research answer loads, and load_protocol serves it in the core on one page", async () => {
     expect(coreSectionNames("hrp")).toContain(RULE.section);
     // The server serves the current file; question 161's rule left the core as this layer made it.
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
@@ -203,16 +203,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core" } });
       expect(response.isError).not.toBe(true);
-      const pages = Math.ceil(size(core) / PROTOCOL_PAGE_MAX_BYTES);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: pages === 1, page_count: pages });
-      let servedCore = (response.structuredContent as { text: string }).text;
-      for (let page = 2; page <= pages; page += 1) {
-        const next = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page } });
-        expect(next.isError).not.toBe(true);
-        expect(next.structuredContent).toMatchObject({ ok: true, complete: page === pages, page_count: pages });
-        servedCore += (next.structuredContent as { text: string }).text;
-      }
-      expect(servedCore).toBe(core);
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
       expect(core.split(RULE_XML)).toHaveLength(2);
       expect(normalize(core)).toContain(RULE.text);
     } finally {

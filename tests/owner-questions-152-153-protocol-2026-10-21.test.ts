@@ -90,7 +90,7 @@ const REVISION_DATE = "2026-10-21";
 // The current files: owner answer 149a (HRP 20.6.30, 2026-10-22) has since added a core rule to HRP, and owner answer
 // 161a (HRP 20.6.31, 2026-10-22) a rule outside the core; 193a (HRP 20.6.32, 2026-10-29) adds later wording.
 const CURRENT = {
-  hrp: { version: "20.6.32", revisionDate: "2026-10-29", sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb" },
+  hrp: { version: "20.6.32", revisionDate: "2026-10-29", sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89" },
   universal: { version: "20.5.46", revisionDate: REVISION_DATE, sha256: PINS.universal.to.sha256 },
 } as const;
 const NAMES = { hrp: "HRP", universal: "AskRigor.com universal saved instructions" } as const;
@@ -373,7 +373,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
     for (const { pages } of core(now)) expect(pages).toBe(1);
   });
 
-  it.each(["hrp", "universal"] as const)("load_protocol serves each changed %s rule, case and section as exact canonical bytes, and the paginated current core", async (protocol) => {
+  it.each(["hrp", "universal"] as const)("load_protocol serves each changed %s rule, case and section as exact canonical bytes, and the core as one page", async (protocol) => {
     // The server serves the current file.
     const bytes = await readFile(new URL(`protocols/${protocol === "hrp" ? "HRP_Full.xml" : "Universal_Instructions.xml"}`, ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot(protocol);
@@ -400,16 +400,7 @@ describe('owner-approved questions 152 and 153: "152a" and "153a,b,c" (2026-10-2
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol, section: "core" } });
       expect(response.isError).not.toBe(true);
-      const pages = Math.ceil(size(core) / PROTOCOL_PAGE_MAX_BYTES);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: pages === 1, page_count: pages });
-      let servedCore = (response.structuredContent as { text: string }).text;
-      for (let page = 2; page <= pages; page += 1) {
-        const next = await client.callTool({ name: "load_protocol", arguments: { protocol: protocol, section: "core", page } });
-        expect(next.isError).not.toBe(true);
-        expect(next.structuredContent).toMatchObject({ ok: true, complete: page === pages, page_count: pages });
-        servedCore += (next.structuredContent as { text: string }).text;
-      }
-      expect(servedCore).toBe(core);
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
       if (protocol === "hrp") {
         expect(normalize(core)).toContain(`${Q152.followUp.end} ${Q152.followUp.sentence}`);
         expect(normalize(core)).toContain(`${Q152.warning.follows} ${Q152.warning.sentence}`);
