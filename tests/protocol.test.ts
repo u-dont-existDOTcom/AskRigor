@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5";
+  "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb";
 const UNIVERSAL_SHA_256 =
   "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e";
 
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.6.31",
-      revisionDate: "2026-10-22"
+      version: "20.6.32",
+      revisionDate: "2026-10-29"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.6\.31" revisionDate="2026-10-22"/
+      /<Protocol name="HRP" version="20\.6\.32" revisionDate="2026-10-29"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -325,8 +325,8 @@ describe("canonical protocol loader", () => {
     for (const required of [
       "A first pass does not run this lock. It still searches every direction (DirectionalSearchSymmetry)",
       "and it emits no final treatment ranking. In deeper research, skipped directional searches",
-      "After a first pass, offer the two directions it left open, a sentence or two each: a deeper study review",
-      "suggest two or three specific focuses within each to help them narrow the next investigation"
+      "After a first pass, say in a sentence or two of ordinary words what a deeper pass would look at,",
+      "ask whether the user wants it only when they have not already asked to continue or go deeper."
     ]) expect(normalizedText).toContain(required);
     expect(normalizedText).not.toContain("After a completed first pass, breadth gaps");
 

@@ -9,7 +9,7 @@ import {
   protocolSections,
 } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoOwnerQuestion149Hrp, undoOwnerQuestion161Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoOwnerAnswer193Hrp, undoOwnerQuestion149Hrp, undoOwnerQuestion161Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded edit fixture: the owner's two approved sentences of 2026-10-22, word for word (answer
 // "161a", from lesson #49), where they go, the lesson's three invented cases as stress cases, and the revision note.
@@ -75,7 +75,7 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const size = (text: string) => Buffer.byteLength(text, "utf8");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const load = async () => undoOwnerAnswer193Hrp(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"));
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -171,7 +171,8 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: REVISION_DATE, sha256: hash(current),
+      name: "HRP", version: "20.6.32", revisionDate: "2026-10-29",
+      sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb",
     });
   });
 
@@ -220,7 +221,7 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     }
   });
 
-  it("is outside the core, in a runtime section of one page that load_protocol serves with the rule, and the core is unchanged", async () => {
+  it("is outside the core, in a runtime section of one page that load_protocol serves with the rule, and serves the paginated current core", async () => {
     expect(coreSectionNames("hrp")).not.toContain(RULE.section);
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { sections, text } = await loadProtocolSectionSnapshot("hrp");
@@ -253,7 +254,16 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core" } });
       expect(response.isError).not.toBe(true);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
+      const pages = Math.ceil(size(core) / PROTOCOL_PAGE_MAX_BYTES);
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: pages === 1, page_count: pages });
+      let servedCore = (response.structuredContent as { text: string }).text;
+      for (let page = 2; page <= pages; page += 1) {
+        const next = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page } });
+        expect(next.isError).not.toBe(true);
+        expect(next.structuredContent).toMatchObject({ ok: true, complete: page === pages, page_count: pages });
+        servedCore += (next.structuredContent as { text: string }).text;
+      }
+      expect(servedCore).toBe(core);
       for (const sentence of RULE.sentences) expect(normalize(core)).not.toContain(sentence);
       // Each new stress case by its id.
       for (const [id] of CASES) {

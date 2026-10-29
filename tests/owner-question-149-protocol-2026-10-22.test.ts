@@ -28,9 +28,9 @@ const PINS = {
   to: { version: "20.6.30", sha256: "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8" },
 } as const;
 const REVISION_DATE = "2026-10-22";
-// The current file: owner answer 161a (HRP 20.6.31, 2026-10-22) has since added a rule outside the core.
+// The current file also includes owner answer 193a (HRP 20.6.32, 2026-10-29); the undo chain removes later layers.
 const CURRENT = {
-  version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5",
+  version: "20.6.32", revisionDate: "2026-10-29", sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb",
 } as const;
 // Universal does not change.
 const UNIVERSAL = {
@@ -142,7 +142,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
     await expect(undoPrevious()).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
-    expect(REVISION_DATE).toBe(CURRENT.revisionDate);
+    expect(REVISION_DATE).toBe("2026-10-22");
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
       name: "HRP", version: CURRENT.version, revisionDate: CURRENT.revisionDate, sha256: CURRENT.sha256,
     });
@@ -180,7 +180,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
     expect(follows).toBe(ruleXml(RULE.follows, plain(element(text, "Rule", "name", RULE.follows))));
   });
 
-  it("is in the core, which every research answer loads, and load_protocol serves it in the core on one page", async () => {
+  it("is in the core, which every research answer loads, and load_protocol serves it in the paginated current core", async () => {
     expect(coreSectionNames("hrp")).toContain(RULE.section);
     // The server serves the current file; question 161's rule left the core as this layer made it.
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
@@ -203,7 +203,16 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core" } });
       expect(response.isError).not.toBe(true);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core });
+      const pages = Math.ceil(size(core) / PROTOCOL_PAGE_MAX_BYTES);
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: pages === 1, page_count: pages });
+      let servedCore = (response.structuredContent as { text: string }).text;
+      for (let page = 2; page <= pages; page += 1) {
+        const next = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page } });
+        expect(next.isError).not.toBe(true);
+        expect(next.structuredContent).toMatchObject({ ok: true, complete: page === pages, page_count: pages });
+        servedCore += (next.structuredContent as { text: string }).text;
+      }
+      expect(servedCore).toBe(core);
       expect(core.split(RULE_XML)).toHaveLength(2);
       expect(normalize(core)).toContain(RULE.text);
     } finally {

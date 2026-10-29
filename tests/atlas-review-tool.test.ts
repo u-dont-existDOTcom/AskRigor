@@ -37,7 +37,7 @@ import { FakeGitHub, FINDINGS_ISSUES_ROOT } from "./helpers/fake-github-findings
 
 const SECRET = "atlas-review-tool-test-secret-0123456789";
 const OWNER = "auth0|atlas-review-owner";
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },

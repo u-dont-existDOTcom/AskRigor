@@ -48,7 +48,7 @@ import { FakeGitHub } from "./helpers/fake-github-findings.js";
 
 const SECRET = "atlas-publication-test-secret-0123456789";
 const NOW = new Date("2026-11-04T09:00:00.000Z");
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }];
 const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
 
 /**

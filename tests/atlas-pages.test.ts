@@ -93,7 +93,7 @@ function recordOf(card: object, options: { cardNumber?: number; olderFindings?: 
       saved_at: SAVED_AT,
       askrigor_version: "0.1.0",
       askrigor_build: NEVER.build,
-      protocols: [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }],
+      protocols: [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }],
       tool_catalog_sha256: "c".repeat(64),
       surface: NEVER.surface,
       reported_model_unverified: NEVER.model,
@@ -110,7 +110,7 @@ function oneFindingCard(claim: string, overrides: Record<string, unknown> = {}) 
 const MADE_WITH = {
   askrigorVersion: "0.2.0",
   build: "unknown",
-  protocols: [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }],
+  protocols: [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }],
   depth: "standard",
   status: "complete",
 };

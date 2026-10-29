@@ -179,7 +179,7 @@ const load = async (protocol: "hrp" | "universal") =>
 const undo109 = async (protocol: "hrp" | "universal") =>
   (protocol === "hrp" ? undoOwnerQuestion109Hrp : undoOwnerQuestion109Universal)(await loadCurrent(protocol));
 const CURRENT = {
-  hrp: { version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5" },
+  hrp: { version: "20.6.32", revisionDate: "2026-10-29", sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb" },
   universal: { version: "20.5.46", revisionDate: "2026-10-21", sha256: "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e" },
 } as const;
 interface Edits {
@@ -490,7 +490,11 @@ describe('owner-approved question 109: "109a 110a 111a" (2026-10-17), with 113, 
       expect(response.isError).not.toBe(true);
       const core = protocolSections("hrp", text).filter(({ core }) => core)
         .map(({ byte_start, byte_end_exclusive }) => bytes.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n");
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1, text: core, scope_bytes: Buffer.byteLength(core, "utf8") });
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: false, page_count: 2, scope_bytes: Buffer.byteLength(core, "utf8") });
+      const second = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page: 2 } });
+      expect(second.isError).not.toBe(true);
+      expect(second.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 2 });
+      expect((response.structuredContent as { text: string }).text + (second.structuredContent as { text: string }).text).toBe(core);
       for (const [name, , body] of RULES) expect(core).toContain(ruleXml(name, body).trimStart());
       for (const [name] of Q123_MOVES) expect(core).toContain(ruleLines(text, name).trimStart());
     } finally {

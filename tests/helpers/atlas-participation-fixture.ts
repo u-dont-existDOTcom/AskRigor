@@ -54,7 +54,7 @@ export function recordOf(card: object): FindingsRecord {
     card_sha256: findingsCardDigest(parsed),
     stamp: {
       saved_at: SAVED_AT, askrigor_version: "0.1.0", askrigor_build: "0123abc",
-      protocols: [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }], tool_catalog_sha256: "c".repeat(64),
+      protocols: [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }], tool_catalog_sha256: "c".repeat(64),
       surface: "/mcp/claude", reported_model_unverified: "Example Model 2026-08-06",
       research: { finalized_at: SAVED_AT, depth: "standard", status: "ready" },
     },

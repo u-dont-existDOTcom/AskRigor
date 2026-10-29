@@ -96,7 +96,7 @@ const loadCurrent = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf
 const load = async () => undoOwnerQuestions152And153Hrp(await loadCurrent());
 // The state before this layer, from the current file.
 const undo125 = async () => undoOwnerQuestion125Hrp(await loadCurrent());
-const CURRENT = { version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5" } as const;
+const CURRENT = { version: "20.6.32", revisionDate: "2026-10-29", sha256: "27546c04255488fab38779ec7e0513fc2c4b805dd6ecfaa65e33d75f40c9bbcb" } as const;
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -386,7 +386,7 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
     expect(core(now) - core(before)).toBe(delta("EpistemicSafetyRules") + delta("EvidenceLayers"));
   });
 
-  it("load_protocol serves each changed rule and each case by name as exact canonical bytes, and the core as one page", async () => {
+  it("load_protocol serves each changed rule and each case by name as exact canonical bytes, and the paginated current core", async () => {
     const server = createAskRigorServer();
     const client = new Client({ name: "owner-question-125-test", version: "0.1.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -408,8 +408,11 @@ describe('owner-approved question 125: "125a" (2026-10-20), with 126, 128, 130 a
       expect(plain((rule.structuredContent as { text: string }).text.replace(/^<Rule[^>]*>|<\/Rule>$/gu, ""))).toContain(APPROVED);
       const response = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core" } });
       expect(response.isError).not.toBe(true);
-      expect(response.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 1 });
-      const core = (response.structuredContent as { text: string }).text;
+      expect(response.structuredContent).toMatchObject({ ok: true, complete: false, page_count: 2 });
+      const second = await client.callTool({ name: "load_protocol", arguments: { protocol: "hrp", section: "core", page: 2 } });
+      expect(second.isError).not.toBe(true);
+      expect(second.structuredContent).toMatchObject({ ok: true, complete: true, page_count: 2 });
+      const core = (response.structuredContent as { text: string }).text + (second.structuredContent as { text: string }).text;
       expect(core).toContain(ruleLines(text, Q126.move[0]).trimStart());
       expect(normalize(core)).toContain(Q126.sentence);
       expect(normalize(core)).toContain(`${Q132.at} ${Q132.clause}`);
