@@ -60,6 +60,16 @@ describe("owner answers 193a and 195: only five blocking checks", () => {
       answer_draft: `[Rat study](https://doi.org/${doi})` }).next_steps).toEqual([]);
   });
 
+  it("tells the AI how to settle a key source no AskRigor tool can look up, and passes once it is not declared", () => {
+    const found = "https://example.org/report-without-doi";
+    const draft = `[Rat study](${page}) reports a provisional result. A [report](${found}) says the same.`;
+    const blocked = check({ answer_draft: draft,
+      key_sources: [...base.key_sources, { id: found, status: "lead_only", read_depth: "partial_text" }] });
+    expect(blocked.status).toBe("not_ready");
+    expect(blocked.next_steps).toEqual([expect.stringContaining("leave it out of key_sources")]);
+    expect(check({ answer_draft: draft }).next_steps).toEqual([]);
+  });
+
   it("counts a named search result, record, acquisition, audit, lead or route failure as source provenance", () => {
     for (const receipt of [
       sign("literature_search", { ids: [doi], src: "pubmed" }),

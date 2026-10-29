@@ -2380,7 +2380,8 @@ export function finalizeResearch(
       [...["id", "doi", "pmid", "pmcid", "url"].map((key) => text(claims[key])), ...list(claims.ids)]
         .some((value) => value !== "" && receiptIds.includes(normalizeIdentifier(value))));
     if (sourceReceipts.length === 0 && !checkedInAtlas(source.id)) {
-      addBlockingStep("source_provenance", "research", rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead or route-failure research_receipt.`);
+      // A source no AskRigor tool can look up would otherwise hold the check until its round limit (case r329, 28 Oct).
+      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead or route-failure research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
     }
     const audited = sourceReceipts.some(({ kind }) => kind === "study_audit" || kind === "review_audit");
     const read = audited || sourceReceipts.some(({ kind }) => kind === "full_text_read");
