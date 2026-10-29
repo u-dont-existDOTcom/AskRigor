@@ -170,8 +170,15 @@ set a cap, and get the credit back when a run fails for AskRigor's reasons.
   - **First:** the check runs on the laptop through the CLI, beside the regression runner.
   - **Later:** the server queues checks for dev accounts and a laptop worker fetches them over an outbound connection,
     so nothing on the server holds the owner's plan login.
-  - **Paying users:** always through an API. A consumer plan's CLI serving other people's requests is outside its
-    terms (see the providers' terms below).
+  - **Paying users:** always through an API. The plans' terms, read on 29 Oct 2026:
+    - **Anthropic:** it doesn't permit routing other people's requests through Free, Pro or Max credentials, and
+      products should authenticate with an API key ([Claude Code terms](https://code.claude.com/docs/en/legal-and-compliance)).
+      Even the owner's own automated testing on a Max plan is a grey area.
+    - **OpenAI:** it documents running Codex on a ChatGPT login for the account holder's own work. Its terms forbid
+      making an account available to anyone else, and it says automation should use an API key
+      ([Terms of Use](https://openai.com/policies/row-terms-of-use/)).
+
+    So dev mode runs on Codex with the owner's ChatGPT plan, for the owner's own testing only.
 
 ## The web app
 
@@ -236,7 +243,27 @@ set a cap, and get the credit back when a run fails for AskRigor's reasons.
 
   Prepaid credit is simpler and fairer than billing afterwards: the balance is the cap, and there are no surprise
   bills or failed charges.
-- **Provider:** [filled in: Stripe directly or a merchant of record, by the business's country].
+- **Provider:** it depends on the country the business is registered in (question 199). Read on 29 Oct 2026:
+  - **[Stripe](https://stripe.com/global):** opens accounts in 44 countries. Senegal isn't one of them, and in Africa
+    it works only through Paystack, in five countries.
+  - **[Stripe Atlas](https://stripe.com/atlas):** forms a Delaware company with a Stripe account for founders almost
+    anywhere, for $500 and then $100 a year. US company filings follow.
+  - **[Stripe Managed Payments](https://docs.stripe.com/payments/managed-payments)**, Stripe's merchant of record:
+    - generally available since 22 Apr 2026, after an eligibility review, for digital products including AI
+      services;
+    - for sellers in the EU, the UK, Switzerland, Norway, Liechtenstein, the US, Canada, Australia, Hong Kong, Japan and
+      Singapore, with none in Africa;
+    - 3.5% on top of the payment fee, which is 2.9% plus 30 cents for a US card.
+  - **[Paddle](https://www.paddle.com/pricing)**, a merchant of record: 5% plus 50 cents. Its sellers can be almost
+    anywhere, and Senegal isn't on its list of unsupported countries.
+  - **[Lemon Squeezy](https://docs.lemonsqueezy.com/help/getting-started/fees):** 5% plus 50 cents, with extras outside
+    the US. It is moving its sellers to Stripe Managed Payments.
+  - **Why a merchant of record:** it sells in its own name, so it collects and pays the sales taxes of every buyer's
+    country (VAT on digital services, US sales tax). That is the main burden of selling software worldwide.
+  - **Credit packs at 5% plus 50 cents:** a $25 pack loses about 7%, and a $10 pack about 10%. That is part of why the
+    price rule doubles the model cost.
+  - **Billing features:** Stripe Billing has meters, prepaid credit grants and thresholds. Prepaid credit kept in
+    AskRigor's own ledger needs only one-time checkout payments, which every provider above supports.
 
 ## The pricing page (outline)
 
@@ -287,7 +314,29 @@ set a cap, and get the credit back when a run fails for AskRigor's reasons.
 
 ## Sharing questions and answers to improve AskRigor (question 200)
 
-[Filled in: what OpenAI and Anthropic do now.]
+What OpenAI and Anthropic do now, read on 29 Oct 2026 from their help and privacy pages:
+
+- **OpenAI** ([how your data is used](https://help.openai.com/en/articles/5722486-how-your-data-is-used-to-improve-model-performance),
+  [consumer privacy](https://openai.com/consumer-privacy/)):
+  - **ChatGPT Free, Plus and Pro:** conversations may be used for training by default. The user can turn that off in
+    Data controls, and temporary chats are never used.
+  - **Business plans and the API:** not used unless the customer opts in.
+  - **Personal information:** OpenAI says it takes steps to reduce it in training data, and removes identifiers where
+    possible. It doesn't claim to anonymise.
+  - **Retention:** API logs are kept up to 30 days.
+- **Anthropic** ([consumer terms change, 28 Aug 2025](https://www.anthropic.com/news/updates-to-our-consumer-terms),
+  [model training](https://privacy.claude.com/en/articles/10023555-how-do-you-use-personal-data-in-model-training)):
+  - **Claude Free, Pro and Max, Claude Code included:** each user has chosen since then, through a setting in Privacy.
+  - **Commercial plans and the API:** never used.
+  - **Personal information:**
+    - kept "de-identified" for up to five years, which means unlinked from the account;
+    - the content itself is only filtered or obscured for sensitive data;
+    - no claim to anonymise.
+  - **Retention:** 30 days when the user opts out, and 30 days on the API.
+
+So the big providers do learn from consumer chats, by default or by the user's choice, but they unlink and filter;
+they don't anonymise. For health questions AskRigor should do more than that, which is why the proposal below is
+opt-in per answer, scrubbed, edited by the person, and kept apart from accounts.
 
 - **Proposal:** opt-in, per answer, for everyone. The current free notice promises that AskRigor never saves raw chat
   or prompts, so free accounts keep that promise unless they opt in.
@@ -308,9 +357,18 @@ set a cap, and get the credit back when a run fails for AskRigor's reasons.
 - **Measured:** on 27 to 28 Oct, YouTube's daily search limit (200 searches a day under the 23 Oct grant) refused 23
   YouTube calls in 22 of the 96 runs.
 - **Bright Data:** no:
-  - YouTube's API terms (quoted below) and the grant's use-case binding during its six-month probation;
-  - getting past YouTube's bot defences, which is how a scraper collects YouTube pages, is a line not crossed here even
-    with approval.
+  - YouTube's API terms forbid it, read on 29 Oct 2026:
+    - the [Developer Policies](https://developers.google.com/youtube/terms/developer-policies) forbid scraping YouTube,
+      directly or indirectly, or obtaining scraped YouTube data (III.E.6), and getting API data by any means other
+      than the API (III.I.14);
+    - the [API Terms of Service](https://developers.google.com/youtube/terms/api-services-terms-of-service) forbid
+      exceeding or getting around quota (section 15).
+
+    On a plain reading, buying a scraper's results is obtaining scraped data. The 23 Oct grant is also bound to its use case
+    during its six-month probation;
+  - Bright Data's YouTube scraper says it handles proxies and CAPTCHAs and bypasses anti-bot measures
+    ([its docs](https://docs.brightdata.com/products/scrapers/youtube/introduction)). Getting past bot defences is a
+    line not crossed here, even with approval.
 - **Instead, at zero spend:**
   - **Find videos without YouTube's search:** the AI's own web search and the Gemini scout find candidates, and
     AskRigor verifies each by ID. That is one `videos.list` unit for up to 50 videos, against a 100-unit search that
