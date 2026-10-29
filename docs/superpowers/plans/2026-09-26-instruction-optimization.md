@@ -1,5 +1,9 @@
 # AskRigor instruction optimization plan
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 Status: Phase 0 complete (2026-09-26). Next: fix broken tool references, build the
 test runner, run the baseline pilot, then the server session and finalize gate.
 Branch: `claude/askrigour-instruction-optimization-cffyp2`.

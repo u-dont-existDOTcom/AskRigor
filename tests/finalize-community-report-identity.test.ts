@@ -329,8 +329,9 @@ describe("communities named by the user and the visible check line", () => {
       const text = (result.content as Array<{ text: string }>)[0]!.text;
       const ending = "End the answer with this line, as written (in the answer's language when the answer is not in English): Checked with AskRigor's final check, with the limits above.";
       expect(text).toContain(`\n${ending}`);
+      expect(text).toContain("Limit to include in your own words:");
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must report:"));
-      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must contain, as written:"));
+      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("Limit to include in your own words:"));
       // The lanes keep their instruction for the model; the one-line panel shows none of them (owner question 108).
       expect(text).toContain("Then copy the sentences that report it into the entry's answer_quotes.");
       expect(result._meta).toBeUndefined();

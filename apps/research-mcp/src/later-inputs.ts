@@ -14,8 +14,10 @@ import type { ResearchOperationHandler } from "./research-operation.js";
  */
 const LATER_INPUT_SHAPES = Object.freeze({
   finalize_research: {
-    community_evidence: z.enum(["researched", "not_relevant"]).optional(),
-    treatment_choice: z.enum(["compared", "not_compared"]).optional(),
+    community_evidence: z.enum(["researched", "not_relevant"]).optional()
+      .describe("Community research declaration. Missing declarations, coverage and lane-report gaps are notes; material access boundaries remain limits to state in your own words."),
+    treatment_choice: z.enum(["compared", "not_compared"]).optional()
+      .describe("Treatment comparison declaration. Missing declarations, unfinished research and wording gaps are notes; only the five source, reading, number, harm-screen and retraction checks block."),
     open_leads: openLeadsSchema.optional()
       .describe("Optional planning for a later pass: studies or communities not yet reached, with what each could change."),
     another_pass_estimate: researchPlanSchema.shape.another_pass_estimate

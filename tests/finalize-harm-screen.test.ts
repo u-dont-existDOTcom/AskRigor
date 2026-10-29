@@ -725,7 +725,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
         next_steps: [],
         status: "ready_with_limits"
       });
-      expect(screened.text).toContain(`The answer must contain, as written: ${NOT_CHECKED}`);
+      expect(screened.text).toContain(`Limit to include in your own words: ${NOT_CHECKED}`);
       const passed = await call(base({ harm_screen: [onLabel, notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` }));
       expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
       const unscreened = await call(base({ harm_screen: undefined }));

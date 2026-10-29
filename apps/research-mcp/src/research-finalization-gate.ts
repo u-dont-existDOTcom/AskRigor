@@ -948,9 +948,18 @@ export const finalizeResearchInputSchema = z.object({
 
 // Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
 // merged; the top-level schema used by tools/list is unchanged.
-function finalizeResearchRuntimeInputSchema() {
+export function finalizeResearchRuntimeInputSchema() {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.extend<typeof later>(later);
+  return finalizeResearchInputSchema.extend({
+    ...later,
+    answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
+      "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
+      "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
+      "diagnostics are notes. Include material limits in your own words; their exact wording is not checked."),
+    caveat_renderings: finalizeResearchInputSchema.shape.caveat_renderings.describe(
+      "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
+      "or changed limit sentences do not create steps.")
+  });
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1351,7 +1360,8 @@ const finalizationStatusSchema = z.enum([
 ]);
 const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string() }).strict();
 
-export const finalizeResearchOutputSchema = z.object({
+// Retain published descriptions for the frozen catalog; runtime guidance is updated below.
+const finalizeResearchRetainedOutputSchema = z.object({
   contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
   research_plan: researchPlanSchema.optional(),
@@ -1495,7 +1505,22 @@ export const finalizeResearchOutputSchema = z.object({
     "which the server sent to the owner's review inbox.")
 }).strict();
 
-export const finalizeResearchPublishedOutputSchema = finalizeResearchOutputSchema.omit({ research_plan: true, notes: true })
+export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema.extend({
+  next_steps: finalizeResearchRetainedOutputSchema.shape.next_steps.describe(
+    "Only failures of the five blocking integrity checks. Every other diagnostic is in notes."),
+  next_step_kinds: finalizeResearchRetainedOutputSchema.shape.next_step_kinds.describe(
+    "Each blocking step's kind, in the same order. Only the five blocking checks create steps; declaration, " +
+    "research, answer_draft and carried_state describe the action to resolve them. Other diagnostics are notes."),
+  round: finalizeResearchRetainedOutputSchema.shape.round.describe(
+    "This turn's blocking-check round and its limit. Only calls with blocking steps consume a round; advisory " +
+    "or passing calls do not advance it."),
+  limits: finalizeResearchRetainedOutputSchema.shape.limits.describe(
+    "Material limits to include in the answer in your own words, also shown beneath the checked answer in the panel."),
+  caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
+    "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
+});
+
+export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
   .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;

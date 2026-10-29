@@ -236,7 +236,7 @@ describe("finalize_research documents the reason on both surfaces (question 125)
         ]
       });
       const text = (response.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
-      expect(text).toContain(`The answer must contain, as written: ${SKIP}`);
+      expect(text).toContain(`Limit to include in your own words: ${SKIP}`);
     } finally {
       await client.close();
       await server.close();

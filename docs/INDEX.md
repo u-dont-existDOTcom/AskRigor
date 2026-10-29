@@ -23,6 +23,9 @@ complete XML protocol.
 
 ## Validation and release
 
+- [Final-check scope](final-check.md): the five blocking checks in owner answers
+  193a and 195a, advisory notes, material limits and the passing-answer panel
+
 - `forum-outlier-and-reddit-retrieval-playbook.md`: source-checked operational reference for strict outcome/dose/duration admission of forum cases and portable ChatGPT-native-web / connected-scraper Reddit retrieval fallbacks. It is not a deployed protocol or a substitute for the canonical `FORUM_SIGNAL_MODULE.md`.
 
 - `askrigor-strict-runner.md`: personal local Codex runner enforcing a passing

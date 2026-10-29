@@ -1,5 +1,9 @@
 # Lessons #30 and #31: forum reports of one exact exposure, comparisons with their doses, communities the user names, and a final check the reader can see
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 ## Authority and scope
 
 - Lesson candidates #30 and #31 in the private lessons queue, filed 2026-10-16 through the MCP connector
