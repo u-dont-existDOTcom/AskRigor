@@ -91,6 +91,8 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-29-next-build-production-release.md`: release of #381 (owner question 194): the checked answer in
+  the panel, a fixed tool list, the plain answer for free accounts, older cards under a topic, video and comment fixes.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
   reports, lessons naming existing rules, research building on the Atlas.
 - `audits/2026-10-27-owner-regressions-judgment.md`: the owner regressions on #375's build `ddba2b79` (85 cases: 41 pass,
