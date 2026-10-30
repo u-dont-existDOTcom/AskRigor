@@ -5,7 +5,9 @@ Owner answers 193a and 195a (29 October 2026) limit `finalize_research` to five 
 1. Each declared key source has a verified receipt from this research tying its identity to a search result,
    record, full-text acquisition, audit, lead or route failure. Its answer link must lead to that source.
    A receipt-tied web address works without a DOI or an answer marker. A receipt that fails verification
-   does not count and produces a note.
+   does not count and produces a note. A link counts wherever the answer writes it, inside parentheses too, and a
+   step offers only pages a source's kind has (until the 30 Oct rerun, "([label](URL))." read as "URL))." and was
+   refused, and web addresses were offered as doi.org links).
 2. A study's declared `read_depth` matches its receipts.
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
 4. Declared `safety_claims` have a `harm_screen` naming at least one harm actually searched. Duplicates, other

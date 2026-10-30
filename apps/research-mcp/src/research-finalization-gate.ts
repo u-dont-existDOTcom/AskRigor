@@ -2348,8 +2348,10 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   // DOI paths may contain parentheses; displayedProse already resolves a
   // Markdown link's delimiters, so its complete target survives extraction.
+  // The text after a target follows it directly, so a link in parentheses
+  // ("([label](URL)).") reads "URL))." until its end is trimmed.
   const linksFor = (block: string): string[] =>
-    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => target);
+    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => trimLinkEnd(target));
   const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
     .flatMap((block) => block.split("\n"));
   const studyLinks = studyLines.flatMap(linksFor);
@@ -2431,7 +2433,9 @@ export function finalizeResearch(
         addStep("answer_draft", rule`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
       if (untied === undefined && !studyLinks.some(linked)) {
-        addBlockingStep("source_provenance", "answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+        addBlockingStep("source_provenance", "answer_draft", pages.length === 0
+          ? rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned.`
+          : rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
     }
     if (source.read_depth === "atlas_checked" && checkedInAtlas(source.id)) {
@@ -4402,17 +4406,19 @@ class PaperLinks {
 
 /**
  * The pages a next step offers for a key study: its own identifier's page, then the pages receipts tied to it,
- * then its tied PMC and PubMed pages; at most three.
+ * then its tied PMC and PubMed pages; at most three. A web address is its own page; an identifier of no kind
+ * AskRigor links has none (the 30 Oct rerun was offered doi.org/ before web addresses, a video ID and a label).
  */
 function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
-  const page = (identifier: string) => isPmid(identifier) ? `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
-    : isPmcid(identifier) ? `https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`
-    : `https://doi.org/${identifier}`;
+  const page = (identifier: string): string[] => isPmid(identifier) ? [`https://pubmed.ncbi.nlm.nih.gov/${identifier}/`]
+    : isPmcid(identifier) ? [`https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`]
+    : isDoi(identifier) ? [`https://doi.org/${identifier}`]
+    : /^https?:\/\//iu.test(identifier) ? [identifier] : [];
   const candidates = [
-    page(id),
+    ...page(id),
     ...pages.values(),
-    ...identifiers.filter((other) => other !== id && isPmcid(other)).map(page),
-    ...identifiers.filter((other) => other !== id && isPmid(other)).map(page)
+    ...identifiers.filter((other) => other !== id && isPmcid(other)).flatMap(page),
+    ...identifiers.filter((other) => other !== id && isPmid(other)).flatMap(page)
   ];
   const seen = new Set<string>();
   return candidates.filter((candidate) => {
@@ -4458,6 +4464,21 @@ const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
  * title slug or comment permalink. Other query parameters stay: they may be
  * what names a forum's thread.
  */
+/**
+ * A link without the sentence's punctuation after it or a closing parenthesis it does not open, so a link written
+ * inside parentheses keeps only its own; a DOI's balanced parentheses stay (the 30 Oct rerun's o354-work-left,
+ * q136 and s360 rating, whose correctly linked key sources were refused).
+ */
+function trimLinkEnd(link: string): string {
+  let end = link;
+  for (let previous = ""; previous !== end;) {
+    previous = end;
+    end = end.replace(/[.,;:!?"'*`\]]+$/u, "");
+    if (end.endsWith(")") && (end.match(/\)/gu) ?? []).length > (end.match(/\(/gu) ?? []).length) end = end.slice(0, -1);
+  }
+  return end;
+}
+
 function comparableUrl(url: string): string {
   const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
   try {
