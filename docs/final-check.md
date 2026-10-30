@@ -28,7 +28,11 @@ object again with that field usable, or leaves the object out. Told only that th
 the field, which the app's copy of the tool's schema requires, and the app refused the next call before it reached
 AskRigor (four runs of the 30 Oct rerun on #384's build). For the same reason, the notes asking for a missing
 `safety_claims` or `mechanism_claims` name the required choice their field lists left out: each claim's direction,
-and whether its experiment was in people or animals (the same rerun's `r377-continue`).
+and whether its experiment was in people or animals (the same rerun's `r377-continue`). `named_target.described_from`
+says `video_description_only` where `unwatched_videos[].content_from` says `description_only`, and the app refused the
+first word in the second field (the same rerun's `l22`), so the step asking the two to agree names the matching pair.
+The two spellings can become one only when the tool list next changes (owner answer 189a), which
+`tool-list-changes-waiting.md` records.
 
 For a usable call, `not_ready` means at least one of the five fails. With none failing, a nonempty `limits`
 list gives `ready_with_limits`; otherwise the result is `ready`. Material boundaries remain in `limits`,

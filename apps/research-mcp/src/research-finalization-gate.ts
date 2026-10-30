@@ -2614,7 +2614,9 @@ export function finalizeResearch(
     const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
       ? "description_only" : undefined;
     if (entry !== undefined && declared !== undefined && entry.from !== declared) {
-      addStep("declaration", joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`));
+      // The two fields spell the same source differently, and the app's copy of the schema refuses the other field's
+      // word (the 30 Oct rerun's l22: content_from "video_description_only"), so the step names the matching pair.
+      addStep("declaration", joinRules(joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree (content_from `), "description_only goes with described_from video_description_only, and person with person)."));
     }
     // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
     // nothing, so no study is the same there or differs there.

@@ -336,7 +336,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       const result = await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },
         unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] });
       expect(advisoryNotes(result)).toEqual([`named_target is described_from video_description_only for video ${VIDEO}, ` +
-        "but unwatched_videos[0] gives its content_from as person: make the two agree."]);
+        "but unwatched_videos[0] gives its content_from as person: make the two agree (content_from description_only " +
+        "goes with described_from video_description_only, and person with person)."]);
       expect(result.next_step_kinds).toEqual([]);
       // Agreeing, the caveat comes from its title and description.
       expect(await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },

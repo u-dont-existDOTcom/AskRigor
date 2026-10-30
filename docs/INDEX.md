@@ -25,6 +25,8 @@ complete XML protocol.
 
 - [Final-check scope](final-check.md): the five blocking checks in owner answers
   193a and 195a, advisory notes, material limits and the passing-answer panel
+- [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
+  itself (owner answer 189a), with what holds meanwhile
 
 - `forum-outlier-and-reddit-retrieval-playbook.md`: source-checked operational reference for strict outcome/dose/duration admission of forum cases and portable ChatGPT-native-web / connected-scraper Reddit retrieval fallbacks. It is not a deployed protocol or a substitute for the canonical `FORUM_SIGNAL_MODULE.md`.
 
