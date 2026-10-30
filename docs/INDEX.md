@@ -99,6 +99,8 @@ complete XML protocol.
 - `audits/2026-10-29-owner-answer-196a-dev-account.md`: the owner's email-and-password login listed as a dev account
   in production on owner answer 196a (one `runtime.env` line, `research-mcp` recreated on the same image, acceptance
   and rollback).
+- `audits/2026-10-30-final-check-193a-production-release.md`: release of #384 (owner answer 197a): only five checks
+  stop an answer, the low-calorie reports, HRP 20.6.32; a probe shows two of the five still block in production.
 - `audits/2026-10-29-next-build-production-release.md`: release of #381 (owner question 194): the checked answer in
   the panel, a fixed tool list, the plain answer for free accounts, older cards under a topic, video and comment fixes.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
