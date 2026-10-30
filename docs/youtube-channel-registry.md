@@ -72,8 +72,53 @@ Dr. Jon Saunders, above.
 
 | Channel | ID | Value | Cautions | From |
 |---|---|---|---|---|
-| Dr. Josef, Taper Clinic (`@taperclinic`) | `UCT0HW8jp8xDuczBnO7Kg7rA` | methods, outcomes: tapering off psychiatric drugs | centred on the harms of psychiatric drugs | owner |
+| Dr. Josef, Taper Clinic (`@taperclinic`) | `UCT0HW8jp8xDuczBnO7Kg7rA` | methods, outcomes: tapering off psychiatric drugs; critique: the hidden costs of psychiatric treatments; leads: everyday exposures such as caffeine, which he takes his patients off | a critic of mainstream psychiatric prescribing | owner |
 | HealthyGamerGG (`@healthygamergg`) | `UClHVl2N3jPEbkNJVx-ItQIQ` | leads: psychology | contested in parts | owner |
+
+### Sleep
+
+| Channel | ID | Value | Cautions | From |
+|---|---|---|---|---|
+| TheLankyLefty27 (`@freecpapadvice`) | `UCg_Rj5qrxlCo4OX6MMq08gQ` | methods: reading CPAP and sleep-study data | to check: products | Gemini |
+| CPAP Reviews (`@cpapreviews`) | `UCyB30b5W8LzOUngKmrTtGXQ` | methods: CPAP set-up and data | equipment reviews; to check: sponsors | Gemini |
+| Vik Veer - ENT Surgeon (`@vikveerentsurgeon`) | `UC_fHttZRzm6XyaziXSAaWEA` | methods, education: ENT examinations, sleep-endoscopy footage | | Gemini |
+| The Sleep Coach School (`@thesleepcoachschool8192`) | `UC_tdQDMQon0CfD0xAbZPNDg` | methods: coaching for insomnia | to check: sells coaching | Gemini |
+
+### Women's health
+
+| Channel | ID | Value | Cautions | From |
+|---|---|---|---|---|
+| Dr. Stacy Sims Official (`@drstacysims`) | `UCPD55VPa1ZWx1a_nzWC2VJA` | leads, methods: training and nutrition for women | to check: products | Gemini |
+| Dr. Kelly Casperson, M.D. (`@kellycaspersonmd`) | `UCalNuuq2IHBHeK3bJ3gyUYQ` | education: urology and menopause | | Gemini |
+| Dr. Mary Claire Haver, MD (`@drmaryclaire`) | `UCHFffg5HmfoId6E8WTVOc5Q` | education, leads: menopause | to check: products | Gemini |
+| Natalie Crawford, MD (`@nataliecrawfordmd`) | `UCRZamIB-DWuVPJuc0bKhwzg` | education: fertility | | Gemini |
+
+### Strength and fitness
+
+| Channel | ID | Value | Cautions | From |
+|---|---|---|---|---|
+| The Bioneer (`@thebioneer`) | `UCIh_TPYPqjJuS_-nOfAIlfg` | leads, methods: training ideas from many schools | | Gemini |
+| E3 Rehab (`@e3rehab`) | `UCkb9jgRxR2D5bc1fSDofwtA` | methods: loading programmes for tendon, disc and joint injuries | to check: products | Gemini |
+| Garage Strength (`@garagestrength`) | `UCZEEC1w4jP1cV2dibuDFwIQ` | methods: athletic coaching | | Gemini |
+| Revive Stronger (`@revivestronger`) | `UC6wB_e6YQncYgpv_QrMGHCQ` | critique, benchmark: discussions with researchers | | Gemini |
+
+### Supplements
+
+| Channel | ID | Value | Cautions | From |
+|---|---|---|---|---|
+| ConsumerLab.com (`@consumerlabplus`) | `UC8v5bD6ABSHnXpJggz2MW2A` | critique: independent lab tests of products on sale | a paid testing service | Gemini |
+| More Plates More Dates (`@moreplatesmoredates`) | `UCoR7CHkMETs3ByOv74OAbFw` | critique: label dissection; leads | to check: products and sponsors | Gemini |
+| Physionic (`@physionic`) | `UCj3p_1jOCJXB_L_we-DjLbA` | critique, leads: supplement mechanisms and effect sizes | to check: products | Gemini |
+| Lucas Aoun - Boost Your Biology (`@boostyourbiology`) | `UC4O8s5Eir3A0ULQ-0HOJr8Q` | leads: little-studied compounds | to check: commercial supplement ties | Gemini |
+
+### Long COVID and ME/CFS
+
+| Channel | ID | Value | Cautions | From |
+|---|---|---|---|---|
+| Jarred Younger, PhD (`@youngerlab`) | `UCoVoOvIX90IMEZCbBf_ycEA` | leads: a research lab's work on neuroinflammation and fatigue | | Gemini |
+| Bateman Horne Center (`@batemanhornecenter`) | `UCjdso7oUeJT90mL0PdHr0vQ` | methods: clinical tests and care for ME/CFS | | Gemini |
+| Gez Medinger (`@rundmc1`) | `UCln_SCEd4JiGkHIUZd1VlXw` | outcomes: patients' surveys of treatments | surveys whose respondents choose themselves | Gemini |
+| Raelan Agle (`@raelanagle`) | `UCy4EjD4exCbtuGQkSa71ozA` | outcomes: long interviews with people who recovered | people who recovered only | Gemini |
 
 ### Teeth and mouth
 
@@ -105,6 +150,6 @@ needs them.
 
 - Check each channel: AskRigor audits a few of its videos against the studies, samples its comments (the share with an
   outcome, and the improvement-to-worsening ratio, with counts), and confirms or changes its labels.
-- Fill the categories with no channel yet: sleep, women's health, strength and fitness, supplements, and long COVID and
-  ME/CFS.
+- Every category has candidates now (46 channels: the owner's five and Gemini's 41). More come from the channels that
+  surface in research, and from the owner.
 - Use it: the build after #387, through each channel's upload list (`docs/superpowers/plans/2026-10-30-next-build-after-387.md`).
