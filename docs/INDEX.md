@@ -106,6 +106,10 @@ complete XML protocol.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `audits/2026-10-30-owner-regressions-384-judgment.md`: the owner regressions on #384's build `d8beec2d`, both runs
+  against question 193's signals (85 cases: 45 pass, 38 in part, 1 fails, 1 not judged; the low-calorie runs 4, 7 and
+  none fail): 103 of 108 checks pass by their second call, none never passes, 6 calls fail on format, and what each
+  finding comes to, with the fixes built for the next build.
 - `audits/2026-10-29-next-build-production-release.md`: release of #381 (owner question 194): the checked answer in
   the panel, a fixed tool list, the plain answer for free accounts, older cards under a topic, video and comment fixes.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
