@@ -2809,7 +2809,9 @@ export function finalizeResearch(
       // A share of selected reports may come from posts rather than a study.
       const studiesNeeded = claim.basis !== "share_of_reports";
       if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
-        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or declare basis not_quantified."));
+        // The exit is for a harm no source here gives a rate for: on 30 Oct r324 took it for a study whose rates its
+        // binary_results declared, and its answer then carried the false limit below beside a table of those rates.
+        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or, when no source here gives a rate, declare basis not_quantified."));
       }
       undeclaredStudies(at, claim.studies ?? []);
     }
@@ -2842,8 +2844,9 @@ export function finalizeResearch(
             "would cause harm wasn't measured. What was measured:", measured)} ` +
             completedCaveat("What people would use:", exposure));
       } else if (claim.basis === "not_quantified") {
+        // Named by its exposure like a safety claim's: the panel lists it apart from the sentence it qualifies.
         caveatOnce(rule`A harm warning has no rate: say so, as the caveat does.`,
-          "How often this happens wasn't quantified in the sources found here.");
+          completedCaveat("How often this harm happens wasn't quantified in the sources found here for this exposure:", exposure));
       }
     } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
       caveatOnce(joinRules("A safety claim rests on a measurement or an animal test, not on observed safety in people: say so, ", "as the caveat does."),

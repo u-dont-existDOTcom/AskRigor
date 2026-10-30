@@ -80,7 +80,8 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
           "measured. What was measured: alginate extracted in a laboratory. What people would use: wild seaweed eaten " +
           "as food."],
       [{ basis: "not_quantified", measured_exposure: undefined, studies: undefined },
-        "How often this happens wasn't quantified in the sources found here."],
+        "How often this harm happens wasn't quantified in the sources found here for this exposure: the extract at " +
+          "300 mg a day for 12 weeks."],
       [{ direction: "safety", basis: "hazard_measurement", exposure: "the thiolated gum", measured_exposure: "one acute high-dose rat test" },
         "This rests on a measurement or an animal test, not on observed safety in people, so long-term or rare harms " +
           "are unmeasured. What it rests on: one acute high-dose rat test. What people would use: the thiolated gum."],
@@ -105,7 +106,7 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
     const quote = "Nausea occurred in 18% on the extract and 4% on placebo.";
     expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ measured_exposure: undefined })] })).toEqual([
       "safety_claims[0] has basis comparative_rates without measured_exposure: give what the cited evidence measured " +
-        "and the key sources it rests on, or declare basis not_quantified."
+        "and the key sources it rests on, or, when no source here gives a rate, declare basis not_quantified."
     ]);
     expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted"] })] })).toEqual([
       "safety_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to key_sources with its " +
