@@ -106,7 +106,9 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
     - **Use:** for a question in a category, list each registry channel's uploads through the API (`playlistItems`,
       1 unit per 50 videos, none of the 200 searches), have the model pick the videos that fit, and read them by ID.
       Open discovery stays, so the registry adds sources and never narrows them (HRP's creator-success and platform
-      selection limits still apply).
+      selection limits still apply). The owner, 30 Oct: "if the channel fits the search you could check it along with
+      whatever pops up"; small channels with recovery stories can be the most valuable, and open search is how they are
+      found.
     - **Building it:** candidates from web search, the Gemini scout and the channels that surfaced in past runs; each
       checked through the API (`channels`, 1 unit) and judged on the criteria by AskRigor's own checks of a few of its
       videos. The registry keeps channel IDs and our own notes, and fetches the rest live; YouTube's developer policies

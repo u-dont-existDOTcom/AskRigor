@@ -7,6 +7,11 @@ API (`channels`, 1 unit). None is checked yet: before use, AskRigor audits a few
 studies and samples their comments. Open discovery stays, so the registry adds sources and never narrows them; HRP's
 limits on creator-success bias and platform selection still apply.
 
+**Alongside open search, never instead of it** (the owner, 30 Oct: "if the channel fits the search you could check it
+along with whatever pops up"). When a listed channel fits the question, AskRigor reads its uploads as well as what open
+search finds. Size isn't value: a small channel with one person's detailed recovery story can be the best source a
+question has, and open search is how those are found. One that proves its worth can join the registry.
+
 The registry keeps channel IDs and our own notes. Everything else, such as subscriber counts and upload lists, is
 fetched live, as YouTube's rules for stored API data require.
 
@@ -20,6 +25,10 @@ Each channel is labelled with the kinds of value it has, and none means its clai
   comment in the platform's order): the share of comments with an outcome, and the ratio of reported improvement to
   reported worsening, per video and per method, with the counts. The ratio shows which way commenters' reports lean,
   not how often the method works (HRP `DirectionLabelsNeedOutcomeNeutralSelection`, `NoPopulationRateFromForumSample`).
+- **Recovery story:** a person's own detailed account of getting better, often on a small channel: what they did, for
+  how long, how it was measured, and how they are now. It is one person's account, and recoveries are what gets filmed,
+  so it is a lead and an outcome report, never a rate; it is kept apart from independent commenters (HRP
+  `YouTubeCreatorCommentCorpusHandling`).
 - **Leads:** ideas worth testing, on weaker or contested evidence; a lead starts a study search and never settles a
   question.
 - **Critique:** examines studies' methods and their limits.
