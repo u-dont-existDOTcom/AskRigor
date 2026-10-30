@@ -93,6 +93,7 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-30-owner-answers-201a-205a.md`: owner answers 201a (the scout's group-word check dropped; the person markers and de-identification screen stay, and a target in another language now passes when nothing matches them) and 205a (HRP 20.6.34: a passing check's answer states the limits that change what the person should believe or do, the panel lists them all, and every limit is stated when the check has not passed), built for #387.
 - `audits/2026-10-29-lesson-51-and-uda-444-protocol.md`: lesson #51 and UDA #444 under owner rule 148a: HRP 20.6.33
   ends `HealthEvidenceRoleLedger` with whom each statement is about (a condition named in a question is the topic, not
   the asker's, unless they say so) and adds `LongDocumentCoverageAudit` outside the core (the current version, how much
