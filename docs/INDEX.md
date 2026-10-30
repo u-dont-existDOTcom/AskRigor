@@ -104,6 +104,9 @@ complete XML protocol.
   and rollback).
 - `audits/2026-10-30-final-check-193a-production-release.md`: release of #384 (owner answer 197a): only five checks
   stop an answer, the low-calorie reports, HRP 20.6.32; a probe shows two of the five still block in production.
+- `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 27 channels by
+  health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
+  benchmark), cautions and where each came from; none checked yet.
 - `audits/2026-10-30-owner-answers-200a-205a-production-release.md`: release of #387 (owner answer 204a): shared
   answers on with a key made on the host, the limits that matter (HRP 20.6.34), the scout's group-word check dropped,
   and the privacy page dated 30 October; acceptance, the site byte for byte, both connector probes and the rollback.
