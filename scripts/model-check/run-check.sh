@@ -11,6 +11,15 @@ mkdir -p "$OUT"
 IN=$(cd "$IN" && pwd); OUT=$(cd "$OUT" && pwd)  # absolute, since each check runs from the empty directory below
 WORK=$(mktemp -d)  # an empty working directory: no project files or instruction files
 export ENGINE MODEL EFFORT OUT HERE WORK
+if [ "$ENGINE" = codex ]; then
+  # The owner's personal Codex instructions do not apply to a check (owner answer 144a's one-line override, as the
+  # regression harness uses it): made here only when none exists, and removed when the run ends.
+  OVERRIDE="$HOME/.codex/AGENTS.override.md"
+  if [ ! -e "$OVERRIDE" ]; then
+    printf 'No personal instructions apply in this session.\n' > "$OVERRIDE"
+    trap 'rm -f "$OVERRIDE"' EXIT
+  fi
+fi
 
 check_one() {
   bundle=$1; name=$(basename "$bundle" .json)
@@ -24,7 +33,11 @@ check_one() {
       --output-format json < "$input" > "$OUT/$name.raw.json" 2> "$OUT/$name.err")
   else
     { cat "$HERE/check-instructions.md"; printf '\n\n'; cat "$input"; } > "$WORK/$name.prompt.md"
-    timeout 1200 codex exec --skip-git-repo-check -C "$WORK" -m "$MODEL" -c "model_reasoning_effort=\"$EFFORT\"" \
+    # No config file (so none of the owner's MCP servers), and no apps, plugins, browsers, hooks or web search: the
+    # check reads only its input (tested 30 Oct: one agent message, no tool call).
+    timeout 1200 codex exec --skip-git-repo-check --ignore-user-config --disable apps --disable plugins \
+      --disable browser_use --disable browser_use_external --disable in_app_browser --disable computer_use \
+      --disable hooks -c 'web_search="disabled"' -C "$WORK" -m "$MODEL" -c "model_reasoning_effort=\"$EFFORT\"" \
       --sandbox read-only --json -o "$OUT/$name.reply.md" - < "$WORK/$name.prompt.md" \
       > "$OUT/$name.raw.jsonl" 2> "$OUT/$name.err"
   fi
