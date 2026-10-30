@@ -101,7 +101,7 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
     - **The owner's two additions (30 Oct):** the good-to-bad ratio ("how else will we see if it's actually working
       for people?"), counted within a sample drawn without regard to outcome (every k-th comment), per video and per
       method, with its counts, as the owner's last turn on #390 did; and channels that take "hard cases", people
-      others couldn't help, and show their tests and reasoning (the owner's example: Dr. Rahim). The seed, 26 channels
+      others couldn't help, and show their tests and reasoning (the owner's example: Dr. Rahim). The seed, 46 channels
       confirmed through the API with the owner's picks and Gemini's candidates, is `docs/youtube-channel-registry.md`.
     - **Use:** for a question in a category, list each registry channel's uploads through the API (`playlistItems`,
       1 unit per 50 videos, none of the 200 searches), have the model pick the videos that fit, and read them by ID.
