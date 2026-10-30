@@ -42,10 +42,26 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
   6. one search uses the person's own combination of symptoms (the owner's video ranked first for it), and the answer
      covers the whole cluster, not its most textbook symptom.
 
+  7. **The loop, both ways** (the owner, 30 Oct: "make sure that the forum signal is doing a feedback loop, that's how
+     it was originally designed, but i feel like we have often fallen into forum signal being a check on what you find
+     via studies. forum signal should be also informing which studies to look at"). HRP's
+     `BidirectionalEvidenceDiscoveryAndTriangulationLoop` already says it (`NoFixedStudiesThenCommunitySequence`:
+     "Never search studies, finish the literature conclusion, and only then check forums";
+     `CommunityToFormalHypothesisTransfer`, `FormalToCommunityDiscriminatorTransfer`), and the forum module's
+     "Community → formal" does too; the runs still go studies first and use the forums as a check. In #390's run the
+     loop worked once, by accident: the forums raised SCM syndrome, and a search for it found two case reports. So:
+     `CommunityToFormalHypothesisTransfer`'s "Record which community leads materially changed the formal search map"
+     becomes "say in the answer", with the study findings taken back to the communities.
+
   The check (non-blocking notes, 195a; no new declaration): `not_relevant_basis` `emergency_before_triage` with key
-  sources declared means research went past the warning, so the note says community evidence applies. The YouTube
-  audit results carry the reporting reminder (title, channel, link, retrieved and classified counts, how chosen).
-  Regression cases from #390's five scenarios and the owner's last-turn expectations.
+  sources declared means research went past the warning, so the note says community evidence applies; and when
+  YouTube community receipts exist but no literature-search receipt was issued after the first of them, a note says the
+  community leads never reached the study search (an exact check of signed issue times; forums the AI reads through
+  its own web search sign no receipt, so the note can't see them). The community tools' results (scout, survey,
+  community and video audits) carry two reminders: the loop (turn the interventions, diagnoses, subgroups and harms
+  these reports name into study searches before concluding) and the reporting (title, channel, link, retrieved and
+  classified counts, how chosen). Regression cases from #390's five scenarios, the owner's last-turn expectations, and
+  one for the loop: a community-only treatment the first study search missed must reach a study search.
 
 - **YouTube within its terms (owner answer 206a, 30 Oct: searches stay on the API).** Steps 2 and 3 of the owner
   page's plan, before any public launch:
