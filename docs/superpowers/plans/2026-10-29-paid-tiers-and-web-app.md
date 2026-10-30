@@ -1,6 +1,33 @@
 # Paid tiers, payments and the web app: plan for the owner's decisions (29 Oct 2026)
 
-Status: a draft for the owner's decisions (owner questions 198 to 200). Nothing here is built, and nothing spends money.
+Status: questions 198 to 200 are decided (30 Oct, below); questions 201 to 203 are open. Nothing here spends money.
+
+## Decisions, 30 Oct 2026
+
+- **198a, with Claude against Codex.** The model check is built first, offline, on the owner's laptop
+  (`scripts/model-check/`), and judged at zero spend: developed on the 27 to 28 Oct run's judged answers, frozen, then
+  judged on the 29 to 30 Oct run's answers. The same check runs through Claude Code (`claude -p`, Claude plan) and
+  Codex (`codex exec`, ChatGPT plan). Each check is one stateless call holding the question, the answer and the
+  research record; multi-turn runs resume sessions where state is needed (`codex exec resume`, `claude -p --resume`).
+  First trial (Sonnet 5.5, high effort, one answer): 57 seconds, 85,100 input and 6,687 output tokens, seven findings.
+- **The web app waits** (the owner: "a dead idea for now"). The plugin stays the product. It comes back if a lean
+  loop makes an answer much cheaper (fewer, batched calls; the protocol once; trimmed results; a cheaper model;
+  measured at zero spend first), or on people's own plans: OpenAI's "Sign in with ChatGPT" (since 29 Sep 2026) lets a
+  Plus or Pro plan pay for an app's Responses API calls; open-source and local apps can use it now, and a hosted or
+  paid app applies through an interest form (question 202). Its terms page could not be read on 30 Oct (HTTP 403);
+  read it before building. Anthropic's Agent SDK docs say third-party products may not offer claude.ai login or rate
+  limits without Anthropic's approval.
+- **199: Stripe, US.** The owner's Stripe login has an AskRigor organization with a new US account named AskRigor
+  (onboarding not done) and a sandbox, "AskRigor sandbox" (US, USD, test mode, no products yet), whose test keys are
+  on the laptop. Build and test against the sandbox only; the live account's onboarding is the owner's step when
+  payments ship. Taxes: Managed Payments (Stripe as merchant of record, 3.5% on top) or Stripe Tax, put to the owner
+  then. The owner's login also holds a live account for another business, never used for AskRigor.
+- **200a, the owner's wording.** Nothing is kept by default. At the end of an answer: "Send this de-identified
+  question & answer to AskRigor for improvements? If yes, optionally specify what should be improved." On a yes the
+  AI shows the de-identified text, with what to improve, and sends it once the person confirms that text.
+- **New idea (question 203): an AskRigor news service.** Health headlines checked against their studies, one item
+  serving every subscriber, so the cost is shared. Pilot at zero spend: a weekly draft digest for the owner from public
+  feeds, then a page, email and Stripe subscriptions.
 
 ## The owner's request
 
