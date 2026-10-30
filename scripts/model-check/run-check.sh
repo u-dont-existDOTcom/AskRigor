@@ -8,6 +8,7 @@ set -uo pipefail
 ENGINE=${1:?engine}; MODEL=${2:?model}; EFFORT=${3:?effort}; IN=${4:?bundles}; OUT=${5:?out}; P=${6:-2}
 HERE=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$OUT"
+IN=$(cd "$IN" && pwd); OUT=$(cd "$OUT" && pwd)  # absolute, since each check runs from the empty directory below
 WORK=$(mktemp -d)  # an empty working directory: no project files or instruction files
 export ENGINE MODEL EFFORT OUT HERE WORK
 
