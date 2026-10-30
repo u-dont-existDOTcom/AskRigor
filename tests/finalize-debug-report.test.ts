@@ -96,7 +96,7 @@ describe("the final check's private debug report", () => {
       lab_preparation: { status: "not_applicable", reason: "Synthetic source fixture." },
       intervention_identity: { status: "not_applicable", reason: "Synthetic source fixture." },
       receipts: [receipt("pubmed_record", { pmcid: "PMC5640576", pmid: "12345678", doi: "" })] }));
-    expect(result.limits).toContain("Cite PMC5640576 as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.");
+    expect(result.limits).toContain("Cite \"Source\" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.");
     expect(result.check_report!.limits).toEqual([]);
     expect(JSON.stringify(result.check_report)).not.toContain("PMC5640576");
     expect(result.bug_report).toContain("rule still unmet:");

@@ -1877,7 +1877,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only" }] }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.limits).toContain(`Cite ${id} as a lead: ${limit}, so its methods were not audited.`);
+    expect(result.limits).toContain(`Cite "Study" (${id}) as a lead: ${limit}, so its methods were not audited.`);
     expect(result.caveats).toContain(caveat);
   });
 
@@ -1945,7 +1945,7 @@ describe("finalize_research gate", () => {
         const result = run(ordered);
         expect(result.status).toBe("ready_with_limits");
         expect(result.sources.lead_only).toEqual([id]);
-        expect(result.limits).toContain(`Cite ${id} as a lead: a full-text service kept failing when AskRigor tried ` +
+        expect(result.limits).toContain(`Cite "Study" (${id}) as a lead: a full-text service kept failing when AskRigor tried ` +
           "to fetch it, so its methods were not audited.");
         expect(result.caveats).toContain(caveat);
         expect(result.next_steps).toEqual([]);
@@ -2064,6 +2064,23 @@ describe("finalize_research gate", () => {
     });
   });
 
+  // Owner, 30 Oct: the panel listed "Only part of the text of 29340206", a number the answer never shows. A limit names
+  // a key source by its answer label, then its identifier; a source labelled by its identifier is named once.
+  it("names a key source in its reading limit by the answer's label, then its identifier", () => {
+    const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
+    const limitsFor = (answer_marker: string) => finalizeResearch({
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, noDoiRecord],
+      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
+      key_sources: [{ read_depth: "partial_text" as const, answer_marker, id: "PMID: 31234567", status: "lead_only" }]
+    }, options).limits.filter((limit) => limit.startsWith("Only part of the text of"));
+    expect(limitsFor("Cervicogenic dizziness review")).toEqual([
+      "Only part of the text of \"Cervicogenic dizziness review\" (PMID: 31234567) was read for this answer; its methods were not audited."
+    ]);
+    expect(limitsFor("pmid: 31234567")).toEqual([
+      "Only part of the text of PMID: 31234567 was read for this answer; its methods were not audited."
+    ]);
+  });
+
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
     const result = finalizeResearch({
@@ -2085,9 +2102,9 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
   "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
   "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/HipOA.",
-  "Cite 10.1016/j.joca.2020.01.001 as a lead: no open full text was available, so its methods were not audited.",
-  "Only part of the text of PMID: 31234567 was read for this answer; its methods were not audited.",
-  "Cite PMID: 31234567 as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.",
+  "Cite \"Study\" (10.1016/j.joca.2020.01.001) as a lead: no open full text was available, so its methods were not audited.",
+  "Only part of the text of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.",
+  "Cite \"Study\" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.",
   "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its methods were not checked.",
   "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked.",
   "This was a first pass: some studies and communities were not reached yet.",

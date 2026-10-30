@@ -242,11 +242,12 @@ describe("rendered final check result", () => {
     expect(result.next_steps).toEqual([]);
     const limits = [...result.limits, "<b>A second limit is plain text.</b>"];
     const root = render({ ...result, limits });
-    expect(root.children.slice(-4).map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+    const shown = root.children.filter(({ tagName }) => tagName !== "details");
+    expect(shown.slice(-4).map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
       ["h2", "The answer as AskRigor checked it:"], ["p", input.answer_draft],
       ["h2", "Limits of this answer:"], ["ul", limits.join("")]
     ]);
-    expect(root.all("li").slice(-limits.length).map(({ textContent }) => textContent)).toEqual(limits);
+    expect(shown.at(-1)!.children.map(({ textContent }) => textContent)).toEqual(limits);
     expect(root.all("b")).toEqual([]);
     expect(render({ status: "not_ready", limits, checked_answer: input.answer_draft }).textContent)
       .not.toContain("Limits of this answer:");
@@ -257,9 +258,28 @@ describe("rendered final check result", () => {
     const root = render({ status: "ready", notes });
     expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
       ["p", "\u2713 Checked by AskRigor's final check."],
-      ["h2", "Notes about the call:"], ["ul", notes.join("")]
+      ["details", `Notes for the AI (2)${notes.join("")}`]
     ]);
+    expect(root.all("li").map(({ textContent }) => textContent)).toEqual(notes);
     expect(root.all("script")).toEqual([]);
+  });
+
+  // Owner, 30 Oct ("i got this massive askrigor check panel"): the notes are written for the AI, so they come last,
+  // folded under one closed line, after the checked answer and its limits or after the steps of a stopped check.
+  it("folds the notes for the AI under one closed line at the end, under every status", () => {
+    const notes = ["Give findings_card with answer_draft.", 7, "Try acquire_open_full_text for 12345678."];
+    const passing = render({ status: "ready_with_limits", checked_answer: "The answer.", limits: ["A limit."], notes });
+    expect(passing.children.map(({ tagName }) => tagName)).toEqual(["p", "h2", "p", "h2", "ul", "details"]);
+    const details = passing.children.at(-1)!;
+    expect(details.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["summary", "Notes for the AI (2)"], ["ul", "Give findings_card with answer_draft.Try acquire_open_full_text for 12345678."]
+    ]);
+    expect(passing.all("details")[0]!.all("summary")).toHaveLength(1);
+    expect(render({ status: "not_ready", notes }).children.map(({ tagName }) => tagName)).toEqual(["p", "details"]);
+    const stopped = render({ status: "stopped", stopped: { short_reason: "the round limit", could_not: [{ step: "A step." }] }, notes });
+    expect(stopped.children.map(({ tagName }) => tagName)).toEqual(["p", "h2", "ul", "p", "details"]);
+    expect(render({ status: "ready", notes: [] }).all("details")).toEqual([]);
+    expect(render({ status: "ready", notes: [3] }).all("details")).toEqual([]);
   });
 
   it.each([

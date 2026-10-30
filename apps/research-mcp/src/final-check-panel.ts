@@ -32,7 +32,9 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
 // usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
 // completion check failed"). An answer given before the check passed says so in its own last line. A stopped check is
-// the turn's final result (owner answer 172a), so its line says it was not checked, and why.
+// the turn's final result (owner answer 172a), so its line says it was not checked, and why. The call's notes are
+// written for the AI to act on, so they come last, folded under one closed line that opens on a click (owner, 30 Oct:
+// "i got this massive askrigor check panel").
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 function renderFinalCheck(doc, structuredContent) {
@@ -59,12 +61,6 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
-  if (Array.isArray(result.notes) && result.notes.length > 0) {
-    appendText("h2", "Notes about the call:");
-    const list = doc.createElement("ul");
-    for (const note of result.notes) if (typeof note === "string") appendText("li", note, list);
-    root.appendChild(list);
-  }
   if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
     appendText("h2", "The answer as AskRigor checked it:");
     appendText("p", result.checked_answer);
@@ -87,6 +83,15 @@ function renderFinalCheck(doc, structuredContent) {
     appendSteps("Checks AskRigor could not finish this turn:", result.stopped?.could_not);
     appendSteps("What the next turn can do:", result.stopped?.next_turn);
     appendText("p", COMPLETE_CHECKS_TIP);
+  }
+  const notes = Array.isArray(result.notes) ? result.notes.filter((note) => typeof note === "string") : [];
+  if (notes.length > 0) {
+    const details = doc.createElement("details");
+    appendText("summary", "Notes for the AI (" + notes.length + ")", details);
+    const list = doc.createElement("ul");
+    for (const note of notes) appendText("li", note, list);
+    details.appendChild(list);
+    root.appendChild(details);
   }
 }
 `;
@@ -122,6 +127,7 @@ body { margin: 0; padding: 10px 16px; }
 main { max-width: 72ch; margin: auto; overflow-wrap: anywhere; }
 p { margin: 0; white-space: pre-wrap; }
 h2 { font-size: 1em; margin: 12px 0 4px; }
+summary { margin: 12px 0 4px; cursor: pointer; }
 ul { margin: 0 0 12px; padding-left: 20px; white-space: pre-wrap; }
 @media (prefers-color-scheme: dark) { :root { color: #e7e9ed; background: #191b20; } }
 </style>

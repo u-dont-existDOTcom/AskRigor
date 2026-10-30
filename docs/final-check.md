@@ -38,9 +38,12 @@ The two spellings can become one only when the tool list next changes (owner ans
 
 For a usable call, `not_ready` means at least one of the five fails. With none failing, a nonempty `limits`
 list gives `ready_with_limits`; otherwise the result is `ready`. Material boundaries remain in `limits`,
-including abstract-only reading, a search stopped by quota and a case-report basis. The panel displays every
-limit beneath a passing checked answer, even when the draft omitted it, and also displays the advisory notes.
-So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
+including abstract-only reading, a search stopped by quota and a case-report basis. A limit about a key source names
+it by the answer's label, then its identifier (`"Cervicogenic dizziness review" (29340206)`), so a reader can tell
+which study it means; a source labelled by its identifier is named once. The panel displays every limit beneath a
+passing checked answer, even when the draft omitted it. The advisory notes, written for the AI, come last in the panel
+under every status, folded under one closed line, "Notes for the AI", that opens on a click (the owner on 30 October
+2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
 only the limits that change what the person should believe or do, and the result says so in one line above the
 list (`Limit: ...` lines), with which limits matter left to the AI; if the checked draft leaves out one that does,
 the AI adds it and checks the draft again. Under a check that has not passed, the panel shows no limits, so each

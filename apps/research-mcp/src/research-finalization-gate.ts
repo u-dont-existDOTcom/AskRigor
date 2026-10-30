@@ -2403,9 +2403,9 @@ export function finalizeResearch(
     if (!read && sourceReceipts.length > 0 && !sourceReceipts.some(({ kind }) =>
       kind === "full_text_lead" || kind === "full_text_route_failure")) {
       if (source.read_depth === "abstract_only" || source.read_depth === "conference_abstract") {
-        requireLimit(rule`Only the abstract of ${source.id} was read for this answer; its methods were not audited.`);
+        requireLimit(rule`Only the abstract of ${keySourceName(source)} was read for this answer; its methods were not audited.`);
       } else if (source.read_depth === "partial_text") {
-        requireLimit(rule`Only part of the text of ${source.id} was read for this answer; its methods were not audited.`);
+        requireLimit(rule`Only part of the text of ${keySourceName(source)} was read for this answer; its methods were not audited.`);
       }
     }
     if (source.read_depth === "atlas_checked" && !checkedInAtlas(source.id)) {
@@ -2470,7 +2470,7 @@ export function finalizeResearch(
       }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? rule`no open full text was available` : limits[state] ?? rule`no open full text was available`;
-      requireLimit(rule`Cite ${source.id} as a lead: ${limit}, so its methods were not audited.`);
+      requireLimit(rule`Cite ${keySourceName(source)} as a lead: ${limit}, so its methods were not audited.`);
       unreadStudies.set(id, state);
       continue;
     }
@@ -2490,7 +2490,7 @@ export function finalizeResearch(
         readThroughOtherTool(source.id, id);
         continue;
       }
-      requireLimit(joinRules(rule`Cite ${source.id} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
+      requireLimit(joinRules(rule`Cite ${keySourceName(source)} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
       unreadStudies.set(id, "ROUTE_FAILED");
       continue;
     }
@@ -2515,7 +2515,7 @@ export function finalizeResearch(
         continue;
       }
       requireLimit(
-        joinRules(rule`Cite ${source.id} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
+        joinRules(rule`Cite ${keySourceName(source)} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
       );
       unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
       continue;
@@ -4230,6 +4230,18 @@ const linksIn = (text: string): Set<string> =>
   new Set([...text.replace(MARKDOWN_LINK, " $1 ").matchAll(LINKED_URL)].map(([url]) => comparableUrl(url)));
 
 /** Text as the caveat check compares it: Unicode composition, quotes, dashes, emphasis, spacing and case ignored. */
+/**
+ * A key source as a limit names it: the label the answer gives it, then its identifier, so a reader of the panel can
+ * tell which study the limit means (owner, 30 Oct: it listed "Only part of the text of 29340206", a number the answer
+ * never shows). A source with no label, or labelled by its identifier, is named by the identifier alone.
+ */
+function keySourceName(source: { id: string; answer_marker?: string | undefined }): CheckRule {
+  const label = source.answer_marker;
+  return label === undefined || label.toLowerCase() === source.id.toLowerCase()
+    ? rule`${source.id}`
+    : rule`"${label}" (${source.id})`;
+}
+
 function caveatText(text: string): string {
   return casedCaveatText(text).toLowerCase();
 }
