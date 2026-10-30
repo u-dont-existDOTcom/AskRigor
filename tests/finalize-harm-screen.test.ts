@@ -522,6 +522,8 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
   });
 });
 
+// An entry goes with an unusable required field, and a note says so (the 30 Oct rerun's connector refusals).
+const wholeDropped = (field: string) => `harm_screen[0]: dropped as a whole, since its required ${field} could not be used: send it again with that field usable, or leave it out.`;
 describe("finalize_research harm_screen: bounded input, every problem at once", () => {
   const problems = (harm_screen: unknown, extra: Record<string, unknown> = {}, searchedHarm = false) => {
     const result = finalizeResearch({ ...base(), harm_screen, ...extra }, { secret: SECRET });
@@ -535,13 +537,13 @@ describe("finalize_research harm_screen: bounded input, every problem at once", 
     expect(problems(Array.from({ length: 21 }, (_, index) => ({ harm: `harm ${index}`, state: "not_checked" }))))
       .toEqual(["harm_screen: kept at most 20 items to stay within the list's size limit."]);
     expect(problems([{ harm: "h".repeat(151), state: "not_checked" }]))
-      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters."]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters.", wholeDropped("harm")]);
     expect(problems([{ ...notFound, search_query: "q".repeat(501) }], {}, true))
       .toEqual(["harm_screen[0].search_query: dropped: needs at most 500 characters."]);
     expect(problems([{ ...onLabel, answer_quote: "a".repeat(1_001) }], {}, true))
       .toEqual(["harm_screen[0].answer_quote: dropped: needs at most 1000 characters."]);
     expect(problems([{ harm: "   ", state: "not_checked" }]))
-      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 characters."]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 character.", wholeDropped("harm")]);
     // At the limits, the call runs.
     const twenty = Array.from({ length: 20 }, (_, index) => ({ harm: `harm ${index} ${"h".repeat(140)}`, state: "not_checked" as const }));
     const atLimit = finalizeResearch({ ...base(), harm_screen: [onLabel, ...twenty.slice(1)] }, { secret: SECRET });
@@ -739,7 +741,8 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
       expect(invalid.result).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
         "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
-        "harm_screen[0].sources_searched: dropped: expected a list."
+        "harm_screen[0].sources_searched: dropped: expected a list.",
+        wholeDropped("state")
       ] });
       expect(invalid.result.next_step_kinds).not.toContain("input_invalid");
       // Nothing is logged about the call, its harms or its answer.

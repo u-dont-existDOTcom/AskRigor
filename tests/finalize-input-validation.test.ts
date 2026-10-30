@@ -86,7 +86,10 @@ describe("final check format recovery (owner answer 193a)", () => {
       { harm: "One harm", state: "not_found", sources_searched: ["case_reports"] },
       { harm: "Another harm", state: "not_checked" }
     ]);
-    expect(parsed.notes).toHaveLength(4);
+    // The second entry goes with its unusable required harm, and a note says so (the 30 Oct rerun).
+    expect(parsed.notes).toHaveLength(5);
+    expect(parsed.notes).toContain("harm_screen[1]: dropped as a whole, since its required harm could not be used: " +
+      "send it again with that field usable, or leave it out.");
     expect(raw).toEqual(before);
   });
 
@@ -133,7 +136,7 @@ describe("finalize_research published schemas and handler validation", () => {
   });
 
   it.each([
-    [{ findings_card: { findings: [{ claim: "Example", certainty: "moderate", applies_to: "Example", answer_quote: "Example", sources: [], why_not_usual: "Example", what_would_change_it: "Example" }] } }, "findings_card.findings[0].sources", "at least 1 items"],
+    [{ findings_card: { findings: [{ claim: "Example", certainty: "moderate", applies_to: "Example", answer_quote: "Example", sources: [], why_not_usual: "Example", what_would_change_it: "Example" }] } }, "findings_card.findings[0].sources", "at least 1 item."],
     [{ intervention_identity: { status: "checked", interventions: [{ study_ids: ["10.1000/example"], label: "Example", status: "resolved", identity: { sponsor_or_maker: "Example", current_product: "Example" } }] } }, "intervention_identity.interventions[0].identity.registry_code", "expected text"],
     [{ community_searches: [{ ...community, review_corpora: [{ ...corpus, selection: "newest reviews" }] }] }, "community_searches[0].review_corpora[0].selection", "not a supported value"],
     [{ community_searches: [{ ...community, report_identity: [{ ...report, exact_firsthand: 1 }] }] }, "exact_firsthand", "unknown field"],

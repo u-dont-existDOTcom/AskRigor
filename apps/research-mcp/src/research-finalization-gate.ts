@@ -2756,7 +2756,7 @@ export function finalizeResearch(
   // Undeclared sentences are invisible to it, as with absence_claims.
   if (input.answer_draft !== undefined && input.safety_claims === undefined) {
     requireDeclaration(
-      joinRules(joinRules("safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, ", "is unsafe, toxic or risky, or should be avoided, and each sentence calling something safe or harmless, "), "with its exposure, basis, what the evidence measured and its studies (an empty list means none).")
+      joinRules(joinRules("safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, ", "is unsafe, toxic or risky, or should be avoided (direction harm), and each sentence calling something safe or "), "harmless (direction safety), with its exposure, basis, what the evidence measured and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.key_terms === undefined) {
@@ -2766,7 +2766,7 @@ export function finalizeResearch(
   }
   if (input.answer_draft !== undefined && input.mechanism_claims === undefined) {
     requireDeclaration(
-      joinRules(joinRules("mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or ", "that it does not act through a mechanism, with the route of the use it describes, the route of the "), "experiment it rests on and its studies (an empty list means none).")
+      joinRules(joinRules("mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or ", "that it does not act through a mechanism, with the route of the use it describes, the route of the "), "experiment it rests on, whether that experiment was in people or animals, and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.recommendations === undefined) {

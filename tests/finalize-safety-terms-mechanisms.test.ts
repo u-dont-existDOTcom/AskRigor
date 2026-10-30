@@ -233,6 +233,19 @@ describe("the three declarations are required with an answer draft", () => {
     expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
 
+  // The 30 Oct rerun's r377-continue built its safety_claims from this note alone and was refused by the connector
+  // for the one required field the note did not name ("safety_claims[0].direction [required]").
+  it("names each required choice, so items built from the note pass the connector's schema", () => {
+    const input = base();
+    delete input.safety_claims;
+    delete input.mechanism_claims;
+    const notes = advisoryNotes(assertNextStepsContract(finalizeResearch(input, { secret: SECRET })));
+    const note = (field: string) => notes.find((step) => step.startsWith(`${field} is missing:`)) ?? "";
+    expect(note("safety_claims")).toContain("(direction harm)");
+    expect(note("safety_claims")).toContain("(direction safety)");
+    expect(note("mechanism_claims")).toContain("in people or animals");
+  });
+
   it("states the research-result reminder as one sentence", () => {
     expect(FINALIZE_REMINDER).toBe("Answers that use this research are checked with finalize_research before they " +
       "are given, in this turn or a later one.");

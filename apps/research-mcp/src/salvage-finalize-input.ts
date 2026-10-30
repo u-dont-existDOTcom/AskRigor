@@ -17,7 +17,8 @@ function reason(issue: z.core.$ZodIssue): string {
   if (issue.code === "invalid_type") return `expected ${issue.expected === "array" ? "a list" : issue.expected === "string" ? "text" : issue.expected === "object" ? "an object" : issue.expected}`;
   if (issue.code === "too_small" || issue.code === "too_big") {
     const bound = issue.code === "too_small" ? issue.minimum : issue.maximum;
-    return `needs ${issue.code === "too_small" ? "at least" : "at most"} ${bound} ${issue.origin === "array" ? "items" : issue.origin === "string" ? "characters" : "as its value"}`;
+    const plural = Number(bound) === 1 ? "" : "s";
+    return `needs ${issue.code === "too_small" ? "at least" : "at most"} ${bound} ${issue.origin === "array" ? `item${plural}` : issue.origin === "string" ? `character${plural}` : "as its value"}`;
   }
   if (issue.code === "invalid_union") return "does not match a supported shape";
   return issue.message;
@@ -27,6 +28,15 @@ export function droppedInputNotes(issues: readonly z.core.$ZodIssue[], prefix: P
   return issues.flatMap((issue) => issue.code === "unrecognized_keys"
     ? issue.keys.map((key) => `${inputPath([...prefix, ...issue.path, key])}: dropped an unknown field.`)
     : [`${inputPath([...prefix, ...issue.path])}: dropped: ${reason(issue)}.`]);
+}
+
+/** An object goes with its unusable field, and the note says so: a model told only that the field was dropped
+ * deletes the field, which the connector's copy of the schema may require (the 30 Oct rerun's four
+ * `community_findings.videos_reviewed` refusals). */
+function wholeDroppedNote(path: Path, keys: readonly string[], required: boolean): string {
+  const names = keys.length === 1 ? keys[0] : `${keys.slice(0, -1).join(", ")} and ${keys.at(-1)}`;
+  return `${inputPath(path)}: dropped as a whole, since its ${required ? "required " : ""}${names} could ` +
+    `not be used: send it again with ${keys.length === 1 ? "that field" : "those fields"} usable, or leave it out.`;
 }
 
 /** Case and separators change spelling only. No vocabulary of inferred meanings or database-to-source mappings. */
@@ -66,16 +76,23 @@ export function salvageFinalizeInput(schema: z.ZodType, raw: unknown, notes: str
         if (!Object.hasOwn(shape, key)) notes.push(`${inputPath([...path, key])}: dropped an unknown field.`);
       }
       const result: Record<string, unknown> = {};
-      let missingRequired = false;
-      let droppedField = false;
+      const dropped: string[] = [];
+      const unusable: string[] = [];  // the required fields among them
       for (const [key, child] of Object.entries(shape)) {
         const field = read(child, Object.hasOwn(value, key) ? value[key] : undefined, [...path, key]);
-        droppedField ||= field === DROP;
         if (field === DROP && path.length === 0 && (key === "receipts" || key === "key_sources")) result[key] = [];
-        else if (field === DROP) missingRequired ||= !child.safeParse(undefined).success;
-        else if (field !== undefined) result[key] = field;
+        else if (field === DROP) {
+          dropped.push(key);
+          if (!child.safeParse(undefined).success) unusable.push(key);
+        } else if (field !== undefined) result[key] = field;
       }
-      if (missingRequired || (path[0] === "open_leads" && path.length === 2 && droppedField)) return DROP;
+      // An open lead goes with any field it loses.
+      const lead = path[0] === "open_leads" && path.length === 2;
+      const lost = lead ? dropped : unusable;
+      if (lost.length > 0) {
+        if (path.length > 0) notes.push(wholeDroppedNote(path, lost, !lead));
+        return DROP;
+      }
       const checked = node.safeParse(result);
       if (checked.success) return checked.data;
       notes.push(...droppedInputNotes(checked.error.issues, path));

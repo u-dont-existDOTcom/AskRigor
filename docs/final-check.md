@@ -22,6 +22,14 @@ currency. These notes never become next steps or consume check rounds. The round
 stopped-check report apply only to the five blocking checks. A usable draft and research target are still needed
 to run a check; an unusable call is reported as such.
 
+A field the check cannot use is dropped, with a note naming it and why. An object goes as a whole when a field it
+requires is unusable (an open lead goes with any field it loses), and a second note says so: the AI then sends the
+object again with that field usable, or leaves the object out. Told only that the field was dropped, the AI deleted
+the field, which the app's copy of the tool's schema requires, and the app refused the next call before it reached
+AskRigor (four runs of the 30 Oct rerun on #384's build). For the same reason, the notes asking for a missing
+`safety_claims` or `mechanism_claims` name the required choice their field lists left out: each claim's direction,
+and whether its experiment was in people or animals (the same rerun's `r377-continue`).
+
 For a usable call, `not_ready` means at least one of the five fails. With none failing, a nonempty `limits`
 list gives `ready_with_limits`; otherwise the result is `ready`. Material boundaries remain in `limits`,
 including abstract-only reading, a search stopped by quota and a case-report basis. The model includes them
