@@ -19,7 +19,8 @@ NOT_EVIDENCE = {"load_protocol", "get_protocol_manifest", "verify_protocol_integ
                 "review_research_contribution", "review_evidence_gap_submissions"}
 RESULT_LIMIT = 12_000      # characters kept of one call's result
 RECORD_LIMIT = 400_000     # characters kept of a turn's whole research record
-SHORT_TEXT = 400           # a result text shorter than this also gets its structured result
+SHORT_TEXT = 400           # a result text shorter than this also gets its structured result,
+SMALL_STRUCTURED = 2_000   # when that structured result is at most this long (a search's whole list is left out)
 
 
 def turn_files(regress, case):
@@ -49,8 +50,9 @@ def result_text(result):
     parts = [part.get("text", "") for part in result.get("content") or [] if isinstance(part, dict)]
     text = "\n".join(p for p in parts if p)
     structured = result.get("structured_content", result.get("structuredContent"))
-    if structured is not None and len(text) < SHORT_TEXT:
-        text = (text + "\n" if text else "") + "[structured result] " + json.dumps(structured, ensure_ascii=False)
+    shown = json.dumps(structured, ensure_ascii=False) if structured is not None else ""
+    if shown and len(text) < SHORT_TEXT and (not text or len(shown) <= SMALL_STRUCTURED):
+        text = (text + "\n" if text else "") + "[structured result] " + shown
     return text
 
 

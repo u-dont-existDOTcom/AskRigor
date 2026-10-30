@@ -79,10 +79,11 @@ Rules:
 - A short first reply that asks one question is right when the best answer depends on something only the person can
   tell, such as their aim, conditions or history. Judge whether it asks the question that matters most and says what
   the choice depends on, not its length or its lack of research.
-- The verdict: `unreliable` when a serious problem would change what the reader should believe or do; `fix` when there
-  is a serious or worth-fixing problem that does not; `sound` otherwise, including when the only problems are minor
-  or are additions a longer answer could make. If the answer is sound, say so and report nothing that is not minor. Do
-  not invent problems to have something to say.
+- The verdict: `unreliable` when the answer's main conclusion or advice is wrong, unsupported or unsafe for this
+  person; `fix` when there is a serious or worth-fixing problem but the main conclusion and advice stand; `sound`
+  otherwise, including when the only problems are minor or are additions a longer answer could make. A serious problem
+  does not by itself make an answer unreliable. If the answer is sound, say so and report nothing that is not minor.
+  Do not invent problems to have something to say.
 
 Reply with one JSON object and nothing else:
 
