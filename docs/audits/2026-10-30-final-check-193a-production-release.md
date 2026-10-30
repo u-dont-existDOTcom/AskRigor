@@ -28,6 +28,11 @@
   - the regression run on #381's build (96 cases, the baseline) ended at 02:37:53 UTC; it switched saving back on
     (`ok=true findingsSave=true`, the reply and the call's result agree) and removed its override; no lane run was
     going;
+  - in that run, three cases stopped on OpenAI's capacity ("Selected model is at capacity": `l22-kelp-iodine`,
+    `q120-mosquito-net` and the first turn of `q120-sleep-inside-outside`), and OpenAI's filter refused
+    `q130-maker-authors`, as in every run since 21 Oct. The three were not rerun on `9e35397b` before this release, as
+    the 27 Oct release did for its two, so they have no baseline on that build; their comparison uses the 27 to 28 Oct
+    run. None is a low-calorie case;
   - `npm run lessons:status` at 02:38:42 UTC: open 34, needs review 0, accepted but not incorporated 2, incorporated or
     closed 37, deletion eligible 0, lane items unrecorded 0, lane pull-request items unrecorded 1 (#444, built on
     #387's branch, whose ledger row records it).
