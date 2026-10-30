@@ -22,6 +22,31 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
 
 ## Next
 
+- **Community signals the way the owner's last turn did them (AskRigor#390, 30 Oct; owner rule 148a, and the owner's
+  words "so you can see how i want the forum signals done, look at the last turn").** HRP's
+  `CrowdSourcedAndClinicalSignalAudit` already has 35 rules, including counts and outcome-neutral selection
+  (`ReviewCorpusSelectionAndCounts`, `DirectionLabelsNeedOutcomeNeutralSelection`), YouTube comment handling, context
+  extraction, saturation and the three-part conclusion; the run skipped them, and some don't reach every corpus. What
+  is missing, outside the core:
+  1. the emergency exemption (`NonActivation`, "emergency triage before stabilization") covers only an answer that is
+     the warning itself; once the warning is given and research goes on, the module applies;
+  2. the answer names every source it analysed (a video's title, channel, date and link; each thread's link), so the
+     reader can check its relevance;
+  3. the counts `ReviewCorpusSelectionAndCounts` asks of review platforms apply to every community corpus: how many
+     comments or threads were retrieved, how many were classified, and how they were chosen (every one, every k-th in
+     the platform's order, random, ranked or found by outcome words);
+  4. outcomes are counted per named method (Mulligan mobilisation, chin tucks, SCM self-massage), never for a category
+     ("physical therapy"), with how much, how fast and how long, and each source's numbers kept apart;
+  5. the conclusion adds a fourth part to the three: what a person could try first and what to avoid, ordered by risk,
+     and what would change that;
+  6. one search uses the person's own combination of symptoms (the owner's video ranked first for it), and the answer
+     covers the whole cluster, not its most textbook symptom.
+
+  The check (non-blocking notes, 195a; no new declaration): `not_relevant_basis` `emergency_before_triage` with key
+  sources declared means research went past the warning, so the note says community evidence applies. The YouTube
+  audit results carry the reporting reminder (title, channel, link, retrieved and classified counts, how chosen).
+  Regression cases from #390's five scenarios and the owner's last-turn expectations.
+
 - **YouTube within its terms (owner answer 206a, 30 Oct: searches stay on the API).** Steps 2 and 3 of the owner
   page's plan, before any public launch:
   1. find videos without YouTube's search: the Gemini scout's candidates and the AI's own web search, each read by its
