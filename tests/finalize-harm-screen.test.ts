@@ -146,6 +146,17 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
       .toEqual([required("lists no harm", BECAUSE_QUESTION), TOOL_LIST_REFRESH_HINT]);
   });
 
+  // Owner answer 195a: safety statements rest on a screen with at least one harm searched. The 30 Oct rerun's
+  // o356-short-monitoring met this step with a parsley case report for an unnamed supplement.
+  it("stops safety statements whose screen searched no harm, and says how for a product known only by its kind", () => {
+    const result = check({ harm_screen: [notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toContain("harm_screen names no harm searched: search at least one named serious harm " +
+      "(for a product known only by its kind, one plausible for that kind) and record it in harm_screen.");
+    expect(check({ harm_screen: [notChecked], safety_claims: [], safety_question: true, answer_draft: `${LINKS}\n\n${NOT_CHECKED}` })
+      .status).toBe("ready_with_limits");
+  });
+
   it("is not required without a safety statement or a safety question, nor before an answer draft", () => {
     expect(check({ safety_claims: [], safety_question: false, harm_screen: undefined, answer_draft: LINKS }).status)
       .toBe("ready");

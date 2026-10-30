@@ -2890,7 +2890,10 @@ export function finalizeResearch(
   }
   if ((input.safety_claims ?? []).length > 0 && harmScreen.length > 0 &&
       !harmScreen.some(({ state }) => state !== "not_checked")) {
-    addBlockingStep("harm_screen", "declaration", rule`harm_screen names no harm searched: search at least one named serious harm and record it in harm_screen.`);
+    // A product known only by its kind (the user's unnamed supplement, a hypothetical drug) has the serious harms of
+    // that kind: on 30 Oct o356-short-monitoring searched a parsley case report and o356-dropout-nausea imported
+    // another drug's label to meet this step.
+    addBlockingStep("harm_screen", "declaration", rule`harm_screen names no harm searched: search at least one named serious harm (for a product known only by its kind, one plausible for that kind) and record it in harm_screen.`);
   }
   const searchedHarms = harmScreen.filter(({ state }) => state !== "not_checked");
   if (searchedHarms.length > 0) {
