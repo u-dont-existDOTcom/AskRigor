@@ -957,7 +957,8 @@ export function finalizeResearchRuntimeInputSchema() {
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
       "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
       "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
-      "diagnostics are notes. Include material limits in your own words; their exact wording is not checked."),
+      "diagnostics are notes. State in your own words the limits that change what the person should believe or do; " +
+      "their exact wording is not checked."),
     caveat_renderings: finalizeResearchInputSchema.shape.caveat_renderings.describe(
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
@@ -1188,7 +1189,8 @@ function stepSink(addStep: (kind: NextStepKind, ...steps: RuleInput[]) => void, 
 // kinds of step still open.
 export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
 const CHECK_LINE = "Checked with AskRigor's final check.";
-const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits above.";
+// Owner answer 205a: the answer states only the limits that matter for the person, so the line points to none.
+const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits it found.";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
   new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
 
@@ -1517,7 +1519,8 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "This turn's blocking-check round and its limit. Only calls with blocking steps consume a round; advisory " +
     "or passing calls do not advance it."),
   limits: finalizeResearchRetainedOutputSchema.shape.limits.describe(
-    "Material limits to include in the answer in your own words, also shown beneath the checked answer in the panel."),
+    "Material limits, all shown beneath a passing checked answer in the panel. That answer states in its own words " +
+    "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
     "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.

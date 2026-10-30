@@ -192,7 +192,7 @@ describe("owner-approved questions 90 and 92: 92 a 91 b 90 a (2026-10-14)", () =
     expect(hash(beforePrevious)).toBe(PINS.hrp20621);
     await expect(undoOwnerQuestions86To89Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.33", revisionDate: "2026-10-29", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.34", revisionDate: "2026-10-30", sha256: hash(await loadCurrent()),
     });
     const universal = await loadCurrent("Universal_Instructions.xml");
     expect(hash(universal)).toBe(PINS.universal.sha256);

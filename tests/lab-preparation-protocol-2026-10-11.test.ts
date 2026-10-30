@@ -91,7 +91,7 @@ describe("owner-approved lab preparation, question 70: 70a (2026-10-11)", () => 
     expect(prior).toContain('<Protocol name="HRP" version="20.6.15" revisionDate="2026-10-10"');
     expect(fixture.edits.reduce((text, [before, after]) => replaceOnce(text, before, after), prior)).toBe(onDisk);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.33", revisionDate: "2026-10-29", sha256: sha256(current),
+      name: "HRP", version: "20.6.34", revisionDate: "2026-10-30", sha256: sha256(current),
     });
     await expect(getProtocolManifest("universal")).resolves.toEqual({
       name: "AskRigor.com universal saved instructions", version: "20.5.46", revisionDate: "2026-10-21",

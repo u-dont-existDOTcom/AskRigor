@@ -105,7 +105,7 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     await expect(undoOwnerQuestions90To92Hrp(await loadCurrent())).resolves.toBe(beforePrevious);
     expect(hash(await undoOwnerQuestions86To89Hrp(await loadCurrent()))).toBe(PINS.hrp20621);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.33", revisionDate: "2026-10-29", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.34", revisionDate: "2026-10-30", sha256: hash(await loadCurrent()),
     });
     const universal = await loadCurrent("Universal_Instructions.xml");
     expect(hash(universal)).toBe(PINS.universal.sha256);
@@ -151,7 +151,7 @@ describe("owner-approved question 93: 93a (2026-10-15)", () => {
     const bytes = await readFile(new URL("protocols/HRP_Full.xml", ROOT));
     const { manifest, sections, text } = await loadProtocolSectionSnapshot("hrp");
     expect(text).toBe(bytes.toString("utf8"));
-    expect(manifest).toEqual({ name: "HRP", version: "20.6.33", revisionDate: "2026-10-29", sha256: hash(text) });
+    expect(manifest).toEqual({ name: "HRP", version: "20.6.34", revisionDate: "2026-10-30", sha256: hash(text) });
     const [rule, ...others] = protocolNamedElements(text, "SafestOptionsFirst");
     expect(others).toEqual([]);
     expect(rule).toMatchObject({ tag: "Rule", section: "EpistemicSafetyRules" });

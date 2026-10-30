@@ -669,7 +669,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const saved = "\nJust before the check line, end the answer with this line, as written (in the answer's language " +
       "when the answer is not in English): Saved to AskRigor's findings library for review as ARF-0042.";
     const ending = "\nEnd the answer with this line, as written (in the answer's language when the answer is not in " +
-      "English): Checked with AskRigor's final check, with the limits above.";
+      "English): Checked with AskRigor's final check, with the limits it found.";
     expect(text).toContain(saved);
     expect(text.indexOf(saved)).toBeLessThan(text.indexOf(ending));
     expect(findingsSavedLine("ARF-0042")).toBe("Saved to AskRigor's findings library for review as ARF-0042.");

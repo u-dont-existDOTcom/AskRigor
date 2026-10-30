@@ -55,7 +55,7 @@ describe("finalize_research: a community search skipped for no real-world outcom
       next_steps: [],
       status: "ready_with_limits"
     });
-    expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
+    expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
     expect(SKIP).toBe("I did not search firsthand reports or community discussions for this answer: The question " +
       "asks only what the two names mean chemically.");
     const left = check({ answer_draft: LINKS });
@@ -236,6 +236,7 @@ describe("finalize_research documents the reason on both surfaces (question 125)
         ]
       });
       const text = (response.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
+      // Not ready (no receipts), so its panel lists no limits and the answer states each one (owner answer 205a).
       expect(text).toContain(`Limit to include in your own words: ${SKIP}`);
     } finally {
       await client.close();

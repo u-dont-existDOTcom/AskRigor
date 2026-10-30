@@ -86,7 +86,7 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
     const passed = check(base());
     expect(passed.status).toBe("ready_with_limits");
     expect(passed.unchecked_line).toBeUndefined();
-    expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
+    expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
     const blocked = check(base({ ...DEPTH_GAP }));
     expect(blocked.check_line).toBeUndefined();
     expect(blocked.finalization_receipt).toBeUndefined();

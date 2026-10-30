@@ -1,4 +1,4 @@
-import { FINAL_CHECK_RUNTIME_DESCRIPTION } from "./final-check-messages.js";
+import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
 import { withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
@@ -2490,7 +2490,11 @@ function defineResearchOperations(
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           `\n${FINAL_CHECK_RUNTIME_DESCRIPTION}` +
           (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
-          result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("") +
+          // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
+          // that matter for this person; the panel shows no limits under a check that has not passed.
+          (result.limits.length === 0 ? "" : result.status === "ready" || result.status === "ready_with_limits"
+            ? `\n${PASSING_LIMITS_GUIDANCE}${result.limits.map((limit) => `\nLimit: ${limit}`).join("")}`
+            : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           result.caveats.filter((caveat) => !result.limits.includes(caveat))
             .map((caveat) => `\nAnswer guidance, in your own words: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +

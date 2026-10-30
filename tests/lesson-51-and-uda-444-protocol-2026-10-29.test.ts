@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
+import { coreSectionNames, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoLesson51AndUda444Hrp } from "./helpers/undo-read-depth.js";
+import { undoLesson51AndUda444Hrp, undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
 
 // Owner rule 148a (2026-10-29): lesson #51 (a laboratory profile named in a question was taken as the asker's own) and
 // the suggested fix 2026-10-29-manifest-first-cross-section-reading (UDA #444, an owner request), as HRP text and
@@ -54,10 +54,12 @@ function inner(text: string, tag: string): string {
   return normalize(matches[0]![1]!);
 }
 const names = (text: string, pattern: RegExp) => [...text.matchAll(pattern)].map((match) => match[1]);
+// HRP 20.6.34 (owner answer 205a) is the layer above this one.
+const layer = async () => undoOwnerAnswer205Hrp(await loadProtocol("hrp"));
 
 describe("owner rule 148a: HRP 20.6.33, lesson #51 and UDA #444", () => {
   it("ends HealthEvidenceRoleLedger with lesson #51's sentences, keeping its earlier text", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoLesson51AndUda444Hrp(text);
     const before = body(prior, "Rule", "name", "HealthEvidenceRoleLedger");
     expect(body(text, "Rule", "name", "HealthEvidenceRoleLedger")).toBe(`${before} ${LEDGER_SENTENCES.join(" ")}`);
@@ -65,7 +67,7 @@ describe("owner rule 148a: HRP 20.6.33, lesson #51 and UDA #444", () => {
   });
 
   it("adds LongDocumentCoverageAudit right after SocialMediaWholeThreadAudit, holding #444's sentences and nothing else", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoLesson51AndUda444Hrp(text);
     expect(body(text, "Rule", "name", "LongDocumentCoverageAudit")).toBe(RULE_SENTENCES.join(" "));
     expect(prior).not.toContain("LongDocumentCoverageAudit");
@@ -79,7 +81,7 @@ describe("owner rule 148a: HRP 20.6.33, lesson #51 and UDA #444", () => {
   });
 
   it("adds the six stress cases in order after lesson #49's last, word for word", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoLesson51AndUda444Hrp(text);
     const cases = names(text, /<Case id="([^"]+)"/gu);
     const at = cases.indexOf(CASES[0][0]);
@@ -95,7 +97,7 @@ describe("owner rule 148a: HRP 20.6.33, lesson #51 and UDA #444", () => {
   });
 
   it("leaves the core, which every research answer loads on one page, byte for byte as it was", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoLesson51AndUda444Hrp(text);
     const core = new Set(coreSectionNames("hrp"));
     const coreText = (value: string) => protocolSections("hrp", value).filter(({ name }) => core.has(name))
@@ -107,11 +109,9 @@ describe("owner rule 148a: HRP 20.6.33, lesson #51 and UDA #444", () => {
   });
 
   it("binds the exact bytes, puts the revision first and reverses the layer to HRP 20.6.32", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-29", sha256: PINS.to.sha256,
-    });
+    expect(text).toContain(`version="${PINS.to.version}" revisionDate="2026-10-29"`);
     expect(hash(text)).toBe(PINS.to.sha256);
     const revisions = names(text, /<Revision version="([^"]+)"/gu);
     expect(revisions.slice(0, 2)).toEqual(["20.6.33", "20.6.32"]);

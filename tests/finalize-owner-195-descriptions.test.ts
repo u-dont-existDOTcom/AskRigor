@@ -3,7 +3,7 @@ import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js"
 import { laterInputShape } from "../apps/research-mcp/src/later-inputs.js";
 
 describe("owner 195 runtime guidance", () => {
-  it("describes only the five blocking checks and limits in the model's own words", () => {
+  it("describes only the five blocking checks, and which limits the answer states in the model's own words", () => {
     const operation = RESEARCH_OPERATIONS.find(({ name }) => name === "finalize_research")!;
     const description = operation.description;
     expect(operation.runtimeInputSchema.shape.answer_draft.description).toContain("their exact wording is not checked");
@@ -16,7 +16,10 @@ describe("owner 195 runtime guidance", () => {
     expect(description).toContain("arithmetic and shown figures");
     expect(description).toContain("safety statements have a named-harm screen");
     expect(description).toContain("retracted statements stay out");
-    expect(description).toContain("limits in the model's own words");
+    // Owner answer 205a (30 Oct): the panel lists every limit beneath a passing check, so its answer states only
+    // the limits that matter for the person; an answer whose check has not passed states them all.
+    expect(description).toContain("in the model's own words only the limits that change what the person should believe or do");
+    expect(description).toContain("an answer whose check has not passed states every material limit");
     expect(description).not.toContain("each as its own sentence and as written");
     expect(description).toContain("other diagnostics are notes");
   });

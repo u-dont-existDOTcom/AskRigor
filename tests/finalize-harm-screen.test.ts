@@ -12,6 +12,7 @@ import { findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import type { FindingsSaveContext } from "../apps/research-mcp/src/findings/service.js";
 import { registerTools } from "../apps/research-mcp/src/register-tools.js";
+import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION, HARM_NOT_CHECKED_CAVEAT_START, HARM_SCREEN_SOURCES, HARM_SCREEN_STATES,
   TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
@@ -740,7 +741,15 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
         next_steps: [],
         status: "ready_with_limits"
       });
-      expect(screened.text).toContain(`Limit to include in your own words: ${NOT_CHECKED}`);
+      // Owner answer 205a (30 Oct): beneath a passing check the panel lists every limit, so the result says the
+      // answer states only those that change what the person should believe or do; a check that has not passed keeps
+      // every limit to state, since its panel lists none.
+      expect(screened.text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\nLimit: ${screened.result.limits[0]}\nLimit: ${NOT_CHECKED}`);
+      expect(screened.text).not.toContain("Limit to include in your own words");
+      const unsearched = await call(base({ harm_screen: [notChecked] }));
+      expect(unsearched.result).toMatchObject({ status: "not_ready", limits: expect.arrayContaining([NOT_CHECKED]) });
+      expect(unsearched.text).toContain(`\nLimit to include in your own words: ${NOT_CHECKED}`);
+      expect(unsearched.text).not.toContain(PASSING_LIMITS_GUIDANCE);
       const passed = await call(base({ harm_screen: [onLabel, notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` }));
       expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
       const unscreened = await call(base({ harm_screen: undefined }));
