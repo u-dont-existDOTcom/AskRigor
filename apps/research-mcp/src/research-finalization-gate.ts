@@ -284,7 +284,9 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
     const words = list.map((field) => TARGET_FIELD_WORDS[field]);
     return words.length <= 2 ? words.join(" and ") : `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
   };
-  const found = one ? "the study I found" : "any study I found";
+  // The 28 Oct regressions: "any study I found" read as if no direct study was found, though the check compares only
+  // the key studies declared; the caveat now names what it compared.
+  const found = one ? "this answer's key study" : "this answer's key studies";
   if (differing.length > 0) {
     return `${completedCaveat(`Not tested as described in ${found}:`, target)} ` + (one
       ? `The study differs from it in ${fields(differing)}, so it is`
@@ -2529,10 +2531,12 @@ export function finalizeResearch(
       requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(rule`The study audit of ${source.id} lists no reported_figures: validate it again with `, "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source "), "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and "), "reported_figures_none_reason when it reports no numeric result; a figure worked out from printed numbers, "), "such as the analyzed group behind a rate, is listed with worked_out, its printed inputs and how; pass the "), "research_receipt it returns."));
       continue;
     }
+    // The 27, 28 and 29 to 30 Oct regressions: the caveat said a study's results "stay unreliable until they are
+    // reconciled", condemning a whole study for one printed figure its own data contradict. It now says only what
+    // the audit found; which values the answer uses, and what the mismatch means for the rest, stay the model's.
     if (figures.status === "internally_inconsistent") {
-      caveatOnce(rule`A key study's figures don't match its own data: say so, as the caveat does.`,
-        `${completedCaveat("A study whose reported figures don't match its own data:", marker)} Its results stay ` +
-          "unreliable until they are reconciled.");
+      caveatOnce(rule`A key study prints figures its own data don't support: say which, give the values its data support, and judge its other results on their own.`,
+        completedCaveat("A study whose printed figures don't all match its own data:", marker));
     }
     for (const value of figures.impossible) {
       caveatOnce(rule`A key study reports a value that is impossible as printed: say so, as the caveat does.`,
