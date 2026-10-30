@@ -1765,9 +1765,12 @@ export function finalizeResearch(
       if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
       else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
+    // The limit is about tests the person does on themselves (HRP MeasurementIsNotAttribution); proposed_tests also
+    // holds clinical tests such as an ECG or blood tests, which it misdescribed in the 29 to 30 Oct runs
+    // (o354-emergency-first, q132), so it says which tests it concerns.
     if (!test.blinded) caveatOnce(
-      rule`A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.`,
-      "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
+      rule`A test the answer proposes is not blinded; if the person does it on themselves, say it can show how they did, not what caused a change.`,
+      "A test the person does on themselves without blinding can show how they did, not what caused a change, because expectation, effort and practice can move it too.");
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
