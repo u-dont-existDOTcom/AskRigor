@@ -80,7 +80,9 @@ const missing = (caveat: string) => "The answer leaves out this caveat; include 
 const required = (gap: "is missing" | "lists no harm", why: string) => `harm_screen ${gap}: ${why}, so harm_screen ` +
   "lists the serious harms plausible for this exposure, apart from its common side effects, each searched by name, " +
   "with what the search found: label_warning or reported_signal with the answer's sentence as answer_quote, " +
-  "not_found with the exact search_query of a literature search passed here, or not_checked (at least one entry).";
+  "not_found with the exact search_query of a literature search passed here, or not_checked " +
+  // With safety statements, the step says that one harm must be searched, as the next step requires (30 Oct rerun).
+  (why === BECAUSE_CLAIMS ? "(at least one entry, and at least one harm searched)." : "(at least one entry).");
 const BECAUSE_CLAIMS = "the answer makes safety statements (safety_claims)";
 const BECAUSE_QUESTION = "the question is about safety (safety_question)";
 const BECAUSE_LONG_TERM = "the answer recommends, puts forward or ranks a medicine likely to be taken for months or " +

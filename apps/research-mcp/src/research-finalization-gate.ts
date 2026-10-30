@@ -2883,7 +2883,9 @@ export function finalizeResearch(
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
     (step => (input.safety_claims ?? []).length > 0
       ? addBlockingStep("harm_screen", "declaration", step) : requireDeclaration(step))(
-      joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), rule`(at least one entry).`)
+      // With safety statements, at least one harm must be searched (the next step), so this step says so: on 30 Oct
+      // o356-short-monitoring sent only not_checked, as this step allowed, and the next round refused it.
+      joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), (input.safety_claims ?? []).length > 0 ? rule`(at least one entry, and at least one harm searched).` : rule`(at least one entry).`)
     );
   }
   if ((input.safety_claims ?? []).length > 0 && harmScreen.length > 0 &&
