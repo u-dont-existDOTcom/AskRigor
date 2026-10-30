@@ -158,13 +158,13 @@ describe("AskRigor public site", () => {
     expect(privacy.split(paragraph)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective October 25, 2026");
+    expect(privacy).toContain("Effective October 30, 2026");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 25, 2026",
+      "Effective October 30, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -227,7 +227,7 @@ describe("AskRigor public site", () => {
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective October 25, 2026",
+      "Effective October 30, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
@@ -236,6 +236,25 @@ describe("AskRigor public site", () => {
       "does not promise attribution, publication, compensation, or a particular outcome",
       "Effective October 25, 2026",
     ]) expect(terms).toContain(fragment);
+  });
+
+  // Owner answer 200a (2026-10-30): a de-identified copy, sent only on the person's confirmation, kept apart from the
+  // account, read only by the owner, deleted after 90 days or sooner with its code.
+  it("says how a shared question and answer is sent, kept and deleted", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "<section><h2>Shared questions and answers</h2>",
+      "Nothing is sent unless you say yes and then confirm the exact copy the AI shows you.",
+      "AskRigor’s server checks it only for contact details and access tokens, not that it is de-identified, so read it before you confirm.",
+      "apart from your account: it does not store which account sent it.",
+      "It is never published, and only AskRigor’s owner reads it, to make test cases and fixes.",
+      "It is deleted after 90 days, or sooner when you ask AskRigor to delete it with the code it gives you when you send it.",
+      "To delete a shared question and answer sooner, ask AskRigor to delete it with the code it gave you when you sent it",
+    ]) expect(privacy).toContain(fragment);
+    const support = await pageHtml("site/support/index.html");
+    expect(support).toContain("<section><h2>Shared questions and answers</h2><p>If you sent AskRigor a de-identified " +
+      "copy of a question and its answer, ask AskRigor in the same app to delete it, with the code it gave you when " +
+      "you sent it.");
   });
 
   it("says what Gemini receives when a video is checked, and what the daily ledger holds", async () => {

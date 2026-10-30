@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner answer 205a (2026-10-30): the answer states the limits that change what the person should believe or do; AskRigor lists every limit beneath a passing check. Exact HRP 20.6.34 bytes; reversible edits chained from lesson #51 and UDA #444.",
+  "hrp": {
+    "from": {
+      "version": "20.6.33",
+      "sha256": "6bac4fc9d673cdd737975ef62f382f4a5ddeeb33e76986ecec9eeeecf7fd4dea"
+    },
+    "to": {
+      "version": "20.6.34",
+      "sha256": "7b933620ecca1116f1d4c45c87046e37d8b2a6f97bc4e7a38b6dfd30aa23c74a"
+    },
+    "edits": [
+      [
+        "version=\"20.6.33\" revisionDate=\"2026-10-29\"",
+        "version=\"20.6.34\" revisionDate=\"2026-10-30\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.34\" priority=\"Critical\">\n   Owner answer 205a (2026-10-30): LimitsNote and FinalizeResearch have the answer state, of the limits\n   finalize_research returns, those that change what the person should believe or do, since AskRigor lists every\n   limit beneath an answer whose check passed; when the check has not passed, the answer states every one. Which\n   limits matter stays the answering model's judgment. Both rules are outside the core, which is unchanged.\n  </Revision>\n"
+      ],
+      [
+        "   include every limit finalize_research returns, in the answer's own words. For a community corpus behind an access\n",
+        "   of the limits finalize_research returns, include in the answer's own words each one that changes what the person\n   should believe or do; when its check has not passed, include every one, since AskRigor lists them all beneath an\n   answer only after a passing check. For a community corpus behind an access\n"
+      ],
+      [
+        "on ready_with_limits, state each limit;",
+        "on ready_with_limits, state each limit that changes what the person should believe or do;"
+      ]
+    ]
+  }
+}

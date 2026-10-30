@@ -2685,13 +2685,13 @@ describe("finalize_research gate", () => {
     })).join("\n")).toBe("");
     for (const line of [
       "Checked with AskRigor's final check.",
-      "Checked with AskRigor's final check, with the limits above.",
+      "Checked with AskRigor's final check, with the limits it found.",
       "AskRigor's final check has not passed: some of its statements were not checked."
     ]) {
       const result = check(`${draft}\n\n<details><summary>Check</summary>\n\n${line}\n\n</details>`);
       expect(result.status).toBe("ready_with_limits");
       expect(result.next_steps).toEqual([]);
-      expect(result.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
+      expect(result.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
       expect(check(`${draft}\n\n${line}`).status).toBe("ready_with_limits");
     }
     expect(check(`${draft}\n\n<details><summary>Search log</summary>\n\nAdditional search notes.\n\n</details>`)

@@ -1,4 +1,4 @@
-import { FINAL_CHECK_RUNTIME_DESCRIPTION } from "./final-check-messages.js";
+import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
 import { withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
@@ -114,8 +114,9 @@ import {
   deleteResumedGeminiScoutInteraction,
   executeResumableAutomatedGeminiScout,
   geminiKeyDeclaredUnbilled,
-  isPopulationLevelResearchTarget,
-  isPublicLeadTerm
+  isPublicLeadTerm,
+  researchTargetScreenFailures,
+  researchTargetScreenRefusal
 } from "./actions/gemini-scout-route.js";
 import {
   decodeScoutContinuation,
@@ -179,6 +180,7 @@ import {
   researchUseAccount,
   manageResearchAccessInputSchemaFor,
   manageResearchAccessOutputSchema,
+  manageResearchAccessRuntimeOutputSchema,
   optionalSignInSecurityMetadata,
   isDevAccount,
   plainAnswerRequested,
@@ -193,6 +195,7 @@ import {
   submitServerSourceAnalysis,
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
+import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
 import {
   AnalysisStaging,
   buildStagedAnalysis,
@@ -202,6 +205,7 @@ import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
   researchContributionReviewOutputSchema,
+  researchContributionReviewRuntimeOutputSchema,
 } from "./research-contribution-review-tool.js";
 import {
   researchFrontierInputSchema,
@@ -805,6 +809,8 @@ export interface RegisterToolsOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
+  sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
@@ -926,6 +932,10 @@ function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
   options: RegisterToolsOptions,
 ): void {
+  // Owner answer 200a: shared questions and answers, on the MCP connector only (Gemini's catalog has neither the
+  // account tool nor the final check's offer), when the server keeps them.
+  const sharing = options.mcpSurface === "/mcp/gemini" ? undefined
+    : options.sharedAnswers !== undefined ? options.sharedAnswers ?? undefined : sharedAnswersFromEnv();
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -1885,6 +1895,9 @@ function defineResearchOperations(
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
       devAccountKeys: () => devAccountKeysFromEnv(),
+      // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
+      ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
+        options.runningVersions ?? await versionPayload().then(runningVersionsOf, () => ({})) } }),
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
@@ -1940,6 +1953,7 @@ function defineResearchOperations(
         // The source checks use the provider settings the connector's own provider tools use.
         providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
       },
+      ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
   );
 
@@ -2099,9 +2113,12 @@ function defineResearchOperations(
           }
           arm = input.model_trial;
         }
-        // Only screened, population-level text reaches Gemini.
-        if (!isPopulationLevelResearchTarget(target.research_target)) {
-          return scoutError("research_target_not_deidentified", false, SCOUT_TARGET_GUIDANCE);
+        // Only screened, population-level text reaches Gemini. The refusal names
+        // every part of the screen the target failed, so one retry can fix it.
+        const failures = researchTargetScreenFailures(target.research_target);
+        if (failures.length > 0) {
+          return scoutError("research_target_not_deidentified", false,
+            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(failures)}`);
         }
         if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
           return scoutError("rediscovery_lead_not_public_term", false,
@@ -2132,7 +2149,8 @@ function defineResearchOperations(
       if ("controller_boundary" in execution) {
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
-          ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE}`
+          ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
+            researchTargetScreenRefusal(researchTargetScreenFailures(target.research_target))}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."
@@ -2463,6 +2481,8 @@ function defineResearchOperations(
           );
         }
       }
+      // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.
+      if (sharing !== undefined && researcher !== undefined) result.share_offer = { ...SHARE_OFFER };
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const toolResult = successfulToolResult(
@@ -2470,7 +2490,11 @@ function defineResearchOperations(
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
           `\n${FINAL_CHECK_RUNTIME_DESCRIPTION}` +
           (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
-          result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("") +
+          // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
+          // that matter for this person; the panel shows no limits under a check that has not passed.
+          (result.limits.length === 0 ? "" : result.status === "ready" || result.status === "ready_with_limits"
+            ? `\n${PASSING_LIMITS_GUIDANCE}${result.limits.map((limit) => `\nLimit: ${limit}`).join("")}`
+            : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           result.caveats.filter((caveat) => !result.limits.includes(caveat))
             .map((caveat) => `\nAnswer guidance, in your own words: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
@@ -2493,6 +2517,10 @@ function defineResearchOperations(
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
           uncheckedAnswerInstructions(result) +
+          (result.share_offer === undefined ? "" :
+            "\nAfter the check line or the unchecked line, end the answer with this question, as written (in the " +
+              "answer's language when the answer is not in English): " +
+              `${result.share_offer.line}\n${result.share_offer.on_yes}`) +
           ((checkedInput?.corrections ?? []).some(({ by_user, report }) => by_user === true && report !== undefined)
             ? "\nWhen the user agrees to send the correction report, pass its preventing_rule and any missing_rule " +
               "exactly as shown to submit_lesson_candidate."
@@ -2538,7 +2566,13 @@ function defineResearchOperations(
               ".") +
           (result.carry_forward === undefined
             ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
-            : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
+            // A turn's first call without the conversation's state: in the 30 Oct rerun 10 of 13 later turns began
+            // so, and their next calls passed back this call's fresh state, so the earlier turns' state was lost.
+            : checkedInput !== undefined && checkedInput.carried_state === undefined && checkedInput.round_token === undefined
+              ? "\nThis call passed no carried_state. If an earlier final check in this conversation returned " +
+                "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
+                `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
+              : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
           (result.round_token === undefined || result.round === undefined ? "" :
             `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +
@@ -3484,6 +3518,8 @@ function collectResearchOperations(
       const publishedOutputSchema = config.outputSchema instanceof z.ZodObject
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
+        : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
+        : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;

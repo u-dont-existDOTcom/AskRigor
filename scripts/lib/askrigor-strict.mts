@@ -1,6 +1,7 @@
 /** Event decoding and gate decisions only: no process, filesystem or network IO. */
 // A passing check gives closing lines for the answer's end (its plain-answer note and saved line when it gives them,
-// then its check line) after reading the draft, which therefore cannot hold them.
+// then its check line, then the offer to share a de-identified copy when it gives one, owner answer 200a) after reading
+// the draft, which therefore cannot hold them.
 const CHECKED_FINAL = "give exactly the checked draft as your final message, followed only by the closing lines the check gives, exactly as it wrote them";
 export const PREAMBLE = "Answer as AskRigor would, using the AskRigor app's tools as its instructions say. Use only the AskRigor app's tools and your own web search. Before giving a research answer, call finalize_research with the answer you will give as answer_draft, and " + CHECKED_FINAL + ".";
 // The runner's own messages arrive as user turns; without this the AI took a second-reading prompt for the user's
@@ -61,7 +62,7 @@ export interface FinalizeCall extends ToolCall {
   nextSteps: string[];
   caveats: string[];
   checkLine?: string;
-  /** The passing check's closing lines, in the order the answer gives them: plain-answer note, saved line, check line. */
+  /** The passing check's closing lines, in the order the answer gives them: plain-answer note, saved line, check line, share offer. */
   closingLines: string[];
   carryForward?: string;
 }
@@ -123,10 +124,9 @@ function finalizeCall(call: ToolCall, item: ObjectValue): FinalizeCall {
     nextSteps: strings(receipt?.next_steps),
     caveats: strings(receipt?.caveats),
     checkLine: typeof receipt?.check_line === "string" ? receipt.check_line : undefined,
-    closingLines: ["plain_answer_note", "saved_line", "check_line"].flatMap((name) => {
-      const line = receipt?.[name];
-      return typeof line === "string" && normalizeAnswer(line) ? [line] : [];
-    }),
+    closingLines: [...["plain_answer_note", "saved_line", "check_line"].map((name) => receipt?.[name]),
+      object(receipt?.share_offer) ? receipt.share_offer.line : undefined].flatMap((line) =>
+      typeof line === "string" && normalizeAnswer(line) ? [line] : []),
     carryForward: typeof receipt?.carry_forward === "string" ? receipt.carry_forward : undefined,
   };
 }

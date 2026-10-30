@@ -282,8 +282,7 @@ describe("finalize_research reads each key study's figures check", () => {
   });
 
   it("carries a study's inconsistency and its impossible values into the answer as caveats", () => {
-    const inconsistent = "A study whose reported figures don't match its own data: Paper 2017. Its results stay " +
-      "unreliable until they are reconciled.";
+    const inconsistent = "A study whose printed figures don't all match its own data: Paper 2017.";
     const impossible = "A value that is physically impossible as printed, so it is not used: 96 mmol/g. Study: Paper 2018.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];

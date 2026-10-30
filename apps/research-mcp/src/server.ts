@@ -4,6 +4,7 @@ import {
   type Server as HttpServer,
   type ServerResponse
 } from "node:http";
+import type { SharedAnswers } from "./shared-answers.js";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
@@ -143,6 +144,8 @@ export interface AskRigorMcpServerOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
+  sharedAnswers?: SharedAnswers | null;
   /** The endpoint this server answers on; saved findings cards record it. */
   mcpSurface?: McpSurface;
   /** The versions this server runs: its title and version, and the manifest tool's result. */
@@ -240,6 +243,8 @@ export interface AskRigorHttpServerOptions {
   atlasReviewEnabled?: boolean;
   /** The public Atlas pages under /atlas (decision 171, section 4C); from the environment by default. */
   atlasPagesHandler?: AtlasPagesHandler;
+  /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
+  sharedAnswers?: SharedAnswers | null;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -494,6 +499,7 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: profile === "gemini" ? GEMINI_COMPATIBLE_MCP_PATH : "/mcp",
     signIn,
+    ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
     publicEvidenceGapReviewService,
@@ -508,6 +514,7 @@ export function createAskRigorHttpServer(
     researchAccessRequired,
     mcpSurface: CLAUDE_MCP_PATH,
     signIn,
+    ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   // Each surface's tool list version (owner request, 2026-10-22), taken at its first MCP request from a server made
   // without the running versions, so a release that changes no tool keeps it; after a failure the surface gives none.

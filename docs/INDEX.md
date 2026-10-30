@@ -25,6 +25,8 @@ complete XML protocol.
 
 - [Final-check scope](final-check.md): the five blocking checks in owner answers
   193a and 195a, advisory notes, material limits and the passing-answer panel
+- [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
+  itself (owner answer 189a), with what holds meanwhile
 
 - `forum-outlier-and-reddit-retrieval-playbook.md`: source-checked operational reference for strict outcome/dose/duration admission of forum cases and portable ChatGPT-native-web / connected-scraper Reddit retrieval fallbacks. It is not a deployed protocol or a substitute for the canonical `FORUM_SIGNAL_MODULE.md`.
 
@@ -91,9 +93,24 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-30-owner-answers-201a-205a.md`: owner answers 201a (the scout's group-word check dropped; the person markers and de-identification screen stay, and a target in another language now passes when nothing matches them) and 205a (HRP 20.6.34: a passing check's answer states the limits that change what the person should believe or do, the panel lists them all, and every limit is stated when the check has not passed), built for #387.
+- `audits/2026-10-29-lesson-51-and-uda-444-protocol.md`: lesson #51 and UDA #444 under owner rule 148a: HRP 20.6.33
+  ends `HealthEvidenceRoleLedger` with whom each statement is about (a condition named in a question is the topic, not
+  the asker's, unless they say so) and adds `LongDocumentCoverageAudit` outside the core (the current version, how much
+  was read, the idea under other names, an honest status), with six stress cases, seven owner regressions including
+  two controls, the new SHA-256 and tests; built for the build after #384, not yet released.
 - `audits/2026-10-29-owner-answer-196a-dev-account.md`: the owner's email-and-password login listed as a dev account
   in production on owner answer 196a (one `runtime.env` line, `research-mcp` recreated on the same image, acceptance
   and rollback).
+- `audits/2026-10-30-final-check-193a-production-release.md`: release of #384 (owner answer 197a): only five checks
+  stop an answer, the low-calorie reports, HRP 20.6.32; a probe shows two of the five still block in production.
+- `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
+  (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
+  193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `audits/2026-10-30-owner-regressions-384-judgment.md`: the owner regressions on #384's build `d8beec2d`, both runs
+  against question 193's signals (85 cases: 45 pass, 38 in part, 1 fails, 1 not judged; the low-calorie runs 4, 7 and
+  none fail): 103 of 108 checks pass by their second call, none never passes, 6 calls fail on format, and what each
+  finding comes to, with the fixes built for the next build.
 - `audits/2026-10-29-next-build-production-release.md`: release of #381 (owner question 194): the checked answer in
   the panel, a fixed tool list, the plain answer for free accounts, older cards under a topic, video and comment fixes.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug

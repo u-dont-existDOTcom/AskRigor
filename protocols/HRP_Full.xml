@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.32" revisionDate="2026-10-29" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.34" revisionDate="2026-10-30" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,21 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.34" priority="Critical">
+   Owner answer 205a (2026-10-30): LimitsNote and FinalizeResearch have the answer state, of the limits
+   finalize_research returns, those that change what the person should believe or do, since AskRigor lists every
+   limit beneath an answer whose check passed; when the check has not passed, the answer states every one. Which
+   limits matter stays the answering model's judgment. Both rules are outside the core, which is unchanged.
+  </Revision>
+  <Revision version="20.6.33" priority="Critical">
+   Owner rule 148a (2026-10-29), from lesson #51 and the suggested fix 2026-10-29-manifest-first-cross-section-reading
+   (UDA #444, an owner request): HealthEvidenceRoleLedger records whom each statement is about, and a condition or
+   test result named in a question is the topic, not the user's own, unless they say it is theirs; added
+   LongDocumentCoverageAudit to SourceVerificationAndCitationAudit, right after SocialMediaWholeThreadAudit and
+   outside the core, for saying that a long or versioned document leaves an idea out or that the idea would be new to
+   it; with stress cases TopicConditionIsNotTheAskers, SomeoneElsesConditionStaysTheirs, OwnResultIsTheirReport,
+   IdeaUnderAnotherHeading, OlderEditionRead and TrueAbsenceAfterFullReading.
+  </Revision>
   <Revision version="20.6.32" priority="Critical">
    Owner answer 193a (2026-10-29), which sends reports about research judgment to this protocol and the regression
    list, and owner rule 148a, from issues #376, #377 and #382 and lesson #50: DurationMatchedBenefitAndHarm weighs the
@@ -1029,7 +1044,7 @@
 
   <Rule name="PatientExceptionFirstProbe" priority="Critical">Before asking for a confirming incident, clarify the denominator and conditions: which exposures or opportunities count; when the outcome does not happen; how often it fails at the respondent's natural precision; whether dose, form, route, co-exposure, physiological or pharmacological state, timing, setting, or relevant period changes the pattern; and which tolerated controls or failure cases discriminate competing explanations. Preserve any acknowledged exception by qualifying “always” or “every time” rather than silently rescuing the universal wording. When reactions span several routes or materials, tabulate route by material by state, including the combinations that do not react, before proposing a shared mechanism; do not pool smell, swallowing, oral contact, ordinary or sensitive skin, and environmental water.</Rule>
 
-  <Rule name="HealthEvidenceRoleLedger" priority="Critical">Record separately direct recurrence self-report, bounded episode, exception or counterexample, context or boundary statement, sampled opportunity-level observation, trait or interpretive label, patient causal explanation, and reviewer or coder inference. A conditionally elicited confirming anecdote may clarify chronology, exposure, consequences, mechanism, or a boundary but is not an independent frequency observation. Do not merge repeated tellings or several volunteered examples into independent support.</Rule>
+  <Rule name="HealthEvidenceRoleLedger" priority="Critical">Record separately direct recurrence self-report, bounded episode, exception or counterexample, context or boundary statement, sampled opportunity-level observation, trait or interpretive label, patient causal explanation, and reviewer or coder inference. A conditionally elicited confirming anecdote may clarify chronology, exposure, consequences, mechanism, or a boundary but is not an independent frequency observation. Do not merge repeated tellings or several volunteered examples into independent support. Record also whom each statement is about: the user, someone else, or a study's participants. A condition or test result named in a question is the topic to research, not the user's own, unless they say it is theirs; until they do, do not call it theirs or base a test or advice for them on it. When they say it is theirs, it is their own report, weighed as a claim (PromptPremisesAreClaims).</Rule>
 
   <Rule name="OpportunityFrequencySampling" priority="Critical">If actual opportunity-level frequency is decision-relevant, use prospective diary or event sampling, structured or random opportunity sampling, bounded exhaustive enumeration, external logs or observations, or repeated measures with a defined frame. Do not infer incidence, prevalence, or an unbiased personal frequency from a story count, forum count, or volunteered-example quota.</Rule>
 
@@ -3157,6 +3172,14 @@
    must leave the audit incomplete rather than support a definitive negative judgment.
   </Rule>
 
+  <Rule name="LongDocumentCoverageAudit" priority="Critical">
+   Before saying that a long or versioned document leaves an idea out, or that the idea would be new to it, find the
+   document's current version and say which version was read and how much of it. Look for the idea under other names
+   across all its sections, including later qualifications, then say whether it is present, present but scattered,
+   partly covered, not read, or absent after an adequate search. When proposing to add something, say what it would do
+   that the document does not already do; when an adequate search finds nothing, say plainly that it is absent.
+  </Rule>
+
   <Rule name="HistoricalVocabularyAndCitationBackchain" priority="Critical">
    For old, neglected, renamed, regional, or specialty-specific topics, search historical names, spelling variants,
    abbreviations, exact clinical endpoints, route and formulation terms, named investigators, institutions, journals,
@@ -5190,7 +5213,9 @@
    When anything material is incomplete, inaccessible, access-bounded, or read only as a lead, add one short
    plain-language limits note near the end; otherwise omit it. Say whether the conclusion is complete or provisional;
    name what is missing (with identifiers), what was tried and with what result, and which claims it could change;
-   include every limit finalize_research returns, in the answer's own words. For a community corpus behind an access
+   of the limits finalize_research returns, include in the answer's own words each one that changes what the person
+   should believe or do; when its check has not passed, include every one, since AskRigor lists them all beneath an
+   answer only after a passing check. For a community corpus behind an access
    boundary, name it, the
    acquisition attempted, the evidence actually inspected, and its likely impact (detail only, confidence, ranking, or
    the conclusion); call it an evidence-coverage gap, not research failure. Lead with the single best next move. When
@@ -8283,6 +8308,62 @@ Final integrated synthesis rule:
     incomplete when nothing relevant is missing.
    </ExpectedBehavior>
   </Case>
+  <Case id="TopicConditionIsNotTheAskers">
+   <Prompt>
+    Does nutrient Q help people with abnormal marker X? I noticed more energy from Q.
+   </Prompt>
+   <ExpectedBehavior>
+    Research marker X as the question's topic and the energy as the user's own report. Do not say or assume that the
+    user has abnormal X, and base no test or advice for them on it.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="SomeoneElsesConditionStaysTheirs">
+   <Prompt>
+    A colleague has abnormal marker X and tried Q. I also tried Q, with another response.
+   </Prompt>
+   <ExpectedBehavior>
+    Keep the colleague's marker and response apart from the user's: attribute neither to the other, and do not pool
+    the two responses as one person's.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="OwnResultIsTheirReport">
+   <Prompt>
+    My laboratory report shows abnormal marker X.
+   </Prompt>
+   <ExpectedBehavior>
+    Treat abnormal X as the user's own result, as they report it: a claim to weigh, not a record anyone has inspected.
+    Do not decline to treat it as theirs.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="IdeaUnderAnotherHeading">
+   <Prompt>
+    A long guide describes a technique in a section whose heading and wording never use the technique's usual name,
+    and the user asks whether the guide covers it.
+   </Prompt>
+   <ExpectedBehavior>
+    Find the technique by what it does, across all sections, and say that the guide covers it, quoting where; do not
+    call it missing or propose adding it as new.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="OlderEditionRead">
+   <Prompt>
+    Only an older edition of a guide with a newer edition could be read, and the older edition lacks a method the user
+    asks about.
+   </Prompt>
+   <ExpectedBehavior>
+    Say which edition was read and that the newer one was not; report the omission for the older edition only, and say
+    that the newer edition's coverage is unknown.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="TrueAbsenceAfterFullReading">
+   <Prompt>
+    A long document, read in full and searched under the idea's other names, does not cover the idea.
+   </Prompt>
+   <ExpectedBehavior>
+    Say plainly that the document does not cover it, with what was searched; do not soften the finding into possible
+    coverage elsewhere in the document.
+   </ExpectedBehavior>
+  </Case>
   <Case id="CodedFormulaLargeEffect">
    <Prompt>
     A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;
@@ -8432,7 +8513,7 @@ Final integrated synthesis rule:
   <Check id="FS187">Reconcile each external-scout frontier by digest and partition, leave non-identity gaps unresolved even when retryable, screen every validated lead, and use scout summaries for discovery only, never as evidence.</Check>
   <Check id="FS188">Stop a first pass at the earliest of saturation, about three fully audited videos, or about two discovery rounds, and end its provisional answer with the open leads; run deep research until discovery saturates.</Check>
   <Check id="FS189">When an external high-recall scout is configured, obtain and reconcile its frontier, or withhold broad completion under an explicit boundary.</Check>
-  <Rule name="FinalizeResearch">Before the final answer, call finalize_research when available. Pass every research_receipt the tools returned; declare community evidence researched, or not_relevant with a reason when ForumSignalDefaultTrigger does not apply; and list each study the conclusions depend on as validated or lead_only. It verifies the discovery, video-audit, full-text-audit, and acquisition receipts. On not_ready, do its next steps and call it again; on ready_with_limits, state each limit; on receipts_unavailable, say completion was not server-verified.</Rule>
+  <Rule name="FinalizeResearch">Before the final answer, call finalize_research when available. Pass every research_receipt the tools returned; declare community evidence researched, or not_relevant with a reason when ForumSignalDefaultTrigger does not apply; and list each study the conclusions depend on as validated or lead_only. It verifies the discovery, video-audit, full-text-audit, and acquisition receipts. On not_ready, do its next steps and call it again; on ready_with_limits, state each limit that changes what the person should believe or do; on receipts_unavailable, say completion was not server-verified.</Rule>
   <Check name="Modules">Load required sections rather than recall them, run the research-orchestration preflight when triggered, and complete each mandatory-triggered module or disclose it with its claim-local limit and continuation handoff (ProtocolExecutionAndComplianceGate, ResearchOrchestrationAndModeSelectionGate).</Check>
   <Check name="UserNeeds">Give the user, as relevant, red flags, options, evidence strength and uncertainty for each claim, absolute risks when available, how to tell whether something works, and questions for a clinician, in plain language with terms defined at first use (AudienceAccessibleTerminologyGate, OutputFormatting).</Check>
   <Check id="FS190">Keep internal codes, lock names, sampling terms, and protocol preambles or openers out of the ordinary answer; put research-process status in one short plain-language limits note near the end; give every audited video a linked title.</Check>

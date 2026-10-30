@@ -303,11 +303,11 @@ describe("communities named by the user and the visible check line", () => {
   it("returns the limited line separately, and omits it for not_ready and unavailable receipts", () => {
     const result = checked(base());
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
-    expect(result.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
+    expect(result.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
     expect(result.caveats).not.toContain(result.check_line);
     const notReady = run(base());
     expect(notReady.status).toBe("ready_with_limits");
-    expect(notReady.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
+    expect(notReady.check_line).toBe("Checked with AskRigor's final check, with the limits it found.");
     expect(finalizeResearch(base(), { secret: undefined })).not.toHaveProperty("check_line");
   });
   it("appends the exact instruction after the caveat and must-report lines in the MCP text result", async () => {
@@ -325,13 +325,13 @@ describe("communities named by the user and the visible check line", () => {
       } });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits",
-        check_line: "Checked with AskRigor's final check, with the limits above." });
+        check_line: "Checked with AskRigor's final check, with the limits it found." });
       const text = (result.content as Array<{ text: string }>)[0]!.text;
-      const ending = "End the answer with this line, as written (in the answer's language when the answer is not in English): Checked with AskRigor's final check, with the limits above.";
+      const ending = "End the answer with this line, as written (in the answer's language when the answer is not in English): Checked with AskRigor's final check, with the limits it found.";
       expect(text).toContain(`\n${ending}`);
-      expect(text).toContain("Limit to include in your own words:");
+      expect(text).toContain("\nLimit: ");
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must report:"));
-      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("Limit to include in your own words:"));
+      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("\nLimit: "));
       // The lanes keep their instruction for the model; the one-line panel shows none of them (owner question 108).
       expect(text).toContain("Then copy the sentences that report it into the entry's answer_quotes.");
       expect(result._meta).toBeUndefined();

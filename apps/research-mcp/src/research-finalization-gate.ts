@@ -284,7 +284,9 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
     const words = list.map((field) => TARGET_FIELD_WORDS[field]);
     return words.length <= 2 ? words.join(" and ") : `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
   };
-  const found = one ? "the study I found" : "any study I found";
+  // The 28 Oct regressions: "any study I found" read as if no direct study was found, though the check compares only
+  // the key studies declared; the caveat now names what it compared.
+  const found = one ? "this answer's key study" : "this answer's key studies";
   if (differing.length > 0) {
     return `${completedCaveat(`Not tested as described in ${found}:`, target)} ` + (one
       ? `The study differs from it in ${fields(differing)}, so it is`
@@ -955,7 +957,8 @@ export function finalizeResearchRuntimeInputSchema() {
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
       "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
       "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
-      "diagnostics are notes. Include material limits in your own words; their exact wording is not checked."),
+      "diagnostics are notes. State in your own words the limits that change what the person should believe or do; " +
+      "their exact wording is not checked."),
     caveat_renderings: finalizeResearchInputSchema.shape.caveat_renderings.describe(
       "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
       "or changed limit sentences do not create steps.")
@@ -1186,7 +1189,8 @@ function stepSink(addStep: (kind: NextStepKind, ...steps: RuleInput[]) => void, 
 // kinds of step still open.
 export const UNCHECKED_LINE_START = "AskRigor's final check has not passed";
 const CHECK_LINE = "Checked with AskRigor's final check.";
-const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits above.";
+// Owner answer 205a: the answer states only the limits that matter for the person, so the line points to none.
+const LIMITED_CHECK_LINE = "Checked with AskRigor's final check, with the limits it found.";
 const UNCHECKED_ANSWER_KINDS: ReadonlySet<NextStepKind> =
   new Set(["declaration", "answer_draft", "carried_state", "second_reading", "tool_list"]);
 
@@ -1515,9 +1519,14 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "This turn's blocking-check round and its limit. Only calls with blocking steps consume a round; advisory " +
     "or passing calls do not advance it."),
   limits: finalizeResearchRetainedOutputSchema.shape.limits.describe(
-    "Material limits to include in the answer in your own words, also shown beneath the checked answer in the panel."),
+    "Material limits, all shown beneath a passing checked answer in the panel. That answer states in its own words " +
+    "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
     "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
+  // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
+  share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
+    .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
+      "after check_line or unchecked_line; on_yes says how to share, only after the person confirms the copy."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
@@ -1759,9 +1768,12 @@ export function finalizeResearch(
       if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
       else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
+    // The limit is about tests the person does on themselves (HRP MeasurementIsNotAttribution); proposed_tests also
+    // holds clinical tests such as an ECG or blood tests, which it misdescribed in the 29 to 30 Oct runs
+    // (o354-emergency-first, q132), so it says which tests it concerns.
     if (!test.blinded) caveatOnce(
-      rule`A test the answer proposes is not blinded; say it can show how the person did, not what caused a change.`,
-      "A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
+      rule`A test the answer proposes is not blinded; if the person does it on themselves, say it can show how they did, not what caused a change.`,
+      "A test the person does on themselves without blinding can show how they did, not what caused a change, because expectation, effort and practice can move it too.");
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
@@ -2342,8 +2354,10 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   // DOI paths may contain parentheses; displayedProse already resolves a
   // Markdown link's delimiters, so its complete target survives extraction.
+  // The text after a target follows it directly, so a link in parentheses
+  // ("([label](URL)).") reads "URL))." until its end is trimmed.
   const linksFor = (block: string): string[] =>
-    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => target);
+    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => trimLinkEnd(target));
   const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
     .flatMap((block) => block.split("\n"));
   const studyLinks = studyLines.flatMap(linksFor);
@@ -2425,7 +2439,9 @@ export function finalizeResearch(
         addStep("answer_draft", rule`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
       if (untied === undefined && !studyLinks.some(linked)) {
-        addBlockingStep("source_provenance", "answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+        addBlockingStep("source_provenance", "answer_draft", pages.length === 0
+          ? rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned.`
+          : rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
     }
     if (source.read_depth === "atlas_checked" && checkedInAtlas(source.id)) {
@@ -2525,10 +2541,12 @@ export function finalizeResearch(
       requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(rule`The study audit of ${source.id} lists no reported_figures: validate it again with `, "reported_figures, each headline result (not a dose or group size) as the paper prints it with its source "), "block, recomputed from the paper's own tables or with why that isn't possible, or with an empty list and "), "reported_figures_none_reason when it reports no numeric result; a figure worked out from printed numbers, "), "such as the analyzed group behind a rate, is listed with worked_out, its printed inputs and how; pass the "), "research_receipt it returns."));
       continue;
     }
+    // The 27, 28 and 29 to 30 Oct regressions: the caveat said a study's results "stay unreliable until they are
+    // reconciled", condemning a whole study for one printed figure its own data contradict. It now says only what
+    // the audit found; which values the answer uses, and what the mismatch means for the rest, stay the model's.
     if (figures.status === "internally_inconsistent") {
-      caveatOnce(rule`A key study's figures don't match its own data: say so, as the caveat does.`,
-        `${completedCaveat("A study whose reported figures don't match its own data:", marker)} Its results stay ` +
-          "unreliable until they are reconciled.");
+      caveatOnce(rule`A key study prints figures its own data don't support: say which, give the values its data support, and judge its other results on their own.`,
+        completedCaveat("A study whose printed figures don't all match its own data:", marker));
     }
     for (const value of figures.impossible) {
       caveatOnce(rule`A key study reports a value that is impossible as printed: say so, as the caveat does.`,
@@ -2606,7 +2624,9 @@ export function finalizeResearch(
     const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
       ? "description_only" : undefined;
     if (entry !== undefined && declared !== undefined && entry.from !== declared) {
-      addStep("declaration", joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree.`));
+      // The two fields spell the same source differently, and the app's copy of the schema refuses the other field's
+      // word (the 30 Oct rerun's l22: content_from "video_description_only"), so the step names the matching pair.
+      addStep("declaration", joinRules(joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree (content_from `), "description_only goes with described_from video_description_only, and person with person)."));
     }
     // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
     // nothing, so no study is the same there or differs there.
@@ -2748,7 +2768,7 @@ export function finalizeResearch(
   // Undeclared sentences are invisible to it, as with absence_claims.
   if (input.answer_draft !== undefined && input.safety_claims === undefined) {
     requireDeclaration(
-      joinRules(joinRules("safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, ", "is unsafe, toxic or risky, or should be avoided, and each sentence calling something safe or harmless, "), "with its exposure, basis, what the evidence measured and its studies (an empty list means none).")
+      joinRules(joinRules("safety_claims is missing: with answer_draft, it lists each sentence warning that something can cause harm, ", "is unsafe, toxic or risky, or should be avoided (direction harm), and each sentence calling something safe or "), "harmless (direction safety), with its exposure, basis, what the evidence measured and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.key_terms === undefined) {
@@ -2758,7 +2778,7 @@ export function finalizeResearch(
   }
   if (input.answer_draft !== undefined && input.mechanism_claims === undefined) {
     requireDeclaration(
-      joinRules(joinRules("mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or ", "that it does not act through a mechanism, with the route of the use it describes, the route of the "), "experiment it rests on and its studies (an empty list means none).")
+      joinRules(joinRules("mechanism_claims is missing: with answer_draft, it lists each sentence saying how an intervention works or ", "that it does not act through a mechanism, with the route of the use it describes, the route of the "), "experiment it rests on, whether that experiment was in people or animals, and its studies (an empty list means none).")
     );
   }
   if (input.answer_draft !== undefined && input.recommendations === undefined) {
@@ -2792,7 +2812,9 @@ export function finalizeResearch(
       // A share of selected reports may come from posts rather than a study.
       const studiesNeeded = claim.basis !== "share_of_reports";
       if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
-        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or declare basis not_quantified."));
+        // The exit is for a harm no source here gives a rate for: on 30 Oct r324 took it for a study whose rates its
+        // binary_results declared, and its answer then carried the false limit below beside a table of those rates.
+        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or, when no source here gives a rate, declare basis not_quantified."));
       }
       undeclaredStudies(at, claim.studies ?? []);
     }
@@ -2825,8 +2847,9 @@ export function finalizeResearch(
             "would cause harm wasn't measured. What was measured:", measured)} ` +
             completedCaveat("What people would use:", exposure));
       } else if (claim.basis === "not_quantified") {
+        // Named by its exposure like a safety claim's: the panel lists it apart from the sentence it qualifies.
         caveatOnce(rule`A harm warning has no rate: say so, as the caveat does.`,
-          "How often this happens wasn't quantified in the sources found here.");
+          completedCaveat("How often this harm happens wasn't quantified in the sources found here for this exposure:", exposure));
       }
     } else if (claim.basis === "hazard_measurement" && measured !== undefined) {
       caveatOnce(joinRules("A safety claim rests on a measurement or an animal test, not on observed safety in people: say so, ", "as the caveat does."),
@@ -2869,12 +2892,17 @@ export function finalizeResearch(
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
     (step => (input.safety_claims ?? []).length > 0
       ? addBlockingStep("harm_screen", "declaration", step) : requireDeclaration(step))(
-      joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), rule`(at least one entry).`)
+      // With safety statements, at least one harm must be searched (the next step), so this step says so: on 30 Oct
+      // o356-short-monitoring sent only not_checked, as this step allowed, and the next round refused it.
+      joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), (input.safety_claims ?? []).length > 0 ? rule`(at least one entry, and at least one harm searched).` : rule`(at least one entry).`)
     );
   }
   if ((input.safety_claims ?? []).length > 0 && harmScreen.length > 0 &&
       !harmScreen.some(({ state }) => state !== "not_checked")) {
-    addBlockingStep("harm_screen", "declaration", rule`harm_screen names no harm searched: search at least one named serious harm and record it in harm_screen.`);
+    // A product known only by its kind (the user's unnamed supplement, a hypothetical drug) has the serious harms of
+    // that kind: on 30 Oct o356-short-monitoring searched a parsley case report and o356-dropout-nausea imported
+    // another drug's label to meet this step.
+    addBlockingStep("harm_screen", "declaration", rule`harm_screen names no harm searched: search at least one named serious harm (for a product known only by its kind, one plausible for that kind) and record it in harm_screen.`);
   }
   const searchedHarms = harmScreen.filter(({ state }) => state !== "not_checked");
   if (searchedHarms.length > 0) {
@@ -4392,17 +4420,19 @@ class PaperLinks {
 
 /**
  * The pages a next step offers for a key study: its own identifier's page, then the pages receipts tied to it,
- * then its tied PMC and PubMed pages; at most three.
+ * then its tied PMC and PubMed pages; at most three. A web address is its own page; an identifier of no kind
+ * AskRigor links has none (the 30 Oct rerun was offered doi.org/ before web addresses, a video ID and a label).
  */
 function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
-  const page = (identifier: string) => isPmid(identifier) ? `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
-    : isPmcid(identifier) ? `https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`
-    : `https://doi.org/${identifier}`;
+  const page = (identifier: string): string[] => isPmid(identifier) ? [`https://pubmed.ncbi.nlm.nih.gov/${identifier}/`]
+    : isPmcid(identifier) ? [`https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`]
+    : isDoi(identifier) ? [`https://doi.org/${identifier}`]
+    : /^https?:\/\//iu.test(identifier) ? [identifier] : [];
   const candidates = [
-    page(id),
+    ...page(id),
     ...pages.values(),
-    ...identifiers.filter((other) => other !== id && isPmcid(other)).map(page),
-    ...identifiers.filter((other) => other !== id && isPmid(other)).map(page)
+    ...identifiers.filter((other) => other !== id && isPmcid(other)).flatMap(page),
+    ...identifiers.filter((other) => other !== id && isPmid(other)).flatMap(page)
   ];
   const seen = new Set<string>();
   return candidates.filter((candidate) => {
@@ -4448,6 +4478,21 @@ const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
  * title slug or comment permalink. Other query parameters stay: they may be
  * what names a forum's thread.
  */
+/**
+ * A link without the sentence's punctuation after it or a closing parenthesis it does not open, so a link written
+ * inside parentheses keeps only its own; a DOI's balanced parentheses stay (the 30 Oct rerun's o354-work-left,
+ * q136 and s360 rating, whose correctly linked key sources were refused).
+ */
+function trimLinkEnd(link: string): string {
+  let end = link;
+  for (let previous = ""; previous !== end;) {
+    previous = end;
+    end = end.replace(/[.,;:!?"'*`\]]+$/u, "");
+    if (end.endsWith(")") && (end.match(/\)/gu) ?? []).length > (end.match(/\(/gu) ?? []).length) end = end.slice(0, -1);
+  }
+  return end;
+}
+
 function comparableUrl(url: string): string {
   const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
   try {

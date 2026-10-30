@@ -86,7 +86,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       });
       expect(verifyCarriedState(output.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: output.carried });
       expect(result.structuredContent).toMatchObject({
-        status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
+        status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits it found.",
         checked_answer: input.answer_draft,
         next_steps: [], limits: [communitySkipCaveat(input.not_relevant_reason!)], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });

@@ -12,6 +12,7 @@ import { findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import type { FindingsSaveResult } from "../apps/research-mcp/src/findings/contracts.js";
 import type { FindingsSaveContext } from "../apps/research-mcp/src/findings/service.js";
 import { registerTools } from "../apps/research-mcp/src/register-tools.js";
+import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION, HARM_NOT_CHECKED_CAVEAT_START, HARM_SCREEN_SOURCES, HARM_SCREEN_STATES,
   TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
@@ -80,7 +81,9 @@ const missing = (caveat: string) => "The answer leaves out this caveat; include 
 const required = (gap: "is missing" | "lists no harm", why: string) => `harm_screen ${gap}: ${why}, so harm_screen ` +
   "lists the serious harms plausible for this exposure, apart from its common side effects, each searched by name, " +
   "with what the search found: label_warning or reported_signal with the answer's sentence as answer_quote, " +
-  "not_found with the exact search_query of a literature search passed here, or not_checked (at least one entry).";
+  "not_found with the exact search_query of a literature search passed here, or not_checked " +
+  // With safety statements, the step says that one harm must be searched, as the next step requires (30 Oct rerun).
+  (why === BECAUSE_CLAIMS ? "(at least one entry, and at least one harm searched)." : "(at least one entry).");
 const BECAUSE_CLAIMS = "the answer makes safety statements (safety_claims)";
 const BECAUSE_QUESTION = "the question is about safety (safety_question)";
 const BECAUSE_LONG_TERM = "the answer recommends, puts forward or ranks a medicine likely to be taken for months or " +
@@ -142,6 +145,17 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
     expect(check({ harm_screen: [] }).next_steps).toEqual([required("lists no harm", BECAUSE_CLAIMS)]);
     expect(advisoryNotes(check({ harm_screen: [], safety_claims: [], safety_question: true, answer_draft: LINKS })))
       .toEqual([required("lists no harm", BECAUSE_QUESTION), TOOL_LIST_REFRESH_HINT]);
+  });
+
+  // Owner answer 195a: safety statements rest on a screen with at least one harm searched. The 30 Oct rerun's
+  // o356-short-monitoring met this step with a parsley case report for an unnamed supplement.
+  it("stops safety statements whose screen searched no harm, and says how for a product known only by its kind", () => {
+    const result = check({ harm_screen: [notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toContain("harm_screen names no harm searched: search at least one named serious harm " +
+      "(for a product known only by its kind, one plausible for that kind) and record it in harm_screen.");
+    expect(check({ harm_screen: [notChecked], safety_claims: [], safety_question: true, answer_draft: `${LINKS}\n\n${NOT_CHECKED}` })
+      .status).toBe("ready_with_limits");
   });
 
   it("is not required without a safety statement or a safety question, nor before an answer draft", () => {
@@ -522,6 +536,8 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
   });
 });
 
+// An entry goes with an unusable required field, and a note says so (the 30 Oct rerun's connector refusals).
+const wholeDropped = (field: string) => `harm_screen[0]: dropped as a whole, since its required ${field} could not be used: send it again with that field usable, or leave it out.`;
 describe("finalize_research harm_screen: bounded input, every problem at once", () => {
   const problems = (harm_screen: unknown, extra: Record<string, unknown> = {}, searchedHarm = false) => {
     const result = finalizeResearch({ ...base(), harm_screen, ...extra }, { secret: SECRET });
@@ -535,13 +551,13 @@ describe("finalize_research harm_screen: bounded input, every problem at once", 
     expect(problems(Array.from({ length: 21 }, (_, index) => ({ harm: `harm ${index}`, state: "not_checked" }))))
       .toEqual(["harm_screen: kept at most 20 items to stay within the list's size limit."]);
     expect(problems([{ harm: "h".repeat(151), state: "not_checked" }]))
-      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters."]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters.", wholeDropped("harm")]);
     expect(problems([{ ...notFound, search_query: "q".repeat(501) }], {}, true))
       .toEqual(["harm_screen[0].search_query: dropped: needs at most 500 characters."]);
     expect(problems([{ ...onLabel, answer_quote: "a".repeat(1_001) }], {}, true))
       .toEqual(["harm_screen[0].answer_quote: dropped: needs at most 1000 characters."]);
     expect(problems([{ harm: "   ", state: "not_checked" }]))
-      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 characters."]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 character.", wholeDropped("harm")]);
     // At the limits, the call runs.
     const twenty = Array.from({ length: 20 }, (_, index) => ({ harm: `harm ${index} ${"h".repeat(140)}`, state: "not_checked" as const }));
     const atLimit = finalizeResearch({ ...base(), harm_screen: [onLabel, ...twenty.slice(1)] }, { secret: SECRET });
@@ -725,7 +741,15 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
         next_steps: [],
         status: "ready_with_limits"
       });
-      expect(screened.text).toContain(`Limit to include in your own words: ${NOT_CHECKED}`);
+      // Owner answer 205a (30 Oct): beneath a passing check the panel lists every limit, so the result says the
+      // answer states only those that change what the person should believe or do; a check that has not passed keeps
+      // every limit to state, since its panel lists none.
+      expect(screened.text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\nLimit: ${screened.result.limits[0]}\nLimit: ${NOT_CHECKED}`);
+      expect(screened.text).not.toContain("Limit to include in your own words");
+      const unsearched = await call(base({ harm_screen: [notChecked] }));
+      expect(unsearched.result).toMatchObject({ status: "not_ready", limits: expect.arrayContaining([NOT_CHECKED]) });
+      expect(unsearched.text).toContain(`\nLimit to include in your own words: ${NOT_CHECKED}`);
+      expect(unsearched.text).not.toContain(PASSING_LIMITS_GUIDANCE);
       const passed = await call(base({ harm_screen: [onLabel, notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` }));
       expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
       const unscreened = await call(base({ harm_screen: undefined }));
@@ -739,7 +763,8 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
       expect(invalid.result).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
         "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
-        "harm_screen[0].sources_searched: dropped: expected a list."
+        "harm_screen[0].sources_searched: dropped: expected a list.",
+        wholeDropped("state")
       ] });
       expect(invalid.result.next_step_kinds).not.toContain("input_invalid");
       // Nothing is logged about the call, its harms or its answer.

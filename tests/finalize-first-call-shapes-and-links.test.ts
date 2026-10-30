@@ -217,3 +217,41 @@ describe("key-study links AskRigor's receipts tie (#336, 2026-10-16)", () => {
     ]);
   });
 });
+
+// The 30 Oct rerun on #384's build: a link written inside parentheses, "([label](URL)).", read as "URL))." and was
+// refused (o354-work-left, q136, s360 rating), and identifiers that are not DOIs were offered as doi.org pages.
+describe("key-study links written inside parentheses (the 30 Oct rerun)", () => {
+  const inParentheses = (link: string, receipts: string[], key_sources = base().key_sources) =>
+    check({ receipts, key_sources, answer_draft: `It was read ([Trial](${link})).` }).next_steps
+      .filter((step) => step !== TOOL_LIST_REFRESH_HINT && /^Key (?:study|source) /u.test(step));
+
+  it("accepts a DOI, PubMed or receipt-tied page linked inside parentheses", () => {
+    expect(inParentheses(`https://doi.org/${DOI}`, [audit])).toEqual([]);
+    const copy = sign("study_audit", { id: PMCID, doi: DOI, pmid: PMID, pmcid: PMCID, status: "complete_no_unresolved_fields" });
+    expect(inParentheses(`https://pubmed.ncbi.nlm.nih.gov/${PMID}`, [copy])).toEqual([]);
+    expect(inParentheses(PUBLISHER, [audit, sign("doi_resolution", { doi: DOI, url: PUBLISHER })])).toEqual([]);
+  });
+
+  it("keeps a DOI's own balanced parentheses", () => {
+    const lancet = "10.1016/s0140-6736(20)30183-5";
+    const sources = [{ id: lancet, status: "validated" as const, read_depth: "full_text_audited" as const, answer_marker: "Trial" }];
+    const read = sign("study_audit", { id: lancet, status: "complete_no_unresolved_fields" });
+    expect(inParentheses(`https://doi.org/${lancet}`, [read], sources)).toEqual([]);
+  });
+
+  it("asks a web-address source without a receipt only for its receipt, offering no doi.org page", () => {
+    const label = "https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=fda754f6-d0f3-4dce-a17a-927d64f912f7";
+    const steps = inParentheses(label, [audit],
+      [{ id: label, status: "validated" as const, read_depth: "partial_text" as const, answer_marker: "Trial" }]);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatch(/^Key source https:\/\/dailymed\S+ has no receipt showing it was found/u);
+    expect(steps.join(" ")).not.toContain("doi.org/https");
+  });
+
+  it("offers no doi.org page for an identifier of no kind AskRigor links", () => {
+    const steps = linkSteps(PUBLISHER, [audit],
+      [{ id: "Tiwari2008", status: "validated" as const, read_depth: "partial_text" as const, answer_marker: "Trial" }]);
+    expect(steps.join(" ")).toContain("Key study Tiwari2008 has no link in the answer; link it to the page AskRigor's tools returned.");
+    expect(steps.join(" ").toLowerCase()).not.toContain("doi.org/tiwari2008");
+  });
+});

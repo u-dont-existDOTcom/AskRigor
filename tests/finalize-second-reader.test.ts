@@ -94,7 +94,7 @@ describe("second reader in the final check", () => {
   });
   it("accepts a covering safety declaration, with symmetric normalized quote containment", () => {
     const quote = "The extract can cause nausea. Another sentence.";
-    const input = base({ answer_draft: `${quote}\n\nHow often this happens wasn't quantified in the sources found here.\n\n${LIMIT}`,
+    const input = base({ answer_draft: `${quote}\n\nHow often this harm happens wasn't quantified in the sources found here for this exposure: the extract.\n\n${LIMIT}`,
       safety_claims: [{ quote, direction: "harm", exposure: "the extract", basis: "not_quantified" }] });
     for (const found of [QUOTE, quote, "The extract can cause nausea. Another sentence. More text."]) {
       // An answer with safety statements screens its serious harms (owner answer "128b").
