@@ -87,6 +87,27 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
     search first, and spend YouTube searches on what those miss.
   - **Then measure** searches per answer in the next run, so the fair share's size (step 2) goes to the owner with
     numbers, including whether the owner's dev login, which runs the regression list, gets a larger share.
+  - **A registry of high-value channels, by category** (the owner, 30 Oct: "we should look for the highest-value
+    influencers in various categories (starting with health categories for now) so we aren't only crossing our fingers
+    and hoping when we search videos"). In #390's run the most relevant video came from a channel no search had reached.
+    - **Categories first:** neck and back pain, dizziness and balance, joints and sports injuries, diet and weight,
+      blood sugar, heart and blood pressure, sleep, mental health, gut health, women's health, strength and fitness,
+      supplements, and long-term illnesses (long COVID, ME/CFS).
+    - **What "high-value" means for AskRigor**, recorded per channel as the kind of value it has: it demonstrates
+      specific methods (named exercises, exact doses), not general advice; its claims hold up when checked against
+      studies; it discloses sponsors and products; and its comments carry firsthand outcomes, benefit and harm, for the
+      forum signal. Credentials count but aren't required: a patient's channel can be the best source of long-term
+      outcomes, and a heterodox one the best source of leads, each labelled as such.
+    - **Use:** for a question in a category, list each registry channel's uploads through the API (`playlistItems`,
+      1 unit per 50 videos, none of the 200 searches), have the model pick the videos that fit, and read them by ID.
+      Open discovery stays, so the registry adds sources and never narrows them (HRP's creator-success and platform
+      selection limits still apply).
+    - **Building it:** candidates from web search, the Gemini scout and the channels that surfaced in past runs; each
+      checked through the API (`channels`, 1 unit) and judged on the criteria by AskRigor's own checks of a few of its
+      videos. The registry keeps channel IDs and our own notes, and fetches the rest live; YouTube's developer policies
+      on storing API data are to be read before any caching of upload lists.
+    - **It also feeds the digest:** new uploads from registry channels can be checked like news stories (the owner's
+      influencer idea for the news check).
 - **The regression run on #387's build** (started 17:47:58 UTC, saving off), judged against 193's signals, the eleven
   low-calorie cases apart, with `q135-low-stakes` for 205a; and the news pilot's first digest (owner answer 203a).
 - **Then:** payments against the Stripe sandbox (local and test mode only), and the model check's next draft (198).
