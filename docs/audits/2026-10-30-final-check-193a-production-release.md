@@ -81,15 +81,21 @@
     Overtoom papers, and refused the Walters copy as an identity mismatch, as before;
   - promotion: the one-shot succeeded (`no_pending_promotion`, and the `atlas_findings` queue completed). The timer is
     enabled, next run 02:45:10 UTC.
-- **Connector probe:** Claude (this session's connector, tool list `a53242ad0740d6bb`): `get_protocol_manifest`
-  returned the running build `d8beec2d` with HRP 20.6.32 and Universal 20.5.46, sign-in accepted and research access
-  ready, with no notice that the app's copy of the tools is out of date.
+- **Connector probes:**
+  - Claude (this session's connector, tool list `a53242ad0740d6bb`): `get_protocol_manifest` returned the running
+    build `d8beec2d` with HRP 20.6.32 and Universal 20.5.46, sign-in accepted and research access ready, with no notice
+    that the app's copy of the tools is out of date;
+  - the ChatGPT app Codex reaches, 02:48 UTC: 33 tools, its tool list version `442d2af213cbc996` (current, with no
+    refresh), both manifests on build `d8beec2d` with no out-of-date notice, and the owner's login `ACTIVE` as a free
+    contributor (notice `free-contributor-v4-2026-10-25`).
 - **Plugin:** no packaged file changed since the live build (8 files, last changed on 21 Oct). Source and installed
   receipts are both `3e83000a1183ebfc…` (version `0.1.0+codex.20261022222738.hrp.20.6.31.universal.20.5.46`, whose
   protocol part names the versions at install time), and every file equals the merge's, so no reinstall.
+- **Lessons:** #50, whose sentence is in HRP 20.6.32, is labelled incorporated.
 - **Next:** the rerun of the same 96 cases on this build, through the ChatGPT app Codex reaches, from
-  `/home/joel/askrigor-releases/20261030-384/regress`, once the app's tool list is current and the account's access
-  is active; then both runs are judged against 193's signals, the eleven low-calorie cases apart.
+  `/home/joel/askrigor-releases/20261030-384/regress`, started at 02:48:27 UTC with card saving off (`ok=true
+  findingsSave=false`, the reply and the call's result agree); then both runs are judged against 193's signals, the
+  eleven low-calorie cases apart.
 - **Rollback:**
   1. Stop and disable the timer.
   2. Restore the selector and `runtime.env` from `/opt/askrigor/rollbacks/pre-d8beec2d766e1c30e6965c10b5455e9a747e9882`.
