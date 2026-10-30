@@ -68,7 +68,7 @@ const SECRET = "held-youtube-findings-test-secret-0123456789";
 const OWNER = "auth0|held-youtube-findings-owner";
 const ALICE = "1".repeat(64);
 const BOB = "2".repeat(64);
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },
@@ -1370,7 +1370,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
 // YouTube comments it leaves out and publishes only those it keeps, and forgetting the card both deletes its held
 // findings and withdraws its publications that are not accepted.
 describe("with the Atlas publications (decision 171)", () => {
-  const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+  const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 
   it("holds the finding drawn from YouTube comments and publishes only the finding the stored card keeps", async () => {
     const publications = new InMemoryAtlasPublicationStore();

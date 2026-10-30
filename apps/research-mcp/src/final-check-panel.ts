@@ -43,7 +43,7 @@ function renderFinalCheck(doc, structuredContent) {
   let line = "AskRigor's final check could not run here.";
   if (result.status === "ready") line = "\u2713 Checked by AskRigor's final check.";
   if (result.status === "ready_with_limits") {
-    line = "\u2713 Checked by AskRigor's final check. The answer states its " + limits + (limits === 1 ? " limit." : " limits.");
+    line = "\u2713 Checked by AskRigor's final check, with " + limits + (limits === 1 ? " limit below." : " limits below.");
   }
   if (result.status === "not_ready") line = "AskRigor's final check asked for more work on this draft.";
   if (result.status === "stopped") {
@@ -59,9 +59,21 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
+  if (Array.isArray(result.notes) && result.notes.length > 0) {
+    appendText("h2", "Notes about the call:");
+    const list = doc.createElement("ul");
+    for (const note of result.notes) if (typeof note === "string") appendText("li", note, list);
+    root.appendChild(list);
+  }
   if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
     appendText("h2", "The answer as AskRigor checked it:");
     appendText("p", result.checked_answer);
+  }
+  if ((result.status === "ready" || result.status === "ready_with_limits") && limits > 0) {
+    appendText("h2", "Limits of this answer:");
+    const list = doc.createElement("ul");
+    for (const limit of result.limits) if (typeof limit === "string") appendText("li", limit, list);
+    root.appendChild(list);
   }
   if (result.status === "stopped") {
     const appendSteps = (heading, steps) => {

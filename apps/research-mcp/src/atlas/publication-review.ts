@@ -84,7 +84,8 @@ export const atlasPublicationsSchema = z.object({
       "published", "already_published", "not_published", "set_aside", "already_set_aside", "not_a_card", "unreadable",
       "waiting",
     ]),
-    problems: z.array(z.enum(CARD_PUBLICATION_PROBLEMS)).max(CARD_PUBLICATION_PROBLEMS.length),
+    // Five, the frozen tool lists' bound (owner answer 189a), though owner answer 196a left four problems.
+    problems: z.array(z.enum(CARD_PUBLICATION_PROBLEMS)).max(5),
     leftOut: z.array(z.object({
       finding: z.number().int().min(1).max(5),
       reason: z.enum(FINDING_LEFT_OUT_REASONS),
@@ -154,7 +155,6 @@ const WITHDRAWN_WORDS: Record<typeof ATLAS_PUBLICATION_WITHDRAWN_REASONS[number]
 const PROBLEM_WORDS: Record<CardPublicationProblem, string> = {
   not_free_contributor: "it was saved in paid private mode, so its findings wait for your acceptance",
   notice_not_current: "its account had not accepted the current notice",
-  dev_account: "it was saved by a dev account",
   set_aside: "it is set aside",
   not_public: "it does not declare its findings public",
 };

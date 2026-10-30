@@ -6,6 +6,16 @@ import { NEXT_STEP_KINDS } from "./next-step-kinds.js";
 
 export const CARRIED_STATE_MAX_CHARACTERS = 48_000;
 export const CARRIED_STATE_TOO_LARGE = "This conversation's state is too large to carry to the next final check.";
+export const openLeadsSchema = z.array(z.object({
+  direction: z.enum(["studies", "community"]).default("community"),
+  topic: z.string().trim().min(1).max(200),
+  why: z.string().trim().min(1).max(500)
+}).strict()).max(12);
+export const researchPlanSchema = z.object({
+  research_target: z.string().trim().min(1).max(5_000),
+  open_leads: openLeadsSchema.optional(),
+  another_pass_estimate: z.string().trim().min(1).max(200).optional()
+}).strict();
 export const userObservationSchema = z.object({
   observation: z.string().trim().min(1).max(200).describe("What was used, how and when, and what happened, as a short noun phrase in the user's terms, such as \"a friend's drowsiness after the same product\"."),
   response: z.enum(["effect", "no_effect", "uncertain", "withdrawn"]).describe("effect: something happened; no_effect: an attempt or comparison where nothing happened; uncertain: whoever reported it is no longer sure; withdrawn: whoever reported it took it back."),
@@ -18,6 +28,7 @@ export const carriedStateSchema = z.object({
   observations: z.array(userObservationSchema).max(30),
   retracted: z.array(z.string().max(200)).max(12),
   primary_outcome: z.string().trim().min(1).max(300).optional(),
+  research_plan: researchPlanSchema.optional(),
   rejected: z.array(z.string().trim().min(1).max(120)).max(12),
   named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
   current_turn_named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
@@ -52,6 +63,7 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
     const ordered: CarriedState = {
       v: 2, issued_at: checked.issued_at, observations: checked.observations, retracted,
       ...(checked.primary_outcome === undefined ? {} : { primary_outcome: checked.primary_outcome }),
+      ...(checked.research_plan === undefined ? {} : { research_plan: checked.research_plan }),
       rejected: checked.rejected, named_communities: checked.named_communities,
       current_turn_named_communities: checked.current_turn_named_communities,
       ...(checked.last_status === undefined ? {} : { last_status: checked.last_status }),

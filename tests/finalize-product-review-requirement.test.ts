@@ -1,3 +1,5 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -16,7 +18,6 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "product-review-requirement-test-secret-0123456789";
 const OPTIONS = { secret: SECRET, now: () => new Date("2026-10-07T00:00:00.000Z") };
@@ -111,25 +112,25 @@ afterEach(() => {
 describe("finalize_research product review requirement", () => {
   it("blocks the EGCG regression when Reddit and forums omit buyer reviews", () => {
     const result = checked(packageFor());
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
     expect(result.receipts_verified).toBe(2);
   });
 
   it("blocks omission of the whole commercial_review_applicability declaration", () => {
     const { commercial_review_applicability: _declaration, ...input } = packageFor();
     const result = checked(input);
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([STATE_STEP]);
-    expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([STATE_STEP]);
+    expect(advisoryNotes(result).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   });
 
   it("requires products when commercial reviews are required", () => {
     const result = checked(packageFor({ commercial_review_applicability: { status: "required" } }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Give products in commercial_review_applicability when status is required: the products or services " +
         "concerned, each exact product and variant when the user named one; for an ingredient, the product forms " +
         "people buy."
@@ -138,15 +139,15 @@ describe("finalize_research product review requirement", () => {
 
   it("blocks a mapped review site without its matching search", () => {
     const result = checked(packageFor({ principal_communities: withReviews().principal_communities }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
   });
 
   it("does not let another platform satisfy a mapped review site", () => {
     const result = checked(packageFor(withReviews({ platform: "forum", review_corpora: undefined, thread_selection: "all_found",
       report_identity: FORUM.report_identity })));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([SEARCH_STEP]);
   });
 
   it("accepts a search of one of the mapped review sites", () => {
@@ -155,7 +156,7 @@ describe("finalize_research product review requirement", () => {
       principal_communities: [...withReviews().principal_communities!, { name: "Second Reviews", platform: "review_site" }]
     }));
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
   });
 
   it("accepts matching review corpora with counts and selection, preserving the base status", () => {
@@ -168,14 +169,14 @@ describe("finalize_research product review requirement", () => {
       principal_communities: [...packageFor().principal_communities!, { ...REVIEW_SITE, name: "local-health reviews" }]
     }));
     expect(result.status).toBe(base.status);
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.finalization_receipt).toBeDefined();
   });
 
   it("reuses the existing missing-corpus message without duplication", () => {
     const result = checked(packageFor(withReviews({ review_corpora: undefined })));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "community_searches for Local Health Reviews lists reviews read on a review site: give review_corpora, " +
         "with each product, how many reviews the site shows, how many you read and how you chose them."
     ]);
@@ -183,8 +184,8 @@ describe("finalize_research product review requirement", () => {
 
   it("reuses the existing missing-read-or-boundary message without duplication", () => {
     const result = checked(packageFor(withReviews({ threads_read: [], review_corpora: undefined })));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "community_searches for Local Health Reviews lists no thread read: add the threads you read, or the " +
         "access_boundary that stopped the search."
     ]);
@@ -196,13 +197,13 @@ describe("finalize_research product review requirement", () => {
     }));
     const result = checked(input);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.limits).toContain(
-      "The search of Local Health Reviews ended at an access boundary (login_required); say so."
+      "A community that needs a login to read: Local Health Reviews. Reports there are not included."
     );
     expect(result.caveats).toContain("A community that needs a login to read: Local Health Reviews. Reports there are not included.");
-    expect(finalizeResearch(input, OPTIONS).status).toBe("not_ready");
-    expect(finalizeResearch(input, OPTIONS).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("The answer leaves out");
+    expect(finalizeResearch(input, OPTIONS).status).toBe("ready_with_limits");
+    expect(finalizeResearch(input, OPTIONS).next_steps).toEqual([]);
   });
 
   it("accepts outcome-keyword selection and still requires the partial-selection limit", () => {
@@ -211,13 +212,12 @@ describe("finalize_research product review requirement", () => {
     }));
     const result = checked(input);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.limits).toContain(
-      "The 3 Local Health Reviews review(s) of Green Tea Extract 200 mg capsules you read (of 12 shown) were " +
-        "found by searching for outcomes; say they show which experiences people report, not how common each is."
+      "The reviews I read on this site were found by searching for outcomes, so they show which experiences people report, not how common each one is. Product: Green Tea Extract 200 mg capsules. Site: Local Health Reviews."
     );
-    expect(finalizeResearch(input, OPTIONS).status).toBe("not_ready");
-    expect(finalizeResearch(input, OPTIONS).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toContain("not how common each one is");
+    expect(finalizeResearch(input, OPTIONS).status).toBe("ready_with_limits");
+    expect(finalizeResearch(input, OPTIONS).limits).toContain("The reviews I read on this site were found by searching for outcomes, so they show which experiences people report, not how common each one is. Product: Green Tea Extract 200 mg capsules. Site: Local Health Reviews.");
   });
 
   it("accepts not_applicable with a reason and no review site", () => {
@@ -225,13 +225,13 @@ describe("finalize_research product review requirement", () => {
       research_target: "Experiences with unbranded exercise", commercial_review_applicability: NOT_APPLICABLE
     }));
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
   });
 
   it("requires a reason for not_applicable", () => {
     const result = checked(packageFor({ commercial_review_applicability: { status: "not_applicable" } }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "Give reason in commercial_review_applicability when status is not_applicable: why no product or service " +
         "people buy is involved."
     ]);
@@ -243,8 +243,8 @@ describe("finalize_research product review requirement", () => {
       ...(location === "map" ? {} : { community_searches: withReviews().community_searches }),
       commercial_review_applicability: NOT_APPLICABLE
     }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       "commercial_review_applicability is not_applicable, but principal_communities or community_searches lists " +
         "platform review_site: change the declaration or the review-site entry so they agree."
     ]);
@@ -258,7 +258,7 @@ describe("finalize_research product review requirement", () => {
         not_relevant_basis: "emergency_before_triage", not_relevant_reason: "Emergency triage before stabilization."
       }));
       expect(result.status).toBe("ready");
-      expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+      expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     }
   );
 
@@ -286,14 +286,14 @@ describe("finalize_research product review requirement", () => {
         return call({ ...request, answer_draft: `${request.answer_draft}\n\n${first.caveats.join(" ")}` });
       };
       const missing = await withCaveats(input);
-      expect(missing.status).toBe("not_ready");
-      expect(missing.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
+      expect(missing.status).toBe("ready_with_limits");
+      expect(advisoryNotes(missing).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([MAP_STEP]);
       expect(missing.receipts_verified).toBe(2);
       expect(missing.receipts_rejected).toEqual([]);
-      expect(missing.finalization_receipt).toBeUndefined();
+      expect(missing.finalization_receipt).toEqual(expect.any(String));
       const supplied = await withCaveats({ ...input, ...withReviews() });
       expect(supplied.status).toBe("ready_with_limits");
-      expect(supplied.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+      expect(advisoryNotes(supplied).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
       expect(verifyResearchReceipt(supplied.finalization_receipt!, { secret: SECRET })).toMatchObject({
         ok: true, kind: "finalization", claims: { status: "ready_with_limits" }
       });

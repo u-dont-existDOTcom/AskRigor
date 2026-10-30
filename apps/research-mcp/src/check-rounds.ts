@@ -115,11 +115,12 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
   bind: string;
   now: Date;
   wholeList?: boolean;
+  countRound?: boolean;
 }): RoundOutcome {
   // Tool-state limits become caveats at their source in the gate, never work for this turn's round tracker.
   steps = steps.filter(({ deferUntilNextTurn }) => deferUntilNextTurn !== true);
   const previous = options.call.previous;
-  const round = Math.min((previous?.n ?? 0) + 1, CHECK_ROUND_LIMIT);
+  const round = Math.min(Math.max(1, (previous?.n ?? 0) + (options.countRound === false ? 0 : 1)), CHECK_ROUND_LIMIT);
   const counts = new Map(previous?.steps ?? []);
   const stuckBefore = new Set(previous?.stuck ?? []);
   const units = options.wholeList === true && steps.length > 0
@@ -140,7 +141,7 @@ export function advanceCheckRound(steps: readonly CheckStep[], options: {
     }
   }
   if ((steps.length > 0 && (open.length === 0 || round >= CHECK_ROUND_LIMIT)) ||
-      (previous?.n ?? 0) >= CHECK_ROUND_LIMIT) {
+      (steps.length > 0 && (previous?.n ?? 0) >= CHECK_ROUND_LIMIT)) {
     const reason = steps.length > 0 && open.length === 0 ? "stuck" : "limit";
     // What the next turn can do: research the check still asks for, and the app's tool list, which the user
     // refreshes. Everything else is what AskRigor could not do this turn: a step that kept coming back, or, at the

@@ -2,6 +2,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
+import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 
 /**
@@ -11,11 +13,21 @@ import type { ResearchOperationHandler } from "./research-operation.js";
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
 const LATER_INPUT_SHAPES = Object.freeze({
-  finalize_research: {},
+  finalize_research: {
+    community_evidence: z.enum(["researched", "not_relevant"]).optional()
+      .describe("Community research declaration. Missing declarations, coverage and lane-report gaps are notes; material access boundaries remain limits to state in your own words."),
+    treatment_choice: z.enum(["compared", "not_compared"]).optional()
+      .describe("Treatment comparison declaration. Missing declarations, unfinished research and wording gaps are notes; only the five source, reading, number, harm-screen and retraction checks block."),
+    open_leads: openLeadsSchema.optional()
+      .describe("Optional planning for a later pass: studies or communities not yet reached, with what each could change."),
+    another_pass_estimate: researchPlanSchema.shape.another_pass_estimate
+      .describe("Optional estimate of what another pass would take, at most 200 characters.")
+  },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
   },
+  validate_study_method_audit: { audit: studyMethodAuditSubmissionSchema.optional() },
 } satisfies Record<string, z.ZodRawShape>);
 
 type LaterInputShape<Tool extends string> = Tool extends keyof typeof LATER_INPUT_SHAPES

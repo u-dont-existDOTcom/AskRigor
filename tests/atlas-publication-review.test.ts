@@ -37,13 +37,13 @@ import { FakeGitHub } from "./helpers/fake-github-findings.js";
 
 const SECRET = "atlas-publication-review-test-secret-0123";
 const OWNER = "auth0|atlas-publication-owner";
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },
 };
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
-const PAID: FindingsSaveAccount = { mode: "PAID_PRIVATE", noticeVersion: null, devAccount: false };
+const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
+const PAID: FindingsSaveAccount = { mode: "PAID_PRIVATE", noticeVersion: null };
 /** The low-dose card, cited by its DOI, so only Crossref is asked. */
 const DOI_CARD = {
   ...LOW_DOSE_CARD,

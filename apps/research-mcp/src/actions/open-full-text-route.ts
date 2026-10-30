@@ -24,6 +24,7 @@ import {
   studyMethodAuditExternalReceiptSchema,
   studyMethodAuditExternalSubmissionSchema,
   studyMethodAuditReceiptSchema,
+  studyMethodAuditPublishedSubmissionSchema,
   studyMethodAuditSubmissionSchema,
   validateStudyMethodAudit,
   validateStudyMethodAuditWithExternalEvidence,
@@ -233,6 +234,9 @@ export const reviewMethodAuditActionInputSchema = z.object({
   document_handle: handleSchema,
   audit: reviewMethodAuditSubmissionSchema
 }).strict();
+export const studyMethodAuditPublishedActionInputSchema = studyMethodAuditActionInputSchema.safeExtend({
+  audit: studyMethodAuditPublishedSubmissionSchema.optional()
+});
 export const studyMethodAuditActionOutputSchema = z.object({
   status: z.literal("source_linked_study_audit_validated"),
   audit_receipt: studyMethodAuditReceiptSchema,
@@ -288,6 +292,11 @@ export const studyMethodAuditRouteOutputSchema = z.object({
   ) {
     context.addIssue({ code: "custom", message: "a fresh-audit boundary requires its reason and next capability" });
   }
+});
+export const studyMethodAuditPublishedRouteOutputSchema = studyMethodAuditRouteOutputSchema.safeExtend({
+  audit_receipt: studyMethodAuditReceiptSchema.safeExtend({
+    reported_figures: studyMethodAuditPublishedSubmissionSchema.shape.reported_figures
+  }).optional()
 });
 export const reviewMethodAuditActionOutputSchema = z.object({
   status: z.literal("source_linked_review_audit_validated"),

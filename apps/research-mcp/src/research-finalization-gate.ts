@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 
 import { z } from "zod";
+import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
 import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
@@ -20,7 +21,8 @@ import {
   USE_ROUTE_WORDS
 } from "./administration-routes.js";
 import {
-  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, userObservationSchema, verifyCarriedState, type CarriedState
+  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, researchPlanSchema,
+  userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
 import { binaryContrast, binaryGroups, figureShown, withoutEndPunctuation } from "./binary-results.js";
@@ -31,7 +33,7 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { detailsProse, displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
@@ -83,11 +85,17 @@ import {
  * and its declarations: whether community evidence was researched, whether
  * the answer compares treatments, and which studies it depends on. Discovery
  * and coverage receipts sign a digest of their research target, so only the
- * research done for this target counts. The gate verifies the receipts and answers with next steps
- * (not_ready), the limits the answer must state (ready_with_limits), or ready.
+ * research done for this target counts. Only the five named integrity checks create blocking next steps.
+ * Other diagnostics are notes; material limits remain available independently of the draft's wording.
  * Completion claims therefore rest on server-issued receipts rather than on
  * the model's own account, which is what the prose gates used to ask for.
  */
+
+// Owner answers 193a and 195 (29 October 2026): only these five checks may hold an answer back.
+export const FINAL_CHECK_BLOCKING_RULES = [
+  "source_provenance", "read_depth", "numbers", "harm_screen", "retractions"
+] as const;
+type FinalCheckBlockingRule = typeof FINAL_CHECK_BLOCKING_RULES[number];
 
 const youtubeVideoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/u);
 const communityPlatformSchema = z.enum([
@@ -940,9 +948,18 @@ export const finalizeResearchInputSchema = z.object({
 
 // Later fields have one declaration, in later-inputs.ts. The runtime parser sees them after the envelope is
 // merged; the top-level schema used by tools/list is unchanged.
-function finalizeResearchRuntimeInputSchema() {
+export function finalizeResearchRuntimeInputSchema() {
   const later = laterInputShape("finalize_research");
-  return finalizeResearchInputSchema.safeExtend<typeof later>(later);
+  return finalizeResearchInputSchema.extend({
+    ...later,
+    answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
+      "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
+      "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
+      "diagnostics are notes. Include material limits in your own words; their exact wording is not checked."),
+    caveat_renderings: finalizeResearchInputSchema.shape.caveat_renderings.describe(
+      "Optional legacy renderings of answer guidance. Limits may be reworded or translated directly; missing " +
+      "or changed limit sentences do not create steps.")
+  });
 }
 export type FinalizeResearchInput = z.output<ReturnType<typeof finalizeResearchRuntimeInputSchema>>;
 
@@ -1065,26 +1082,41 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
   return input;
 }
 
-/**
- * The call merged with its later_inputs (owner answer 189a), then validated against the runtime schema. A problem
- * with later_inputs comes back with the other input problems, so the not_ready result names it like any other.
- */
-export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> {
+/** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
+export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
+  notes: string[]; droppedFindingsCard: boolean;
+} {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
-  const parsed = finalizeResearchRuntimeInputSchema().safeParse(normalizeFinalizeResearchInput(input));
-  if (problems.length === 0) return parsed;
-  const issues: z.core.$ZodIssue[] = [
-    ...problems.map(({ path, message }) => ({ code: "custom" as const, path, message, input: undefined })),
-    ...(parsed.success ? [] : parsed.error.issues),
-  ];
-  return { success: false, error: new z.ZodError(issues) as z.ZodError<FinalizeResearchInput> };
+  const notes = problems.map(({ path, message }) => `${inputPath(path)}: dropped. ${message}`);
+  const runtime = finalizeResearchRuntimeInputSchema();
+  const object = input !== null && typeof input === "object" && !Array.isArray(input);
+  const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
+    const field = key as "answer_draft" | "research_target";
+    const value = (input as Record<string, unknown>)[field];
+    const checked = finalizeResearchInputSchema.shape[field].safeParse(value);
+    return checked.success && value !== undefined ? [] : [{ code: "custom" as const, path: [field],
+      message: `The final check needs usable ${field}.` }];
+  }) : [{ code: "custom" as const, path: [], message: "The final check needs a call object with answer_draft and research_target." }];
+  if (essential.length > 0) return { success: false, error: new z.ZodError(essential) as z.ZodError<FinalizeResearchInput>, notes, droppedFindingsCard: false };
+  const normalized = normalizeFinalizeResearchInput(input) as Record<string, unknown>;
+  let droppedFindingsCard = false;
+  if (normalized.findings_card !== undefined) {
+    const card = finalizeResearchInputSchema.shape.findings_card.safeParse(normalized.findings_card);
+    if (!card.success) {
+      notes.push(...droppedInputNotes(card.error.issues, ["findings_card"]));
+      delete normalized.findings_card;
+      droppedFindingsCard = true;
+    }
+  }
+  const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
+  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
 let defaultReportValues: ((value: unknown) => boolean) | undefined;
 function stoppedReport(outcome: Extract<ReturnType<typeof advanceCheckRound>, { status: "stopped" }>,
-  options: FinalizeResearchOptions, receipts: readonly string[], offTarget: readonly number[] = [], limits: readonly CheckRule[] = []) {
+  options: FinalizeResearchOptions, receipts: readonly string[], offTarget: readonly number[] = []) {
   const versions = options.runningVersions ?? { build: askrigorBuildCommitFromEnv(), ...REPORT_PROTOCOL_VERSIONS };
   const allowed = options.runningVersions === undefined
     ? defaultReportValues ??= reportValueCheck(finalizeResearchInputSchema, Object.values(REPORT_PROTOCOL_VERSIONS))
@@ -1095,83 +1127,24 @@ function stoppedReport(outcome: Extract<ReturnType<typeof advanceCheckRound>, { 
     const kind = token.split("~")[1];
     return { kind: RESEARCH_RECEIPT_KINDS.some((name) => name === kind) ? kind! : REPORT_RECEIPT_REASONS[0], reason: result.reason };
   });
-  const check_report = buildCheckReport(outcome, { versions, allowed, receipts: passed, limits });
+  const check_report = buildCheckReport(outcome, { versions, allowed, receipts: passed });
   const bug_report = stoppedCheckBugReport(outcome, allowed);
   return { check_report, check_report_token: issueCheckReportToken(check_report, options.secret!),
     ...(bug_report === undefined ? {} : { bug_report }) };
 }
 
-function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, rawInput: unknown): FinalizeResearchOutput {
-  const pathOf = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) =>
-    typeof part === "number" ? `${text}[${part}]` : `${text}${text === "" ? "" : "."}${String(part)}`, "") || "inputs";
-  const nextSteps: RuleInput[] = [rule`The call's inputs have problems, so the final check did not run. Fix each one and call again:`];
-  const messageOf = (issue: z.core.$ZodIssue, prefix: readonly PropertyKey[] = []): string => {
-    if (issue.code === "invalid_value") return `Expected one of ${issue.values.join(", ")}.`;
-    if (issue.code === "invalid_union") return issue.errors.map((branch) => branch.map((child) =>
-      `${pathOf([...prefix, ...issue.path, ...child.path])}: ${messageOf(child, [...prefix, ...issue.path])}`).join("; ")).join(" or ");
-    return issue.message;
-  };
-  for (const issue of error.issues.slice(0, 30)) {
-    nextSteps.push(rule`${pathOf(issue.path)}: ${messageOf(issue)}`);
-  }
-  if (error.issues.length > 30) nextSteps.push(rule`and ${error.issues.length - 30} more.`);
-  const shapes = FINALIZE_RESEARCH_HIDDEN_SHAPES.flatMap((shape) => shape.paths.map((path) => ({ path, shape })));
-  const given = new Set<string>();
-  for (const issue of error.issues) {
-    const path = pathOf(issue.path).replace(/\[\d+\]/gu, "[]");
-    const match = shapes.filter(({ path: prefix }) => path === prefix || path.startsWith(`${prefix}.`) || path.startsWith(`${prefix}[`))
-      .sort((a, b) => b.path.length - a.path.length)[0];
-    if (match !== undefined && !given.has(match.path)) {
-      given.add(match.path);
-      nextSteps.push(rule`${match.path} as JSON: ${match.shape.examples.map((example) => JSON.stringify(example)).join(" or ")}`);
-    }
-  }
-  // A second reading of no answer finds nothing, so every step here is about the inputs.
-  const secondReading = options.secondReading === undefined
-    ? undefined : checkSecondReading(undefined, options.secondReading, nextSteps);
-  // Owner answer 172a: inputs that fail count as rounds too. The list counts as one step, since its first line repeats.
-  const raw = (key: string): string | undefined => {
-    const value = rawInput !== null && typeof rawInput === "object" && !Array.isArray(rawInput)
-      ? (rawInput as Record<string, unknown>)[key] : undefined;
-    return typeof value === "string" ? value : undefined;
-  };
-  const roundOptions = options.secret === undefined ? undefined : {
-    secret: options.secret,
-    bind: roundBinding(raw("research_target")?.trim()),
-    now: options.now?.() ?? new Date()
-  };
-  const checkRound = roundOptions === undefined ? undefined : advanceCheckRound(
-    nextSteps.map((value) => ({ kind: "input_invalid" as const, text: ruleText(value), rule: ruleParts(value) })),
-    {
-      ...roundOptions,
-      call: readCheckRound(raw("round_token"), roundOptions),
-      wholeList: true
-    }
-  );
-  const stopped = checkRound?.status === "stopped" ? checkRound : undefined;
-  const steps = stopped === undefined ? nextSteps.map(ruleText) : [];
-  const rawReceipts = rawInput !== null && typeof rawInput === "object" && "receipts" in rawInput && Array.isArray(rawInput.receipts)
-    ? rawInput.receipts.filter((token): token is string => typeof token === "string").slice(0, 300) : [];
-  const report = stopped === undefined ? undefined : stoppedReport(stopped, options, rawReceipts);
+function invalidFinalizeResearchInput(error: z.ZodError, options: FinalizeResearchOptions, notes: string[]): FinalizeResearchOutput {
+  const fields = [...new Set(error.issues.map(({ path }) => path[0]).filter((field) => typeof field === "string"))];
+  const message = fields.length === 0
+    ? "The final check needs a call object with answer_draft and research_target."
+    : `The final check needs usable ${fields.join(" and ")}: answer_draft is the answer to check; research_target is the question the research answered.`;
   return {
-    contract: FINALIZE_RESEARCH_CONTRACT, status: stopped === undefined ? "not_ready" : "stopped", next_steps: steps,
-    next_step_kinds: steps.map(() => "input_invalid" as const), unchecked_line: uncheckedLine(["input_invalid"]),
-    ...(checkRound === undefined ? {} : { round: { number: checkRound.round, limit: CHECK_ROUND_LIMIT } }),
-    ...(checkRound?.status === "open" ? { round_token: checkRound.token } : {}),
-    ...(stopped === undefined ? {} : {
-      stopped: {
-        reason: stopped.reason,
-        could_not: stopped.couldNot.map(({ kind, text }) => ({ kind, step: text })),
-        next_turn: [],
-        short_reason: "the check could not run"
-      }
-    }),
-    ...(report ?? {}),
-    ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    limits: [], caveats: stopped === undefined ? [] : [COMPLETE_CHECKS_TIP],
-    must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
+    contract: FINALIZE_RESEARCH_CONTRACT, status: "not_ready", next_steps: [message],
+    next_step_kinds: ["input_invalid"], unchecked_line: uncheckedLine(["input_invalid"]),
+    ...(notes.length === 0 ? {} : { notes }),
+    limits: [], caveats: [], must_report: [], receipts_verified: 0, receipts_rejected: [], answer_checked: false,
     sources: { validated: [], lead_only: [] },
-    community: { decision: "not_relevant", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
+    community: { decision: "not_declared", surveys: 0, discovery_rounds: 0, saturated: false, depth: "first_pass",
       first_pass_complete: false, open_leads: [], audited_videos: [], material_videos: [], principal_communities: [], communities_searched: [] },
     findings_card: options.findings === "private" ? privateFindings() : options.findings === "closed" ? closedFindingsLibrary() : noFindingsCard()
   };
@@ -1193,20 +1166,6 @@ function retractedStatementShown(draft: string, statement: string, changes: read
     return occurrences(changed).map((start) => [start, start + changed.length] as const);
   });
   return occurrences(wrong).some((start) => !inChange.some(([from, to]) => start >= from && start + wrong.length <= to));
-}
-
-/**
- * The caveat of this check that holds a statement taken back, if one does. The answer must state the caveat, so a
- * statement inside it cannot also be left out; the two rules held each other in the 22 Oct regression o354 continue,
- * where the AI declared the check's own YouTube caveat as a statement it took back. Exact: the caveat's text contains
- * the statement, compared as the answer check compares quotes.
- */
-function caveatHolding(statement: string, caveats: readonly string[]): string | undefined {
-  const wrong = quoteForms(statement);
-  return caveats.find((caveat) => {
-    const held = quoteForms(caveat);
-    return wrong.some((form, index) => /[\p{L}\p{N}]/u.test(form) && held[index]!.includes(form));
-  });
 }
 
 const optionKey = (text: string) => text.trim().toLowerCase();
@@ -1329,15 +1288,22 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
  * changes it. The call's turn id, first-turn flag and earlier turn's open kinds distinguish state passed within
  * this turn from state passed into a later one; the round token alone identifies the call's turn.
  */
+function researchPlan(input: FinalizeResearchInput): CarriedState["research_plan"] {
+  return input.open_leads === undefined && input.another_pass_estimate === undefined ? undefined : {
+    research_target: input.research_target,
+    ...(input.open_leads === undefined ? {} : { open_leads: input.open_leads }),
+    ...(input.another_pass_estimate === undefined ? {} : { another_pass_estimate: input.another_pass_estimate })
+  };
+}
+
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
   check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
     turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
-  // A statement a caveat of this check holds is not carried as taken back: the caveat stays (caveatHolding).
+  // Owner 195: retractions persist even when advisory caveats contain the same words.
   const retracted = [...(carried?.retracted ?? []), ...(input.corrections ?? []).map(({ retracted }) => retracted)]
-    .filter((text) => caveatHolding(text, check.caveats) === undefined)
     .map((text) => text.slice(0, 200));
   // Keep the latest occurrence of each statement, then the latest twelve statements.
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
@@ -1365,6 +1331,7 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
   const state: CarriedState = {
     v: 2, issued_at: (options.now?.() ?? new Date()).toISOString(),
     observations, retracted: latest,
+    ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     ...(goal === undefined ? {} : { primary_outcome: goal }),
     rejected,
     named_communities: namedCommunities,
@@ -1393,9 +1360,12 @@ const finalizationStatusSchema = z.enum([
 ]);
 const roundStepSchema = z.object({ kind: z.enum(NEXT_STEP_KINDS), step: z.string() }).strict();
 
-export const finalizeResearchOutputSchema = z.object({
+// Retain published descriptions for the frozen catalog; runtime guidance is updated below.
+const finalizeResearchRetainedOutputSchema = z.object({
   contract: z.string().describe("Records the server's finalize_research input contract version."),
   status: finalizationStatusSchema,
+  research_plan: researchPlanSchema.optional(),
+  notes: z.array(z.string()).optional(),
   checked_answer: z.string().optional()
     .describe("When ready or ready_with_limits with answer_draft: the exact answer_draft this check read, byte for " +
       "byte, returned only to its caller and shown in the result panel; not stored or logged."),
@@ -1454,7 +1424,7 @@ export const finalizeResearchOutputSchema = z.object({
     reason: z.string()
   }).strict()),
   community: z.object({
-    decision: z.enum(["researched", "not_relevant"]),
+    decision: z.enum(["researched", "not_relevant", "not_declared"]),
     surveys: z.number().int().nonnegative(),
     discovery_rounds: z.number().int().nonnegative(),
     saturated: z.boolean(),
@@ -1535,6 +1505,24 @@ export const finalizeResearchOutputSchema = z.object({
     "which the server sent to the owner's review inbox.")
 }).strict();
 
+export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema.extend({
+  next_steps: finalizeResearchRetainedOutputSchema.shape.next_steps.describe(
+    "Only failures of the five blocking integrity checks. Every other diagnostic is in notes."),
+  next_step_kinds: finalizeResearchRetainedOutputSchema.shape.next_step_kinds.describe(
+    "Each blocking step's kind, in the same order. Only the five blocking checks create steps; declaration, " +
+    "research, answer_draft and carried_state describe the action to resolve them. Other diagnostics are notes."),
+  round: finalizeResearchRetainedOutputSchema.shape.round.describe(
+    "This turn's blocking-check round and its limit. Only calls with blocking steps consume a round; advisory " +
+    "or passing calls do not advance it."),
+  limits: finalizeResearchRetainedOutputSchema.shape.limits.describe(
+    "Material limits to include in the answer in your own words, also shown beneath the checked answer in the panel."),
+  caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
+    "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
+});
+
+export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
+  .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
+
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
 
 export interface FinalizeResearchOptions {
@@ -1609,7 +1597,7 @@ export function finalizeResearch(
   options: FinalizeResearchOptions
 ): FinalizeResearchOutput {
   const parsed = parseFinalizeResearchInput(rawInput);
-  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, rawInput);
+  if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
   if (options.secret === undefined) {
     const nextSteps: RuleInput[] = [];
@@ -1617,6 +1605,7 @@ export function finalizeResearch(
     return {
       contract: FINALIZE_RESEARCH_CONTRACT,
       status: "receipts_unavailable",
+      ...(parsed.notes.length === 0 ? {} : { notes: parsed.notes }),
       next_steps: nextSteps.map(ruleText),
       next_step_kinds: nextSteps.map(() => "second_reading" as const),
       ...(secondReading === undefined ? {} : { second_reading: secondReading }),
@@ -1630,7 +1619,7 @@ export function finalizeResearch(
       receipts_verified: 0,
       receipts_rejected: [],
       community: {
-        decision: input.community_evidence,
+        decision: input.community_evidence ?? "not_declared",
         surveys: 0,
         discovery_rounds: 0,
         saturated: false,
@@ -1682,9 +1671,16 @@ export function finalizeResearch(
   // Each step's kind, in the same order (AskRigor#354).
   const stepKinds: NextStepKind[] = [];
   const checkSteps: CheckStep[] = [];
-  const addCheckStep = (step: CheckStep): void => {
+  const notes = [...new Set(parsed.notes)];
+  let researchAdvised = false;
+  const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (step.deferUntilNextTurn === true) {
       caveatOnce(step.rule ?? step.text, step.deferredCaveat!);
+    }
+    // All steps, including helper-produced ones, pass this single admission point.
+    if (blockingRule === undefined || !FINAL_CHECK_BLOCKING_RULES.includes(blockingRule)) {
+      if (step.kind === "research") researchAdvised = true;
+      if (!notes.includes(step.text)) notes.push(step.text);
       return;
     }
     nextSteps.push(step.text);
@@ -1694,19 +1690,23 @@ export function finalizeResearch(
   const addStep = (kind: NextStepKind, ...steps: RuleInput[]): void => {
     for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) });
   };
+  const addBlockingStep = (blockingRule: FinalCheckBlockingRule, kind: NextStepKind, ...steps: RuleInput[]): void => {
+    for (const value of steps) addCheckStep({ kind, text: ruleText(value), rule: ruleParts(value) }, blockingRule);
+  };
   let missingDeclaration = false;
   const requireDeclaration = (step: RuleInput): void => {
     missingDeclaration = true;
     addStep("declaration", rule`${step}`);
   };
   const limits: string[] = [];
-  const limitRules: CheckRule[] = [];
-  // Each limit's sentences for the user, written here so the answer carries
-  // them as they are: a caveat cannot be dropped, garbled or negated.
+  // Keep material limits independently of the draft's wording; the panel shows them and the model paraphrases them.
   const caveats: string[] = options.mobileClient === true ? [MOBILE_NOTICE] : [];
   const requireLimit = (text: RuleInput, ...sentences: string[]): void => {
-    limits.push(ruleText(text));
-    limitRules.push(ruleParts(text));
+    for (const limit of sentences.length === 0 ? [ruleText(text)] : sentences) {
+      if (!limits.includes(limit)) {
+        limits.push(limit);
+      }
+    }
     caveats.push(...sentences);
   };
   const caveatOnce = (limit: RuleInput, caveat: string): void => {
@@ -1765,6 +1765,11 @@ export function finalizeResearch(
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
+  if (carried?.research_plan !== undefined &&
+      researchTargetDigest(carried.research_plan.research_target) === researchTargetDigest(input.research_target)) {
+    input.open_leads ??= carried.research_plan.open_leads;
+    input.another_pass_estimate ??= carried.research_plan.another_pass_estimate;
+  }
   // The correction-report question rests on the model's declaration of who pointed the error out.
   for (const [index, { by_user, report, preventing_rule, missing_rule }] of (input.corrections ?? []).entries()) {
     if (by_user === true && report === undefined) {
@@ -1863,7 +1868,7 @@ export function finalizeResearch(
       // candidates whose YouTube title differs from the scout's, and YouTube's
       // closest results for a title it could not find. Auditing one is that
       // judgment, so they count as found by the round.
-      for (const video of [...list(claims.videos), ...list(claims.alt)]) discovered.add(video);
+      for (const video of [...list(claims.videos), ...list(claims.alt), ...(kind === "youtube_scout" ? list(claims.unres) : [])]) discovered.add(video);
     }
     if (kind === "youtube_video_claims") {
       // A video the person gave, which Gemini read, counts as found: auditing
@@ -1913,8 +1918,6 @@ export function finalizeResearch(
   let firstPassComplete = false;
   // A first pass that stopped at its cap before discovery saturated, and the
   // searches a rate limit stopped in it; or discovery that must go on first.
-  let unsaturatedFirstPass = false;
-  let firstPassRateLimited = 0;
   let firstPassDeferredStep: CheckStep | undefined;
   let discoveryContinues = false;
   const openLeads = (input.open_leads ?? []).map(({ topic }) => topic);
@@ -1959,7 +1962,7 @@ export function finalizeResearch(
         requireLimit(joinRules(COMMUNITY_SKIP_LIMIT), communitySkipCaveat(input.not_relevant_reason));
       }
     }
-  } else {
+  } else if (input.community_evidence === "researched") {
     const communities = input.principal_communities;
     const youtubeResearched = rounds.length > 0 || audited.size > 0 || communityAudited.size > 0;
     // YouTube is one of the places people talk, not the whole community lane:
@@ -1982,7 +1985,7 @@ export function finalizeResearch(
         );
       }
       materialVideos = [...new Set(input.material_video_ids ?? auditedVideos)].sort();
-      const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth);
+      const saturation = discoverySaturation(rounds, new Set(materialVideos), input.research_depth, verified, targetDigest);
       saturated = saturation.saturated;
       if (input.research_depth === "first_pass") firstPassDeferredStep = saturation.deferredStep;
       else if (saturation.deferredStep !== undefined) addCheckStep(saturation.deferredStep);
@@ -1999,12 +2002,7 @@ export function finalizeResearch(
       firstPassComplete = input.research_depth === "first_pass" &&
         (saturated || auditedMaterial >= FIRST_PASS_AUDITED_VIDEOS || angles >= FIRST_PASS_ROUNDS ||
           saturation.rateLimited > 0);
-      if (!saturated && firstPassComplete) {
-        // Its unsaturated topics become community focuses of the offer that
-        // ends every first pass (below), with any searches a limit stopped.
-        unsaturatedFirstPass = true;
-        firstPassRateLimited = saturation.rateLimited;
-      } else if (!saturated) {
+      if (!saturated && !firstPassComplete) {
         discoveryContinues = saturation.nextSteps.length > 0;
         addStep("research", ...saturation.nextSteps);
       }
@@ -2375,16 +2373,35 @@ export function finalizeResearch(
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
     const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
-    const audited = ids.some((candidate) => validatedIds.has(candidate));
-    const read = audited || ids.some((candidate) => readIds.has(candidate));
+    const receiptIds = [...new Set([...linkIds, ...linkPages.values()].map(normalizeIdentifier))];
+    const sourceReceipts = verified.filter(({ kind, claims }) =>
+      (PAPER_TIE_KINDS.has(kind) || kind === "literature_search" || kind === "full_text_lead" ||
+        kind === "full_text_route_failure") &&
+      [...["id", "doi", "pmid", "pmcid", "url"].map((key) => text(claims[key])), ...list(claims.ids)]
+        .some((value) => value !== "" && receiptIds.includes(normalizeIdentifier(value))));
+    if (sourceReceipts.length === 0 && !checkedInAtlas(source.id)) {
+      // A source no AskRigor tool can look up would otherwise hold the check until its round limit (case r329, 28 Oct).
+      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead or route-failure research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
+    }
+    const audited = sourceReceipts.some(({ kind }) => kind === "study_audit" || kind === "review_audit");
+    const read = audited || sourceReceipts.some(({ kind }) => kind === "full_text_read");
+    // Acquisition is now advisory, so a record alone must not erase the declared reading boundary.
+    if (!read && sourceReceipts.length > 0 && !sourceReceipts.some(({ kind }) =>
+      kind === "full_text_lead" || kind === "full_text_route_failure")) {
+      if (source.read_depth === "abstract_only" || source.read_depth === "conference_abstract") {
+        requireLimit(rule`Only the abstract of ${source.id} was read for this answer; its methods were not audited.`);
+      } else if (source.read_depth === "partial_text") {
+        requireLimit(rule`Only part of the text of ${source.id} was read for this answer; its methods were not audited.`);
+      }
+    }
     if (source.read_depth === "atlas_checked" && !checkedInAtlas(source.id)) {
-      addStep("declaration", rule`Key source ${source.id} has no checked Atlas finding used in atlas_reuse whose lookup receipt names it; pass that lookup and declaration, or give the depth read here.`);
+      addBlockingStep("read_depth", "declaration", rule`Key source ${source.id} has no checked Atlas finding used in atlas_reuse whose lookup receipt names it; pass that lookup and declaration, or give the depth read here.`);
     }
     if (source.read_depth === undefined) {
       requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
-      addStep("declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
+      addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
     }
     if (input.answer_draft !== undefined) {
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
@@ -2403,12 +2420,12 @@ export function finalizeResearch(
       if (source.answer_marker === undefined) {
         requireDeclaration(rule`Give key_sources.answer_marker for ${source.id}: the visible label, 3 to 80 characters, on the same line as its link in answer_draft.`);
       } else if (untied !== undefined) {
-        addStep("answer_draft", joinRules(joinRules(rule`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: `, rule`link ${listOf(pages, "or")} instead`), (isDoi(id) ? joinRules(rule`, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is `, "registered to, and fetch_pubmed_record ties the study's PubMed page.") : ".")));
+        addBlockingStep("source_provenance", "answer_draft", joinRules(joinRules(rule`Key study ${source.id} is linked by ${untied}, which no receipt passed here ties to it: `, rule`link ${listOf(pages, "or")} instead`), (isDoi(id) ? joinRules(rule`, or pass the research_receipt that ties that page: resolve_doi with ${id} ties the page the DOI is `, "registered to, and fetch_pubmed_record ties the study's PubMed page.") : ".")));
       } else if (!markerLinks.some((links) => links.some(linked))) {
         addStep("answer_draft", rule`Key source ${source.id} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`);
       }
-      if (identified && untied === undefined && !studyLinks.some(linked)) {
-        addStep("answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
+      if (untied === undefined && !studyLinks.some(linked)) {
+        addBlockingStep("source_provenance", "answer_draft", rule`Key study ${source.id} has no link in the answer; link it to the page AskRigor's tools returned, such as ${listOf(pages, "or")}.`);
       }
     }
     if (source.read_depth === "atlas_checked" && checkedInAtlas(source.id)) {
@@ -2416,7 +2433,7 @@ export function finalizeResearch(
       validatedSources.push(source.id);
       continue;
     }
-    if (ids.some((candidate) => validatedIds.has(candidate))) {
+    if (audited) {
       validatedSources.push(source.id);
       continue;
     }
@@ -2490,7 +2507,7 @@ export function finalizeResearch(
     const target = isDoi(id) ? source.id : knownDoi;
     addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text${target === source.id ? rule`` : rule` (DOI ${target})`}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id}${target === source.id ? rule`` : rule` (DOI ${target})`} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH_RULE}`));
   }
-  if (unreadStudies.size > 0) caveats.push(...unreadStudiesCaveats(unreadStudies));
+  for (const caveat of unreadStudiesCaveats(unreadStudies)) requireLimit(caveat, caveat);
   // A key study's headline figures, as its audit recomputed them (owner
   // questions 87 and 89, issues #329 and #331): a study whose own data
   // contradict its figures, a value impossible as printed, and two studies
@@ -2625,45 +2642,11 @@ export function finalizeResearch(
     }
   }
 
-  // After a first pass of research the answer offers the two ways to go
-  // deeper, a deeper study review and deeper community research, with two or
-  // three focuses each, and asks which the user wants (HRP LimitsNote); an
-  // answer that researched neither studies nor communities has none to offer.
-  // Discovery that must go on comes first.
+  // Planning stays in the result and carried state; the answer needs only the first-pass limit.
   const researched = input.community_evidence === "researched" || input.key_sources.length > 0;
   if (input.research_depth === "first_pass" && researched && !discoveryContinues) {
-    const directions = FOCUS_DIRECTIONS.filter(({ direction }) =>
-      direction === "studies" || input.community_evidence === "researched");
-    const focuses = directions.map(({ direction }) =>
-      (input.open_leads ?? []).filter((lead) => lead.direction === direction));
-    const twoOrThree = (leads: readonly unknown[]) => leads.length >= 2 && leads.length <= 3;
-    directions.forEach(({ direction, what }, index) => {
-      const count = focuses[index]!.length;
-      if (count > 3) {
-        addStep("declaration", rule`open_leads lists ${count} focuses with direction ${direction}; keep the two or three most promising.`);
-        return;
-      }
-      if (count >= 2) return;
-      requireDeclaration(
-        joinRules(joinRules(rule`List two or three open_leads with direction ${direction}: ${what}, each with what it could change in this `, "answer (the conclusion, a ranking, the confidence, or only detail) and why it looks promising."), (direction === "community" && unsaturatedFirstPass ? joinRules(" Discovery has not saturated, so include the topics where more community signal is likely", (firstPassRateLimited > 0 ? " and the searches YouTube's rate limit or daily quota stopped." : ".")) : ""))
-      );
-    });
-    const estimate = input.another_pass_estimate === undefined ? undefined : withoutEndPunctuation(input.another_pass_estimate);
-    if (estimate === undefined || !PASS_COST_NUMBER.test(estimate)) {
-      (estimate === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
-        joinRules(rule`Give another_pass_estimate: roughly what another pass over the open leads would take, with a number in `, rule`digits and a unit (for example, "about 20 minutes and 15 YouTube searches").`)
-      );
-    } else if (focuses.every(twoOrThree)) {
-      requireLimit(
-        joinRules(joinRules(joinRules(joinRules(joinRules(joinRules(rule`First pass only${unsaturatedFirstPass ? rule`; discovery had not saturated` : rule``}. End the answer with the `, rule`${directions.length === 2 ? rule`two ways` : rule`way`} to go deeper, a sentence or two each, in plain language for `), "the user (no video IDs or internal codes): "), rule`${directions.map(({ label }, index) => `${label} (${focuses[index]!.map(({ topic }) => topic.trim()).join("; ")})`)
-            .join(" and ")}`), ". Say what each focus could change in this answer and why it looks promising, give roughly what another "), "pass would take, and ask which the user "), "wants and which focus."),
-        ...directions.flatMap(({ caption }, index) =>
-          focuses[index]!.map(({ topic, why }) => `${completedCaveat(`${caption}:`, topic)} ${asSentence(why)}`)),
-        `${completedCaveat("What another pass would take:", estimate)} ` + (directions.length === 2
-          ? "Would you like to go deeper into the studies or the communities, and which focus matters most to you?"
-          : "Would you like to go deeper into the studies, and which focus matters most to you?")
-      );
-    }
+    requireLimit("This was a first pass: some studies and communities were not reached yet.",
+      "This was a first pass: some studies and communities were not reached yet.");
   }
 
   if (firstPassDeferredStep !== undefined) addCheckStep(firstPassDeferredStep);
@@ -2719,13 +2702,13 @@ export function finalizeResearch(
     const at = `binary_results[${index}]`;
     const overCounted = binaryGroups(result).filter(({ events, total }) => events > total);
     for (const { field, name } of overCounted) {
-      addStep("declaration", joinRules(rule`${at} gives more events than people for ${name}: ${field}_events counts the people in that `, rule`group with the outcome, so it cannot exceed ${field}_total.`));
+      addBlockingStep("numbers", "declaration", joinRules(rule`${at} gives more events than people for ${name}: ${field}_events counts the people in that `, rule`group with the outcome, so it cannot exceed ${field}_total.`));
     }
     const stated = (["nnt", "nnh"] as const).filter((field) => result[field] !== undefined);
     if (overCounted.length > 0 || stated.length === 0) continue;
     const contrast = binaryContrast(result);
     if (contrast === undefined) {
-      addStep("declaration", joinRules(rule`${at}'s counts give the same rate in both groups, so there is no number needed to treat or `, rule`harm: leave ${stated.join(" and ")} out.`));
+      addBlockingStep("numbers", "declaration", joinRules(rule`${at}'s counts give the same rate in both groups, so there is no number needed to treat or `, rule`harm: leave ${stated.join(" and ")} out.`));
       continue;
     }
     // The option did better when a larger share had an outcome more people should have, or a smaller share one
@@ -2733,7 +2716,7 @@ export function finalizeResearch(
     const optionBetter = contrast.optionHigher === (result.better === "more");
     const supported = optionBetter ? "nnt" : "nnh";
     if (stated.length === 2) {
-      addStep("declaration", rule`${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
+      addBlockingStep("numbers", "declaration", rule`${at} gives both nnt and nnh: give only ${supported}, the one its counts support.`);
     } else {
       const field = stated[0]!;
       const value = result[field]!;
@@ -2741,11 +2724,11 @@ export function finalizeResearch(
         const [outcome, option, comparator] = [result.outcome, result.option, result.comparator]
           .map(withoutEndPunctuation);
         const share = contrast.optionHigher ? "larger" : "smaller";
-        addStep("declaration", joinRules(joinRules(rule`${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with `, rule`${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to `), rule`${optionBetter ? rule`treat` : rule`harm`}: give it as ${supported}.`));
+        addBlockingStep("numbers", "declaration", joinRules(joinRules(rule`${at} gives ${field}, but by its counts a ${share} share of people had ${outcome} with `, rule`${option} than with ${comparator}, and ${result.better} is better, so it is a number needed to `), rule`${optionBetter ? rule`treat` : rule`harm`}: give it as ${supported}.`));
       }
       // Only the reciprocal rounded up counts (owner answer 153b: "rounding the reciprocal up").
       if (value !== contrast.roundedUp) {
-        addStep("declaration", joinRules(joinRules(rule`${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates `, rule`is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded `), "up, recomputed from the groups' counts the answer uses, or correct the counts."));
+        addBlockingStep("numbers", "declaration", joinRules(joinRules(rule`${at} gives ${field} ${value}, but by its counts 1 divided by the difference in rates `, rule`is ${contrast.reciprocal.toFixed(1)}, which rounds up to ${contrast.roundedUp}: give the reciprocal rounded `), "up, recomputed from the groups' counts the answer uses, or correct the counts."));
       }
     }
     // A number needed to treat the counts support has the harms beside it. An entry whose counts leave no number, or
@@ -2884,9 +2867,23 @@ export function finalizeResearch(
         ? rule`the answer recommends, puts forward or ranks a medicine likely to be taken for months or years (recommendations)`
         : undefined;
   if (input.answer_draft !== undefined && harmScreenTrigger !== undefined && harmScreen.length === 0) {
-    (input.harm_screen === undefined ? requireDeclaration : (step: RuleInput) => addStep("declaration", step))(
+    (step => (input.safety_claims ?? []).length > 0
+      ? addBlockingStep("harm_screen", "declaration", step) : requireDeclaration(step))(
       joinRules(joinRules(joinRules(joinRules(rule`harm_screen ${input.harm_screen === undefined ? rule`is missing` : rule`lists no harm`}: ${harmScreenTrigger}, so `, rule`harm_screen lists the serious harms plausible for this exposure, apart from its common side effects, each `), rule`searched by name, with what the search found: label_warning or reported_signal with the answer's sentence `), rule`as answer_quote, not_found with the exact search_query of a literature search passed here, or not_checked `), rule`(at least one entry).`)
     );
+  }
+  if ((input.safety_claims ?? []).length > 0 && harmScreen.length > 0 &&
+      !harmScreen.some(({ state }) => state !== "not_checked")) {
+    addBlockingStep("harm_screen", "declaration", rule`harm_screen names no harm searched: search at least one named serious harm and record it in harm_screen.`);
+  }
+  const searchedHarms = harmScreen.filter(({ state }) => state !== "not_checked");
+  if (searchedHarms.length > 0) {
+    const sourceNames: Record<string, string> = {
+      label: "product labels", regulator_warning: "regulator warnings", case_reports: "case reports",
+      trial_serious_events: "serious events in trials", post_marketing: "post-marketing reports", community: "community reports"
+    };
+    requireLimit(rule`The serious-harm screen covered ${searchedHarms.map(({ harm, sources_searched }) =>
+      `${plainPhrase(harm)} (${(sources_searched ?? []).map((source) => sourceNames[source] ?? source.replaceAll("_", " ")).join(", ") || "sources not recorded"})`).join("; ")}. Other serious harms may not have been checked.`);
   }
   // Each entry's own field, as its state needs it; another state's field, if given, is not used.
   const screenedHarms = new Map<string, number>();
@@ -3090,7 +3087,7 @@ export function finalizeResearch(
     input.not_relevant_reason !== undefined && input.not_relevant_basis === "emergency_before_triage";
   const atlasReuse = checkAtlasReuse({ receipts: verified, target: targetDigest,
     required: !emergency && !shortLookup && (input.community_evidence === "researched" ||
-      input.key_sources.length > 0 || stepKinds.includes("research")),
+      input.key_sources.length > 0 || researchAdvised || stepKinds.includes("research")),
     declarations: input.atlas_reuse ?? [], draft: input.answer_draft });
   for (const step of atlasReuse.steps) {
     if (step.kind === "declaration") requireDeclaration(rule`${step.text}`);
@@ -3099,6 +3096,10 @@ export function finalizeResearch(
   // Fixed sentences, or one holding a public Atlas number its schema checked: shown whole in bug reports.
   for (const caveat of atlasReuse.caveats) requireLimit(joinRules(caveat), caveat);
   // Preserve the submitted draft for checked_answer; checks and the receipt keep their existing trimmed form.
+  // Some reading boundaries predate requireLimit and were carried only as answer caveats.
+  for (const caveat of [...caveats]) {
+    if (caveat !== MOBILE_NOTICE && !limits.includes(caveat)) requireLimit(caveat);
+  }
   const draft = input.answer_draft?.trim();
   // A findings card (owner decisions Q9 to Q11, 2026-09-30) is checked with
   // the answer, which needs one for any research account. A free contributor's
@@ -3110,7 +3111,9 @@ export function finalizeResearch(
   // neither saved nor offered (owner answer 156a, 2026-10-22).
   let findingsCard: FindingsCardCheck = options.findings === "private"
     ? privateFindings()
-    : input.findings_card === undefined
+    : parsed.droppedFindingsCard
+      ? { status: "rejected", problems: ["The malformed findings card was dropped; see the notes about the call."] }
+      : input.findings_card === undefined
       ? noFindingsCard()
       : !findingsOpen(options)
         ? closedFindingsLibrary()
@@ -3184,7 +3187,7 @@ export function finalizeResearch(
     // and is not asked for one (the 2026-10-15 owner regressions).
     const citable = validatedIds.size > 0 || leadSources.length > 0 || auditedAtAll.size > 0 ||
       materialVideos.length > 0;
-    if (findingsOpen(options) && input.findings_card === undefined && citable) {
+    if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.")
       );
@@ -3249,6 +3252,7 @@ export function finalizeResearch(
       if (comparison === undefined) {
         requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
       } else {
+        const comparisonNoteStart = notes.length;
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
         const found = new Map<number, ComparedClaim>();
@@ -3303,7 +3307,7 @@ export function finalizeResearch(
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
           addStep("declaration", joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it."));
-        } else {
+        } else if (notes.length === comparisonNoteStart) {
           compared = registered.map((_, number) => found.get(number)!);
         }
       }
@@ -3326,15 +3330,8 @@ export function finalizeResearch(
     // A statement taken back earlier in this conversation stays out of the answer, unless a caveat of this check holds it: the
     // caveat stays, so a correction cannot take it back (the 22 Oct regression o354 continue).
     for (const statement of carried?.retracted ?? []) {
-      if (caveatHolding(statement, caveats) === undefined &&
-          retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
-        addStep("carried_state", rule`The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
-      }
-    }
-    for (const [index, { retracted }] of (input.corrections ?? []).entries()) {
-      const caveat = caveatHolding(retracted, caveats);
-      if (caveat !== undefined) {
-        addStep("declaration", joinRules(joinRules(rule`corrections[${index}] takes back words of the check's own caveat ${JSON.stringify(caveat)}, `, "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the "), "wrong statement as your earlier answer put it, outside the caveat's words."));
+      if (retractedStatementShown(draft, statement, (input.corrections ?? []).map(({ change }) => change))) {
+        addBlockingStep("retractions", "carried_state", rule`The answer repeats a statement taken back earlier in this conversation: ${JSON.stringify(statement)}. Leave it out.`);
       }
     }
     // On a conversation's first turn the user has seen no answer yet, so a claim of the plain answer registered before
@@ -3381,7 +3378,8 @@ export function finalizeResearch(
           [{ at: `corrections[${index}].report`, quote: report }]),
         ...(input.corrections ?? []).map(({ change }, index) => ({ at: `corrections[${index}].change`, quote: change }))
       ],
-      corrections: (input.corrections ?? []).filter(({ retracted }) => caveatHolding(retracted, caveats) === undefined),
+      corrections: input.corrections ?? [],
+      blockingProblem: (blockingRule, problem) => addBlockingStep(blockingRule, "answer_draft", problem),
       communityNames: [...(input.community_searches ?? []).map(({ community }) => community),
         ...(input.principal_communities ?? []).map(({ name }) => name)],
       keyTerms: input.key_terms ?? [],
@@ -3407,25 +3405,13 @@ export function finalizeResearch(
     checkSteps,
     {
       ...roundOptions,
-      call: callRound
+      call: callRound,
+      countRound: checkSteps.length > 0
     }
   );
   if (checkRound?.status === "stopped") {
     caveats.push(COMPLETE_CHECKS_TIP);
-    // Only a stopped answer needs this sentence. Check it after the round outcome is known, without opening
-    // another round or delaying the stop, through the same visible-sentence and translation check as other caveats.
-    if (draft !== undefined) {
-      for (const problem of answerCaveatProblems(draft, {
-        caveats: [COMPLETE_CHECKS_TIP],
-        ...(input.answer_language === undefined ? {} : { answerLanguage: input.answer_language }),
-        renderings: input.caveat_renderings ?? [], missingDeclaration: () => {}
-      })) {
-        const text = ruleText(problem);
-        if (!checkRound.couldNot.some((step) => step.text === text)) {
-          checkRound.couldNot.push({ kind: "answer_draft", text, rule: ruleParts(problem), consecutive: 1 });
-        }
-      }
-    }
+
   }
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
   // Every step this check leaves open, asked for or not, for the carried state's open kinds.
@@ -3452,6 +3438,8 @@ export function finalizeResearch(
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
+    ...(notes.length === 0 ? {} : { notes }),
+    ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
     limits,
@@ -3460,7 +3448,7 @@ export function finalizeResearch(
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
     community: {
-      decision: input.community_evidence,
+      decision: input.community_evidence ?? "not_declared",
       surveys,
       discovery_rounds: rounds.length,
       saturated,
@@ -3501,7 +3489,7 @@ export function finalizeResearch(
         next_turn: checkRound.nextTurn.map(entry),
         short_reason: reasons === "" ? "the check stopped before it passed" : reasons
       };
-      Object.assign(output, stoppedReport(checkRound, options, input.receipts, offTarget.map(({ index }) => index), limitRules));
+      Object.assign(output, stoppedReport(checkRound, options, input.receipts, offTarget.map(({ index }) => index)));
     }
   }
   // A check that did not pass, carried from earlier in this conversation (AskRigor#354): whatever answer went out
@@ -3670,6 +3658,7 @@ function answerDraftProblems(
     keyTerms: NonNullable<FinalizeResearchInput["key_terms"]>;
     labPreparationQuotes: readonly string[];
     missingDeclaration: () => void;
+    blockingProblem: (blockingRule: FinalCheckBlockingRule, problem: RuleInput) => void;
     answerLanguage?: string;
     renderings: ReadonlyArray<{ caveat: string; text: string }>;
   }
@@ -3786,13 +3775,13 @@ function answerDraftProblems(
     const at = `binary_results[${index}]`;
     const shown = figureShown(result, result.quote);
     for (const { name, events, total, rate } of shown.groupsNotShown) {
-      problems.push(joinRules(rule`${at} quotes no figure for ${name}: the quote contains neither its events and total `, rule`(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`));
+      context.blockingProblem("numbers", joinRules(rule`${at} quotes no figure for ${name}: the quote contains neither its events and total `, rule`(${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`));
     }
     for (const field of shown.numbersNeededNotShown) {
-      problems.push(joinRules(rule`${at} quotes no number needed to ${field === "nnt" ? rule`treat` : rule`harm`}: the quote does not `, rule`contain ${result[field]}.`));
+      context.blockingProblem("numbers", joinRules(rule`${at} quotes no number needed to ${field === "nnt" ? rule`treat` : rule`harm`}: the quote does not `, rule`contain ${result[field]}.`));
     }
     if ((result.nnt !== undefined || result.nnh !== undefined) && !shown.followUpShown) {
-      problems.push(joinRules(rule`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain `, "the declared follow-up."));
+      context.blockingProblem("numbers", joinRules(rule`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain `, "the declared follow-up."));
     }
   }
   const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
@@ -3808,7 +3797,7 @@ function answerDraftProblems(
   if (context.corrections.length > 0) {
     for (const [index, { retracted, change }] of context.corrections.entries()) {
       if (retractedStatementShown(draft, retracted, [change])) {
-        problems.push(joinRules(rule`corrections[${index}]'s wrong statement still appears in the answer outside its change `, "sentence: correct it everywhere, including headings, tables and summaries."));
+        context.blockingProblem("retractions", joinRules(rule`corrections[${index}]'s wrong statement still appears in the answer outside its change `, "sentence: correct it everywhere, including headings, tables and summaries."));
       }
     }
   }
@@ -3843,72 +3832,7 @@ function answerDraftProblems(
       }
     }
   }
-  problems.push(...answerCaveatProblems(draft, context));
-  return problems;
-}
 
-function answerCaveatProblems(draft: string, context: {
-  caveats: readonly string[];
-  answerLanguage?: string;
-  renderings: ReadonlyArray<{ caveat: string; text: string }>;
-  missingDeclaration: () => void;
-}): RuleInput[] {
-  const problems: RuleInput[] = [];
-  const shownBlocks = displayedProse(draft);
-  // Each caveat the server wrote must reach the answer as a sentence of its
-  // own. Only prose a reader sees counts: not code, comments, quotations or
-  // image descriptions. An answer in another language states each in that
-  // language, with the caveat's links, and gives the sentence in
-  // caveat_renderings: the gate cannot judge a translation, so it checks that
-  // sentence's place and links, and the wording is the model's declaration.
-  const blocks = shownBlocks.map((block) => caveatText(linkTargets(block)));
-  const translated = context.answerLanguage !== undefined && !/^eng?(?:-|$)/iu.test(context.answerLanguage);
-  if (context.renderings.length > 0 && !translated) {
-    if (context.answerLanguage === undefined) context.missingDeclaration();
-    problems.push(
-      joinRules("caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or ", "state each caveat as written.")
-    );
-  }
-  const renderingOf = new Map(translated
-    ? context.renderings.map(({ caveat, text }) => [caveatForm(caveat), text] as const)
-    : []);
-  const collapsed = detailsProse(draft).map((block) => caveatText(linkTargets(block)));
-  const insideDetails = (sentence: string): boolean => {
-    const form = caveatForm(sentence);
-    return /[\p{L}\p{N}]/u.test(form) && collapsed.some((block) => block.includes(form));
-  };
-  const hiddenCaveats = context.caveats.flatMap((caveat) => {
-    const rendering = renderingOf.get(caveatForm(caveat));
-    return [caveat, ...(rendering === undefined ? [] : [rendering])].filter(insideDetails);
-  });
-  if (hiddenCaveats.length > 0) {
-    problems.push(joinRules("Move these caveat sentences out of the <details> block so they are visible without expanding it: ", rule`${[...new Set(hiddenCaveats)].map((sentence) => JSON.stringify(sentence)).join(" ")}`));
-  }
-  if ([CHECK_LINE, LIMITED_CHECK_LINE, UNCHECKED_LINE_START].some(insideDetails)) {
-    problems.push(joinRules("Move the check line or unchecked line out of the <details> block so its full sentence is visible ", "without expanding it."));
-  }
-  const unlinked: string[] = [];
-  const missingCaveats = context.caveats.filter((caveat) => {
-    if (statesCaveat(blocks, caveat)) return false;
-    const rendering = renderingOf.get(caveatForm(caveat));
-    if (rendering === undefined) return true;
-    const links = linksIn(rendering);
-    if ([...linksIn(caveat)].some((link) => !links.has(link))) {
-      unlinked.push(caveat);
-      return false;
-    }
-    return !statesCaveat(blocks, rendering);
-  });
-  if (unlinked.length > 0) {
-    problems.push(
-      joinRules(rule`caveat_renderings drops the link(s) of ${unlinked.length === 1 ? rule`this caveat` : rule`these caveats`}; keep each `, rule`link: ${unlinked.map((caveat) => `"${caveat}"`).join(" ")}`)
-    );
-  }
-  if (missingCaveats.length > 0) {
-    problems.push(
-      joinRules(joinRules(joinRules(rule`The answer leaves out ${missingCaveats.length === 1 ? rule`this caveat` : rule`these caveats`}; include each as its `, "own sentence, as written (a link's text may change), or, in an answer not in English, in the answer's "), "language with the same links, given in caveat_renderings: "), rule`${missingCaveats.map((caveat) => `"${caveat}"`).join(" ")}`)
-    );
-  }
   return problems;
 }
 
@@ -4379,16 +4303,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
   ]
 };
 
-const asSentence = (text: string): string => {
-  const trimmed = text.trim();
-  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  return /\p{STerm}$/u.test(capitalized) ? capitalized : `${capitalized}.`;
-};
-
-// What another pass would take carries a number in digits, of any script; its
-// unit, in the answer's language, is the model's to give.
-const PASS_COST_NUMBER = /\p{Nd}/u;
-
 // Links as the answer shows them: a link's destination or a bare URL.
 const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
 
@@ -4396,8 +4310,21 @@ const LINKED_URL = /https?:\/\/[^\s<>()]+/giu;
  * Structural check of one displayed link: its path contains the study's DOI or has its PMID or PMCID as a segment,
  * or it is a page AskRigor's receipts tied to the study, compared as thread links are.
  */
+function paperPageKey(value: string): string {
+  try {
+    const url = new globalThis.URL(value);
+    url.hash = "";
+    url.hostname = url.hostname.replace(/^www\./iu, "");
+    for (const key of [...url.searchParams.keys()]) if (NON_THREAD_PARAMETER.test(key)) url.searchParams.delete(key);
+    url.pathname = url.pathname.replace(/\/+$/u, "") || "/";
+    return url.href;
+  } catch {
+    return value;
+  }
+}
+
 function keyStudyLinked(link: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): boolean {
-  if (pages.has(comparableUrl(link))) return true;
+  if (pages.has(paperPageKey(link)) || identifiers.some((id) => /^https?:\/\//iu.test(id) && paperPageKey(link) === paperPageKey(id))) return true;
   let path: string;
   try { path = decodeURIComponent(new globalThis.URL(link).pathname).toLowerCase(); }
   catch { return false; }
@@ -4428,18 +4355,18 @@ class PaperLinks {
   private readonly signedPages = new Map<string, Map<string, string>>();
 
   tie(claims: Readonly<Record<string, string | string[]>>): void {
-    const ids = ["id", "doi", "pmid", "pmcid"].flatMap((key) => {
+    const ids = ["id", "doi", "pmid", "pmcid", "url"].flatMap((key) => {
       const value = claims[key];
       if (typeof value !== "string" || value === "") return [];
       const id = normalizeIdentifier(value);
-      return isDoi(id) || isPmid(id) || isPmcid(id) ? [id] : [];
+      return isDoi(id) || isPmid(id) || isPmcid(id) || /^https?:\/\//iu.test(id) ? [id] : [];
     });
     if (ids.length === 0) return;
     for (const id of ids.slice(1)) this.parent.set(this.root(id), this.root(ids[0]!));
-    const url = claims.url;
-    if (typeof url === "string" && /^https?:\/\//iu.test(url)) {
+    for (const url of [claims.url, ...ids]) {
+      if (typeof url !== "string" || !/^https?:\/\//iu.test(url)) continue;
       const pages = this.signedPages.get(ids[0]!) ?? new Map<string, string>();
-      pages.set(comparableUrl(url), url);
+      pages.set(paperPageKey(url), url);
       this.signedPages.set(ids[0]!, pages);
     }
   }
@@ -5392,21 +5319,6 @@ const DISCOVERY_KINDS: ReadonlySet<ResearchReceiptKind> = new Set([
 
 /** A first pass stops at saturation or at this many audited material videos or discovery rounds. */
 const FIRST_PASS_AUDITED_VIDEOS = 3;
-// The two ways a first pass offers to go deeper, and how the answer names each focus.
-const FOCUS_DIRECTIONS = [
-  {
-    direction: "studies",
-    label: "a deeper study review",
-    caption: "Study focus",
-    what: "studies whose methods were not audited in full text, or questions not yet searched"
-  },
-  {
-    direction: "community",
-    label: "deeper community research",
-    caption: "Community focus",
-    what: "communities, options or subgroups not yet reached"
-  }
-] as const;
 const FIRST_PASS_ROUNDS = 2;
 
 const NEW_ANGLE_HINT = joinRules(
@@ -5423,10 +5335,12 @@ const NEW_ANGLE_HINT = joinRules(
 function discoverySaturation(
   unordered: readonly VerifiedReceipt[],
   material: ReadonlySet<string>,
-  depth: "first_pass" | "deep"
+  depth: "first_pass" | "deep",
+  receipts: readonly VerifiedReceipt[],
+  target: string
 ): { saturated: boolean; nextSteps: RuleInput[]; rateLimited: number; deferredStep?: CheckStep } {
   const stop = depth === "first_pass"
-    ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done, then lists open_leads.`
+    ? rule` A first pass may also stop once ${FIRST_PASS_AUDITED_VIDEOS} material videos are audited or ${FIRST_PASS_ROUNDS} rounds are done.`
     : rule``;
   const rounds = [...unordered].sort((left, right) =>
     receiptOrder(left) - receiptOrder(right) || left.index - right.index
@@ -5468,7 +5382,7 @@ function discoverySaturation(
   const firstFound = new Map<string, number>();
   for (const round of rounds) {
     const order = receiptOrder(round);
-    for (const video of [...list(round.claims.videos), ...list(round.claims.alt)]) {
+    for (const video of [...list(round.claims.videos), ...list(round.claims.alt), ...(round.kind === "youtube_scout" ? list(round.claims.unres) : [])]) {
       const known = firstFound.get(video);
       if (known === undefined || order < known) firstFound.set(video, order);
     }
@@ -5476,7 +5390,29 @@ function discoverySaturation(
   const fresh = [...material].filter((video) => (firstFound.get(video) ?? -Infinity) >= recentFrom).sort();
   // A later page's receipt signs the page it read, which settles the page before it.
   const read = readPages(rounds);
-  const unchecked = recent.some((round) => roundUnreadPages(round.claims, read) > 0);
+  const unreadPages = recent.some((round) =>
+    (round.kind !== "youtube_scout" || round.claims.nx !== undefined) && roundUnreadPages(round.claims, read) > 0);
+  const scouts = recent.filter(({ kind }) => kind === "youtube_scout").map((round) => {
+    const open = signedCount([round], "open");
+    const identified = [...new Set(list(round.claims.unres))];
+    const settled = new Set<string>();
+    for (const receipt of receipts) {
+      if (receiptOrder(receipt) <= receiptOrder(round)) continue;
+      const { kind, claims } = receipt;
+      if (claims.target !== undefined && text(claims.target) !== target) continue;
+      const videos = kind === "youtube_video_audit" && TERMINAL_VIDEO_STATES.has(text(claims.state))
+        ? [text(claims.video)]
+        : kind === "youtube_video_metadata" && ["complete", "api_visible_complete"].includes(text(claims.access)) ? [text(claims.video)]
+          : kind === "youtube_search" && text(claims.target) === target ? list(claims.videos)
+            : kind === "treatment_coverage" && text(claims.target) === target ? list(claims.screened) : [];
+      for (const video of videos) settled.add(video);
+    }
+    return {
+      open: Math.max(0, open - identified.filter((video) => settled.has(video)).length),
+      anonymous: Math.max(0, open - identified.length)
+    };
+  });
+  const uncheckedCandidates = scouts.reduce((sum, scout) => sum + scout.open, 0);
   const angles = recent.map((round) => text(round.claims.q));
   const repeated = angles.includes("") || new Set(angles).size < angles.length;
   const nextSteps: RuleInput[] = [];
@@ -5484,7 +5420,16 @@ function discoverySaturation(
     nextSteps.push(
       joinRules(joinRules(rule`Discovery has not saturated: ${fresh.join(", ")} first turned up in the last two rounds. `, rule`Run another round from a new angle (${NEW_ANGLE_HINT}) and pass its research_receipt.`), rule`${stop}`)
     );
-  } else if (unchecked) {
+  } else if (uncheckedCandidates > 0 && !unreadPages) {
+    nextSteps.push(joinRules(
+      rule`A recent scout left ${uncheckedCandidates} ${uncheckedCandidates === 1 ? "candidate" : "candidates"} unchecked. `,
+      "Settle identified videos with audit_youtube_video_community or get_youtube_video, find a named candidate with " +
+      "search_youtube using its exact title, or pass a signed screening from assess_treatment_landscape_coverage.",
+      scouts.some(({ anonymous }) => anonymous > 0)
+        ? " Candidates without signed identities cannot be matched to later receipts." : "",
+      stop
+    ));
+  } else if (unreadPages) {
     nextSteps.push(
       joinRules(joinRules(joinRules("A recent round left results unchecked: unread result pages, or scout candidates it could not verify or look up. ", "Continue a search with its next cursor, search a promising candidate by its exact title with search_youtube, "), rule`or run another round from a new angle (${NEW_ANGLE_HINT}).`), rule`${stop}`)
     );
@@ -5535,6 +5480,9 @@ export function normalizeIdentifier(value: string): string {
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
   const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);
   if (pmid !== null) return pmid[1]!;
+  if (/^https?:\/\//iu.test(trimmed)) {
+    try { const url = new globalThis.URL(trimmed); url.hash = ""; return url.href; } catch { /* Not a URL. */ }
+  }
   return trimmed.toLowerCase();
 }
 

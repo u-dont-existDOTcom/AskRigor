@@ -88,7 +88,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       expect(result.structuredContent).toMatchObject({
         status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
         checked_answer: input.answer_draft,
-        next_steps: [], limits: [COMMUNITY_SKIP_LIMIT], sources: { validated: ["10.1000/depth"], lead_only: [] },
+        next_steps: [], limits: [communitySkipCaveat(input.not_relevant_reason!)], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
       expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
       // The panel draws from the structured result; nothing is sent only for it.
@@ -118,11 +118,11 @@ describe("the exact checked answer (owner answer 187)", () => {
     const invalid = finalizeResearch({ answer_draft: "private draft" }, { secret: SECRET });
     const blank = finalizeResearch(fixture({ answer_draft: " \t\r\n " }), { secret: SECRET });
     expect(blank).toMatchObject({ status: "not_ready", answer_checked: false });
-    let open = finalizeResearch(fixture({ absence_claims: undefined }), { secret: SECRET });
+    let open = finalizeResearch(fixture({ receipts: [] }), { secret: SECRET });
     expect(open.status).toBe("not_ready");
     for (const result of [missing, unavailable, invalid, blank, open]) expect(result).not.toHaveProperty("checked_answer");
     for (let round = 2; round <= 3; round += 1) {
-      open = finalizeResearch(fixture({ absence_claims: undefined, round_token: open.round_token }), { secret: SECRET });
+      open = finalizeResearch(fixture({ receipts: [], round_token: open.round_token }), { secret: SECRET });
     }
     expect(open.status).toBe("stopped");
     expect(open).not.toHaveProperty("checked_answer");
@@ -235,17 +235,47 @@ function render(result: unknown, doc = documentShim()) {
 
 // The verdict line remains as owner question 108 specified; owner answer 187 adds the checked answer or stopped steps.
 describe("rendered final check result", () => {
+  it("shows every limit beneath a passing checked answer even when the draft omitted them (owner 195)", () => {
+    const input = fixture({ answer_draft: "[Study](https://doi.org/10.1000/depth) gives a provisional result." });
+    const result = finalizeResearch(input, { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    const limits = [...result.limits, "<b>A second limit is plain text.</b>"];
+    const root = render({ ...result, limits });
+    expect(root.children.slice(-4).map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["h2", "The answer as AskRigor checked it:"], ["p", input.answer_draft],
+      ["h2", "Limits of this answer:"], ["ul", limits.join("")]
+    ]);
+    expect(root.all("li").slice(-limits.length).map(({ textContent }) => textContent)).toEqual(limits);
+    expect(root.all("b")).toEqual([]);
+    expect(render({ status: "not_ready", limits, checked_answer: input.answer_draft }).textContent)
+      .not.toContain("Limits of this answer:");
+  });
+
+  it("shows all input notes as text without turning them into steps or caveats", () => {
+    const notes = ["A source type was dropped.", "<script>A field was unknown.</script>"];
+    const root = render({ status: "ready", notes });
+    expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["p", "\u2713 Checked by AskRigor's final check."],
+      ["h2", "Notes about the call:"], ["ul", notes.join("")]
+    ]);
+    expect(root.all("script")).toEqual([]);
+  });
+
   it.each([
     [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
-    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
-    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
+    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check, with 3 limits below."],
+    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check, with 1 limit below."],
     [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft."],
     [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
     [{ status: "unknown" }, "AskRigor's final check could not run here."],
     [undefined, "AskRigor's final check could not run here."],
   ])("shows one line for %j", (result, line) => {
     const root = render(result);
-    expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([["p", line]]);
+    expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([
+      ["p", line],
+      ...(result?.status === "ready_with_limits" ? [["h2", "Limits of this answer:"], ["ul", result.limits.join("")]] : [])
+    ]);
   });
 
   it.each(["ready", "ready_with_limits"])("shows the exact checked answer as text for %s", (status) => {
@@ -253,7 +283,7 @@ describe("rendered final check result", () => {
     const root = render({ status, checked_answer: answer });
     expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
       ["p", status === "ready" ? "\u2713 Checked by AskRigor's final check." :
-        "\u2713 Checked by AskRigor's final check. The answer states its 0 limits."],
+        "\u2713 Checked by AskRigor's final check, with 0 limits below."],
       ["h2", "The answer as AskRigor checked it:"],
       ["p", answer],
     ]);
@@ -302,14 +332,14 @@ describe("rendered final check result", () => {
     ]);
   });
 
-  it("shows only the verdict, never the check's lists or text, and never as HTML", () => {
+  it("shows limits with the verdict and keeps model instructions out of the panel", () => {
     const root = render({
       status: "ready_with_limits", limits: ["one", "two"], check_line: "The exact check line.",
       caveats: ["<script>alert(1)</script> caveat"], must_report: ["Lane. Then copy it into answer_quotes."],
       next_steps: ["A step for the model."], sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
       community: { communities_searched: ["Community"] }, findings_card: { status: "checked", problems: [] },
     });
-    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check. The answer states its 2 limits.");
+    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check, with 2 limits below.Limits of this answer:onetwo");
     expect(root.all("script")).toEqual([]);
   });
 

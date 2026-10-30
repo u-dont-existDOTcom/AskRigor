@@ -52,7 +52,7 @@ const OWNER = "auth0|atlas-scenario-owner";
 const ALICE = "a".repeat(64);
 const BOB = "b".repeat(64);
 const PROTOCOLS = [
-  { name: "HRP", version: "20.6.31", sha256: createHash("sha256").update("synthetic-hrp").digest("hex") },
+  { name: "HRP", version: "20.6.32", sha256: createHash("sha256").update("synthetic-hrp").digest("hex") },
   { name: "Universal Instructions", version: "20.5.40", sha256: createHash("sha256").update("synthetic-ui").digest("hex") },
 ];
 const PROVIDERS = {

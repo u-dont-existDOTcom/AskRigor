@@ -471,7 +471,7 @@ describe("the new texts' privacy and storage", () => {
       receiptSecret: () => SECRET,
       limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
       queue: new GitHubFindingsQueue({ tokenProvider, fetch: github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY }),
-      protocols: async () => [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }],
+      protocols: async () => [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }],
       version: "0.1.0",
       build: "0123abc",
       now,
@@ -538,7 +538,7 @@ describe("the community sentence (owner decision 4a), switched off", () => {
       receiptSecret: () => SECRET,
       limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
       queue: new GitHubFindingsQueue({ tokenProvider, fetch: github.fetch, repository: DEFAULT_FINDINGS_REPOSITORY }),
-      protocols: async () => [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }],
+      protocols: async () => [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }],
       version: "0.1.0", build: "0123abc", now,
     });
     await library.save({

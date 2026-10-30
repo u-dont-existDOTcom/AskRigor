@@ -301,7 +301,8 @@ describe("Phase 1b search copies through the real HTTP MCP endpoint", () => {
     const caveat = `The full text of ${DOI} came from the AI's search-index copy of www.academia.edu; AskRigor did not fetch it.`;
     expect(finalized.caveats).toContain(caveat);
     expect(finalized.status).toBe("not_ready");
-    expect(finalized.next_steps.join(" ")).toContain(caveat);
+    expect(finalized.next_steps.join(" ")).toContain("has no link in the answer");
+    expect(finalized.limits).toContain(caveat);
     const restated = (await call("finalize_research", { ...request, answer_draft: `Synthetic fixture answer. ${caveat}` })).structuredContent as any;
     expect(restated.next_steps.join(" ")).not.toContain(`"${caveat}"`);
   });

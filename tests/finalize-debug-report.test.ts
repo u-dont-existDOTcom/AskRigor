@@ -32,6 +32,8 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   recommendations: [], user_observations: [], proposed_tests: [], ...overrides
 });
 function stopped(input: FinalizeResearchInput): FinalizeResearchOutput {
+  input = { ...input, answer_draft: `${input.answer_draft}\n\nThe private assertion was correct.`,
+    corrections: [{ retracted: "The private assertion was correct.", change: "That assertion was wrong.", by_user: false }] };
   let result = finalizeResearch(input, { secret: SECRET, now: NOW, runningVersions: versions });
   for (let n = 1; n < 10 && result.status === "not_ready"; n += 1) {
     result = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET, now: NOW, runningVersions: versions });
@@ -77,8 +79,9 @@ describe("the final check's private debug report", () => {
         receipt("youtube_community_audit", { target: researchTargetDigest(TARGET), videos: [video], read: [video] })
       ] }));
     const report = JSON.stringify(result.check_report);
-    expect(report).toContain("has only a one-call community audit");
-    expect(report).toContain("audit_youtube_video_community");
+    expect(result.notes!.join(" ")).toContain("has only a one-call community audit");
+    expect(report).not.toContain("has only a one-call community audit");
+    expect(report).not.toContain("audit_youtube_video_community");
     expect(report).not.toContain(video);
     expect(report).not.toContain(TARGET);
     expect(result.bug_report).toContain("rule still unmet:");
@@ -93,7 +96,8 @@ describe("the final check's private debug report", () => {
       lab_preparation: { status: "not_applicable", reason: "Synthetic source fixture." },
       intervention_identity: { status: "not_applicable", reason: "Synthetic source fixture." },
       receipts: [receipt("pubmed_record", { pmcid: "PMC5640576", pmid: "12345678", doi: "" })] }));
-    expect(JSON.stringify(result.check_report)).toContain("Cite … as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.");
+    expect(result.limits).toContain("Cite PMC5640576 as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.");
+    expect(result.check_report!.limits).toEqual([]);
     expect(JSON.stringify(result.check_report)).not.toContain("PMC5640576");
     expect(result.bug_report).toContain("rule still unmet:");
   });
@@ -103,7 +107,8 @@ describe("the final check's private debug report", () => {
       receipts: [receipt("youtube_search", { target: researchTargetDigest(TARGET), videos: [], inc: 5, rl: 5, q: "one" })] }));
     expect(result.check_report!.next_turn.some(({ rule }) => rule.includes("daily quota"))).toBe(false);
     expect(result.check_report!.could_not.some(({ rule }) => rule.includes("daily quota"))).toBe(false);
-    expect(JSON.stringify(result.check_report!.limits)).toContain("YouTube's rate limit or daily quota stopped 5 search(es)");
+    expect(result.check_report!.limits).toEqual([]);
+    expect(result.limits).toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
     expect(result.caveats).toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
     expect(JSON.stringify(result.check_report)).not.toContain(TARGET);
   });
@@ -113,7 +118,8 @@ describe("the final check's private debug report", () => {
     const result = stopped(base({ community_evidence: "researched", not_relevant_basis: undefined,
       principal_communities: [{ name, platform: "forum" }],
       community_searches: [{ community: name, platform: "forum", queries: [TARGET], threads_read: [], access_boundary: "login_required" }] }));
-    expect(JSON.stringify(result.check_report)).toContain("address");
+    expect(result.notes!.join(" ")).toContain("address");
+    expect(JSON.stringify(result.check_report)).not.toContain("address");
     expect(JSON.stringify(result.check_report)).not.toContain(name);
     expect(result.bug_report).toContain("rule still unmet:");
   });
@@ -126,8 +132,8 @@ describe("the final check's private debug report", () => {
       { kind: "pubmed_record", count: 1, rejected: [{ reason: "signature_invalid", count: 1 }] },
       { kind: "unverified", count: 1, rejected: [{ reason: "malformed", count: 1 }] }
     ]);
-    expect(result.bug_report).toContain("receipts[0]");
-    expect(result.bug_report).toContain("does not verify");
+    expect(result.notes!.join(" ")).toContain("receipts[0]");
+    expect(result.bug_report).not.toContain("does not verify");
   });
 
   it("bounds its structured report, counts omissions and preserves its signed exact bytes", () => {
@@ -154,8 +160,8 @@ describe("the final check's private debug report", () => {
   it("returns its token and tells the model to pass it only after consent", () => {
     const result = stopped(base({ proposed_tests: [{ quote: "Try it.", repeats: 7, blinded: true }] }));
     expect(verifyCheckReportToken(result.check_report_token!, SECRET)).toEqual(result.check_report);
-    expect(result.check_report!.could_not[0]).toEqual({ kind: "declaration", consecutive_rounds: 3,
-      rule: "proposed_tests[0].repeats names user_observations[7], which this call does not give.", omitted_characters: 0 });
+    expect(result.check_report!.could_not[0]).toEqual({ kind: "answer_draft", consecutive_rounds: 3,
+      rule: "corrections[0]'s wrong statement still appears in the answer outside its change sentence: correct it everywhere, including headings, tables and summaries.", omitted_characters: 0 });
     expect(uncheckedAnswerInstructions(result)).toContain("If the user says yes");
     expect(uncheckedAnswerInstructions(result)).toContain("pass check_report_token exactly as returned");
   });
@@ -189,11 +195,11 @@ ${CORRECTION_REPORT_OFFER}` });
       expect(result.caveats).toContain(line);
     }
     const invalid = finalizeResearch(base({ corrections: [{ ...correction, preventing_rule: "DefinitelyNotAnElement" }] }), { secret: SECRET, protocolElements: elements });
-    expect(invalid.next_steps.join("\n")).toContain("is not an element name");
+    expect(invalid.notes!.join("\n")).toContain("is not an element name");
     const absent = finalizeResearch(base({ corrections: [correction] }), { secret: SECRET, protocolElements: elements });
-    expect(absent.next_steps.join("\n")).toContain("Give corrections[0].preventing_rule");
+    expect(absent.notes!.join("\n")).toContain("Give corrections[0].preventing_rule");
     const missing = finalizeResearch(base({ corrections: [{ ...correction, preventing_rule: "no_rule" }] }), { secret: SECRET, protocolElements: elements });
-    expect(missing.next_steps.join("\n")).toContain("Give corrections[0].missing_rule");
+    expect(missing.notes!.join("\n")).toContain("Give corrections[0].missing_rule");
     const named = finalizeResearch(base({ corrections: [{ ...correction, preventing_rule: "no_rule", missing_rule: "Check source identity before ranking." }] }), { secret: SECRET, protocolElements: elements });
     expect(named.next_steps.join("\n")).not.toContain("Give corrections[0].missing_rule");
     expect(named.caveats).toContain("Missing rule: Check source identity before ranking.");

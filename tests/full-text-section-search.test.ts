@@ -1,3 +1,4 @@
+import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +7,6 @@ import { finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, 
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "full-text-section-search-test-secret-0123456789";
 const QUERY = 'METHODS:"carbidopa"';
@@ -100,9 +100,9 @@ describe("section search through the in-memory MCP endpoint", () => {
 describe("full_text_search declaration gate", () => {
   it("requires a declaration with key sources and adds the refresh hint", () => {
     const result = check(base());
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toContain("Give full_text_search: status run with queries searched in Europe PMC article sections, or status not_needed with reason.");
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toContain("Give full_text_search: status run with queries searched in Europe PMC article sections, or status not_needed with reason.");
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
   it("does not require it without key sources", () => {
     expect(check(base({ key_sources: [] })).next_steps.join(" ")).not.toContain("full_text_search");
@@ -121,8 +121,8 @@ describe("full_text_search declaration gate", () => {
     ["unverified receipt", issueResearchReceipt("literature_search", { src: "europepmc", q: discoveryQueryDigest([QUERY]), ft: ["METHODS"] }, { secret: "other-test-signing-secret-0123456789" })]
   ])("refuses %s with a precise executable step", (_name, token) => {
     const result = check(base({ receipts: [...base().receipts, token], full_text_search: { status: "run", queries: [QUERY] } }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.includes(JSON.stringify(QUERY)) && step.includes("search_europe_pmc") && step.includes("research_receipt"))).toBe(true);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.includes(JSON.stringify(QUERY)) && step.includes("search_europe_pmc") && step.includes("research_receipt"))).toBe(true);
   });
   it("accepts not_needed with the model's reason", () => {
     expect(check(base({ full_text_search: { status: "not_needed", reason: "The question is answered by the audited abstracts." } })).status).toBe("ready_with_limits");
@@ -139,13 +139,13 @@ describe("full_text_search declaration gate", () => {
   // One object, not two alternatives (ChatGPT's app showed the union as "unknown", 2026-10-16): a status without its
   // field gets the declaration step, and a field the status does not use is left unused.
   it.each([{ status: "run" as const }, { status: "not_needed" as const }])("asks for the field %j needs", (full_text_search) => {
-    expect(check(base({ full_text_search })).next_steps).toContain(
+    expect(advisoryNotes(check(base({ full_text_search })))).toContain(
       "Give full_text_search: status run with queries searched in Europe PMC article sections, or status not_needed with reason.");
   });
   it("leaves the field a status does not use unused", () => {
     expect(check(base({ full_text_search: { status: "not_needed", reason: "A valid reason here.", queries: [QUERY] } }))
       .status).toBe("ready_with_limits");
-    expect(check(base({ full_text_search: { status: "run", queries: [QUERY], reason: "Not used with run." } })).next_steps
+    expect(advisoryNotes(check(base({ full_text_search: { status: "run", queries: [QUERY], reason: "Not used with run." } })))
       .join(" ")).toContain(`full_text_search query ${JSON.stringify(QUERY)} has no verified Europe PMC section-search receipt`);
   });
   it("requires the coverage caveat, including its translated rendering", () => {
@@ -154,14 +154,14 @@ describe("full_text_search declaration gate", () => {
       absence_claims: [{ quote, state: "support_not_located" }], answer_draft: `${base().answer_draft} ${quote}` });
     const first = check(request);
     expect(first.caveats).toContain(CAVEAT);
-    expect(first.limits).toContain("The answer says something was not found after full-text searches: bound that to their coverage, as the caveat does.");
-    expect(first.status).toBe("not_ready");
+    expect(first.limits).toContain(CAVEAT);
+    expect(first.status).toBe("ready_with_limits");
     expect(check({ ...request, answer_draft: `${request.answer_draft} ${first.caveats.join(" ")}` }).status).toBe("ready_with_limits");
     const text = "Les recherches en texte intégral ne couvraient que les textes d'Europe PMC, environ 30 % des notices PubMed.";
     const translated = { ...request, answer_language: "fr", caveat_renderings: [{ caveat: CAVEAT, text }],
       answer_draft: `${request.answer_draft} ${first.caveats.filter((caveat) => caveat !== CAVEAT).join(" ")} ${text}` };
     expect(check(translated).status).toBe("ready_with_limits");
-    expect(check({ ...translated, answer_draft: translated.answer_draft.replace(text, "") }).status).toBe("not_ready");
+    expect(check({ ...translated, answer_draft: translated.answer_draft.replace(text, "") }).status).toBe("ready_with_limits");
   });
   it("adds no coverage caveat for not_needed or for an answer without a not-found claim", () => {
     expect(check(base({ full_text_search: { status: "not_needed", reason: "No section search needed for this fixture." } })).caveats).not.toContain(CAVEAT);

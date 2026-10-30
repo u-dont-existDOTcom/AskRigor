@@ -210,6 +210,17 @@ const reportedFigureSchema = z.object({
   }
 });
 
+const reportedFigureRuntimeSchema = reportedFigureSchema.safeExtend({
+  percentage: z.object({
+    count: z.number().int().nonnegative(),
+    denominator: z.number().positive(),
+    printed: z.number().nonnegative(),
+    decimal_places: z.number().int().min(0).max(12).optional()
+  }).strict().optional()
+    .describe("For a printed percentage: its count, denominator and printed percentage as numeric values, all in " +
+      "the cited block. The server redoes the arithmetic. decimal_places preserves any trailing zeroes in the print.")
+});
+
 export const reportedFiguresCheckSchema = z.object({
   status: z.enum(["not_declared", "none_reported", "consistent", "internally_inconsistent"]),
   mismatched: z.array(z.string()).max(30),
@@ -255,8 +266,11 @@ const submissionShape = {
   reported_figures_none_reason: boundedPlainText(500).optional()
 } as const;
 
-export const studyMethodAuditSubmissionSchema = z.object(submissionShape).strict().superRefine((audit, context) => {
+export const studyMethodAuditPublishedSubmissionSchema = z.object(submissionShape).strict().superRefine((audit, context) => {
   validateSubmissionCoverage(audit, context);
+});
+export const studyMethodAuditSubmissionSchema = studyMethodAuditPublishedSubmissionSchema.safeExtend({
+  reported_figures: z.array(reportedFigureRuntimeSchema).max(30).optional()
 });
 
 export const studyMethodAuditExternalBindingSchema = z.object({
@@ -267,6 +281,7 @@ export const studyMethodAuditExternalBindingSchema = z.object({
 
 export const studyMethodAuditExternalSubmissionSchema = z.object({
   ...submissionShape,
+  reported_figures: z.array(reportedFigureRuntimeSchema).max(30).optional(),
   domain_findings: z.array(externalDomainFindingSchema).length(STUDY_METHOD_AUDIT_DOMAINS.length),
   external_evidence_binding: studyMethodAuditExternalBindingSchema
 }).strict().superRefine((audit, context) => {
@@ -647,6 +662,21 @@ function checkReportedFigures(
   const workedOutMismatched: Array<{ label: string; computed: number | null }> = [];
   for (const figure of figures) {
     verifyBlocks([figure.evidence_block_id], knownBlockIds, citedBlockIds);
+    let percentageDiffers = false;
+    if (figure.percentage !== undefined) {
+      const printed = extractUnsignedNumbers(blockText.get(figure.evidence_block_id) ?? "");
+      for (const field of ["count", "denominator", "printed"] as const) {
+        if (!includesAbsoluteNumber(printed, figure.percentage[field])) {
+          throw new Error(`Study audit percentage ${field} is not in its cited source block`);
+        }
+      }
+      const { count, denominator, printed: percentage, decimal_places } = figure.percentage;
+      const [mantissa, exponent] = String(percentage).split("e");
+      const decimals = Math.max(decimal_places ?? 0, (mantissa!.split(".")[1] ?? "").length - Number(exponent ?? 0));
+      const computed = 100 * (count / denominator);
+      const tolerance = 0.5 * 10 ** -decimals + Number.EPSILON * Math.max(1, computed, percentage);
+      percentageDiffers = !Number.isFinite(computed) || Math.abs(computed - percentage) > tolerance;
+    }
     if (figure.worked_out !== undefined) {
       for (const input of figure.worked_out.inputs) {
         verifyBlocks([input.evidence_block_id], knownBlockIds, citedBlockIds);
@@ -664,7 +694,7 @@ function checkReportedFigures(
       }
       // A worked-out value is not printed, so it is not compared across papers; the auditor's own call on the paper
       // still counts.
-      if (figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
+      if (percentageDiffers || figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
       continue;
     }
     const printed = extractUnsignedNumbers(figure.reported);
@@ -679,7 +709,7 @@ function checkReportedFigures(
     const recomputed = figure.recomputed;
     const differs = recomputed !== undefined && readings.every((reading) =>
       Math.abs(Math.abs(recomputed) - reading) > Math.max(0.5, reading * 0.01));
-    if (differs || figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
+    if (percentageDiffers || differs || figure.plausibility === "inconsistent_with_own_data") mismatched.push(figure.label);
   }
   return {
     status: mismatched.length > 0 ? "internally_inconsistent" : "consistent",

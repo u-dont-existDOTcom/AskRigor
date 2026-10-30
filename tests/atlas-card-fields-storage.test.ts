@@ -21,7 +21,7 @@ import {
 // hash; the kind gives the claim's type; the searches go only with a search that found nothing, which states no
 // direction; and decision 7's erasure takes the subject and each search's query with the rest of the wording.
 
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const MADE_WITH = { askrigorVersion: "0.1.0", build: "unknown", protocols: PROTOCOLS, depth: "deep", status: "ready" };
 const DECIDED_WITH = { askrigorVersion: "0.1.0", build: "unknown", protocols: PROTOCOLS };
 const SCHEMA = "askrigor.atlas-finding-intent.v1";

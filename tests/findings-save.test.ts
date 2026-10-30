@@ -14,6 +14,7 @@ import {
 // The package the tools import, so a refusal it throws is the class the tools recognize.
 } from "@askrigor/evidence-repository";
 
+import { accountPublicationProblems } from "../apps/research-mcp/src/atlas/publication.js";
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   FINDINGS_AND_MAP_SAVE_OFFER,
@@ -685,7 +686,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(context).toEqual({
       surface: "/mcp/claude",
       toolCatalogSha256: createHash("sha256").update(names).digest("hex"),
-      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false },
+      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION },
     });
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
@@ -763,12 +764,14 @@ describe("finalize_research, save_research_findings and the findings library", (
     // Turning saving off never relaxes the card requirement or a failing check.
     const { findings_card: _card, ...withoutCard } = request();
     expect((await finalize(withoutCard, "auth0|free")).structuredContent)
-      .toMatchObject({ status: "not_ready", findings_card: { status: "absent" } });
+      .toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
     expect(calls).toEqual([]);
     await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
     const on = await finalize(request(), "auth0|free");
     expect(calls).toHaveLength(1);
     expect(on.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    // Owner answer 196a: a dev account's saved card publishes like everyone's.
+    expect(accountPublicationProblems(calls[0]![1].account)).toEqual([]);
   });
 
   it("needs a card from a free contributor's answer, and saves nothing until it has one", async () => {
@@ -778,8 +781,8 @@ describe("finalize_research, save_research_findings and the findings library", (
     const { findings_card: _card, ...withoutCard } = request();
     const result = await finalize(withoutCard, "auth0|free");
     expect(result.structuredContent).toMatchObject({
-      status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
+      status: "ready_with_limits",
+      next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);
@@ -837,7 +840,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
-      status: "not_ready", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
+      status: "ready_with_limits", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
     });
     const offered = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({

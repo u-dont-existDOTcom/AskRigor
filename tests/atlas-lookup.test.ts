@@ -1,3 +1,4 @@
+import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import { InMemoryAtlasPageSource, InMemoryAtlasPublicationStore, type AtlasPageSource, type AtlasPageFinding } from "@askrigor/evidence-repository";
 import { atlasLookupInputSchema, lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
@@ -222,12 +223,13 @@ const researchInput = (tokens: string[] = []): FinalizeResearchInput => ({ recei
   key_terms: [], recommendations: [], mechanism_claims: [], user_observations: [], proposed_tests: [],
 });
 const finalCheck = (input: FinalizeResearchInput) => finalizeResearch(input, receipt);
-const atlasSteps = (input: FinalizeResearchInput) => finalCheck(input).next_steps.filter((s) => /Atlas|atlas_/u.test(s));
+const atlasSteps = (input: FinalizeResearchInput) => advisoryNotes(finalCheck(input)).filter((s) => /Atlas|atlas_/u.test(s));
 describe("final check Atlas admission", () => {
   it("asks for the lookup as a research step, bound to this research target", () => {
     const input = researchInput(); const result = finalCheck(input);
-    const at = result.next_steps.findIndex((s) => s.includes("Search the Atlas first"));
-    expect(result.status).toBe("not_ready"); expect(result.next_step_kinds[at]).toBe("research");
+    expect(advisoryNotes(result)).toEqual(expect.arrayContaining([expect.stringContaining("Search the Atlas first")]));
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
     expect(atlasSteps(researchInput([sign([], "other target")]))).toHaveLength(1);
     expect(atlasSteps(researchInput([sign()]))).toEqual([]);
   });
@@ -279,6 +281,6 @@ describe("passing final check carries Atlas reuse into the saved-card receipt", 
     const unchecked = { ...input, receipts: [audit, sign(["P-1001||u|"])], atlas_reuse: [{ ...declarations[0]!, lead_only: true }] };
     const result = finalCheck(unchecked);
     expect(result.caveats).toContain(uncheckedAtlasCaveat("P-1001"));
-    expect(result.next_steps.some((s) => s.includes("caveat") && s.includes("P-1001"))).toBe(true);
+    expect(result.limits.some((s) => s.includes("P-1001"))).toBe(true);
   });
 });

@@ -11,7 +11,7 @@ import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
   TOOL_LIST_REFRESH_HINT, finalizeResearch, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
@@ -38,49 +38,56 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
 const check = (input: unknown) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET, now: NOW }));
 const kindsOf = (result: FinalizeResearchOutput) => result.next_steps.map((step, index) => [result.next_step_kinds[index], step]);
 const STUDY = "10.1000/unchecked";
+// Owner 195: use an actual read-depth mismatch to exercise unchecked state and continuation.
+const DEPTH_GAP: Partial<FinalizeResearchInput> = {
+  receipts: [issueResearchReceipt("pubmed_record", { pmid: "12345", doi: STUDY }, { secret: SECRET, now: NOW })],
+  key_sources: [{ id: STUDY, status: "validated", read_depth: "full_text_audited", answer_marker: "Study" }],
+  answer_draft: `[Study](https://doi.org/${STUDY}) is available as a record.`
+};
 
 describe("an answer given before the final check passes (AskRigor#354)", () => {
   it("gives every next step its kind, in order", () => {
     const invalid = check({ research_target: 7 });
-    expect(invalid.next_step_kinds.length).toBeGreaterThan(1);
+    expect(invalid.next_step_kinds).toEqual(["input_invalid"]);
     expect(new Set(invalid.next_step_kinds)).toEqual(new Set(["input_invalid"]));
 
-    const undeclared = check(base({ absence_claims: undefined }));
+    const undeclared = check(base({ ...DEPTH_GAP }));
     expect(kindsOf(undeclared)).toEqual([
-      ["declaration", expect.stringContaining("absence_claims is missing")],
-      ["tool_list", TOOL_LIST_REFRESH_HINT]
+      ["declaration", expect.stringContaining("cannot support read_depth")]
     ]);
 
     // A validated key study with no audit receipt is research still to do; with no visible link it is the draft's too.
     const unread = check(base({ key_sources: [{ id: STUDY, status: "validated", read_depth: "partial_text", answer_marker: "Study" }] }));
     expect(kindsOf(unread)).toEqual(expect.arrayContaining([
-      ["research", expect.stringContaining(`For ${STUDY}: acquire_open_full_text`)],
+      ["research", expect.stringContaining(`Key source ${STUDY} has no receipt`)],
       ["answer_draft", expect.stringContaining(`Key study ${STUDY} has no link in the answer`)]
     ]));
 
     const rejected = check(base({ receipts: ["rr1~not-a-receipt~x"] }));
-    expect(kindsOf(rejected)).toEqual([["receipt_rejected", expect.stringContaining("receipts[0]")]]);
+    expect(kindsOf(rejected)).toEqual([]);
+    expect(rejected.notes).toEqual(expect.arrayContaining([expect.stringContaining("receipts[0]")]));
 
     const tampered = check(base({ carried_state: "cs1~AAAA~AAAAAAAAAAAAAAAAAAAAAA" }));
-    expect(kindsOf(tampered)).toEqual([["carried_state", expect.stringContaining("carried_state does not verify")]]);
+    expect(kindsOf(tampered)).toEqual([]);
+    expect(tampered.notes).toEqual(expect.arrayContaining([expect.stringContaining("carried_state does not verify")]));
   });
 
   it("gives an unchecked line worded by the kinds of step still open, and a check line only after a pass", () => {
     expect(check({ research_target: 7 }).unchecked_line).toBe("AskRigor's final check has not passed: the check could not run.");
-    expect(check(base({ absence_claims: undefined })).unchecked_line)
+    expect(check(base({ ...DEPTH_GAP })).unchecked_line)
       .toBe("AskRigor's final check has not passed: some of its statements were not checked.");
     expect(check(base({ key_sources: [{ id: STUDY, status: "validated", read_depth: "partial_text", answer_marker: "Study" }] }))
       .unchecked_line).toBe("AskRigor's final check has not passed: research this answer needs is unfinished and some of " +
       "its statements were not checked.");
     expect(check(base({ receipts: ["rr1~not-a-receipt~x"] })).unchecked_line)
-      .toBe("AskRigor's final check has not passed: some of its research records did not verify.");
+      .toBeUndefined();
     expect(uncheckedLine([])).toBe("AskRigor's final check has not passed.");
 
     const passed = check(base());
     expect(passed.status).toBe("ready_with_limits");
     expect(passed.unchecked_line).toBeUndefined();
     expect(passed.check_line).toBe("Checked with AskRigor's final check, with the limits above.");
-    const blocked = check(base({ absence_claims: undefined }));
+    const blocked = check(base({ ...DEPTH_GAP }));
     expect(blocked.check_line).toBeUndefined();
     expect(blocked.finalization_receipt).toBeUndefined();
   });
@@ -100,13 +107,13 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
   });
 
   it("carries a check that did not pass to the next one, and drops it once a check passes", () => {
-    const blocked = check(base({ absence_claims: undefined }));
-    expect(blocked.carried).toMatchObject({ last_status: "not_ready", open_kinds: ["declaration", "tool_list"] });
+    const blocked = check(base({ ...DEPTH_GAP }));
+    expect(blocked.carried).toMatchObject({ last_status: "not_ready", open_kinds: ["declaration"] });
     expect(blocked.previous_check).toBeUndefined();
 
     const next = check(base({ carried_state: blocked.carry_forward }));
     expect(next.status).toBe("ready_with_limits");
-    expect(next.previous_check).toEqual({ status: "not_ready", open: ["declaration", "tool_list"] });
+    expect(next.previous_check).toEqual({ status: "not_ready", open: ["declaration"] });
     expect(next.carried).toMatchObject({ last_status: "ready_with_limits" });
     expect(next.carried).not.toHaveProperty("open_kinds");
 
@@ -123,9 +130,9 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
   });
 
   it("does not report this turn's own unfinished check as an earlier turn's answer", () => {
-    const first = check(base({ absence_claims: undefined }));
+    const first = check(base({ ...DEPTH_GAP }));
     const second = check(base({ carried_state: first.carry_forward, round_token: first.round_token,
-      absence_claims: undefined }));
+      ...DEPTH_GAP }));
     expect(second.status).toBe("not_ready");
     expect(second.previous_check).toBeUndefined();
     expect(second.carried).toMatchObject({ turn: first.carried!.turn, first_turn: true });
@@ -139,8 +146,8 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
   });
 
   it("keeps an earlier turn's unfinished check through each returned state in the new turn", () => {
-    const earlier = check(base({ receipts: ["rr1~not-a-receipt~x"] }));
-    const previous = { status: "not_ready", open: ["receipt_rejected"] };
+    const earlier = check(base({ ...DEPTH_GAP }));
+    const previous = { status: "not_ready", open: ["declaration"] };
     let result = check(base({ carried_state: earlier.carry_forward, scale_results: undefined }));
     expect(result.carried!.turn).not.toBe(earlier.carried!.turn);
     expect(result.carried!.first_turn).toBe(false);
@@ -166,7 +173,7 @@ describe("an answer given before the final check passes (AskRigor#354)", () => {
         last_status: "not_ready", open_kinds: open
       }, { secret: SECRET })!;
       // A valid round token cannot make an unlabelled legacy state this turn's state.
-      const first = check(base({ absence_claims: undefined }));
+      const first = check(base({ ...DEPTH_GAP }));
       const result = check(base({ carried_state: older, round_token: first.round_token }));
       expect(result.previous_check).toEqual({ status: "not_ready", open });
       expect(result.carried).toMatchObject({ first_turn: false, previous_open: open, turn: first.carried!.turn });
@@ -199,6 +206,8 @@ describe("the unchecked line and the previous check in finalize_research's resul
     vi.unstubAllEnvs();
   });
   const call = async (input: FinalizeResearchInput) => {
+    if (input.receipts === DEPTH_GAP.receipts) input = { ...input,
+      receipts: [issueResearchReceipt("pubmed_record", { pmid: "12345", doi: STUDY }, { secret: SECRET })] };
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
     const text = (result.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
@@ -206,7 +215,7 @@ describe("the unchecked line and the previous check in finalize_research's resul
   };
 
   it("tells the model the line an unchecked answer ends with, and that an answer after a failed check went out unchecked", async () => {
-    const blocked = await call(base({ absence_claims: undefined }));
+    const blocked = await call(base({ ...DEPTH_GAP }));
     expect(blocked.output.status).toBe("not_ready");
     // AskRigor#359: an answer given while the check said not_ready opened with a confident verdict, so such an answer
     // also says at its start that it is partial, and gives no ranking or verdict that a step still open could change.
@@ -231,7 +240,7 @@ describe("the unchecked line and the previous check in finalize_research's resul
 
     const next = await call(base({ carried_state: blocked.output.carry_forward }));
     expect(next.output.status).toBe("ready_with_limits");
-    expect(next.text).toContain("The previous final check in this conversation did not pass (declaration, tool_list), " +
+    expect(next.text).toContain("The previous final check in this conversation did not pass (declaration), " +
       "so an answer given after it went out unchecked; if one did, this answer says what changed from it.");
     expect(next.text).toContain("End the answer with this line");
     // The 22 Oct regressions found answers reworded after the check in 57 of 64 runs: the passing result says the

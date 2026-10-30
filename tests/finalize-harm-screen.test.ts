@@ -1,3 +1,4 @@
+import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -19,7 +20,6 @@ import {
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { CARD } from "./helpers/findings-fixtures.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { SCREENED_HARM_SENTENCE, withHarmScreen } from "./helpers/harm-screen.js";
 
 // Owner answer "128b" (2026-10-20), from lesson #44 (UDA #403): comparing the safety of a prescribed growth hormone
@@ -70,7 +70,10 @@ const check = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: R
     secret: SECRET, ...(protocolNames === undefined ? {} : { protocolNames })
   }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}, protocolNames?: ReadonlySet<string>) =>
-  check(overrides, protocolNames).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  (() => {
+    const result = check(overrides, protocolNames);
+    return [...advisoryNotes(result), ...result.next_steps].filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  })();
 const missing = (caveat: string) => "The answer leaves out this caveat; include each as its own sentence, as written " +
   "(a link's text may change), or, in an answer not in English, in the answer's language with the same links, given " +
   `in caveat_renderings: "${caveat}"`;
@@ -94,8 +97,7 @@ const CONDITIONAL = "An option that depends on something a clinician should conf
 const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, say whether the question is about " +
   "safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer " +
   "compares options' safety; false otherwise.";
-const NO_DRAFT = "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final " +
-  "check reads it.";
+const NO_DRAFT = "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered.";
 const NOT_CHECKED = "A serious harm this answer did not check: anaphylaxis.";
 const NOT_CHECKED_LIMIT = "A serious harm, anaphylaxis, was not checked: say so in the answer, as the caveat does.";
 const BOUNDED = (names: string) => `Where this answer says something was not found, it means the searches made here ` +
@@ -110,29 +112,36 @@ const noReceipt = (index: number, harm: string) => `harm_screen[${index}].search
 
 describe("finalize_research harm_screen: when it is required (owner answer 128b)", () => {
   it("passes an answer whose screen found a harm on the label, which adds no caveat or limit", () => {
-    expect(check()).toMatchObject({ status: "ready", next_steps: [], limits: [], caveats: [] });
+    expect(check()).toMatchObject({
+      caveats: [],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."
+      ],
+      next_steps: [],
+      status: "ready_with_limits"
+    });
   });
 
   it("asks for it, with the connector-refresh hint, whenever safety_claims lists a sentence", () => {
     const result = check({ harm_screen: undefined });
     expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS), TOOL_LIST_REFRESH_HINT]);
+    expect(result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS)]);
     expect(result.finalization_receipt).toBeUndefined();
   });
 
   it("asks for it when the model declares a safety question, even with no safety statement", () => {
     const question = { safety_claims: [], safety_question: true, answer_draft: `${LINKS}\n\n${LABEL}` };
-    expect(check({ ...question, harm_screen: undefined }).next_steps)
+    expect(advisoryNotes(check({ ...question, harm_screen: undefined })))
       .toEqual([required("is missing", BECAUSE_QUESTION), TOOL_LIST_REFRESH_HINT]);
-    expect(check(question).status).toBe("ready");
+    expect(check(question).status).toBe("ready_with_limits");
     // Safety statements name the reason when both apply.
     expect(steps({ safety_question: true, harm_screen: undefined })).toEqual([required("is missing", BECAUSE_CLAIMS)]);
   });
 
   it("needs at least one entry: an empty list is named, without the refresh hint", () => {
     expect(check({ harm_screen: [] }).next_steps).toEqual([required("lists no harm", BECAUSE_CLAIMS)]);
-    expect(check({ harm_screen: [], safety_claims: [], safety_question: true, answer_draft: LINKS }).next_steps)
-      .toEqual([required("lists no harm", BECAUSE_QUESTION)]);
+    expect(advisoryNotes(check({ harm_screen: [], safety_claims: [], safety_question: true, answer_draft: LINKS })))
+      .toEqual([required("lists no harm", BECAUSE_QUESTION), TOOL_LIST_REFRESH_HINT]);
   });
 
   it("is not required without a safety statement or a safety question, nor before an answer draft", () => {
@@ -149,24 +158,39 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
   it("needs safety_question with an answer draft, with the connector-refresh hint", () => {
     const undeclared = check({ safety_claims: [], safety_question: undefined, harm_screen: undefined,
       answer_draft: LINKS });
-    expect(undeclared).toMatchObject({ status: "not_ready",
-      next_steps: [SAFETY_QUESTION_MISSING, TOOL_LIST_REFRESH_HINT] });
-    expect(undeclared.finalization_receipt).toBeUndefined();
+    expect(undeclared).toMatchObject({
+      status: "ready",
+      notes: [
+        "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' safety; false otherwise.",
+        "If this chat's AskRigor tool has no such field, its tool list is outdated: tell the user, in their language, that AskRigor has been updated since this app loaded its tools, and that refreshing AskRigor in the app's settings and starting a new chat loads the current list. If it has the field, its tool list is current: give the field, and say nothing to the user about refreshing."
+      ],
+      next_steps: []
+    });
+    expect(undeclared.finalization_receipt).toEqual(expect.any(String));
     // With safety statements the screen is asked for too, and the hint comes once.
+    expect(advisoryNotes(check({ safety_question: undefined, harm_screen: undefined })))
+      .toEqual([SAFETY_QUESTION_MISSING, TOOL_LIST_REFRESH_HINT]);
     expect(check({ safety_question: undefined, harm_screen: undefined }).next_steps)
-      .toEqual([SAFETY_QUESTION_MISSING, required("is missing", BECAUSE_CLAIMS), TOOL_LIST_REFRESH_HINT]);
+      .toEqual([required("is missing", BECAUSE_CLAIMS)]);
     // A screen given does not stand in for the declaration.
     expect(steps({ safety_question: undefined })).toEqual([SAFETY_QUESTION_MISSING]);
     // Before an answer draft it is not asked for.
     expect(steps({ safety_question: undefined, answer_draft: undefined })).toEqual([NO_DRAFT]);
     // Declared either way, it is enough; true asks for the screen.
-    expect(check({ safety_claims: [], safety_question: true, answer_draft: `${LINKS}\n\n${LABEL}` }).status).toBe("ready");
+    expect(check({ safety_claims: [], safety_question: true, answer_draft: `${LINKS}\n\n${LABEL}` }).status).toBe("ready_with_limits");
   });
 
   it("still checks a screen given when it is not required", () => {
     const given = { safety_claims: [], harm_screen: [notChecked] };
     expect(check({ ...given, answer_draft: LINKS })).toMatchObject({
-      status: "not_ready", next_steps: [missing(NOT_CHECKED)], limits: [NOT_CHECKED_LIMIT], caveats: [NOT_CHECKED]
+      caveats: [
+        "A serious harm this answer did not check: anaphylaxis."
+      ],
+      limits: [
+        "A serious harm this answer did not check: anaphylaxis."
+      ],
+      status: "ready_with_limits",
+      next_steps: []
     });
     expect(check({ ...given, answer_draft: `${LINKS} ${NOT_CHECKED}` }).status).toBe("ready_with_limits");
   });
@@ -174,7 +198,13 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
   it("gives fixtures of other checks one harm found on the label, which changes nothing else", () => {
     const input = withHarmScreen({ ...base(), harm_screen: undefined, answer_draft: `${LINKS}\n\n${SAFETY}` });
     expect(input.answer_draft).toBe(`${LINKS}\n\n${SAFETY}\n\n${SCREENED_HARM_SENTENCE}`);
-    expect(finalizeResearch(input, { secret: SECRET })).toMatchObject({ status: "ready", caveats: [], limits: [] });
+    expect(finalizeResearch(input, { secret: SECRET })).toMatchObject({
+      caveats: [],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."
+      ],
+      status: "ready_with_limits"
+    });
     // A fixture with no safety statement, or with its own screen, is left as it is.
     const plain = { ...base(), safety_claims: [], harm_screen: undefined };
     expect(withHarmScreen(plain)).toBe(plain);
@@ -194,16 +224,16 @@ describe("finalize_research harm_screen: a medicine put forward or ranked for lo
 
   it("asks for the screen, with the connector-refresh hint, when recommendations lists one for long-term use", () => {
     const result = check(ranked({ harm_screen: undefined }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
-    expect(result.next_step_kinds).toEqual(["declaration", "tool_list"]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
+    expect(result.next_step_kinds).toEqual([]);
     expect(steps(ranked({ harm_screen: [] }))).toEqual([required("lists no harm", BECAUSE_LONG_TERM)]);
   });
 
   it("passes once the screen is given; a general ranking is conditional and states the existing caveat", () => {
     expect(check(ranked())).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [CONDITIONAL] });
     // Without the caveat the answer is sent back for it, as for any conditional recommendation (FS231).
-    expect(steps(ranked({ answer_draft: `${LINKS}\n\n${RANKED}\n\n${LABEL}` }))).toEqual([missing(CONDITIONAL)]);
+    expectPassingLimits(check(ranked({ answer_draft: `${LINKS}\n\n${RANKED}\n\n${LABEL}` })), ["An option that depends on something a clinician should confirm first: the hormone. What to confirm: normal blood sugar."]);
   });
 
   it("is not required for a recommendation that is not for long-term use, nor before an answer draft", () => {
@@ -235,13 +265,13 @@ describe("finalize_research harm_screen: label warnings and reported signals are
     ]) {
       const harm: Harm = { harm: "severe allergic reactions", state: "reported_signal", sources_searched: ["case_reports"],
         answer_quote: quote };
-      expect(check({ harm_screen: [harm], answer_draft: `${LINKS}\n\n${SAFETY}\n\n${quote}` }).status, quote).toBe("ready");
+      expect(check({ harm_screen: [harm], answer_draft: `${LINKS}\n\n${SAFETY}\n\n${quote}` }).status, quote).toBe("ready_with_limits");
     }
     // Compared as other quotes are: its closing mark, quotation marks, emphasis, spacing and case aside.
     expect(check({ harm_screen: [{ ...onLabel, answer_quote: `"${LABEL.slice(0, -1).toUpperCase()}"` }] }).status)
-      .toBe("ready");
+      .toBe("ready_with_limits");
     expect(check({ answer_draft: `${LINKS}\n\n${SAFETY}\n\n**${LABEL.slice(0, 20)}**${LABEL.slice(20)}` }).status)
-      .toBe("ready");
+      .toBe("ready_with_limits");
   });
 
   it("refuses a sentence the answer does not show, or shows only outside its prose", () => {
@@ -275,14 +305,14 @@ describe("finalize_research harm_screen: label warnings and reported signals are
       "harm_screen[0] is label_warning, but sources_searched lists neither label nor regulator_warning: add the one " +
         "whose warning names severe allergic reactions, or declare it reported_signal."
     ]);
-    expect(check({ harm_screen: [{ ...onLabel, sources_searched: ["regulator_warning"] }] }).status).toBe("ready");
+    expect(check({ harm_screen: [{ ...onLabel, sources_searched: ["regulator_warning"] }] }).status).toBe("ready_with_limits");
     expect(check({ harm_screen: [{ ...onLabel, state: "reported_signal", sources_searched: ["post_marketing"] }] }).status)
-      .toBe("ready");
+      .toBe("ready_with_limits");
   });
 
   it("does not use another state's field", () => {
     // A query given with a harm found is not checked against the receipts, as full_text_search ignores the other field.
-    expect(check({ harm_screen: [{ ...onLabel, search_query: "a query no receipt has" }] }).status).toBe("ready");
+    expect(check({ harm_screen: [{ ...onLabel, search_query: "a query no receipt has" }] }).status).toBe("ready_with_limits");
   });
 });
 
@@ -291,10 +321,19 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
     const passed = { receipts: [audit, search()], harm_screen: [onLabel, notFound] };
     const bounded = BOUNDED("PubMed");
     const left = check(passed);
-    expect(left).toMatchObject({ status: "not_ready", limits: [BOUNDED_LIMIT], caveats: [bounded] });
-    expect(left.next_steps).toEqual([missing(bounded)]);
+    expect(left).toMatchObject({
+      caveats: [
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+      ],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+      ],
+      status: "ready_with_limits"
+    });
+    expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."]);
     expect(check({ ...passed, answer_draft: `${base().answer_draft}\n\n${bounded}` }))
-      .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: [BOUNDED_LIMIT], caveats: [bounded] });
+      .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded], caveats: [bounded] });
   });
 
   it("compares the query as search receipts sign it: case and spacing aside, nothing else", () => {
@@ -323,7 +362,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
     expect(steps({ harm_screen: [notFound], answer_draft: LINKS + `\n\n${SAFETY}` })).toEqual([noReceipt(0, "anaphylaxis")]);
     // A receipt that does not verify counts for nothing; a search of another kind is not a literature search.
     const forged = check({ receipts: [audit, otherServer], harm_screen: [notFound], answer_draft: answer });
-    expect(forged.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(noReceipt(0, "anaphylaxis"));
+    expect(advisoryNotes(forged).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(noReceipt(0, "anaphylaxis"));
     expect(forged.receipts_rejected).toEqual([{ index: 1, reason: "signature_invalid" }]);
     expect(steps({ receipts: [audit, youtube], harm_screen: [notFound], answer_draft: `${LINKS}\n\n${SAFETY}` }))
       .toEqual([noReceipt(0, "anaphylaxis")]);
@@ -346,7 +385,16 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       absence_claims: [{ quote: notLocated, state: "support_not_located" }],
       answer_draft: `${base().answer_draft}\n\n${notLocated} ${bounded}`
     });
-    expect(both).toMatchObject({ status: "ready_with_limits", limits: [BOUNDED_LIMIT], caveats: [bounded] });
+    expect(both).toMatchObject({
+      caveats: [
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+      ],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+      ],
+      status: "ready_with_limits"
+    });
     const sectionQuery = "anaphylaxis AND METHODS:somatropin";
     const sectionSearch = sign("literature_search", {
       src: "europepmc", q: discoveryQueryDigest([sectionQuery]), ret: 1, n: 1, ft: ["METHODS"]
@@ -369,8 +417,17 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
     expect(harmNotCheckedCaveat("anaphylaxis.")).toBe(NOT_CHECKED);
     expect(harmNotCheckedCaveat("アナフィラキシー。")).toBe(`${HARM_NOT_CHECKED_CAVEAT_START} アナフィラキシー。`);
     const result = check({ harm_screen: [onLabel, { harm: " anaphylaxis\n", state: "not_checked" }] });
-    expect(result).toMatchObject({ status: "not_ready", limits: [NOT_CHECKED_LIMIT], caveats: [NOT_CHECKED] });
-    expect(result.next_steps).toEqual([missing(NOT_CHECKED)]);
+    expect(result).toMatchObject({
+      caveats: [
+        "A serious harm this answer did not check: anaphylaxis."
+      ],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
+        "A serious harm this answer did not check: anaphylaxis."
+      ],
+      status: "ready_with_limits"
+    });
+    expectPassingLimits(result, ["A serious harm this answer did not check: anaphylaxis."]);
   });
 
   it("checks it as the other caveats are: its own sentence in prose a reader sees", () => {
@@ -389,7 +446,7 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
       `${base().answer_draft}\n\n> ${NOT_CHECKED}`,
       `${base().answer_draft}\n\n<!-- ${NOT_CHECKED} -->`,
       `${base().answer_draft}\n\n${HARM_NOT_CHECKED_CAVEAT_START} every harm.`
-    ]) expect(steps({ ...harms, answer_draft: draft }), draft).toEqual([missing(NOT_CHECKED)]);
+    ]) expectPassingLimits(check({ ...harms, answer_draft: draft }), ["A serious harm this answer did not check: anaphylaxis."]);
   });
 
   it("accepts it in the answer's language through caveat_renderings, checked by place and not by words", () => {
@@ -400,17 +457,13 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
       const renderings = [{ caveat: NOT_CHECKED, text }];
       expect(check({ ...harms, answer_draft: `${base().answer_draft}\n\n${text}`, answer_language: language,
         caveat_renderings: renderings }).status).toBe("ready_with_limits");
-      expect(steps({ ...harms, answer_language: language, caveat_renderings: renderings })).toEqual([missing(NOT_CHECKED)]);
-      expect(steps({ ...harms, answer_draft: `${base().answer_draft}\n\nVoir : ${text.slice(0, -1)}, sauf exception.`,
-        answer_language: language, caveat_renderings: renderings })).toEqual([missing(NOT_CHECKED)]);
+      expectPassingLimits(check({ ...harms, answer_language: language, caveat_renderings: renderings }), ["A serious harm this answer did not check: anaphylaxis."]);
+      expectPassingLimits(check({ ...harms, answer_draft: `${base().answer_draft}\n\nVoir : ${text.slice(0, -1)}, sauf exception.`,
+        answer_language: language, caveat_renderings: renderings }), [NOT_CHECKED]);
     }
-    // A rendering counts only for an answer not in English.
-    expect(steps({ ...harms, answer_draft: `${base().answer_draft}\n\n${french}`,
-      caveat_renderings: [{ caveat: NOT_CHECKED, text: french }] })).toEqual([
-      "caveat_renderings counts only for an answer not in English: give answer_language (such as fr or es), or state " +
-        "each caveat as written.",
-      missing(NOT_CHECKED)
-    ]);
+    // Limits remain available regardless of the draft's language or rendering declarations.
+    expectPassingLimits(check({ ...harms, answer_draft: `${base().answer_draft}\n\n${french}`,
+      caveat_renderings: [{ caveat: NOT_CHECKED, text: french }] }), [NOT_CHECKED]);
     // The harm may be declared in the answer's language: the server's words stay English, rendered with it.
     const declared = "l'anaphylaxie";
     expect(check({
@@ -425,15 +478,24 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
       harm_screen: [onLabel, notChecked, { harm: "stroke", state: "not_checked" }],
       answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED} ${stroke}`
     });
-    expect(both).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED, stroke], limits: [
-      NOT_CHECKED_LIMIT, "A serious harm, stroke, was not checked: say so in the answer, as the caveat does."
-    ] });
+    expect(both).toMatchObject({
+      caveats: [
+        "A serious harm this answer did not check: anaphylaxis.",
+        "A serious harm this answer did not check: stroke."
+      ],
+      limits: [
+        "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
+        "A serious harm this answer did not check: anaphylaxis.",
+        "A serious harm this answer did not check: stroke."
+      ],
+      status: "ready_with_limits"
+    });
     const twice = check({
       harm_screen: [onLabel, notChecked, { ...notChecked, harm: "Anaphylaxis." }],
       answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}`
     });
     expect(twice.caveats).toEqual([NOT_CHECKED]);
-    expect(twice.next_steps).toEqual(["harm_screen[2] names the same harm as harm_screen[1]: give each harm one entry."]);
+    expect(advisoryNotes(twice)).toEqual(["harm_screen[2] names the same harm as harm_screen[1]: give each harm one entry."]);
     // A harm found and declared not checked as well is one harm too.
     expect(steps({ harm_screen: [onLabel, { harm: "Severe  allergic reactions", state: "not_checked" }],
       answer_draft: `${base().answer_draft}\n\n${harmNotCheckedCaveat("Severe allergic reactions")}` }))
@@ -442,9 +504,9 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
 
   it("asks for the harm in plain words when its caveat would show internal labels", () => {
     const labelled = "anaphylaxis_after_rechallenge";
-    expect(steps({ harm_screen: [{ harm: labelled, state: "not_checked" }],
+    expect(steps({ harm_screen: [onLabel, { harm: labelled, state: "not_checked" }],
       answer_draft: `${base().answer_draft}\n\n${harmNotCheckedCaveat(labelled)}` })).toEqual([
-      "harm_screen[0].harm shows internal labels (anaphylaxis_after_rechallenge): the answer names this harm in its " +
+      "harm_screen[1].harm shows internal labels (anaphylaxis_after_rechallenge): the answer names this harm in its " +
         "caveat, so give it in plain words."
     ]);
     const named = "ImmuneEffectsAudit harms";
@@ -454,52 +516,49 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
         "it in plain words.");
     // Plain words and a link are not labels; a harm the answer reports in its own sentence is not shown by the server.
     const plain = "reactions listed at https://example.org/a_b";
-    expect(check({ harm_screen: [{ harm: plain, state: "not_checked" }],
+    expect(check({ harm_screen: [onLabel, { harm: plain, state: "not_checked" }],
       answer_draft: `${base().answer_draft}\n\n${harmNotCheckedCaveat(plain)}` }).status).toBe("ready_with_limits");
-    expect(check({ harm_screen: [{ ...onLabel, harm: "allergic_reactions" }] }).status).toBe("ready");
+    expect(check({ harm_screen: [{ ...onLabel, harm: "allergic_reactions" }] }).status).toBe("ready_with_limits");
   });
 });
 
 describe("finalize_research harm_screen: bounded input, every problem at once", () => {
-  const problems = (harm_screen: unknown, extra: Record<string, unknown> = {}) => {
+  const problems = (harm_screen: unknown, extra: Record<string, unknown> = {}, searchedHarm = false) => {
     const result = finalizeResearch({ ...base(), harm_screen, ...extra }, { secret: SECRET });
-    expect(result.status).toBe("not_ready");
-    expect(result.answer_checked).toBe(false);
-    return result.next_steps;
+    expect(result.status).toBe(searchedHarm ? "ready_with_limits" : "not_ready");
+    expect(result.answer_checked).toBe(true);
+    expect(result.next_step_kinds).not.toContain("input_invalid");
+    return result.notes!.filter((note) => /^(?:harm_screen|safety_question).*: (?:dropped|kept)/u.test(note));
   };
-  const INTRO = "The call's inputs have problems, so the final check did not run. Fix each one and call again:";
 
   it("bounds the entries and their text", () => {
     expect(problems(Array.from({ length: 21 }, (_, index) => ({ harm: `harm ${index}`, state: "not_checked" }))))
-      .toEqual([INTRO, "harm_screen: Too big: expected array to have <=20 items"]);
+      .toEqual(["harm_screen: kept at most 20 items to stay within the list's size limit."]);
     expect(problems([{ harm: "h".repeat(151), state: "not_checked" }]))
-      .toEqual([INTRO, "harm_screen[0].harm: Too big: expected string to have <=150 characters"]);
-    expect(problems([{ ...notFound, search_query: "q".repeat(501) }]))
-      .toEqual([INTRO, "harm_screen[0].search_query: Too big: expected string to have <=500 characters"]);
-    expect(problems([{ ...onLabel, answer_quote: "a".repeat(1_001) }]))
-      .toEqual([INTRO, "harm_screen[0].answer_quote: Too big: expected string to have <=1000 characters"]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at most 150 characters."]);
+    expect(problems([{ ...notFound, search_query: "q".repeat(501) }], {}, true))
+      .toEqual(["harm_screen[0].search_query: dropped: needs at most 500 characters."]);
+    expect(problems([{ ...onLabel, answer_quote: "a".repeat(1_001) }], {}, true))
+      .toEqual(["harm_screen[0].answer_quote: dropped: needs at most 1000 characters."]);
     expect(problems([{ harm: "   ", state: "not_checked" }]))
-      .toEqual([INTRO, "harm_screen[0].harm: Too small: expected string to have >=1 characters"]);
+      .toEqual(["harm_screen[0].harm: dropped: needs at least 1 characters."]);
     // At the limits, the call runs.
     const twenty = Array.from({ length: 20 }, (_, index) => ({ harm: `harm ${index} ${"h".repeat(140)}`, state: "not_checked" as const }));
     const atLimit = finalizeResearch({ ...base(), harm_screen: [onLabel, ...twenty.slice(1)] }, { secret: SECRET });
     expect(atLimit.caveats).toHaveLength(19);
   });
 
-  it("names every problem in one answer, with the JSON of the part ChatGPT's app hides", () => {
+  it("names every problem together as notes without adding format steps", () => {
     expect(problems([
       { harm: "anaphylaxis", state: "suspected", sources_searched: ["label", "forum"] },
       { harm: "stroke", state: "not_checked", sources_searched: "label", severity: "high" }
-    ], { safety_question: "yes" })).toEqual([
-      INTRO,
-      "safety_question: Invalid input: expected boolean, received string",
-      "harm_screen[0].state: Expected one of label_warning, reported_signal, not_found, not_checked.",
-      "harm_screen[0].sources_searched[1]: Expected one of label, regulator_warning, post_marketing, " +
-        "trial_serious_events, case_reports, community.",
-      "harm_screen[1].sources_searched: Invalid input: expected array, received string",
-      "harm_screen[1]: Unrecognized key: \"severity\"",
-      "harm_screen[].sources_searched as JSON: [\"label\",\"case_reports\"]"
-    ]);
+    ], { safety_question: "yes" })).toEqual(expect.arrayContaining([
+      "safety_question: dropped: expected boolean.",
+      "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
+      "harm_screen[0].sources_searched[1]: dropped: not a supported value; use label, regulator_warning, post_marketing, trial_serious_events, case_reports, community.",
+      "harm_screen[1].sources_searched: dropped: expected a list.",
+      "harm_screen[1].severity: dropped an unknown field."
+    ]));
   });
 
   it("never echoes a receipt or the signing secret in its steps", () => {
@@ -509,7 +568,7 @@ describe("finalize_research harm_screen: bounded input, every problem at once", 
         { secret: SECRET }),
       finalizeResearch({ ...base({ receipts }), harm_screen: [{ harm: 7 }] }, { secret: SECRET })
     ]) {
-      const output = JSON.stringify(result.next_steps);
+      const output = JSON.stringify(advisoryNotes(result));
       expect(output).not.toContain(SECRET);
       expect(output).not.toContain("rr1~");
     }
@@ -529,7 +588,10 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
     const receipt = verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET });
     expect(receipt.ok).toBe(true);
     if (!receipt.ok) return;
-    expect(receipt.claims).toMatchObject({ status: "ready_with_limits", limits: "2" });
+    expect(receipt.claims).toMatchObject({
+      limits: "3",
+      status: "ready_with_limits"
+    });
     for (const declared of ["allergic", "anaphylaxis", "somatropin", "rechallenge", QUERY]) {
       expect(JSON.stringify(receipt.claims)).not.toContain(declared);
       expect(JSON.stringify(result.carried ?? {})).not.toContain(declared);
@@ -652,25 +714,34 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
         return { result: response.structuredContent as Record<string, unknown>, text };
       };
       const screened = await call(base({ harm_screen: [onLabel, notChecked] }));
-      expect(screened.result).toMatchObject({ status: "not_ready", caveats: [NOT_CHECKED], next_steps: [missing(NOT_CHECKED)] });
-      expect(screened.text).toContain(`The answer must contain, as written: ${NOT_CHECKED}`);
+      expect(screened.result).toMatchObject({
+        caveats: [
+          "A serious harm this answer did not check: anaphylaxis."
+        ],
+        limits: [
+          "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
+          "A serious harm this answer did not check: anaphylaxis."
+        ],
+        next_steps: [],
+        status: "ready_with_limits"
+      });
+      expect(screened.text).toContain(`Limit to include in your own words: ${NOT_CHECKED}`);
       const passed = await call(base({ harm_screen: [onLabel, notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` }));
-      expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: [NOT_CHECKED_LIMIT] });
+      expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
       const unscreened = await call(base({ harm_screen: undefined }));
-      expect(unscreened.result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS), TOOL_LIST_REFRESH_HINT]);
+      expect(unscreened.result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS)]);
       const undeclared = await call(base({ safety_question: undefined }));
-      expect(undeclared.result.next_steps).toEqual([SAFETY_QUESTION_MISSING, TOOL_LIST_REFRESH_HINT]);
+      expect(advisoryNotes(undeclared.result)).toEqual([SAFETY_QUESTION_MISSING, TOOL_LIST_REFRESH_HINT]);
       const ranked = await call(base({ safety_claims: [], recommendations: [longTerm()], harm_screen: undefined,
         answer_draft: `${LINKS}\n\n${RANKED} ${CONDITIONAL}` }));
-      expect(ranked.result.next_steps).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
+      expect(advisoryNotes(ranked.result)).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
       // Both surfaces accept any input and answer it with AskRigor's own validation.
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
-      expect(invalid.result).toMatchObject({ status: "not_ready", next_steps: [
-        "The call's inputs have problems, so the final check did not run. Fix each one and call again:",
-        "harm_screen[0].state: Expected one of label_warning, reported_signal, not_found, not_checked.",
-        "harm_screen[0].sources_searched: Invalid input: expected array, received string",
-        "harm_screen[].sources_searched as JSON: [\"label\",\"case_reports\"]"
+      expect(invalid.result).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
+        "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
+        "harm_screen[0].sources_searched: dropped: expected a list."
       ] });
+      expect(invalid.result.next_step_kinds).not.toContain("input_invalid");
       // Nothing is logged about the call, its harms or its answer.
       for (const spy of logged) {
         expect(JSON.stringify(spy.mock.calls)).not.toContain("anaphylaxis");

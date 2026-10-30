@@ -126,6 +126,17 @@ capability after all nonblocked work is complete, or a safety/security/privacy/
 irreversible external-action boundary. Any stop must identify the exact unmet
 outcome, blocker, actor who can clear it, and next executable action.
 
+## Final-check blocking scope
+
+Owner answers 193a and 195a limit `finalize_research` to five blocking checks:
+source receipts and links, declared read depth, binary arithmetic and shown
+figures, a named-harm screen when safety claims are declared, and retractions.
+Other diagnostics are notes and consume no rounds. Material limits stay in the
+result for the AI to include in its own words; the panel also displays every
+limit beneath a passing answer. Missing or reworded limit text creates no step.
+See `docs/final-check.md` for the exact scope. This does not remove the AI's
+responsibility to follow HRP or complete research it judges necessary.
+
 ## Validation
 
 - Runtime: Node 24.18.0 (`.nvmrc`)

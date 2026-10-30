@@ -1,3 +1,4 @@
+import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -6,7 +7,6 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 
 // The owner regression run of 2026-10-16: 19 of 20 first finalize_research calls were rejected by ChatGPT's connector
 // for fields its app shows the model only as "unknown" (read-only Codex probes), and #336's fourth turn kept its
@@ -194,17 +194,17 @@ describe("key-study links AskRigor's receipts tie (#336, 2026-10-16)", () => {
   it("keeps the earlier steps for a link naming another DOI or another key study", () => {
     const marker = `Key source ${DOI} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`;
     const missing = `Key study ${DOI} has no link in the answer; link it to the page AskRigor's tools returned, such as https://doi.org/${DOI}.`;
-    expect(linkSteps(`https://doi.org/${OTHER}`, [audit])).toEqual([marker, missing]);
+    expect(linkSteps(`https://doi.org/${OTHER}`, [audit])).toEqual([missing]);
     const other = sign("doi_resolution", { doi: OTHER, url: "https://journal.example/other" });
     const sources = [...base().key_sources, { id: OTHER, status: "validated" as const, read_depth: "full_text_audited" as const,
       answer_marker: "Other" }];
-    const steps = check({
+    const result = check({
       receipts: [audit, sign("study_audit", { id: OTHER, status: "complete_no_unresolved_fields" }), other],
       key_sources: sources, answer_draft: "[Trial and Other](https://journal.example/other) were read."
-    }).next_steps;
-    expect(steps).toContain(marker);
-    expect(steps).toContain(missing);
-    expect(steps.join(" ")).not.toContain(`Key study ${DOI} is linked by`);
+    });
+    expect(advisoryNotes(result)).toContain(marker);
+    expect(result.next_steps).toContain(missing);
+    expect(result.next_steps.join(" ")).not.toContain(`Key study ${DOI} is linked by`);
   });
 
   it("names the untied link for a PMID or PMCID source without offering resolve_doi", () => {

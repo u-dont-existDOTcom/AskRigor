@@ -1,5 +1,9 @@
 # Decision 172a: a round limit for the final check, and why it did not pass
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 Status: built on the build branch (owner answer "172 a", 24 Oct 2026, on owner question 172; the owner's 169 answer
 asked for a limit "(maybe 8 or 10?) so we don't end up in a loop", for the answer to say why the check failed, and for
 a bug report when nothing can be done, otherwise how the next turn handles it).

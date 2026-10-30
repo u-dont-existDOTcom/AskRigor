@@ -28,9 +28,9 @@ const PINS = {
   to: { version: "20.6.30", sha256: "b7c1df6eb235bcd1423e4d8fdb86245887e3cd0eac3f469f6cc91619a5c91ef8" },
 } as const;
 const REVISION_DATE = "2026-10-22";
-// The current file: owner answer 161a (HRP 20.6.31, 2026-10-22) has since added a rule outside the core.
+// The current file also includes owner answer 193a (HRP 20.6.32, 2026-10-29); the undo chain removes later layers.
 const CURRENT = {
-  version: "20.6.31", revisionDate: "2026-10-22", sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5",
+  version: "20.6.32", revisionDate: "2026-10-29", sha256: "62f9e0a934800ae0a6002d3b433ed2c640e0b8263b6891d7d897a2c0c49b9c89",
 } as const;
 // Universal does not change.
 const UNIVERSAL = {
@@ -142,7 +142,7 @@ describe('owner-approved question 149: "149a" (2026-10-22)', () => {
     await expect(undoPrevious()).resolves.toBe(beforePrevious);
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(await loadCurrent(), "hrp"))).toBe(readDepth.from.sha256);
-    expect(REVISION_DATE).toBe(CURRENT.revisionDate);
+    expect(REVISION_DATE).toBe("2026-10-22");
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
       name: "HRP", version: CURRENT.version, revisionDate: CURRENT.revisionDate, sha256: CURRENT.sha256,
     });

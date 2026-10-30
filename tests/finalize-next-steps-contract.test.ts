@@ -1,3 +1,4 @@
+import { advisoryNotes, allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -12,9 +13,6 @@ import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from
 import { PUBLIC_RATE_LIMIT } from "../apps/research-mcp/src/config.js";
 import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
-import {
-  allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers
-} from "./helpers/finalize-next-steps-contract.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
 
@@ -78,14 +76,15 @@ describe("finalize next-step identifier contract", () => {
       expect(allowedNextStepIdentifiers.has(published)).toBe(true);
   });
   it("names only published fields in the stopped tip's missing-caveat step", () => {
-    const input = base({ absence_claims: undefined });
+    const input = base({ receipts: [] });
     let result = finalizeResearch(input, { secret: SECRET });
     for (let round = 2; round <= 3; round += 1) {
       result = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET });
     }
     expect(result.status).toBe("stopped");
     const steps = [...result.stopped!.could_not, ...result.stopped!.next_turn].map(({ step }) => step);
-    expect(steps.some((step) => step.includes(COMPLETE_CHECKS_TIP))).toBe(true);
+    expect(steps.some((step) => step.includes(COMPLETE_CHECKS_TIP))).toBe(false);
+    expect(steps.some((step) => step.includes("no receipt"))).toBe(true);
     expect(unknownNextStepIdentifiers(steps)).toEqual([]);
   });
   it("pins descriptive catalog wording for the changed contract and link fields", () => {
@@ -281,14 +280,14 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
     const old = base({ community_evidence: "researched", commercial_review_applicability: undefined, intervention_identity: undefined, scale_results: undefined });
     const result = await call(old);
     expect(result.contract).toBe("2026-10-07");
-    expect(result.status).toBe("not_ready");
+    expect(result.status).toBe("ready");
     for (const field of ["commercial_review_applicability", "intervention_identity", "scale_results"])
-      expect(result.next_steps.some((step) => step.includes(field))).toBe(true);
-    expect(result.next_steps.filter((step) => step.includes(TOOL_LIST_REFRESH_HINT))).toEqual([TOOL_LIST_REFRESH_HINT]);
-    expect(result.next_steps.at(-1)).toBe(TOOL_LIST_REFRESH_HINT);
+      expect(advisoryNotes(result).some((step) => step.includes(field))).toBe(true);
+    expect(advisoryNotes(result).filter((step) => step.includes(TOOL_LIST_REFRESH_HINT))).toEqual([TOOL_LIST_REFRESH_HINT]);
+    expect(advisoryNotes(result).at(-1)).toBe(TOOL_LIST_REFRESH_HINT);
     expect((await call(base())).next_steps).toEqual([]);
     const corrections = await call(base({ answer_draft: `PMID ${PMID}.` }));
-    expect(corrections.next_steps).not.toContain(TOOL_LIST_REFRESH_HINT);
+    expect(advisoryNotes(corrections)).not.toContain(TOOL_LIST_REFRESH_HINT);
   });
   it("names missing product_corpora, item_identity and shopping with one refresh hint", async () => {
     const result = await call(base({ community_evidence: "researched",
@@ -298,8 +297,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       community_searches: [reviewSearch]
     }));
     for (const field of ["product_corpora", "item_identity", "shopping"])
-      expect(result.next_steps.some((step) => step.includes(field))).toBe(true);
-    expect(result.next_steps.filter((step) => step.includes(TOOL_LIST_REFRESH_HINT))).toEqual([TOOL_LIST_REFRESH_HINT]);
+      expect(advisoryNotes(result).some((step) => step.includes(field))).toBe(true);
+    expect(advisoryNotes(result).filter((step) => step.includes(TOOL_LIST_REFRESH_HINT))).toEqual([TOOL_LIST_REFRESH_HINT]);
   });
 
   it.each([PMID, DOI, PMCID])("refuses an unlinked key study %s and names its canonical page", async (id) => {
@@ -355,33 +354,34 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   it("does not check study links before an answer draft is present", async () => {
     const result = await call(base({ answer_draft: undefined }));
     expect(result.next_steps.join(" ")).not.toContain("has no link");
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.next_steps).toHaveLength(1);
+    expect(result.next_steps[0]).toContain("needs usable answer_draft");
   });
 
   it("refuses the apple pectin versus clinoptilolite comparison's not_relevant bypass", async () => {
     // Its classes of treatment are declared, so the bypass is what holds it back.
     const result = await complete(base({ research_target: "Apple pectin versus clinoptilolite as binders", treatment_choice: "compared",
       option_classes: [researchedClass], receipts: [study(), classSearch()], answer_draft: CLASS_DRAFT }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).not.toContain("option_classes");
-    expect(result.next_steps.join(" ")).toContain("treatment_choice is compared");
-    expect(result.next_steps.join(" ")).toContain("community and buyer-review layer");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).not.toContain("option_classes");
+    expect(advisoryNotes(result).join(" ")).toContain("treatment_choice is compared");
+    expect(advisoryNotes(result).join(" ")).toContain("community and buyer-review layer");
   });
   it.each(["commercial product", "buy_options", "no_live_option_found"])("refuses no_real_world_outcome with %s", async (trigger) => {
     const result = await complete(base(trigger === "commercial product" ? {
       commercial_review_applicability: { status: "required", products: ["Clinoptilolite"] }, shopping: { status: "not_requested" }
     } : { shopping: { status: trigger as "buy_options", destination: "Mauritania" } }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).toContain("community_evidence cannot be not_relevant");
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).toContain("community_evidence cannot be not_relevant");
   });
   it("accepts the noncommercial ion-exchange mechanism question", async () => {
     expect((await call(base())).status).toBe("ready_with_limits");
   });
   it("requires commercial applicability with key studies and no_real_world_outcome", async () => {
     const result = await call(base({ commercial_review_applicability: undefined }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).toContain("commercial_review_applicability");
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).toContain("commercial_review_applicability");
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
   it("allows the practical comparison once its community and buyer-review lanes record access boundaries", async () => {
     const result = await complete(base({ community_evidence: "researched", treatment_choice: "compared",
@@ -395,7 +395,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       ]
     }));
     expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result)).toEqual([]);
     expect(result.caveats.join(" ")).toContain("could not search");
   });
   it("preserves emergency_before_triage and the no-key-study mechanism exception", async () => {

@@ -997,7 +997,7 @@ describe("the signed final-check report in a filed lesson", () => {
     status: "stopped", reason: "stuck", round: 3,
     couldNot: [{ kind: "research", consecutive: 3, text: "Not exported", rule: rule`Audit video ${"private-video"} with audit_youtube_video_community.` }],
     nextTurn: []
-  }, { versions: { build: "6f229e39", hrp: "20.6.31", universal: "20.5.46" }, receipts: [], allowed: () => false });
+  }, { versions: { build: "6f229e39", hrp: "20.6.32", universal: "20.5.46" }, receipts: [], allowed: () => false });
   const subject = (github: FakeGitHub) => new LessonSubmissionService({
     limiter: { consume: () => ({ allowed: true }), lastBlockingReason: () => "hourly_limit" },
     anonymizer: createLocalLessonGeneralizer(), queue: queue(github), reportSigningSecret: () => secret,

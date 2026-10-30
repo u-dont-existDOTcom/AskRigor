@@ -1,3 +1,4 @@
+import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -124,7 +125,7 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
     });
     const steps = (input: object, toolListVersion?: string) => finalizeResearch(input, {
       secret: "tool-list-currency-fixture-secret-0123456789abcdef", ...(toolListVersion === undefined ? {} : { toolListVersion })
-    }).next_steps;
+    }).notes ?? [];
     expect(steps(call(VERSION), VERSION)).toContain(
       "user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves " +
         "or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty " +
@@ -153,7 +154,7 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
         tool_list_version: OLDER
       },
     });
-    const steps = (result.structuredContent as { next_steps: string[] }).next_steps;
+    const steps = (result.structuredContent as { next_steps: string[] }).notes ?? [];
     expect(steps.some((step) => step.startsWith("user_observations is missing"))).toBe(true);
     expect(steps).toContain(toolListNotice(OLDER, VERSION));
   });

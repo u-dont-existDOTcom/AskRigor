@@ -37,18 +37,16 @@ export interface FindingsSaveContext {
   toolCatalogSha256: string;
   /**
    * The saving account, for the Atlas (decision 171, section 4B): a free contributor's card is published as soon as it
-   * is saved when the account accepted the current notice and is not a dev account. Never stored with the card.
+   * is saved when the account accepted the current notice. Never stored with the card.
    */
   account?: FindingsSaveAccount;
 }
 
-/** What the Atlas reads of the saving account, all exact: its mode, the notice it accepted, and its dev listing. */
+/** What the Atlas reads of the saving account, all exact: its mode and the notice it accepted. */
 export interface FindingsSaveAccount {
   mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
   /** The free contributor notice the account accepted; null for a paid private account. */
   noticeVersion: string | null;
-  /** Whether the account is listed in ASKRIGOR_DEV_ACCOUNT_KEYS. */
-  devAccount: boolean;
 }
 
 /** A confirmed save, as the Atlas publisher reads it. */

@@ -26,7 +26,7 @@ import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js
 /**
  * Publishing saved findings cards in the Atlas (decision 171, section 4B; owner answers 168a and "171 approved", 24 Oct
  * 2026): which cards and findings are published, what is published of each, and the save path's publisher. Every rule
- * here is an exact check: the account's mode, notice version and dev listing, the card's set-aside label and its
+ * here is an exact check: the account's mode and notice version, the card's set-aside label and its
  * public-value scope, the closed markers of a finding drawn from YouTube comments, and the structural contact-details
  * check (contact-check.ts). What a finding means stays the research AI's declaration and the owner's review.
  */
@@ -37,8 +37,6 @@ export const CARD_PUBLICATION_PROBLEMS = [
   "not_free_contributor",
   /** The saving account had not accepted the current free contributor notice. */
   "notice_not_current",
-  /** The saving account is a dev account (ASKRIGOR_DEV_ACCOUNT_KEYS): its cards are published only on acceptance. */
-  "dev_account",
   /** The card carries the set-aside label. */
   "set_aside",
   /** The card does not declare its findings public (owner answer 156a). */
@@ -59,8 +57,8 @@ export type FindingLeftOutReason = typeof FINDING_LEFT_OUT_REASONS[number];
 
 /**
  * Who asks for a card to be published: the save path, right after a confirmed save, with the saving account; or the
- * owner, naming the card (publish_cards), whose choice is the consent for the owner's own cards, so the notice and
- * dev-account checks do not apply. A card whose marker says it was saved in paid private mode is still refused: its
+ * owner, naming the card (publish_cards), whose choice is the consent for the owner's own cards, so the notice check
+ * does not apply. A card whose marker says it was saved in paid private mode is still refused: its
  * findings are published only after the owner accepts them (the privacy page's wording).
  */
 export type CardPublicationRoute =
@@ -85,15 +83,13 @@ export function cardPublicationProblems(
 }
 
 /**
- * The saving account's checks: free contributor mode, the current notice (RESEARCH_USE_NOTICE_VERSION, never a
- * literal: the notice that says cards are published as soon as they are saved), and not a dev account.
+ * The saving account's checks: free contributor mode and the current notice (RESEARCH_USE_NOTICE_VERSION, never a
+ * literal: the notice that says cards are published as soon as they are saved). A dev account's cards publish like
+ * everyone's (owner answer 196a, 29 Oct 2026): a regression run switches its card saving off instead.
  */
 export function accountPublicationProblems(account: FindingsSaveAccount | undefined): CardPublicationProblem[] {
   if (account === undefined || account.mode !== "FREE_CONTRIBUTOR") return ["not_free_contributor"];
-  return [
-    ...(account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? [] : ["notice_not_current" as const]),
-    ...(account.devAccount ? ["dev_account" as const] : []),
-  ];
+  return account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? [] : ["notice_not_current"];
 }
 
 /**
