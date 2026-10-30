@@ -2562,7 +2562,13 @@ function defineResearchOperations(
               ".") +
           (result.carry_forward === undefined
             ? (result.carry_forward_note === undefined ? "" : `\n${result.carry_forward_note}`)
-            : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
+            // A turn's first call without the conversation's state: in the 30 Oct rerun 10 of 13 later turns began
+            // so, and their next calls passed back this call's fresh state, so the earlier turns' state was lost.
+            : checkedInput !== undefined && checkedInput.carried_state === undefined && checkedInput.round_token === undefined
+              ? "\nThis call passed no carried_state. If an earlier final check in this conversation returned " +
+                "carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what " +
+                `it carried still holds; otherwise pass this one, in this turn or a later one: ${result.carry_forward}`
+              : `\nPass this as carried_state in this conversation's next finalize_research call, in this turn or a later one: ${result.carry_forward}`) +
           // Owner answer 172a: the round within this turn, carried by the model like the conversation's state.
           (result.round_token === undefined || result.round === undefined ? "" :
             `\nThis was round ${result.round.number} of ${result.round.limit} in this turn. Pass this as round_token ` +

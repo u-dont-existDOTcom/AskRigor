@@ -227,8 +227,11 @@ describe("the unchecked line and the previous check in finalize_research's resul
       "answer is not in English): AskRigor's final check has not passed: some of its statements were not checked.");
     expect(blocked.text).toContain("This was round 1 of 10 in this turn. Pass this as round_token in this turn's next " +
       "finalize_research call: cr2~");
-    expect(blocked.text).toContain("Pass this as carried_state in this conversation's next finalize_research call, " +
-      "in this turn or a later one: cs2~");
+    // A turn's first call without the conversation's state asks for an earlier check's state first (the 30 Oct rerun:
+    // 10 of 13 later turns began without it, and their next calls passed back the fresh one).
+    expect(blocked.text).toContain("This call passed no carried_state. If an earlier final check in this conversation " +
+      "returned carry_forward, pass that value as carried_state in this turn's next finalize_research call, so what it " +
+      "carried still holds; otherwise pass this one, in this turn or a later one: cs2~");
     expect(blocked.text).not.toContain("End the answer with this line");
     expect(blocked.text).not.toContain("word for word");
 
@@ -237,6 +240,9 @@ describe("the unchecked line and the previous check in finalize_research's resul
     }));
     expect(sameTurn.output.status).toBe("ready_with_limits");
     expect(sameTurn.text).not.toContain("The previous final check in this conversation did not pass");
+    expect(sameTurn.text).toContain("Pass this as carried_state in this conversation's next finalize_research call, " +
+      "in this turn or a later one: cs2~");
+    expect(sameTurn.text).not.toContain("This call passed no carried_state");
 
     const next = await call(base({ carried_state: blocked.output.carry_forward }));
     expect(next.output.status).toBe("ready_with_limits");
