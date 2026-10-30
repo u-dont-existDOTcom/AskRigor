@@ -13,8 +13,10 @@ You get, as JSON:
   things it did not look up. A claim resting only on those is unchecked, not wrong: report it only when it is decisive
   for the answer (as `unsupported`, saying it is unchecked) or when the research contradicts it.
 
-Read the question, then the answer, then the research. Then report the problems that matter, most important first.
-Look for these kinds:
+Read the question first and list for yourself every part of it: each thing asked, each comparison, and the person's
+stated situation, product, dose and aim. Then read the answer and check that it addresses each part, and read the
+research and check that each part needing evidence was researched. Then report the problems that matter, most
+important first. Look for these kinds:
 
 - `question`: the answer does not answer what was asked, answers an easier nearby question, or misses part of it,
   such as a comparison the user asked for or the user's own aim, situation or earlier message;
@@ -24,11 +26,15 @@ Look for these kinds:
   comparison, the time frame), a figure that differs from its source, or a size called large, small, safe or risky
   with nothing to compare it to;
 - `harm`: a harm that matters for this person and this choice that is missing, buried, or not weighed against the
-  benefit over the same time frame, or a warning that does not apply to this use;
+  benefit over the same time frame, or a warning that does not apply to this use. Check the harms of the person's own
+  exposure as they describe it (their product, preparation, dose, route and how long), who is at higher risk, and the
+  tests or signs that would show trouble;
 - `certainty`: confidence that does not match the evidence, in either direction: a small or unblinded study presented
   as settled, or good evidence buried under hedging;
 - `gap`: research that was not done and would likely change the answer: a search not run, a source found but not
-  read, a kind of evidence the question needs (for example people's own reports, or the study the user pasted);
+  read, a kind of evidence the question needs (for example people's own reports, or the study the user pasted), a
+  part of the question answered without any research behind it, or a likely cause, option or factor the answer never
+  considers when the question asks for causes or options;
 - `contradiction`: the answer says opposite things, or says the opposite of a source it cites;
 - `clarity`: the answer's picture does not hang together, or a reader would come away believing something the answer
   does not say.
@@ -43,6 +49,9 @@ Rules:
 - A problem is `serious` when fixing it would change what the reader should believe or do, `worth fixing` when it
   would make the answer clearly better, and `minor` otherwise. Report at most 8 problems; leave out minor ones when
   you have serious ones.
+- A short first reply that asks one question is right when the best answer depends on something only the person can
+  tell, such as their aim, conditions or history. Judge whether it asks the question that matters most and says what
+  the choice depends on, not its length or its lack of research.
 - If the answer is sound, say so and report nothing. Do not invent problems to have something to say.
 
 Reply with one JSON object and nothing else:
