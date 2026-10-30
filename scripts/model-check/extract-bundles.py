@@ -19,6 +19,7 @@ NOT_EVIDENCE = {"load_protocol", "get_protocol_manifest", "verify_protocol_integ
                 "review_research_contribution", "review_evidence_gap_submissions"}
 RESULT_LIMIT = 12_000      # characters kept of one call's result
 RECORD_LIMIT = 400_000     # characters kept of a turn's whole research record
+SHORT_TEXT = 400           # a result text shorter than this also gets its structured result
 
 
 def turn_files(regress, case):
@@ -41,12 +42,15 @@ def read(path):
 
 
 def result_text(result):
+    """The call's text; when the text is short (such as "completed."), its structured result too, which holds the
+    states the text leaves out (how far a source was read, why it was refused)."""
     if not isinstance(result, dict):
         return ""
     parts = [part.get("text", "") for part in result.get("content") or [] if isinstance(part, dict)]
     text = "\n".join(p for p in parts if p)
-    if not text and result.get("structuredContent") is not None:
-        text = json.dumps(result["structuredContent"], ensure_ascii=False)
+    structured = result.get("structured_content", result.get("structuredContent"))
+    if structured is not None and len(text) < SHORT_TEXT:
+        text = (text + "\n" if text else "") + "[structured result] " + json.dumps(structured, ensure_ascii=False)
     return text
 
 
@@ -91,14 +95,17 @@ def main():
                 print(f"{case} turn {index}: no prompt or answer; skipped", file=sys.stderr)
                 break
             record.extend(research_calls(log_path, index))
+            # Each call carries its number in the whole record, the same in every turn's bundle, which the check
+            # cites (the development set's checks miscounted unnumbered calls).
             kept, total = [], 0
-            for call in record:
-                size = len(json.dumps(call, ensure_ascii=False))
+            for number, call in enumerate(record, start=1):
+                numbered = {"call": number, **call}
+                size = len(json.dumps(numbered, ensure_ascii=False))
                 if total + size > RECORD_LIMIT:
                     kept.append({"turn": call["turn"], "tool": "(record trimmed)",
-                                 "result": f"{len(record) - len(kept)} later calls not shown"})
+                                 "result": f"calls {number} to {len(record)} not shown"})
                     break
-                kept.append(call)
+                kept.append(numbered)
                 total += size
             bundle = {"case": case, "turn": index, "conversation": list(conversation),
                       "question": prompt.strip(), "answer": answer.strip(), "research": kept}
