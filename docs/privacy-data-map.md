@@ -697,6 +697,56 @@ disclosed bounded maps.
 Infrastructure and upstream providers may retain
 separately controlled operational or request data under their own policies.
 
+## Shared questions and answers (owner answer 200a, 30 October 2026)
+
+The owner's words: "we aren't logging every question/answer but just the ones users send for improvement". Nothing
+of a question or an answer is kept by default.
+
+- **The offer:** on the MCP connector (`/mcp` and `/mcp/claude`), never Gemini's catalog or the Custom GPT, the final
+  check's result carries a runtime-only `share_offer` when the server keeps shared answers and the caller has an
+  active research account, in either mode. Its `line` is the owner's sentence, word for word, which ends the answer:
+  "Send this de-identified question & answer to AskRigor for improvements? If yes, optionally specify what should be
+  improved." Its `on_yes` tells the AI to write a de-identified copy, show it with how it is kept, and send it only
+  once the person confirms it.
+- **What is sent, only after the person confirms:** `manage_research_access` with action `share_answer` and
+  `later_inputs.sharedAnswer`: the AI-written de-identified `question` (with the earlier messages it needs, at most
+  4,000 characters), `answer` (at most 30,000), an optional `improve` (what the person wants improved, at most 1,000)
+  and `confirmed: true`, the AI's declaration that the person confirmed this exact copy. The server reads the
+  account only to require an active research account and to count shares; it keeps nothing about either.
+- **The server's check:** the contact screen's exact patterns (`contactPatternKind`: an e-mail address, a phone
+  number, a credential or access token, a street address) over each text. A match refuses the whole copy and names
+  the field and the pattern's kind, never the text, and nothing is kept. Whether the copy is de-identified is a
+  judgment of meaning: it stays with the AI and the person who confirms it, and the result says the server did not
+  check it.
+- **What is kept:** one AES-256-GCM envelope per copy in `ASKRIGOR_SHARED_ANSWERS_DIRECTORY` (production
+  `/var/lib/askrigor-actions/shared-answers`, mode 0700, each file 0600), holding the three texts encrypted and, in
+  clear but authenticated with them, the share and expiry times, the server's build, HRP and Universal versions, and
+  each text's character count. The file is named by the first 32 hexadecimal characters of an HMAC-SHA-256 of the
+  deletion code. The encryption and naming keys are derived (HKDF-SHA-256, separate labels) from the server-made
+  secret `ASKRIGOR_SHARED_ANSWERS_KEY_BASE64URL` (32 random bytes, in `runtime.env` only, never printed). At most
+  5,000 copies are kept; when full, sharing is refused. Not kept: the account key or reference, the OAuth subject,
+  any conversation, session or request identity, an IP address, and the deletion code itself.
+- **The deletion code:** `sa1-` and 16 random bytes in base64url, returned once in the `share_answer` result for the
+  AI to give the person. The server cannot recover it.
+- **The daily limit:** 20 shares per account per UTC day, counted in the server's memory by the SHA-256 of the
+  account key; never written, and lost on restart.
+- **Who can read it:** only the owner's `review_research_contribution` (the `cases:review` login and the exact
+  owner-subject allowlist): `list_shared_answers` (times, versions and sizes, without text), `read_shared_answer`
+  (one copy, decrypted) and `delete_shared_answer` (by ID). No route, page, catalog or Atlas shows a shared answer,
+  and it is used only to make regression cases and fixes.
+- **Retention and deletion:** 90 days. Expired copies are deleted when the server starts, every hour while it runs,
+  and at every share, list, read or delete. The person deletes a copy sooner with `manage_research_access` action
+  `delete_shared_answer` and `later_inputs.shareCode`; the owner deletes one by ID. Deleting removes the file.
+  AskRigor makes no automatic off-host backup of this directory; ordinary filesystem maintenance may retain freed
+  bytes for a limited technical period before reuse.
+- **Without both settings** (`ASKRIGOR_SHARED_ANSWERS_DIRECTORY` and `ASKRIGOR_SHARED_ANSWERS_KEY_BASE64URL`), no answer
+  offers sharing and both actions answer `sharing_unavailable`. One setting without the other, a malformed key or an
+  unusable directory does the same, with one log line naming no value, so research goes on without the offer.
+- **The notice:** the free contributor notice (`free-contributor-v4-2026-10-25`) says AskRigor never saves raw chat,
+  prompts or private health narratives. A shared copy is de-identified, written for this purpose and kept only on the
+  person's confirmation, which tells them how it is kept. Whether the notice also names it is the owner's choice at
+  release.
+
 ## Optional lesson request and result contract
 
 AskRigor receives only these generalized structured request fields from the

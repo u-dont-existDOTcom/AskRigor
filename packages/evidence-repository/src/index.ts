@@ -148,6 +148,7 @@ export {
 } from "./contribution-identity.js";
 export {
   checkResearchContributionProposal,
+  contactPatternKind,
   contributionCheckFromFindings,
   CONTRIBUTION_EXAMPLES,
   CONTRIBUTION_PATTERN_DESCRIPTIONS,

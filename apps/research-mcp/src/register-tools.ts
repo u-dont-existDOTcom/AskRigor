@@ -180,6 +180,7 @@ import {
   researchUseAccount,
   manageResearchAccessInputSchemaFor,
   manageResearchAccessOutputSchema,
+  manageResearchAccessRuntimeOutputSchema,
   optionalSignInSecurityMetadata,
   isDevAccount,
   plainAnswerRequested,
@@ -194,6 +195,7 @@ import {
   submitServerSourceAnalysis,
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
+import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
 import {
   AnalysisStaging,
   buildStagedAnalysis,
@@ -203,6 +205,7 @@ import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
   researchContributionReviewOutputSchema,
+  researchContributionReviewRuntimeOutputSchema,
 } from "./research-contribution-review-tool.js";
 import {
   researchFrontierInputSchema,
@@ -806,6 +809,8 @@ export interface RegisterToolsOptions {
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
+  /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
+  sharedAnswers?: SharedAnswers | null;
   /** How long finalize_research waits for a findings save; replaced for tests. */
   findingsSaveDeadlineMilliseconds?: number;
   mcpSurface?: McpSurface;
@@ -927,6 +932,10 @@ function defineResearchOperations(
   registrar: Pick<McpServer, "registerTool">,
   options: RegisterToolsOptions,
 ): void {
+  // Owner answer 200a: shared questions and answers, on the MCP connector only (Gemini's catalog has neither the
+  // account tool nor the final check's offer), when the server keeps them.
+  const sharing = options.mcpSurface === "/mcp/gemini" ? undefined
+    : options.sharedAnswers !== undefined ? options.sharedAnswers ?? undefined : sharedAnswersFromEnv();
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -1886,6 +1895,9 @@ function defineResearchOperations(
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
       devAccountKeys: () => devAccountKeysFromEnv(),
+      // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
+      ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
+        options.runningVersions ?? await versionPayload().then(runningVersionsOf, () => ({})) } }),
       // Owner answer 140b: the plain answer is the MCP connector's (/mcp and /mcp/claude); Gemini's catalog does not
       // list this tool, and Custom GPT Actions do not reach it.
       ...(options.mcpSurface === "/mcp/gemini" ? {} : {
@@ -1941,6 +1953,7 @@ function defineResearchOperations(
         // The source checks use the provider settings the connector's own provider tools use.
         providers: () => ({ crossref: crossrefConfig(), pubmed: ncbiConfig() }),
       },
+      ...(sharing === undefined ? {} : { sharedAnswers: sharing.vault }),
     }),
   );
 
@@ -2468,6 +2481,8 @@ function defineResearchOperations(
           );
         }
       }
+      // Owner answer 200a: a research account's answer ends with the offer to share a de-identified copy of it.
+      if (sharing !== undefined && researcher !== undefined) result.share_offer = { ...SHARE_OFFER };
       const card = result.findings_card;
       const analyses = result.analyses_saved;
       const toolResult = successfulToolResult(
@@ -2498,6 +2513,10 @@ function defineResearchOperations(
           // AskRigor#359: one such answer opened with a confident verdict, so it also says at its start that it is
           // partial, and gives no ranking or verdict that a step still open could change.
           uncheckedAnswerInstructions(result) +
+          (result.share_offer === undefined ? "" :
+            "\nAfter the check line or the unchecked line, end the answer with this question, as written (in the " +
+              "answer's language when the answer is not in English): " +
+              `${result.share_offer.line}\n${result.share_offer.on_yes}`) +
           ((checkedInput?.corrections ?? []).some(({ by_user, report }) => by_user === true && report !== undefined)
             ? "\nWhen the user agrees to send the correction report, pass its preventing_rule and any missing_rule " +
               "exactly as shown to submit_lesson_candidate."
@@ -3489,6 +3508,8 @@ function collectResearchOperations(
       const publishedOutputSchema = config.outputSchema instanceof z.ZodObject
         ? config.outputSchema : z.object(config.outputSchema as z.ZodRawShape);
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
+        : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
+        : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;

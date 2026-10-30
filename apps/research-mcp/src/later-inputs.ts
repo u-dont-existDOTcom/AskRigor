@@ -5,6 +5,7 @@ import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./conn
 import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
+import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -28,6 +29,17 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
   },
   validate_study_method_audit: { audit: studyMethodAuditSubmissionSchema.optional() },
+  // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
+  manage_research_access: {
+    sharedAnswer: sharedAnswerInputSchema.optional()
+      .describe("With share_answer: the de-identified copy the person saw and confirmed."),
+    shareCode: shareCodeSchema.optional()
+      .describe("With delete_shared_answer: the code share_answer returned."),
+  },
+  review_research_contribution: {
+    sharedAnswerId: sharedAnswerIdSchema.optional()
+      .describe("With read_shared_answer or delete_shared_answer: the ID list_shared_answers gave."),
+  },
 } satisfies Record<string, z.ZodRawShape>);
 
 type LaterInputShape<Tool extends string> = Tool extends keyof typeof LATER_INPUT_SHAPES

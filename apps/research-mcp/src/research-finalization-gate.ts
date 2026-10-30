@@ -1518,6 +1518,10 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "Material limits to include in the answer in your own words, also shown beneath the checked answer in the panel."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
     "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
+  // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
+  share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
+    .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
+      "after check_line or unchecked_line; on_yes says how to share, only after the person confirms the copy."),
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })

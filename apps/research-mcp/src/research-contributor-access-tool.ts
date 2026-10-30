@@ -42,7 +42,15 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
+import { laterInputShape } from "./later-inputs.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
+import {
+  SHARED_ANSWER_KEPT,
+  SharedAnswersFullError,
+  sharedAnswerProblems,
+  type SharedAnswers,
+  type SharedAnswerVersions,
+} from "./shared-answers.js";
 import {
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   researchTargetDigest,
@@ -79,6 +87,9 @@ export const manageResearchAccessInputSchema = z.object({
     "set_plain_answer_note",
     "set_detailed_lesson_reports",
     "set_findings_save",
+    // Owner answer 200a: runtime-only actions, named by the final check's share_offer (owner answer 189a).
+    "share_answer",
+    "delete_shared_answer",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -125,6 +136,9 @@ const researchAccessErrorSchema = z.object({
     "plain_answer_not_requested",
     "dev_account_required",
     "receipts_unavailable",
+    "sharing_unavailable",
+    "share_refused",
+    "share_limit_reached",
     "invalid_request",
   ]),
   message: z.string(),
@@ -152,6 +166,20 @@ export const manageResearchAccessOutputSchema = z.object({
       "for it."),
   problems: z.array(z.string()).optional(),
   error: researchAccessErrorSchema.optional(),
+}).strict();
+
+/** The account tool's inputs as its handler reads them: the published ones and its later shape (owner answer 189a). */
+const manageResearchAccessRuntimeInputSchema = manageResearchAccessInputSchema.safeExtend(
+  laterInputShape("manage_research_access"));
+
+/** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
+export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.safeExtend({
+  sharedAnswer: z.object({
+    code: z.string(),
+    expiresAt: z.string(),
+    kept: z.string(),
+  }).strict().optional(),
+  sharedAnswerDeleted: z.boolean().optional(),
 }).strict();
 
 /**
@@ -264,6 +292,8 @@ export interface ResearchContributorToolOptions {
   toolListVersion?: string;
   /** The dev accounts permitted to change findings-card saving (owner answer 171). */
   devAccountKeys?: () => ReadonlySet<string>;
+  /** Shared questions and answers (owner answer 200a), with the versions they are given under; undefined when off. */
+  sharedAnswers?: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> };
 }
 
 export interface ResearchMapOptions {
@@ -461,7 +491,37 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       );
     }
     try {
-      const parsed = manageResearchAccessInputSchema.parse(input);
+      const parsed = manageResearchAccessRuntimeInputSchema.parse(input);
+      if ((parsed.action === "share_answer") !== (parsed.sharedAnswer !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.sharedAnswer goes only with action share_answer, which needs it.",
+        );
+      }
+      if ((parsed.action === "delete_shared_answer") !== (parsed.shareCode !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.shareCode goes only with action delete_shared_answer, which needs it.",
+        );
+      }
+      if (parsed.action === "share_answer" || parsed.action === "delete_shared_answer") {
+        const sharing = options.sharedAnswers;
+        if (sharing === undefined) {
+          return accessError("sharing_unavailable", "This AskRigor server does not keep shared answers, so nothing " +
+            "was sent or deleted.");
+        }
+        if (parsed.action === "delete_shared_answer") {
+          const deleted = sharing.vault.deleteByCode(parsed.shareCode!);
+          return {
+            content: [{ type: "text", text: deleted
+              ? "The shared answer for that code is deleted."
+              : "No shared answer is kept for that code: it was already deleted, its time ran out, or the code is " +
+                "not one AskRigor gave." }],
+            structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, sharedAnswerDeleted: deleted }),
+          };
+        }
+        return shareAnswer(options.service, sharing, auth.subject, parsed.sharedAnswer!);
+      }
       if (
         (parsed.action === "accept_free_contributor") !==
           (parsed.agreement !== undefined)
@@ -579,6 +639,57 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
     } catch (error) {
       return mappedAccessError(error);
     }
+  };
+}
+
+/**
+ * Keeps the person's confirmed, de-identified copy (owner answer 200a). Only an active research account may share; the
+ * account is read to check that and counted in memory against the daily limit, and nothing about it is kept with the
+ * copy. The copy passes the contact screen's exact patterns first.
+ */
+async function shareAnswer(
+  service: ResearchContributorAccessService,
+  sharing: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> },
+  subject: string,
+  copy: NonNullable<z.infer<typeof manageResearchAccessRuntimeInputSchema>["sharedAnswer"]>,
+): Promise<CallToolResult> {
+  await service.activeAccount(subject);
+  const problems = sharedAnswerProblems(copy);
+  if (problems.length > 0) {
+    return {
+      content: [{ type: "text", text: `Nothing was sent. ${problems.join(" ")}` }],
+      structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: false,
+        problems,
+        error: { code: "share_refused", message: "The copy holds what looks like contact details or a token." },
+      }),
+      isError: true,
+    };
+  }
+  if (!sharing.allow(service.accountKeyForSubject(subject))) {
+    return accessError("share_limit_reached", "This account has shared as many answers as AskRigor keeps from one " +
+      "account in a day, so nothing was sent; it can share again tomorrow (UTC).");
+  }
+  let kept: { code: string; expiresAt: string };
+  try {
+    kept = sharing.vault.share(copy, await sharing.versions());
+  } catch (error) {
+    if (error instanceof SharedAnswersFullError) {
+      return accessError("sharing_unavailable", "AskRigor is keeping as many shared answers as it can, so nothing " +
+        "was sent; try again later.");
+    }
+    throw error;
+  }
+  return {
+    content: [{
+      type: "text",
+      text: `Sent. Give the person this code, which deletes the shared answer: ${kept.code}. ${SHARED_ANSWER_KEPT} ` +
+        "AskRigor's server checked the copy only for contact details and tokens, not that it is de-identified.",
+    }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true,
+      sharedAnswer: { code: kept.code, expiresAt: kept.expiresAt, kept: SHARED_ANSWER_KEPT },
+    }),
   };
 }
 

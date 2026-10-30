@@ -32,13 +32,21 @@ import {
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
+import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
+import type { SharedAnswerVault } from "./shared-answers.js";
 
 const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
+// Owner answer 200a: the shared questions and answers, runtime-only actions (owner answer 189a).
+const SHARED_ANSWER_REVIEW_ACTIONS = ["list_shared_answers", "read_shared_answer", "delete_shared_answer"] as const;
+type SharedAnswerReviewAction = typeof SHARED_ANSWER_REVIEW_ACTIONS[number];
+function isSharedAnswerReviewAction(action: string): action is SharedAnswerReviewAction {
+  return (SHARED_ANSWER_REVIEW_ACTIONS as readonly string[]).includes(action);
+}
 
 export const researchContributionReviewInputSchema = z.object({
-  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
+  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS, ...SHARED_ANSWER_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
       "findings: list_youtube_findings, move_youtube_findings, delete_youtube_findings or delete_all_youtube_findings. " +
@@ -55,6 +63,19 @@ export const researchContributionReviewInputSchema = z.object({
       "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
+  if (isSharedAnswerReviewAction(value.action)) {
+    const given = (Object.keys(value) as Array<keyof typeof value>)
+      .filter((field) => field !== "action" && field !== ("sharedAnswerId" as keyof typeof value) && value[field] !== undefined);
+    for (const field of given) {
+      context.addIssue({ code: "custom", path: [field], message: `${value.action} does not take ${String(field)}` });
+    }
+    const id = (value as { sharedAnswerId?: unknown }).sharedAnswerId;
+    if ((value.action === "list_shared_answers") !== (id === undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "list_shared_answers"
+        ? "list_shared_answers takes no sharedAnswerId" : `${value.action} needs later_inputs.sharedAnswerId` });
+    }
+    return;
+  }
   if (isAtlasReviewAction(value.action)) {
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
@@ -199,6 +220,30 @@ export const researchContributionReviewOutputSchema = z.object({
 
 type ReviewErrorCode = z.infer<typeof reviewErrorSchema>["code"];
 
+const sharedAnswerSummarySchema = z.object({
+  id: z.string(),
+  sharedAt: z.string(),
+  expiresAt: z.string(),
+  build: z.string().optional(),
+  hrp: z.string().optional(),
+  universal: z.string().optional(),
+  characters: z.object({ question: z.number(), answer: z.number(), improve: z.number() }).strict(),
+}).strict();
+
+/** The review tool's results as the server checks them: the published fields and the shared answers' (200a). */
+export const researchContributionReviewRuntimeOutputSchema = researchContributionReviewOutputSchema.safeExtend({
+  sharedAnswers: z.object({
+    kept: z.array(sharedAnswerSummarySchema).optional(),
+    answer: sharedAnswerSummarySchema.extend({
+      question: z.string(), answer: z.string(), improve: z.string().optional(),
+    }).strict().optional(),
+    deleted: z.boolean().optional(),
+  }).strict().optional(),
+}).strict();
+
+const researchContributionReviewRuntimeInputSchema = researchContributionReviewInputSchema.safeExtend(
+  laterInputShape("review_research_contribution"));
+
 export interface ResearchContributionReviewToolOptions {
   service?: ResearchContributionReviewService;
   resourceMetadataUrl?: URL;
@@ -214,6 +259,8 @@ export interface ResearchContributionReviewToolOptions {
     /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
     providers: () => AtlasProviderConfig;
   };
+  /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
+  sharedAnswers?: SharedAnswerVault;
 }
 
 export function createResearchContributionReviewHandler(
@@ -225,11 +272,14 @@ export function createResearchContributionReviewHandler(
   ): Promise<CallToolResult> => {
     const authError = authorizeOwnerReview(extra, options);
     if (authError !== undefined) return authError;
-    const request = researchContributionReviewInputSchema.safeParse(input);
+    const request = researchContributionReviewRuntimeInputSchema.safeParse(input);
     if (!request.success) {
       return reviewError("invalid_request", `The owner-review request is invalid: ${issuesText(request.error)}`);
     }
     const parsed = request.data;
+    if (isSharedAnswerReviewAction(parsed.action)) {
+      return sharedAnswerReview(options.sharedAnswers, parsed.action, parsed.sharedAnswerId);
+    }
     if (isAtlasReviewAction(parsed.action)) {
       if (options.atlas?.enabled !== true) {
         return reviewError("atlas_review_closed", "The owner's findings review for the Atlas is not open yet " +
@@ -315,6 +365,41 @@ export function createResearchContributionReviewHandler(
       );
     }
   };
+}
+
+/** The owner's shared answers (owner answer 200a): listed without their text, read one by one, deleted by ID. */
+function sharedAnswerReview(
+  vault: SharedAnswerVault | undefined,
+  action: SharedAnswerReviewAction,
+  id: string | undefined,
+): CallToolResult {
+  if (vault === undefined) {
+    return reviewError("review_service_unavailable", "This AskRigor server keeps no shared answers.");
+  }
+  const result = (text: string, sharedAnswers: Record<string, unknown>): CallToolResult => ({
+    content: [{ type: "text", text }],
+    structuredContent: researchContributionReviewRuntimeOutputSchema.parse({
+      ok: true, sharedAnswers, canonicalEvidenceChangedByThisCall: false,
+    }),
+  });
+  if (action === "list_shared_answers") {
+    const kept = vault.list();
+    return result(kept.length === 0 ? "No shared answers are kept." : `${kept.length} shared answer(s) kept, newest ` +
+      "first, without their text; read_shared_answer shows one: " + kept.map((item) =>
+        `${item.id} (shared ${item.sharedAt}, expires ${item.expiresAt}${item.build === undefined ? "" : `, build ` +
+          item.build.slice(0, 12)}; ${item.characters.question} + ${item.characters.answer} characters` +
+          `${item.characters.improve > 0 ? ", with what to improve" : ""})`).join("; "), { kept });
+  }
+  if (action === "delete_shared_answer") {
+    const deleted = vault.deleteById(id!);
+    return result(deleted ? "The shared answer is deleted." : "No shared answer with that ID is kept.", { deleted });
+  }
+  const answer = vault.read(id!);
+  if (answer === undefined) return result("No shared answer with that ID is kept.", {});
+  return result(`Shared answer ${answer.id}, shared ${answer.sharedAt}, expires ${answer.expiresAt}. It is ` +
+    "participant-given and unverified, for regression cases and fixes only; never publish it.\n\nQuestion:\n" +
+    `${answer.question}\n\nAnswer:\n${answer.answer}` +
+    (answer.improve === undefined ? "" : `\n\nWhat to improve:\n${answer.improve}`), { answer });
 }
 
 /** What shares the proposal's identities and what promotion would meet, in a sentence or two (IDs only). */

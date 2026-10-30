@@ -30,6 +30,10 @@ The panel displays every limit beneath a passing checked answer, even when the d
 displays the advisory notes.
 
 The check line, unchecked line, checked-draft digest, second reading and stopped-check report still operate.
+When the server keeps shared answers and the caller has a research account, the result also carries a runtime-only
+`share_offer` (owner answer 200a): its `line`, the owner's sentence word for word, ends the delivered answer after the
+check line or the unchecked line, and its `on_yes` says how to share a de-identified copy, only after the person
+confirms it ([the data map](privacy-data-map.md#shared-questions-and-answers-owner-answer-200a-30-october-2026)).
 The [strict runner](askrigor-strict-runner.md) still compares the delivered answer to the exact checked draft;
 that integrity check is separate from wording a limit. A passing check does not certify that the AI acted
 on every note or completed the research method: the AI remains responsible for that work and its limits.
