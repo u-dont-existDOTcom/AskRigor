@@ -18,3 +18,7 @@ answers are already judged (`docs/audits/2026-10-28-owner-regressions-judgment.m
 29 to 30 Oct run's answers once they are judged. The reference judgments are the Claude session's, so a Claude checker
 may agree with them through shared habits; disagreements are reported case by case. Codex runs wait until no
 regression run is using the ChatGPT plan.
+
+Results: the frozen fourth draft on the 29 to 30 Oct run, through Claude and through Codex, scored against the
+judges in `docs/audits/2026-10-30-model-check-claude-vs-codex.md` (the scoring files and every turn's verdicts in
+`docs/audits/2026-10-30-model-check/`).
