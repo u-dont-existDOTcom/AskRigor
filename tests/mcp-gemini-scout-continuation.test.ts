@@ -213,10 +213,12 @@ describe("MCP Gemini scout continuation", () => {
 
   it("q132: research_target_not_deidentified explains the scout form and its difference from finalize_research", async () => {
     const client = await connect();
-    for (const [research_target, language] of [
-      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", "fr"],
-      ["Adultos con artrosis de cadera que quieren evitar una prótesis", "es"],
-      ["人工股関節置換術を避けたい変形性股関節症の成人", "ja"]
+    // Owner answer 201a (30 Oct) dropped the group-word check, which had refused these targets for want of an English
+    // group word, so each now has a part the screen still refuses.
+    for (const [research_target, language, part] of [
+      ["Adultes comme Marie Dupont souffrant d'arthrose de la hanche", "fr", "name_like_pair"],
+      ["Adultos con artrosis de cadera, e.g. una mujer de Lyon", "es", "example_marker"],
+      ["What can I do about my hip osteoarthritis to avoid a replacement?", "en", "first_person"]
     ] as const) {
       const refused = await client.callTool({
         name: "scout_gemini_youtube_candidates",
@@ -230,7 +232,7 @@ describe("MCP Gemini scout continuation", () => {
       expect(text).toContain("Unlike finalize_research's research_target, which identifies the question all discovery used, the scout accepts only this deidentified population-and-goal form");
       expect(text).toContain("adults with hip osteoarthritis trying to avoid a replacement");
       // The refusal names the part of the screen the target failed.
-      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.no_group_word}.`);
+      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]}.`);
     }
     expect(execute).not.toHaveBeenCalled();
 
@@ -477,7 +479,7 @@ describe("MCP Gemini scout continuation", () => {
     expect(named.isError).toBe(true);
     const text = (named.content as Array<{ text: string }>)[0]!.text;
     expect(text).toContain("research_target_not_deidentified");
-    for (const part of ["age", "name_like_pair", "named_subject", "no_group_word"] as const) {
+    for (const part of ["age", "name_like_pair", "named_subject"] as const) {
       expect(text).toContain(RESEARCH_TARGET_SCREEN_PARTS[part]);
     }
   });

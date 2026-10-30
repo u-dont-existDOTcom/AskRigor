@@ -265,7 +265,7 @@ describe("background Gemini scout budget settlement", () => {
     // Stopped before completion: its stored search is deleted, its cost unknown.
     const deleteBackgroundInteraction = vi.fn(async () => true);
     expect(await executeResumableAutomatedGeminiScout(
-      { ...TARGET, research_target: "treatments for hip osteoarthritis" },
+      { ...TARGET, research_target: "Jane Doe wants treatments for hip osteoarthritis" },
       resume,
       options(budget, scout, { deleteBackgroundInteraction })
     )).toEqual({

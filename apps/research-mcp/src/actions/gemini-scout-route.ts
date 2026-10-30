@@ -719,10 +719,11 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
 }
 
 /**
- * Stricter screen for a scout target, which goes to an external provider. It
- * fails closed: the target must describe a group of people ("adults with hip
- * osteoarthritis trying to avoid a replacement"). It is refused if it
- * contains any of:
+ * Stricter screen for a scout target, which goes to an external provider. The
+ * tool contract asks for a group of people and their goal ("adults with hip
+ * osteoarthritis trying to avoid a replacement"); owner answer 201a
+ * (2026-10-30) dropped the check for a group word, which judged that meaning
+ * with a fixed English word list. A target is refused if it contains any of:
  * - third-person singular pronouns;
  * - a single person's age;
  * - a title before a name;
@@ -731,8 +732,9 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  *   unless it names a group;
  * - an identity or example marker ("named", "like …", "such as", "e.g.").
  * A name no dictionary knows ("Xiomara Garcia") is still refused. No pattern
- * check can catch every name (a lowercase name with no marker passes), so the
- * tool contract still asks the calling model for a population-level target.
+ * check can catch every name (a lowercase name with no marker passes), and the
+ * markers read English only, which is why the tool contract asks the calling
+ * model for an English, population-level target.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
   return researchTargetScreenFailures(value).length === 0;
@@ -742,19 +744,15 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
  * The parts of the scout's target screen a research target fails, in the
  * screen's own words, so a refusal can say which part failed and the caller can
  * fix the target in one try. A target that fails the de-identification screen
- * reports that part alone; otherwise every person marker found is reported,
- * then a missing group word. Empty when the target passes.
+ * reports that part alone; otherwise every person marker found is reported.
+ * Empty when the target passes.
  */
 export function researchTargetScreenFailures(value: string): ResearchTargetScreenPart[] {
   const deidentification = deidentificationFailure(value);
   if (deidentification !== undefined) return [deidentification];
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
-  const text = value.replace(/\s+/gu, " ");
-  const failures = personMarkers(text);
-  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
-  if (!words.some((word) => POPULATION_WORDS.has(word))) failures.push("no_group_word");
-  return failures;
+  return personMarkers(value.replace(/\s+/gu, " "));
 }
 
 /** What each part of the screen refuses, as a refusal states it after "it has". */
@@ -770,12 +768,10 @@ export const RESEARCH_TARGET_SCREEN_PARTS = {
   pronoun: "he, she, him, his or her",
   title: "a title before a capitalized word (Dr, Mr, Mrs, Ms or Prof)",
   age: "one person's age",
-  example_marker: "an identity or example marker (named, called, aka, including, such as, e.g., i.e., or like before " +
-    "a word that is not a group word)",
+  example_marker: "an identity or example marker (named, called, aka, including, such as, e.g., i.e., or like, unless " +
+    "like comes before a word for a group of people, as in like runners)",
   name_like_pair: "two capitalized words in a row that are not a condition, test or method name, which could be a name",
-  named_subject: "a capitalized word before has, is, wants or a similar verb, which could be a name",
-  no_group_word: "no word the screen recognises as naming a group of people: it knows only a fixed list of English " +
-    "words, for example people, adults, patients, women, men or children"
+  named_subject: "a capitalized word before has, is, wants or a similar verb, which could be a name"
 } as const;
 
 export type ResearchTargetScreenPart = keyof typeof RESEARCH_TARGET_SCREEN_PARTS;
@@ -840,7 +836,7 @@ function personMarkers(text: string): ResearchTargetScreenPart[] {
   return [...found];
 }
 
-// Words that describe a group of people rather than one person.
+// Words that describe a group of people rather than one person; the person markers above let them pass.
 const POPULATION_WORDS: ReadonlySet<string> = new Set([
   "people", "persons", "adults", "patients", "women", "men", "children", "kids", "teens", "teenagers",
   "adolescents", "seniors", "elders", "elderly", "athletes", "runners", "users", "individuals", "those",

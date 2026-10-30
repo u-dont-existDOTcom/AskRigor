@@ -2178,8 +2178,12 @@ pending-proposal stores have their own strict contracts and authority boundaries
   population-level scout as the controlled Action route, applying the same
   screen: a target with first-person words, contact details, links, keys or
   record fields is refused before any provider call. Its target also passes a
-  stricter population-level screen that fails closed. The target must name a
-  group of people, and is refused if it has any of:
+  stricter screen for anything that could name one person. Since owner answer
+  201a (30 October 2026) that screen no longer requires a word naming a group
+  of people, which it judged with a fixed English word list (it refused 6 of
+  15 runs' scouts on 27 and 28 October, among them two forms of copper "in
+  humans"); the tool contract still asks for a group and its goal. The target
+  is refused if it has any of:
   - third-person singular pronouns;
   - a single person's age;
   - a title before a name;
@@ -2192,12 +2196,17 @@ pending-proposal stores have their own strict contracts and authority boundaries
   name; a lowercase name with no marker passes. So the tool contract also asks
   the calling model for a population-level target. The screen reads English,
   so the calling model writes the target in English whatever the person's
-  language, and gives the person's language apart in `language`: a BCP 47 tag
+  language; without the English word list, a target in another language passes
+  when nothing in it matches the English markers, so the screen protects such a
+  target only through those markers that read any language (contact details,
+  runs of digits like a phone number, links, keys and, in scripts with capital
+  letters, capitalized pairs). The person's language goes apart in
+  `language`: a BCP 47 tag
   (a language, then optionally a script and a region, such as `fr` or `pt-BR`,
   at most 12 characters) whose shape is checked exactly, so it is only a tag,
   never user text. The tag and its English language name go to Gemini with
   the English target, so the scout looks for videos in that language; the
-  screen itself is unchanged. Under the
+  tag does not change the screen. Under the
   owner's zero-spend policy it starts a new scout only when the deployment
   sets `ASKRIGOR_GEMINI_BILLING=none` for a key without billing. A later round may add up
   to eight rediscovery leads that audited comments mention. A lead is either

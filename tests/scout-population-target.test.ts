@@ -7,7 +7,7 @@ import {
 import { CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET } from "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 
 describe("population-level scout targets", () => {
-  it("accepts targets that describe a group of people and their goal", () => {
+  it("accepts targets that describe a group of people and their goal, or name no one", () => {
     for (const target of [
       "Adults trying to avoid a hip replacement: what they tried and what happened",
       "People over age 60 with knee arthritis who avoided surgery",
@@ -21,6 +21,11 @@ describe("population-level scout targets", () => {
       "People with Ehlers-Danlos Syndrome and joint pain",
       "Runners had knee pain after marathons: what helped them",
       "Adults like runners and cyclists with knee pain",
+      // Owner answer 201a (30 Oct): a target with no group word and nothing identifying passes, as the question's own
+      // examples and the 27 and 28 Oct runs' copper scout.
+      "Two forms of copper in humans",
+      "A runner with knee pain after a marathon",
+      "Hip osteoarthritis: avoiding a hip replacement",
       // The Custom GPT acceptance question runs the scout in every release check.
       CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(true);
@@ -44,23 +49,23 @@ describe("population-level scout targets", () => {
       "adults like xiomara garcia with a rare cancer",
       "adults with a rare cancer, e.g. xiomara garcia",
       "adults with a rare cancer such as xiomara garcia",
-      "a support group member named xiomara with a rare cancer",
-      // A condition with no group of people is refused; the error asks for one.
-      "Hip osteoarthritis: avoiding a hip replacement"
+      "a support group member named xiomara with a rare cancer"
     ]) expect(isPopulationLevelResearchTarget(target), target).toBe(false);
   });
 
   it("names every part of the screen a refused target failed, so one retry can fix it (29 Oct runs)", () => {
     for (const [target, failures] of [
-      // On 27 and 28 Oct the screen refused 6 of 15 runs' scouts, among them two forms of copper "in humans":
-      // the word list has no "humans". The refusal states that limit instead of the list growing.
-      ["Two forms of copper in humans", ["no_group_word"]],
-      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", ["no_group_word"]],
-      ["A 47-year-old woman with knee pain", ["age", "no_group_word"]],
-      ["She wants to avoid a hip replacement", ["pronoun", "named_subject", "no_group_word"]],
-      ["Jane Doe, age 47, in Boston has a rare cancer", ["age", "name_like_pair", "named_subject", "no_group_word"]],
+      // On 27 and 28 Oct the group-word check refused 6 of 15 runs' scouts, among them two forms of copper "in
+      // humans", since its English word list has no "humans"; owner answer 201a (30 Oct) dropped that check.
+      ["Two forms of copper in humans", []],
+      // The person markers read English only, so the tool asks for an English target: without the English word list,
+      // a target in another language passes when nothing in it matches them.
+      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", []],
+      ["A 47-year-old woman with knee pain", ["age"]],
+      ["She wants to avoid a hip replacement", ["pronoun", "named_subject"]],
+      ["Jane Doe, age 47, in Boston has a rare cancer", ["age", "name_like_pair", "named_subject"]],
       ["Adults like Xiomara Garcia with a rare cancer", ["example_marker", "name_like_pair"]],
-      ["Dr. Smith's patient with a torn meniscus", ["title", "no_group_word"]],
+      ["Dr. Smith's patient with a torn meniscus", ["title"]],
       // A target that fails the de-identification screen reports that part alone.
       ["My knee hurts and I want to avoid surgery", ["first_person"]],
       ["Adults with knee pain, see https://example.com", ["link"]],
@@ -70,11 +75,11 @@ describe("population-level scout targets", () => {
       expect(researchTargetScreenFailures(target), target).toEqual(failures);
       expect(isPopulationLevelResearchTarget(target), target).toBe(failures.length === 0);
     }
-    expect(researchTargetScreenRefusal(["age", "no_group_word"])).toBe(
+    expect(researchTargetScreenRefusal(["age", "title"])).toBe(
       `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.age}; and ` +
-        `${RESEARCH_TARGET_SCREEN_PARTS.no_group_word}.`
+        `${RESEARCH_TARGET_SCREEN_PARTS.title}.`
     );
-    expect(RESEARCH_TARGET_SCREEN_PARTS.no_group_word).toContain("it knows only a fixed list of English words");
+    expect(Object.keys(RESEARCH_TARGET_SCREEN_PARTS)).not.toContain("no_group_word");
     expect(researchTargetScreenRefusal([])).toBe("");
   });
 
