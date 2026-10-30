@@ -245,6 +245,12 @@ and error states. Health/research policy and substantive protocol changes requir
 owner judgment: through the ChatGPT reasoning surface for GPT workers, or as a
 question on the owner questions page from a Claude session.
 
+The production server is the SSH alias `mission-control-secondary`. It serves
+mcp.askrigor.com and askrigor.com, and other projects too. Treat every command
+on it as a production action. In `ssh -n mission-control-secondary ...`, `-n`
+only closes standard input; it is not a Kubernetes namespace (Claude Code's
+`/auto-mode-setup` read it as one on 30 Oct 2026).
+
 ## Code review rules
 
 - A required module or receipt cannot be treated as complete without its executable evidence; strong evidence from another layer does not silently deselect it.
