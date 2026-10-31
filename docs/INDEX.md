@@ -39,6 +39,10 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-10-30-model-check-claude-vs-codex.md`: the model check (owner answer 198a), frozen and measured on
+  the 29 to 30 Oct run's 104 judged turns through Claude Sonnet 5.5 and GPT 6.1 sol: claude finds at least part of 27
+  of 52 judged shortfalls and codex 7; codex's problems nearly all hold, a fifth of claude's are weak; neither
+  can stop an answer.
 - `audits/2026-10-01-bright-data-source-evaluation.md` and `.json`: measured
   Bright Data comparison against AskRigor's current video search, transcript
   and YouTube comment methods, plus Reddit, TikTok, Instagram, Facebook, X and
