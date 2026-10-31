@@ -1,5 +1,5 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
-import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, copiedLimitsNote } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -93,7 +93,8 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     expect(result.status).toBe("ready_with_limits");
     expect(result.finalization_receipt).toEqual(expect.any(String));
     expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      `Give outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb: the searches run within the review text for the outcome and their directions, or why that search could not run.`
+      `Give outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb: the searches run within the review text for the outcome and their directions, or why that search could not run.`,
+      copiedLimitsNote(3)
     ]);
     expect(advisoryNotes(result).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(result.limits).toContain(PREVIEW);
@@ -150,7 +151,8 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     const result = await complete(packageFor({ outcome_search: OUTCOME_SEARCH, outcome_search_boundary: "search_blocked" }));
     expect(result.status).toBe("ready_with_limits");
     expect(advisoryNotes(result)).toEqual([
-      `Give exactly one of outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb, so the declarations agree.`
+      `Give exactly one of outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb, so the declarations agree.`,
+      copiedLimitsNote(3)
     ]);
   });
 

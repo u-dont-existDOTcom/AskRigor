@@ -1,4 +1,4 @@
-import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { expectPassingLimits, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -158,7 +158,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
   describe("when it is required", () => {
     it("asks for it with an answer comparing treatment options, with the connector-refresh hint", async () => {
       const result = await call({ option_classes: undefined });
-      expect(result).toMatchObject({
+      expect({ ...result, notes: advisoryNotes(result) }).toMatchObject({
         next_step_kinds: [],
         notes: [
           "option_classes is missing: the answer compares treatment options, so option_classes lists each materially plausible class of treatment and whether it was searched by name: researched, with the exact search_query of a literature search passed here and the answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was out of reach (at least one entry).",
@@ -170,7 +170,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     });
 
     it("needs at least one class: an empty list is named, without the refresh hint", async () => {
-      expect(await call({ option_classes: [] })).toMatchObject({
+      const empty = await call({ option_classes: [] });
+      expect({ ...empty, notes: advisoryNotes(empty) }).toMatchObject({
         next_step_kinds: [],
         notes: [
           "option_classes lists no class: the answer compares treatment options, so option_classes lists each materially plausible class of treatment and whether it was searched by name: researched, with the exact search_query of a literature search passed here and the answer's sentence on what it found as answer_quote; not_researched; or inaccessible, when its research was out of reach (at least one entry)."
@@ -235,7 +236,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
 
     it("sends back a query no literature search passed here signed, as research still to do", async () => {
       const result = await call({ option_classes: [{ ...supplements, search_query: "inositol anxiety" }] });
-      expect(result).toMatchObject({
+      expect({ ...result, notes: advisoryNotes(result) }).toMatchObject({
         next_step_kinds: [],
         notes: [
           "option_classes[0].search_query is not the query of any literature search passed here: search supplements and botanicals by name with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, and pass its research_receipt, or declare it not_researched."
@@ -384,7 +385,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("gives each class one entry, compared as harm names are, with one caveat", async () => {
       const twice = await call({ option_classes: [supplements, notResearched, { option_class: "Brain  Stimulation.", state: "inaccessible" }],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${NOT_RESEARCHED}` });
-      expect(twice).toMatchObject({
+      expect({ ...twice, notes: advisoryNotes(twice) }).toMatchObject({
         caveats: [
           "A class of treatment this answer did not research: brain stimulation."
         ],

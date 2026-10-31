@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
+import { coreSectionNames, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
-import { undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
+import { undoCommunitySearchAndVideoCommentMapHrp, undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
 
 // Owner answer 205a (2026-10-30): the answer states only the limits that change what the person should believe or
 // do, and the panel beneath a passing check lists them all. In the run on #384 the check gave 10 limits for a
@@ -26,9 +26,12 @@ function rule(text: string, name: string): string {
   return normalize(matches[0]![1]!);
 }
 
+// HRP 20.6.35's community-search and video-comment-map revision is the layer above this one.
+const layer = async () => undoCommunitySearchAndVideoCommentMapHrp(await loadProtocol("hrp"));
+
 describe("owner answer 205a: HRP 20.6.34", () => {
   it("has LimitsNote state the returned limits that change what the person should believe or do", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoOwnerAnswer205Hrp(text);
     expect(rule(prior, "LimitsNote")).toContain(OLD_LIMITS_NOTE_SENTENCE);
     expect(rule(text, "LimitsNote")).toBe(rule(prior, "LimitsNote").replace(OLD_LIMITS_NOTE_SENTENCE, LIMITS_NOTE_SENTENCE));
@@ -36,7 +39,7 @@ describe("owner answer 205a: HRP 20.6.34", () => {
   });
 
   it("has FinalizeResearch state on ready_with_limits only the limits that matter", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoOwnerAnswer205Hrp(text);
     expect(rule(prior, "FinalizeResearch")).toContain("on ready_with_limits, state each limit;");
     expect(rule(text, "FinalizeResearch"))
@@ -44,14 +47,20 @@ describe("owner answer 205a: HRP 20.6.34", () => {
   });
 
   it("matches what the final check's result tells the AI", () => {
-    expect(PASSING_LIMITS_GUIDANCE).toContain("The panel lists every limit below beneath the checked answer.");
+    // The same panel statement now continues with a comma and explains why the answer need not repeat its limits.
+    expect(`${PASSING_LIMITS_GUIDANCE.split(", so ")[0]}.`)
+      .toBe("The panel lists every limit below beneath the checked answer.");
     expect(PASSING_LIMITS_GUIDANCE).toContain("only those that change what this person should believe or do;");
+    expect(PASSING_LIMITS_GUIDANCE).toBe("The panel lists every limit below beneath the checked answer, so the answer " +
+      "need not repeat them. The answer states, in its own words, only those that change what this person should " +
+      "believe or do; if the checked draft leaves out one that does, add it and call finalize_research again with " +
+      "the changed draft. The panel's limits, for reference only and not to copy:");
     expect(FINAL_CHECK_RUNTIME_DESCRIPTION).toContain("only the limits that change what the person should believe or " +
       "do; an answer whose check has not passed states every material limit.");
   });
 
   it("leaves the core, which every research answer loads on one page, byte for byte as it was", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoOwnerAnswer205Hrp(text);
     const core = new Set(coreSectionNames("hrp"));
     const coreText = (value: string) => protocolSections("hrp", value).filter(({ name }) => core.has(name))
@@ -63,11 +72,9 @@ describe("owner answer 205a: HRP 20.6.34", () => {
   });
 
   it("binds the exact bytes, puts the revision first and reverses the layer to HRP 20.6.33", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-30", sha256: PINS.to.sha256,
-    });
+    expect(text).toContain(`version="${PINS.to.version}" revisionDate="2026-10-30"`);
     expect(hash(text)).toBe(PINS.to.sha256);
     const revisions = [...text.matchAll(/<Revision version="([^"]+)"/gu)].map((match) => match[1]);
     expect(revisions.slice(0, 2)).toEqual(["20.6.34", "20.6.33"]);

@@ -1,4 +1,4 @@
-import { advisoryNotes, allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, allowedNextStepIdentifiers, assertNextStepsContract, copiedLimitsNote, inventory, schemaIdentifiers, unknownNextStepIdentifiers } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -395,7 +395,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       ]
     }));
     expect(result.status).toBe("ready_with_limits");
-    expect(advisoryNotes(result)).toEqual([]);
+    expect(advisoryNotes(result)).toEqual([copiedLimitsNote(3)]);
     expect(result.caveats.join(" ")).toContain("could not search");
   });
   it("preserves emergency_before_triage and the no-key-study mechanism exception", async () => {

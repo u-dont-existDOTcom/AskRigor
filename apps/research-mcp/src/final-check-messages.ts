@@ -12,6 +12,8 @@ export const FINAL_CHECK_RUNTIME_DESCRIPTION = "Final check of a research answer
   "The round limit and stuck-step report apply only to the five blocking checks. A usable answer_draft and " +
   "research_target are needed for the check to run.";
 // Owner answer 205a (30 October 2026): beside the limits of a passing check, which the panel lists in full.
-export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer. The answer " +
+export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneath the checked answer, so the answer " +
+  "need not repeat them. The answer " +
   "states, in its own words, only those that change what this person should believe or do; if the checked draft " +
-  "leaves out one that does, add it and call finalize_research again with the changed draft.";
+  "leaves out one that does, add it and call finalize_research again with the changed draft. The panel's limits, " +
+  "for reference only and not to copy:";

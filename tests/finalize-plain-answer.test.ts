@@ -99,10 +99,10 @@ describe("finalize_research compares the answer with the plain answer registered
     // behind them in the server's words.
     const both = check({ plain_answer_comparison: [
       { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI, `https://doi.org/${DOI.toUpperCase()}`] },
-      { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: CORRECTED }
+      { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: CORRECTED, sources: [DOI] }
     ] });
     expect(both.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
-      "prevent colds in most adults.” This research confirmed that: “In three large trials, vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
+      "prevent colds in most adults.” This research confirmed that, from a full-text audit of 1 study: “In three large trials, vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
       "1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “The trials gave " +
       "1,000 to 4,000 IU a day, and only people low in vitamin D might benefit.”");
     // A claim copied with other quotation marks, spacing or case is the same claim.
@@ -137,17 +137,10 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(result.next_step_kinds).toEqual([]);
   });
 
-  it("does not reprint a quick-answer claim containing a figure absent from the checked draft", () => {
-    const claim = "Responders were 90.3% versus 24.2%, a difference of 66.1 points and a ratio of 3.73.";
-    const changed = "The research did not establish responder rates for this comparison.";
-    const fixedFor = {
-      confirmed: "Without AskRigor, a quick answer would have given figures that the answer above does not repeat.",
-      corrected: "Without AskRigor, a quick answer would have given figures this research does not support.",
-      qualified: "Without AskRigor, a quick answer would have given figures this research does not support.",
-      not_checked: "Without AskRigor, a quick answer would have given figures this research did not check."
-    } as const;
-    for (const outcome of ["confirmed", "corrected", "qualified", "not_checked"] as const) {
-      const fixed = fixedFor[outcome];
+  it.each(["confirmed", "corrected", "qualified", "not_checked"] as const)(
+    "q136-responders: quotes the registered figures even when absent from the draft (%s)", (outcome) => {
+      const claim = "Responders were 90.3% versus 24.2%, a difference of 66.1 points and a ratio of 3.73.";
+      const changed = "The research did not establish responder rates for this comparison.";
       const result = check({
         receipts: [plainReceipt(1_000, [claim]), audit()],
         answer_draft: `${LINK}\n\n${changed}`,
@@ -156,16 +149,17 @@ describe("finalize_research compares the answer with the plain answer registered
         }) }]
       });
       expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
-      expect(result.plain_answer_note).toContain(fixed);
-      for (const figure of ["90.3", "24.2", "66.1", "3.73"]) expect(result.plain_answer_note).not.toContain(figure);
-      expect(result.plain_answer_note).not.toContain(claim);
+      const said = `Without AskRigor, a quick answer would have said: “${claim}”`;
+      expect(result.plain_answer_note).toContain(said);
+      for (const figure of ["90.3", "24.2", "66.1", "3.73"]) expect(result.plain_answer_note).toContain(figure);
       if (outcome !== "not_checked") {
-        expect(result.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study: “${changed}”`);
-      } else expect(result.plain_answer_note).toBe(fixed);
-    }
-  });
+        // A confirmed or qualified claim says the research did not confirm its figures; a correction replaces them.
+        const unchecked = outcome === "corrected" ? "" : ", but not its figures";
+        expect(result.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study${unchecked}: “${changed}”`);
+      } else expect(result.plain_answer_note).toBe(`${said} This research did not check that.`);
+    });
 
-  it("compares quick-answer figures exactly using the shared Unicode number comparison", () => {
+  it("q136-symptom-scale: preserves the registered claim's notation regardless of the draft's figures", () => {
     const claim = "The measured result was １２,５%.";
     const noteFor = (answer: string) => check({
       receipts: [plainReceipt(1_000, [claim]), audit()], answer_draft: `${LINK}\n\n${answer}`,
@@ -176,16 +170,33 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(matching.plain_answer_note).toContain(`“${claim}”`);
     const different = noteFor("The measured result was 112.5%, with uncertainty.");
     expect(different.status).toBe("ready_with_limits");
-    expect(different.plain_answer_note).not.toContain(claim);
+    expect(different.plain_answer_note).toContain(claim);
     // A number hidden in a link destination is not a figure the checked answer gives its reader.
-    expect(noteFor("The [result](https://example.com/12.5) has uncertainty.").plain_answer_note).not.toContain(claim);
+    expect(noteFor("The [result](https://example.com/12.5) has uncertainty.").plain_answer_note).toContain(claim);
     const codeClaim = "The measured result was `90.3%`.";
     const codeResult = check({
       receipts: [plainReceipt(1_000, [codeClaim]), audit()],
       plain_answer_comparison: [{ claim: codeClaim, outcome: "not_checked" }]
     });
     expect(codeResult.status).toBe("ready_with_limits");
-    expect(codeResult.plain_answer_note).not.toContain("90.3");
+    expect(codeResult.plain_answer_note).toContain(codeClaim);
+  });
+
+  it.each(["confirmed", "qualified"] as const)("r329/r331/q79: %s needs the same backing to show the note", (outcome) => {
+    const comparison: Comparison = [
+      { claim: CLAIMS[0]!, outcome, answer_quote: CORRECTED }, COMPARISON[1]!
+    ];
+    const missing = check({ plain_answer_comparison: comparison });
+    expect(missing.status).toBe("ready_with_limits");
+    expect(missing.next_steps).toEqual([]);
+    expect(missing.plain_answer_note).toBeUndefined();
+    expect(advisoryNotes(missing)).toContain(`plain_answer_comparison[0] is ${outcome} with nothing behind it that a ` +
+      "quick answer could not have: give in sources a study audited in full text here or a video whose comments " +
+      "were read here, or quote as answer_quote a sentence that absence_claims also declares.");
+    const backed = check({ plain_answer_comparison: [{ ...comparison[0]!, sources: [DOI] }, COMPARISON[1]!] });
+    expect(backed.next_steps).toEqual([]);
+    expect(advisoryNotes(backed)).not.toContain(expect.stringContaining("with nothing behind it"));
+    expect(backed.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study:`);
   });
 
   it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
@@ -255,8 +266,9 @@ describe("finalize_research compares the answer with the plain answer registered
       status: "ready_with_limits",
       next_steps: []
     });
+    // The claim's 1,000 IU is not in this draft, so the note says the research did not confirm its figures.
     expect(result.plain_answer_note).toContain("This research qualified that, from a check of what the evidence does " +
-      `not show: “${absent}”`);
+      `not show, but not its figures: “${absent}”`);
     const fixed = "Earlier I gave the dose in milligrams; it is 1,000 IU, about 25 micrograms.";
     const corrected = check({
       answer_draft: `${LINK}\n\n${CORRECTED} ${fixed}`,
@@ -313,7 +325,9 @@ describe("finalize_research compares the answer with the plain answer registered
     }, { secret: SECRET });
     const cases: Array<[string[], string, string]> = [
       [[audit()], "no_receipt", "No plain answer registered with manage_research_access before this research was " +
-        `passed in receipts, so the answer ends without the note comparing it with one.${later}`],
+        "passed in receipts, so the answer ends without the note comparing it with one. If its receipt was omitted or " +
+        "failed to verify, copy the original research_receipt from manage_research_access exactly into receipts to " +
+        `restore the note when the receipt verifies and the comparison is backed.${later}`],
       [[audit(), plainReceipt(2_500)], "after_research", afterResearch],
       [[plainReceipt(1_000, CLAIMS, "Another question"), audit()], "other_target", "The plain answer passed was " +
         `registered for another research target, so the answer ends without the note comparing it with this research.${later}`],
@@ -547,6 +561,31 @@ describe("manage_research_access and finalize_research through the connector (ow
     vi.stubEnv("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", "");
     expect((await manage(register(), "auth0|paid")).structuredContent)
       .toMatchObject({ ok: false, error: { code: "receipts_unavailable" } });
+  });
+
+  it("q137: explains a miscopied plain-answer receipt and restores the note when copied exactly", async () => {
+    const { service } = await accounts();
+    const manage = tool("manage_research_access", { researchContributorAccessService: service });
+    const finalize = tool("finalize_research", { researchContributorAccessService: service, findingsLibrary: false });
+    const subject = "auth0|paid";
+    const registered = await manage(register(), subject);
+    const { research_receipt } = registered.structuredContent as { research_receipt: string };
+    const copied = research_receipt.replace(/text=[^,~]+/u, "text=shortened");
+    expect(copied).not.toBe(research_receipt);
+    const failed = await finalize(request([copied, laterAudit()]), subject);
+    expect(failed.structuredContent).toMatchObject({
+      status: "ready_with_limits", next_steps: [],
+      receipts_rejected: [{ index: 0, reason: "signature_invalid" }],
+      plain_answer: { status: "no_receipt", reason: expect.stringContaining("did not verify") }
+    });
+    expect(failed.structuredContent).not.toHaveProperty("plain_answer_note");
+    expect(text(failed)).toContain("Copy the original research_receipt from manage_research_access exactly into receipts to restore the note");
+    expect(text(failed)).not.toContain(copied);
+    const omitted = await finalize(request([laterAudit()]), subject);
+    expect(text(omitted)).toContain("If its receipt was omitted or failed to verify");
+    expect(text(omitted)).toContain("exactly into receipts to restore the note");
+    const restored = await finalize(request([research_receipt, laterAudit()]), subject);
+    expect(restored.structuredContent).toMatchObject({ status: "ready_with_limits", plain_answer_note: NOTE });
   });
 
   it.each(["auth0|paid", "auth0|free"])("turns the note off and back on for %s, and the final check follows the setting", async (subject) => {

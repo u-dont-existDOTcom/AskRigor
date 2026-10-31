@@ -20,6 +20,10 @@ const MAX_REQUEST_MS = 10_000;
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 100;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
 const COMMENT_ID_FILTER_BATCH_SIZE = 50;
+// YouTube lists a video's pinned comment first and again where it falls by
+// date. A first-page thread older than the one after it is kept, so its second
+// listing is skipped instead of read twice.
+const MAX_PINNED_TOP_LEVEL_THREADS = 5;
 const PAGINATION_OVERLAP_LIMITATION =
   "YouTube pagination overlap repeated one or more stable identifiers at an adjacent page boundary; repeats were reconciled, so the retained corpus is bounded evidence rather than a stable complete snapshot.";
 
@@ -77,6 +81,7 @@ export interface YoutubeCommentSegmentCursor {
   top_level_page_token?: string;
   page_fingerprint?: string;
   previous_top_level_page_sha256?: string[];
+  pinned_top_level_sha256?: string[];
   thread_offset: number;
   top_level_emitted: boolean;
   reply_page_token?: string;
@@ -103,6 +108,7 @@ export interface YoutubeCommentSegmentResult {
   comment_thread_pages: number;
   reply_pages: number;
   pagination_overlaps_reconciled?: number;
+  pinned_repeats_skipped?: number;
   reply_count_mismatches: YoutubeReplyCountMismatch[];
   exhausted: boolean;
   next_cursor?: YoutubeCommentSegmentCursor;
@@ -176,6 +182,7 @@ export async function getYoutubeCommentSegment(
   let commentThreadPages = 0;
   let replyPages = 0;
   let paginationOverlapsReconciled = 0;
+  let pinnedRepeatsSkipped = 0;
   let cursor: YoutubeCommentSegmentCursor = input.cursor ?? {
     thread_offset: 0,
     top_level_emitted: false
@@ -198,6 +205,10 @@ export async function getYoutubeCommentSegment(
         MAX_TOP_LEVEL_PAGE_IDENTIFIERS
       );
       const previousTopLevelPageHashes = new Set(cursor.previous_top_level_page_sha256 ?? []);
+      const pinnedTopLevelHashes = new Set(cursor.pinned_top_level_sha256 ?? []);
+      const firstPagePinned = cursor.top_level_page_token === undefined
+        ? pinnedTopLevelThreads(page.items, topLevelPageHashes)
+        : undefined;
       if (cursor.page_fingerprint !== undefined && cursor.page_fingerprint !== fingerprint) {
         return partialResult({
           videoId,
@@ -207,6 +218,7 @@ export async function getYoutubeCommentSegment(
           commentThreadPages,
           replyPages,
           paginationOverlapsReconciled,
+          pinnedRepeatsSkipped,
           mismatches,
           cursor,
           limitation: "YouTube comment-thread page changed before continuation could resume.",
@@ -227,6 +239,7 @@ export async function getYoutubeCommentSegment(
           comment_thread_pages: commentThreadPages,
           reply_pages: replyPages,
           pagination_overlaps_reconciled: paginationOverlapsReconciled,
+          pinned_repeats_skipped: pinnedRepeatsSkipped,
           reply_count_mismatches: mismatches,
           exhausted: true,
           access_status: "api_visible_complete",
@@ -257,6 +270,27 @@ export async function getYoutubeCommentSegment(
           throw new SegmentFatalError("youtube_comment_segment_cursor_invalid");
         }
 
+        if (
+          !cursor.top_level_emitted &&
+          cursor.top_level_page_token !== undefined &&
+          pinnedTopLevelHashes.has(topLevelHash)
+        ) {
+          pinnedRepeatsSkipped += 1;
+          const nextThreadOffset = cursor.thread_offset + 1;
+          if (nextThreadOffset < page.items.length) {
+            cursor = {
+              top_level_page_token: cursor.top_level_page_token,
+              page_fingerprint: fingerprint,
+              previous_top_level_page_sha256: cursor.previous_top_level_page_sha256,
+              ...pinnedField(cursor.pinned_top_level_sha256),
+              thread_offset: nextThreadOffset,
+              top_level_emitted: false
+            };
+            continue;
+          }
+          break;
+        }
+
         if (!cursor.top_level_emitted && previousTopLevelPageHashes.has(topLevelHash)) {
           paginationOverlapsReconciled += 1;
           const nextThreadOffset = cursor.thread_offset + 1;
@@ -265,6 +299,7 @@ export async function getYoutubeCommentSegment(
               top_level_page_token: cursor.top_level_page_token,
               page_fingerprint: fingerprint,
               previous_top_level_page_sha256: cursor.previous_top_level_page_sha256,
+              ...pinnedField(cursor.pinned_top_level_sha256),
               thread_offset: nextThreadOffset,
               top_level_emitted: false
             };
@@ -352,6 +387,7 @@ export async function getYoutubeCommentSegment(
             top_level_page_token: cursor.top_level_page_token,
             page_fingerprint: fingerprint,
             previous_top_level_page_sha256: cursor.previous_top_level_page_sha256,
+            ...pinnedField(cursor.pinned_top_level_sha256),
             thread_offset: nextThreadOffset,
             top_level_emitted: false
           };
@@ -368,6 +404,7 @@ export async function getYoutubeCommentSegment(
           comment_thread_pages: commentThreadPages,
           reply_pages: replyPages,
           pagination_overlaps_reconciled: paginationOverlapsReconciled,
+          pinned_repeats_skipped: pinnedRepeatsSkipped,
           reply_count_mismatches: mismatches,
           exhausted: mismatches.length === 0,
           access_status: mismatches.length === 0 && paginationOverlapsReconciled === 0
@@ -379,6 +416,7 @@ export async function getYoutubeCommentSegment(
       cursor = {
         top_level_page_token: page.nextPageToken,
         previous_top_level_page_sha256: topLevelPageHashes,
+        ...pinnedField(firstPagePinned ?? cursor.pinned_top_level_sha256),
         thread_offset: 0,
         top_level_emitted: false
       };
@@ -395,6 +433,7 @@ export async function getYoutubeCommentSegment(
         commentThreadPages,
         replyPages,
         paginationOverlapsReconciled,
+        pinnedRepeatsSkipped,
         mismatches,
         cursor,
         limitation: error instanceof SegmentBudgetReached
@@ -414,6 +453,7 @@ export async function getYoutubeCommentSegment(
             commentThreadPages,
             replyPages,
             paginationOverlapsReconciled,
+            pinnedRepeatsSkipped,
             mismatches,
             cursor,
             limitation: failure.limitations[0] ?? "YouTube retrieval stopped at a provider boundary."
@@ -434,6 +474,7 @@ export async function getYoutubeCommentSegment(
           commentThreadPages,
           replyPages,
           paginationOverlapsReconciled,
+          pinnedRepeatsSkipped,
           mismatches,
           cursor,
           limitation: "YouTube comment segment could not be completed.",
@@ -446,6 +487,23 @@ export async function getYoutubeCommentSegment(
   }
 }
 
+function pinnedTopLevelThreads(
+  items: readonly z.infer<typeof commentThreadSchema>[],
+  hashes: readonly string[]
+): string[] | undefined {
+  const pinned: string[] = [];
+  for (let index = 0; index + 1 < items.length && pinned.length < MAX_PINNED_TOP_LEVEL_THREADS; index += 1) {
+    const published = Date.parse(items[index]!.snippet.topLevelComment.snippet.publishedAt);
+    const next = Date.parse(items[index + 1]!.snippet.topLevelComment.snippet.publishedAt);
+    if (published < next) pinned.push(hashes[index]!);
+  }
+  return pinned.length === 0 ? undefined : pinned;
+}
+
+function pinnedField(hashes: string[] | undefined): { pinned_top_level_sha256?: string[] } {
+  return hashes === undefined ? {} : { pinned_top_level_sha256: hashes };
+}
+
 function partialResult(input: {
   videoId: string;
   comments: YoutubeComment[];
@@ -454,6 +512,7 @@ function partialResult(input: {
   commentThreadPages: number;
   replyPages: number;
   paginationOverlapsReconciled?: number;
+  pinnedRepeatsSkipped?: number;
   mismatches: YoutubeReplyCountMismatch[];
   cursor: YoutubeCommentSegmentCursor;
   limitation: string;
@@ -467,6 +526,7 @@ function partialResult(input: {
     comment_thread_pages: input.commentThreadPages,
     reply_pages: input.replyPages,
     pagination_overlaps_reconciled: input.paginationOverlapsReconciled ?? 0,
+    pinned_repeats_skipped: input.pinnedRepeatsSkipped ?? 0,
     reply_count_mismatches: input.mismatches,
     exhausted: false,
     next_cursor: input.cursor,

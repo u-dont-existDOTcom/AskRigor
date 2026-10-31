@@ -747,12 +747,16 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
  * reports that part alone; otherwise every person marker found is reported.
  * Empty when the target passes.
  */
-export function researchTargetScreenFailures(value: string): ResearchTargetScreenPart[] {
-  const deidentification = deidentificationFailure(value);
+export function researchTargetScreenFailures(value: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart[] {
+  const deidentification = deidentificationFailure(value, caught);
   if (deidentification !== undefined) return [deidentification];
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
-  return personMarkers(value.replace(/\s+/gu, " "));
+  return personMarkers(value.replace(/\s+/gu, " "), caught === undefined ? undefined : (part, fragment) => {
+    // Recover the exact original whitespace too; this locates a known match, without another screening decision.
+    const pattern = fragment.split(" ").map(escapePattern).join("\\s+");
+    caught(part, new RegExp(pattern, "u").exec(value)![0]);
+  });
 }
 
 /** What each part of the screen refuses, as a refusal states it after "it has". */
@@ -775,12 +779,23 @@ export const RESEARCH_TARGET_SCREEN_PARTS = {
 } as const;
 
 export type ResearchTargetScreenPart = keyof typeof RESEARCH_TARGET_SCREEN_PARTS;
+type TargetMatchRecorder = (part: ResearchTargetScreenPart, fragment: string) => void;
+const escapePattern = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
-/** The refusal's sentence naming the parts of the screen a target failed; empty when it failed none. */
-export function researchTargetScreenRefusal(failures: readonly ResearchTargetScreenPart[]): string {
+/** The refusal names the existing screen's parts and quotes their exact matches; it never changes acceptance. */
+export function researchTargetScreenRefusal(value: string): string {
+  const matches = new Map<ResearchTargetScreenPart, Set<string>>();
+  const failures = researchTargetScreenFailures(value, (part, fragment) => {
+    const words = matches.get(part) ?? new Set<string>();
+    words.add(fragment);
+    matches.set(part, words);
+  });
   if (failures.length === 0) return "";
+  // A secret or contact detail is named, never echoed back.
   return `This research_target was refused because it has ${
-    failures.map((part) => RESEARCH_TARGET_SCREEN_PARTS[part]).join("; and ")}.`;
+    failures.map((part) => `${RESEARCH_TARGET_SCREEN_PARTS[part]} (${part === "secret" || part === "contact_details"
+      ? "not quoted" : `matched ${[...matches.get(part)!].map((fragment) => JSON.stringify(fragment)).join(", ")}`})`)
+      .join("; and ")}.`;
 }
 
 /**
@@ -807,31 +822,35 @@ function mayDescribeAPerson(text: string): boolean {
 }
 
 /** Every kind of person marker in text, in the screen's order; text has single spaces. */
-function personMarkers(text: string): ResearchTargetScreenPart[] {
+function personMarkers(text: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart[] {
   const found = new Set<ResearchTargetScreenPart>();
-  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) found.add("pronoun");
-  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) found.add("title");
-  if (
-    /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
-      .test(text)
-  ) found.add("age");
-  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) found.add("age");
-  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) found.add("age");
+  const add = (part: ResearchTargetScreenPart, fragment: string): void => {
+    found.add(part);
+    caught?.(part, fragment);
+  };
+  const match = (part: ResearchTargetScreenPart, pattern: RegExp): void => {
+    for (const hit of text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))) add(part, hit[0]);
+  };
+  match("pronoun", /\b(?:he|she|him|his|her|hers|himself|herself)\b/iu);
+  match("title", /\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u);
+  match("age", /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu);
+  match("age", /\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu);
+  match("age", /\b\d{1,3} ?(?:y\/o|yo)\b/iu);
   // Identity and example markers work in any capitalization: a target names a
   // group, not an example person ("adults like xiomara garcia") or a list.
-  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) found.add("example_marker");
-  for (const [, next] of text.matchAll(/\blike (\p{L}+)/giu)) {
-    if (!POPULATION_WORDS.has(next!.toLowerCase())) found.add("example_marker");
+  match("example_marker", /\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu);
+  for (const hit of text.matchAll(/\blike (\p{L}+)/giu)) {
+    if (!POPULATION_WORDS.has(hit[1]!.toLowerCase())) add("example_marker", hit[0]);
   }
   for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
     const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
     const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);
     const styling = TITLE_CASE_FUNCTION_WORDS.has(head) || TITLE_CASE_FUNCTION_WORDS.has(tail) ||
       POPULATION_WORDS.has(head);
-    if (!eponym && !styling) found.add("name_like_pair");
+    if (!eponym && !styling) add("name_like_pair", `${first} ${second}`);
   }
-  for (const [, subject] of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
-    if (!POPULATION_WORDS.has(subject!.toLowerCase())) found.add("named_subject");
+  for (const hit of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
+    if (!POPULATION_WORDS.has(hit[1]!.toLowerCase())) add("named_subject", hit[0]);
   }
   return [...found];
 }
@@ -869,34 +888,46 @@ export function isDeidentifiedResearchTarget(value: string): boolean {
 }
 
 /** The first part of the de-identification screen value fails, or undefined when it passes. */
-function deidentificationFailure(value: string): ResearchTargetScreenPart | undefined {
-  if (/[\u0000-\u001F\u007F]/u.test(value)) return "hidden_characters";
-  if (/[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(value)) {
+function deidentificationFailure(value: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart | undefined {
+  const match = (part: ResearchTargetScreenPart, pattern: RegExp): boolean => {
+    const hits = [...value.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))];
+    for (const hit of hits) caught?.(part, hit[0]);
+    return hits.length > 0;
+  };
+  if (match("hidden_characters", /[\u0000-\u001F\u007F]/u)) return "hidden_characters";
+  if (match("hidden_characters", /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u)) {
     return "hidden_characters";
   }
-  if (/\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu.test(value)) return "first_person";
-  if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)) return "contact_details";
-  if (/(?:\+?\d[\d .()-]{6,}\d)/u.test(value)) return "contact_details";
-  if (/\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u.test(value)) {
+  if (match("first_person", /\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu)) return "first_person";
+  if (match("contact_details", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu)) return "contact_details";
+  if (match("contact_details", /(?:\+?\d[\d .()-]{6,}\d)/u)) return "contact_details";
+  if (match("secret", /\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u)) {
     return "secret";
   }
-  if (/https?:\/\//iu.test(value)) return "link";
+  if (match("link", /https?:\/\//iu)) return "link";
   const lowerValue = value.toLocaleLowerCase("en-US");
   const compactValue = lowerValue.replace(/\s/gu, "");
-  const hasChatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
-    .some((tag) => compactValue.includes(tag));
+  const chatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
+    .find((tag) => compactValue.includes(tag));
   const hasChatRoleLine = lowerValue.split("\n").some((line) => {
     const trimmed = line.trimStart();
     return ["user:", "assistant:", "system:", "tool:"]
       .some((prefix) => trimmed.startsWith(prefix));
   });
-  if (hasChatTag || hasChatRoleLine) {
+  if (chatTag !== undefined || hasChatRoleLine) {
+    if (chatTag !== undefined) {
+      caught?.("chat_roles", new RegExp([...chatTag].map(escapePattern).join("\\s*"), "iu").exec(value)![0]);
+    } else {
+      const line = value.split("\n").map((text) => text.trimStart()).find((text) =>
+        /^(?:user|assistant|system|tool):/iu.test(text))!;
+      caught?.("chat_roles", line.slice(0, line.indexOf(":") + 1));
+    }
     return "chat_roles";
   }
-  if (/\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu.test(value)) {
+  if (match("record_field", /\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu)) {
     return "record_field";
   }
-  if (/\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/iu.test(value)) {
+  if (match("instructions", /\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/iu)) {
     return "instructions";
   }
   return undefined;

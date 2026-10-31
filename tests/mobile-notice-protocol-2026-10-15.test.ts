@@ -32,7 +32,7 @@ const PINS = {
   from: { version: "20.5.42", sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173" },
   to: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
   universal20541: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
-  hrp: { version: "20.6.34", sha256: "7b933620ecca1116f1d4c45c87046e37d8b2a6f97bc4e7a38b6dfd30aa23c74a" },
+  hrp: { version: "20.6.35", sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec" },
 } as const;
 const WIDTH = 118;
 const NEXT_STEP = "For every substantive response, finish with an explicit “Next step:”";
@@ -97,7 +97,7 @@ describe("owner request: the mobile notice (2026-10-15)", () => {
     const hrp = await loadCurrent("HRP_Full.xml");
     expect(hash(hrp)).toBe(PINS.hrp.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.hrp.version, revisionDate: "2026-10-30", sha256: PINS.hrp.sha256,
+      name: "HRP", version: PINS.hrp.version, revisionDate: "2026-10-31", sha256: PINS.hrp.sha256,
     });
   });
 

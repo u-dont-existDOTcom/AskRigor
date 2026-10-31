@@ -1,5 +1,5 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
-import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -329,9 +329,9 @@ describe("communities named by the user and the visible check line", () => {
       const text = (result.content as Array<{ text: string }>)[0]!.text;
       const ending = "End the answer with this line, as written (in the answer's language when the answer is not in English): Checked with AskRigor's final check, with the limits it found.";
       expect(text).toContain(`\n${ending}`);
-      expect(text).toContain("\nLimit: ");
+      expect(text).toContain("\n[1] ");
       expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("The answer must report:"));
-      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("\nLimit: "));
+      expect(text.indexOf(ending)).toBeGreaterThan(text.lastIndexOf("\n[1] "));
       // The lanes keep their instruction for the model; the one-line panel shows none of them (owner question 108).
       expect(text).toContain("Then copy the sentences that report it into the entry's answer_quotes.");
       expect(result._meta).toBeUndefined();

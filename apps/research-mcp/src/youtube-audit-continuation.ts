@@ -25,6 +25,8 @@ const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // comment segment fingerprints every one; a smaller bound failed every resume
 // after a full page.
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 100;
+// The comment fetcher keeps at most five pinned first-page threads.
+const MAX_PINNED_TOP_LEVEL_THREADS = 5;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
 const LEGACY_IDENTIFIER_MEMBERSHIP_BYTES = 2_048;
 const IDENTIFIER_MEMBERSHIP_BYTES = 4_096;
@@ -50,6 +52,7 @@ const cursorSchema = z.object({
   page_fingerprint: z.string().regex(SHA256_PATTERN).optional(),
   previous_top_level_page_sha256:
     pageFingerprintArraySchema(MAX_TOP_LEVEL_PAGE_IDENTIFIERS).optional(),
+  pinned_top_level_sha256: pageFingerprintArraySchema(MAX_PINNED_TOP_LEVEL_THREADS).optional(),
   thread_offset: boundedInteger,
   top_level_emitted: z.boolean(),
   reply_page_token: z.string().min(1).max(1_024).optional(),
@@ -118,6 +121,7 @@ const continuationStateSchema = z.object({
   reply_pages: boundedInteger,
   pagination_overlaps_reconciled: boundedInteger.default(0),
   continuation_reply_overlaps_reconciled: boundedInteger.default(0),
+  possible_repeats_counted: boundedInteger.optional(),
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
   sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
@@ -228,6 +232,8 @@ export interface YoutubeVideoAuditContinuationState {
   reply_pages: number;
   pagination_overlaps_reconciled: number;
   continuation_reply_overlaps_reconciled: number;
+  /** Records the filter matched but the exact sample could not settle, counted as new. */
+  possible_repeats_counted?: number;
   records_retrieved_cumulative: number;
   rolling_sha256: string;
   sample_identifiers: string[];
@@ -380,6 +386,7 @@ export function advanceYoutubeAuditState(
     state.sample_identifiers.length === state.records_retrieved_cumulative;
   const membership = decodeIdentifierMembership(state.seen_identifier_membership);
   const acceptedComments: YoutubeComment[] = [];
+  let possibleRepeats = 0;
   let reconciledTopLevel = 0;
   let reconciledReplies = 0;
   for (const comment of comments) {
@@ -389,15 +396,13 @@ export function advanceYoutubeAuditState(
       else reconciledTopLevel += 1;
       continue;
     }
+    // A match the exact sample can't settle is counted as new and stated, since
+    // stopping here left every video past a few thousand records with no sample.
+    // A real repeat can't enter the sample: its rank already lost to 500 others.
     if (
       identifierMembershipPossiblyContains(membership, comment_id) &&
       !exactIdentifiersCoverPriorCorpus
-    ) {
-      throw new YoutubeAuditIdentifierMembershipBoundaryError(
-        "Possible YouTube comment identifier match at a non-adjacent membership boundary; stop at the last verified corpus frontier",
-        createRestartSnapshot(state)
-      );
-    }
+    ) possibleRepeats += 1;
     identifiers.add(comment_id);
     addIdentifierToMembership(membership, comment_id);
     acceptedComments.push(comment);
@@ -430,8 +435,10 @@ export function advanceYoutubeAuditState(
     for (const comment of acceptedComments) commentProductCounts[classifyComment(comment)] += 1;
   }
   const commentPayload = acceptedComments.map(canonicalCommentJson).join("\n");
+  const possibleRepeatsCounted = (state.possible_repeats_counted ?? 0) + possibleRepeats;
   const candidate: YoutubeVideoAuditContinuationState = {
     ...state,
+    ...(possibleRepeatsCounted === 0 ? {} : { possible_repeats_counted: possibleRepeatsCounted }),
     ...(commentProductCounts === undefined ? {} : { comment_product_counts: commentProductCounts }),
     segment_index: state.segment_index + 1,
     cursor,

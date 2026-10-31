@@ -104,9 +104,19 @@ complete XML protocol.
   and rollback).
 - `audits/2026-10-30-final-check-193a-production-release.md`: release of #384 (owner answer 197a): only five checks
   stop an answer, the low-calorie reports, HRP 20.6.32; a probe shows two of the five still block in production.
+- `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
+  health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
+  benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-10-30-owner-answers-200a-205a-production-release.md`: release of #387 (owner answer 204a): shared
+  answers on with a key made on the host, the limits that matter (HRP 20.6.34), the scout's group-word check dropped,
+  and the privacy page dated 30 October; acceptance, the site byte for byte, both connector probes and the rollback.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `audits/2026-10-31-owner-regressions-387-judgment.md`: the owner regressions on #387's build `00e9b6de` against
+  question 193's signals, all five met (85 cases: 49 pass, 34 in part, 1 fails, 1 not judged; the low-calorie runs 4,
+  7 and none fail): every check passes by its second call, none never passes, no call fails on format, 40 cases pass
+  twice in a row; 205a's limits, and what each finding comes to.
 - `audits/2026-10-30-owner-regressions-384-judgment.md`: the owner regressions on #384's build `d8beec2d`, both runs
   against question 193's signals (85 cases: 45 pass, 38 in part, 1 fails, 1 not judged; the low-calorie runs 4, 7 and
   none fail): 103 of 108 checks pass by their second call, none never passes, 6 calls fail on format, and what each

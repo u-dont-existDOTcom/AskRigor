@@ -117,6 +117,17 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   const one = (result: BinaryResult, overrides: Partial<FinalizeResearchInput> = {}) =>
     call({ answer_draft: result.nnt === undefined || result.harms_quote === undefined ? result.quote
       : `${result.quote} ${result.harms_quote}`, binary_results: [result], ...overrides });
+
+  it("reads a middle-dot percentage in the answer as the declared 11.9%", async () => {
+    const result = await one(declaration({
+      quote: "After 12 weeks, 11·9% responded to the drug versus 10% on placebo.",
+      option_events: 119, option_total: 1000, comparator_events: 100, comparator_total: 1000,
+      nnt: undefined, harms_quote: undefined,
+    }));
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result).join("\n")).not.toContain("quotes no figure");
+  });
   // Its one limit is the community search skipped for no real-world outcome (owner question 125).
   const ready = (result: FinalizeResearchOutput, screened = false) => {
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
@@ -364,6 +375,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
       blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 12"), follow_up: "week 1" })),
         [NO_FOLLOW_UP]);
       blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1.5"), follow_up: "week 1" })),
+        [NO_FOLLOW_UP]);
+      blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1·5"), follow_up: "week 1" })),
         [NO_FOLLOW_UP]);
       // Standing as its own number, it is shown, beside other numbers too.
       ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1"), follow_up: "week 1" })));

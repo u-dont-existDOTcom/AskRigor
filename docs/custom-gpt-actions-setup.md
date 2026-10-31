@@ -268,13 +268,15 @@ video identifier. A valid continuation that returns
 `youtube_video_audit_continuation_migration_restart_required` requires a fresh
 audit from the video identifier. A legacy deployment may return
 `youtube_video_audit_identifier_membership_restart_required`; that historical
-result also requires a fresh audit with counts kept separate. Current releases
-return `youtube_video_audit_identifier_membership_boundary` when the bounded
+result also requires a fresh audit with counts kept separate. Releases up to
+#387 return `youtube_video_audit_identifier_membership_boundary` when the bounded
 membership structure cannot prove whether an identifier was already accepted.
 That result preserves the last verified cumulative frontier as
 `completed_with_access_boundary`, consumes the continuation handle, and is
 terminal for the affected video; do not restart it, and continue independent
-selected videos.
+selected videos. From the build after #387 the audit doesn't stop there: it skips
+YouTube's second listing of a pinned comment, counts any other match it can't
+settle as new, and says how many, so the corpus count may be that much too high.
 
 `get_youtube_transcript` uses a separate 37-character one-hour handle backed by
 at most 2,048 entries/4 MiB of compact chain metadata: provider cursor, public

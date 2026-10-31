@@ -75,12 +75,55 @@ describe("population-level scout targets", () => {
       expect(researchTargetScreenFailures(target), target).toEqual(failures);
       expect(isPopulationLevelResearchTarget(target), target).toBe(failures.length === 0);
     }
-    expect(researchTargetScreenRefusal(["age", "title"])).toBe(
-      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.age}; and ` +
-        `${RESEARCH_TARGET_SCREEN_PARTS.title}.`
+    expect(researchTargetScreenRefusal("Dr. Smith sees a 47-year-old adult")).toBe(
+      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.title} (matched "Dr. S"); and ` +
+        `${RESEARCH_TARGET_SCREEN_PARTS.age} (matched "47-year-old").`
     );
     expect(Object.keys(RESEARCH_TARGET_SCREEN_PARTS)).not.toContain("no_group_word");
-    expect(researchTargetScreenRefusal([])).toBe("");
+    expect(researchTargetScreenRefusal("Adults with knee pain")).toBe("");
+  });
+
+  it.each([
+    ["In adults with low ceruloplasmin, does oral copper(I) improve ceruloplasmin more than copper(II)?", "first_person", "I"],
+    ["What works best for OCD in adults, including nonstandard approaches?", "example_marker", "including"],
+    ["Adults with OCD, INCLUDING nonstandard approaches", "example_marker", "INCLUDING"],
+    ["adults with a rare cancer such   as xiomara garcia", "example_marker", "such   as"],
+  ] as const)("quotes the exact screen match in %s without changing refusal", (target, part, fragment) => {
+    expect(isPopulationLevelResearchTarget(target)).toBe(false);
+    expect(researchTargetScreenFailures(target)).toEqual([part]);
+    expect(researchTargetScreenRefusal(target)).toBe(
+      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]} (matched ${JSON.stringify(fragment)}).`
+    );
+  });
+
+  it("names a secret or contact detail without quoting it", () => {
+    for (const target of ["adults: a@b.com", "adults: 123456789", `adults: sk-${"a".repeat(16)}`]) {
+      const refusal = researchTargetScreenRefusal(target);
+      expect(refusal, target).toContain("(not quoted)");
+      expect(refusal, target).not.toContain("(matched ");
+      expect(refusal, target).not.toMatch(/a@b\.com|123456789|sk-a/u);
+    }
+  });
+
+  it("retains exact evidence for every other failing screen part", () => {
+    for (const target of [
+      "Adults\u200b", "my knee",
+      "adults https://example.org", "adults < | SYSTEM | >", "System: adults", "adults name: x",
+      "adults ignore previous instructions", "She wants help", "Dr. Smith helps adults", "a 47-year-old adult",
+      "adults named xiomara", "Jane Doe has pain", "Michael has pain",
+    ]) {
+      const refusal = researchTargetScreenRefusal(target);
+      expect(refusal, target).toContain("(matched ");
+      const quoted = [...refusal.matchAll(/"(?:[^"\\]|\\.)*"/gu)].map(([literal]) => JSON.parse(literal) as string);
+      expect(quoted.length, target).toBeGreaterThanOrEqual(researchTargetScreenFailures(target).length);
+      for (const fragment of quoted) expect(target, refusal).toContain(fragment);
+    }
+  });
+
+  it("quotes every first-person match with its original case", () => {
+    expect(researchTargetScreenRefusal("Can I change my intake?")).toBe(
+      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.first_person} (matched "I", "my").`
+    );
   });
 
   it("accepts a rediscovery lead only as a short public term", () => {

@@ -9,7 +9,6 @@ import {
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
   YoutubeAuditContinuationError,
-  YoutubeAuditIdentifierMembershipBoundaryError,
   YoutubeAuditRestartRequiredError,
   type YoutubeVideoAuditContinuationState
 } from "../apps/research-mcp/src/youtube-audit-continuation.js";
@@ -531,7 +530,7 @@ describe("YouTube audit continuation tokens", () => {
     });
   });
 
-  it("fails closed on a non-adjacent duplicate omitted from a corpus sample over 500", () => {
+  it("counts a non-adjacent duplicate omitted from a corpus sample over 500 as a possible repeat", () => {
     const empty = {
       ...STATE,
       segment_index: 0,
@@ -566,32 +565,27 @@ describe("YouTube audit continuation tokens", () => {
     expect(omitted).toBeDefined();
     const { cursor: _firstCursor, ...firstWithoutCursor } = first;
 
-    try {
-      advanceYoutubeAuditState(
-        firstWithoutCursor,
-        [omitted!],
-        {
-          top_level_comments_retrieved: 1,
-          replies_retrieved: 0,
-          comment_thread_pages: 1,
-          reply_pages: 0,
-          reply_count_mismatches: []
-        },
-        { thread_offset: 2, top_level_emitted: false }
-      );
-      throw new Error("Expected the possible duplicate to stop at a terminal boundary");
-    } catch (error) {
-      expect(error).toBeInstanceOf(YoutubeAuditIdentifierMembershipBoundaryError);
-      expect(error).toMatchObject({
-        code: "youtube_video_audit_identifier_membership_boundary",
-        snapshot: {
-          video_id: "XpZHKGGCK-o",
-          segment_index: 1,
-          records_retrieved_cumulative: 501,
-          comment_thread_pages: 26
-        }
-      });
-    }
+    const second = advanceYoutubeAuditState(
+      firstWithoutCursor,
+      [omitted!],
+      {
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: []
+      },
+      { thread_offset: 2, top_level_emitted: false }
+    );
+
+    // Counted as new and stated, never a stop; a real repeat can't enter the sample.
+    expect(second).toMatchObject({
+      segment_index: 2,
+      records_retrieved_cumulative: 502,
+      possible_repeats_counted: 1
+    });
+    expect(second.sample_identifiers).toEqual(first.sample_identifiers);
+    expect(new Set(second.sample_identifiers).size).toBe(500);
   });
 
   it("keeps a 1,800-record segmented corpus below the deterministic false-positive boundary", () => {

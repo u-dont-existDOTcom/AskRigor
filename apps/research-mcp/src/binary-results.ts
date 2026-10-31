@@ -247,7 +247,7 @@ export function figureShown(figure: BinaryFigure, text: string): FigureShown {
 // A markdown link, bounded and closed to brackets and parentheses, read by its text as the answer check reads one.
 const MARKDOWN_LINK = /\[([^[\]\n]{0,500})\]\([^\s()[\]]{1,2048}\)/gu;
 // A decimal or grouping mark, which joins the digits on either side of it into one number, as numberReadings reads it.
-const NUMBER_MARK = /[.,'\u066B\u066C]/u;
+const NUMBER_MARK = /[.,'\u00B7\u066B\u066C]/u;
 const DIGIT = /\d/u;
 
 /**

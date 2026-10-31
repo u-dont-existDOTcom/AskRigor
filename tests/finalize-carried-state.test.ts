@@ -20,6 +20,20 @@ const carriedSteps = (overrides: Partial<FinalizeResearchInput>) => {
   return [...advisoryNotes(result), ...result.next_steps].filter((step) => /earlier|carried_state|primary_outcome|rejected/.test(step));
 };
 
+it.each([
+  ["i336: a clinician's check", "Ask the clinician to check the response."],
+  ["b-book-reviews: a reading-time log", "Log the time spent reading each day."],
+])("describes the unblinded limit without naming who runs %s", (_name, quote) => {
+  const result = check({ answer_draft: quote, proposed_tests: [{ quote, blinded: false }] });
+  const limit = "In an unblinded test, the person knows what they took or did, so expectation, effort and practice " +
+    "can produce a change; the test alone cannot show what caused it.";
+  expect(result.status).toBe("ready_with_limits");
+  expect(result.next_steps).toEqual([]);
+  expect(result.limits).toContain(limit);
+  expect(result.caveats).toContain(limit);
+  expect(check({ answer_draft: quote, proposed_tests: [{ quote, blinded: true }] }).limits).not.toContain(limit);
+});
+
 describe("conversation state carried between final checks", () => {
   it("returns signed, readable declarations, including on not_ready calls, and accepts the same observations next turn", () => {
     const first = check({ user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"], principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }] });
@@ -61,7 +75,7 @@ describe("conversation state carried between final checks", () => {
   });
   it("keeps retractions blocking and carried even when advisory caveats contain them (owner 195)", () => {
     const unblinded = { quote: "Try it.", blinded: false };
-    const caveat = check({ proposed_tests: [unblinded] }).caveats.find((text) => text.startsWith("A test the person does on themselves without blinding"))!;
+    const caveat = check({ proposed_tests: [unblinded] }).caveats.find((text) => text.startsWith("In an unblinded test, the person knows what they took or did"))!;
     const draft = `Try it.\n\n${caveat}`;
     const declared = check({ proposed_tests: [unblinded], answer_draft: draft,
       corrections: [{ retracted: caveat, change: "Try it.", by_user: false }] });
@@ -72,7 +86,7 @@ describe("conversation state carried between final checks", () => {
     expect(later.next_steps).toEqual([expect.stringContaining("taken back earlier")]);
     expect(later.carried!.retracted).toEqual([caveat.slice(0, 200)]);
     const partial = check({ proposed_tests: [unblinded], answer_draft: draft,
-      corrections: [{ retracted: "can show how they did", change: "Try it.", by_user: false }] });
+      corrections: [{ retracted: "can produce a change", change: "Try it.", by_user: false }] });
     expect(partial.next_steps).toEqual([expect.stringContaining("wrong statement still appears")]);
   });
   it("keeps the latest twelve distinct retracted statements truncated to 200 characters", () => {
@@ -213,7 +227,7 @@ describe("observation, test and correction declarations (109)", () => {
     // An observation that ends its own sentence keeps its stop, with no second one (the 23 Oct ".)." of l33).
     expect(check({ user_observations: [{ ...observation, observation: "a friend's drowsiness; amount unspecified.", response: "uncertain" }] }).caveats)
       .toContain("A report its source is no longer sure of: a friend's drowsiness; amount unspecified. It counts neither for nor against an effect.");
-    expect(result.caveats).toContain("A test the person does on themselves without blinding can show how they did, not what caused a change, because expectation, effort and practice can move it too.");
+    expect(result.caveats).toContain("In an unblinded test, the person knows what they took or did, so expectation, effort and practice can produce a change; the test alone cannot show what caused it.");
     expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[0] repeats what the user already tried"); expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[1].repeats names user_observations[5]"); expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[1].difference");
     expect(advisoryNotes(check({ answer_draft: "Try again. Different timing.", user_observations: [observation], proposed_tests: [{ quote: "Try again.", repeats: 0, difference: "Different timing.", blinded: true }] })).join("\n")).not.toContain("proposed_tests");
   });

@@ -20,7 +20,11 @@ Owner answers 193a and 195a (29 October 2026) limit `finalize_research` to five 
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
 landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
-currency. These notes never become next steps or consume check rounds. The round limit, stuck-step logic and
+currency. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
+`docs/superpowers/plans/2026-10-31-video-comment-maps.md`): forum evidence resting on fewer than five threads read, or
+on one community; no study search issued after the first YouTube community receipt (the loop); and the emergency
+exemption declared while key sources show the research went on. These notes never become next steps or consume check
+rounds. The round limit, stuck-step logic and
 stopped-check report apply only to the five blocking checks. A usable draft and research target are still needed
 to run a check; an unusable call is reported as such.
 
@@ -38,12 +42,17 @@ The two spellings can become one only when the tool list next changes (owner ans
 
 For a usable call, `not_ready` means at least one of the five fails. With none failing, a nonempty `limits`
 list gives `ready_with_limits`; otherwise the result is `ready`. Material boundaries remain in `limits`,
-including abstract-only reading, a search stopped by quota and a case-report basis. The panel displays every
-limit beneath a passing checked answer, even when the draft omitted it, and also displays the advisory notes.
-So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
-only the limits that change what the person should believe or do, and the result says so in one line above the
-list (`Limit: ...` lines), with which limits matter left to the AI; if the checked draft leaves out one that does,
-the AI adds it and checks the draft again. Under a check that has not passed, the panel shows no limits, so each
+including abstract-only reading, a search stopped by quota and a case-report basis. A limit about a key source names
+it by the answer's label, then its identifier (`"Cervicogenic dizziness review" (29340206)`), so a reader can tell
+which study it means; a source labelled by its identifier is named once. The panel displays every limit beneath a
+passing checked answer, even when the draft omitted it. The advisory notes, written for the AI, come last in the panel
+under every status, folded under one closed line, "Notes for the AI", that opens on a click (the owner on 30 October
+2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
+only the limits that change what the person should believe or do, with which limits matter left to the AI; the
+result gives all limits for reference on one numbered line (`[1] ... [2] ...`) after guidance not to copy them,
+adds a non-blocking note without consuming a round when the passing draft repeats three or more verbatim
+(whitespace and straight/curly quotes normalized), and asks the AI to add any omitted limit that matters and check
+the draft again. Under a check that has not passed, the panel shows no limits, so each
 stays a `Limit to include in your own words` line and the answer states them all. Their absence, translation or
 rewording in the draft does not create a step either way. A passing check's line with limits reads "Checked with
 AskRigor's final check, with the limits it found.", since the answer may state only some of them.
@@ -61,3 +70,17 @@ Runtime operation descriptions, later-input guidance and result text carry these
 tool definitions and `tests/fixtures/frozen-tool-lists/` retain their exact bytes under owner answer 189a.
 Historical plans and dated audits describe the behavior at their recorded dates, rather than the current
 blocking set.
+
+The 31 October regression repairs keep “Cite … as a lead” and “Cite … as read through another tool” instructions
+in the advisory notes and result text; the panel's limits retain the corresponding reader-worded source boundary.
+Figure parsing accepts an interdigit middle dot as a decimal point, including study-audit recomputations and answer
+figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
+what they took or did without assuming who runs the test.
+
+A plain-answer confirmation needs the same existing backing as a qualification. Missing backing is an advisory
+note and withholds the comparison note alone. The comparison note quotes each registered claim with its figures,
+including figures absent from the checked draft; a confirmed or qualified claim with such figures says the research
+did not confirm them. If a receipt marked plain_answer does not verify, the result says
+so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
+required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
+older description of the note's figure replacement; the runtime result supplies the actual note.

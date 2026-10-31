@@ -29,6 +29,11 @@ import { getProtocolManifest, protocolNamedElements, protocolSections } from "..
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
+import { mcpYoutubeCommunityAuditOutputSchema, mcpYoutubeVideoCommunityAuditOutputSchema }
+  from "../apps/research-mcp/src/youtube-mcp-sample.js";
+import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/youtube-community-survey.js";
+import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
+  from "./helpers/community-result-reminders.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -563,10 +568,12 @@ describe("AskRigor MCP tools", () => {
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
         text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
-          "pass (these videos only). This lock covers retrieving these YouTube comments only; other communities and the " +
+          `pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} This lock covers retrieving these YouTube comments only; other communities and the ` +
           "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
           "give it to finalize_research as community_findings, even if the signal is weak or neutral."
       });
+      expectCommunityRemindersInTextOnly(result);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeCommunityAuditOutputSchema.parse(result.structuredContent));
       // MCP gets compact records: a per-video pseudonymous author key, never
       // the commenter's display name or channel ID.
       const comments = (result.structuredContent as {
@@ -667,6 +674,8 @@ describe("AskRigor MCP tools", () => {
         records_retrieved_cumulative: 250,
         receipt: { comment_retrieval_state: "api_visible_complete", video_comments_lock: "pass" }
       });
+      expectCommunityRemindersInTextOnly(result, true);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeVideoCommunityAuditOutputSchema.parse(result.structuredContent));
       expect((result.structuredContent as { research_receipt?: string }).research_receipt).toEqual(expect.any(String));
       // Cut to fit, and filled close to the budget.
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
@@ -739,7 +748,7 @@ describe("AskRigor MCP tools", () => {
       expect(view.sample.comments).toEqual([]);
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). No comment fitted in this " +
+        text: `YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} No comment fitted in this ` +
           "view, so none was returned; say in the answer that this video's comments could not be shown."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -835,7 +844,7 @@ describe("AskRigor MCP tools", () => {
       // receipt asks finalize_research for no findings on them.
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). " +
+        text: `YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} ` +
           "No comment fitted in this view; read each video's comments with audit_youtube_video_community."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -873,8 +882,11 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube community survey returned 1 deduplicated candidate video(s)."
+        text: `YouTube community survey returned 1 deduplicated candidate video(s). ${COMMUNITY_RESEARCH_REMINDER}`
       }]);
+      expectCommunityRemindersInTextOnly(result);
+      const { research_receipt: _receipt, ...surveyContent } = result.structuredContent!;
+      expect(surveyContent).toStrictEqual(youtubeCommunitySurveyOutputSchema.parse(surveyContent));
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
         record_type: "youtube_community_survey",
@@ -1089,7 +1101,7 @@ describe("AskRigor MCP tools", () => {
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). " +
+        text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
           "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
           "as community_findings, even if the signal is weak or neutral."
@@ -1239,7 +1251,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("preserves prior counts when identifier ambiguity closes a bounded terminal frontier", async () => {
+  it("counts a repeat-filter match the exact sample cannot settle, states it and keeps the sample", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
     const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
@@ -1277,6 +1289,10 @@ describe("AskRigor MCP tools", () => {
       if (url.pathname.endsWith("/videos")) {
         return new Response(await youtubeFixture("video-found.json"), { status: 200 });
       }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({ pageInfo: { totalResults: 0, resultsPerPage: 0 }, items: [] });
+      }
       return Response.json({
         pageInfo: { totalResults: 1, resultsPerPage: 1 },
         items: [{
@@ -1311,18 +1327,15 @@ describe("AskRigor MCP tools", () => {
 
       expect(result.structuredContent).toMatchObject({
         video_id: "XpZHKGGCK-o",
-        segment_index: 6,
+        segment_index: 7,
         access_status: "partial",
         extraction_coverage: "completed_with_access_boundary",
-        error: {
-          code: "youtube_video_audit_identifier_membership_boundary",
-          retryable: false
-        },
-        top_level_comments_retrieved_cumulative: 501,
-        records_retrieved_cumulative: 501,
-        comment_thread_pages_cumulative: 26,
-        corpus_rolling_sha256: "b".repeat(64),
-        limitations: [expect.stringMatching(/cannot prove.*already accepted/i)],
+        top_level_comments_retrieved_cumulative: 502,
+        records_retrieved_cumulative: 502,
+        comment_thread_pages_cumulative: 27,
+        limitations: expect.arrayContaining([
+          expect.stringMatching(/^1 record\(s\) matched the audit's repeat filter but not its exact sample\..*counted as new.*too high\.$/)
+        ]),
         continuation_recommended: false,
         receipt: {
           comment_retrieval_state: "completed_with_access_boundary",
@@ -1330,16 +1343,17 @@ describe("AskRigor MCP tools", () => {
           blockers: []
         }
       });
-      // A terminal boundary may remain an error for clients that consume its diagnostic, but it delivers its receipt.
-      const researchReceipt = (result.structuredContent as { research_receipt: string }).research_receipt;
-      expect(researchReceipt).toBeTypeOf("string");
-      expect(result.content).toContainEqual({ type: "text", text: `research_receipt: ${researchReceipt}` });
-      expect(verifyResearchReceipt(researchReceipt, { secret })).toMatchObject({
+      // The audit goes on instead of stopping, so it has no error and returns its sample.
+      expect(result.structuredContent).not.toHaveProperty("error");
+      const content = result.structuredContent as { records_returned_for_analysis: number; research_receipt: string };
+      expect(content.records_returned_for_analysis).toBeGreaterThan(0);
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).toMatchObject({
         ok: true, kind: "youtube_video_audit", claims: {
-          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass",
-          boundary: "identifier_membership", records: "501", top: "501", rep: "0", shown: "0",
-          cr: "0", tx: "0", rr: "0", ch: "UC0123456789abcdefghijkl", ms: "api_visible_complete"
+          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass", records: "502", top: "502"
         }
+      });
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).not.toMatchObject({
+        claims: { boundary: "identifier_membership" }
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -3035,15 +3049,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.34",
-          revisionDate: "2026-10-30",
-          sha256: "7b933620ecca1116f1d4c45c87046e37d8b2a6f97bc4e7a38b6dfd30aa23c74a"
+          version: "20.6.35",
+          revisionDate: "2026-10-31",
+          sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "7b933620ecca1116f1d4c45c87046e37d8b2a6f97bc4e7a38b6dfd30aa23c74a"
+        scope_sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

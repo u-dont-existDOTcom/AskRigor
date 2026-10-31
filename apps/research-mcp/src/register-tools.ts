@@ -728,6 +728,21 @@ const COMMENT_SEARCH_NON_EVIDENCE =
   "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence that " +
   "commenters do not report something; read the full comments with audit_youtube_video_community before saying so.";
 
+const COMMUNITY_RESEARCH_REMINDER =
+  "Before concluding: turn the treatments, diagnoses, subgroups and harms these reports name into study searches, " +
+  "and pass the methods commenters credit to scout_gemini_youtube_candidates as rediscovery_leads. In the answer, " +
+  "name each video (title, channel, date, link), and give how many comments were retrieved, how many were " +
+  "classified, and how they were chosen.";
+const VIDEO_COMMENT_MAP_REMINDER =
+  "Give this video's comment map from the sample: how many people said they did the video's method; how it went " +
+  "for them (better, no change, worse, mixed), with the counts; how long their results had lasted; the kinds of " +
+  "harm reported, with counts; and the other methods commenters credit, with how many credit each and how many " +
+  "say it worked better than the video's method. Leave out promotion (comments selling or touting a product, " +
+  "practitioner or contact, or templated testimonials) and jokes, and say how many. Call them people who commented " +
+  "and said they tried it, never a " +
+  "success rate. When the answer audits several videos for one problem, rank them by the share who said it " +
+  "helped, only among videos with at least 20 such people, giving each video's counts.";
+
 function commentSearchOutput(result: object): z.output<typeof youtubeCommentSearchOutputSchema> {
   return youtubeCommentSearchOutputSchema.parse({ ...result, absence_inference_permitted: false });
 }
@@ -1621,7 +1636,7 @@ function defineResearchOperations(
         result = youtubeCommunityAuditFailure(input);
         failed = true;
       }
-      const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); comment retrieval ${result.receipt.completion_state}; YouTube comments lock ${result.receipt.synthesis_lock} (these videos only).`;
+      const summary = `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); comment retrieval ${result.receipt.completion_state}; YouTube comments lock ${result.receipt.synthesis_lock} (these videos only).${failed ? "" : ` ${COMMUNITY_RESEARCH_REMINDER}`}`;
       // The Custom GPT Action bounds the full audit itself.
       if (isActionCall(extra)) return youtubeToolResult(summary, result);
       // An incomplete audit still signs what it found and the searches a limit
@@ -1702,7 +1717,8 @@ function defineResearchOperations(
       // A round whose searches a rate limit or the daily quota stopped is
       // signed too: its limits keep discovery open. Only a failed call signs nothing.
       return withResearchReceipt(youtubeToolResult(
-        `YouTube community survey returned ${result.candidates.length} deduplicated candidate video(s).`,
+        `YouTube community survey returned ${result.candidates.length} deduplicated candidate video(s).` +
+          (failed ? "" : ` ${COMMUNITY_RESEARCH_REMINDER}`),
         result
       ), !failed
         ? researchReceipt("youtube_survey", {
@@ -1760,7 +1776,11 @@ function defineResearchOperations(
       } finally {
         releaseLongSlot?.();
       }
-      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).`;
+      // The reminders come once the audit's comments can be used, not on its continuation pages or a failure.
+      const usable = result.receipt.completion_state !== "incomplete" && result.receipt.synthesis_lock === "pass";
+      const reminders = !usable ? "" : ` ${COMMUNITY_RESEARCH_REMINDER}` +
+        (result.records_retrieved_cumulative > 0 ? ` ${VIDEO_COMMENT_MAP_REMINDER}` : "");
+      const summary = `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; this video's comments lock ${result.receipt.synthesis_lock} (this video only).${reminders}`;
       // The Custom GPT Action bounds the full audit itself.
       if (actionCall) return youtubeToolResult(summary, result);
       const complete = result.receipt.completion_state !== "incomplete";
@@ -2118,7 +2138,7 @@ function defineResearchOperations(
         const failures = researchTargetScreenFailures(target.research_target);
         if (failures.length > 0) {
           return scoutError("research_target_not_deidentified", false,
-            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(failures)}`);
+            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(target.research_target)}`);
         }
         if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
           return scoutError("rediscovery_lead_not_public_term", false,
@@ -2150,7 +2170,7 @@ function defineResearchOperations(
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
           ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
-            researchTargetScreenRefusal(researchTargetScreenFailures(target.research_target))}`.trimEnd()
+            researchTargetScreenRefusal(target.research_target)}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."
@@ -2262,7 +2282,8 @@ function defineResearchOperations(
             ? ""
             : ` ${unresolvedTitles.length} named video(s) could not be identified by exact title ` +
               "(title_lookup.unresolved, with YouTube's closest results): audit one of those if it is the video, or " +
-              "search a promising title with search_youtube (100 quota units each)."),
+              "search a promising title with search_youtube (100 quota units each).") +
+          ` ${COMMUNITY_RESEARCH_REMINDER}`,
         output
       ), researchReceipt("youtube_scout", {
         videos,
@@ -2493,7 +2514,8 @@ function defineResearchOperations(
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
           (result.limits.length === 0 ? "" : result.status === "ready" || result.status === "ready_with_limits"
-            ? `\n${PASSING_LIMITS_GUIDANCE}${result.limits.map((limit) => `\nLimit: ${limit}`).join("")}`
+            ? `\n${PASSING_LIMITS_GUIDANCE}\n${result.limits.map((limit, index) =>
+              `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           result.caveats.filter((caveat) => !result.limits.includes(caveat))
             .map((caveat) => `\nAnswer guidance, in your own words: ${caveat}`).join("") +
