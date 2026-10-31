@@ -29,6 +29,8 @@ Each channel is labelled with the kinds of value it has, and none means its clai
   the 400 whose IDs rank lowest by SHA-256 (the audit's own outcome-blind ranking); each read by Codex and counted by
   code. The counts are people who say they did the video's method. Most "better" reports are immediate or undated,
   so they say little about lasting results, and people who were helped may comment more often than people who weren't.
+  A video's counts describe that video, not its channel: judging a channel needs many of its videos mapped (the owner,
+  31 Oct; at least five, `docs/superpowers/plans/2026-10-31-video-comment-maps.md`).
 - **Recovery story:** a person's own detailed account of getting better, often on a small channel: what they did, for
   how long, how it was measured, and how they are now. It is one person's account, and recoveries are what gets filmed,
   so it is a lead and an outcome report, never a rate; it is kept apart from independent commenters (HRP

@@ -143,6 +143,10 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
       on storing API data are to be read before any caching of upload lists.
     - **It also feeds the digest:** new uploads from registry channels can be checked like news stories (the owner's
       influencer idea for the news check).
+    - **Then the comment maps** (the owner, 31 Oct): a map of each video's comments, rankings within a problem, the
+      leads people credit, kept privately in the Atlas and refreshed with new comments, with the spare units:
+      `2026-10-31-video-comment-maps.md`, which also holds the forum-depth fix (the owner, 31 Oct: "a couple reddit
+      posts checked").
 - **The regression run on #387's build** (started 17:47:58 UTC, saving off), judged against 193's signals, the eleven
   low-calorie cases apart, with `q135-low-stakes` for 205a; and the news pilot's first digest (owner answer 203a).
 - **Then:** payments against the Stripe sandbox (local and test mode only), and the model check's next draft (198).
