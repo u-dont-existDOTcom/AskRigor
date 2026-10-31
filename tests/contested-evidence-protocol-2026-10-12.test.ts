@@ -94,7 +94,7 @@ describe("owner-approved contested intervention evidence, question 77: 77a (2026
     expect(hash(beforeReadDepth)).toBe(readDepth.from.sha256);
     await expect(undoReadDepth(await loadCurrent(), "hrp")).resolves.toBe(beforeReadDepth);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.34", revisionDate: "2026-10-30", sha256: hash(await loadCurrent()),
+      name: "HRP", version: "20.6.35", revisionDate: "2026-10-31", sha256: hash(await loadCurrent()),
     });
     const universal = await readFile(new URL("protocols/Universal_Instructions.xml", ROOT), "utf8");
     expect(hash(await undoCorrectionReport(universal))).toBe("06e5ca6befb9dac648fd41996213394e793e17795087eee8fbc63cbcbbbd8174");

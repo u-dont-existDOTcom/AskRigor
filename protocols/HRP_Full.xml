@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.34" revisionDate="2026-10-30" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.35" revisionDate="2026-10-31" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,18 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.35" priority="Critical">
+   Owner rule 148a and the owner's requests of 30 and 31 October 2026 (AskRigor#390, forum depth, video comment maps),
+   all outside the core, which is unchanged: CrowdSourcedAndClinicalSignalAudit's emergency exemption covers only an
+   answer that is the warning itself; ActualSearchRequired runs one search with the person's own combination of symptoms
+   and covers the whole cluster; ReviewCorpusSelectionAndCounts's counts apply to every community corpus;
+   SearchSaturationAndStopping reads forums thread by thread, in full and in more than one community, and states the
+   counts and why reading stopped; YouTubeCreatorCommentCorpusHandling names every video and thread analysed and counts
+   outcomes per named method; the new VideoCommentMap gives each audited video's comment map, leaves out promotion and
+   jokes, ranks only within one problem, and never rates a channel from one video; ThreePartCommunityConclusion adds
+   what to try first and what to avoid when the question is what to do; and CommunityToFormalHypothesisTransfer says in
+   the answer which community leads changed the study search.
+  </Revision>
   <Revision version="20.6.34" priority="Critical">
    Owner answer 205a (2026-10-30): LimitsNote and FinalizeResearch have the answer state, of the limits
    finalize_research returns, those that change what the person should believe or do, since AskRigor lists every
@@ -2884,7 +2896,8 @@
    adverse effects; failure and discontinuation; and claimed mechanisms. Search indexed studies, trial registries,
    cohorts, case series, conference materials, theses, practitioner datasets, books, regulatory records, and citation
    chains with those leads. A new decision-relevant hypothesis reopens the relevant extended human-evidence source
-   classes; the earlier sweep is not final. Record which community leads materially changed the formal search map.
+   classes; the earlier sweep is not final. Say in the answer which community leads changed the study search, and what
+   the studies then showed about them.
   </Rule>
 
   <Rule name="FormalToCommunityDiscriminatorTransfer">
@@ -4203,8 +4216,10 @@
     course, nonresponse pattern, rapid dechallenge or rechallenge, or outcome not adequately measured by formal studies.
    </ConditionalTrigger>
    <NonActivation>
-    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization; no plausible
-    user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module ledger.
+    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization, which covers
+    only an answer that is the warning itself (once the warning is given and research continues, this module applies);
+    no plausible user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module
+    ledger.
    </NonActivation>
   </Activation>
 
@@ -4217,7 +4232,9 @@
    Do not characterize forum prevalence, direction, consistency, rarity, dominance, typicality, or sentiment without an
    actual platform-specific search during the current research task. Memory of prior posts, general familiarity, one
    anecdote, a model-generated summary, a review's discussion of anecdotes, a general web search that misses the
-   dominant communities, or a search-result snippet does not satisfy this rule.
+   dominant communities, or a search-result snippet does not satisfy this rule. When the person describes several
+   symptoms together, run at least one search with their own combination of symptoms, in their words, and cover the
+   whole cluster in the answer, not only its most familiar symptom.
   </Rule>
 
   <Rule name="PrincipalPlatformMapping" priority="Critical">
@@ -4286,6 +4303,9 @@
    weighted by the platform's rating counts (DirectionLabelsNeedOutcomeNeutralSelection). From any other set, report
    the directions observed with their frequency unknown. Star ratings are not outcome reports: they also rate taste,
    price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.
+   The same counts apply to every community corpus, video comments and forum threads included: how many items the
+   platform shows, how many were retrieved, how many were classified, and how they were chosen (every one, every k-th
+   in the platform's order, a hash-ranked sample, a random sample, the top-ranked, or those found by outcome words).
   </Rule>
 
   <Rule name="RouteAndCohortSensitivityAnalysis" priority="Critical">
@@ -4462,7 +4482,10 @@
   <Rule name="SearchSaturationAndStopping" priority="High">
    Continue sampling until additional relevant threads are unlikely to change the broad directional category, the
    planned sample is exhausted, or access limits require an indeterminate or low-confidence classification. Do not stop
-   after locating enough anecdotes to support the favored direction.
+   after locating enough anecdotes to support the favored direction. On a forum, open each relevant thread the searches
+   find and read all of it, replies included, in more than one community where they exist; when a page will not open,
+   say so and try another forum. State how many threads were found, opened and read, and why reading stopped: few
+   threads exist, pages would not open, or time ran out.
   </Rule>
 
   <Rule name="YouTubeCreatorCommentCorpusHandling" priority="Critical">
@@ -4477,7 +4500,22 @@
    preserve materially relevant non-English reports, and audit a residual sample for missed-signal risk. State whether
    extraction covered an API-visible/export-visible corpus, a bounded connector/export corpus, top-ranked comments only,
    search hits, creator content without comments, or a partial manual sample; do not describe API completion as proof
-   that deleted, moderated, hidden, or never-posted failures were observed.
+   that deleted, moderated, hidden, or never-posted failures were observed. Name every video analysed (title, channel,
+   publication date, and link) and link every thread read, so the reader can judge its relevance. Count outcomes per
+   named method (a named exercise, manoeuvre, product, or dose), never for a category such as physical therapy, with how
+   much, how fast, and for how long, keeping each source's numbers apart.
+  </Rule>
+
+  <Rule name="VideoCommentMap" priority="High">
+   For each video whose comments were audited, give its comment map from the outcome-neutral sample: how many people
+   said they did the video's method; how it went for them (better, no change, worse, mixed), with counts; how long their
+   results had lasted; the kinds of harm reported, with counts; and the other methods commenters credit, with how many
+   credit each and how many say it worked better than the video's method. Leave out promotion (comments selling or
+   touting a product, practitioner, or contact, and templated testimonials) and jokes, and say how many. Call them people
+   who commented and said they tried it, never a success rate. Rank videos only for one problem, only among videos with
+   at least 20 such people, by the share who said it helped, giving each video's counts. One video's map never rates
+   its channel; a channel needs at least five of its videos mapped. The other methods commenters credit are leads:
+   search them in studies and pass them to the scout before concluding (CommunityToFormalHypothesisTransfer).
   </Rule>
 
   <Rule name="ProspectiveBeatsRetrospective" priority="High">
@@ -4498,11 +4536,13 @@
   </Rule>
 
   <Rule name="ThreePartCommunityConclusion" priority="Critical">
-   Conclude the forum audit with three separate fields. Community signal: visible prevalence, direction, principal
+   Conclude the forum audit with three separate fields, then a fourth when the question is what to do. Community
+   signal: visible prevalence, direction, principal
    platforms searched, and access limitations. Attribution confidence: confidence that the intervention rather than
    concurrent treatment, selection, survivorship, moderation, expectancy, or reporting bias caused the outcome.
    Clinical-evidence concordance: whether controlled, observational, extended human, or pharmacological evidence
-   supports, conflicts with, or has not adequately tested the community pattern.
+   supports, conflicts with, or has not adequately tested the community pattern. What to try: what a person could try
+   first and what to avoid, ordered by risk, and what would change that order.
   </Rule>
 
   <Rule name="DeepForumAuditActivationPrompt" priority="Critical">
