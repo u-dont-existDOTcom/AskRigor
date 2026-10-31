@@ -40,6 +40,41 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpSurface) => {
+  it.each(["none", "read"] as const)("keeps citation guidance in AI result text and reader limits in the panel (%s)", async (other_route) => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "lead-panel-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const input = fixture({
+        receipts: [issueResearchReceipt("full_text_lead", { doi: "10.1000/depth", state: "ABSTRACT_ONLY" }, { secret: SECRET })],
+        key_sources: [{ id: "10.1000/depth", status: "lead_only", read_depth: "abstract_only", answer_marker: "Study", other_route }],
+        answer_draft: "[Study](https://doi.org/10.1000/depth) is a lead."
+      });
+      const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      expect(result.isError).not.toBe(true);
+      const output = result.structuredContent as FinalizeResearchOutput;
+      const instruction = other_route === "read"
+        ? "Cite 10.1000/depth as read through another tool, not audited by AskRigor."
+        : 'Cite "Study" (10.1000/depth) as a lead: only its abstract was readable, so its methods were not audited.';
+      const limit = other_route === "read"
+        ? "One key study, [this study](https://doi.org/10.1000/depth), was read through another tool, not audited by AskRigor."
+        : "Only the abstract of [this study](https://doi.org/10.1000/depth) was readable, so its methods were not checked.";
+      expect(output.status).toBe("ready_with_limits");
+      expect(output.next_steps).toEqual([]);
+      expect(output.notes).toContain(instruction);
+      expect(output.limits).toContain(limit);
+      expect(output.limits).not.toContain(instruction);
+      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
+      const panel = render(output);
+      const shown = panel.children.filter(({ tagName }) => tagName !== "details").map(({ textContent }) => textContent).join("\n");
+      expect(shown).toContain(limit);
+      expect(shown).not.toContain(instruction);
+      expect(panel.all("details")[0]!.textContent).toContain(instruction);
+    } finally { await client.close(); await server.close(); }
+  });
+
   it("lists and reads the sandboxed resource, retains metadata, and preserves the final check result", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));

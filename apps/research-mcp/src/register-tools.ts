@@ -737,7 +737,9 @@ const VIDEO_COMMENT_MAP_REMINDER =
   "Give this video's comment map from the sample: how many people said they did the video's method; how it went " +
   "for them (better, no change, worse, mixed), with the counts; how long their results had lasted; the kinds of " +
   "harm reported, with counts; and the other methods commenters credit, with how many credit each and how many " +
-  "say it worked better than the video's method. Call them people who commented and said they tried it, never a " +
+  "say it worked better than the video's method. Leave out promotion (comments selling or touting a product, " +
+  "practitioner or contact, or templated testimonials) and jokes, and say how many. Call them people who commented " +
+  "and said they tried it, never a " +
   "success rate. When the answer audits several videos for one problem, rank them by the share who said it " +
   "helped, only among videos with at least 20 such people, giving each video's counts.";
 
@@ -2136,7 +2138,7 @@ function defineResearchOperations(
         const failures = researchTargetScreenFailures(target.research_target);
         if (failures.length > 0) {
           return scoutError("research_target_not_deidentified", false,
-            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(failures)}`);
+            `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(target.research_target)}`);
         }
         if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
           return scoutError("rediscovery_lead_not_public_term", false,
@@ -2168,7 +2170,7 @@ function defineResearchOperations(
         const { code, retryable } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
           ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
-            researchTargetScreenRefusal(researchTargetScreenFailures(target.research_target))}`.trimEnd()
+            researchTargetScreenRefusal(target.research_target)}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."

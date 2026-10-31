@@ -68,3 +68,17 @@ Runtime operation descriptions, later-input guidance and result text carry these
 tool definitions and `tests/fixtures/frozen-tool-lists/` retain their exact bytes under owner answer 189a.
 Historical plans and dated audits describe the behavior at their recorded dates, rather than the current
 blocking set.
+
+The 31 October regression repairs keep “Cite … as a lead” and “Cite … as read through another tool” instructions
+in the advisory notes and result text; the panel's limits retain the corresponding reader-worded source boundary.
+Figure parsing accepts an interdigit middle dot as a decimal point, including study-audit recomputations and answer
+figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
+what they took or did without assuming who runs the test.
+
+A plain-answer confirmation needs the same existing backing as a qualification. Missing backing is an advisory
+note and withholds the comparison note alone. The comparison note quotes each registered claim with its figures,
+including figures absent from the checked draft; a confirmed or qualified claim with such figures says the research
+did not confirm them. If a receipt marked plain_answer does not verify, the result says
+so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
+required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
+older description of the note's figure replacement; the runtime result supplies the actual note.

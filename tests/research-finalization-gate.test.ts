@@ -1600,11 +1600,14 @@ describe("finalize_research gate", () => {
     };
     const check = (input: Record<string, unknown>) => finalizeResearchRaw({ ...request, ...input }, options);
     const result = check({});
+    const citationNote = 'Cite "Study" (10.1016/j.joca.2020.01.001) as a lead: no open full text was available, so its methods were not audited.';
+    expect(result.notes).toContain(citationNote);
+    expect(result.limits).not.toContain(citationNote);
     expect(result.caveats).toEqual([FORUM_CAVEAT, leadCaveat, ...FIRST_PASS_CAVEATS]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
     // A link's text may change in a rendering too.
-    expect(advisoryNotes(check({ answer_draft: draft.replace("[este estudio](", "[el estudio de 2020](") })).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(check({ answer_draft: draft.replace("[este estudio](", "[el estudio de 2020](") })).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
 
     // Accents written as one character or as a letter and a combining mark compare alike.
     const decomposed = "Esta sen\u0303al de\u0301bil apoya probar el ejercicio antes de la cirugi\u0301a.";
@@ -1613,7 +1616,7 @@ describe("finalize_research gate", () => {
         ...request.community_findings,
         answer_quotes: { ...request.community_findings.answer_quotes, effect_on_answer: decomposed }
       }
-    })).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    })).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
 
     // Renderings count only for an answer declared in another language: an English one states each caveat as written.
     const englishOnly = "caveat_renderings counts only for an answer not in English: give answer_language (such as fr " +
@@ -1623,14 +1626,14 @@ describe("finalize_research gate", () => {
     expectPassingLimits(check({ answer_language: "en-GB" }), [FORUM_CAVEAT, leadCaveat]);
     // A rendering stands as a sentence of its own, as a caveat does: embedded, it is not stated.
     const forum = spanish.get(FORUM_CAVEAT)!;
-    expect(advisoryNotes(check({ answer_draft: draft.replace(forum, `No es cierto que l${forum.slice(1)}`) })).filter((step) => step !== TOOL_LIST_REFRESH_HINT))
+    expect(advisoryNotes(check({ answer_draft: draft.replace(forum, `No es cierto que l${forum.slice(1)}`) })).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote))
       .toEqual([]);
     // It keeps the caveat's links.
     const unlinked = (text: string) => text.replace("[este estudio](https://doi.org/10.1016/j.joca.2020.01.001)", "este estudio");
     expect(advisoryNotes(check({
       answer_draft: unlinked(draft),
       caveat_renderings: request.caveat_renderings.map(({ caveat, text }) => ({ caveat, text: unlinked(text) }))
-    })).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    })).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
     // A rendering with no letter or digit states nothing, and the check still ends (review of d71db54: an
     // empty rendering never ended the search, and one of marks alone matched any sentence end).
     for (const text of [".", "**", "___", "\u3002"]) {
@@ -1640,11 +1643,11 @@ describe("finalize_research gate", () => {
           not_relevant_reason: "A lab value.",
           treatment_choice: "not_compared", research_target: TARGET, key_sources: [], answer_draft: answer,
           answer_language: "fr", caveat_renderings: [{ caveat: "No study's methods were checked in full text for this answer.", text }]
-        }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+        }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
       }
     }
     // Quotes are the answer's own words, in its language, and must be in it.
-    expect(advisoryNotes(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") })).filter((step) => step !== TOOL_LIST_REFRESH_HINT))
+    expect(advisoryNotes(check({ answer_draft: draft.replace("nadie mencionó efectos secundarios", "nadie habló de daños") })).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote))
       .toEqual([
         "For the YouTube comments, answer_quotes gives text the answer does not show (adverse_reports): report each " +
           "finding in the answer, and copy the sentence(s) that report it exactly, from one paragraph or list item."
@@ -1664,14 +1667,14 @@ describe("finalize_research gate", () => {
     const japanese = "[この研究](https://doi.org/10.1016/j.joca.2020.01.001)の全文は公開されていなかったため、その方法は確認できませんでした。";
     const inJapanese = (answer: string) => advisoryNotes(finalizeResearchRaw({
       ...deep, answer_draft: answer, answer_language: "ja", caveat_renderings: [{ caveat: leadCaveat, text: japanese }]
-    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote);
     expect(inJapanese(`運動療法の効果は複数の試験で確認されています。${japanese}詳しくは主治医に相談してください。`)).toEqual([]);
     expect(inJapanese(`専門家によれば、${japanese}`)).toEqual([]);
     const arabic = "لم يكن النص الكامل لـ[هذه الدراسة](https://doi.org/10.1016/j.joca.2020.01.001) متاحًا، لذلك لم تُفحص طرقها.";
     expect(advisoryNotes(finalizeResearchRaw({
       ...deep, answer_language: "ar", caveat_renderings: [{ caveat: leadCaveat, text: arabic }],
       answer_draft: `هل التمارين مفيدة؟${arabic}`
-    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT && step !== citationNote)).toEqual([]);
   });
 
   it("bounds what the searches did not find and grounds a null result in audited studies (the geosmin report)", () => {
@@ -1996,7 +1999,7 @@ describe("finalize_research gate", () => {
       community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
       key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id, status: "lead_only" }] }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.limits).toContain(`Cite "Study" (${id}) as a lead: ${limit}, so its methods were not audited.`);
+    expect(result.notes).toContain(`Cite "Study" (${id}) as a lead: ${limit}, so its methods were not audited.`);
     expect(result.caveats).toContain(caveat);
   });
 
@@ -2013,7 +2016,7 @@ describe("finalize_research gate", () => {
     const read = check("read");
     expect(read.status).toBe("ready_with_limits");
     expect(read.sources.lead_only).toEqual([id]);
-    expect(read.limits).toContain(`Cite ${id} as read through another tool, not audited by AskRigor.`);
+    expect(read.notes).toContain(`Cite ${id} as read through another tool, not audited by AskRigor.`);
     expect(read.caveats).toContain(`One key study, ${LEAD_LINK}, was read through another tool, not audited by AskRigor.`);
     expect(read.caveats.join(" ")).not.toContain("was not openly available");
     for (const other of ["unavailable", "cost", "none"] as const) {
@@ -2064,7 +2067,7 @@ describe("finalize_research gate", () => {
         const result = run(ordered);
         expect(result.status).toBe("ready_with_limits");
         expect(result.sources.lead_only).toEqual([id]);
-        expect(result.limits).toContain(`Cite "Study" (${id}) as a lead: a full-text service kept failing when AskRigor tried ` +
+        expect(result.notes).toContain(`Cite "Study" (${id}) as a lead: a full-text service kept failing when AskRigor tried ` +
           "to fetch it, so its methods were not audited.");
         expect(result.caveats).toContain(caveat);
         expect(result.next_steps).toEqual([]);
@@ -2221,9 +2224,7 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
   "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
   "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/HipOA.",
-  "Cite \"Study\" (10.1016/j.joca.2020.01.001) as a lead: no open full text was available, so its methods were not audited.",
   "Only part of the text of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.",
-  "Cite \"Study\" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.",
   "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its methods were not checked.",
   "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked.",
   "This was a first pass: some studies and communities were not reached yet.",
@@ -2337,7 +2338,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.']);
     expect(result.caveats.join(" ")).toContain("which PubMed lists without a DOI");
   });
 
@@ -2404,6 +2405,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+      'Cite "Study" (PMC123) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.',
       "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
         LEAD_RECEIPT_SEARCH_TEXT,
@@ -2430,7 +2432,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.sources.lead_only).toEqual(["PMC5640576"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.']);
     expect(result.caveats.join(" ")).toContain("its full-text tool requires a DOI and none was known");
     expect(result.caveats.join(" ")).toContain("PMC5640576");
   });

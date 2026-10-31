@@ -1768,12 +1768,10 @@ export function finalizeResearch(
       if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
       else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
-    // The limit is about tests the person does on themselves (HRP MeasurementIsNotAttribution); proposed_tests also
-    // holds clinical tests such as an ECG or blood tests, which it misdescribed in the 29 to 30 Oct runs
-    // (o354-emergency-first, q132), so it says which tests it concerns.
+    // proposed_tests includes clinician-run checks and reading logs as well as self-measurements.
     if (!test.blinded) caveatOnce(
-      rule`A test the answer proposes is not blinded; if the person does it on themselves, say it can show how they did, not what caused a change.`,
-      "A test the person does on themselves without blinding can show how they did, not what caused a change, because expectation, effort and practice can move it too.");
+      rule`A test the answer proposes is not blinded; say the person knows what they took or did, so expectation can produce a change and the test alone cannot show what caused it.`,
+      "In an unblinded test, the person knows what they took or did, so expectation, effort and practice can produce a change; the test alone cannot show what caused it.");
   }
   const { carried, invalid: carriedInvalid, firstTurn, previousOpen } =
     checkCarriedState(input, options.secret, callRound.turn, stepSink(addStep, "carried_state"));
@@ -2389,7 +2387,7 @@ export function finalizeResearch(
   const unreadStudies = new Map<string, string | undefined>();
   // Owner answer 147a: a lead the model declares it read through another of this app's tools.
   const readThroughOtherTool = (sourceId: string, id: string): void => {
-    requireLimit(rule`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
+    addStep("declaration", rule`Cite ${sourceId} as read through another tool, not audited by AskRigor.`);
     unreadStudies.set(id, "OTHER_TOOL");
   };
   // Every identifier and page the receipts tie to a key study links it (a PubMed record's page since the
@@ -2493,7 +2491,7 @@ export function finalizeResearch(
       }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
       const limit = state === undefined ? rule`no open full text was available` : limits[state] ?? rule`no open full text was available`;
-      requireLimit(rule`Cite ${keySourceName(source)} as a lead: ${limit}, so its methods were not audited.`);
+      addStep("declaration", rule`Cite ${keySourceName(source)} as a lead: ${limit}, so its methods were not audited.`);
       unreadStudies.set(id, state);
       continue;
     }
@@ -2513,7 +2511,7 @@ export function finalizeResearch(
         readThroughOtherTool(source.id, id);
         continue;
       }
-      requireLimit(joinRules(rule`Cite ${keySourceName(source)} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
+      addStep("declaration", joinRules(rule`Cite ${keySourceName(source)} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
       unreadStudies.set(id, "ROUTE_FAILED");
       continue;
     }
@@ -2537,7 +2535,7 @@ export function finalizeResearch(
         readThroughOtherTool(source.id, id);
         continue;
       }
-      requireLimit(
+      addStep("declaration",
         joinRules(rule`Cite ${keySourceName(source)} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
       );
       unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
@@ -3342,8 +3340,8 @@ export function finalizeResearch(
             usedQuotes.push({ quote: entry.answer_quote, index });
             if (entry.answer_quote.trimEnd().endsWith(":")) addStep("declaration", rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
             // A first-turn plain answer was never delivered: its correction is the answer's own sentence, not a
-            // retraction of something the user saw. Qualified items still name their research basis.
-            if (entry.outcome !== "confirmed" && !(firstTurn && entry.outcome === "corrected") && !backed) {
+            // retraction of something the user saw. Confirmed and qualified items name the same research basis.
+            if (!(firstTurn && entry.outcome === "corrected") && !backed) {
               addStep("declaration", joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here or a video whose comments were read here, or quote as "), firstTurn
                 ? "answer_quote a sentence that absence_claims also declares."
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
@@ -3551,7 +3549,12 @@ export function finalizeResearch(
   if (plainAnswer !== undefined) {
     const note = options.plainAnswer?.note !== false;
     output.plain_answer = plainAnswer.status !== "registered"
-      ? { status: plainAnswer.status, reason: PLAIN_ANSWER_REASONS[plainAnswer.status] }
+      ? { status: plainAnswer.status, reason: plainAnswer.status === "no_receipt" && rejected.some(({ index }) =>
+          input.receipts[index]?.startsWith("rr1~plain_answer~"))
+          ? "The receipt marked plain_answer did not verify, so the answer ends without the note comparing it with " +
+            "the quick answer. Copy the original research_receipt from manage_research_access exactly into receipts " +
+            "to restore the note when the receipt verifies and the comparison is backed."
+          : PLAIN_ANSWER_REASONS[plainAnswer.status] }
       : note
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
@@ -4142,7 +4145,9 @@ export function researchMapReminder(work: VerifiedWork): string {
 const NEXT_PLAIN_ANSWER = " For a later question, register its plain answer before researching it.";
 const PLAIN_ANSWER_REASONS = {
   no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
-    `so the answer ends without the note comparing it with one.${NEXT_PLAIN_ANSWER}`,
+    "so the answer ends without the note comparing it with one. If its receipt was omitted or failed to verify, " +
+    "copy the original research_receipt from manage_research_access exactly into receipts to restore the note " +
+    `when the receipt verifies and the comparison is backed.${NEXT_PLAIN_ANSWER}`,
   other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
     `comparing it with one.${NEXT_PLAIN_ANSWER}`,
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
@@ -4182,31 +4187,23 @@ function quotation(text: string): string {
 }
 
 /**
- * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, unless it
- * holds a figure the checked draft does not show (26 Oct regressions, finding 5); then a fixed sentence, worded for
- * the claim's outcome, replaces that claim's words. The shared number comparison handles digits in any script. Each
- * claim is followed by what
- * the research found, with the answer's own sentence and what backs a change, for example "Without AskRigor, a quick
+ * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, including
+ * its figures, so the reader can see what was checked (31 Oct regressions). Each claim is followed by what the
+ * research found, with the answer's own sentence and what backs it, for example "Without AskRigor, a quick
  * answer would have said: “X.” This research corrected that, from full-text audits of 2 studies: “Y.”"
  */
-// What replaces a claim whose figures the checked draft does not show, by the claim's outcome.
-const FIGURES_NOT_SHOWN: Readonly<Record<PlainAnswerOutcome, string>> = {
-  confirmed: "given figures that the answer above does not repeat.",
-  corrected: "given figures this research does not support.",
-  qualified: "given figures this research does not support.",
-  not_checked: "given figures this research did not check."
-};
-
 function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
   const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
   return compared.map(({ claim, outcome, quote, work }, index) => {
     const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
-    const figuresNotShown = extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
-    const said = figuresNotShown ? `${lead} ${FIGURES_NOT_SHOWN[outcome]}` : `${lead} said: ${quotation(claim)}`;
-    if (outcome === "not_checked") return figuresNotShown ? said : `${said} This research did not check that.`;
-    // Non-not_checked entries reach a passing note only with their checked quote.
+    const said = `${lead} said: ${quotation(claim)}`;
+    if (outcome === "not_checked") return `${said} This research did not check that.`;
+    // Non-not_checked entries reach a passing note only with their checked quote. A confirmed or qualified claim
+    // whose figures the checked draft does not show says so, rather than seeming to confirm them (31 Oct).
     const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
-    return `${said} This research ${outcome} that${from}: ${quotation(quote!)}`;
+    const figuresUnchecked = outcome !== "corrected" &&
+      extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
+    return `${said} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
   }).join(" ");
 }
 

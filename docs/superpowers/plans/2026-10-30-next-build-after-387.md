@@ -38,15 +38,29 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
      stated in the audit's limits with its count, and the audit returns its sample; a real repeat can't enter the
      sample, since its rank already lost to 500 others. No output field and no tool-list change (189a).
 
+4. **Forum depth, the studies loop and the in-answer comment map** (the owner, 30 and 31 Oct; 4abb8ee1): three
+   non-blocking notes from counts and signed times (forum evidence on fewer than five threads or one community; no
+   study search after the first YouTube community receipt; the emergency exemption with key sources), and reminders in
+   the community tools' results, including how to give a video's comment map and to leave out promotion and jokes
+   (`2026-10-31-video-comment-maps.md`).
+5. **The regression run's exact findings** (`docs/audits/2026-10-31-owner-regressions-387-judgment.md`, item 1, and
+   the scout's refusals):
+   - a middle dot between digits ("11·9%") reads as a decimal point;
+   - the "Cite … as a lead" lines are notes for the AI, out of the panel's limits, beside the reader-worded limit;
+   - an unbacked "confirmed" in the plain-answer comparison gets the note an unbacked "qualified" gets;
+   - the plain-answer note quotes each claim with its figures, and a confirmed or qualified claim whose figures the
+     answer doesn't show says the research did not confirm them;
+   - the unblinded-test limit fits any unblinded test;
+   - a plain-answer receipt that fails to verify says so, and how to restore the note;
+   - the scout's refusals quote the words that caused them, except a secret or contact detail, which they name.
+
+   No method change, no declaration, no tool-list change. Built by Codex from briefs; reviewed and adjusted.
+
 ## Next
 
-- **From the regression run on #387's build** (`docs/audits/2026-10-31-owner-regressions-387-judgment.md`, owner
-  rule 148a; none changes method): a Lancet-style decimal ("11·9%") read as a figure mismatch; the AI-worded
-  "Cite … as a lead" lines kept out of the limits the panel shows; an unbacked "confirmed" noted like an unbacked
-  "qualified"; the plain-answer note's hidden figure claim shown plainly; the unblinded-test limit worded for any
-  unblinded test; and a withheld note's message saying the receipt didn't verify. Then the design questions it
-  raises again: the scout's word lists ("copper(I)" read as "I"; "including" refused), the carried state across
-  turns, and 205a's limit list inviting the paste.
+- **From the regression run on #387's build:** the exact findings are built (item 5). The design questions it
+  raises again remain: the scout's word lists ("copper(I)" read as "I"; "including" refused; its refusals now
+  quote the word), the carried state across turns, and 205a's limit list inviting the paste.
 
 - **Community signals the way the owner's last turn did them (AskRigor#390, 30 Oct; owner rule 148a, and the owner's
   words "so you can see how i want the forum signals done, look at the last turn").** HRP's

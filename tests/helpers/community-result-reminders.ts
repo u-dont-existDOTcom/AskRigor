@@ -9,7 +9,9 @@ export const VIDEO_COMMENT_MAP_REMINDER =
   "Give this video's comment map from the sample: how many people said they did the video's method; how it went " +
   "for them (better, no change, worse, mixed), with the counts; how long their results had lasted; the kinds of " +
   "harm reported, with counts; and the other methods commenters credit, with how many credit each and how many " +
-  "say it worked better than the video's method. Call them people who commented and said they tried it, never a " +
+  "say it worked better than the video's method. Leave out promotion (comments selling or touting a product, " +
+  "practitioner or contact, or templated testimonials) and jokes, and say how many. Call them people who commented " +
+  "and said they tried it, never a " +
   "success rate. When the answer audits several videos for one problem, rank them by the share who said it " +
   "helped, only among videos with at least 20 such people, giving each video's counts.";
 

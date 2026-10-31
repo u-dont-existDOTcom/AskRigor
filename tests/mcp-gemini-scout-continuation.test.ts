@@ -233,7 +233,7 @@ describe("MCP Gemini scout continuation", () => {
       expect(text).toContain("Unlike finalize_research's research_target, which identifies the question all discovery used, the scout accepts only this deidentified population-and-goal form");
       expect(text).toContain("adults with hip osteoarthritis trying to avoid a replacement");
       // The refusal names the part of the screen the target failed.
-      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]}.`);
+      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]} (matched `);
     }
     expect(execute).not.toHaveBeenCalled();
 
@@ -258,6 +258,18 @@ describe("MCP Gemini scout continuation", () => {
         "accepts only this deidentified population-and-goal form; a question copied as-is from finalize_research " +
         "may not meet that form."
     );
+  });
+
+  it.each([
+    ["l31", "In adults with low ceruloplasmin, does oral copper(I) improve ceruloplasmin more than copper(II)?", "I"],
+    ["o355-best-ocd", "What works best for OCD in adults, including nonstandard approaches?", "including"],
+  ])("%s: quotes the exact refusal trigger before any scout request", async (_name, research_target, matched) => {
+    const client = await connect();
+    const refused = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: { ...TARGET, research_target } });
+    expect(refused.isError).toBe(true);
+    expect((refused.content as Array<{ text: string }>)[0]!.text).toContain(`(matched ${JSON.stringify(matched)})`);
+    expect(execute).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
   });
 
   it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {

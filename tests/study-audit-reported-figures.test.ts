@@ -72,6 +72,20 @@ async function submission(overrides: Partial<StudyMethodAuditSubmission> = {}, c
 }
 
 describe("study audit reported_figures", () => {
+  it("r382-other-aims-metabolic: reads 11·9% as 11.9 without a false inconsistency", async () => {
+    const { index, table, audit } = await submission({}, "<td>119 of 1000 (11·9%)</td>");
+    const figure = {
+      label: "reported percentage", evidence_block_id: table, reported: "11·9%", recomputed: 11.9,
+      recomputation: "119 / 1000 × 100 = 11.9%", plausibility: "consistent" as const,
+      percentage: { count: 119, denominator: 1000, printed: 11.9 }
+    };
+    expect(validateStudyMethodAudit(index, { ...audit, reported_figures: [figure] }).reported_figures_check)
+      .toEqual({ status: "consistent", mismatched: [], impossible_as_printed: [], values: [11.9] });
+    // The notation repair still catches a real disagreement.
+    expect(validateStudyMethodAudit(index, { ...audit, reported_figures: [{ ...figure, recomputed: 15 }] })
+      .reported_figures_check?.status).toBe("internally_inconsistent");
+  });
+
   it("records consistent figures, and a recomputation within rounding, with their printed values", async () => {
     const { index, audit } = await submission();
     expect(validateStudyMethodAudit(index, audit).reported_figures_check).toEqual({
