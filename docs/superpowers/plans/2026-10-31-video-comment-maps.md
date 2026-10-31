@@ -14,8 +14,8 @@ YouTube's data.
 ## What 31 Oct measured
 
 - **The eleven videos** (`docs/youtube-channel-registry.md`): up to 400 comments each, chosen by hash without regard to
-  what they say, read by Codex and counted in code. Foster's vertigo video: 145 of 400 sampled people did the
-  manoeuvre and said what happened; 109 better (95% interval 68% to 82% of those who tried), 14 worse.
+  what they say, read by Codex and counted in code. The counts are on the owner's private page: nothing drawn from
+  YouTube comments goes on a public page, this repository included.
 - **What a map costs in YouTube units:** reading all 4,593 of Foster's comments took 32 thread pages and 480 reply
   pages, 512 units. A search costs 100.
 - **What AskRigor uses:** the day's allowance is 110,000 units and 200 searches (the 23 Oct grant). The Cloud console's
@@ -38,9 +38,8 @@ What one map shows, all counted in code from the model's reading of each comment
   sample shows as uncertain.
 - **How long it lasted:** for the better reports, immediate, days, weeks, months or years, or not stated. Most are
   immediate or undated; reports that lasted months or years are shown apart.
-- **The harms:** the "worse" reports grouped into a few kinds with their counts (Foster: symptoms brought on during the
-  manoeuvre; Bob & Brad: arm pain from chin tucks), which is often the most useful part: what to watch for, and when to
-  stop.
+- **The harms:** the "worse" reports grouped into a few kinds with their counts, which is often the most useful part:
+  what to watch for, and when to stop.
 - **What else helped:** the other methods commenters credit, ranked by how many people said each helped, with how many
   said it helped more than the video's method or after it failed. These are leads, not verdicts.
 - **What it can't show:** commenters are not a random group of the people who tried it (happy people may comment more,
@@ -48,6 +47,19 @@ What one map shows, all counted in code from the model's reading of each comment
 
 The first eleven maps are being made from the 31 Oct samples (`leads-prompt.md` and `map.py` in the job folder
 `/home/joel/askrigor-releases/channel-discovery-20261031`), to show the owner before anything is built.
+
+## What ships first: the map inside an answer
+
+Within the current grant and the frozen tool lists (189a), with no new declaration (195a):
+
+- `audit_youtube_video_community`'s result tells the AI how to give the map: of the sample, how many people said they
+  did the video's method, how it went for them (better, no change, worse, mixed) with the better share's range, how
+  long it lasted, the harm kinds, and what else commenters credit, each with its count, and the sample's size and how
+  it was chosen. HRP's forum module gets the same, outside the core.
+- The leads it finds go to the study search and to the scout's `rediscovery_leads` before the answer concludes (the
+  loop).
+- Rankings inside one answer: when an answer audits several videos for one problem, it orders them as below, with the
+  same words.
 
 ## Rankings
 
@@ -70,13 +82,20 @@ The first eleven maps are being made from the 31 Oct samples (`leads-prompt.md` 
 - **From the maps:** each map's leads list, merged across a problem's videos, is the list of methods to search in
   studies (the loop, plan item 7 of `2026-10-30-next-build-after-387.md`) and to scout for more videos.
 
-## The Atlas store
+## The Atlas store (after YouTube agrees)
 
-- **What is kept:** one map per video, keyed by its video ID: the counts, the lead and harm-kind names in AskRigor's own
-  words, how the sample was chosen and its size, the corpus size, and the newest comment date read. Never comment text,
-  commenter names or keys, or comment IDs.
-- **Where:** a private store beside the held YouTube findings (owner answers 173 and 175: kept with no deletion date,
-  never published, deleted at once if YouTube asks, by the same delete-all action). Not on the public Atlas pages.
+- **What AskRigor told YouTube on 25 Oct** (owner answer 175, the email in the quota thread): it stores no YouTube API
+  Data beyond the temporary storage Developer Policies III.E.4 allows, "no comment text, usernames, channel, comment,
+  reply or video IDs, or links"; its one-sentence summaries hold none of them. On 8 Sep it also said it runs no
+  background mirror of YouTube. A map kept per video needs the video's ID to be found again, so keeping maps, and
+  everything built on kept maps (reuse across answers, rankings, the background audits), waits for YouTube's answer
+  to owner question 208. Until then a map lives in the answer that made it, and in that research session's temporary
+  checkpoint (at most seven days, as the privacy page says).
+- **What would be kept:** one map per video, keyed by its video ID: the counts, the lead and harm-kind names in
+  AskRigor's own words, how the sample was chosen and its size, the corpus size, and the newest comment date read.
+  Never comment text, commenter names or keys, or comment IDs.
+- **Where:** a private store beside the held YouTube findings (owner answers 173 and 175: never published, deleted at
+  once if YouTube asks, by the same delete-all action). Not on the public Atlas pages.
 - **Reuse:** when an answer audits a mapped video, the audit's result gives the stored map and its date, and reads only
   comments newer than it (YouTube lists comments newest first, so the read stops at that date). The newer comments are
   a second stratum with their own counts, until enough of them warrant a new map.
@@ -84,8 +103,11 @@ The first eleven maps are being made from the 31 Oct samples (`leads-prompt.md` 
   a new proposal kind (a runtime enum value, not a tool-list change, owner rule 189a), and accepted with the owner's
   review login. Maps written by a user's AI inside an answer stay in that answer: their quality varies and nothing
   checks them.
+- **The 31 Oct job's own files:** the classes, leads and harm files in the job folder hold comment IDs and author keys,
+  and the raw comments sit in the session scratchpad. III.E.4 allows them for 30 days, so they are deleted by 30 Nov
+  2026, keeping only counts with no IDs.
 
-## Spending the spare units
+## Spending the spare units (after YouTube agrees)
 
 - **A daily meter:** the server counts its YouTube units per UTC day (no user data); the same count gives 206a's fair
   daily share of searches per account.
@@ -96,16 +118,14 @@ The first eleven maps are being made from the 31 Oct samples (`leads-prompt.md` 
 
 ## Owner question 208 (YouTube)
 
-The grant covers the use case in the application: public data read when a user asks, shown in that user's chat. A
-map shown in an answer, and kept privately for reuse, is within it and within the owner's 25 Oct ruling. Two parts are
-not:
+The grant covers the use case in the application: public data read when a user asks, shown as a research report in
+that user's chat. A map made inside an answer is within it. Keeping maps, reusing them across answers, rankings built
+from kept maps, and auditing videos nobody asked about are not: they contradict what AskRigor told YouTube on 25 Oct and
+8 Sep, and the grant says a changed use case needs a new quota request. The owner sees the grant as probation.
 
-- **Auditing videos nobody asked about**, with spare units: YouTube's grant says a changed use case needs a new quota
-  request, and the owner sees the grant as probation.
-- **Public maps and rankings**, or any page outside a user's chat.
-
-The question offers to write to YouTube first (the owner approves the exact words), with the background audits
-starting when YouTube agrees, and meanwhile maps made only when someone asks.
+The question offers to write to YouTube first (the owner approves the exact words, as with 175), building the store
+behind a switch that stays off until YouTube agrees; meanwhile maps are made inside answers, which ships with the next
+build. Public pages stay out of it either way.
 
 ## Forum depth (the owner, 31 Oct)
 

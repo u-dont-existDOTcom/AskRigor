@@ -29,6 +29,8 @@ Each channel is labelled with the kinds of value it has, and none means its clai
   the 400 whose IDs rank lowest by SHA-256 (the audit's own outcome-blind ranking); each read by Codex and counted by
   code. The counts are people who say they did the video's method. Most "better" reports are immediate or undated,
   so they say little about lasting results, and people who were helped may comment more often than people who weren't.
+  The counts are on the owner's private page, never here: anything drawn from YouTube comments stays off public pages
+  (owner answers 173 and 175, and what AskRigor told YouTube on 25 Oct).
   A video's counts describe that video, not its channel: judging a channel needs many of its videos mapped (the owner,
   31 Oct; at least five, `docs/superpowers/plans/2026-10-31-video-comment-maps.md`).
 - **Recovery story:** a person's own detailed account of getting better, often on a small channel: what they did, for
@@ -59,12 +61,12 @@ search found through people's reports elsewhere that its video worked for them.
 | ATHLEAN-X (`@athleanx`) | `UCe0TLA0EsQbE-MjuHXevj2A` | methods: exercise mechanics | to check: products | Gemini |
 | Conor Harris (`@conorharris`) | `UC634L9eG-YsskyzWxnp9BJA` | methods, leads: breathing and rib-cage position | a contested school (PRI) | Gemini |
 | Zac Cupples (`@zaccupplespt`) | `UCKrx8MQ1G7bRWkxN_adE32A` | methods, leads: breathing and rib-cage position | a contested school (PRI) | Gemini |
-| Madalina - Spine and Neuro Physiotherapist (`@madalinaphysio`) | `UCwIn3IlKa4ufQYiR8IO9z0A` | methods: a seated pelvis correction and hip strengthening (`_ZpipFtSZ90`); outcomes (400 of 948 comments): 23 better, 2 no change, 3 worse | absolute claims with no evidence shown (back pain is "always" muscle imbalance, never the disc; a viewer's legs aren't different lengths, only the pelvis is rotated); an account from 2013 that began posting in September 2026; the credentials are the channel's own | owner |
-| SHAPEFIXER (`@shapefixer`) | `UCM1Va_ObWwANw1lrnUSQ6bw` | recovery story: a man's hip arthritis without surgery (`XpZHKGGCK-o`: diet, collagen, glucosamine and chondroitin, fasting, gentle exercise, weight loss); outcomes (400 of 5,393): 34 better, 4 no change, 5 worse, 6 mixed; leads | sells a hip-arthritis course; one person's account, with an X-ray claim; most of the channel is now about a carnivore diet | owner |
-| Foundation Training (`@foundationtraining`) | `UCOkRpabTWz-G5dRqsABppDQ` | methods: a 12-minute posterior-chain routine (`4BOTvaRaDjI`); outcomes (400 of 4,987 comments): 76 better, 10 worse, 15 mixed (mostly: it works while they keep doing it) | sells subscriptions, books and training | discovery |
-| Bob & Brad (`@bobandbrad`) | `UCmTe0LsfEbpkDpgrxKAWbRA` | methods: chin tucks and neck extension for a pinched nerve (`u7Gy9Q_Yhck`); outcomes (400 of 664): 42 better, 11 worse (mostly chin tucks bringing on arm pain), 4 mixed | sells massage devices and equipment | discovery |
+| Madalina - Spine and Neuro Physiotherapist (`@madalinaphysio`) | `UCwIn3IlKa4ufQYiR8IO9z0A` | methods: a seated pelvis correction and hip strengthening (`_ZpipFtSZ90`); outcomes measured 31 Oct (the counts stay off public pages) | absolute claims with no evidence shown (back pain is "always" muscle imbalance, never the disc; a viewer's legs aren't different lengths, only the pelvis is rotated); an account from 2013 that began posting in September 2026; the credentials are the channel's own | owner |
+| SHAPEFIXER (`@shapefixer`) | `UCM1Va_ObWwANw1lrnUSQ6bw` | recovery story: a man's hip arthritis without surgery (`XpZHKGGCK-o`: diet, collagen, glucosamine and chondroitin, fasting, gentle exercise, weight loss); outcomes measured 31 Oct (the counts stay off public pages); leads | sells a hip-arthritis course; one person's account, with an X-ray claim; most of the channel is now about a carnivore diet | owner |
+| Foundation Training (`@foundationtraining`) | `UCOkRpabTWz-G5dRqsABppDQ` | methods: a 12-minute posterior-chain routine (`4BOTvaRaDjI`); outcomes measured 31 Oct (the counts stay off public pages) | sells subscriptions, books and training | discovery |
+| Bob & Brad (`@bobandbrad`) | `UCmTe0LsfEbpkDpgrxKAWbRA` | methods: chin tucks and neck extension for a pinched nerve (`u7Gy9Q_Yhck`); outcomes measured 31 Oct (the counts stay off public pages) | sells massage devices and equipment | discovery |
 | The Kneesovertoesguy (`@thekneesovertoesguy`) | `UCGybO-bWZ3W6URh42sdMQiw` | methods: a graded knee programme that starts with walking backwards (`YrH8pi09HGc`) | sells coaching, books and equipment; deep knee bending | discovery |
-| The Plantar Fasciitis Doc (`@theplantarfasciitisdoc`) | `UCxHitnvhAznFUfxE2VbnXaA` | methods: exercises for morning heel pain (`ChIYCEfudAQ`); outcomes (all 331 comments): 13 better, 1 no change, 3 mixed | sells a course and a home kit; advises against orthotics and night splints | discovery |
+| The Plantar Fasciitis Doc (`@theplantarfasciitisdoc`) | `UCxHitnvhAznFUfxE2VbnXaA` | methods: exercises for morning heel pain (`ChIYCEfudAQ`); outcomes measured 31 Oct (the counts stay off public pages) | sells a course and a home kit; advises against orthotics and night splints | discovery |
 
 ### Dizziness and balance
 
@@ -72,8 +74,8 @@ Dr. Jon Saunders, above.
 
 | Channel | ID | Value | Cautions | From |
 |---|---|---|---|---|
-| University of Colorado Denver (`@ucdenvervideo`) | `UCgN5l28PnUqWcqB-wRS8OCg` | methods, benchmark: Dr. Carol Foster's half-somersault for positional vertigo (`mQR6b7CAiqk`); outcomes (400 of 4,593): 109 better, 7 no change, 14 worse, 15 mixed (the worse mostly spinning and vomiting during or after it) | a university's channel, not hers; for positional vertigo (BPPV) only; she sells a book | discovery |
-| The Steady Coach (`@thesteadycoach`) | `UCl0GoD4zpqkdaoszwDeN6nw` | methods, hard cases: somatic tracking for chronic dizziness (`pMNYwd3iMbU`); outcomes (all 190): 16 better, 3 no change, 3 mixed | sells coaching; inner-ear and other causes come first | discovery |
+| University of Colorado Denver (`@ucdenvervideo`) | `UCgN5l28PnUqWcqB-wRS8OCg` | methods, benchmark: Dr. Carol Foster's half-somersault for positional vertigo (`mQR6b7CAiqk`); outcomes measured 31 Oct (the counts stay off public pages) | a university's channel, not hers; for positional vertigo (BPPV) only; she sells a book | discovery |
+| The Steady Coach (`@thesteadycoach`) | `UCl0GoD4zpqkdaoszwDeN6nw` | methods, hard cases: somatic tracking for chronic dizziness (`pMNYwd3iMbU`); outcomes measured 31 Oct (the counts stay off public pages) | sells coaching; inner-ear and other causes come first | discovery |
 
 ### Diet, weight, blood sugar and the heart
 
@@ -92,7 +94,7 @@ Dr. Jon Saunders, above.
 | Plantiful Kiki (`@plantifulkiki`) | `UCurFC25hDz2n6h8IaGsVOAQ` | recovery story, methods: her 70-pound loss on high-starch, low-fat eating (`0wpyXzGajwE`) | sells cookbooks and programmes; one person's story | discovery |
 | Beat Diabetes! (`@beatdiabetes3`) | `UCmKsQWqGmDPIWgrVqGYbc3w` | methods: testing glucose after ordinary meals before changing them (`AhN_EGDYNj4`) | sells books and video series | discovery |
 | Glucose Revolution (`@glucoserevolution`) | `UCsQdi6X-12eUKBBBze46STA` | methods, leads: food order, a walk after meals, vinegar (`1PkshTBkWZ8`) | sells books, courses and a supplement; dietitians criticise its framing of glucose spikes | discovery |
-| York Cardiology (`@yorkcardiology`) | `UCxtbUzEzRpX1B9sGbRudG6g` | methods, leads: magnesium for ectopic beats (`FvCLqWTY3qk`); outcomes (400 of 1,077): 43 better, 5 no change, 5 worse, 5 mixed | a cardiologist's private practice; magnesium with kidney disease | discovery |
+| York Cardiology (`@yorkcardiology`) | `UCxtbUzEzRpX1B9sGbRudG6g` | methods, leads: magnesium for ectopic beats (`FvCLqWTY3qk`); outcomes measured 31 Oct (the counts stay off public pages) | a cardiologist's private practice; magnesium with kidney disease | discovery |
 | NutritionFacts.org (`@nutritionfactsorg`) | `UCddn8dUxYdgJz3Qr5mjADtA` | methods, critique: hibiscus tea for blood pressure (`ZEAB1-Bkgs4`) | a plant-based advocacy nonprofit; one report of low blood pressure on the tea | discovery |
 
 ### Gut health
@@ -101,7 +103,7 @@ Dr. Jon Saunders, above.
 |---|---|---|---|---|
 | Dr. Michael Ruscio, DC, DNM (`@drrusciodc`) | `UCRSG-nLPicq1r8uyM0zLMwA` | critique: unvalidated gut tests; methods | to check: products | Gemini |
 | Kick It Naturally (`@kickitnaturally`) | `UCEN08D5qYz8EHvwixHckYbg` | leads: digestion and bile | to check: products | Gemini |
-| Michelle Kenway (`@michellephysio`) | `UCPQS5BOA_GLQKCc07ZCOjJg` | methods, benchmark: "moo to poo" bowel emptying, which an NHS service links (`QDk93cvZAuk`); outcomes (400 of 5,913 top-level comments): 73 better (38 right away), 19 no change, 2 worse | sells pelvic-health books and products | discovery |
+| Michelle Kenway (`@michellephysio`) | `UCPQS5BOA_GLQKCc07ZCOjJg` | methods, benchmark: "moo to poo" bowel emptying, which an NHS service links (`QDk93cvZAuk`); outcomes measured 31 Oct (the counts stay off public pages) | sells pelvic-health books and products | discovery |
 | The Pelvic Health Lady (`@thepelvichealthlady`) | `UCMZJvEpg9PQXHlv3h8hhtjw` | methods: the "I love you" abdominal massage, which an NHS service links (`JTOkKVlBHzk`) | a clinic's channel; few comments | discovery |
 
 ### Mental health
@@ -111,7 +113,7 @@ Dr. Jon Saunders, above.
 | Dr. Josef, Taper Clinic (`@taperclinic`) | `UCT0HW8jp8xDuczBnO7Kg7rA` | methods, outcomes: tapering off psychiatric drugs; critique: the hidden costs of psychiatric treatments; leads: everyday exposures such as caffeine, which he takes his patients off | a critic of mainstream psychiatric prescribing | owner |
 | HealthyGamerGG (`@healthygamergg`) | `UClHVl2N3jPEbkNJVx-ItQIQ` | leads: psychology | contested in parts | owner |
 | Andrew Huberman (`@hubermanlab`) | `UC2D2CMWXMOVWx7giW1n3LIg` | methods, leads: the physiological sigh (`rBdhqBGqiMc`) | sponsorships and supplement ties; the relief reported is short-term | discovery |
-| Therapy in a Nutshell (`@therapyinanutshell`) | `UCpuqYFKLkcEryEieomiAv3Q` | methods: a guided walkthrough for panic attacks that stops fighting the alarm (`2CQpyA485wc`); outcomes (400 of 3,646): 48 better (35 during the attack), 4 no change, 4 worse, 1 mixed | sells courses; a first or unusual attack needs a medical check | discovery |
+| Therapy in a Nutshell (`@therapyinanutshell`) | `UCpuqYFKLkcEryEieomiAv3Q` | methods: a guided walkthrough for panic attacks that stops fighting the alarm (`2CQpyA485wc`); outcomes measured 31 Oct (the counts stay off public pages) | sells courses; a first or unusual attack needs a medical check | discovery |
 
 ### Sleep
 
@@ -143,7 +145,7 @@ Dr. Jon Saunders, above.
 | E3 Rehab (`@e3rehab`) | `UCkb9jgRxR2D5bc1fSDofwtA` | methods: loading programmes for tendon, disc and joint injuries | to check: products | Gemini |
 | Garage Strength (`@garagestrength`) | `UCZEEC1w4jP1cV2dibuDFwIQ` | methods: athletic coaching | | Gemini |
 | Revive Stronger (`@revivestronger`) | `UC6wB_e6YQncYgpv_QrMGHCQ` | critique, benchmark: discussions with researchers | | Gemini |
-| Strength Side (`@strengthside`) | `UC9BNGVGr_lvbn3d23ckuVOA` | methods: ground positions and primal movement for hips, knees, ankles and spine (`2Fmx-iHsKYg`: cross-legged sitting, kneeling, deep squat, pigeon, gorilla); outcomes (400 of 1,683): 13 better, 4 no change, 16 worse (mostly the positions hurting: kneeling, numb feet), 2 mixed | sells a mobility programme; "the ground will remodel your hips" is the channel's claim | owner |
+| Strength Side (`@strengthside`) | `UC9BNGVGr_lvbn3d23ckuVOA` | methods: ground positions and primal movement for hips, knees, ankles and spine (`2Fmx-iHsKYg`: cross-legged sitting, kneeling, deep squat, pigeon, gorilla); outcomes measured 31 Oct (the counts stay off public pages) | sells a mobility programme; "the ground will remodel your hips" is the channel's claim | owner |
 | Caroline Girvan (`@carolinegirvan`) | `UCpis3RcTw6t47XO0R_KY4WQ` | methods: free dumbbell programmes (`SCxNnWW2zB8`) | sells an app | discovery |
 | Hybrid Calisthenics (`@hybridcalisthenics`) | `UCeJFgNahi--FKs0oJyeRDEw` | methods: a scalable bodyweight routine for beginners (`gOkCJ57IvNg`) | sells a book and equipment | discovery |
 
