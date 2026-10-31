@@ -1,4 +1,4 @@
-import { expectPassingLimits, advisoryNotes as allAdvisoryNotes, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
+import { expectPassingLimits, advisoryNotes as allAdvisoryNotes, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, copiedLimitsNote, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { readFile } from "node:fs/promises";
 
@@ -556,7 +556,7 @@ describe("finalize_research gate", () => {
       }, options);
     // A first pass names no best option (HRP 20.6.6): the answer says so in the gate's words.
     const firstPass = draftWith(base, "Exercise and weight loss both help; which suits you depends on your goals.");
-    expect(advisoryNotes(firstPass).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(firstPass).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([copiedLimitsNote(3)]);
     expect(firstPass.limits).toContain(
       "This comparison rests on a first pass through the evidence, so treat it as provisional; it does not rank the options."
     );
@@ -567,7 +567,7 @@ describe("finalize_research gate", () => {
     // Whether a sentence names a best option is a judgment about meaning, in whatever language the answer is in;
     // no word list makes it, so the gate reads none (AGENTS.md code review rules). An answer that states the
     // caveat and still ranks gets past the gate: its reader sees both.
-    expect(advisoryNotes(draftWith(base, "Of these, exercise is the best option for most people.")).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(draftWith(base, "Of these, exercise is the best option for most people.")).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([copiedLimitsNote(3)]);
     // Deep research may rank once the coverage check allows it; a bounded result says it does not.
     const coverage = (boundary: string) => issueResearchReceipt("treatment_coverage", {
       boundary, lock: boundary === "ledger_consistent_for_synthesis" ? "pass" : "block",
@@ -1883,7 +1883,7 @@ describe("finalize_research gate", () => {
     const onlyRead = finalizeResearchGate({
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa"])
     }, options);
-    expect(advisoryNotes(onlyRead).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(onlyRead).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([copiedLimitsNote(3)]);
     expect(onlyRead.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
       FORUM_REPORT_LINE,
@@ -1893,7 +1893,7 @@ describe("finalize_research gate", () => {
     const both = finalizeResearchGate({
       ...request, receipts, community_findings: findingsFor(["aaaaaaaaaaa", "bbbbbbbbbbb"])
     }, options);
-    expect(advisoryNotes(both).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    expect(advisoryNotes(both).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([copiedLimitsNote(3)]);
     expect(both.must_report).toEqual([
       expect.stringMatching(/^YouTube comments \(1 video\(s\) read\): /u),
       FORUM_REPORT_LINE,
@@ -2079,13 +2079,13 @@ describe("finalize_research gate", () => {
       const result = run(receipts);
       expect(result.status).toBe("ready_with_limits");
       expect(result.sources.lead_only).toEqual([]);
-      expect(advisoryNotes(result)).toEqual([retry]);
+      expect(advisoryNotes(result)).toEqual([retry, copiedLimitsNote(3)]);
       expect(result.caveats).not.toContain(caveat);
     });
 
     it("another DOI's receipt does not make a second attempt", () => {
       expect(advisoryNotes(run([failure(0), failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })])))
-        .toEqual([retry]);
+        .toEqual([retry, copiedLimitsNote(3)]);
       expect(advisoryNotes(run([failure(0, { doi: "10.1000/other-study", pmcid: "PMC9990002" }),
         failure(60, { doi: "10.1000/other-study", pmcid: "PMC9990002" })])))
         .toEqual([`Try acquire_open_full_text for ${id} before treating it as lead_only; pass the research_receipt it ` +
@@ -2110,7 +2110,7 @@ describe("finalize_research gate", () => {
       expect(result.sources.lead_only).toEqual([]);
       expect(advisoryNotes(result)).toEqual([`For ${id}: acquire_open_full_text, continue_open_full_text until exhausted, ` +
         "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open " +
-        `full text exists, the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_TEXT}`]);
+        `full text exists, the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_TEXT}`, copiedLimitsNote(3)]);
     });
 
     it("a completed lead takes precedence, even before the retry interval", () => {
@@ -2154,7 +2154,8 @@ describe("finalize_research gate", () => {
       expect(advisoryNotes(result)).toEqual([
         `PubMed lists an open copy of ${id} in PubMed Central (${pmcid}) that the full-text attempt did not ` +
         `try: call acquire_open_full_text with DOI ${id} and pmcid ${pmcid}, then audit it, or pass the new ` +
-        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_TEXT}`
+        `research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_TEXT}`,
+        copiedLimitsNote(3)
       ]);
       expect(run([failure(0), failure(60), record]).status).toBe("ready_with_limits");
       expect(run([failure(0), failure(60), record], { key_sources: [
@@ -2338,7 +2339,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.']);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.', copiedLimitsNote(3)]);
     expect(result.caveats.join(" ")).toContain("which PubMed lists without a DOI");
   });
 
@@ -2432,7 +2433,7 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("ready_with_limits");
     expect(result.sources.lead_only).toEqual(["PMC5640576"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.']);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.', copiedLimitsNote(3)]);
     expect(result.caveats.join(" ")).toContain("its full-text tool requires a DOI and none was known");
     expect(result.caveats.join(" ")).toContain("PMC5640576");
   });
@@ -2652,9 +2653,10 @@ describe("finalize_research gate", () => {
       ...rateLimited, another_pass_estimate: PASS_ESTIMATE, answer_draft: answerDraft
     }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
     const leftOutRate = ["YouTube's rate limit or daily quota stopped 1 search(es) in the latest discovery rounds; a later turn can rerun them after the limit resets."];
-    expect(answered(fullDraft)).toEqual(leftOutRate);
+    expect(answered(fullDraft)).toEqual([...leftOutRate, copiedLimitsNote(4)]);
     expect(answered(fullDraft.replace(rateCaveat,
-      "YouTube's quota did not stop any searches, but another pass can rerun them once it resets."))).toEqual(leftOutRate);
+      "YouTube's quota did not stop any searches, but another pass can rerun them once it resets.")))
+      .toEqual([...leftOutRate, copiedLimitsNote(3)]);
     // The caveat must stand as its own sentence: not embedded, quoted, continued or in a quotation block.
     for (const denial of [
       `It is false that ${rateCaveat}`,
@@ -2700,7 +2702,9 @@ describe("finalize_research gate", () => {
       `\n\nSee [the log](https://example.com "Search log. ${rateCaveat}").\n\n`,
       `\n\nSee [the log](<Search log. ${rateCaveat}>).\n\n`
     ]) {
-      expect(answered(fullDraft.replace(rateCaveat, denial))).toEqual(leftOutRate);
+      // Literal copying counts even inside a denial or hidden text; only the changed punctuation removes a copy.
+      expect(answered(fullDraft.replace(rateCaveat, denial)))
+        .toEqual([...leftOutRate, copiedLimitsNote(denial.includes(rateCaveat) ? 4 : 3)]);
     }
     // In a list item, after a heading or in bold it is stated.
     for (const stated of [
@@ -2723,7 +2727,7 @@ describe("finalize_research gate", () => {
       // Bold tags are not shown, but the caveat inside them is.
       `\n\n<b>${rateCaveat}</b>`
     ]) {
-      expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual(leftOutRate);
+      expect(answered(fullDraft.replace(rateCaveat, stated))).toEqual([...leftOutRate, copiedLimitsNote(4)]);
     }
 
     // A search that failed for another reason is rerun: in deep research, and in
@@ -2953,7 +2957,7 @@ describe("finalize_research gate", () => {
     expect(advisoryNotes(finalizeResearchRaw({
       ...request, open_leads: [{ direction: "community", topic: "PRP for hip pain", why: "Could change confidence." }],
       answer_draft: [CLEAN_DRAFT, ...expected].join(" ")
-    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
+    }, options)).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([copiedLimitsNote(3)]);
     // A long draft is read in linear time, however many brackets or backticks it has.
     const started = Date.now();
     expect(check(`${CLEAN_DRAFT} ${"[a](".repeat(14_000)}`).status).toBe("ready_with_limits");

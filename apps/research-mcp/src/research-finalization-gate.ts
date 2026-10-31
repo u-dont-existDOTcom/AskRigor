@@ -3479,6 +3479,16 @@ export function finalizeResearch(
         ? "ready_with_limits"
         : "ready";
   const passed = status === "ready" || status === "ready_with_limits";
+  if (passed && draft !== undefined && limits.length >= 3) {
+    // Exact copying only: retain wording, case and punctuation apart from straight/curly quotes and whitespace.
+    const normalizeCopy = (text: string): string => text.replace(/[\u2018\u2019]/gu, "'")
+      .replace(/[\u201C\u201D]/gu, '"').replace(/\s+/gu, " ").trim();
+    const normalizedDraft = normalizeCopy(draft);
+    const repeated = limits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
+    if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
+      "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
+      "or do, in your own words.");
+  }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
     if (at >= 0) caveats.splice(at, 1);

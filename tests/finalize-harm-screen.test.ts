@@ -744,7 +744,8 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       // Owner answer 205a (30 Oct): beneath a passing check the panel lists every limit, so the result says the
       // answer states only those that change what the person should believe or do; a check that has not passed keeps
       // every limit to state, since its panel lists none.
-      expect(screened.text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\nLimit: ${screened.result.limits[0]}\nLimit: ${NOT_CHECKED}`);
+      expect(screened.text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\n[1] ${screened.result.limits[0]} [2] ${NOT_CHECKED}\n`);
+      expect(screened.text).not.toContain("\nLimit: ");
       expect(screened.text).not.toContain("Limit to include in your own words");
       const unsearched = await call(base({ harm_screen: [notChecked] }));
       expect(unsearched.result).toMatchObject({ status: "not_ready", limits: expect.arrayContaining([NOT_CHECKED]) });

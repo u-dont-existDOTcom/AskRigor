@@ -2514,7 +2514,8 @@ function defineResearchOperations(
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
           (result.limits.length === 0 ? "" : result.status === "ready" || result.status === "ready_with_limits"
-            ? `\n${PASSING_LIMITS_GUIDANCE}${result.limits.map((limit) => `\nLimit: ${limit}`).join("")}`
+            ? `\n${PASSING_LIMITS_GUIDANCE}\n${result.limits.map((limit, index) =>
+              `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
           result.caveats.filter((caveat) => !result.limits.includes(caveat))
             .map((caveat) => `\nAnswer guidance, in your own words: ${caveat}`).join("") +

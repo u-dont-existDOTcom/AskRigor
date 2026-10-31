@@ -47,8 +47,14 @@ describe("owner answer 205a: HRP 20.6.34", () => {
   });
 
   it("matches what the final check's result tells the AI", () => {
-    expect(PASSING_LIMITS_GUIDANCE).toContain("The panel lists every limit below beneath the checked answer.");
+    // The same panel statement now continues with a comma and explains why the answer need not repeat its limits.
+    expect(`${PASSING_LIMITS_GUIDANCE.split(", so ")[0]}.`)
+      .toBe("The panel lists every limit below beneath the checked answer.");
     expect(PASSING_LIMITS_GUIDANCE).toContain("only those that change what this person should believe or do;");
+    expect(PASSING_LIMITS_GUIDANCE).toBe("The panel lists every limit below beneath the checked answer, so the answer " +
+      "need not repeat them. The answer states, in its own words, only those that change what this person should " +
+      "believe or do; if the checked draft leaves out one that does, add it and call finalize_research again with " +
+      "the changed draft. The panel's limits, for reference only and not to copy:");
     expect(FINAL_CHECK_RUNTIME_DESCRIPTION).toContain("only the limits that change what the person should believe or " +
       "do; an answer whose check has not passed states every material limit.");
   });

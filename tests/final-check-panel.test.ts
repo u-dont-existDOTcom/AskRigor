@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
-import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
+import { COMPLETE_CHECKS_TIP, PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
   finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
@@ -39,7 +39,102 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
+const COPY_OBSERVATIONS = ["a friend's \"first\" report", "a ‘second’ report", "a “third” report", "the fourth report"];
+const COPY_LIMITS = COPY_OBSERVATIONS.map((observation) => `A report its source is no longer sure of: ${observation}. ` +
+  "It counts neither for nor against an effect.");
+const copyNote = (count: number) => `The draft repeats ${count} of the panel's limits word for word; the panel already ` +
+  "lists every limit beneath the answer. Keep only those that change what this person should believe or do, in your " +
+  "own words.";
+function copyFixture(draftLimits: string[] = [], count = 3): FinalizeResearchInput {
+  return fixture({
+    not_relevant_basis: "emergency_before_triage",
+    user_observations: COPY_OBSERVATIONS.slice(0, count).map((observation) => ({
+      observation, response: "uncertain", source: "user",
+    })),
+    answer_draft: `[Texte lu] [Étude](https://doi.org/10.1000/depth).\n\n${draftLimits.join("\n\n")}`,
+  });
+}
+
+describe("verbatim panel limits in the checked draft", () => {
+  it.each([3, 4])("adds an advisory note for %i copied limits without consuming a round", (count) => {
+    const input = copyFixture(COPY_LIMITS.slice(0, count), count);
+    const result = finalizeResearch(input, { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual(COPY_LIMITS.slice(0, count));
+    expect(result.notes).toContain(copyNote(count));
+    expect(result.next_steps).toEqual([]);
+    expect(result.round).toEqual({ number: 1, limit: 10 });
+    const recheck = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET });
+    expect(recheck.status).toBe("ready_with_limits");
+    expect(recheck.notes).toContain(copyNote(count));
+    expect(recheck.round).toEqual(result.round);
+  });
+
+  it("does not add the note for two copied limits, even if they occur repeatedly", () => {
+    const result = finalizeResearch(copyFixture([...COPY_LIMITS.slice(0, 2), ...COPY_LIMITS.slice(0, 2)]), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual(COPY_LIMITS.slice(0, 3));
+    expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+  });
+
+  it("collapses whitespace and treats curly and straight single/double quotes alike in either direction", () => {
+    const copied = [
+      COPY_LIMITS[0]!.replace(/'/gu, "’").replace('"first"', "“first”"),
+      COPY_LIMITS[1]!.replace(/[‘’]/gu, "'"),
+      COPY_LIMITS[2]!.replace(/[“”]/gu, '"'),
+    ].map((limit) => limit.replace(/ /gu, " \n\t "));
+    const result = finalizeResearch(copyFixture(copied), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.notes).toContain(copyNote(3));
+  });
+
+  it.each([
+    (text: string) => text.toUpperCase(),
+    (text: string) => text.replace("A report", "An account"),
+    (text: string) => text.replace(/\./gu, "!"),
+  ])("does not equate changed wording, case or punctuation with a verbatim copy (%#)", (change) => {
+    const result = finalizeResearch(copyFixture(COPY_LIMITS.slice(0, 3).map(change)), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+  });
+
+  it("never adds the note while a blocking check is open or stopped", () => {
+    let round_token: string | undefined;
+    // A missing required source link is a blocking integrity failure; the same unchanged step stops after repeats.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const input = copyFixture(COPY_LIMITS.slice(0, 3));
+      const result = finalizeResearch({ ...input, answer_draft: COPY_LIMITS.slice(0, 3).join("\n\n"), round_token }, { secret: SECRET });
+      expect(result.status).toBe(attempt < 2 ? "not_ready" : "stopped");
+      expect(result.limits).toEqual(COPY_LIMITS.slice(0, 3));
+      expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+      round_token = result.round_token;
+    }
+  });
+});
+
 describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpSurface) => {
+  it("gives passing limits on one numbered reference line and the paste note as advisory text", async () => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "limit-copy-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const input = copyFixture(COPY_LIMITS.slice(0, 3));
+      const response = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      expect(response.isError).not.toBe(true);
+      const output = response.structuredContent as FinalizeResearchOutput;
+      expect(output).toMatchObject({ status: "ready_with_limits", next_steps: [], limits: COPY_LIMITS.slice(0, 3) });
+      expect(output.notes).toContain(copyNote(3));
+      const text = (response.content as Array<{ text: string }>)[0]!.text;
+      const line = COPY_LIMITS.slice(0, 3).map((limit, index) => `[${index + 1}] ${limit}`).join(" ");
+      expect(text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\n${line}\n`);
+      expect(text).toContain(`- ${copyNote(3)}\n`);
+      expect(text).not.toContain("\nLimit: ");
+      expect(text).not.toContain("Limit to include in your own words:");
+    } finally { await client.close(); await server.close(); }
+  });
+
   it.each(["none", "read"] as const)("keeps citation guidance in AI result text and reader limits in the panel (%s)", async (other_route) => {
     vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
     const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });

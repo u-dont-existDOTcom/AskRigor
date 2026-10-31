@@ -56,11 +56,20 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
 
    No method change, no declaration, no tool-list change. Built by Codex from briefs; reviewed and adjusted.
 
+6. **HRP 20.6.35** (4ba480b1; the owner's requests of 30 and 31 Oct, AskRigor#390; for the release question): forum
+   threads read in full and in more than one community, with the counts and why reading stopped; counts for every
+   community corpus; every video and thread named; outcomes per named method; the new `VideoCommentMap`; a search with
+   the person's own combination of symptoms; what to try first and what to avoid; the emergency exemption only for the
+   warning itself; and the community leads that changed the study search said in the answer. Outside the core.
+7. **205a's limit list** (the judgment's finding that its format invited the paste): a passing check gives its limits
+   on one numbered reference line after guidance not to copy them, and a non-blocking note says when the draft repeats
+   three or more of them word for word.
+
 ## Next
 
 - **From the regression run on #387's build:** the exact findings are built (item 5). The design questions it
   raises again remain: the scout's word lists ("copper(I)" read as "I"; "including" refused; its refusals now
-  quote the word), the carried state across turns, and 205a's limit list inviting the paste.
+  quote the word) and the carried state across turns; 205a's limit list is item 7.
 
 - **Community signals the way the owner's last turn did them (AskRigor#390, 30 Oct; owner rule 148a, and the owner's
   words "so you can see how i want the forum signals done, look at the last turn").** HRP's
