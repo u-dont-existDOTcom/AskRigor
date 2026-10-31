@@ -8,7 +8,7 @@ of youtube vids based on the comments ... that's what people really want". Also:
 which needs many of its videos audited. Then: "i see this as one of the highest value things askrigor can provide",
 and a brainstorm of other uses (below).
 
-Built under owner rule 148a where it changes no method; owner question 208 holds what changes how AskRigor uses
+Built under owner rule 148a where it changes no method; owner answer 208b decides what changes how AskRigor uses
 YouTube's data.
 
 ## What 31 Oct measured
@@ -82,16 +82,16 @@ Within the current grant and the frozen tool lists (189a), with no new declarati
 - **From the maps:** each map's leads list, merged across a problem's videos, is the list of methods to search in
   studies (the loop, plan item 7 of `2026-10-30-next-build-after-387.md`) and to scout for more videos.
 
-## The Atlas store (after YouTube agrees)
+## The Atlas store (kept privately now; used after YouTube agrees)
 
 - **What AskRigor told YouTube on 25 Oct** (owner answer 175, the email in the quota thread): it stores no YouTube API
   Data beyond the temporary storage Developer Policies III.E.4 allows, "no comment text, usernames, channel, comment,
   reply or video IDs, or links"; its one-sentence summaries hold none of them. On 8 Sep it also said it runs no
-  background mirror of YouTube. A map kept per video needs the video's ID to be found again, so keeping maps, and
-  everything built on kept maps (reuse across answers, rankings, the background audits), waits for YouTube's answer
-  to owner question 208. Until then a map lives in the answer that made it, and in that research session's temporary
-  checkpoint (at most seven days, as the privacy page says).
-- **What would be kept:** one map per video, keyed by its video ID: the counts, the lead and harm-kind names in
+  background mirror of YouTube. A map kept per video needs the video's ID to be found again. Owner answer 208b (below):
+  the email of 31 Oct asks YouTube, and says AskRigor keeps the counts meanwhile; everything built on kept maps (reuse
+  across answers, rankings, the background audits) waits for the answer. Until then a map made in an answer is shown
+  in that answer and kept only in the owner's private store.
+- **What is kept:** one map per video, keyed by its video ID: the counts, the lead and harm-kind names in
   AskRigor's own words, how the sample was chosen and its size, the corpus size, and the newest comment date read.
   Never comment text, commenter names or keys, or comment IDs.
 - **Where:** a private store beside the held YouTube findings (owner answers 173 and 175: never published, deleted at
@@ -116,16 +116,37 @@ Within the current grant and the frozen tool lists (189a), with no new declarati
   asked about; it stops for the day when the meter passes 80,000 units.
 - **Order:** videos people asked about first, then the registry's categories, most-viewed first.
 
-## Owner question 208 (YouTube)
+## Owner answer 208b (YouTube), 31 Oct
 
 The grant covers the use case in the application: public data read when a user asks, shown as a research report in
-that user's chat. A map made inside an answer is within it. Keeping maps, reusing them across answers, rankings built
-from kept maps, and auditing videos nobody asked about are not: they contradict what AskRigor told YouTube on 25 Oct and
-8 Sep, and the grant says a changed use case needs a new quota request. The owner sees the grant as probation.
+that user's chat. Keeping maps, reusing them across answers, rankings built from kept maps, and auditing videos nobody
+asked about go beyond what AskRigor told YouTube on 25 Oct and 8 Sep, and the grant says a changed use case needs a new
+quota request.
 
-The question offers to write to YouTube first (the owner approves the exact words, as with 175), building the store
-behind a switch that stays off until YouTube agrees; meanwhile maps are made inside answers, which ships with the next
-build. Public pages stay out of it either way.
+The owner chose b: "send the email to youtube and meanwhile you can save everything privately ... later if they approve
+then we can make it public". The email went at 14:05:53 UTC on 31 Oct in the quota thread, describing the maps, the
+in-answer rankings and the background audits, and saying "We are keeping these counts while we wait for your answer,
+and we will delete them if you tell us to." So:
+
+- **Kept now, privately:** maps (counts, AskRigor's own labels, the video's ID, the newest comment date read). Never
+  comment text, usernames, channel IDs, comment or reply IDs: the email says AskRigor keeps none, so the 31 Oct job's
+  comment-level files still go by 30 Nov.
+- **After YouTube agrees:** reuse of kept maps in other people's answers, rankings from kept maps, the background
+  audits, and anything public.
+- **The policy's words** (Developer Policies III.E.4): Non-Authorized Data may be stored for at most 30 days, then
+  deleted or refreshed; an API client must not "create new or derived data or metrics" from API Data (its example is a
+  score from likes and views); our own data shown beside API Data needs a clear note that it is AskRigor's, not
+  YouTube's. Whether outcome counts from comments are such derived data is what the email asks.
+
+**Public without approval** (the owner: "we can see if there is anything we can make public that wouldn't require
+approval"), none of it drawn from comments:
+
+- how comment maps work and what they can't show;
+- what a video claims, from Gemini's reading of the video (not YouTube API data), checked against studies, linking the
+  video;
+- study summaries for the methods the mapped videos teach;
+- the channel registry's names, links and AskRigor's own notes. Its channel IDs came through the API, so they are
+  re-checked through it every 30 days (1 unit each), or removed.
 
 ## Forum depth (the owner, 31 Oct)
 
