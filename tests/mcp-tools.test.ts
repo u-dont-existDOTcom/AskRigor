@@ -29,6 +29,11 @@ import { getProtocolManifest, protocolNamedElements, protocolSections } from "..
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
+import { mcpYoutubeCommunityAuditOutputSchema, mcpYoutubeVideoCommunityAuditOutputSchema }
+  from "../apps/research-mcp/src/youtube-mcp-sample.js";
+import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/youtube-community-survey.js";
+import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
+  from "./helpers/community-result-reminders.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -563,10 +568,12 @@ describe("AskRigor MCP tools", () => {
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
         text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
-          "pass (these videos only). This lock covers retrieving these YouTube comments only; other communities and the " +
+          `pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} This lock covers retrieving these YouTube comments only; other communities and the ` +
           "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
           "give it to finalize_research as community_findings, even if the signal is weak or neutral."
       });
+      expectCommunityRemindersInTextOnly(result);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeCommunityAuditOutputSchema.parse(result.structuredContent));
       // MCP gets compact records: a per-video pseudonymous author key, never
       // the commenter's display name or channel ID.
       const comments = (result.structuredContent as {
@@ -667,6 +674,8 @@ describe("AskRigor MCP tools", () => {
         records_retrieved_cumulative: 250,
         receipt: { comment_retrieval_state: "api_visible_complete", video_comments_lock: "pass" }
       });
+      expectCommunityRemindersInTextOnly(result, true);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeVideoCommunityAuditOutputSchema.parse(result.structuredContent));
       expect((result.structuredContent as { research_receipt?: string }).research_receipt).toEqual(expect.any(String));
       // Cut to fit, and filled close to the budget.
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
@@ -739,7 +748,7 @@ describe("AskRigor MCP tools", () => {
       expect(view.sample.comments).toEqual([]);
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). No comment fitted in this " +
+        text: `YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} No comment fitted in this ` +
           "view, so none was returned; say in the answer that this video's comments could not be shown."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -835,7 +844,7 @@ describe("AskRigor MCP tools", () => {
       // receipt asks finalize_research for no findings on them.
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). " +
+        text: `YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} ` +
           "No comment fitted in this view; read each video's comments with audit_youtube_video_community."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -873,8 +882,11 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube community survey returned 1 deduplicated candidate video(s)."
+        text: `YouTube community survey returned 1 deduplicated candidate video(s). ${COMMUNITY_RESEARCH_REMINDER}`
       }]);
+      expectCommunityRemindersInTextOnly(result);
+      const { research_receipt: _receipt, ...surveyContent } = result.structuredContent!;
+      expect(surveyContent).toStrictEqual(youtubeCommunitySurveyOutputSchema.parse(surveyContent));
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
         record_type: "youtube_community_survey",
@@ -1089,7 +1101,7 @@ describe("AskRigor MCP tools", () => {
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). " +
+        text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
           "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
           "as community_findings, even if the signal is weak or neutral."

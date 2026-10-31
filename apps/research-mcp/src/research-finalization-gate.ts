@@ -1814,6 +1814,29 @@ export function finalizeResearch(
   let communitiesUnverified = 0;
   for (const { index, reason } of rejected) addStep("receipt_rejected", rule`${rejectedReceiptStep(index, reason)}`);
 
+  // Count declared forum reads only; review corpora and unread communities add no threads or communities.
+  const forumSearches = (input.community_searches ?? []).filter(({ platform }) => platform !== "review_site");
+  if (forumSearches.length > 0) {
+    const threads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
+    const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
+      .map(({ community }) => community));
+    if (threads.size < 5 || communities.size === 1) {
+      addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): open each one in full, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
+    }
+  }
+  const youtubeCommunityReceipts = verified.filter(({ kind }) => kind === "youtube_scout" ||
+    kind === "youtube_survey" || kind === "youtube_community_audit" || kind === "youtube_video_audit");
+  if (youtubeCommunityReceipts.length > 0) {
+    const earliestCommunity = Math.min(...youtubeCommunityReceipts.map(receiptOrder));
+    if (!verified.some((receipt) => receipt.kind === "literature_search" &&
+        receiptOrder(receipt) > earliestCommunity)) {
+      addStep("research", "No study search came after the community research. Turn the treatments, diagnoses, subgroups and harms the community reports name into study searches before concluding (HRP BidirectionalEvidenceDiscoveryAndTriangulationLoop), and say in the answer which community leads changed the study search.");
+    }
+  }
+  if (input.not_relevant_basis === "emergency_before_triage" && input.key_sources.length > 0) {
+    addStep("research", "Research went past the emergency warning, so community evidence applies: the emergency exemption covers only an answer that is the warning itself (HRP NonActivation).");
+  }
+
   // Each status needs its own field; the other one, if given, is not used.
   const fullTextSearch = input.full_text_search;
   const fullTextQueries = fullTextSearch?.status === "run" ? fullTextSearch.queries : undefined;

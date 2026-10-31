@@ -1,5 +1,5 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
-import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";

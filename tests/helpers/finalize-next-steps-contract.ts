@@ -74,6 +74,13 @@ export function advisoryNotes(result: FinalizeResearchOutput): string[] {
   return result.notes ?? [];
 }
 
+/** Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes. */
+export function notesApartFromCommunityReminders(result: FinalizeResearchOutput): string[] {
+  return advisoryNotes(result).filter((note) => !note.startsWith("Forum evidence rests on ") &&
+    !note.startsWith("No study search came after the community research.") &&
+    !note.startsWith("Research went past the emergency warning, so community evidence applies:"));
+}
+
 /** A limit remains available independently of how the draft phrases or omits it (owner 195). */
 export function expectPassingLimits(result: FinalizeResearchOutput, limits: readonly string[]): void {
   expect(result.next_steps).toEqual([]);

@@ -20,7 +20,11 @@ Owner answers 193a and 195a (29 October 2026) limit `finalize_research` to five 
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
 landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
-currency. These notes never become next steps or consume check rounds. The round limit, stuck-step logic and
+currency. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
+`docs/superpowers/plans/2026-10-31-video-comment-maps.md`): forum evidence resting on fewer than five threads read, or
+on one community; no study search issued after the first YouTube community receipt (the loop); and the emergency
+exemption declared while key sources show the research went on. These notes never become next steps or consume check
+rounds. The round limit, stuck-step logic and
 stopped-check report apply only to the five blocking checks. A usable draft and research target are still needed
 to run a check; an unusable call is reported as such.
 

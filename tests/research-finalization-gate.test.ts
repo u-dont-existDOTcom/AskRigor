@@ -1,4 +1,4 @@
-import { expectPassingLimits, advisoryNotes, assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
+import { expectPassingLimits, advisoryNotes as allAdvisoryNotes, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { readFile } from "node:fs/promises";
 
@@ -266,6 +266,125 @@ const study = sign("study_audit", {
 const lead = sign("full_text_lead", { doi: "10.1016/j.joca.2020.01.001" }, options);
 
 describe("finalize_research gate", () => {
+  describe("advisory community reminders", () => {
+    const base = {
+      research_target: TARGET, community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage",
+      not_relevant_reason: "The answer is an immediate emergency warning.", treatment_choice: "not_compared",
+      research_depth: "deep", key_sources: [], receipts: [] as string[], answer_draft: "Seek emergency care now."
+    };
+    const loopNote = "No study search came after the community research. Turn the treatments, diagnoses, subgroups and harms the community reports name into study searches before concluding (HRP BidirectionalEvidenceDiscoveryAndTriangulationLoop), and say in the answer which community leads changed the study search.";
+    const emergencyNote = "Research went past the emergency warning, so community evidence applies: the emergency exemption covers only an answer that is the warning itself (HRP NonActivation).";
+    const depthNote = (n: number, m: number) => `Forum evidence rests on ${n} ${n === 1 ? "thread" : "threads"} read in ${m} ${m === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): open each one in full, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`;
+    const search = (community: string, count: number, platform = "forum") => ({
+      ...REDDIT_SEARCH, community, platform,
+      threads_read: Array.from({ length: count }, (_, i) => ({ url: `https://${community}.example/threads/${i}` }))
+    });
+    const check = (input: Record<string, unknown> = {}) => {
+      const result = finalizeResearch({ ...base, ...input }, options);
+      return { ...result, notes: allAdvisoryNotes(result) };
+    };
+    const timed = (kind: Parameters<typeof issueResearchReceipt>[0], t: number, claims = {}) =>
+      issueResearchReceipt(kind, { t, ...claims }, options);
+    const passing = (result: ReturnType<typeof check>) => {
+      expect(["ready", "ready_with_limits"]).toContain(result.status);
+      expect(result.next_steps).toEqual([]);
+      expect(result.next_step_kinds).toEqual([]);
+      expect(result.round).toEqual({ number: 1, limit: 10 });
+      expect(result.finalization_receipt).toEqual(expect.any(String));
+    };
+
+    it.each([
+      { name: "no threads read", searches: [search("first", 0)], n: 0, m: 0 },
+      { name: "one thread", searches: [search("first", 1)], n: 1, m: 1 },
+      { name: "four threads in two communities", searches: [search("first", 2), search("second", 2)], n: 4, m: 2 },
+      { name: "five threads in one community", searches: [search("first", 5)], n: 5, m: 1 },
+      { name: "repeated URLs and community entries", searches: [search("first", 2), search("first", 2)], n: 2, m: 1 },
+      { name: "an unread second community", searches: [search("first", 5), search("second", 0)], n: 5, m: 1 },
+      { name: "review sites excluded", searches: [search("first", 1), search("reviews", 5, "review_site")], n: 1, m: 1 }
+    ])("notes forum depth for $name without blocking", ({ searches, n, m }) => {
+      const result = check({ community_searches: searches });
+      expect(result.notes).toContain(depthNote(n, m));
+      passing(result);
+    });
+
+    it.each([
+      { name: "no searches", searches: undefined },
+      { name: "review sites only", searches: [search("reviews", 1, "review_site")] },
+      { name: "five threads in two communities", searches: [search("first", 3), search("second", 2)] },
+      { name: "more than five threads", searches: [search("first", 4), search("second", 2)] }
+    ])("omits the forum note for $name", ({ searches }) => {
+      expect(check({ community_searches: searches }).notes?.some((note) => note.startsWith("Forum evidence rests on")))
+        .toBe(false);
+    });
+
+    it.each(["youtube_scout", "youtube_survey", "youtube_community_audit", "youtube_video_audit"] as const)(
+      "notes a missing later study search after %s", (kind) => {
+        const result = check({ receipts: [timed(kind, 100)] });
+        expect(result.notes).toContain(loopNote);
+        passing(result);
+      }
+    );
+
+    it.each(["pubmed", "europepmc", "ctgov"])("accepts a later %s search by signed time, in either input order", (src) => {
+      const receipts = [timed("youtube_survey", 100), timed("literature_search", 101, { src })];
+      for (const ordered of [receipts, [...receipts].reverse()]) {
+        expect(check({ receipts: ordered }).notes).not.toContain(loopNote);
+      }
+    });
+
+    it("uses the earliest community receipt, not the last or the input order", () => {
+      expect(check({ receipts: [timed("youtube_video_audit", 300), timed("literature_search", 200),
+        timed("youtube_scout", 100)] }).notes).not.toContain(loopNote);
+    });
+
+    it.each([99, 100])("does not treat a study search at signed time %s as after time 100", (t) => {
+      const receipts = [timed("youtube_survey", 100), timed("literature_search", t)];
+      for (const ordered of [receipts, [...receipts].reverse()]) expect(check({ receipts: ordered }).notes).toContain(loopNote);
+    });
+
+    it("uses signed whole-second times when the issue-order claim is absent", () => {
+      const issueAt = (kind: Parameters<typeof issueResearchReceipt>[0], second: string) =>
+        issueResearchReceipt(kind, {}, { secret: SECRET, now: () => new Date(`2026-09-26T11:00:${second}.000Z`) });
+      const community = issueAt("youtube_survey", "01");
+      expect(check({ receipts: [issueAt("literature_search", "02"), community] }).notes).not.toContain(loopNote);
+      expect(check({ receipts: [issueAt("literature_search", "01"), community] }).notes).toContain(loopNote);
+    });
+
+    it("ignores unverified receipts and non-search study records", () => {
+      const invalid = (kind: Parameters<typeof issueResearchReceipt>[0]) =>
+        issueResearchReceipt(kind, { t: 200 }, { secret: "other-signing-secret-0123456789-abcdefgh", now });
+      expect(check({ receipts: [invalid("youtube_survey")] }).notes).not.toContain(loopNote);
+      expect(check({ receipts: [timed("youtube_survey", 100), invalid("literature_search"),
+        timed("pubmed_record", 300)] }).notes).toContain(loopNote);
+      expect(check({ receipts: [timed("youtube_search", 100), timed("youtube_video_claims", 200)] }).notes)
+        .not.toContain(loopNote);
+      expect(check({ receipts: [timed("literature_search", 300)] }).notes).not.toContain(loopNote);
+    });
+
+    it("notes an emergency exemption with key sources and omits it otherwise", () => {
+      const key_sources = [{ id: "10.1002/art.41142", status: "validated", read_depth: "partial_text" }];
+      const result = check({ key_sources, receipts: [study] });
+      expect(result.notes).toContain(emergencyNote);
+      passing(result);
+      expect(check().notes).not.toContain(emergencyNote);
+      expect(check({ key_sources, receipts: [study], not_relevant_basis: "no_real_world_outcome" }).notes)
+        .not.toContain(emergencyNote);
+      expect(check({ key_sources, receipts: [study], not_relevant_basis: undefined }).notes).not.toContain(emergencyNote);
+    });
+
+    it("passes with all three notes and never advances a check round on repeated calls", () => {
+      const input = { ...base, key_sources: [{ id: "10.1002/art.41142", status: "validated", read_depth: "partial_text" }],
+        receipts: [study, timed("youtube_survey", 100)], community_searches: [search("first", 1)] };
+      let round_token: string | undefined;
+      for (let i = 0; i < 12; i++) {
+        const result = check({ ...input, round_token });
+        expect(result.notes).toEqual(expect.arrayContaining([depthNote(1, 1), loopNote, emergencyNote]));
+        passing(result);
+        round_token = result.round_token;
+      }
+    });
+  });
+
   it("asks every answer with key studies for the whole-intervention declaration, compared or not (owner question 47)", () => {
     const base = {
       community_evidence: "researched" as const, research_target: TARGET, research_depth: "deep" as const,
@@ -2390,7 +2509,8 @@ describe("finalize_research gate", () => {
 
     // A search whose results continue on an unread page is not a settled round.
     const unreadPage = sign("youtube_search", { videos: [], open: 1, q: "j0j0j0j0j0j0" }, options);
-    expect(finalizeResearch({ ...base, receipts: [survey, emptySearch, unreadPage, videoA, study] }, options)).toMatchObject({
+    const unread = finalizeResearch({ ...base, receipts: [survey, emptySearch, unreadPage, videoA, study] }, options);
+    expect({ ...unread, notes: advisoryNotes(unread) }).toMatchObject({
       status: "ready_with_limits",
       community: { saturated: false },
       next_steps: [], notes: [expect.stringContaining("Continue a search with its next cursor")]
@@ -3090,7 +3210,7 @@ describe("finalize_research gate", () => {
     // Reading the video does not replace community discovery.
     expect(finalizeResearch({
       ...base, receipts: [reading, videoG, study], material_video_ids: ["ggggggggggg"]
-    }, options).notes!.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
+    }, options).notes!.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/Find community videos with scout_gemini_youtube_candidates/u);
   });
 
   it("counts a video the person gave that Gemini could not read as found too, and says it was not watched", () => {
@@ -3113,7 +3233,7 @@ describe("finalize_research gate", () => {
     // It is no discovery round either.
     expect(finalizeResearch({
       ...base, receipts: [notRead, videoG, study], material_video_ids: ["ggggggggggg"]
-    }, options).notes!.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/^Find community videos with scout_gemini_youtube_candidates/u);
+    }, options).notes!.filter((step) => step !== TOOL_LIST_REFRESH_HINT).join(" ")).toMatch(/Find community videos with scout_gemini_youtube_candidates/u);
   });
 
   it("lists rejected receipts and skips community research only on one of HRP's bases, with a reason", () => {
@@ -3472,7 +3592,7 @@ describe("findings card at the final gate", () => {
 
   it("needs a card with a free contributor's answer", () => {
     const missing = finalizeResearch(READY, options);
-    expect(missing).toMatchObject({
+    expect({ ...missing, notes: advisoryNotes(missing) }).toMatchObject({
       status: "ready_with_limits",
       next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent", problems: [] }
@@ -3670,7 +3790,8 @@ describe("findings card at the final gate", () => {
     expect(findingsClaim(stated.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(CARD)));
 
     // The answer needs a card; a rejected one is neither offered nor signed, and holds nothing back.
-    expect(finalizeResearch(READY, offerOptions)).toMatchObject({
+    const missingCard = finalizeResearch(READY, offerOptions);
+    expect({ ...missingCard, notes: advisoryNotes(missingCard) }).toMatchObject({
       status: "ready_with_limits",
       next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft: the answer offers to save its findings/u), TOOL_LIST_REFRESH_HINT]
     });

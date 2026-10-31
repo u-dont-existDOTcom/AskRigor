@@ -13,6 +13,7 @@ import {
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 import { RESEARCH_TARGET_SCREEN_PARTS } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { COMMUNITY_RESEARCH_REMINDER, expectCommunityRemindersInTextOnly } from "./helpers/community-result-reminders.js";
 
 const execute = vi.hoisted(() => vi.fn());
 const deleteResumed = vi.hoisted(() => vi.fn());
@@ -276,6 +277,11 @@ describe("MCP Gemini scout continuation", () => {
     expect(first.isError).not.toBe(true);
     const pending = first.structuredContent as { scout_status: string; continuation_token: string };
     expect(pending.scout_status).toBe("pending");
+    // A search still running gets no reminder; the finished result does.
+    expect((first.content as Array<{ text: string }>)[0]!.text).not.toContain(COMMUNITY_RESEARCH_REMINDER);
+    expect(Object.keys(pending).sort()).toEqual([
+      "continuation_token", "diagnosis_status", "research_target", "retry_after_seconds", "scout_status"
+    ]);
     // One deadline-paced advance per call keeps the call under Claude's 60-second tool timeout.
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: startedAt + 40_000 }, []);
@@ -351,6 +357,11 @@ describe("MCP Gemini scout continuation", () => {
       }
     });
     const text = (second.content as Array<{ text: string }>)[0]!.text;
+    expectCommunityRemindersInTextOnly(second);
+    expect(Object.keys(done).sort()).toEqual([
+      "diagnosis_status", "discovery_queries", "provider_storage_mode", "research_receipt", "research_target",
+      "scout_status", "search_gaps", "title_lookup", "validation"
+    ]);
     expect(text).toContain("validated 1 video(s) and found 1 more by exact title (title_lookup.found)");
     expect(text).toContain("1 named video(s) could not be identified by exact title (title_lookup.unresolved, with YouTube's closest results)");
     expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({

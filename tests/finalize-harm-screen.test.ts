@@ -1,4 +1,4 @@
-import { expectPassingLimits, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { expectPassingLimits, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withoutLaterInputs } from "./helpers/tool-schema.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -172,7 +172,7 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
   it("needs safety_question with an answer draft, with the connector-refresh hint", () => {
     const undeclared = check({ safety_claims: [], safety_question: undefined, harm_screen: undefined,
       answer_draft: LINKS });
-    expect(undeclared).toMatchObject({
+    expect({ ...undeclared, notes: advisoryNotes(undeclared) }).toMatchObject({
       status: "ready",
       notes: [
         "safety_question is missing: with answer_draft, say whether the question is about safety: true when the user asks whether something is safe, how risky it is or what harm it can do, or the answer compares options' safety; false otherwise.",
@@ -761,7 +761,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       expect(advisoryNotes(ranked.result)).toEqual([required("is missing", BECAUSE_LONG_TERM), TOOL_LIST_REFRESH_HINT]);
       // Both surfaces accept any input and answer it with AskRigor's own validation.
       const invalid = await call({ ...base(), harm_screen: [{ harm: "anaphylaxis", state: "suspected", sources_searched: "label" }] });
-      expect(invalid.result).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
+      expect({ ...invalid.result, notes: advisoryNotes(invalid.result) }).toMatchObject({ status: "not_ready", answer_checked: true, notes: [
         "harm_screen[0].state: dropped: not a supported value; use label_warning, reported_signal, not_found, not_checked.",
         "harm_screen[0].sources_searched: dropped: expected a list.",
         wholeDropped("state")
