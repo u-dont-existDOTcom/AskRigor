@@ -27,8 +27,10 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
    - **A real repeat:** a crawl of the 1,683-comment video in the audit's own order found one thread and its 32 replies
      listed twice, first on page 1 and again on the last page: YouTube's newest-first listing puts a pinned comment
      first and again where it falls by date. The audit keeps exact IDs only for its 500-record sample, so the second
-     listing met the filter alone and stopped the audit. Chance can't explain it: with the filter's 32,768 bits and 11
-     hashes, a chance match by 1,500 records has a 1% probability.
+     listing met the filter alone and stopped the audit. Three of the other nine videos crawled on 31 Oct had a
+     pinned repeat too. The 5,393-comment hip video had none, so its stop at 1,537 records was a chance match (a 1%
+     chance with the filter's 32,768 bits and 11 hashes) or a repeat only the audit's call-by-call reading makes;
+     either way the audit now counts it and goes on.
    - **Fixed where it happens:** the comment reader keeps the first page's threads that are older than the one after
      them (at most five) and skips their second listing, replies included, without fetching them again.
    - **The filter itself fills up:** chance matches become likely past about 2,500 records (45% by 2,500, 92% by 3,000),
@@ -37,6 +39,14 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
      sample, since its rank already lost to 500 others. No output field and no tool-list change (189a).
 
 ## Next
+
+- **From the regression run on #387's build** (`docs/audits/2026-10-31-owner-regressions-387-judgment.md`, owner
+  rule 148a; none changes method): a Lancet-style decimal ("11·9%") read as a figure mismatch; the AI-worded
+  "Cite … as a lead" lines kept out of the limits the panel shows; an unbacked "confirmed" noted like an unbacked
+  "qualified"; the plain-answer note's hidden figure claim shown plainly; the unblinded-test limit worded for any
+  unblinded test; and a withheld note's message saying the receipt didn't verify. Then the design questions it
+  raises again: the scout's word lists ("copper(I)" read as "I"; "including" refused), the carried state across
+  turns, and 205a's limit list inviting the paste.
 
 - **Community signals the way the owner's last turn did them (AskRigor#390, 30 Oct; owner rule 148a, and the owner's
   words "so you can see how i want the forum signals done, look at the last turn").** HRP's
