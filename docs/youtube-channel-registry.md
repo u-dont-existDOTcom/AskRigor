@@ -28,7 +28,8 @@ Each channel is labelled with the kinds of value it has, and none means its clai
 - **Recovery story:** a person's own detailed account of getting better, often on a small channel: what they did, for
   how long, how it was measured, and how they are now. It is one person's account, and recoveries are what gets filmed,
   so it is a lead and an outcome report, never a rate; it is kept apart from independent commenters (HRP
-  `YouTubeCreatorCommentCorpusHandling`).
+  `YouTubeCreatorCommentCorpusHandling`). The first, from the owner: SHAPEFIXER's "GROWING MY HIP BACK"
+  (`XpZHKGGCK-o`), below.
 - **Leads:** ideas worth testing, on weaker or contested evidence; a lead starts a study search and never settles a
   question.
 - **Critique:** examines studies' methods and their limits.
@@ -51,6 +52,8 @@ contested, or content that isn't clinical.
 | ATHLEAN-X (`@athleanx`) | `UCe0TLA0EsQbE-MjuHXevj2A` | methods: exercise mechanics | to check: products | Gemini |
 | Conor Harris (`@conorharris`) | `UC634L9eG-YsskyzWxnp9BJA` | methods, leads: breathing and rib-cage position | a contested school (PRI) | Gemini |
 | Zac Cupples (`@zaccupplespt`) | `UCKrx8MQ1G7bRWkxN_adE32A` | methods, leads: breathing and rib-cage position | a contested school (PRI) | Gemini |
+| Madalina - Spine and Neuro Physiotherapist (`@madalinaphysio`) | `UCwIn3IlKa4ufQYiR8IO9z0A` | methods: a seated pelvis correction and hip strengthening (`_ZpipFtSZ90`); outcomes: being measured | absolute claims with no evidence shown (back pain is "always" muscle imbalance, never the disc; a viewer's legs aren't different lengths, only the pelvis is rotated); an account from 2013 that began posting in September 2026; the credentials are the channel's own | owner |
+| SHAPEFIXER (`@shapefixer`) | `UCM1Va_ObWwANw1lrnUSQ6bw` | recovery story: a man's hip arthritis without surgery (`XpZHKGGCK-o`: diet, collagen, glucosamine and chondroitin, fasting, gentle exercise, weight loss); leads | sells a hip-arthritis course; one person's account, with an X-ray claim; most of the channel is now about a carnivore diet | owner |
 
 ### Dizziness and balance
 
@@ -110,6 +113,7 @@ Dr. Jon Saunders, above.
 | E3 Rehab (`@e3rehab`) | `UCkb9jgRxR2D5bc1fSDofwtA` | methods: loading programmes for tendon, disc and joint injuries | to check: products | Gemini |
 | Garage Strength (`@garagestrength`) | `UCZEEC1w4jP1cV2dibuDFwIQ` | methods: athletic coaching | | Gemini |
 | Revive Stronger (`@revivestronger`) | `UC6wB_e6YQncYgpv_QrMGHCQ` | critique, benchmark: discussions with researchers | | Gemini |
+| Strength Side (`@strengthside`) | `UC9BNGVGr_lvbn3d23ckuVOA` | methods: ground positions and primal movement for hips, knees, ankles and spine (`2Fmx-iHsKYg`: cross-legged sitting, kneeling, deep squat, pigeon, gorilla) | sells a mobility programme; "the ground will remodel your hips" is the channel's claim | owner |
 
 ### Supplements
 
@@ -159,6 +163,11 @@ needs them.
 
 - Check each channel: AskRigor audits a few of its videos against the studies, samples its comments (the share with an
   outcome, and the improvement-to-worsening ratio, with counts), and confirms or changes its labels.
-- Every category has candidates now (46 channels: the owner's five and Gemini's 41). More come from the channels that
+- Every category has candidates now (49 channels: the owner's eight and Gemini's 41). More come from the channels that
   surface in research, and from the owner.
+- 31 Oct, on the owner's Codex: the comment ratio of the owner's three videos, through AskRigor's own audit (its sample
+  is drawn by hash, without regard to outcome; Codex judges each comment, and code counts); and a discovery of
+  DIY-treatment videos with outcome reports in many places (the owner: "find the most interesting and useful videos for
+  DIY treatments that work amazingly well and then maybe look at those channels"), by web search only, each video then
+  checked by ID through the API.
 - Use it: the build after #387, through each channel's upload list (`docs/superpowers/plans/2026-10-30-next-build-after-387.md`).
