@@ -19,6 +19,22 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
      never shows; a source labelled by its identifier is named once (`keySourceName`, five limits).
 
    No method changes (148a); the checked answer in the panel (194) and the limits under it (205a) stay.
+3. **The video comment audit no longer stops on large videos** (owner rule 148a). On 31 Oct the owner asked for the
+   good-to-bad ratio of three videos; `audit_youtube_video_community` ended two of them with
+   `youtube_video_audit_identifier_membership_boundary` and no sample, at 1,537 and 1,333 records, as it ended five audits
+   in five runs on 26 Oct (`docs/audits/2026-10-26-owner-regressions-judgment.md`). The class recurred after the fixes of
+   25 and 27 Aug (a larger filter, then a terminal stop), so the cause was traced rather than patched again:
+   - **A real repeat:** a crawl of the 1,683-comment video in the audit's own order found one thread and its 32 replies
+     listed twice, first on page 1 and again on the last page: YouTube's newest-first listing puts a pinned comment
+     first and again where it falls by date. The audit keeps exact IDs only for its 500-record sample, so the second
+     listing met the filter alone and stopped the audit. Chance can't explain it: with the filter's 32,768 bits and 11
+     hashes, a chance match by 1,500 records has a 1% probability.
+   - **Fixed where it happens:** the comment reader keeps the first page's threads that are older than the one after
+     them (at most five) and skips their second listing, replies included, without fetching them again.
+   - **The filter itself fills up:** chance matches become likely past about 2,500 records (45% by 2,500, 92% by 3,000),
+     so stopping on any unsettled match meant no sample for any large video. Now such a match is counted as new and
+     stated in the audit's limits with its count, and the audit returns its sample; a real repeat can't enter the
+     sample, since its rank already lost to 500 others. No output field and no tool-list change (189a).
 
 ## Next
 

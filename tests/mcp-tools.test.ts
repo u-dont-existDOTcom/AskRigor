@@ -1239,7 +1239,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("preserves prior counts when identifier ambiguity closes a bounded terminal frontier", async () => {
+  it("counts a repeat-filter match the exact sample cannot settle, states it and keeps the sample", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
     const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
@@ -1277,6 +1277,10 @@ describe("AskRigor MCP tools", () => {
       if (url.pathname.endsWith("/videos")) {
         return new Response(await youtubeFixture("video-found.json"), { status: 200 });
       }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({ pageInfo: { totalResults: 0, resultsPerPage: 0 }, items: [] });
+      }
       return Response.json({
         pageInfo: { totalResults: 1, resultsPerPage: 1 },
         items: [{
@@ -1311,18 +1315,15 @@ describe("AskRigor MCP tools", () => {
 
       expect(result.structuredContent).toMatchObject({
         video_id: "XpZHKGGCK-o",
-        segment_index: 6,
+        segment_index: 7,
         access_status: "partial",
         extraction_coverage: "completed_with_access_boundary",
-        error: {
-          code: "youtube_video_audit_identifier_membership_boundary",
-          retryable: false
-        },
-        top_level_comments_retrieved_cumulative: 501,
-        records_retrieved_cumulative: 501,
-        comment_thread_pages_cumulative: 26,
-        corpus_rolling_sha256: "b".repeat(64),
-        limitations: [expect.stringMatching(/cannot prove.*already accepted/i)],
+        top_level_comments_retrieved_cumulative: 502,
+        records_retrieved_cumulative: 502,
+        comment_thread_pages_cumulative: 27,
+        limitations: expect.arrayContaining([
+          expect.stringMatching(/^1 record\(s\) matched the audit's repeat filter but not its exact sample\..*counted as new.*too high\.$/)
+        ]),
         continuation_recommended: false,
         receipt: {
           comment_retrieval_state: "completed_with_access_boundary",
@@ -1330,16 +1331,17 @@ describe("AskRigor MCP tools", () => {
           blockers: []
         }
       });
-      // A terminal boundary may remain an error for clients that consume its diagnostic, but it delivers its receipt.
-      const researchReceipt = (result.structuredContent as { research_receipt: string }).research_receipt;
-      expect(researchReceipt).toBeTypeOf("string");
-      expect(result.content).toContainEqual({ type: "text", text: `research_receipt: ${researchReceipt}` });
-      expect(verifyResearchReceipt(researchReceipt, { secret })).toMatchObject({
+      // The audit goes on instead of stopping, so it has no error and returns its sample.
+      expect(result.structuredContent).not.toHaveProperty("error");
+      const content = result.structuredContent as { records_returned_for_analysis: number; research_receipt: string };
+      expect(content.records_returned_for_analysis).toBeGreaterThan(0);
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).toMatchObject({
         ok: true, kind: "youtube_video_audit", claims: {
-          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass",
-          boundary: "identifier_membership", records: "501", top: "501", rep: "0", shown: "0",
-          cr: "0", tx: "0", rr: "0", ch: "UC0123456789abcdefghijkl", ms: "api_visible_complete"
+          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass", records: "502", top: "502"
         }
+      });
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).not.toMatchObject({
+        claims: { boundary: "identifier_membership" }
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
