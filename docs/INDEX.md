@@ -107,6 +107,10 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-10-31-owner-answer-209a-production-release.md`: release of #389 (owner answer 209a): the comment-audit
+  fix, forum depth and the studies loop, the in-answer comment map, the regression run's findings, 205a's limit line
+  and HRP 20.6.35; acceptance, both connector probes, the plugin receipt and the rollback; no site, migration or
+  tool-list change.
 - `audits/2026-10-30-owner-answers-200a-205a-production-release.md`: release of #387 (owner answer 204a): shared
   answers on with a key made on the host, the limits that matter (HRP 20.6.34), the scout's group-word check dropped,
   and the privacy page dated 30 October; acceptance, the site byte for byte, both connector probes and the rollback.
