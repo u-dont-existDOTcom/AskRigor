@@ -127,9 +127,10 @@ answer 204a). Built under owner rule 148a; a release needs the owner's explicit 
     - **The owner's two additions (30 Oct):** the good-to-bad ratio ("how else will we see if it's actually working
       for people?"), counted within a sample drawn without regard to outcome (every k-th comment), per video and per
       method, with its counts, as the owner's last turn on #390 did; and channels that take "hard cases", people
-      others couldn't help, and show their tests and reasoning (the owner's example: Dr. Rahim). The seed, 49 channels
-      confirmed through the API with the owner's picks (three more on 31 Oct: Madalina, SHAPEFIXER and Strength Side)
-      and Gemini's candidates, is `docs/youtube-channel-registry.md`.
+      others couldn't help, and show their tests and reasoning (the owner's example: Dr. Rahim). The seed, 74 channels
+      confirmed through the API with the owner's picks (three more on 31 Oct: Madalina, SHAPEFIXER and Strength Side),
+      Gemini's candidates and the 31 Oct discovery's 25, is `docs/youtube-channel-registry.md`, with the comment ratios
+      measured for eleven videos.
     - **Use:** for a question in a category, list each registry channel's uploads through the API (`playlistItems`,
       1 unit per 50 videos, none of the 200 searches), have the model pick the videos that fit, and read them by ID.
       Open discovery stays, so the registry adds sources and never narrows them (HRP's creator-success and platform
