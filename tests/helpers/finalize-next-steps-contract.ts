@@ -76,7 +76,7 @@ export function advisoryNotes(result: FinalizeResearchOutput): string[] {
 
 export const copiedLimitsNote = (count: number): string => `The draft repeats ${count} of the panel's limits word ` +
   "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
-  "should believe or do, in your own words.";
+  "should believe or do, in your own words, and call finalize_research again with the changed draft.";
 
 /** Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes. */
 export function notesApartFromCommunityReminders(result: FinalizeResearchOutput): string[] {

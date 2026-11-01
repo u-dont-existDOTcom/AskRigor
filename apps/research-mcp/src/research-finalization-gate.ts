@@ -3500,9 +3500,11 @@ export function finalizeResearch(
       .replace(/[\u201C\u201D]/gu, '"').replace(/\s+/gu, " ").trim();
     const normalizedDraft = normalizeCopy(draft);
     const repeated = materialLimits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
+    // The note comes with a passing check, whose answer goes out as checked, so it asks for the check again (the
+    // regression run on #389's build: o356-dropout-nausea and q136-weak-lead edited after the check instead).
     if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
-      "or do, in your own words.");
+      "or do, in your own words, and call finalize_research again with the changed draft.");
   }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);

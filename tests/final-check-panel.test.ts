@@ -44,7 +44,7 @@ const COPY_LIMITS = COPY_OBSERVATIONS.map((observation) => `A report its source 
   "It counts neither for nor against an effect.");
 const copyNote = (count: number) => `The draft repeats ${count} of the panel's limits word for word; the panel already ` +
   "lists every limit beneath the answer. Keep only those that change what this person should believe or do, in your " +
-  "own words.";
+  "own words, and call finalize_research again with the changed draft.";
 function copyFixture(draftLimits: string[] = [], count = 3): FinalizeResearchInput {
   return fixture({
     not_relevant_basis: "emergency_before_triage",

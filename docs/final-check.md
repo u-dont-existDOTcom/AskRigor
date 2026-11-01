@@ -50,7 +50,8 @@ under every status, folded under one closed line, "Notes for the AI", that opens
 2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
 only the limits that change what the person should believe or do, with which limits matter left to the AI; the
 result gives all limits for reference on one numbered line (`[1] ... [2] ...`) after guidance not to copy them,
-adds a non-blocking note without consuming a round when the passing draft repeats three or more verbatim
+adds a non-blocking note, which asks for the check again, without consuming a round when the passing draft
+repeats three or more verbatim
 (whitespace and straight/curly quotes normalized), and asks the AI to add any omitted limit that matters and check
 the draft again. Under a check that has not passed, the panel shows no limits, so each
 stays a `Limit to include in your own words` line and the answer states them all. Their absence, translation or
