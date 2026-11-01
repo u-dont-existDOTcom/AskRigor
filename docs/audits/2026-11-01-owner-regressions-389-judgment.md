@@ -117,21 +117,33 @@ last two compare the verdicts (`compare-verdicts.py`, output `compare-verdicts.t
      the paste counter counted required lines).
    - **The scout's lead refusal names each refused lead and its matches** (846f00a5), as the target's refusal does,
      never echoing a secret or contact detail.
-2. **For the owner (questions on the owner page):**
-   - **The plain-answer note:** keep it when one item is unbacked, showing that item as "This research did not check
-     that.", instead of withholding the whole note (changes 190a); and whether a forum thread read in this research may
-     back an item about what people report.
-   - **Forum depth:** the note does not change behaviour, so a causally different approach: AskRigor reading forum
-     threads itself, as it reads YouTube comments, through each forum's own API where its terms allow.
+   - **The plain-answer note stays** (cbe1653d, owner answer 210b).
+   - **InfoAccess, one request at a time:** the server waits for its own requests and waits out a busy answer for up to 45
+     seconds; `invalid_response` ends the search there, so it no longer holds back a lead or invites another try.
+2. **Asked of the owner (answers below):** the plain-answer note when one item is unbacked, and forum depth by a causally
+   different approach: the note does not change behaviour, so AskRigor reads forum threads itself.
 3. **Design questions, recurring, not built:**
    - **The scout's word lists decide meaning** (bug 1 of the last three judgments): "including", "such as" and a journal's
      name are still refused, and re-registering for the scout's target costs the note.
    - **The carried state across turns:** follow-up turns still open new first turns and lose their notes as
      `after_research` (`i336`, `l32`, `l33`, `o354-continue`, `q132`).
    - **The full-text tool needs a DOI:** a PMID- or PMCID-only trial is refused (`o355-saffron-fluvoxamine`).
-4. **Sources, not AskRigor:** the owner library's full-text route ended in `error` on 149 of 372 attempts (40%; 41% on
-   #387's build, 46% on #384's); InfoAccess itself answers `invalid_response` for the two papers that failed most, asked
-   directly at no cost. It cost `r332` both audits. OpenAI's filter refused `q130-maker-authors` again.
+4. **The library's full-text route, partly AskRigor's** (corrected on 1 Nov: this record first called it a source limit,
+   with a count taken while the rerun was still writing its logs). The route ended in `error` on 174 of the judged runs'
+   402 attempts (43%; 41% on #387's build, 46% on #384's). Asked for again one at a time, 31 of the 73 papers that failed
+   came back as PDFs and 42 answered `invalid_response`, and 22 of 25 requests sent together came back `busy`. AskRigor sent
+   requests together, kept no code, did not retry, and let the `error` hold a paper back even from being cited as a lead, so
+   runs repeated the call, up to 16 times for one paper; 156 of the 207 failed attempts, reruns included, were on the 42.
+   `r332` lost at least one of its two audits to this. Built on the next build (below). The list is on the owner's page.
+5. **Not AskRigor:** OpenAI's filter refused `q130-maker-authors` again.
+
+## The owner's answers, 1 Nov
+
+- **210b:** the plain-answer note stays when a claim isn't backed, showing it as "This research did not check that.", and
+  a forum thread read in the research can back a claim about what people report, named as the AI's own reading. Built.
+- **211a:** AskRigor reads forum threads itself, without contacting Reddit: question 33 settled that on 4 Oct, and the
+  owner adds that approval is hard and the API lags by six months. The Reddit source is an open owner question.
+- **212b:** the older records' YouTube figures stay as they are.
 
 ## Files
 
