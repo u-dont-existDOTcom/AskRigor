@@ -83,4 +83,12 @@ describe("RFC 9309 robots.txt", () => {
   it("uses the rules of a successful robots response", () => {
     expect(robotsResponseAllows(200, "user-agent: *\ndisallow: /", "ExampleBot", "https://forum.example/page")).toBe(false);
   });
+
+  it("reads fields with spaces around the colon, and stays quick on a long run of spaces", () => {
+    const groups = parseRobotsTxt(`User-agent : *\n  Disallow  :  /private  # comment\n-:${" ".repeat(200_000)}x\nno colon here\n`);
+    expect(groups).toEqual([{ userAgents: ["*"], rules: [{ allow: false, path: "/private" }] }]);
+    const start = Date.now();
+    parseRobotsTxt(`-:${" ".repeat(2_000_000)}\n`.repeat(3));
+    expect(Date.now() - start).toBeLessThan(1_000);
+  });
 });

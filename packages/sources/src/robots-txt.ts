@@ -13,10 +13,13 @@ export function parseRobotsTxt(text: string): RobotsGroup[] {
   let group: RobotsGroup | undefined;
   let hasRules = false;
   for (const line of text.replace(/^\uFEFF/u, "").split(/\r\n|\r|\n/u)) {
-    const record = line.split("#", 1)[0]!.match(/^\s*([a-z-]+)\s*:\s*(.*?)\s*$/iu);
-    if (record === null) continue;
-    const field = record[1]!.toLowerCase();
-    const value = record[2]!;
+    // Split at the colon rather than with one pattern, so a long run of spaces can't make the match slow.
+    const record = line.split("#", 1)[0]!;
+    const colon = record.indexOf(":");
+    if (colon < 0) continue;
+    const field = record.slice(0, colon).trim().toLowerCase();
+    if (!/^[a-z-]+$/u.test(field)) continue;
+    const value = record.slice(colon + 1).trim();
     if (field === "user-agent") {
       if (!/^(?:\*|[a-z_-]+)$/iu.test(value)) continue;
       if (group === undefined || hasRules) {

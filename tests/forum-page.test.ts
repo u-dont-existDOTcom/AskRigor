@@ -142,6 +142,19 @@ describe("public forum page reader", () => {
     expect(data.requests).toHaveLength(2);
   });
 
+  it("finds a next-page link after unread parts, whatever their case, and reads none inside them", async () => {
+    const data = fixture({ page: `${page}\u0130<!-- <a rel='next' href='/comment'> --><SCRIPT type="x"><a rel='next' href='/script'></a></SCRIPT >` +
+      "<STYLE>a{}</STYLE><scriptish></scriptish><a rel='next' href='/real'>next</a>" });
+    expect((await readForumPage(data.url, data.runtime)).next_page).toBe(new URL("/real", data.url).toString());
+  });
+
+  it("reads no link after a comment or script that never closes", async () => {
+    for (const open of ["<!-- ", "<script>"]) {
+      const data = fixture({ page: `${page}${open}<a rel='next' href='/after'>next</a>` });
+      expect((await readForumPage(data.url, data.runtime)).next_page).toBeUndefined();
+    }
+  });
+
   it("does not extract a next-page link from scripts or comments", async () => {
     const data = fixture({ page: `${page}<script><a rel='next' href='/script'></a></script><!-- <link rel='next' href='/comment'> -->` });
     expect((await readForumPage(data.url, data.runtime)).next_page).toBeUndefined();

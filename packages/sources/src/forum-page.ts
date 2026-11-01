@@ -139,8 +139,37 @@ async function paceHost(host: string, runtime: ForumPageRuntime): Promise<void> 
   } finally { state.pending -= 1; release(); }
 }
 
+const UNREAD_ELEMENTS = ["script", "style", "template", "noscript"];
+
+/**
+ * The page's markup without comments and the elements whose links no one follows, read once from the start, as a browser
+ * reads them. It is only searched for link tags, never shown as HTML.
+ */
+function markupWithoutUnreadParts(html: string): string {
+  // ASCII only, so every index stays an index into html.
+  const lower = html.replace(/[A-Z]+/gu, (letters) => letters.toLowerCase());
+  const kept: string[] = [];
+  let at = 0;
+  for (let open = lower.indexOf("<"); open >= 0; open = lower.indexOf("<", at)) {
+    const element = UNREAD_ELEMENTS.find((name) => lower.startsWith(`<${name}`, open) &&
+      !/[\w-]/u.test(lower.charAt(open + name.length + 1)));
+    const closing = lower.startsWith("<!--", open) ? "-->" : element === undefined ? undefined : `</${element}`;
+    if (closing === undefined) {
+      kept.push(html.slice(at, open + 1));
+      at = open + 1;
+      continue;
+    }
+    kept.push(html.slice(at, open));
+    const close = lower.indexOf(closing, open + 1);
+    if (close < 0) return kept.join("");
+    at = closing === "-->" ? close + closing.length : lower.indexOf(">", close) + 1 || html.length;
+  }
+  kept.push(html.slice(at));
+  return kept.join("");
+}
+
 function nextPage(html: string, base: URL): string | undefined {
-  const markup = html.replace(/<!--[\s\S]*?-->|<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/giu, "");
+  const markup = markupWithoutUnreadParts(html);
   for (const tag of markup.matchAll(/<(?:a|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
     const attributes = new Map<string, string>();
     for (const match of tag[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gu)) {
