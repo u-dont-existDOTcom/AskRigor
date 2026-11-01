@@ -88,10 +88,16 @@ Figure parsing accepts an interdigit middle dot as a decimal point, including st
 figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
 what they took or did without assuming who runs the test.
 
-A plain-answer confirmation needs the same existing backing as a qualification. Missing backing is an advisory
-note and withholds the comparison note alone. The comparison note quotes each registered claim with its figures,
-including figures absent from the checked draft; a confirmed or qualified claim with such figures says the research
-did not confirm them. If a receipt marked plain_answer does not verify, the result says
-so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
+A plain-answer confirmation needs the same backing as a qualification: a study audited in full text here, a video whose
+comments were read here, a sentence the answer declares as not found or as a correction it found, or, since owner answer
+210b (1 November 2026), a forum thread this call declares it read, for a claim about what people report. Which claims
+those are is the AI's declaration. The note names up to three such threads as "my own reading", because AskRigor can
+confirm that a Reddit thread exists but not what it says; a review site does not count. A claim that can't be shown as
+declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note as "This
+research did not check that.", with an advisory note saying how to show it, and the rest of the note stays. Only a
+registered claim left out of the comparison holds the note back, since no text of it is kept to show. The note quotes
+each registered claim with its figures, including figures absent from the checked draft; a confirmed or qualified claim
+with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
+says so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
 required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
 older description of the note's figure replacement; the runtime result supplies the actual note.

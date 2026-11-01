@@ -3309,12 +3309,19 @@ export function finalizeResearch(
       if (comparison === undefined) {
         requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
       } else {
-        const comparisonNoteStart = notes.length;
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
         const found = new Map<number, ComparedClaim>();
         const usedQuotes: Array<{ quote: string; index: number }> = [];
         const showingComparison = quoteLocator(displayedProse(draft));
+        // Owner answer 210b: a forum thread this call declares it read can back a claim about what people report. Which
+        // claims those are is the model's declaration; the note names the threads, as its own reading, since AskRigor
+        // can confirm that a Reddit thread exists but not what it says.
+        const threadsRead = new Map<string, { url: string; title?: string | undefined }>();
+        for (const search of input.community_searches ?? []) {
+          if (search.platform === "review_site") continue;
+          for (const thread of search.threads_read) threadsRead.set(comparableUrl(thread.url), thread);
+        }
         for (const [index, entry] of comparison.entries()) {
           const at = `plain_answer_comparison[${index}]`;
           const number = registered.indexOf(plainAnswerClaimDigest(entry.claim));
@@ -3333,38 +3340,52 @@ export function finalizeResearch(
             continue;
           }
           const sources = entry.sources ?? [];
-          const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source));
+          const threads = [...new Map(sources.flatMap((source) => {
+            const key = comparableUrl(source);
+            const thread = threadsRead.get(key);
+            return thread === undefined ? [] : [[key, thread] as const];
+          })).values()];
+          const unbacked = sources.filter((source) => !auditedStudy(source) && !commentVideos.has(source) &&
+            !threadsRead.has(comparableUrl(source)));
           if (unbacked.length > 0) {
-            addStep("declaration", joinRules(joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment `, "audit passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose "), "comments were read here (video ID), or leave sources out."));
+            addStep("declaration", joinRules(joinRules(rule`${at}.sources lists ${unbacked.join(", ")}, which no full-text method audit or comment `, "audit passed here covers and no community_searches threads_read declares: list studies audited in full text here (DOI, PMID or PMCID), videos whose "), "comments were read here (video ID) and forum threads read here (the link threads_read gives), or leave sources out."));
           }
           const work = verifiedWork(sources, entry.answer_quote);
-          const backed = basesOf(work).length > 0;
+          const backed = basesOf(work).length > 0 || threads.length > 0;
+          // Owner answer 210b: a claim that cannot be shown as declared goes in the note as not checked, with the step
+          // that would show it, and the note stays. Only a claim left out holds the note back, as no text of it is kept.
+          let shown = true;
+          const notShown = (step: RuleInput): void => {
+            shown = false;
+            addStep("declaration", joinRules(rule`${step}`, " Until then, the note gives this claim as \"This research did not check that.\""));
+          };
           if (entry.answer_quote === undefined) {
-            addStep("declaration", rule`${at} is ${entry.outcome} without answer_quote: copy the answer's own sentence for this item from answer_draft.`);
+            notShown(rule`${at} is ${entry.outcome} without answer_quote: copy the answer's own sentence for this item from answer_draft.`);
           } else {
-            if (showingComparison(entry.answer_quote).length === 0) addStep("declaration", rule`${at}.answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.`);
+            if (showingComparison(entry.answer_quote).length === 0) notShown(rule`${at}.answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.`);
             const reused = usedQuotes.find(({ quote }) => sameQuote(quote, entry.answer_quote!));
-            if (reused !== undefined) addStep("declaration", rule`${at}.answer_quote repeats plain_answer_comparison[${reused.index}].answer_quote: one quote backs only one item.`);
+            if (reused !== undefined) notShown(rule`${at}.answer_quote repeats plain_answer_comparison[${reused.index}].answer_quote: one quote backs only one item.`);
             usedQuotes.push({ quote: entry.answer_quote, index });
-            if (entry.answer_quote.trimEnd().endsWith(":")) addStep("declaration", rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
+            if (entry.answer_quote.trimEnd().endsWith(":")) notShown(rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
             // A first-turn plain answer was never delivered: its correction is the answer's own sentence, not a
             // retraction of something the user saw. Confirmed and qualified items name the same research basis.
             if (!(firstTurn && entry.outcome === "corrected") && !backed) {
-              addStep("declaration", joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here or a video whose comments were read here, or quote as "), firstTurn
+              notShown(joinRules(joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here, a video whose comments were read here or, for a claim about "), "what people report, a forum thread read here (the link community_searches threads_read gives), or quote as "), firstTurn
                 ? "answer_quote a sentence that absence_claims also declares."
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
             }
           }
-          found.set(number, {
+          found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked" } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
-            ...(backed ? { work: countWork([work]) } : {})
+            ...(basesOf(work).length > 0 ? { work: countWork([work]) } : {}),
+            ...(threads.length > 0 ? { threads } : {})
           });
         }
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
           addStep("declaration", joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it."));
-        } else if (notes.length === comparisonNoteStart) {
+        } else {
           compared = registered.map((_, number) => found.get(number)!);
         }
       }
@@ -4111,6 +4132,8 @@ interface ComparedClaim {
   outcome: PlainAnswerOutcome;
   quote?: string;
   work?: VerifiedWork;
+  /** Forum threads read here that back it (owner answer 210b). */
+  threads?: ReadonlyArray<{ url: string; title?: string | undefined }>;
 }
 
 type RegisteredPlainAnswer =
@@ -4174,7 +4197,7 @@ const PLAIN_ANSWER_REASONS = {
   no_receipt: "No plain answer registered with manage_research_access before this research was passed in receipts, " +
     "so the answer ends without the note comparing it with one. If its receipt was omitted or failed to verify, " +
     "copy the original research_receipt from manage_research_access exactly into receipts to restore the note " +
-    `when the receipt verifies and the comparison is backed.${NEXT_PLAIN_ANSWER}`,
+    `when the receipt verifies.${NEXT_PLAIN_ANSWER}`,
   other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
     `comparing it with one.${NEXT_PLAIN_ANSWER}`,
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
@@ -4214,6 +4237,20 @@ function quotation(text: string): string {
 }
 
 /**
+ * The forum threads behind a claim, in the words the note shows (owner answer 210b): the AI's own reading, named, since
+ * AskRigor cannot verify what a thread says. Three are named, so a claim with many does not fill the note.
+ */
+function readThreadsPhrase(threads: ReadonlyArray<{ url: string; title?: string | undefined }>): string {
+  const named = threads.slice(0, 3).map(({ url, title }) => {
+    const shown = title?.replace(/[[\]]/gu, "").trim();
+    return `[${shown === undefined || shown === "" ? "this thread" : shown}](${url})`;
+  });
+  const more = threads.length - named.length;
+  return `my own reading of ${threads.length === 1 ? "1 forum thread" : `${threads.length} forum threads`} ` +
+    `(${named.join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
+}
+
+/**
  * The note a checked answer ends with (owner answer 140b): each registered claim quoted exactly, in order, including
  * its figures, so the reader can see what was checked (31 Oct regressions). Each claim is followed by what the
  * research found, with the answer's own sentence and what backs it, for example "Without AskRigor, a quick
@@ -4221,13 +4258,14 @@ function quotation(text: string): string {
  */
 function plainAnswerNote(compared: readonly ComparedClaim[], draft: string): string {
   const numbers = extractUnsignedNumbers(displayedProse(draft).map(visibleText).join("\n"));
-  return compared.map(({ claim, outcome, quote, work }, index) => {
+  return compared.map(({ claim, outcome, quote, work, threads }, index) => {
     const lead = index === 0 ? "Without AskRigor, a quick answer would have" : "It would also have";
     const said = `${lead} said: ${quotation(claim)}`;
     if (outcome === "not_checked") return `${said} This research did not check that.`;
     // Non-not_checked entries reach a passing note only with their checked quote. A confirmed or qualified claim
     // whose figures the checked draft does not show says so, rather than seeming to confirm them (31 Oct).
-    const from = work === undefined ? "" : `, from ${verifiedWorkPhrase(work)}`;
+    const bases = [...(work === undefined ? [] : [verifiedWorkPhrase(work)]), ...(threads === undefined ? [] : [readThreadsPhrase(threads)])];
+    const from = bases.length === 0 ? "" : `, from ${bases.join(" and ")}`;
     const figuresUnchecked = outcome !== "corrected" &&
       extractUnsignedNumbers(claim).some((value) => !includesAbsoluteNumber(numbers, value));
     return `${said} This research ${outcome} that${from}${figuresUnchecked ? ", but not its figures" : ""}: ${quotation(quote!)}`;
