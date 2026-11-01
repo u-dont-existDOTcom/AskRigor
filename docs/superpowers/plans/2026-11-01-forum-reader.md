@@ -1,7 +1,7 @@
 # AskRigor reads forum threads itself
 
-Owner answers 211a and 213b, 1 November 2026. Being built on the branch `claude/forum-reader-20261101`, for a release the owner
-says yes to. It changes the tool list once, with the changes that were waiting for that.
+Owner answers 211a and 213b, 1 November 2026. Built on the branch `claude/forum-reader-20261101`, for a release the owner says yes
+to. It changes the tool list once, with the changes that were waiting for that, and carries HRP 20.6.36 for the owner's yes.
 
 ## Why
 

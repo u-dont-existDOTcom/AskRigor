@@ -519,7 +519,7 @@ describe("extract_youtube_video_claims through MCP", () => {
   it("is an MCP tool only, offered to ChatGPT and Claude but not as a Custom GPT Action or to Gemini clients", () => {
     const operation = RESEARCH_OPERATIONS.find(({ name }) => name === "extract_youtube_video_claims");
     expect(operation?.actionEnabled).toBe(false);
-    expect(RESEARCH_OPERATIONS).toHaveLength(33);
+    expect(RESEARCH_OPERATIONS).toHaveLength(35);
   });
 
   it("sends Gemini nothing the person wrote, and signs a receipt for the reading", async () => {

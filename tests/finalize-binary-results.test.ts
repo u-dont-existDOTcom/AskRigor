@@ -521,7 +521,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
   if (surface === "MCP endpoint") it("publishes binary_results flat, with its catalog text", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     const tool = tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain("its reported yes-or-no results (binary_results: each group's events and " +
       "total, quoted as counts or a percentage, and any number needed to treat or harm, rounded up, checked against " +

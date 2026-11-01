@@ -68,7 +68,9 @@ const TOOL_NAMES = [
   "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
-  "save_research_findings"
+  "save_research_findings",
+  "read_forum_thread",
+  "search_reddit_threads"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -83,6 +85,8 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "finalize_research",
     "submit_lesson_candidate",
     "save_research_findings",
+    "read_forum_thread",
+    "search_reddit_threads",
   ].includes(name)
 );
 
@@ -118,7 +122,7 @@ const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, 
   "the components of a mixed exposure, and citation chains.";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-three-tool catalog with six declared writes", async () => {
+  it("registers the exact thirty-five-tool catalog with six declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -295,7 +299,7 @@ describe("AskRigor MCP tools", () => {
       );
 
       expect(descriptions.acquire_open_full_text).toBe(
-        "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
+        "Acquires one paper identified by at least one of doi, pmcid or pmid. Without a DOI, uses Europe PMC by PMCID or resolves the PMID there; no Unpaywall or owner library. With a DOI, tries Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
       );
       expect(descriptions.continue_open_full_text).toBe(
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."
@@ -3049,15 +3053,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.35",
-          revisionDate: "2026-10-31",
-          sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
+          version: "20.6.36",
+          revisionDate: "2026-11-01",
+          sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
+        scope_sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

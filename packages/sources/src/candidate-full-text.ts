@@ -97,7 +97,7 @@ export function acquireSuppliedCandidateFullText(
   }
   if (!abstractCheckable) {
     checked.candidate.limitations = [...(checked.candidate.limitations ?? []), abstract.length === 0
-      ? "The exact abstract cross-check was skipped because the existing Europe PMC DOI-search record carries no abstract."
+      ? "The exact abstract cross-check was skipped because the existing Europe PMC identifier-search record carries no abstract."
       : "The exact abstract cross-check was skipped because the study's abstract is too short to identify it."];
   }
   return { ...checked, abstractVerified: abstractCheckable };
@@ -137,8 +137,9 @@ function inspectCandidateText(
   if (verification === undefined || record.state !== "FULL_TEXT_READABLE") return { candidate: record };
   const index = auditableDocumentIndexSchema.parse({
     source: { provider: record.retrieval_provider === "client_search_index" ? "client_supplied" : "direct_candidate",
-      primary_identifier: identity.doi, canonical_url: record.url,
-      doi: identity.doi, ...(identity.pmid === undefined ? {} : { pmid: identity.pmid }),
+      primary_identifier: identity.doi ?? identity.pmcid ?? identity.pmid, canonical_url: record.url,
+      ...(identity.doi === undefined ? {} : { doi: identity.doi }),
+      ...(identity.pmcid === undefined ? {} : { pmcid: identity.pmcid }), ...(identity.pmid === undefined ? {} : { pmid: identity.pmid }),
       ...(identity.title === undefined ? {} : { title: identity.title }), format,
       content_sha256: hash, document_completeness: "full_text_with_body", identity_verification: verification },
     blocks, section_paths: [...new Map(blocks.map((block) => [JSON.stringify(block.section_path), block.section_path])).values()]
@@ -147,7 +148,7 @@ function inspectCandidateText(
 }
 
 function uniqueEmbeddedBlock(text: string, identity: FrozenArticleIdentity): string | undefined {
-  const identifiers = [compactIdentityText(identity.doi),
+  const identifiers = [...(identity.doi === undefined ? [] : [compactIdentityText(identity.doi)]),
     ...(compactIdentityText(identity.pii ?? "").length >= 10 ? [compactIdentityText(identity.pii!)] : []),
     ...titleVariants(identity.title, ...(identity.title_variants ?? [])).map(compactIdentityText).filter((title) => title.length >= 24)];
   let selected: string | undefined;
@@ -217,7 +218,7 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
   // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
   const visible = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
-    .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?:\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
+    .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?=\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
     .replace(/<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu, "\n")
     .replace(/<[^>]*>/gu, " ");
   return { text: decodeEntities(visible).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),

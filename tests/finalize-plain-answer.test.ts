@@ -23,7 +23,7 @@ import {
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch,
-  finalizeResearchInputSchema, plainAnswerClaimDigest, type FinalizeResearchInput
+  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
   discoveryQueryDigest, issueResearchReceipt, plainAnswerAccountBinding, researchTargetDigest, verifyResearchReceipt
@@ -684,8 +684,8 @@ describe("manage_research_access and finalize_research through the connector (ow
       "this research was passed in receipts, so the answer ends without the note comparing it with one.");
   });
 
-  it("adds no tool: the catalog stays at 33, and neither tool has a Custom GPT Action path", () => {
-    expect(RESEARCH_OPERATIONS).toHaveLength(33);
+  it("adds no tool: the catalog stays at 35, and neither tool has a Custom GPT Action path", () => {
+    expect(RESEARCH_OPERATIONS).toHaveLength(35);
     for (const name of ["manage_research_access", "finalize_research"]) {
       expect(RESEARCH_OPERATIONS.find((operation) => operation.name === name)?.actionEnabled).toBe(false);
     }
@@ -832,6 +832,23 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     expect(result.next_steps).toEqual([]);
     expect(result.plain_answer_note).toBe(threadNote);
     expect(comparisonNotes(result)).toEqual([]);
+  });
+
+  it("calls threads read here only when every thread behind the claim has a verified read receipt", () => {
+    const receipt = issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(thread.url), n: 20, v: "reddit", t: 2_500 }, { secret: SECRET });
+    const result = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt] });
+    expect(result.plain_answer_note).toBe(threadNote.replace("my own reading of 1 forum thread", "1 forum thread read here"));
+    const other = { url: "https://forum.example/threads/2", title: "Other experiences" };
+    const mixed = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt], community_searches: [search([thread, other])],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url, other.url] }] });
+    expect(mixed.plain_answer_note).toContain("my own reading of 2 forum threads");
+    const both = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt,
+      issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(other.url), n: 1_500, v: "page", t: 3_000 }, { secret: SECRET })],
+      community_searches: [search([thread, other])],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url, other.url] }] });
+    expect(both.plain_answer_note).toContain("2 forum threads read here");
+    const changed = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt.slice(0, -1)] });
+    expect(changed.plain_answer_note).toBe(threadNote);
   });
 
   it("matches an old.reddit.com source to the www.reddit.com thread declared read", () => {

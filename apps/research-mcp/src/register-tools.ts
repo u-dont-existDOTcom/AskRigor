@@ -1,3 +1,6 @@
+import { registerForumTools } from "./forum-tools.js";
+import type { RedditReaderClient } from "./reddit-reader-client.js";
+import type { readForumPage } from "@askrigor/sources";
 import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
 import { withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
@@ -794,6 +797,8 @@ const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
 // The GPT keeps its own lesson Action, so the connector's lesson tool has no
 // research Action path; paid-private findings are saved from the connector only.
 const CONNECTOR_ONLY_OPERATION_NAMES = new Set([
+  "read_forum_thread",
+  "search_reddit_threads",
   "submit_lesson_candidate",
   "save_research_findings",
   // "Check this video" starts on MCP; a Custom GPT Action follows only if it fits (AskRigor#248).
@@ -807,6 +812,8 @@ export interface RegisterToolsOptions {
   /** Replaces the configured second reader for deterministic tests. */
   secondReader?: SecondReader;
   infoAccess?: InfoAccessClient;
+  redditReader?: RedditReaderClient;
+  forumPageReader?: typeof readForumPage;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
@@ -2381,9 +2388,7 @@ function defineResearchOperations(
         "before a pass ends with (unchecked_line), the round of this turn (round) and round_token for the next call, " +
         `and steps that came back unchanged ${STUCK_AFTER_ROUNDS} rounds running, which it stopped asking for ` +
         `(stuck_steps); stopped, the turn's final result, after ${CHECK_ROUND_LIMIT} rounds or when only such steps ` +
-        "are left, with what AskRigor could not do, what the next turn can do and a bug report; previous_check when the conversation's previous check did not pass; ready_with_limits with the limits, the caveat sentences for the answer " +
-        "(each as its own sentence and as written, in the answer's language when answer_language and " +
-        "caveat_renderings are given) and must_report, what the answer reports from each lane researched; " +
+        "are left, with what AskRigor could not do, what the next turn can do and a bug report; previous_check when the conversation's previous check did not pass; ready_with_limits with limits in limits, stated in the answer's own words where they change what the person should believe or do; caveats holds any sentence shown as written, in the answer's language; and must_report, what the answer reports from each lane researched; " +
         "when ready, check_line, the line the answer ends with; or " +
         "receipts_unavailable when this server cannot verify receipts. " + FINALIZE_RESEARCH_SHARED_GUIDANCE,
       inputSchema: finalizeResearchConnectorInputSchema(options.mcpSurface !== "/mcp/claude", options.toolListVersion),
@@ -2522,9 +2527,8 @@ function defineResearchOperations(
             ? referenceLimits.length === 0 ? "" : `\n${PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
               `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
-          // The sentences the answer shows as written: the mobile notice, the save offer and, under a passing check, the
-          // correction-report question and the community-skip sentence, which the reference line leaves out.
-          (passing ? result.caveats : result.caveats.filter((caveat) => !result.limits.includes(caveat)))
+          // The sentences the answer shows as written under every status.
+          result.caveats
             .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
           (result.plain_answer_note === undefined ? "" :
@@ -2637,6 +2641,7 @@ function defineResearchOperations(
   );
 
   registerFindingsSave(registrar, options);
+  registerForumTools(registrar, options, researchReceipt, READ_ONLY_ANNOTATIONS);
 }
 
 // Owner decision Q11 (2026-09-30): a paid-private user's findings are saved
@@ -3191,7 +3196,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
+      description: "Acquires one paper identified by at least one of doi, pmcid or pmid. Without a DOI, uses Europe PMC by PMCID or resolves the PMID there; no Unpaywall or owner library. With a DOI, tries Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
@@ -3397,6 +3402,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     status?: string;
     requested_doi?: string;
     requested_pmcid?: string;
+    requested_pmid?: string;
     acquisition_state?: string;
     audit_receipt?: { audit_status?: string; reported_figures_check?: ReportedFiguresCheck };
     coverage_receipt?: { document_handle?: string; exhausted?: boolean; source_content_sha256?: string };
@@ -3411,6 +3417,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
           (body as Parameters<typeof canSignFullTextLead>[0]).public_copy_search?.status !== "declared") return undefined;
       return researchReceipt("full_text_route_failure", {
         doi: output.requested_doi,
+        pmid: output.requested_pmid,
         pmcid: failed.find(({ route, identifier }) => route === "europe_pmc" && identifier?.startsWith("PMC"))?.identifier
           ?? output.requested_pmcid,
         routes: [...new Set(failed.map(({ route }) => route!))].sort(),
@@ -3422,6 +3429,7 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     // Lead candidate URLs were never read, so their identity is unverified.
     return researchReceipt("full_text_lead", {
       doi: output.requested_doi,
+      pmid: output.requested_pmid,
       pmcid: output.requested_pmcid,
       state: output.acquisition_state
     });
@@ -3556,7 +3564,8 @@ function collectResearchOperations(
       const guardedExecute = options.researchAccessRequired === true &&
           !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
           !PUBLIC_READ_OPERATION_NAMES.has(name) &&
-          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
+          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name) &&
+          !["read_forum_thread", "search_reddit_threads"].includes(name)
         ? createResearchAccessGuard(evolving.execute, {
             service: options.researchContributorAccessService,
             resourceMetadataUrl: options.oauthResourceMetadataUrl,
@@ -3596,8 +3605,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 33) {
-    throw new Error(`Expected 33 research operations; received ${operations.length}`);
+  if (operations.length !== 35) {
+    throw new Error(`Expected 35 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

@@ -505,7 +505,7 @@ describe("consequential lesson Action", () => {
       try {
         const names = (await client.listTools()).tools.map(({ name }) => name);
         if (profile === "standard") {
-          expect(names).toHaveLength(33);
+          expect(names).toHaveLength(35);
           expect(names).toContain("submit_lesson_candidate");
         } else {
           expect(names).not.toContain("submit_lesson_candidate");

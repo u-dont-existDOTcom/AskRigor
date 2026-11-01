@@ -52,7 +52,9 @@ const TOOL_NAMES = [
   "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
-  "save_research_findings"
+  "save_research_findings",
+  "read_forum_thread",
+  "search_reddit_threads"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -627,7 +629,7 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(33);
+    expect(inventory.tools).toHaveLength(35);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||

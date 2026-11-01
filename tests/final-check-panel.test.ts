@@ -195,7 +195,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         },
       }]);
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(33);
+      expect(tools).toHaveLength(35);
       const tool = tools.find(({ name }) => name === "finalize_research")!;
       expect(tool._meta).toMatchObject({
         ui: { resourceUri: FINAL_CHECK_PANEL_URI },

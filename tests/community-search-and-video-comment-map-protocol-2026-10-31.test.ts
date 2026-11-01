@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoCommunitySearchAndVideoCommentMapHrp, undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
+import { undoCommunitySearchAndVideoCommentMapHrp, undoForumReaderHrp, undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
 
 // Owner rule 148a and the owner's requests of 30 and 31 October 2026: AskRigor#390, forum depth and video comment maps.
 const PINS = {
@@ -62,9 +62,12 @@ const SENTENCES = [
   ]],
 ] as const;
 
+// HRP 20.6.36 adds the forum-reader preference above this layer.
+const layer = async () => undoForumReaderHrp(await loadProtocol("hrp"));
+
 describe("community search and video comment maps: HRP 20.6.35", () => {
   it.each(SENTENCES)("preserves every new sentence in %s", async (name, sentences) => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const body = rule(text, name);
     for (const sentence of sentences) expect(body, name).toContain(sentence);
     const core = new Set(coreSectionNames("hrp"));
@@ -74,7 +77,7 @@ describe("community search and video comment maps: HRP 20.6.35", () => {
   });
 
   it("limits the emergency exemption to an answer that is the warning itself", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const section = protocolSections("hrp", text).find(({ name }) => name === "CrowdSourcedAndClinicalSignalAudit")!;
     expect(section).toBeDefined();
     const body = Buffer.from(text, "utf8").subarray(section.byte_start, section.byte_end_exclusive).toString("utf8");
@@ -89,7 +92,7 @@ describe("community search and video comment maps: HRP 20.6.35", () => {
   });
 
   it("adds VideoCommentMap exactly once, between the existing video handling and prospective rules", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     expect(text.match(/<Rule name="VideoCommentMap"/gu)).toHaveLength(1);
     expect(rule(text, "VideoCommentMap")).toBe(SENTENCES[5][1].join(" "));
     const names = [...text.matchAll(/<Rule name="([^"]+)"/gu)].map((match) => match[1]);
@@ -101,7 +104,7 @@ describe("community search and video comment maps: HRP 20.6.35", () => {
   });
 
   it("leaves CoreHierarchy and every other core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoCommunitySearchAndVideoCommentMapHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     expect(core.has("CoreHierarchy")).toBe(true);
@@ -112,19 +115,17 @@ describe("community search and video comment maps: HRP 20.6.35", () => {
     expect(sections(text)).toEqual(sections(prior));
   });
 
-  it("binds the current manifest and first revision to the exact owner-supplied bytes", async () => {
-    const text = await loadProtocol("hrp");
+  it("binds the exact layer bytes and first revision to the owner-supplied text", async () => {
+    const text = await layer();
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-10-31", sha256: PINS.to.sha256,
-    });
+    expect(text).toContain(`version="${PINS.to.version}" revisionDate="2026-10-31"`);
     expect(hash(text)).toBe(PINS.to.sha256);
     const revisions = [...text.matchAll(/<Revision version="([^"]+)"/gu)].map((match) => match[1]);
     expect(revisions.slice(0, 2)).toEqual(["20.6.35", "20.6.34"]);
   });
 
   it("reverses to HRP 20.6.34's exact bytes and SHA-256, with the older reversal still chained", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoCommunitySearchAndVideoCommentMapHrp(text);
     expect(XMLValidator.validate(prior)).toBe(true);
     expect(prior).toContain(`version="${PINS.from.version}" revisionDate="2026-10-30"`);
