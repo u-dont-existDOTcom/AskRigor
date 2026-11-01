@@ -197,9 +197,7 @@ describe("finalize_research harm_screen: when it is required (owner answer 128b)
   it("still checks a screen given when it is not required", () => {
     const given = { safety_claims: [], harm_screen: [notChecked] };
     expect(check({ ...given, answer_draft: LINKS })).toMatchObject({
-      caveats: [
-        "A serious harm this answer did not check: anaphylaxis."
-      ],
+      caveats: [],
       limits: [
         "A serious harm this answer did not check: anaphylaxis."
       ],
@@ -245,7 +243,7 @@ describe("finalize_research harm_screen: a medicine put forward or ranked for lo
   });
 
   it("passes once the screen is given; a general ranking is conditional and states the existing caveat", () => {
-    expect(check(ranked())).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [CONDITIONAL] });
+    expect(check(ranked())).toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", CONDITIONAL] });
     // Without the caveat the answer is sent back for it, as for any conditional recommendation (FS231).
     expectPassingLimits(check(ranked({ answer_draft: `${LINKS}\n\n${RANKED}\n\n${LABEL}` })), ["An option that depends on something a clinician should confirm first: the hormone. What to confirm: normal blood sugar."]);
   });
@@ -336,9 +334,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
     const bounded = BOUNDED("PubMed");
     const left = check(passed);
     expect(left).toMatchObject({
-      caveats: [
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
-      ],
+      caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
         "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
@@ -347,7 +343,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
     });
     expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."]);
     expect(check({ ...passed, answer_draft: `${base().answer_draft}\n\n${bounded}` }))
-      .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded], caveats: [bounded] });
+      .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded], caveats: [] });
   });
 
   it("compares the query as search receipts sign it: case and spacing aside, nothing else", () => {
@@ -363,7 +359,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
     for (const [src, name] of [["europepmc", "Europe PMC"], ["ctgov", "ClinicalTrials.gov"]] as const) {
       const bounded = BOUNDED(name);
       expect(check({ receipts: [audit, search(src)], harm_screen: [notFound],
-        answer_draft: `${base().answer_draft}\n\n${bounded}` })).toMatchObject({ status: "ready_with_limits", caveats: [bounded] });
+        answer_draft: `${base().answer_draft}\n\n${bounded}` })).toMatchObject({ status: "ready_with_limits", limits: ["The serious-harm screen covered anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded] });
     }
   });
 
@@ -400,9 +396,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       answer_draft: `${base().answer_draft}\n\n${notLocated} ${bounded}`
     });
     expect(both).toMatchObject({
-      caveats: [
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
-      ],
+      caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
         "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
@@ -419,7 +413,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       receipts: [audit, sectionSearch], full_text_search: { status: "run", queries: [sectionQuery] },
       harm_screen: [{ ...notFound, search_query: sectionQuery }],
       answer_draft: `${base().answer_draft}\n\n${fullText} ${BOUNDED("Europe PMC")}`
-    })).toMatchObject({ status: "ready_with_limits", caveats: [fullText, BOUNDED("Europe PMC")] });
+    })).toMatchObject({ status: "ready_with_limits", limits: ["The serious-harm screen covered anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", fullText, BOUNDED("Europe PMC")] });
   });
 });
 
@@ -432,9 +426,7 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
     expect(harmNotCheckedCaveat("アナフィラキシー。")).toBe(`${HARM_NOT_CHECKED_CAVEAT_START} アナフィラキシー。`);
     const result = check({ harm_screen: [onLabel, { harm: " anaphylaxis\n", state: "not_checked" }] });
     expect(result).toMatchObject({
-      caveats: [
-        "A serious harm this answer did not check: anaphylaxis."
-      ],
+      caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
         "A serious harm this answer did not check: anaphylaxis."
@@ -483,7 +475,7 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
     expect(check({
       harm_screen: [onLabel, { harm: declared, state: "not_checked" }], answer_language: "fr",
       answer_draft: `${base().answer_draft}\n\n${french}`, caveat_renderings: [{ caveat: harmNotCheckedCaveat(declared), text: french }]
-    })).toMatchObject({ status: "ready_with_limits", caveats: [`${HARM_NOT_CHECKED_CAVEAT_START} l'anaphylaxie.`] });
+    })).toMatchObject({ status: "ready_with_limits", limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", `${HARM_NOT_CHECKED_CAVEAT_START} l'anaphylaxie.`] });
   });
 
   it("gives each harm not checked its own caveat, and each harm one entry", () => {
@@ -493,10 +485,7 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
       answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED} ${stroke}`
     });
     expect(both).toMatchObject({
-      caveats: [
-        "A serious harm this answer did not check: anaphylaxis.",
-        "A serious harm this answer did not check: stroke."
-      ],
+      caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
         "A serious harm this answer did not check: anaphylaxis.",
@@ -508,7 +497,7 @@ describe("finalize_research harm_screen: a harm not checked reaches the answer",
       harm_screen: [onLabel, notChecked, { ...notChecked, harm: "Anaphylaxis." }],
       answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}`
     });
-    expect(twice.caveats).toEqual([NOT_CHECKED]);
+    expect(twice.limits).toEqual(["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED]);
     expect(advisoryNotes(twice)).toEqual(["harm_screen[2] names the same harm as harm_screen[1]: give each harm one entry."]);
     // A harm found and declared not checked as well is one harm too.
     expect(steps({ harm_screen: [onLabel, { harm: "Severe  allergic reactions", state: "not_checked" }],
@@ -561,7 +550,7 @@ describe("finalize_research harm_screen: bounded input, every problem at once", 
     // At the limits, the call runs.
     const twenty = Array.from({ length: 20 }, (_, index) => ({ harm: `harm ${index} ${"h".repeat(140)}`, state: "not_checked" as const }));
     const atLimit = finalizeResearch({ ...base(), harm_screen: [onLabel, ...twenty.slice(1)] }, { secret: SECRET });
-    expect(atLimit.caveats).toHaveLength(19);
+    expect(atLimit.limits.filter((limit) => limit !== "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.")).toHaveLength(19);
   });
 
   it("names every problem together as notes without adding format steps", () => {
@@ -617,7 +606,7 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
     // call. The query and declarations still stay out of the receipt and carried state.
     const output = JSON.stringify({ ...result, checked_answer: undefined, caveats: [], limits: [] });
     for (const declared of ["allergic", "anaphylaxis", "rechallenge", "somatropin"]) expect(output).not.toContain(declared);
-    expect(result.caveats).toContain(harmNotCheckedCaveat("stroke after rechallenge"));
+    expect(result.limits).toContain(harmNotCheckedCaveat("stroke after rechallenge"));
   });
 
   it("saves nothing of the screen with a free contributor's findings card", async () => {
@@ -731,9 +720,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       };
       const screened = await call(base({ harm_screen: [onLabel, notChecked] }));
       expect(screened.result).toMatchObject({
-        caveats: [
-          "A serious harm this answer did not check: anaphylaxis."
-        ],
+        caveats: [],
         limits: [
           "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.",
           "A serious harm this answer did not check: anaphylaxis."
@@ -752,7 +739,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       expect(unsearched.text).toContain(`\nLimit to include in your own words: ${NOT_CHECKED}`);
       expect(unsearched.text).not.toContain(PASSING_LIMITS_GUIDANCE);
       const passed = await call(base({ harm_screen: [onLabel, notChecked], answer_draft: `${base().answer_draft}\n\n${NOT_CHECKED}` }));
-      expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [NOT_CHECKED], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
+      expect(passed.result).toMatchObject({ status: "ready_with_limits", caveats: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", NOT_CHECKED] });
       const unscreened = await call(base({ harm_screen: undefined }));
       expect(unscreened.result.next_steps).toEqual([required("is missing", BECAUSE_CLAIMS)]);
       const undeclared = await call(base({ safety_question: undefined }));

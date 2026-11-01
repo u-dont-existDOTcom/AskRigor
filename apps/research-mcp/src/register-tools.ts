@@ -115,6 +115,7 @@ import {
   executeResumableAutomatedGeminiScout,
   geminiKeyDeclaredUnbilled,
   isPublicLeadTerm,
+  publicLeadTermRefusal,
   researchTargetScreenFailures,
   researchTargetScreenRefusal
 } from "./actions/gemini-scout-route.js";
@@ -2140,11 +2141,13 @@ function defineResearchOperations(
           return scoutError("research_target_not_deidentified", false,
             `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(target.research_target)}`);
         }
-        if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
+        const refusedLeads = leads.flatMap((lead, index) =>
+          VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead) ? [] : [publicLeadTermRefusal(lead, index)]);
+        if (refusedLeads.length > 0) {
           return scoutError("rediscovery_lead_not_public_term", false,
             "Give each lead as a short lowercase public term for a remedy, method or product (for example: collagen " +
               "peptides), with no names, pronouns, places or quotes from comments. Give a video or creator as " +
-              "video:<id>.");
+              `video:<id>. ${refusedLeads.join(" ")}`);
         }
         // Videos and creators travel as YouTube's own public title and channel.
         const resolved = await resolveVideoLeads(leads);
@@ -2506,6 +2509,8 @@ function defineResearchOperations(
       if (sharing !== undefined && researcher !== undefined) result.share_offer = { ...SHARE_OFFER };
       const card = result.findings_card;
       const analyses = result.analyses_saved;
+      const passing = result.status === "ready" || result.status === "ready_with_limits";
+      const referenceLimits = result.limits.filter((limit) => !result.caveats.includes(limit));
       const toolResult = successfulToolResult(
         `Research finalization: ${result.status}; ${result.next_steps.length} next step(s), ` +
           `${result.limits.length} limit(s) to state; ${result.receipts_verified} receipt(s) verified.` +
@@ -2513,12 +2518,14 @@ function defineResearchOperations(
           (result.notes === undefined ? "" : `\nNotes about the call:\n${result.notes.map((note) => `- ${note}`).join("\n")}`) +
           // Owner answer 205a: the panel lists a passing check's limits in full, so its answer states only those
           // that matter for this person; the panel shows no limits under a check that has not passed.
-          (result.limits.length === 0 ? "" : result.status === "ready" || result.status === "ready_with_limits"
-            ? `\n${PASSING_LIMITS_GUIDANCE}\n${result.limits.map((limit, index) =>
+          (passing
+            ? referenceLimits.length === 0 ? "" : `\n${PASSING_LIMITS_GUIDANCE}\n${referenceLimits.map((limit, index) =>
               `[${index + 1}] ${limit.replace(/\s+/gu, " ").trim()}`).join(" ")}`
             : result.limits.map((limit) => `\nLimit to include in your own words: ${limit}`).join("")) +
-          result.caveats.filter((caveat) => !result.limits.includes(caveat))
-            .map((caveat) => `\nAnswer guidance, in your own words: ${caveat}`).join("") +
+          // The sentences the answer shows as written: the mobile notice, the save offer and, under a passing check, the
+          // correction-report question and the community-skip sentence, which the reference line leaves out.
+          (passing ? result.caveats : result.caveats.filter((caveat) => !result.limits.includes(caveat)))
+            .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +

@@ -1,5 +1,5 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
-import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, copiedLimitsNote } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -93,12 +93,11 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     expect(result.status).toBe("ready_with_limits");
     expect(result.finalization_receipt).toEqual(expect.any(String));
     expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      `Give outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb: the searches run within the review text for the outcome and their directions, or why that search could not run.`,
-      copiedLimitsNote(3)
+      `Give outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb: the searches run within the review text for the outcome and their directions, or why that search could not run.`
     ]);
     expect(advisoryNotes(result).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(result.limits).toContain(PREVIEW);
-    expect(result.caveats).toContain(PREVIEW);
+    expect(result.limits).toContain(PREVIEW);
   });
 
   it.each(["no_text_search", "search_blocked", "login_required"] as const)("accepts %s with the required preview caveat", async (boundary) => {
@@ -112,7 +111,7 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     expect(result.next_steps).toEqual([]);
     expect(result.finalization_receipt).toBeDefined();
     expect(result.limits).toContain(PREVIEW);
-    expect(result.caveats.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
+    expect(result.limits.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
     expect(result.must_report).toContain(`iHerb, ${PRODUCT}: 65000 star ratings shown; 1200 written reviews shown; 10 reviews read; selection top_ranked; outcome-search boundary: ${boundary}.`);
     const dropped = await call({ ...input, answer_draft: `${input.answer_draft}\n\n${result.caveats.filter((caveat) => caveat !== PREVIEW).join(" ")}` });
     expect(dropped.status).toBe("ready_with_limits");
@@ -124,10 +123,10 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     const result = await complete(packageFor({ outcome_search: { ...OUTCOME_SEARCH, directions: ["benefit", "no_effect", harm] } }));
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.caveats).not.toContain(PREVIEW);
+    expect(result.limits).not.toContain(PREVIEW);
     expect(result.limits).not.toContain(PREVIEW);
     // The community lane's own caveat already says AskRigor could not verify its searches.
-    expect(result.caveats.join(" ")).toContain("could not verify");
+    expect(result.limits.join(" ")).toContain("could not verify");
     expect(result.must_report).toContain(`iHerb, ${PRODUCT}: 65000 star ratings shown; 1200 written reviews shown; 10 reviews read; selection top_ranked; outcome-search directions: benefit, no_effect, ${harm}.`);
   });
 
@@ -151,15 +150,14 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     const result = await complete(packageFor({ outcome_search: OUTCOME_SEARCH, outcome_search_boundary: "search_blocked" }));
     expect(result.status).toBe("ready_with_limits");
     expect(advisoryNotes(result)).toEqual([
-      `Give exactly one of outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb, so the declarations agree.`,
-      copiedLimitsNote(3)
+      `Give exactly one of outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb, so the declarations agree.`
     ]);
   });
 
   it.each(["top_ranked", "outcome_keyword", "other_partial"] as const)("requires the preview caveat for %s without outcome search", async (selection) => {
     const result = await complete(packageFor({ selection }));
     expect(result.status).toBe("ready_with_limits");
-    expect(result.caveats.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
+    expect(result.limits.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
   });
 
   it("requires a search declaration for every corpus, including all written reviews", async () => {

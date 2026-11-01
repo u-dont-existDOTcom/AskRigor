@@ -183,20 +183,20 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("asks for it in a first pass too, whose comparison is also provisional", async () => {
       const result = await call({ ...FIRST_PASS, option_classes: undefined });
       expect(advisoryNotes(result)).toContain(missing("is missing"));
-      expect(result.caveats).toContain(PROVISIONAL);
+      expect(result.limits).toContain(PROVISIONAL);
       const passed = await checked({ ...FIRST_PASS });
       expect(passed).toMatchObject({
         status: "ready_with_limits",
         next_steps: []
       });
-      expect(passed.caveats).toContain(PROVISIONAL);
+      expect(passed.limits).toContain(PROVISIONAL);
       // A class a first pass did not research is said in the answer, as in deep research.
       const unresearched = await checked({ ...FIRST_PASS, option_classes: [supplements, notResearched] });
       expect(unresearched).toMatchObject({
         status: "ready_with_limits",
         next_steps: []
       });
-      expect(unresearched.caveats).toEqual(expect.arrayContaining([PROVISIONAL, NOT_RESEARCHED]));
+      expect(unresearched.limits).toEqual(expect.arrayContaining([PROVISIONAL, NOT_RESEARCHED]));
     });
 
     it("is not required when the answer does not compare treatments, nor before an answer draft", async () => {
@@ -213,9 +213,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("still checks classes given when they are not required", async () => {
       const given = await call({ treatment_choice: "not_compared", option_classes: [notResearched] });
       expect(given).toMatchObject({
-        caveats: [
-          "A class of treatment this answer did not research: brain stimulation."
-        ],
+        caveats: [],
         limits: [
           "A class of treatment this answer did not research: brain stimulation."
         ],
@@ -306,9 +304,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       const result = await call({ option_classes: [supplements,
         { ...notResearched, search_query: "a query no receipt has", answer_quote: "A sentence the answer does not show." }] });
       expect(result).toMatchObject({
-        caveats: [
-          "A class of treatment this answer did not research: brain stimulation."
-        ],
+        caveats: [],
         next_steps: [],
         limits: [
           "A class of treatment this answer did not research: brain stimulation."
@@ -321,9 +317,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     it("adds the server's sentence for a class not researched, with its limit", async () => {
       const result = await call({ option_classes: [supplements, notResearched] });
       expect(result).toMatchObject({
-        caveats: [
-          "A class of treatment this answer did not research: brain stimulation."
-        ],
+        caveats: [],
         limits: [
           "A class of treatment this answer did not research: brain stimulation."
         ],
@@ -333,15 +327,13 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       });
       expect(await call({ option_classes: [supplements, notResearched],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${NOT_RESEARCHED}` }))
-        .toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [NOT_RESEARCHED] });
+        .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: [NOT_RESEARCHED] });
     });
 
     it("adds the server's sentence for a class out of reach, with its limit", async () => {
       const result = await call({ option_classes: [supplements, outOfReach] });
       expect(result).toMatchObject({
-        caveats: [
-          "A class of treatment whose research this answer could not reach: intensive residential programs."
-        ],
+        caveats: [],
         limits: [
           "A class of treatment whose research this answer could not reach: intensive residential programs."
         ],
@@ -350,7 +342,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       });
       const both = await call({ option_classes: [notResearched, supplements, outOfReach],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED}\n\n${NOT_RESEARCHED} ${OUT_OF_REACH}` });
-      expect(both).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [NOT_RESEARCHED, OUT_OF_REACH],
+      expect(both).toMatchObject({ status: "ready_with_limits", next_steps: [], caveats: [],
         limits: [NOT_RESEARCHED, OUT_OF_REACH] });
     });
 
@@ -379,14 +371,14 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       expect(await call({ option_classes: [supplements, { option_class: declared, state: "not_researched" }],
         answer_language: "fr", caveat_renderings: [{ caveat: optionClassCaveat("not_researched", declared), text: french }],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED}\n\n${french}` }))
-        .toMatchObject({ status: "ready_with_limits", caveats: [`${OPTION_CLASS_CAVEAT_STARTS.not_researched} ${declared}.`] });
+        .toMatchObject({ status: "ready_with_limits", limits: [`${OPTION_CLASS_CAVEAT_STARTS.not_researched} ${declared}.`] });
     });
 
     it("gives each class one entry, compared as harm names are, with one caveat", async () => {
       const twice = await call({ option_classes: [supplements, notResearched, { option_class: "Brain  Stimulation.", state: "inaccessible" }],
         answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${NOT_RESEARCHED}` });
       expect({ ...twice, notes: advisoryNotes(twice) }).toMatchObject({
-        caveats: [
+        limits: [
           "A class of treatment this answer did not research: brain stimulation."
         ],
         next_step_kinds: [],
@@ -459,10 +451,10 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       ({ option_class: `class ${index} ${"c".repeat(110)}`, state: "not_researched" }));
     const atLimit = await call({ option_classes: twenty });
     expect(atLimit.answer_checked).toBe(true);
-    expect(atLimit.caveats).toHaveLength(20);
+    expect(atLimit.limits).toHaveLength(20);
     const over = await call({ option_classes: [...twenty, notResearched] });
     expect(over.answer_checked).toBe(true);
-    expect(over.caveats).toHaveLength(20);
+    expect(over.limits).toHaveLength(20);
     expect(over.notes).toContain("option_classes: kept at most 20 items to stay within the list's size limit.");
   });
 

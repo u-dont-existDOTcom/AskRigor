@@ -810,11 +810,41 @@ export function isPublicLeadTerm(value: string): boolean {
   if (!isDeidentifiedResearchTarget(value)) return false;
   const text = value.replace(/\s+/gu, " ").trim();
   if (text.split(" ").length > MAXIMUM_LEAD_WORDS) return false;
-  if (/\b(?:says|said|tells|told|claims|claimed|cured|healed)\b/iu.test(text)) return false;
+  if (LEAD_REPORT_VERB.test(text)) return false;
   return !mayDescribeAPerson(text);
 }
 
 const MAXIMUM_LEAD_WORDS = 8;
+const LEAD_REPORT_VERB = /\b(?:says|said|tells|told|claims|claimed|cured|healed)\b/iu;
+
+/**
+ * Why rediscovery_leads[index] fails isPublicLeadTerm, quoting the lead and each match as the target's refusal does
+ * (the 31 Oct regression run: a refused lead was not named, so the retry guessed); a lead with a secret or contact
+ * detail is named by its position only. It explains the screen and never changes acceptance.
+ */
+export function publicLeadTermRefusal(value: string, index: number): string {
+  const matches = new Map<ResearchTargetScreenPart, Set<string>>();
+  const failures = researchTargetScreenFailures(value, (part, fragment) => {
+    const words = matches.get(part) ?? new Set<string>();
+    words.add(fragment);
+    matches.set(part, words);
+  });
+  const hidden = failures.some((part) => part === "secret" || part === "contact_details");
+  const reasons = failures.map((part) => `${RESEARCH_TARGET_SCREEN_PARTS[part]} (${part === "secret" ||
+    part === "contact_details" ? "not quoted" : `matched ${[...matches.get(part) ?? []].map((fragment) =>
+      JSON.stringify(fragment)).join(", ")}`})`);
+  const text = value.replace(/\s+/gu, " ").trim();
+  if (!hidden) {
+    const words = text.split(" ").length;
+    if (words > MAXIMUM_LEAD_WORDS) reasons.push(`${words} words, more than ${MAXIMUM_LEAD_WORDS}`);
+    const verbs = new Set([...text.matchAll(new RegExp(LEAD_REPORT_VERB.source, "giu"))].map(([verb]) => verb));
+    if (verbs.size > 0) {
+      reasons.push(`a report verb (matched ${[...verbs].map((verb) => JSON.stringify(verb)).join(", ")})`);
+    }
+  }
+  return `rediscovery_leads[${index}]${hidden ? "" : ` ${JSON.stringify(text)}`} was refused because it has ` +
+    `${reasons.join("; and ")}.`;
+}
 
 /** Person markers shared by the target and lead screens; text has single spaces. */
 function mayDescribeAPerson(text: string): boolean {

@@ -50,12 +50,23 @@ under every status, folded under one closed line, "Notes for the AI", that opens
 2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
 only the limits that change what the person should believe or do, with which limits matter left to the AI; the
 result gives all limits for reference on one numbered line (`[1] ... [2] ...`) after guidance not to copy them,
-adds a non-blocking note without consuming a round when the passing draft repeats three or more verbatim
+adds a non-blocking note, which asks for the check again, without consuming a round when the passing draft
+repeats three or more verbatim
 (whitespace and straight/curly quotes normalized), and asks the AI to add any omitted limit that matters and check
 the draft again. Under a check that has not passed, the panel shows no limits, so each
 stays a `Limit to include in your own words` line and the answer states them all. Their absence, translation or
 rewording in the draft does not create a step either way. A passing check's line with limits reads "Checked with
 AskRigor's final check, with the limits it found.", since the answer may state only some of them.
+
+A passing check's `caveats` hold only the sentences the answer shows as written: the mobile notice, the findings save
+offer, the correction-report question (owner question 78) and the community-skip sentence (owner question 125). The
+last two are limits too, so the panel still lists them, but the reference line leaves them out and the result gives
+each on its own `Include as written, translated when the answer is not in English` line; the paste note does not count
+them. The published schema, frozen by owner answer 189a, calls `caveats` "Sentences the answer must contain, each as its
+own sentence and as written", and the plugin skill says to copy them; while every limit sat in `caveats`, answers
+pasted them all after the check, one under the heading "AskRigor's final check requires these evidence limits to
+remain explicit" (the regression run on #389's build, 1 November 2026). Under a check that has not passed, `caveats` is
+unchanged.
 
 The check line, unchecked line, checked-draft digest, second reading and stopped-check report still operate.
 When the server keeps shared answers and the caller has a research account, the result also carries a runtime-only
@@ -77,10 +88,16 @@ Figure parsing accepts an interdigit middle dot as a decimal point, including st
 figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
 what they took or did without assuming who runs the test.
 
-A plain-answer confirmation needs the same existing backing as a qualification. Missing backing is an advisory
-note and withholds the comparison note alone. The comparison note quotes each registered claim with its figures,
-including figures absent from the checked draft; a confirmed or qualified claim with such figures says the research
-did not confirm them. If a receipt marked plain_answer does not verify, the result says
-so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
+A plain-answer confirmation needs the same backing as a qualification: a study audited in full text here, a video whose
+comments were read here, a sentence the answer declares as not found or as a correction it found, or, since owner answer
+210b (1 November 2026), a forum thread this call declares it read, for a claim about what people report. Which claims
+those are is the AI's declaration. The note names up to three such threads as "my own reading", because AskRigor can
+confirm that a Reddit thread exists but not what it says; a review site does not count. A claim that can't be shown as
+declared (nothing behind it, or a quote the answer doesn't show, repeats or ends in a colon) goes in the note as "This
+research did not check that.", with an advisory note saying how to show it, and the rest of the note stays. Only a
+registered claim left out of the comparison holds the note back, since no text of it is kept to show. The note quotes
+each registered claim with its figures, including figures absent from the checked draft; a confirmed or qualified claim
+with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
+says so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
 required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
 older description of the note's figure replacement; the runtime result supplies the actual note.

@@ -358,6 +358,28 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
 });
 
 describe("owner library sign-in and configuration", () => {
+  it.each(["invalid_response", "busy", "unavailable"] as const)("preserves the acquisition boundary and receipt eligibility for library %s", async (code) => {
+    const result = await actual.acquireOpenFullText({ doi: DOI, public_copy_search: SEARCH }, CONFIG,
+      { ...runtime, ownerLibrary: { access: "owner", fetchPdf: async () => { throw { code, message: PROVIDER_MESSAGE }; } } });
+    const attempt = { route: "owner_library", result: code === "invalid_response" ? "not_found" : "error", identifier: DOI };
+    expect(result.data.discovery_attempts.at(-1)).toEqual(attempt);
+    expect(result.data.public_copy_search).toEqual({ status: "declared", query_count: 2 });
+    const couldNotSupply = " The owner library could not supply this paper, so repeating the call is unlikely to help.";
+    const stayedBusy = " The owner library stayed busy with other requests, so the same call may work in a minute.";
+    const boundary = "No supplied or primary-route or owner-library copy was admitted. The public-copy search is declared.";
+    expect(result.data.access_boundary).toBe(boundary + (code === "invalid_response" ? couldNotSupply : code === "busy" ? stayedBusy : ""));
+    expect(actual.canSignFullTextLead(result.data)).toBe(code === "invalid_response");
+    expect(actual.failedPrimaryRoutes(result.data)).toEqual(code === "invalid_response" ? [] : [attempt]);
+    expect(result).toMatchObject(code === "invalid_response"
+      ? { access_status: "partial", error: { code: "open_full_text_not_auditable", retryable: false } }
+      : { access_status: "error", error: { code: "open_full_text_route_failed", retryable: true } });
+    expect(result.data.document_index).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain(LIBRARY_URL);
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
+    expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
+    expect(JSON.stringify(result)).not.toContain(syntheticBody("methods"));
+    expect(downloads).toBe(0);
+  });
   it("treats a structural not_found as a completed library miss and any other failure as a retryable route failure", async () => {
     const acquireWithCode = (code: string) => actual.acquireOpenFullText({ doi: DOI, public_copy_search: SEARCH }, CONFIG,
       { ...runtime, ownerLibrary: { access: "owner", fetchPdf: async () => { throw { code, message: PROVIDER_MESSAGE }; } } });

@@ -85,6 +85,10 @@ const NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D sup
   "adults.” This research corrected that, from a full-text audit of 1 study: “In three large trials, " +
   "vitamin D did not prevent colds in adults with normal levels.” It would also have said: “A daily dose of " +
   "1,000 IU is enough.” This research did not check that.";
+const NOT_CHECKED_NOTE = "Without AskRigor, a quick answer would have said: “Vitamin D supplements prevent colds in " +
+  "most adults.” This research did not check that. It would also have said: “A daily dose of 1,000 IU is enough.” " +
+  "This research did not check that.";
+const UNTIL_CHECKED = ' Until then, the note gives this claim as "This research did not check that."';
 
 describe("finalize_research compares the answer with the plain answer registered before research (owner answer 140b)", () => {
   it("writes the note from the comparison, quoting the registered claims exactly and naming what backs a change", () => {
@@ -132,8 +136,8 @@ describe("finalize_research compares the answer with the plain answer registered
       { claim: CLAIMS[0]!, outcome: "confirmed", sources: [DOI] }, COMPARISON[1]!
     ] });
     expect(result.status).toBe("ready_with_limits");
-    expect(result.plain_answer_note).toBeUndefined();
-    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft.");
+    expect(result.plain_answer_note).toBe(NOT_CHECKED_NOTE);
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft." + UNTIL_CHECKED);
     expect(result.next_step_kinds).toEqual([]);
   });
 
@@ -182,17 +186,18 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(codeResult.plain_answer_note).toContain(codeClaim);
   });
 
-  it.each(["confirmed", "qualified"] as const)("r329/r331/q79: %s needs the same backing to show the note", (outcome) => {
+  it.each(["confirmed", "qualified"] as const)("r329/r331/q79: an unbacked %s stays in the note as not checked", (outcome) => {
     const comparison: Comparison = [
       { claim: CLAIMS[0]!, outcome, answer_quote: CORRECTED }, COMPARISON[1]!
     ];
     const missing = check({ plain_answer_comparison: comparison });
     expect(missing.status).toBe("ready_with_limits");
     expect(missing.next_steps).toEqual([]);
-    expect(missing.plain_answer_note).toBeUndefined();
+    expect(missing.plain_answer_note).toBe(NOT_CHECKED_NOTE);
     expect(advisoryNotes(missing)).toContain(`plain_answer_comparison[0] is ${outcome} with nothing behind it that a ` +
-      "quick answer could not have: give in sources a study audited in full text here or a video whose comments " +
-      "were read here, or quote as answer_quote a sentence that absence_claims also declares.");
+      "quick answer could not have: give in sources a study audited in full text here, a video whose comments " +
+      "were read here or, for a claim about what people report, a forum thread read here (the link " +
+      "community_searches threads_read gives), or quote as answer_quote a sentence that absence_claims also declares." + UNTIL_CHECKED);
     const backed = check({ plain_answer_comparison: [{ ...comparison[0]!, sources: [DOI] }, COMPARISON[1]!] });
     expect(backed.next_steps).toEqual([]);
     expect(advisoryNotes(backed)).not.toContain(expect.stringContaining("with nothing behind it"));
@@ -215,21 +220,25 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(check({ plain_answer_comparison: undefined, receipts: [audit()] }).status).toBe("ready_with_limits");
   });
 
-  it("refuses a change without the work that backs it, naming the problem", () => {
+  it("keeps an unshown change in the note as not checked, naming the problem", () => {
     const corrected = (entry: Partial<Comparison[number]>): Comparison => [{ ...COMPARISON[0]!, ...entry }, COMPARISON[1]!];
     expect(steps({ plain_answer_comparison: corrected({ sources: undefined }) })).toEqual([]);
     expect(steps({ plain_answer_comparison: corrected({ answer_quote: undefined }) })).toEqual([
-      "plain_answer_comparison[0] is corrected without answer_quote: copy the answer's own sentence for this item from answer_draft."
+      "plain_answer_comparison[0] is corrected without answer_quote: copy the answer's own sentence for this item from answer_draft." + UNTIL_CHECKED
     ]);
     expect(steps({ plain_answer_comparison: corrected({ sources: [DOI, "10.1000/never-audited"] }) })).toEqual([
       "plain_answer_comparison[0].sources lists 10.1000/never-audited, which no full-text method audit or comment audit " +
-        "passed here covers: list studies audited in full text here (DOI, PMID or PMCID) and videos whose comments " +
-        "were read here (video ID), or leave sources out."
+        "passed here covers and no community_searches threads_read declares: list studies audited in full text here " +
+        "(DOI, PMID or PMCID), videos whose comments were read here (video ID) and forum threads read here " +
+        "(the link threads_read gives), or leave sources out."
     ]);
     expect(steps({ plain_answer_comparison: corrected({ answer_quote: "Vitamin D never works." }) })).toEqual([
       "plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from " +
-        "answer_draft."
+        "answer_draft." + UNTIL_CHECKED
     ]);
+    expect(check({ plain_answer_comparison: corrected({ answer_quote: undefined }) }).plain_answer_note).toBe(NOT_CHECKED_NOTE);
+    expect(check({ plain_answer_comparison: corrected({ answer_quote: "Vitamin D never works." }) }).plain_answer_note).toBe(NOT_CHECKED_NOTE);
+    expect(check({ plain_answer_comparison: corrected({ sources: [DOI, "10.1000/never-audited"] }) }).plain_answer_note).toBe(NOTE);
     expect(check({ plain_answer_comparison: corrected({ sources: undefined }) })).toHaveProperty("plain_answer_note");
   });
 
@@ -327,7 +336,7 @@ describe("finalize_research compares the answer with the plain answer registered
       [[audit()], "no_receipt", "No plain answer registered with manage_research_access before this research was " +
         "passed in receipts, so the answer ends without the note comparing it with one. If its receipt was omitted or " +
         "failed to verify, copy the original research_receipt from manage_research_access exactly into receipts to " +
-        `restore the note when the receipt verifies and the comparison is backed.${later}`],
+        `restore the note when the receipt verifies.${later}`],
       [[audit(), plainReceipt(2_500)], "after_research", afterResearch],
       [[plainReceipt(1_000, CLAIMS, "Another question"), audit()], "other_target", "The plain answer passed was " +
         `registered for another research target, so the answer ends without the note comparing it with this research.${later}`],
@@ -695,9 +704,15 @@ describe("27 Oct exact plain-answer note regressions", () => {
     const missing = checkedItem(outcome);
     expect(missing.status).toBe("ready_with_limits");
     expect(advisoryNotes(missing).join(" ")).toContain("plain_answer_comparison[0]");
+    expect(advisoryNotes(missing)).toContain(`plain_answer_comparison[0] is ${outcome} without answer_quote: ` +
+      "copy the answer's own sentence for this item from answer_draft." + UNTIL_CHECKED);
+    expect(missing.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(missing.next_steps).toEqual([]);
     const stale = checkedItem(outcome, "The previous draft used different synthetic words.");
     expect(stale.status).toBe("ready_with_limits");
-    expect(advisoryNotes(stale)).toContain("plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft.");
+    expect(advisoryNotes(stale)).toContain("plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft." + UNTIL_CHECKED);
+    expect(stale.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(stale.next_steps).toEqual([]);
     expect(checkedItem(outcome, finding).status).toBe("ready_with_limits");
   });
   it.each(["i44", "q136-weak-lead", "r331"])("%s: one quote cannot back two items", () => {
@@ -705,14 +720,19 @@ describe("27 Oct exact plain-answer note regressions", () => {
     const result = check({ receipts: [plainReceipt(1_000, claims), audit()], answer_draft: `${LINK}\n\n${finding}`,
       plain_answer_comparison: claims.map((claim) => ({ claim, outcome: "confirmed", answer_quote: finding })) });
     expect(result.status).toBe("ready_with_limits");
-    expect(advisoryNotes(result)).toContain("plain_answer_comparison[1].answer_quote repeats plain_answer_comparison[0].answer_quote: one quote backs only one item.");
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[1].answer_quote repeats plain_answer_comparison[0].answer_quote: one quote backs only one item." + UNTIL_CHECKED);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claims[0]}” ` +
+      `This research did not check that. It would also have said: “${claims[1]}” This research did not check that.`);
+    expect(result.next_steps).toEqual([]);
   });
   it("r332: a quote ending in a colon is a lead-in, not the item's sentence", () => {
     const lead = "Synthetic results:";
     const result = check({ receipts: [plainReceipt(1_000, [claim]), audit()], answer_draft: `${LINK}\n\n${lead} ${finding}`,
       plain_answer_comparison: [{ claim, outcome: "confirmed", answer_quote: lead }] });
     expect(result.status).toBe("ready_with_limits");
-    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.");
+    expect(advisoryNotes(result)).toContain("plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in." + UNTIL_CHECKED);
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(result.next_steps).toEqual([]);
   });
   it("q136-responders: a first-turn correction uses the answer's sentence without inventing a prior delivered error", () => {
     const result = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
@@ -726,5 +746,177 @@ describe("27 Oct exact plain-answer note regressions", () => {
     const qualified = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding }] });
     expect(advisoryNotes(qualified).join(" ")).not.toContain("corrections");
+  });
+});
+
+describe("owner answer 210b: the plain-answer note keeps checked claims and names forum threads read here", () => {
+  type Search = NonNullable<FinalizeResearchInput["community_searches"]>[number];
+  const thread = { url: "https://www.reddit.com/r/Supplements/comments/abc123/vitamin_d/", title: "Vitamin D experiences" };
+  const claim = "People report fewer colds after taking vitamin D.";
+  const finding = "In the thread, some people reported fewer colds and others reported no change.";
+  const search = (threads_read: Search["threads_read"] = [thread], platform: Search["platform"] = "reddit"): Search => ({
+    community: "Synthetic community", platform, queries: [TARGET], threads_read
+  });
+  const forumCheck = (overrides: Partial<FinalizeResearchInput> = {}) => check({
+    receipts: [plainReceipt(1_000, [claim]), audit()],
+    answer_draft: `${LINK}\n\n${finding}`,
+    community_searches: [search()],
+    plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url] }],
+    ...overrides
+  });
+  const notChecked = `Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`;
+  const threadNote = `Without AskRigor, a quick answer would have said: “${claim}” This research qualified that, ` +
+    `from my own reading of 1 forum thread ([Vitamin D experiences](${thread.url})): “${finding}”`;
+  const unbackedAdvisory = (index: number, outcome: "confirmed" | "qualified") =>
+    `plain_answer_comparison[${index}] is ${outcome} with nothing behind it that a quick answer could not have: ` +
+    "give in sources a study audited in full text here, a video whose comments were read here or, for a claim " +
+    "about what people report, a forum thread read here (the link community_searches threads_read gives), or " +
+    "quote as answer_quote a sentence that absence_claims also declares." + UNTIL_CHECKED;
+  const sourcesAdvisory = (source: string) => `plain_answer_comparison[0].sources lists ${source}, which no ` +
+    "full-text method audit or comment audit passed here covers and no community_searches threads_read declares: " +
+    "list studies audited in full text here (DOI, PMID or PMCID), videos whose comments were read here (video ID) " +
+    "and forum threads read here (the link threads_read gives), or leave sources out.";
+  const comparisonNotes = (result: ReturnType<typeof check>) =>
+    advisoryNotes(result).filter((note) => note.startsWith("plain_answer_comparison"));
+
+  it.each(["confirmed", "qualified"] as const)("keeps an unbacked confirmation as not checked beside a backed %s, without blocking", (outcome) => {
+    const result = check({ plain_answer_comparison: [
+      { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: CORRECTED },
+      { claim: CLAIMS[1]!, outcome, answer_quote: QUALIFIED, sources: [DOI] }
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.next_step_kinds).toEqual([]);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
+    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
+      "prevent colds in most adults.” This research did not check that. It would also have said: “A daily dose of " +
+      `1,000 IU is enough.” This research ${outcome} that, from a full-text audit of 1 study: “${QUALIFIED}”`);
+    expect(comparisonNotes(result)).toEqual([unbackedAdvisory(0, "confirmed")]);
+  });
+
+  it.each([
+    ["missing", undefined, "plain_answer_comparison[0] is confirmed without answer_quote: copy the answer's own sentence for this item from answer_draft."],
+    ["absent from the draft", "Vitamin D never works.", "plain_answer_comparison[0].answer_quote gives text the answer does not show: copy each sentence exactly from answer_draft."],
+    ["ending in a colon", "Synthetic results:", "plain_answer_comparison[0].answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in."]
+  ] as const)("a quote %s marks only its claim as not checked and keeps the backed qualification", (_, answer_quote, advisory) => {
+    const result = check({ answer_draft: `${LINK}\n\nSynthetic results: ${CORRECTED} ${QUALIFIED}`,
+      plain_answer_comparison: [
+        { claim: CLAIMS[0]!, outcome: "confirmed", ...(answer_quote === undefined ? {} : { answer_quote }), sources: [DOI] },
+        { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI] }
+      ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
+      "prevent colds in most adults.” This research did not check that. It would also have said: “A daily dose of " +
+      `1,000 IU is enough.” This research qualified that, from a full-text audit of 1 study: “${QUALIFIED}”`);
+    expect(comparisonNotes(result)).toEqual([advisory + UNTIL_CHECKED]);
+  });
+
+  it("a reused quote marks only the later claim as not checked and keeps the backed confirmation", () => {
+    const result = check({ plain_answer_comparison: [
+      { claim: CLAIMS[0]!, outcome: "confirmed", answer_quote: QUALIFIED, sources: [DOI] },
+      { claim: CLAIMS[1]!, outcome: "qualified", answer_quote: QUALIFIED, sources: [DOI] }
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe("Without AskRigor, a quick answer would have said: “Vitamin D supplements " +
+      `prevent colds in most adults.” This research confirmed that, from a full-text audit of 1 study: “${QUALIFIED}” ` +
+      "It would also have said: “A daily dose of 1,000 IU is enough.” This research did not check that.");
+    expect(comparisonNotes(result)).toEqual(["plain_answer_comparison[1].answer_quote repeats " +
+      "plain_answer_comparison[0].answer_quote: one quote backs only one item." + UNTIL_CHECKED]);
+  });
+
+  it("qualifies a claim from a declared thread with its linked title and no comparison advisory", () => {
+    const result = forumCheck();
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(threadNote);
+    expect(comparisonNotes(result)).toEqual([]);
+  });
+
+  it("matches an old.reddit.com source to the www.reddit.com thread declared read", () => {
+    const result = forumCheck({ plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding,
+      sources: ["https://old.reddit.com/r/Supplements/comments/abc123/vitamin_d/"] }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.plain_answer_note).toBe(threadNote);
+    expect(comparisonNotes(result)).toEqual([]);
+  });
+
+  it("names a study audit and a thread together as the claim's combined basis", () => {
+    const result = forumCheck({ plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding,
+      sources: [DOI, thread.url] }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” ` +
+      "This research qualified that, from a full-text audit of 1 study and my own reading of 1 forum thread " +
+      `([Vitamin D experiences](${thread.url})): “${finding}”`);
+    expect(comparisonNotes(result)).toEqual([]);
+  });
+
+  it("names three of four threads, removes square brackets in a title and uses this thread without a title", () => {
+    const threads = [
+      { ...thread, title: "[Vitamin D] experiences" },
+      { url: "https://forum.example/vitamin-d/no-change" },
+      { url: "https://forum.example/vitamin-d/fewer-colds", title: "Fewer colds" },
+      { url: "https://forum.example/vitamin-d/another", title: "Another experience" }
+    ];
+    const result = forumCheck({ community_searches: [search(threads)],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: threads.map(({ url }) => url) }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” ` +
+      "This research qualified that, from my own reading of 4 forum threads " +
+      `([Vitamin D experiences](${thread.url}), [this thread](https://forum.example/vitamin-d/no-change), ` +
+      `[Fewer colds](https://forum.example/vitamin-d/fewer-colds) and 1 more): “${finding}”`);
+    expect(comparisonNotes(result)).toEqual([]);
+  });
+
+  it("does not back a claim with a review_site page declared read", () => {
+    const url = "https://reviews.example/vitamin-d";
+    const result = forumCheck({ community_searches: [search([{ url, title: "Vitamin D reviews" }], "review_site")],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [url] }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(notChecked);
+    expect(comparisonNotes(result)).toEqual([sourcesAdvisory(url), unbackedAdvisory(0, "qualified")]);
+  });
+
+  it("does not back a claim with a source no threads_read declares, and names it in the sources advisory", () => {
+    const url = "https://forum.example/vitamin-d/not-read";
+    const result = forumCheck({ plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [url] }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(notChecked);
+    expect(comparisonNotes(result)).toEqual([sourcesAdvisory(url), unbackedAdvisory(0, "qualified")]);
+  });
+
+  it("still withholds the note when a registered claim is left out, naming that claim", () => {
+    const result = check({ plain_answer_comparison: [COMPARISON[0]!] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result).not.toHaveProperty("plain_answer_note");
+    expect(comparisonNotes(result)).toEqual(["plain_answer_comparison leaves out claim 1 of the plain answer " +
+      "registered before this research, as manage_research_access numbered them: give each, copied exactly, " +
+      "with whether the research confirmed, corrected or qualified it, or did not check it."]);
+  });
+
+  it("keeps the note for complete entries beside an unknown claim, with its advisory", () => {
+    const result = check({ plain_answer_comparison: [
+      ...COMPARISON, { claim: "Vitamin D cures colds.", outcome: "not_checked" }
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(NOTE);
+    expect(comparisonNotes(result)).toEqual(["plain_answer_comparison[2].claim is not one of the 2 claims of the " +
+      "plain answer registered before this research: copy it exactly as manage_research_access listed it."]);
+  });
+
+  it("keeps the note for complete entries beside a duplicate claim, with its advisory", () => {
+    const result = check({ plain_answer_comparison: [
+      ...COMPARISON, { claim: CLAIMS[0]!, outcome: "confirmed" }
+    ] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toBe(NOTE);
+    expect(comparisonNotes(result)).toEqual(["plain_answer_comparison[2] gives the same claim as " +
+      "plain_answer_comparison[0]: give each claim one entry."]);
   });
 });

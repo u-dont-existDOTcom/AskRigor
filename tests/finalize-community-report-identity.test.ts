@@ -108,13 +108,13 @@ describe("forum report identity", () => {
     const result = checked(input);
     expect(advisoryNotes(result)).toEqual([sumStep]);
     expect(result.must_report.some((line) => line.startsWith("Mineral Forum, form A:"))).toBe(false);
-    expect(result.caveats).not.toContain(zeroCaveat);
+    expect(result.limits).not.toContain(zeroCaveat);
   });
   it("reports the exact count line, including zero measurements", () => {
     const result = checked(base());
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.must_report).toContain("Mineral Forum, form A: 4 report(s) read; 1 firsthand report(s) of exactly this, 0 with a measurement after the change; 1 that don't say which form or product, 1 about something else and 1 advice or hearsay, not counted.");
-    expect(result.caveats).not.toContain(zeroCaveat);
+    expect(result.limits).not.toContain(zeroCaveat);
   });
   it("requires the zero-firsthand limit and caveat, including all-zero reports", () => {
     const input = base();
@@ -123,7 +123,7 @@ describe("forum report identity", () => {
     const first = run(input);
     expect(first.status).toBe("ready_with_limits");
     expect(first.limits).toContain(zeroCaveat);
-    expect(first.caveats).toContain(zeroCaveat);
+    expect(first.limits).toContain(zeroCaveat);
     expect(first.must_report).toContain("Mineral Forum, form A: 0 report(s) read; 0 firsthand report(s) of exactly this, 0 with a measurement after the change; 0 that don't say which form or product, 0 about something else and 0 advice or hearsay, not counted.");
     expect(checked(input).status).toBe("ready_with_limits");
   });
@@ -184,7 +184,7 @@ describe("comparisons with declared doses", () => {
     const result = checked(base({ comparison_claims: [claim(a, b, unitA, unitB)] }));
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.limits).not.toContain(doseLimit);
-    expect(result.caveats.some((line) => line.startsWith("Reports comparing two options"))).toBe(false);
+    expect(result.limits.some((line) => line.startsWith("Reports comparing two options"))).toBe(false);
   });
   it.each([[0.9, 6, "mg", "mg"], [2, 2, "IU", "mg"], [1, 1 + 2e-9, "mg", "mg"]] as const)(
     "requires the exact caveat for different doses %s %s %s %s", (a, b, unitA, unitB) => {
@@ -192,7 +192,7 @@ describe("comparisons with declared doses", () => {
       const first = run(input);
       expect(first.status).toBe("ready_with_limits");
       expect(first.limits).toContain(`Reports comparing two options changed the dose as well, so they cannot show which works better: form A at ${a} ${unitA}; form B at ${b} ${unitB}.`);
-      expect(first.caveats).toContain(`Reports comparing two options changed the dose as well, so they cannot show which works better: form A at ${a} ${unitA}; form B at ${b} ${unitB}.`);
+      expect(first.limits).toContain(`Reports comparing two options changed the dose as well, so they cannot show which works better: form A at ${a} ${unitA}; form B at ${b} ${unitB}.`);
       expect(checked(input).status).toBe("ready_with_limits");
     }
   );
@@ -201,7 +201,7 @@ describe("comparisons with declared doses", () => {
       const result = checked(base({ comparison_claims: [claim(a, b, unitA, unitB)] }));
       expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
       expect(result.limits).toContain(missingDose);
-      expect(result.caveats).toContain(missingDose);
+      expect(result.limits).toContain(missingDose);
     }
   );
   it("requires the same-people caveat and deduplicates repeated comparison caveats", () => {
@@ -210,8 +210,8 @@ describe("comparisons with declared doses", () => {
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.limits).toContain("Reports comparing two options did not come from people who used both, so they are not a direct comparison of the two: form A; form B.");
     const direct = "Reports comparing two options did not come from people who used both, so they are not a direct comparison of the two: form A; form B.";
-    expect(result.caveats.filter((line) => line === direct)).toEqual([direct]);
-    expect(result.caveats.filter((line) => line === missingDose)).toEqual([missingDose]);
+    expect(result.limits.filter((line) => line === direct)).toEqual([direct]);
+    expect(result.limits.filter((line) => line === missingDose)).toEqual([missingDose]);
   });
   it("checks quoted comparisons in other languages with the same numeric rules", () => {
     const quote = "この報告は二つの形態を比較しています。";
@@ -259,7 +259,7 @@ describe("communities named by the user and the visible check line", () => {
     input.community_searches!.push(ghost);
     const result = checked(input);
     expect(advisoryNotes(result).join("\n")).not.toMatch(/records an access boundary but no url|The user named Ghost Forum/u);
-    expect(result.caveats).toContain("A community I could not find: Ghost Forum. Reports there are not included.");
+    expect(result.limits).toContain("A community I could not find: Ghost Forum. Reports there are not included.");
     expect(result.limits).toContain("A community I could not find: Ghost Forum. Reports there are not included.");
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     // Found is not not_found: an address or a thread read contradicts it.
@@ -427,9 +427,9 @@ describe("27 Oct user-supplied community report regressions", () => {
     const result = checked(input);
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.caveats).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Readers.");
-    expect(result.caveats.join(" ")).not.toContain("not included");
-    expect(result.caveats.join(" ")).not.toContain("could not find");
+    expect(result.limits).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Readers.");
+    expect(result.limits.join(" ")).not.toContain("not included");
+    expect(result.limits.join(" ")).not.toContain("could not find");
   });
 
   it("l27: linked supplied reports do not become the model's own web search", () => {
@@ -441,9 +441,9 @@ describe("27 Oct user-supplied community report regressions", () => {
     input.answer_draft += `\n\n[Supplied reports](https://supplied.example/reports): ${Object.values(FINDINGS).join(" ")}`;
     const result = checked(input);
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
-    expect(result.caveats).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Supplied Forum.");
-    const ownSearch = result.caveats.filter((text) => text.includes("my own web search")).join(" ");
+    expect(result.limits).toContain("Reports the user pasted from a community AskRigor did not search itself: Synthetic Supplied Forum.");
+    const ownSearch = result.limits.filter((text) => text.includes("my own web search")).join(" ");
     expect(ownSearch).not.toContain("Synthetic Supplied Forum");
-    expect(result.caveats.join(" ")).not.toContain("not included");
+    expect(result.limits.join(" ")).not.toContain("not included");
   });
 });

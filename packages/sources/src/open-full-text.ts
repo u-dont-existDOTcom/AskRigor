@@ -27,7 +27,7 @@ export interface OwnerLibraryPdf {
   sha256: string;
   size: number;
 }
-export type OwnerLibraryErrorCode = "unavailable" | "not_found" | "checksum_mismatch" | "too_large";
+export type OwnerLibraryErrorCode = "unavailable" | "not_found" | "checksum_mismatch" | "too_large" | "busy" | "invalid_response";
 export interface AcquireOpenFullTextRuntime {
   ownerLibrary?: {
     access: "owner" | "public_only";
@@ -164,6 +164,7 @@ export async function acquireOpenFullText(
   // A public copy AskRigor admitted is returned as is; the owner library only fills a gap.
   if (selected !== undefined) return indexed(doi, pmcid, attempts, selected.index, candidates, publicCopySearch);
   let librarySearchRequired = false;
+  let libraryBoundary = "";
   if (runtime.ownerLibrary !== undefined) {
     // A public basis shows the paper's own text beyond its abstract on a public page whose identity passed, or an
     // open license. An abstract-only page, or a bare URL AskRigor could not read, is not a public copy of the paper.
@@ -199,8 +200,14 @@ export async function acquireOpenFullText(
         attempts.push({ route: "owner_library", identifier: doi,
           result: admission === undefined ? "identity_mismatch" : admission.state === "ABSTRACT_ONLY" ? "abstract_only" : "partial_text" });
       } catch (error) {
-        const notFound = error !== null && typeof error === "object" && "code" in error && error.code === "not_found";
-        attempts.push({ route: "owner_library", result: notFound ? "not_found" : "error", identifier: doi });
+        const code = error !== null && typeof error === "object" && "code" in error ? error.code : undefined;
+        // The library answered that it cannot use what it found: the search there ended, so a lead is not held back for
+        // another try. The regression run on #389's build called the route up to 16 times for one such paper. A busy
+        // library is a failure to retry, which the boundary says.
+        const answered = code === "not_found" || code === "invalid_response";
+        attempts.push({ route: "owner_library", result: answered ? "not_found" : "error", identifier: doi });
+        if (code === "invalid_response") libraryBoundary = " The owner library could not supply this paper, so repeating the call is unlikely to help.";
+        if (code === "busy") libraryBoundary = " The owner library stayed busy with other requests, so the same call may work in a minute.";
       }
     }
   }
@@ -218,7 +225,7 @@ export async function acquireOpenFullText(
     ? `The owner library requires a verified public basis for this account. ${discovery}${missing}`
     : state === "PRIMARY_OA_ROUTES_EXHAUSTED"
     ? `The primary open-access routes ended without an admitted copy. ${discovery}${missing}`
-    : `No supplied or primary-route${runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`) + pmcBoundary;
+    : `No supplied or primary-route${runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`) + pmcBoundary + libraryBoundary;
   const failed = hasFailedFullTextAcquisition({ discovery_attempts: attempts, candidates, acquisition_state: state });
   return errorEnvelope({
     provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: doi,

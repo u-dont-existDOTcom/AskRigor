@@ -131,7 +131,7 @@ async function exercise(c: Case, call: (input: FinalizeResearchInput) => Promise
   const input = c.input();
   const first = assertNextStepsContract(await call(input));
   if (c.caveat) {
-    expect(first.caveats).toContain(c.caveat);
+    expect(first.limits).toContain(c.caveat);
     expect(first.status).toBe("ready_with_limits");
   }
   const result = assertNextStepsContract(await call({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` }));
