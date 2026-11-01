@@ -531,7 +531,22 @@ describe("MCP Gemini scout continuation", () => {
       arguments: { ...TARGET, rediscovery_leads: ["Jane Doe in Boston says chemotherapy cured her"] }
     });
     expect(narrative.isError).toBe(true);
-    expect((narrative.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+    const narrativeText = (narrative.content as Array<{ text: string }>)[0]!.text;
+    expect(narrativeText).toContain("rediscovery_lead_not_public_term");
+    // The refusal quotes the refused lead and what it matched, so one retry can fix it.
+    expect(narrativeText).toContain(
+      `rediscovery_leads[0] "Jane Doe in Boston says chemotherapy cured her" was refused because it has `);
+    expect(narrativeText).toContain(`${RESEARCH_TARGET_SCREEN_PARTS.pronoun} (matched "her")`);
+    expect(narrativeText).toContain(`a report verb (matched "says", "cured")`);
+    const contact = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["gelatin", "magnesium call 0612345678"] }
+    });
+    const contactText = (contact.content as Array<{ text: string }>)[0]!.text;
+    expect(contactText).toContain(`rediscovery_leads[1] was refused because it has ${
+      RESEARCH_TARGET_SCREEN_PARTS.contact_details} (not quoted).`);
+    expect(contactText).not.toContain("0612345678");
+    expect(contactText).not.toContain("rediscovery_leads[0]");
 
     getVideo.mockImplementation(async (videoId: string) => videoId === "XpZHKGGCK-o"
       ? { access_status: "api_visible_complete", data: { title: "GROWING MY HIP BACK", channel_title: "SHAPEFIXER" } }

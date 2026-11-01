@@ -115,6 +115,7 @@ import {
   executeResumableAutomatedGeminiScout,
   geminiKeyDeclaredUnbilled,
   isPublicLeadTerm,
+  publicLeadTermRefusal,
   researchTargetScreenFailures,
   researchTargetScreenRefusal
 } from "./actions/gemini-scout-route.js";
@@ -2140,11 +2141,13 @@ function defineResearchOperations(
           return scoutError("research_target_not_deidentified", false,
             `${SCOUT_TARGET_GUIDANCE} ${researchTargetScreenRefusal(target.research_target)}`);
         }
-        if (!leads.every((lead) => VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead))) {
+        const refusedLeads = leads.flatMap((lead, index) =>
+          VIDEO_LEAD.test(lead) || isPublicLeadTerm(lead) ? [] : [publicLeadTermRefusal(lead, index)]);
+        if (refusedLeads.length > 0) {
           return scoutError("rediscovery_lead_not_public_term", false,
             "Give each lead as a short lowercase public term for a remedy, method or product (for example: collagen " +
               "peptides), with no names, pronouns, places or quotes from comments. Give a video or creator as " +
-              "video:<id>.");
+              `video:<id>. ${refusedLeads.join(" ")}`);
         }
         // Videos and creators travel as YouTube's own public title and channel.
         const resolved = await resolveVideoLeads(leads);
