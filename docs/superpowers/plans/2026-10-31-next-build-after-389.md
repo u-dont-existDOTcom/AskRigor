@@ -17,11 +17,21 @@ answer 209a). Built under owner rule 148a; a release needs the owner's explicit 
 3. **The scout's lead refusal names each refused lead and what it matched** (as the target's refusal does since #389;
    a lead with a secret or contact detail is named by its position only).
 4. **The judgment of the regression run on #389's build** (`docs/audits/2026-11-01-owner-regressions-389-judgment.md`):
-   items 2 and 3 come from it; two owner questions (the plain-answer note when one item is unbacked, and forum depth by a
-   causally different approach) are on the owner page.
+   items 2, 3, 5 and 6 come from it.
+5. **The plain-answer note stays when a claim isn't backed, and a forum thread can back one** (owner answer 210b): a claim
+   that can't be shown as declared reads "This research did not check that.", and only a claim left out holds the note back. A
+   forum thread this call declares it read can back a claim about what people report; the note names it as the AI's own reading.
+6. **InfoAccess, one request at a time:** the server sends one request at a time to each endpoint, waits out a `busy` answer
+   for at most 45 seconds, and keeps `busy` and `invalid_response` apart from other failures. `invalid_response` ends the search
+   there, so it no longer holds back a lead or invites another try. Asked one at a time, 31 of the 73 papers that failed in the
+   run came back; the list is on the owner's page.
 
 ## Next
 
+- **Forum threads read by AskRigor itself (owner answer 211a, 1 Nov):** the forum-depth note left the median at 2 threads
+  read, so AskRigor reads threads itself: a new tool (one app refresh at release) that reads public forum pages, stops at a site
+  that blocks it, counts what it found and read, and gives the AI a receipt. Reddit's own API is out (question 33; the owner, 1
+  Nov), and the Reddit source is an open owner question. Plan first; privacy map with it.
 - **Comment maps** (`2026-10-31-video-comment-maps.md`, owner answer 208b): the private store for maps; reuse in other
   answers, rankings from kept maps and the background audits after YouTube answers the email of 31 Oct. The channel
   registry's channel IDs re-checked through the API every 30 days (first by 29 Nov), and the 31 Oct job's comment-level
