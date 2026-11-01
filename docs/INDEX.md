@@ -117,6 +117,11 @@ complete XML protocol.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
+  outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
+  low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none
+  never passes, 2 calls fail on format, 40 cases pass twice in a row; the forum-depth note left the median at 2 threads
+  read; the cause of the pasted limits, and what each finding comes to.
 - `audits/2026-10-31-owner-regressions-387-judgment.md`: the owner regressions on #387's build `00e9b6de` against
   question 193's signals, all five met (85 cases: 49 pass, 34 in part, 1 fails, 1 not judged; the low-calorie runs 4,
   7 and none fail): every check passes by its second call, none never passes, no call fails on format, 40 cases pass

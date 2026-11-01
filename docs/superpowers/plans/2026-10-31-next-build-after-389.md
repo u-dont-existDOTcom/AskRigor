@@ -14,12 +14,14 @@ answer 209a). Built under owner rule 148a; a release needs the owner's explicit 
    line leaves those out, and the paste note does not count them. No change to the tool list, the skill or any status.
    Codex updated the tests (177 assertions moved from `caveats` to `limits`, 17 split) and added
    `tests/finalize-caveats-as-written.test.ts`.
+3. **The scout's lead refusal names each refused lead and what it matched** (as the target's refusal does since #389;
+   a lead with a secret or contact detail is named by its position only).
+4. **The judgment of the regression run on #389's build** (`docs/audits/2026-11-01-owner-regressions-389-judgment.md`):
+   items 2 and 3 come from it; two owner questions (the plain-answer note when one item is unbacked, and forum depth by a
+   causally different approach) are on the owner page.
 
 ## Next
 
-- **The regression run on #389's build** (started 14:46 UTC, saving off), judged against 193's signals, with the four
-  new cases apart: forum threads per answer and why reading stopped, a niche topic that says few posts exist, one
-  video's comment map, and the symptom combination of AskRigor#390.
 - **Comment maps** (`2026-10-31-video-comment-maps.md`, owner answer 208b): the private store for maps; reuse in other
   answers, rankings from kept maps and the background audits after YouTube answers the email of 31 Oct. The channel
   registry's channel IDs re-checked through the API every 30 days (first by 29 Nov), and the 31 Oct job's comment-level
