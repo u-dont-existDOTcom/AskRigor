@@ -1522,7 +1522,8 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "Material limits, all shown beneath a passing checked answer in the panel. That answer states in its own words " +
     "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
-    "Answer guidance to paraphrase in the answer's language; missing or reworded limit text does not block."),
+    "Sentences the answer shows as written, in the answer's language. Under a passing check only these, such as the " +
+    "correction-report question; missing or reworded text does not block."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1710,6 +1711,9 @@ export function finalizeResearch(
   const limits: string[] = [];
   // Keep material limits independently of the draft's wording; the panel shows them and the model paraphrases them.
   const caveats: string[] = options.mobileClient === true ? [MOBILE_NOTICE] : [];
+  // Sentences the answer shows as written, not limits it words itself: the mobile notice, the save offer, the
+  // correction-report question (owner question 78) and the community-skip sentence (owner question 125).
+  const asWritten = new Set<string>(caveats);
   const requireLimit = (text: RuleInput, ...sentences: string[]): void => {
     for (const limit of sentences.length === 0 ? [ruleText(text)] : sentences) {
       if (!limits.includes(limit)) {
@@ -1804,6 +1808,7 @@ export function finalizeResearch(
   }
   if ((input.corrections ?? []).some(({ by_user }) => by_user === true)) {
     requireLimit(joinRules("The user's correction was right: ask, as the caveat does, whether AskRigor may send a bug report ", "about it or the user wants to clarify first, and show the report it would send."), CORRECTION_REPORT_OFFER);
+    asWritten.add(CORRECTION_REPORT_OFFER);
   }
   // What the communities outside YouTube showed, reported after the YouTube lane.
   const communityLanes: string[] = [];
@@ -1992,7 +1997,9 @@ export function finalizeResearch(
         if (labels.length > 0) {
           addStep("declaration", joinRules(joinRules(rule`not_relevant_reason shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer states this reason in its caveat, so give it in `), "plain words."));
         }
-        requireLimit(joinRules(COMMUNITY_SKIP_LIMIT), communitySkipCaveat(input.not_relevant_reason));
+        const skipped = communitySkipCaveat(input.not_relevant_reason);
+        requireLimit(joinRules(COMMUNITY_SKIP_LIMIT), skipped);
+        asWritten.add(skipped);
       }
     }
   } else if (input.community_evidence === "researched") {
@@ -3288,6 +3295,7 @@ export function finalizeResearch(
           mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
           saveOfferCaveat = mapOffered ? findingsAndMapSaveOffer(countWork(work)) : findingsSaveOffer(countWork(work));
           caveats.push(saveOfferCaveat);
+          asWritten.add(saveOfferCaveat);
         }
       }
     }
@@ -3479,12 +3487,19 @@ export function finalizeResearch(
         ? "ready_with_limits"
         : "ready";
   const passed = status === "ready" || status === "ready_with_limits";
-  if (passed && draft !== undefined && limits.length >= 3) {
+  // Owner answer 205a: a passing check's panel lists its limits, and the answer states in its own words only those that
+  // change what the person should believe or do. The published schema calls caveats "Sentences the answer must
+  // contain, each as its own sentence and as written", and the plugin skill says to copy them (owner answer 189a keeps
+  // both), so a passing check returns there only the sentences the answer shows as written. The 1 Nov regression run
+  // on #389's build pasted every limit after the check, once under "AskRigor's final check requires these evidence
+  // limits to remain explicit".
+  const materialLimits = limits.filter((limit) => !asWritten.has(limit));
+  if (passed && draft !== undefined && materialLimits.length >= 3) {
     // Exact copying only: retain wording, case and punctuation apart from straight/curly quotes and whitespace.
     const normalizeCopy = (text: string): string => text.replace(/[\u2018\u2019]/gu, "'")
       .replace(/[\u201C\u201D]/gu, '"').replace(/\s+/gu, " ").trim();
     const normalizedDraft = normalizeCopy(draft);
-    const repeated = limits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
+    const repeated = materialLimits.filter((limit) => normalizedDraft.includes(normalizeCopy(limit))).length;
     if (repeated >= 3) notes.push(`The draft repeats ${repeated} of the panel's limits word for word; the panel ` +
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
       "or do, in your own words.");
@@ -3502,7 +3517,7 @@ export function finalizeResearch(
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
     limits,
-    caveats,
+    caveats: passed ? caveats.filter((caveat) => asWritten.has(caveat)) : caveats,
     must_report: mustReport,
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),

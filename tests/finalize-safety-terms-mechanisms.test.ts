@@ -93,7 +93,8 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
     for (const [overrides, caveat] of cases) {
       const quote = "The sentence the model declared.";
       const result = check({ answer_draft: `${LINKS}\n\n${quote} ${caveat}`, safety_claims: [claim({ quote, ...overrides })] });
-      expect(result.caveats).toEqual([SKIP, caveat]);
+      expect(result.limits).toEqual([SKIP, caveat, "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."]);
+      expect(result.caveats).toEqual([SKIP]);
       expect(result.status).toBe("ready_with_limits");
       const missing = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
       expect(missing.status).toBe("ready_with_limits");
@@ -199,7 +200,8 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
     };
     const missing = check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] });
     expect(missing.status).toBe("ready_with_limits");
-    expect(missing.caveats).toEqual([SKIP, CAVEAT]);
+    expect(missing.limits).toEqual([SKIP, CAVEAT]);
+    expect(missing.caveats).toEqual([SKIP]);
     const stated = check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, mechanism_claims: [mechanism] });
     expect(stated.status).toBe("ready_with_limits");
   });

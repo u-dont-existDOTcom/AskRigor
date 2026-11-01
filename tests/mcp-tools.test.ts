@@ -959,7 +959,7 @@ describe("AskRigor MCP tools", () => {
         arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
       });
       expect(uncaveated.structuredContent).toMatchObject({
-        status: "ready_with_limits", caveats: [skip, noStudy], limits: [skip, noStudy], next_steps: []
+        status: "ready_with_limits", caveats: [skip], limits: [skip, noStudy], next_steps: []
       });
       expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toEqual(expect.any(String));
       const declined = await client.callTool({

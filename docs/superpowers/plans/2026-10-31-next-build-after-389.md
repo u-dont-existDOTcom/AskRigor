@@ -6,6 +6,14 @@ answer 209a). Built under owner rule 148a; a release needs the owner's explicit 
 ## Built
 
 1. **#389's release record** (`docs/audits/2026-10-31-owner-answer-209a-production-release.md`).
+2. **A passing check's caveats are only the sentences shown as written** (owner answer 205a): the regression run on
+   #389's build found answers pasting every limit after the check, because the frozen schema calls `caveats`
+   "Sentences the answer must contain, each as its own sentence and as written", the plugin skill says to copy them,
+   and every passing result filled them with all its limits. Now a passing result's `caveats` hold only the mobile
+   notice, the save offer, the correction-report question (78) and the community-skip sentence (125); the reference
+   line leaves those out, and the paste note does not count them. No change to the tool list, the skill or any status.
+   Codex updated the tests (177 assertions moved from `caveats` to `limits`, 17 split) and added
+   `tests/finalize-caveats-as-written.test.ts`.
 
 ## Next
 

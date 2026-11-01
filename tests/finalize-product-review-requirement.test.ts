@@ -201,7 +201,7 @@ describe("finalize_research product review requirement", () => {
     expect(result.limits).toContain(
       "A community that needs a login to read: Local Health Reviews. Reports there are not included."
     );
-    expect(result.caveats).toContain("A community that needs a login to read: Local Health Reviews. Reports there are not included.");
+    expect(result.limits).toContain("A community that needs a login to read: Local Health Reviews. Reports there are not included.");
     expect(finalizeResearch(input, OPTIONS).status).toBe("ready_with_limits");
     expect(finalizeResearch(input, OPTIONS).next_steps).toEqual([]);
   });

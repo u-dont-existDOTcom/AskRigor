@@ -1,4 +1,4 @@
-import { notesApartFromCommunityReminders as advisoryNotes, allowedNextStepIdentifiers, assertNextStepsContract, copiedLimitsNote, inventory, schemaIdentifiers, unknownNextStepIdentifiers } from "./helpers/finalize-next-steps-contract.js";
+import { notesApartFromCommunityReminders as advisoryNotes, allowedNextStepIdentifiers, assertNextStepsContract, inventory, schemaIdentifiers, unknownNextStepIdentifiers } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -395,8 +395,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       ]
     }));
     expect(result.status).toBe("ready_with_limits");
-    expect(advisoryNotes(result)).toEqual([copiedLimitsNote(3)]);
-    expect(result.caveats.join(" ")).toContain("could not search");
+    expect(advisoryNotes(result)).toEqual([]);
+    expect(result.limits.join(" ")).toContain("could not search");
   });
   it("preserves emergency_before_triage and the no-key-study mechanism exception", async () => {
     const emergency = await complete(base({ not_relevant_basis: "emergency_before_triage", treatment_choice: "compared",
@@ -406,7 +406,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
       answer_draft: "Emergency triage. [Offer](https://seller.example/product)" }));
     expect(emergency.status).toBe("ready_with_limits");
     expect(emergency.next_steps).toEqual([]);
-    expect(emergency.caveats).toContain("A class of treatment this answer did not research: other binding products.");
+    expect(emergency.limits).toContain("A class of treatment this answer did not research: other binding products.");
     const noStudies = await complete(base({ key_sources: [], commercial_review_applicability: undefined }));
     expect(noStudies.status).toBe("ready_with_limits");
   });

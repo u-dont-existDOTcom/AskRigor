@@ -300,14 +300,16 @@ describe("finalize_research reads each key study's figures check", () => {
     const impossible = "A value that is physically impossible as printed, so it is not used: 96 mmol/g. Study: Paper 2018.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];
-    expect(check(receipts).caveats).toEqual([SKIP, inconsistent, impossible]);
+    expect(check(receipts).limits).toEqual([SKIP, inconsistent, impossible]);
+    expect(check(receipts).caveats).toEqual([SKIP]);
     expect(check(receipts, `${LINKS}\n\n${inconsistent} ${impossible}`).status).toBe("ready_with_limits");
   });
 
   it("counts two key studies with two or more identical figures once", () => {
     const swapped = [sign({ id: A, fig: "consistent", figv: ["74.25", "65.25", "53.25"] }),
       sign({ id: B, fig: "consistent", figv: ["53.25", "74.25", "65.25"] })];
-    expect(check(swapped).caveats).toEqual([SKIP, IDENTICAL]);
+    expect(check(swapped).limits).toEqual([SKIP, IDENTICAL]);
+    expect(check(swapped).caveats).toEqual([SKIP]);
     expect(check(swapped, `${LINKS}\n\n${IDENTICAL}`).status).toBe("ready_with_limits");
     expect(check([sign({ id: A, fig: "consistent", figv: ["74.25", "12"] }),
       sign({ id: B, fig: "consistent", figv: ["74.25", "13"] })]).caveats).toEqual([SKIP]);

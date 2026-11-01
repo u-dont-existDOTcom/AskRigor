@@ -192,7 +192,7 @@ ${CORRECTION_REPORT_OFFER}` });
       const result = finalizeResearch(input, { secret: SECRET, protocolElements: elements, protocolNames: protocolNamesFrom(texts) });
       expect(result.next_steps.join("\n")).not.toContain("preventing_rule");
       expect(result.next_steps.join("\n")).not.toContain("internal labels");
-      expect(result.caveats).toContain(line);
+      expect(result.limits).toContain(line);
     }
     const invalid = finalizeResearch(base({ corrections: [{ ...correction, preventing_rule: "DefinitelyNotAnElement" }] }), { secret: SECRET, protocolElements: elements });
     expect(invalid.notes!.join("\n")).toContain("is not an element name");
@@ -202,6 +202,6 @@ ${CORRECTION_REPORT_OFFER}` });
     expect(missing.notes!.join("\n")).toContain("Give corrections[0].missing_rule");
     const named = finalizeResearch(base({ corrections: [{ ...correction, preventing_rule: "no_rule", missing_rule: "Check source identity before ranking." }] }), { secret: SECRET, protocolElements: elements });
     expect(named.next_steps.join("\n")).not.toContain("Give corrections[0].missing_rule");
-    expect(named.caveats).toContain("Missing rule: Check source identity before ranking.");
+    expect(named.limits).toContain("Missing rule: Check source identity before ranking.");
   });
 });

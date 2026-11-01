@@ -57,6 +57,16 @@ stays a `Limit to include in your own words` line and the answer states them all
 rewording in the draft does not create a step either way. A passing check's line with limits reads "Checked with
 AskRigor's final check, with the limits it found.", since the answer may state only some of them.
 
+A passing check's `caveats` hold only the sentences the answer shows as written: the mobile notice, the findings save
+offer, the correction-report question (owner question 78) and the community-skip sentence (owner question 125). The
+last two are limits too, so the panel still lists them, but the reference line leaves them out and the result gives
+each on its own `Include as written, translated when the answer is not in English` line; the paste note does not count
+them. The published schema, frozen by owner answer 189a, calls `caveats` "Sentences the answer must contain, each as its
+own sentence and as written", and the plugin skill says to copy them; while every limit sat in `caveats`, answers
+pasted them all after the check, one under the heading "AskRigor's final check requires these evidence limits to
+remain explicit" (the regression run on #389's build, 1 November 2026). Under a check that has not passed, `caveats` is
+unchanged.
+
 The check line, unchecked line, checked-draft digest, second reading and stopped-check report still operate.
 When the server keeps shared answers and the caller has a research account, the result also carries a runtime-only
 `share_offer` (owner answer 200a): its `line`, the owner's sentence word for word, ends the delivered answer after the

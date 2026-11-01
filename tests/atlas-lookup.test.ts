@@ -280,7 +280,7 @@ describe("passing final check carries Atlas reuse into the saved-card receipt", 
     }
     const unchecked = { ...input, receipts: [audit, sign(["P-1001||u|"])], atlas_reuse: [{ ...declarations[0]!, lead_only: true }] };
     const result = finalCheck(unchecked);
-    expect(result.caveats).toContain(uncheckedAtlasCaveat("P-1001"));
+    expect(result.limits).toContain(uncheckedAtlasCaveat("P-1001"));
     expect(result.limits.some((s) => s.includes("P-1001"))).toBe(true);
   });
 });

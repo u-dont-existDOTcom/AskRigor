@@ -153,7 +153,7 @@ describe("full_text_search declaration gate", () => {
     const request = base({ receipts: [...base().receipts, receipt()], full_text_search: { status: "run", queries: [QUERY] },
       absence_claims: [{ quote, state: "support_not_located" }], answer_draft: `${base().answer_draft} ${quote}` });
     const first = check(request);
-    expect(first.caveats).toContain(CAVEAT);
+    expect(first.limits).toContain(CAVEAT);
     expect(first.limits).toContain(CAVEAT);
     expect(first.status).toBe("ready_with_limits");
     expect(check({ ...request, answer_draft: `${request.answer_draft} ${first.caveats.join(" ")}` }).status).toBe("ready_with_limits");
@@ -164,7 +164,7 @@ describe("full_text_search declaration gate", () => {
     expect(check({ ...translated, answer_draft: translated.answer_draft.replace(text, "") }).status).toBe("ready_with_limits");
   });
   it("adds no coverage caveat for not_needed or for an answer without a not-found claim", () => {
-    expect(check(base({ full_text_search: { status: "not_needed", reason: "No section search needed for this fixture." } })).caveats).not.toContain(CAVEAT);
-    expect(check(base({ receipts: [...base().receipts, receipt()], full_text_search: { status: "run", queries: [QUERY] } })).caveats).not.toContain(CAVEAT);
+    expect(check(base({ full_text_search: { status: "not_needed", reason: "No section search needed for this fixture." } })).limits).not.toContain(CAVEAT);
+    expect(check(base({ receipts: [...base().receipts, receipt()], full_text_search: { status: "run", queries: [QUERY] } })).limits).not.toContain(CAVEAT);
   });
 });

@@ -107,7 +107,8 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     expect(result.status).toBe("ready_with_limits");
     const notFound = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
       "not find it; that is not evidence that it does not exist.";
-    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
+    expect(result.limits).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
+    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!)]);
     expect(check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"],
       answer_draft: `${base().answer_draft} ${notFound}` }).status).toBe("ready_with_limits");
   });
