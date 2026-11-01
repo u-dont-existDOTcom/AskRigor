@@ -159,6 +159,7 @@ describe("AskRigor public site", () => {
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
     expect(privacy).toContain("Effective October 30, 2026");
+    expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
