@@ -25,13 +25,12 @@ answer 209a). Built under owner rule 148a; a release needs the owner's explicit 
    for at most 45 seconds, and keeps `busy` and `invalid_response` apart from other failures. `invalid_response` ends the search
    there, so it no longer holds back a lead or invites another try. Asked one at a time, 31 of the 73 papers that failed in the
    run came back; the list is on the owner's page.
+7. **The forum note when nothing was read:** it asks for the reason (few threads, pages wouldn't open, time), and reports the
+   user pasted no longer draw it.
 
 ## Next
 
-- **Forum threads read by AskRigor itself (owner answer 211a, 1 Nov):** the forum-depth note left the median at 2 threads
-  read, so AskRigor reads threads itself: a new tool (one app refresh at release) that reads public forum pages, stops at a site
-  that blocks it, counts what it found and read, and gives the AI a receipt. Reddit's own API is out (question 33; the owner, 1
-  Nov), and the Reddit source is an open owner question. Plan first; privacy map with it.
+- **Forum threads read by AskRigor itself (owner answer 211a, 1 Nov):** `2026-11-01-forum-reader.md`, after owner question 213.
 - **Comment maps** (`2026-10-31-video-comment-maps.md`, owner answer 208b): the private store for maps; reuse in other
   answers, rankings from kept maps and the background audits after YouTube answers the email of 31 Oct. The channel
   registry's channel IDs re-checked through the API every 30 days (first by 29 Nov), and the 31 Oct job's comment-level

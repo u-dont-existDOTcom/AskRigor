@@ -294,7 +294,6 @@ describe("finalize_research gate", () => {
     };
 
     it.each([
-      { name: "no threads read", searches: [search("first", 0)], n: 0, m: 0 },
       { name: "one thread", searches: [search("first", 1)], n: 1, m: 1 },
       { name: "four threads in two communities", searches: [search("first", 2), search("second", 2)], n: 4, m: 2 },
       { name: "five threads in one community", searches: [search("first", 5)], n: 5, m: 1 },
@@ -305,6 +304,18 @@ describe("finalize_research gate", () => {
       const result = check({ community_searches: searches });
       expect(result.notes).toContain(depthNote(n, m));
       passing(result);
+    });
+
+    it("asks for the reason when no forum thread was read, and leaves reports the user pasted alone", () => {
+      const none = check({ community_searches: [search("first", 0)] });
+      expect(none.notes).toContain("No forum thread was read. If the searches found none, say so in the answer, with " +
+        "what was searched; if threads exist, read them, or say why they went unread: pages wouldn't open or time ran " +
+        "out (HRP SearchSaturationAndStopping).");
+      expect(none.notes?.some((note) => note.startsWith("Forum evidence rests on"))).toBe(false);
+      passing(none);
+      const pasted = check({ community_searches: [{ ...search("first", 0), access_boundary: "supplied_by_user" }] });
+      expect(pasted.notes?.some((note) => note.startsWith("Forum evidence rests on") ||
+        note.startsWith("No forum thread was read."))).toBe(false);
     });
 
     it.each([

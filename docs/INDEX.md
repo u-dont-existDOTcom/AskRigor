@@ -117,6 +117,8 @@ complete XML protocol.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
+  with a test of how many threads open to a plain request; waits for owner question 213.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

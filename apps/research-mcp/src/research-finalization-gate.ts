@@ -1818,12 +1818,16 @@ export function finalizeResearch(
   for (const { index, reason } of rejected) addStep("receipt_rejected", rule`${rejectedReceiptStep(index, reason)}`);
 
   // Count declared forum reads only; review corpora and unread communities add no threads or communities.
-  const forumSearches = (input.community_searches ?? []).filter(({ platform }) => platform !== "review_site");
+  // Reports the user pasted are not a search of the community, so nothing there is left to read.
+  const forumSearches = (input.community_searches ?? []).filter(({ platform, access_boundary }) =>
+    platform !== "review_site" && access_boundary !== "supplied_by_user");
   if (forumSearches.length > 0) {
     const threads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
-    if (threads.size < 5 || communities.size === 1) {
+    if (threads.size === 0) {
+      addStep("research", rule`No forum thread was read. If the searches found none, say so in the answer, with what was searched; if threads exist, read them, or say why they went unread: pages wouldn't open or time ran out (HRP SearchSaturationAndStopping).`);
+    } else if (threads.size < 5 || communities.size === 1) {
       addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): open each one in full, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
     }
   }
