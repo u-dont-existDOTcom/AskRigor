@@ -100,8 +100,9 @@ last two compare the verdicts (`compare-verdicts.py`, output `compare-verdicts.t
   that has a side effect (below).
 - **The plain-answer note was dropped or replaced after the check in 11 turns** (on #387's build, 4, and one quote), and
   withheld by the check in more: one unbacked item still withholds the whole note (190a), now also for "confirmed", and
-  nothing a forum thread shows can back an item, so a forum-only answer can lose its note entirely
-  (`r376-later-phase`, `r382-other-aims-diabetes`, `q125`, `q126-39`, `l37`). Quoting each claim with its figures also
+  nothing a forum thread shows can back an item, so a forum-only answer can lose its note entirely (`r376-later-phase`,
+  in both turns); `q125`, `q126-39` and `l37` lost theirs to one unbacked claim, and `r382-other-aims-diabetes` at its
+  first call. Quoting each claim with its figures also
   puts figures the research rejected into the delivered answer (`q136-responders`), which may be why runs rewrite it.
 
 ## What each AskRigor finding comes to
