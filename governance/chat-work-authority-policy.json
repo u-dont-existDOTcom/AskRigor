@@ -82,6 +82,34 @@
     "olderPaidManifestCanRevivePath": false,
     "newerExplicitOwnerDecisionRequiredForAnyNonzeroSpend": true
   },
+  "paidModelInferenceDecisions": [
+    {
+      "decisionId": "OWNER_ANSWER_221",
+      "date": "2026-11-02",
+      "provider": "ANTHROPIC_CLAUDE_API",
+      "scopes": [
+        "MEANING_JUDGE_ON_OWNER_DEV_ACCOUNTS",
+        "ASKRIGOR_WEB_APP_TRIAL"
+      ],
+      "funding": "OWNER_MONTHLY_CLAUDE_API_CREDITS",
+      "ceiling": {
+        "basis": "OWNER_MONTHLY_CLAUDE_API_CREDITS",
+        "maximumModelApiSpendUsdPerMonth": 400,
+        "spendBeyondCreditsPermitted": false,
+        "note": "The owner's monthly Claude API credits are the ceiling: USD 200 this month on the account whose key AskRigor was given, and another USD 200 on the owner's other account if needed. Nothing is spent beyond the credits. The meaning judge also keeps its own daily cap beneath this ceiling."
+      },
+      "question": "the Claude API inside the check, for your dev accounts, paid from the monthly credit with a hard cap of $3 a day (at most about $90 of the $200 a month). Its first jobs are the three above. It returns notes only and never stops an answer until a regression run has measured it against your judges.",
+      "ownerWords": [
+        "221 the production server can reach Railway, which has railway agents which use my codex cli so that shoudl work. but here's my claude API key which should have $200 that i have to use this month: [the key file's path, not recorded] ... we can also maybe try the web app and see how that works better now using these api credits that will expire anyway",
+        "oh and i should evne have another $200 from my other account this month so don't worry about using those if needed"
+      ],
+      "notRecorded": [
+        "the key file's path",
+        "the API workspace ID"
+      ],
+      "codexOrWorkMayAuthorPaidProposal": false
+    }
+  ],
   "completion": {
     "default": "CONTINUE_TO_FULL_OWNER_OUTCOME",
     "greenSubtaskIsStopCondition": false,

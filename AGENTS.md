@@ -83,16 +83,23 @@ cannot substitute for an authenticated Mission Control runtime admission when
 the active workflow requires it.
 
 The active AskRigor policy is `governance/chat-work-authority-policy.json`.
-While its zero-spend owner decision is current:
+Its zero-spend owner decision stays current on every path that a newer
+recorded owner decision does not name:
 
-- paid model API inference is forbidden;
-- the maximum model API spend is USD 0;
-- Codex/Work may not author a paid smoke proposal or pilot ceiling;
+- outside those paths, paid model API inference is forbidden and the maximum
+  model API spend is USD 0;
+- owner answer 221 (2 November 2026) allows Claude API inference for the
+  meaning judge on the owner's dev accounts and for trying an AskRigor web app,
+  funded by the owner's monthly Claude API credits, with the credit as the
+  ceiling; the policy records its date, scope, funding and ceiling with the
+  owner's words, and never the key or where it is kept;
+- Codex/Work may not author a paid smoke proposal, a pilot ceiling or any
+  other paid proposal or ceiling;
 - an older or hypothetical paid manifest cannot revive the path;
 - for GPT workers, ChatGPT consumer Extra High/Pro is the default
   reasoning/evaluation surface; a Claude session reasons on the owner's Claude
   plan;
-- any later nonzero-spend proposal must come from a reasoning surface (a
+- any other nonzero-spend proposal must come from a reasoning surface (a
   source-bound ChatGPT reasoning chat or a Claude session) and still requires a
   newer explicit owner decision before execution.
 

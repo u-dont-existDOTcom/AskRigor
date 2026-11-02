@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 export interface ChatWorkPolicy {
   schemaVersion: number;
   policyId: string;
+  /** When the zero-spend owner decision took effect; a paid-inference decision must be newer. */
+  effectiveAt?: string;
   ownerAuthority: {
     sourceFeedbackSha256: string;
     paidModelInferenceAllowed: boolean;
@@ -48,12 +50,49 @@ export interface ChatWorkPolicy {
     olderPaidManifestCanRevivePath: boolean;
     newerExplicitOwnerDecisionRequiredForAnyNonzeroSpend: boolean;
   };
+  /**
+   * The newer explicit owner decisions that allow paid model inference on named paths only (owner answer 221,
+   * 2 November 2026). Every other path keeps ownerAuthority's zero ceiling and still needs a newer owner decision.
+   */
+  paidModelInferenceDecisions?: PaidModelInferenceDecision[];
   completion: {
     default: string;
     greenSubtaskIsStopCondition: boolean;
     allowedStops: string[];
   };
 }
+
+/** One owner decision allowing paid model inference: its date, scope, funding and ceiling, in the owner's words. */
+export interface PaidModelInferenceDecision {
+  decisionId: string;
+  /** The day the owner decided, YYYY-MM-DD; newer than the policy's zero-spend decision. */
+  date: string;
+  provider: string;
+  /** The only paths it allows, from PAID_MODEL_INFERENCE_SCOPES. */
+  scopes: string[];
+  funding: string;
+  ceiling: {
+    basis: string;
+    maximumModelApiSpendUsdPerMonth: number;
+    spendBeyondCreditsPermitted: boolean;
+    note: string;
+  };
+  /** The owner question's option as it was put to the owner. */
+  question: string;
+  /** The owner's answer, pasted exactly, with any key locator replaced by a bracketed marker. */
+  ownerWords: string[];
+  /** What the record deliberately leaves out, such as a key file's path. */
+  notRecorded: string[];
+  codexOrWorkMayAuthorPaidProposal: boolean;
+}
+
+/** The paths a recorded owner decision can allow; any other path keeps the zero ceiling. */
+export const PAID_MODEL_INFERENCE_SCOPES = [
+  // Owner answer 221: the Claude API inside the final check, for the owner's dev accounts.
+  "MEANING_JUDGE_ON_OWNER_DEV_ACCOUNTS",
+  // Owner answer 221: "we can also maybe try the web app".
+  "ASKRIGOR_WEB_APP_TRIAL",
+] as const;
 
 export interface GateRequest {
   requestId: string;
@@ -67,6 +106,8 @@ export interface GateRequest {
     provenanceStatus: "VERIFIED" | "OWNER_ATTESTED" | "UNVERIFIED";
   };
   modelApiSpendUsd: number;
+  /** The path the spend is for, one a recorded owner decision names; without one the zero ceiling applies. */
+  modelApiSpendScope?: string | null;
   boundedExecution: boolean;
   taskRequiresExecutionOutsideChat: boolean;
   internalRoute: null | {
@@ -129,11 +170,21 @@ export function evaluateGateRequest(policy: ChatWorkPolicy, request: GateRequest
     }
   }
 
-  if (request.modelApiSpendUsd > policy.ownerAuthority.maximumModelApiSpendUsd) {
-    errors.push(`model API spend ${request.modelApiSpendUsd} exceeds active ceiling ${policy.ownerAuthority.maximumModelApiSpendUsd}`);
-  }
-  if (request.modelApiSpendUsd > 0 && !policy.ownerAuthority.paidModelInferenceAllowed) {
-    errors.push("paid model API inference is canceled by the active owner decision");
+  // A path a recorded owner decision names has that decision's ceiling; every other path keeps the zero ceiling.
+  const decision = paidDecisionFor(policy, request.modelApiSpendScope);
+  if (decision !== undefined) {
+    if (request.modelApiSpendUsd > decision.ceiling.maximumModelApiSpendUsdPerMonth) {
+      errors.push(`model API spend ${request.modelApiSpendUsd} exceeds the ceiling ` +
+        `${decision.ceiling.maximumModelApiSpendUsdPerMonth} of owner decision ${decision.decisionId}`);
+    }
+  } else {
+    if (request.modelApiSpendUsd > policy.ownerAuthority.maximumModelApiSpendUsd) {
+      errors.push(`model API spend ${request.modelApiSpendUsd} exceeds active ceiling ${policy.ownerAuthority.maximumModelApiSpendUsd}`);
+    }
+    if (request.modelApiSpendUsd > 0 && !policy.ownerAuthority.paidModelInferenceAllowed) {
+      errors.push("paid model API inference is canceled by the active owner decision outside the scopes a newer owner " +
+        "decision names");
+    }
   }
 
   if (request.action === "ROUTE_EXACT_FACTUAL_PACKET_TO_INTERNAL_SUPERVISOR") {
@@ -170,8 +221,22 @@ export function validateCanonicalPolicy(policy: ChatWorkPolicy): string[] {
   const errors: string[] = [];
   if (policy.schemaVersion !== 1) errors.push("policy schemaVersion must be 1");
   if (!isSha256(policy.ownerAuthority.sourceFeedbackSha256)) errors.push("owner feedback digest is invalid");
-  if (policy.ownerAuthority.paidModelInferenceAllowed !== false) errors.push("paid model inference must remain disabled");
-  if (policy.ownerAuthority.maximumModelApiSpendUsd !== 0) errors.push("model API ceiling must equal zero");
+  // Outside the scopes a recorded owner decision names, paid model inference stays disabled with a zero ceiling: a
+  // nonzero ceiling is valid only in a decision that names its date, scope, funding and ceiling.
+  if (policy.ownerAuthority.paidModelInferenceAllowed !== false) {
+    errors.push("paid model inference must remain disabled outside a recorded owner decision's scopes");
+  }
+  if (policy.ownerAuthority.maximumModelApiSpendUsd !== 0) {
+    errors.push("model API ceiling must equal zero outside a recorded owner decision's scopes");
+  }
+  if (policy.spending.codexMayAuthorPaidProposal !== false || policy.spending.workMayAuthorPaidProposal !== false) {
+    errors.push("Codex/Work must not author a paid proposal or ceiling");
+  }
+  if (policy.spending.olderPaidManifestCanRevivePath !== false) errors.push("an older paid manifest must not revive a paid path");
+  if (policy.spending.newerExplicitOwnerDecisionRequiredForAnyNonzeroSpend !== true) {
+    errors.push("nonzero spend must require a newer explicit owner decision");
+  }
+  errors.push(...validatePaidModelInferenceDecisions(policy));
   if (!policy.ownerAuthority.internalSupervisorRoutingStandingAuthorization) errors.push("standing internal routing authorization is missing");
   for (const actor of ["OWNER", "PROJECT_MANAGER_CHAT", "SPECIALIST_SUPERVISOR_CHAT"]) {
     if (!policy.reasoningAuthorities.includes(actor)) errors.push(`missing reasoning authority ${actor}`);
@@ -233,6 +298,79 @@ export function validateCanonicalDirective(
   return errors;
 }
 
+/** The recorded owner decision that names this path, if any. */
+export function paidDecisionFor(
+  policy: ChatWorkPolicy,
+  scope: string | null | undefined,
+): PaidModelInferenceDecision | undefined {
+  if (typeof scope !== "string" || scope === "") return undefined;
+  return (policy.paidModelInferenceDecisions ?? []).find(({ scopes }) => Array.isArray(scopes) && scopes.includes(scope));
+}
+
+// A key, a workspace ID or a local path in a decision's record: each exact and structural.
+const KEY_MATERIAL_OR_LOCATOR = /sk-ant-[A-Za-z0-9_-]{4,}|wrkspc_[A-Za-z0-9]{4,}|(?:^|[\s:"'(])\/(?:home|Users|root|mnt|tmp)\//u;
+
+/**
+ * Each recorded decision names its date (newer than the zero-spend decision), its scope (known paths only, each in one
+ * decision), its funding and its positive monthly ceiling, with the owner's question and words, and records no key,
+ * workspace ID or local path. Codex and Work still author no paid proposal or ceiling under it.
+ */
+export function validatePaidModelInferenceDecisions(policy: ChatWorkPolicy): string[] {
+  const decisions = policy.paidModelInferenceDecisions;
+  if (decisions === undefined) return [];
+  if (!Array.isArray(decisions)) return ["paidModelInferenceDecisions must be a list"];
+  const errors: string[] = [];
+  const zeroSpendDay = typeof policy.effectiveAt === "string" ? policy.effectiveAt.slice(0, 10) : "";
+  const seenIds = new Set<string>();
+  const seenScopes = new Set<string>();
+  decisions.forEach((decision, index) => {
+    const at = `paid model inference decision ${typeof decision?.decisionId === "string" && decision.decisionId.trim() !== ""
+      ? decision.decisionId : `#${index + 1}`}`;
+    const text = (value: unknown) => typeof value === "string" && value.trim() !== "";
+    if (!text(decision?.decisionId)) errors.push(`${at} needs a decisionId`);
+    else if (seenIds.has(decision.decisionId)) errors.push(`${at} is recorded twice`);
+    else seenIds.add(decision.decisionId);
+    if (typeof decision?.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(decision.date) ||
+      Number.isNaN(Date.parse(`${decision.date}T00:00:00Z`)) ||
+      new Date(`${decision.date}T00:00:00Z`).toISOString().slice(0, 10) !== decision.date) {
+      errors.push(`${at} must name its date as YYYY-MM-DD`);
+    } else if (zeroSpendDay === "" || decision.date <= zeroSpendDay) {
+      errors.push(`${at} must be newer than the zero-spend owner decision`);
+    }
+    if (!text(decision?.provider)) errors.push(`${at} must name its provider`);
+    if (!Array.isArray(decision?.scopes) || decision.scopes.length === 0) {
+      errors.push(`${at} must name its scope`);
+    } else {
+      for (const scope of decision.scopes) {
+        if (!(PAID_MODEL_INFERENCE_SCOPES as readonly string[]).includes(scope)) {
+          errors.push(`${at} names an unknown scope ${String(scope)}`);
+        } else if (seenScopes.has(scope)) {
+          errors.push(`${at} names scope ${scope}, which another decision already names`);
+        } else seenScopes.add(scope);
+      }
+    }
+    if (!text(decision?.funding)) errors.push(`${at} must name its funding`);
+    const ceiling = decision?.ceiling;
+    if (ceiling === null || typeof ceiling !== "object" || !text(ceiling.basis) ||
+      typeof ceiling.maximumModelApiSpendUsdPerMonth !== "number" ||
+      !Number.isFinite(ceiling.maximumModelApiSpendUsdPerMonth) || ceiling.maximumModelApiSpendUsdPerMonth <= 0 ||
+      typeof ceiling.spendBeyondCreditsPermitted !== "boolean") {
+      errors.push(`${at} must name its ceiling: a basis, a positive monthly maximum in USD and whether spend beyond it is permitted`);
+    }
+    if (!text(decision?.question)) errors.push(`${at} must record the question the owner answered`);
+    if (!Array.isArray(decision?.ownerWords) || decision.ownerWords.length === 0 || !decision.ownerWords.every(text)) {
+      errors.push(`${at} must record the owner's words`);
+    }
+    if (decision?.codexOrWorkMayAuthorPaidProposal !== false) {
+      errors.push(`${at} must not let Codex or Work author a paid proposal or ceiling`);
+    }
+    if (KEY_MATERIAL_OR_LOCATOR.test(JSON.stringify(decision ?? null))) {
+      errors.push(`${at} must not record a key, a workspace ID or a local path`);
+    }
+  });
+  return errors;
+}
+
 function isSha256(value: string): boolean {
   return /^[a-f0-9]{64}$/.test(value);
 }
@@ -267,6 +405,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     policyId: policy.policyId,
     directiveId: directive.directiveId,
     maximumModelApiSpendUsd: policy.ownerAuthority.maximumModelApiSpendUsd,
+    // The paths newer owner decisions allow, each with its own ceiling; every other path keeps the one above.
+    paidModelInferenceDecisions: (policy.paidModelInferenceDecisions ?? []).map((decision) => ({
+      decisionId: decision.decisionId,
+      date: decision.date,
+      scopes: decision.scopes,
+      funding: decision.funding,
+      maximumModelApiSpendUsdPerMonth: decision.ceiling?.maximumModelApiSpendUsdPerMonth,
+    })),
     internalSupervisorRoutingAutomatic: policy.internalSupervisorRouting.automatic,
     errors,
   };
