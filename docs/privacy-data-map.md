@@ -1703,6 +1703,19 @@ existing bounded 60-second content cache; no reader identifiers enter its keys.
 Search's generic sign-in entry, when enabled, returns to the query-free path.
 With participation off the header still has the GET search form.
 
+Full-text search and the findings map (plan
+`docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`):
+search matches the text each shown finding's page shows (its wording, question,
+whom it applies to, subject, topic, why it isn't the usual answer, what would
+change it, its figures' outcome, follow-up, option and comparator, its searches,
+its source identifiers and its P and F numbers), never a label the pages add, a
+vote, a comment, or a card's or version's text the pages leave out; its paging
+links carry the query and a page number. `/atlas/map` draws the same shown
+findings, leaving out leads and superseded ones, as circles by topic, sized from
+their status, certainty, figures, number of linked sources and dates; it reads no
+vote or comment and is cached like the topics page. No new data is read, kept or
+shown, and no table, view, function, grant or migration is introduced.
+
 ## Atlas votes and comments
 
 Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24

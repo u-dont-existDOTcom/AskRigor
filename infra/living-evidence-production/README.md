@@ -632,15 +632,23 @@ install the public-site packet with the upstream, after which
 `https://askrigor.com/atlas` answers the same.
 
 Navigation (owner answer 183b) adds no migration or grant. Check GET and HEAD for
-`/atlas/findings`, `/atlas/topics` and `/atlas/search?q=…`: every page header must
-offer All findings, Topics, What changed and a labelled GET search form, with
+`/atlas/findings`, `/atlas/topics`, `/atlas/map` and `/atlas/search?q=…`: every page header must
+offer All findings, Topics, Findings map, What changed and a labelled GET search form, with
 the existing sign-in/account entry when enabled. All findings must page newest
 first using `before=P-…`, preserving its all/checked/unreviewed/contested filter;
 the contested set uses the home lane's definition. Topics must list every
 populated topic by label, its count and the no-topic count/link. Search must
 match all words with Unicode normalization, case and accent folding (try Latin
-accents, Greek/Cyrillic and Japanese), page results and handle blank, overlong
-and markup-containing input as escaped normal pages. Search responses must be
+accents, Greek/Cyrillic and Japanese), anywhere in a finding's page text (try a
+word that only its "What would change it" holds) and inside longer words (a
+word of a Chinese or Japanese wording, and, as an example, `vitamin` for
+`vitamins`), list the findings whose wording holds the words first, page results
+by number with the total shown, and handle blank, overlong and markup-containing
+input as escaped normal pages. The findings map (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`)
+must show its rule, its key with "Not checked by supervisors yet", one cluster per
+topic whose circles open their findings, and the same findings in the list below;
+look at it at phone width and in dark mode. Search responses must be
 `private, no-store`, with `Referrer-Policy: no-referrer` and the same HTML meta
 policy, no cookies, no account name or form tokens even with a session cookie;
 query strings must never enter application, proxy/access/error or analytics

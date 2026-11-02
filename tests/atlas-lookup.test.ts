@@ -2,7 +2,7 @@ import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import { InMemoryAtlasPageSource, InMemoryAtlasPublicationStore, type AtlasPageSource, type AtlasPageFinding } from "@askrigor/evidence-repository";
 import { atlasLookupInputSchema, lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
-import { loadAtlasFindings } from "../apps/research-mcp/src/atlas/page-data.js";
+import { loadAtlasSearch } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasSearchQuery } from "../apps/research-mcp/src/atlas/search.js";
 import { ATLAS_LOOKUP_FAILED_CAVEAT, atlasReceiptFinding, atlasSourceDigest, checkAtlasReuse, uncheckedAtlasCaveat } from "../apps/research-mcp/src/atlas/reuse.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -36,24 +36,28 @@ const check = (found: string[], declarations: unknown[], draft = "", extra: stri
 describe("Atlas lookup through the existing public search tool", () => {
   it("matches exactly what the pages search and signs normalized words, public numbers, time and target", async () => {
     const output = await lookup({ query: "ZÉNTARINE" });
-    const page = await loadAtlasFindings(await source(), { search: atlasSearchQuery("ZÉNTARINE").query! });
-    expect(output.findings.map((f) => f.publication_number)).toEqual(page.findings.map((f) => f.publicationNumber));
+    const page = (await loadAtlasSearch(await source(), { search: atlasSearchQuery("ZÉNTARINE").query! })).results
+      .map(({ finding }) => finding);
+    expect(output.findings.map((f) => f.publication_number)).toEqual(page.map((f) => f.publicationNumber));
     expect(output.findings).toHaveLength(3);
     expect(output.findings[0]).toMatchObject({ state: "Not checked by supervisors yet", certainty: "low", wording: expect.any(String), sources: [[{ scheme: "pmid", value: "40123456" }]], topic: { key: "velmor-syndrome" } });
     expect(output.findings[0]!.page_url).toBe(`${origin}/atlas/findings/${output.findings[0]!.publication_number}`);
     expect(verifyResearchReceipt(output.research_receipt!, receipt)).toMatchObject({ ok: true, kind: "atlas_lookup", issued_at: now().toISOString(), claims: {
-      words: ["zentarine"], target: researchTargetDigest(TARGET), found: page.findings.map(atlasReceiptFinding),
+      words: ["zentarine"], target: researchTargetDigest(TARGET), found: page.map(atlasReceiptFinding),
     } });
     expect(verifyResearchReceipt(output.research_receipt!.replace("zentarine", "changed"), receipt).ok).toBe(false);
     expect(verifyResearchReceipt(output.research_receipt!, { ...receipt, now: () => new Date("2026-11-06T12:00:00Z") }).ok).toBe(false);
   });
-  it("supports exact topic keys, empty matches and one-character searches", async () => {
+  it("supports exact topic keys, empty matches, parts of words and one-character searches", async () => {
     expect((await lookup({ query: undefined, topic_key: "velmor-syndrome" })).findings).toHaveLength(3);
     const empty = await lookup({ query: undefined, topic_key: "other-topic" });
     expect(empty.findings).toEqual([]);
     expect(empty.research_receipt).toBeDefined();
     expect((await lookup({ query: "z" })).findings).toEqual([]);
-    expect((await lookup({ query: "zent" })).findings).toEqual([]);
+    // As on the search page: part of a longer word matches, a single letter only on its own.
+    const numbers = async (query: string) => (await lookup({ query })).findings.map((f) => f.publication_number).sort();
+    expect(await numbers("zent")).toEqual(await numbers("zentarine"));
+    expect((await lookup({ query: "zentarine" })).limitations[0]).toContain("as part of a longer word too");
   });
   it("preserves the pages' bounds, and returns a bounded slice with more state", async () => {
     for (const query of ["", "a".repeat(301), Array(21).fill("word").join(" ")]) expect(atlasLookupInputSchema.safeParse({ query }).success).toBe(false);

@@ -3,7 +3,9 @@ import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
 import { escapeHtml } from "./page-guard.js";
 import {
+  ATLAS_MAP_NEW_DAYS,
   NOT_CHECKED_LABEL,
+  SOURCE_SCHEME_WORDS,
   canonicalIdentifier,
   type AtlasChangeEntry,
   type AtlasChangesModel,
@@ -12,7 +14,11 @@ import {
   type AtlasFindingParticipationView,
   type AtlasFindingsModel,
   type AtlasHomeModel,
+  type AtlasMapFinding,
+  type AtlasMapModel,
+  type AtlasMapTopic,
   type AtlasOwnerPick,
+  type AtlasSearchModel,
   type AtlasTopicModel,
   type AtlasTopicsModel,
   type ShownFinding,
@@ -20,7 +26,7 @@ import {
   type ShownRelated,
   type ShownSearch,
 } from "./page-data.js";
-import { ATLAS_SEARCH_MAX_LENGTH } from "./search.js";
+import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
 
 /**
  * The public Atlas pages' HTML (decision 171, section 4C): plain, semantic, server-rendered pages with no script and no
@@ -136,14 +142,14 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
     case "doi":
       return {
         href: `https://doi.org/${identifier.value.split("/").map(encodeURIComponent).join("/")}`,
-        text: `DOI ${identifier.value}`,
+        text: `${SOURCE_SCHEME_WORDS.doi} ${identifier.value}`,
       };
     case "pmid":
-      return { href: `https://pubmed.ncbi.nlm.nih.gov/${identifier.value}/`, text: `PMID ${identifier.value}` };
+      return { href: `https://pubmed.ncbi.nlm.nih.gov/${identifier.value}/`, text: `${SOURCE_SCHEME_WORDS.pmid} ${identifier.value}` };
     case "pmcid":
-      return { href: `https://pmc.ncbi.nlm.nih.gov/articles/${identifier.value}/`, text: `PMCID ${identifier.value}` };
+      return { href: `https://pmc.ncbi.nlm.nih.gov/articles/${identifier.value}/`, text: `${SOURCE_SCHEME_WORDS.pmcid} ${identifier.value}` };
     case "nct":
-      return { href: `https://clinicaltrials.gov/study/${identifier.value}`, text: `ClinicalTrials.gov ${identifier.value}` };
+      return { href: `https://clinicaltrials.gov/study/${identifier.value}`, text: `${SOURCE_SCHEME_WORDS.nct} ${identifier.value}` };
     default:
       return undefined;
   }
@@ -151,6 +157,7 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
 
 export const findingPath = (publicationNumber: string) => `/atlas/findings/${publicationNumber}`;
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
+export const MAP_PATH = "/atlas/map";
 const CANONICAL_ORIGIN = "https://askrigor.com";
 
 function relatedLink(related: ShownRelated): SafeHtml {
@@ -175,7 +182,7 @@ interface PageFrame {
   path: string | null;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account" | "findings" | "topics" | "search";
+  current?: "home" | "changes" | "account" | "findings" | "topics" | "map" | "search";
   reader?: AtlasPageReader;
   noReferrer?: boolean;
   body: SafeHtml;
@@ -203,6 +210,7 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
 <li><a href="/atlas/findings"${current("findings")}>All findings</a></li>
 <li><a href="/atlas/topics"${current("topics")}>Topics</a></li>
+<li><a href="${MAP_PATH}"${current("map")}>Findings map</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
 ${reader === undefined ? "" : reader.viewer === null
     ? html`<li><a href="${reader.signInHref}">Sign in</a></li>
@@ -272,21 +280,57 @@ export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageRea
     body: html`<h1>Topics</h1>
 ${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<ul>${model.topics.map((topic) =>
       html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}
-<p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>` });
+<p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>
+<p><a href="${MAP_PATH}">See the topics on the findings map</a></p>` });
 }
 
-export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasFindingsModel | null },
+const FOUND_IN_WORDS: Record<AtlasSearchField, string> = {
+  wording: "the wording",
+  question: "the question",
+  applies_to: "whom it applies to",
+  subject: "the subject",
+  topic: "the topic",
+  why_not_usual: "why it isn’t the usual answer",
+  what_would_change_it: "what would change it",
+  numbers: "the numbers",
+  searches: "what was searched",
+  sources: "the sources",
+  number: "its number",
+};
+
+const searchPageHref = (text: string, page: number) =>
+  `/atlas/search?q=${queryParameter(text)}${page === 1 ? "" : `&amp;page=${page}`}`;
+
+export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasSearchModel | null },
   reader?: AtlasPageReader): string {
+  const results = model.results;
+  const pager: SafeHtml[] = [];
+  if (results !== null && results.page > 1) {
+    pager.push(html`<a rel="prev" href="${new SafeHtml(searchPageHref(model.text, Math.min(results.page - 1, results.pages)))}">Previous results</a>`);
+  }
+  if (results !== null && results.page < results.pages) {
+    pager.push(html`<a rel="next" href="${new SafeHtml(searchPageHref(model.text, results.page + 1))}">Next results</a>`);
+  }
   // Search never carries account state, a canonical query URL, form tokens or a personalized header.
   return page({ path: null, title: "Search findings | AskRigor Atlas", current: "search", reader, noReferrer: true,
     description: "Search the public findings in the AskRigor Atlas.",
     body: html`<h1>Search findings</h1>
 ${searchForm("atlas-query", model.text)}
-<p>Every word must match a word in the question, finding, whom it applies to, subject or topic. Case and accents are folded; there is no stemming.</p>
+<p>Search reads each finding’s whole text: its wording, question, whom it applies to, subject, topic, numbers, searches, why it isn’t the usual answer, what would change it, its sources and its number.</p>
+<ul>
+<li>Every word you type must be there. Case and accents don’t matter.</li>
+<li>A word can be part of a longer one (for example, vitamin also finds vitamins), but a single letter or digit, such as the D in vitamin D, counts only where it stands on its own.</li>
+<li>Findings whose wording holds all your words come first. Then whole words come before parts of words, your words as you typed them (for example a number such as P-1003, or a phrase) before the same words apart, and newer findings before older ones.</li>
+</ul>
 ${model.message === null ? "" : html`<p role="status">${model.message}</p>`}
-${model.results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
-${model.results.findings.length === 0 ? html`<p>No findings match these words.</p>` : findingList(model.results.findings)}
-${model.results.before === null ? "" : html`<p><a rel="next" href="/atlas/search?q=${queryParameter(model.text)}&amp;before=${model.results.before}">Older results</a></p>`}`}` });
+${results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
+<p role="status">${results.total === 0 ? "No findings match these words."
+    : html`${results.total} ${results.total === 1 ? "finding matches" : "findings match"}${results.pages === 1 ? "" : html`, page ${results.page} of ${results.pages}`}.`}</p>
+${results.results.length === 0 ? (results.total === 0 ? "" : html`<p>There are no results on this page. <a href="${new SafeHtml(searchPageHref(model.text, 1))}">Go to the first page of results</a>.</p>`)
+    : html`<ul class="finding-list">
+${results.results.map(({ finding, foundIn }) => findingItem(finding,
+    html`<p class="meta">Found in ${joined(foundIn.map((field) => html`${FOUND_IN_WORDS[field]}`), ", ")}.</p>`))}</ul>`}
+${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${joined(pager, " · ")}</p></nav>`}`}` });
 }
 
 // A finding in a list ---------------------------------------------------------------------------------------------------
@@ -372,7 +416,7 @@ ${model.contested.length === 0 ? "" : html`<section aria-labelledby="contested">
 <ul class="pair-list">
 ${model.contested.map(contestedItem)}</ul>
 </section>
-`}<p><a href="/atlas/changes">See what changed in the Atlas</a></p>`;
+`}<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
     title: "AskRigor Atlas",
@@ -487,6 +531,162 @@ ${findingList(section.findings)}
     reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
+    body,
+  });
+}
+
+// The findings map ------------------------------------------------------------------------------------------------------
+
+/** A circle's radius for its points: its area grows with the points, so 0 points still draws a circle. */
+export const mapRadius = (points: number) => Math.round(80 * Math.sqrt(points + 1)) / 10;
+const MAP_GAP = 4;
+const MAP_ISLAND_MARGIN = 8;
+const MAP_PADDING = 6;
+const MAP_MIN_WIDTH = 280;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const round = (value: number) => Math.round(value * 10) / 10;
+
+/**
+ * A topic's cluster, packed around its centre in the topic's order: the first circle in the middle, and each next one
+ * on its own ray of a sunflower spiral (turning by the golden angle), as close to the middle as it fits beside the
+ * circles already placed. Deterministic; rounded to a tenth, which the gap absorbs.
+ */
+export function clusterLayout(radii: readonly number[]): { centres: Array<{ x: number; y: number }>; extent: number } {
+  const centres: Array<{ x: number; y: number }> = [];
+  radii.forEach((radius, index) => {
+    const angle = index * GOLDEN_ANGLE;
+    for (let distance = 0; ; distance += 1) {
+      const centre = { x: round(distance * Math.cos(angle)), y: round(distance * Math.sin(angle)) };
+      if (centres.every((other, before) => Math.hypot(centre.x - other.x, centre.y - other.y) >= radius + radii[before]! + MAP_GAP)) {
+        centres.push(centre);
+        return;
+      }
+    }
+  });
+  return { centres, extent: Math.max(0, ...centres.map(({ x, y }, index) => Math.hypot(x, y) + radii[index]!)) };
+}
+
+/** Where a finding's points come from, in the rule's order. */
+const pointWords = ({ finding, points }: AtlasMapFinding): string[] => [
+  points.checked === 0 ? "" : "checked by supervisors +2",
+  points.certainty === 0 ? "" : finding.certainty === "high" ? "high certainty +2" : "moderate certainty +1",
+  points.numbers === 0 ? "" : "counted results +1",
+  points.sources === 0 ? "" : "two or more sources +1",
+  points.recent === 0 ? "" : `new in the last ${ATLAS_MAP_NEW_DAYS} days +1`,
+].filter((words) => words !== "");
+const pointsText = (total: number) => `${total} ${total === 1 ? "point" : "points"}`;
+
+/** The marks a status draws: a solid disc, a ring, or a light disc with a dashed outline. */
+function statusMarks(kind: ShownFinding["status"]["kind"], x: number, y: number, radius: number): SafeHtml {
+  if (kind === "contested") {
+    return html`<circle class="map-mark map-contested" cx="${x}" cy="${y}" r="${radius}"/><circle class="map-hole" cx="${x}" cy="${y}" r="${round(radius * 0.45)}"/>`;
+  }
+  const style = kind === "unreviewed" ? "map-unreviewed" : "map-checked";
+  return html`<circle class="map-mark ${style}" cx="${x}" cy="${y}" r="${radius}"/>`;
+}
+
+function cluster(topic: AtlasMapTopic, headingId: string): SafeHtml {
+  const radii = topic.findings.map(({ points }) => mapRadius(points.total));
+  const { centres, extent } = clusterLayout(radii);
+  const island = round(extent + MAP_ISLAND_MARGIN);
+  const width = Math.ceil(Math.max(MAP_MIN_WIDTH, 2 * (island + MAP_PADDING)));
+  const height = Math.ceil(2 * (island + MAP_PADDING));
+  const cx = width / 2;
+  const cy = height / 2;
+  return html`<svg class="map-cluster" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-labelledby="${headingId}">
+<circle class="map-island" cx="${cx}" cy="${cy}" r="${island}"/>
+${topic.findings.map((entry, index) => {
+    const { finding, points } = entry;
+    return html`<a href="${findingPath(finding.publicationNumber)}"><title>${finding.publicationNumber}: ${finding.claim} (${STATUS_WORDS[finding.status.kind]}; ${pointsText(points.total)})</title>
+${statusMarks(finding.status.kind, round(cx + centres[index]!.x), round(cy + centres[index]!.y), radii[index]!)}</a>
+`;
+  })}</svg>`;
+}
+
+function topicCounts(topic: AtlasMapTopic): SafeHtml {
+  const kinds = topic.findings.map(({ finding }) => finding.status.kind);
+  const checked = kinds.filter((kind) => kind === "checked").length;
+  const contested = kinds.filter((kind) => kind === "contested").length;
+  const unreviewed = kinds.filter((kind) => kind === "unreviewed").length;
+  const parts = [
+    checked === 0 ? "" : `${checked} checked by supervisors`,
+    contested === 0 ? "" : `${contested} contested`,
+    unreviewed === 0 ? "" : `${unreviewed} not checked by supervisors yet`,
+  ].filter((part) => part !== "");
+  const shown = topic.findings.length;
+  return html`${topic.count} ${topic.count === 1 ? "finding" : "findings"}${shown < topic.count ? html`, ${shown} on the map` : ""}: ${parts.join(", ")}.`;
+}
+
+const topicName = (topic: AtlasMapTopic) => topic.topic?.label ?? "No topic (older cards)";
+const topicHref = (topic: AtlasMapTopic) => topic.topic === null ? "/atlas/findings" : topicPath(topic.topic.key);
+
+function legendSwatch(kind: "checked" | "contested" | "unreviewed"): SafeHtml {
+  return html`<svg class="map-swatch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${statusMarks(kind, 12, 12, 9)}</svg>`;
+}
+
+export function renderAtlasMap(model: AtlasMapModel, reader?: AtlasPageReader): string {
+  const sizes = [0, 3, 7];
+  const sizeWidth = sizes.reduce((sum, points) => sum + 2 * mapRadius(points) + 8, 0);
+  const sizeHeight = Math.ceil(2 * mapRadius(sizes.at(-1)!) + 4);
+  let sizeX = 0;
+  const sizeLegend = html`<svg class="map-swatch map-sizes" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.ceil(sizeWidth)} ${sizeHeight}" width="${Math.ceil(sizeWidth)}" height="${sizeHeight}" aria-hidden="true">${sizes.map((points) => {
+    const radius = mapRadius(points);
+    const x = round(sizeX + radius + 4);
+    sizeX += 2 * radius + 8;
+    return html`<circle class="map-mark map-size" cx="${x}" cy="${sizeHeight / 2}" r="${radius}"/>`;
+  })}</svg>`;
+  const rule = html`<section class="notice" aria-labelledby="map-rule">
+<h2 id="map-rule">How the map is drawn</h2>
+<p>Each finding gets points for what the Atlas holds about it, and more points draw a bigger circle:</p>
+<ul>
+<li>2 if supervisors checked it;</li>
+<li>2 if AskRigor rated it high certainty, 1 if moderate;</li>
+<li>1 if its page shows counted results for each group;</li>
+<li>1 if its page links to two or more sources;</li>
+<li>1 if it was published or checked in the last ${ATLAS_MAP_NEW_DAYS} days.</li>
+</ul>
+<p>In each topic, findings with more points come first, in the middle of its cluster, then the newest. Topics with more findings come first. Leads, and findings a newer one replaced, are on each topic’s page instead.</p>
+<p><strong>The map is not a ranking of treatments and not a recommendation.</strong> Nothing in the rule depends on what a finding says: a big circle can be a harm, a treatment that did nothing, or a search that found nothing. AskRigor’s certainty is its own rating, not a formal GRADE assessment, and nothing here is medical advice.</p>
+</section>`;
+  const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
+<h1>Findings map</h1>
+<p class="lede">Published findings as circles, one cluster per topic. A bigger circle is a finding the Atlas holds more about, not a treatment that works better. Open a circle to read its finding.</p>
+<ul class="map-legend" aria-label="Map key">
+<li>${legendSwatch("checked")} Checked by supervisors</li>
+<li>${legendSwatch("contested")} Contested: another checked finding disagrees</li>
+<li>${legendSwatch("unreviewed")} ${NOT_CHECKED_LABEL}</li>
+<li>${sizeLegend} 0, 3 and 7 points</li>
+</ul>
+${model.topics.length === 0 ? html`<p>Nothing is published yet.</p>
+${rule}` : html`<p><a href="#map-rule">How the map is drawn</a> · <a href="#map-list">Skip the map and read it as a list</a></p>
+<section aria-labelledby="map-topics">
+<h2 id="map-topics">Topics</h2>
+<div class="map-grid">
+${model.topics.map((topic, index) => html`<section class="map-topic" aria-labelledby="map-topic-${index + 1}">
+<h3 id="map-topic-${index + 1}"><a href="${topicHref(topic)}">${topicName(topic)}</a></h3>
+<p class="meta">${topicCounts(topic)}</p>
+${cluster(topic, `map-topic-${index + 1}`)}
+${topic.findings.length < topic.count ? html`<p class="meta"><a href="${topicHref(topic)}">See all ${topic.count} on ${topic.topic === null ? "the list of all findings" : "the topic’s page"}</a></p>
+` : ""}</section>
+`)}</div>
+</section>
+${rule}
+<section aria-labelledby="map-list">
+<h2 id="map-list">The map as a list</h2>
+<p>The same findings, topic by topic, in the map’s order, each with its points.</p>
+${model.topics.map((topic) => html`<h3>${topicName(topic)}</h3>
+<ul class="finding-list">
+${topic.findings.map((entry) => {
+    const reasons = pointWords(entry);
+    return findingItem(entry.finding, html`<p class="meta">On the map: ${pointsText(entry.points.total)}${reasons.length === 0 ? "" : ` (${reasons.join(", ")})`}.</p>`);
+  })}</ul>
+`)}</section>`}`;
+  return page({
+    path: MAP_PATH,
+    title: "Findings map | AskRigor Atlas",
+    description: "Published findings in the AskRigor Atlas as circles, one cluster per topic, sized by a stated rule.",
+    current: "map",
+    reader,
     body,
   });
 }
@@ -1022,6 +1222,28 @@ a:hover, a:focus-visible { color: var(--accent-hover); }
 .map-node { fill: var(--surface); stroke: currentColor; }
 .map-edge { fill: none; stroke: currentColor; }
 .topic-map a:focus .map-node { stroke-width: 3; }
+.notice h2:first-child { margin-top: 0; }
+.notice ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 1rem 0; padding: 0; list-style: none; }
+.map-legend li { display: flex; align-items: center; gap: 0.45rem; }
+.map-swatch { display: block; flex: none; width: 1.5rem; height: 1.5rem; }
+.map-swatch.map-sizes { width: auto; height: 2.75rem; }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 1rem; margin: 1rem 0; }
+.map-topic { min-width: 0; padding: 0.85rem 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 0.5rem; }
+.map-topic h3 { margin: 0; font-size: 1.1rem; }
+.map-topic .meta { margin: 0.3rem 0 0.6rem; }
+.map-cluster { display: block; width: 100%; height: auto; }
+.map-island { fill: var(--page); stroke: var(--line); }
+.map-mark { stroke-width: 2; }
+.map-checked { fill: var(--checked); stroke: var(--checked); }
+.map-contested { fill: var(--contested); stroke: var(--contested); }
+.map-hole { fill: var(--surface); }
+.map-unreviewed { fill: var(--unreviewed-surface); stroke: var(--unreviewed); stroke-dasharray: 4 3; }
+.map-size { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.map-cluster a:hover .map-mark { stroke: var(--accent-hover); stroke-dasharray: none; }
+.map-cluster a:focus-visible { outline: none; }
+/* The text colour stands apart from every status colour, in both themes. */
+.map-cluster a:focus-visible .map-mark { stroke: var(--text); stroke-width: 5; stroke-dasharray: none; }
 .brand { color: var(--text); font-size: 1.15rem; font-weight: 800; text-decoration: none; }
 .nav-list { flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
 .nav-list a[aria-current="page"] { color: var(--text); text-decoration: none; }

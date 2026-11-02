@@ -25,10 +25,11 @@ import {
   announcingPublicationStore,
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
-import { NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasTopics, loadAtlasTopic,
-  type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { ATLAS_CSS, atlasPageProblems, escapeHtml, percent, sourceLink, renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
-import { atlasSearchQuery, atlasSearchWords } from "../apps/research-mcp/src/atlas/search.js";
+import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasMap, loadAtlasSearch,
+  loadAtlasTopics, loadAtlasTopic, searchTextsOf, type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, mapRadius, percent, sourceLink, renderAtlasMap,
+  renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
+import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
   ATLAS_PAGE_HEADERS,
   AtlasPageCache,
@@ -998,8 +999,9 @@ describe("Atlas navigation (183b)", () => {
     expect(last.before).toBeNull();
     const topics = await loadAtlasTopics(source);
     expect(topics).toEqual({ topics: [{ key: "many", label: "Many findings", count: 524 }], withoutTopic: 1 });
-    const found = await loadAtlasFindings(source, { search: atlasSearchQuery("distant needle").query! });
-    expect(found.findings.map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1001"]);
+    const found = await loadAtlasSearch(source, { search: atlasSearchQuery("distant needle").query! });
+    expect(found.results.map(({ finding }) => finding.publicationNumber)).toEqual(["P-1001"]);
+    expect(found.total).toBe(1);
     const base = await serve(pages(source));
     const all = await text(base, "/atlas/findings");
     expect(all.body).toContain('rel="next" href="/atlas/findings?filter=all&amp;before=P-1506"');
@@ -1007,12 +1009,17 @@ describe("Atlas navigation (183b)", () => {
     expect(ids(second.body)[0]).toBe("P-1505");
     expect(second.body).toContain('filter=unreviewed&amp;before=P-1486');
     const search = await text(base, "/atlas/search?q=ordinary");
+    expect(search.body).toContain("524 findings match, page 1 of 27.");
     const older = /rel="next" href="([^"]+)"/u.exec(search.body)![1]!.replace(/&amp;/gu, "&");
-    expect(ids((await text(base, older)).body)[0]).toBe("P-1505");
+    expect(older).toMatch(/&page=2$/u);
+    const nextResults = await text(base, older);
+    expect(ids(nextResults.body)[0]).toBe("P-1505");
+    expect(nextResults.body).toContain('rel="prev" href="/atlas/search?q=%6f%72%64%69%6e%61%72%79"');
+    expect(ids((await text(base, "/atlas/search?q=ordinary&page=27")).body)).toEqual(["P-1005", "P-1004", "P-1003", "P-1002"]);
     expect((await text(base, "/atlas/topics")).body).toContain("1 finding has no topic (older cards)");
   });
 
-  it("matches exact Unicode words in each public field, with full case folding and accents", async () => {
+  it("matches Unicode words in each public field, with full case folding and accents", async () => {
     expect(atlasSearchWords("ÉCOLE, Straße; ΜΆΪΟΣ/ς　ЯБЛОКО。研究、東京！किताब")).toEqual([
       "ecole", "strasse", "μαιοσ", "σ", "яблоко", "研究", "東京", "किताब",
     ]);
@@ -1030,7 +1037,8 @@ describe("Atlas navigation (183b)", () => {
       expect(ids(result.body).length, query).toBeGreaterThan(0);
       if (query !== "hand adults" && query !== "velmor") expect(ids(result.body)).toContain(p.rows[0]!.publicationNumber);
     }
-    expect(ids((await text(base, "/atlas/search?q=ecol")).body)).toEqual([]);
+    // Part of a longer word matches too (plan 2026-11-02), after whole-word matches.
+    expect(ids((await text(base, "/atlas/search?q=ecol")).body)).toEqual([p.rows[0]!.publicationNumber]);
     expect(ids((await text(base, "/atlas/search?q=ecole%20absent")).body)).toEqual([]);
     // Matching canonical questions does not fall back to the private card or stale edited wording.
     expect(ids((await text(base, "/atlas/search?q=hand")).body)).toContain(f.shown.edited);
@@ -1091,12 +1099,13 @@ describe("Atlas navigation (183b)", () => {
   it("puts navigation and a labelled GET search on every page, with HEAD, the unchanged CSP and rate limits", async () => {
     const f = await fixture();
     const base = await serve(pages(f.source));
-    for (const path of ["/atlas", "/atlas/changes", "/atlas/findings", "/atlas/topics", "/atlas/search?q=velmor",
+    for (const path of ["/atlas", "/atlas/changes", "/atlas/findings", "/atlas/topics", "/atlas/map", "/atlas/search?q=velmor",
       "/atlas/topics/velmor-syndrome", `/atlas/findings/${f.shown.edited}`, "/atlas/unknown"]) {
       const page = await text(base, path);
       const header = page.body.slice(page.body.indexOf("<header"), page.body.indexOf("</header>"));
       expect(header).toMatch(/href="\/atlas\/findings"(?: aria-current="page")?>All findings<\/a>/u);
       expect(header).toMatch(/href="\/atlas\/topics"(?: aria-current="page")?>Topics<\/a>/u);
+      expect(header).toMatch(/href="\/atlas\/map"(?: aria-current="page")?>Findings map<\/a>/u);
       expect(header).toContain('role="search" method="get" action="/atlas/search"');
       expect(header).toContain('<label for="atlas-header-query">Search findings</label>');
       expect(page.response.headers.get("content-security-policy")).toBe(CSP);
@@ -1111,7 +1120,7 @@ describe("Atlas navigation (183b)", () => {
     }) }));
     expect((await text(limited, "/atlas/search?q=velmor")).response.status).toBe(200);
     expect((await text(limited, "/atlas/findings")).response.status).toBe(429);
-    for (const path of ["/atlas/findings", "/atlas/topics", "/atlas/search"]) {
+    for (const path of ["/atlas/findings", "/atlas/topics", "/atlas/map", "/atlas/search"]) {
       expect((await text(base, path, { method: "POST" })).response.status).toBe(405);
     }
   });
@@ -1199,3 +1208,264 @@ describe("Atlas navigation (183b)", () => {
   });
 });
 
+
+// Full-text search and the findings map (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md)
+
+describe("full-text search", () => {
+  const q = (words: string) => atlasSearchQuery(words).query!;
+  const wording = (text: string, rest: AtlasSearchText[] = []): AtlasSearchText[] => [{ field: "wording", text }, ...rest];
+  const rank = (words: string, texts: AtlasSearchText[]) => atlasSearchMatch(q(words), texts)?.rank;
+
+  it("matches inside longer words in any script, and a single letter or digit only on its own", () => {
+    // Every example is synthetic; the words are examples, not a list the search holds.
+    expect(rank("vitamin d", wording("Vitamin D3 lowered falls."))).toBe(0);
+    expect(rank("vitamin d", wording("Vitamin B12 deficiency is common."))).toBeUndefined();
+    expect(rank("vitamin", wording("Vitamins A and E."))).toBe(1);
+    expect(rank("omega 3", wording("Omega-3 fatty acids."))).toBe(0);
+    expect(rank("3", wording("30 of 120 adults."))).toBeUndefined();
+    expect(rank("strasse", wording("Straße"))).toBe(0);
+    expect(rank("ΒΙΤΑΜΙΝΗ", wording("η βιταμίνη D"))).toBe(0);
+    expect(rank("витамин", wording("Витамины D и кальций"))).toBe(1);
+    expect(rank("فيتامين", wording("فيتامين د يقلل السقوط"))).toBe(0);
+    expect(rank("किताब", wording("यह किताब है"))).toBe(0);
+    // Scripts written without spaces: a word inside a run, one character of a script without capitals, and a Latin
+    // letter standing on its own among them (which also ends the run before it).
+    expect(rank("维生素", wording("维生素D可以降低骨折风险"))).toBe(0);
+    expect(rank("骨折", wording("维生素D可以降低骨折风险"))).toBe(1);
+    expect(rank("维生素 d", wording("维生素D可以降低骨折风险"))).toBeDefined();
+    expect(rank("铁", wording("补铁剂"))).toBe(1);
+    expect(rank("ビタミン", wording("ビタミンDは転倒を減らした"))).toBeDefined();
+    expect(rank("วิตามิน", wording("วิตามินดีช่วยลดการหกล้ม"))).toBe(1);
+    expect(rank("ecole", wording("L'ÉCOLE"))).toBe(0);
+    expect(rank("l", wording("L'ÉCOLE"))).toBe(0);
+  });
+
+  it("needs every word somewhere, ranks the wording first and whole words before parts, and says where it found them", () => {
+    const texts = wording("Zentarine halved the tremor score.", [
+      { field: "why_not_usual", text: "Quick answers call it gentle." },
+      { field: "sources", text: "PMID 40123456" },
+    ]);
+    expect(atlasSearchMatch(q("gentle"), texts)).toEqual({ rank: 2, asTyped: true, foundIn: ["why_not_usual"] });
+    expect(atlasSearchMatch(q("tremor gentle"), texts)).toEqual({ rank: 2, asTyped: false, foundIn: ["wording", "why_not_usual"] });
+    expect(atlasSearchMatch(q("gent"), texts)).toEqual({ rank: 3, asTyped: true, foundIn: ["why_not_usual"] });
+    expect(atlasSearchMatch(q("score 40123456"), wording("A score.", [{ field: "sources", text: "PMID 401234567 and 40123456" }])))
+      .toEqual({ rank: 2, asTyped: false, foundIn: ["wording", "sources"] });
+    expect(atlasSearchMatch(q("nausea weeks"), wording("A claim.", [{ field: "numbers", text: "nausea\n12 weeks" }])))
+      .toEqual({ rank: 2, asTyped: false, foundIn: ["numbers"] });
+    expect(atlasSearchMatch(q("PMID  40123456"), texts)).toEqual({ rank: 2, asTyped: true, foundIn: ["sources"] });
+    expect(atlasSearchMatch(q("40123456 pmid"), texts)).toEqual({ rank: 2, asTyped: false, foundIn: ["sources"] });
+    expect(atlasSearchMatch(q("zentarine score"), texts)).toEqual({ rank: 0, asTyped: false, foundIn: ["wording"] });
+    expect(atlasSearchMatch(q("zentar tremor"), texts)).toEqual({ rank: 1, asTyped: false, foundIn: ["wording"] });
+    for (const quoted of ['"tremor score"', "«tremor score»", "„tremor score“", "「tremor score」"]) {
+      expect(atlasSearchMatch(q(quoted), texts), quoted).toEqual({ rank: 0, asTyped: true, foundIn: ["wording"] });
+    }
+    expect(atlasSearchMatch(q("score tremor"), texts)).toEqual({ rank: 0, asTyped: false, foundIn: ["wording"] });
+    expect(atlasSearchMatch(q("tremor absent"), texts)).toBeUndefined();
+  });
+
+  it("reads every text a finding's page shows and nothing it hides", async () => {
+    const f = await fixture();
+    const found = async (words: string) => (await loadAtlasSearch(f.source, { search: q(words) })).results
+      .map(({ finding, foundIn }) => ({ number: finding.publicationNumber, foundIn }));
+    // Further down the page: why it isn't the usual answer, what would change it, the numbers, the searches, sources.
+    expect(await found("gentle")).toEqual([{ number: f.shown.effect, foundIn: ["why_not_usual"] }]);
+    expect(await found("nausea")).toEqual([{ number: f.shown.effect, foundIn: ["wording"] }]);
+    expect((await found("similar size")).map(({ number }) => number).sort())
+      .toEqual([f.shown.edited, f.shown.effect, f.shown.lowDose, f.shown.lead].sort());
+    // Both hold every word whole in their wording; the one whose search holds the words as typed comes first. "Found
+    // in" names, for each word, the first part of the page where it matches best.
+    expect(await found("zentarine voice tremor")).toEqual([
+      { number: f.shown.nothingFound, foundIn: ["wording"] },
+      { number: f.shown.lead, foundIn: ["wording"] },
+    ]);
+    expect((await found("pmid 40123456")).map(({ number }) => number).sort()).toEqual([f.shown.edited, f.shown.lowDose].sort());
+    expect(await found(f.numbers.lowDose)).toEqual([{ number: f.shown.lowDose, foundIn: ["number"] }]);
+    // P-1003 is two words, which an F number's digits can share; the number as typed comes first.
+    expect((await found(f.shown.hip))[0]).toEqual({ number: f.shown.hip, foundIn: ["number"] });
+    // Never a label the pages add, the card's or version's hidden texts, or a publication that does not show.
+    expect(await found("moderate")).toEqual([]);
+    for (const hidden of [NEVER.usualAnswer, NEVER.whoElse, NEVER.whatItChanges, NEVER.cardWording, NEVER.answerQuote,
+      NEVER.videoFinding, NEVER.olderVideoFinding, NEVER.rejected, NEVER.unpublished, NEVER.pending, NEVER.withdrawnClaim,
+      "LINKRATIONALESENTINEL", "WITHDRAWNNOTE", "zentarine.trials"]) {
+      expect(await found(hidden), hidden).toEqual([]);
+    }
+    const edited = (await loadAtlasFindings(f.source)).findings.find(({ publicationNumber }) => publicationNumber === f.shown.edited)!;
+    expect(searchTextsOf(edited).map(({ field }) => field)).toEqual(["wording", "question", "applies_to", "subject", "topic",
+      "why_not_usual", "what_would_change_it", "numbers", "sources", "number"]);
+    expect(searchTextsOf(edited).find(({ field }) => field === "sources")!.text)
+      .toBe("DOI 10.0000/synthetic-velmor-a\nPMID 40123456");
+  });
+
+  it("puts wording matches first, whole words before parts and newer before older, and pages by number", async () => {
+    const store = atlas();
+    const publish = async (cardNumber: number, claim: string, why = "Quick answers miss it.") =>
+      (await store.publish(cardNumber, recordOf(oneFindingCard(claim, { why_not_usual: why })))).rows[0]!.publicationNumber;
+    const elsewherePart = await publish(7001, "A finding about sleep.", "Magnesiumcitrat is what was sold.");
+    const wordingWhole = await publish(7002, "Magnesium eased cramps in one invented trial.");
+    const elsewhereWhole = await publish(7003, "A finding about cramps.", "Quick answers forget magnesium.");
+    const wordingPart = await publish(7004, "Magnesiumcitrat eased cramps in one invented trial.");
+    const newerWordingWhole = await publish(7005, "Magnesium did nothing for sleep in one invented trial.");
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    const results = await loadAtlasSearch(source, { search: q("magnesium") });
+    expect(results.results.map(({ finding }) => finding.publicationNumber))
+      .toEqual([newerWordingWhole, wordingWhole, wordingPart, elsewhereWhole, elsewherePart]);
+    expect(results).toMatchObject({ total: 5, page: 1, pages: 1 });
+    await expect(loadAtlasSearch(source, { search: q("magnesium"), page: 0 })).rejects.toThrow("ATLAS_SEARCH_PAGE_INVALID");
+    await expect(loadAtlasSearch(source, { search: q("magnesium"), page: 101 })).rejects.toThrow("ATLAS_SEARCH_PAGE_INVALID");
+    const base = await serve(pages(source));
+    const page = await text(base, "/atlas/search?q=magnesium");
+    expect(page.body).toContain('<p role="status">5 findings match.</p>');
+    expect(page.body).toContain("Found in the wording.");
+    expect(page.body).toContain("Found in why it isn’t the usual answer.");
+    expect(page.body).not.toContain('rel="next"');
+    expect(page.body).toContain("Search reads each finding’s whole text");
+    expect(page.body).toContain("such as the D in vitamin D, counts only where it stands on its own.");
+    for (const odd of ["0", "abc", "101", "1e2", "-1", "2.5"]) {
+      expect((await text(base, `/atlas/search?q=magnesium&page=${odd}`)).body).toContain("5 findings match.");
+    }
+    const beyond = await text(base, "/atlas/search?q=magnesium&page=3");
+    expect(beyond.body).toContain("There are no results on this page.");
+    expect(beyond.body).toContain('rel="prev" href="/atlas/search?q=%6d%61%67%6e%65%73%69%75%6d"');
+    expect(beyond.response.headers.get("cache-control")).toBe("private, no-store");
+    expect((await text(base, "/atlas/search?q=absentword")).body).toContain('<p role="status">No findings match these words.</p>');
+  });
+});
+
+describe("the findings map", () => {
+  const ON = new Date("2026-11-05T00:00:00.000Z");
+  const numbersOf = (model: Awaited<ReturnType<typeof loadAtlasMap>>) => model.topics.map((topic) => ({
+    topic: topic.topic?.key ?? null, count: topic.count,
+    findings: topic.findings.map(({ finding, points }) => [finding.publicationNumber, points.total]),
+  }));
+
+  it("groups shown findings by topic with the stated points, leaving out leads and anything hidden", async () => {
+    const f = await fixture();
+    const model = await loadAtlasMap(f.source, ON);
+    expect(model.newSince).toBe("2026-10-06");
+    // Points: checked 2, certainty (high 2, moderate 1), counted results 1, two or more sources 1, new 1.
+    expect(numbersOf(model)).toEqual([
+      { topic: "velmor-syndrome", count: 4, findings: [[f.shown.edited, 5], [f.shown.lowDose, 3], [f.shown.effect, 3],
+        [f.shown.nothingFound, 1]] },
+      { topic: "hip-osteoarthritis", count: 1, findings: [[f.shown.hip, 2]] },
+    ]);
+    expect(model.topics[0]!.topic!.label).toBe("Velmor syndrome (invented)");
+    expect(model.topics[0]!.findings[0]!.points).toEqual({ checked: 2, certainty: 1, numbers: 1, sources: 0, recent: 1, total: 5 });
+    // Later, nothing is new.
+    expect(numbersOf(await loadAtlasMap(f.source, new Date("2026-12-31T00:00:00.000Z")))[0]!.findings)
+      .toEqual([[f.shown.edited, 4], [f.shown.lowDose, 2], [f.shown.effect, 2], [f.shown.nothingFound, 0]]);
+  });
+
+  it("orders topics by size with findings without a topic last, and caps each topic's circles", async () => {
+    const store = atlas();
+    const draft = planCardPublication({ record: recordOf(oneFindingCard("one finding")), setAside: false,
+      route: { route: "save", account: FREE } }).drafts[0]!;
+    const add = async (index: number, topic: { key: string; label: string } | null, sources = ["10.0000/synthetic-a"]) =>
+      store.publications.publish({ cardNumber: 20_000 + index, cardSha256: sha256(`map:${index}`), findings: [{ ...draft,
+        published: { ...draft.published!, claim: `Map finding ${index}.`, topic, sources } }], publishedAt: SAVED_AT, revive: false });
+    for (let index = 0; index < ATLAS_MAP_TOPIC_FINDINGS + 1; index += 1) await add(index, { key: "big", label: "Big topic" });
+    await add(100, null, ["10.0000/synthetic-a", "PMID: 40123456"]);
+    await add(101, { key: "small", label: "A small topic" });
+    await add(102, { key: "other", label: "Another small topic" });
+    const model = await loadAtlasMap(new InMemoryAtlasPageSource({ publications: store.publications }), ON);
+    expect(model.topics.map(({ topic, count, findings }) => [topic?.key ?? null, count, findings.length])).toEqual([
+      ["big", 61, 60], ["small", 1, 1], ["other", 1, 1], [null, 1, 1],
+    ]);
+    expect(model.topics[3]!.findings[0]!.points).toMatchObject({ sources: 1 });
+    const body = renderAtlasMap(model);
+    expect(body).toContain("61 findings, 60 on the map: 60 not checked by supervisors yet.");
+    expect(body).toContain('<a href="/atlas/topics/big">See all 61 on the topic’s page</a>');
+    expect(body).toContain('<h3 id="map-topic-4"><a href="/atlas/findings">No topic (older cards)</a></h3>');
+    for (const panel of body.matchAll(/<svg class="map-cluster"[\s\S]*?<\/svg>/gu)) {
+      const [, width, height] = /viewBox="0 0 (\d+) (\d+)"/u.exec(panel[0])!.map(Number);
+      for (const circle of panel[0].matchAll(/<circle class="map-mark[^"]*" cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/gu)) {
+        const [x, y, r] = circle.slice(1).map(Number) as [number, number, number];
+        expect(x - r).toBeGreaterThanOrEqual(0);
+        expect(y - r).toBeGreaterThanOrEqual(0);
+        expect(x + r).toBeLessThanOrEqual(width!);
+        expect(y + r).toBeLessThanOrEqual(height!);
+      }
+    }
+  });
+
+  it("lays out clusters deterministically, without overlaps, inside their extent", () => {
+    for (const radii of [[mapRadius(0)], [mapRadius(7), mapRadius(0)],
+      Array.from({ length: 60 }, (_, index) => mapRadius((index * 7) % 8))]) {
+      const layout = clusterLayout(radii);
+      expect(clusterLayout(radii)).toEqual(layout);
+      expect(layout.centres[0]).toEqual({ x: 0, y: 0 });
+      layout.centres.forEach((centre, index) => {
+        expect(Math.hypot(centre.x, centre.y) + radii[index]!).toBeLessThanOrEqual(layout.extent + 1e-9);
+        for (let other = 0; other < index; other += 1) {
+          expect(Math.hypot(centre.x - layout.centres[other]!.x, centre.y - layout.centres[other]!.y))
+            .toBeGreaterThanOrEqual(radii[index]! + radii[other]! + 4);
+        }
+      });
+    }
+    expect([0, 1, 7].map(mapRadius)).toEqual([8, 11.3, 22.6]);
+  });
+
+  it("states its rule and status in words, with every circle a link and the same links in the list", async () => {
+    const f = await fixture();
+    const body = renderAtlasMap(await loadAtlasMap(f.source, ON));
+    for (const words of ["2 if supervisors checked it;", "2 if AskRigor rated it high certainty, 1 if moderate;",
+      "1 if its page shows counted results for each group;", "1 if its page links to two or more sources;",
+      "1 if it was published or checked in the last 30 days.",
+      "The map is not a ranking of treatments and not a recommendation.",
+      "Nothing in the rule depends on what a finding says", "nothing here is medical advice",
+      `${NOT_CHECKED_LABEL}</li>`, "Checked by supervisors</li>", "Contested: another checked finding disagrees</li>",
+      '<a href="#map-rule">How the map is drawn</a> · <a href="#map-list">Skip the map and read it as a list</a>',
+      "A bigger circle is a finding the Atlas holds more about, not a treatment that works better.",
+      "4 findings: 2 contested, 2 not checked by supervisors yet.",
+      "On the map: 5 points (checked by supervisors +2, moderate certainty +1, counted results +1, new in the last 30 days +1).",
+      "On the map: 1 point (new in the last 30 days +1)."]) {
+      expect(body, words).toContain(words);
+    }
+    const map = body.slice(body.indexOf('<h2 id="map-topics">'), body.indexOf('<h2 id="map-list">'));
+    const list = body.slice(body.indexOf('<h2 id="map-list">'));
+    const links = (html: string) => [...html.matchAll(/href="\/atlas\/findings\/(P-\d+)"/gu)].map((match) => match[1]);
+    expect(links(map)).toEqual([f.shown.edited, f.shown.lowDose, f.shown.effect, f.shown.nothingFound, f.shown.hip]);
+    expect(links(list)).toEqual(links(map));
+    expect(map).toContain('role="group" aria-labelledby="map-topic-1"');
+    expect(map).toContain(`<title>${f.shown.effect}: ${escapeHtml(VELMOR_CARD.findings[0]!.claim)} (${NOT_CHECKED_LABEL}; 3 points)</title>`);
+    expect(map).toMatch(/<title>P-\d+: [^<]+ \(Contested; 5 points\)<\/title>/u);
+    expect(map).toContain('class="map-mark map-unreviewed"');
+    expect(map).toContain('class="map-mark map-contested"');
+    expect(map).toContain('class="map-hole"');
+    expect(body).not.toContain(f.shown.lead);
+    for (const value of Object.values(NEVER)) expect(body).not.toContain(value);
+    expect(body).not.toMatch(/<script|<foreignObject|\son[a-z]+=|\sstyle=/iu);
+    expect(atlasPageProblems(body)).toEqual([]);
+    const ids = [...body.matchAll(/\sid="([^"]+)"/gu)].map((match) => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    const empty = renderAtlasMap({ topics: [], newSince: "2026-10-06" });
+    expect(empty).toContain("<p>Nothing is published yet.</p>");
+    expect(empty).toContain("The map is not a ranking of treatments and not a recommendation.");
+    expect(ATLAS_CSS).toContain(".map-unreviewed { fill: var(--unreviewed-surface); stroke: var(--unreviewed);");
+  });
+
+  it("is served like the other pages: one route, the page policy, HEAD, the cache and its invalidation", async () => {
+    const f = await fixture();
+    expect(atlasRouteOf("/atlas/map")).toEqual({ kind: "map" });
+    expect(atlasRouteOf("/atlas/map/extra")).toBeUndefined();
+    let reads = 0;
+    const source: AtlasPageSource = { read: async (work) => { reads += 1; return f.source.read(work); } };
+    const signal = new AtlasChangeSignal();
+    const base = await serve(pages(source, { signal, now: () => ON.getTime() }));
+    const page = await text(base, "/atlas/map");
+    expect(page.response.status).toBe(200);
+    expectPageHeaders(page.response);
+    expect(page.body).toContain('<a href="/atlas/map" aria-current="page">Findings map</a>');
+    expect(page.body).toContain('<link rel="canonical" href="https://askrigor.com/atlas/map">');
+    expect(page.body).toContain("On the map: 5 points");
+    await text(base, "/atlas/map?unused=anything");
+    expect(reads).toBe(1);
+    signal.announce();
+    await text(base, "/atlas/map");
+    expect(reads).toBe(2);
+    const head = await text(base, "/atlas/map", { method: "HEAD" });
+    expect(head.response.status).toBe(200);
+    expect(head.body).toBe("");
+    expect((await text(base, "/atlas")).body).toContain('<a href="/atlas/map">See every finding on the findings map</a>');
+    expect((await text(base, "/atlas/topics")).body).toContain('<a href="/atlas/map">See the topics on the findings map</a>');
+  });
+});

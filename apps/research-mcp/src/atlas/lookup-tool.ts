@@ -5,7 +5,7 @@ import { livingEvidenceReuseConfigFromEnv } from "../config.js";
 import { getResearchFrontier, type ResearchFrontierReader } from "../research-frontier-tool.js";
 import { searchResearchFrontiers, researchFrontierSearchOutputSchema, type ResearchFrontierCatalogReader } from "../research-frontier-search-tool.js";
 import { issueResearchReceipt, researchTargetDigest, type ResearchReceiptOptions } from "../research-receipts.js";
-import { loadAtlasFindings, loadAtlasTopic, NOT_CHECKED_LABEL, type ShownFinding } from "./page-data.js";
+import { loadAtlasFindings, loadAtlasSearch, loadAtlasTopic, NOT_CHECKED_LABEL, type ShownFinding } from "./page-data.js";
 import { atlasSearchQuery } from "./search.js";
 import { atlasPageUrl, atlasReceiptFinding } from "./reuse.js";
 
@@ -83,7 +83,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     record_type: "atlas_lookup", retrieved_at: now().toISOString(), status: "complete", query_words: query?.words ?? [],
     topic_key: input.topic_key ?? null, findings: [], has_more: false, topic_leads: [], open_trails: [],
     trails_have_more: false, limitations: [
-      "Word search uses the public Atlas pages' exact tokens; different wording may leave relevant findings unmatched. No match is not evidence of absence.",
+      "Word search reads each public finding's text as the Atlas search page does: every word must be there, case and accents ignored, as part of a longer word too, but a single letter or digit only on its own; findings whose wording holds every word come first. Different wording may leave relevant findings unmatched. No match is not evidence of absence.",
       "Unchecked findings are leads, never established findings. Re-read at least one of their sources before using them beyond a lead.",
       "Stored plans and their trails are research control, not evidence. Currentness is not assessed.",
     ],
@@ -106,11 +106,19 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
   }
   const returned = new Map<string, ShownFinding>();
   try {
-    const page = await loadAtlasFindings(dependencies.source, { ...(query === undefined ? {} : { search: query }),
-      ...(input.topic_key === undefined ? {} : { topicKey: input.topic_key }) });
-    const findings = page.findings.slice(0, input.limit);
+    const topicKey = input.topic_key === undefined ? {} : { topicKey: input.topic_key };
+    // The search page's order (best matches first) or, for a topic alone, the newest first.
+    let findings: ShownFinding[];
+    if (query === undefined) {
+      const page = await loadAtlasFindings(dependencies.source, topicKey);
+      findings = page.findings.slice(0, input.limit);
+      output.has_more = page.before !== null || page.findings.length > input.limit;
+    } else {
+      const search = await loadAtlasSearch(dependencies.source, { search: query, ...topicKey });
+      findings = search.results.slice(0, input.limit).map(({ finding }) => finding);
+      output.has_more = search.total > input.limit;
+    }
     output.findings = findings.map((finding) => publicFinding(finding, origin));
-    output.has_more = page.before !== null || page.findings.length > input.limit;
     const topics = [...new Set([...(input.topic_key === undefined ? [] : [input.topic_key]),
       ...findings.flatMap(({ topic }) => topic === null ? [] : [topic.key])])];
     // Topic leads do not need to contain the query's words; they are open leads of the matched topic.

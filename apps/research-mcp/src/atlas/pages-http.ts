@@ -26,8 +26,11 @@ import {
   loadAtlasChanges,
   loadAtlasFinding,
   loadAtlasFindings,
+  loadAtlasMap,
+  loadAtlasSearch,
   loadAtlasTopics,
   ATLAS_FINDING_FILTERS,
+  ATLAS_SEARCH_MAX_PAGE,
   type AtlasFindingFilter,
   loadAtlasHome,
   loadAtlasOwnComments,
@@ -46,6 +49,7 @@ import {
   renderAtlasChanges,
   renderAtlasFinding,
   renderAtlasFindings,
+  renderAtlasMap,
   renderAtlasTopics,
   renderAtlasSearch,
   renderAtlasHome,
@@ -101,8 +105,8 @@ import {
 /**
  * The public Atlas pages over HTTP (decision 171, sections 4C to 4E; design
  * docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md, sections C to E). The research server answers /atlas,
- * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/findings, /atlas/topics, /atlas/search, /atlas/changes and
- * /atlas/atlas.css; any other /atlas path answers
+ * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/findings, /atlas/topics, /atlas/map, /atlas/search,
+ * /atlas/changes and /atlas/atlas.css; any other /atlas path answers
  * 404, and every path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. Every /atlas response carries the pages' own
  * content policy and headers. Nothing about a reader is logged; a reader who does not sign in gets no cookie, and the
  * per-address rate limit keeps a counter in memory, as the evidence-gap page's does, counting an IPv6 address by its
@@ -175,6 +179,7 @@ export type AtlasRoute =
   | { kind: "changes" }
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   | { kind: "topics" }
+  | { kind: "map" }
   | { kind: "search" }
   | { kind: "topic"; topicKey: string }
   | { kind: "finding"; publicationNumber: string }
@@ -218,6 +223,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/changes") return { kind: "changes" };
   if (pathname === "/atlas/findings") return { kind: "findings" };
   if (pathname === "/atlas/topics") return { kind: "topics" };
+  if (pathname === "/atlas/map") return { kind: "map" };
   if (pathname === "/atlas/search") return { kind: "search" };
   const topic = TOPIC_ROUTE.exec(pathname);
   if (topic !== null) return { kind: "topic", topicKey: topic[1]! };
@@ -464,6 +470,13 @@ const publicationCursor = (query: URLSearchParams): string | undefined => {
   return number === undefined ? undefined : `P-${number}`;
 };
 
+/** A search's results page, from 1 to ATLAS_SEARCH_MAX_PAGE; anything else is the first. */
+const searchPage = (query: URLSearchParams): number => {
+  const match = /^[1-9][0-9]{0,2}$/u.exec(query.get("page") ?? "");
+  const page = match === null ? 1 : Number(match[0]);
+  return page <= ATLAS_SEARCH_MAX_PAGE ? page : 1;
+};
+
 /** The notice a page's done= names, or null: only a notice's own name, never an object's property. */
 const noticeOf = (done: string) => Object.hasOwn(NOTICES, done) ? NOTICES[done]! : null;
 
@@ -620,7 +633,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
-  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" }>,
+  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" }>,
     source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "home":
@@ -631,6 +644,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         return checked({ status: 200, html: renderAtlasFindings(await loadAtlasFindings(source, route), reader) });
       case "topics":
         return checked({ status: 200, html: renderAtlasTopics(await loadAtlasTopics(source), reader) });
+      case "map":
+        return checked({ status: 200, html: renderAtlasMap(await loadAtlasMap(source, clock()), reader) });
       case "topic": {
         const model = await loadAtlasTopic(source, route.topicKey);
         return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
@@ -1012,12 +1027,10 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         // This still uses the common address limiter and method/body checks above.
         const query = queryOf(request);
         const parsed = atlasSearchQuery(query.get("q"));
-        const before = publicationCursor(query);
         try {
           if (parsed.query !== null && source === undefined) throw new Error("ATLAS_READER_UNAVAILABLE");
-          const results = parsed.query === null ? null : await loadAtlasFindings(source!, {
-            search: parsed.query, ...(before === undefined ? {} : { before }),
-          });
+          const results = parsed.query === null ? null
+            : await loadAtlasSearch(source!, { search: parsed.query, page: searchPage(query) });
           const page = checked({ status: 200, html: renderAtlasSearch({ ...parsed, results },
             participation === undefined ? undefined : signedOutReader("/atlas/search")) });
           write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });
@@ -1048,7 +1061,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await ownCommentsRoute(request, response, participation, source, now);
           return true;
         }
-        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" }>;
+        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);

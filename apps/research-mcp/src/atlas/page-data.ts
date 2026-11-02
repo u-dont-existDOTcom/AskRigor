@@ -18,7 +18,12 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { passesPageGuard } from "./page-guard.js";
-import { atlasSearchWords, type AtlasSearchQuery } from "./search.js";
+import {
+  atlasSearchMatch,
+  type AtlasSearchField,
+  type AtlasSearchQuery,
+  type AtlasSearchText,
+} from "./search.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -260,6 +265,11 @@ export function canonicalIdentifier(identifier: { scheme: string; value: string 
   const pattern = CANONICAL[identifier.scheme as AtlasPageSourceScheme];
   return pattern !== undefined && pattern.test(identifier.value);
 }
+
+/** The words a source's link shows before its identifier. */
+export const SOURCE_SCHEME_WORDS: Record<AtlasPageSourceScheme, string> = {
+  doi: "DOI", pmid: "PMID", pmcid: "PMCID", nct: "ClinicalTrials.gov",
+};
 
 // Resolving publications ----------------------------------------------------------------------------------------------
 
@@ -607,7 +617,7 @@ async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator
 
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
 export async function loadAtlasFindings(source: AtlasPageSource, options: {
-  before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery; topicKey?: string;
+  before?: string; filter?: AtlasFindingFilter; topicKey?: string;
 } = {}): Promise<AtlasFindingsModel> {
   return await source.read(async (reads) => {
     const filter = options.filter ?? "all";
@@ -617,17 +627,83 @@ export async function loadAtlasFindings(source: AtlasPageSource, options: {
       if ((filter === "checked" && finding.status.kind === "unreviewed") ||
         (filter === "unreviewed" && finding.status.kind !== "unreviewed") ||
         (filter === "contested" && !isContested(finding))) continue;
-      if (options.search !== undefined) {
-        const words = new Set([finding.question, finding.claim, finding.appliesTo, finding.subject, finding.topic?.label]
-          .flatMap((field) => field == null ? [] : atlasSearchWords(field)));
-        if (!options.search.words.every((word) => words.has(word))) continue;
-      }
       findings.push(finding);
       if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
     }
     const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
     const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
     return { findings: visible, filter, before: more ? visible.at(-1)!.publicationNumber : null };
+  });
+}
+
+// Search (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md) ----------------------------
+
+/**
+ * What search reads of a finding: the text its page shows, part by part. Never a label the pages add (kind, direction,
+ * certainty), a vote or a comment, or a card's or version's text the pages leave out.
+ */
+export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
+  const parts: Array<[AtlasSearchField, ReadonlyArray<string | null | undefined>]> = [
+    ["wording", [finding.claim]],
+    ["question", [finding.question]],
+    ["applies_to", [finding.appliesTo]],
+    ["subject", [finding.subject]],
+    ["topic", [finding.topic?.label]],
+    ["why_not_usual", [finding.whyNotUsual]],
+    ["what_would_change_it", [finding.whatWouldChangeIt]],
+    ["numbers", finding.numbers.flatMap((entry) => [entry.outcome, entry.followUp, entry.option, entry.comparator])],
+    ["searches", finding.searches.map(({ query }) => query)],
+    ["sources", finding.sources.flat().filter(canonicalIdentifier)
+      .map(({ scheme, value }) => `${SOURCE_SCHEME_WORDS[scheme]} ${value}`)],
+    ["number", [finding.publicationNumber, finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber]],
+  ];
+  return parts.flatMap(([field, values]) => {
+    const text = values.filter((value): value is string => typeof value === "string" && value !== "").join("\n");
+    return text === "" ? [] : [{ field, text }];
+  });
+}
+
+/** The deepest results page a search answers. */
+export const ATLAS_SEARCH_MAX_PAGE = 100;
+export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[] }
+export interface AtlasSearchModel {
+  results: AtlasSearchResult[];
+  /** How many findings match in all. */
+  total: number;
+  /** This page, from 1, and how many pages the matches fill (at least 1). */
+  page: number;
+  pages: number;
+}
+
+/**
+ * Every shown publication whose text holds the query's words (search.ts): by rank, those holding the query as typed
+ * first within a rank, and the newest first among equals, a page of ATLAS_FINDINGS_PER_PAGE at a time. Each group keeps
+ * only the matches the page can reach.
+ */
+export async function loadAtlasSearch(source: AtlasPageSource, options: {
+  search: AtlasSearchQuery; topicKey?: string; page?: number;
+}): Promise<AtlasSearchModel> {
+  const page = options.page ?? 1;
+  if (!Number.isSafeInteger(page) || page < 1 || page > ATLAS_SEARCH_MAX_PAGE) throw new Error("ATLAS_SEARCH_PAGE_INVALID");
+  return await source.read(async (reads) => {
+    const reach = page * ATLAS_FINDINGS_PER_PAGE;
+    const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
+    let total = 0;
+    for await (const finding of allShown(reads)) {
+      if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
+      const match = atlasSearchMatch(options.search, searchTextsOf(finding));
+      if (match === undefined) continue;
+      total += 1;
+      const group = groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!;
+      if (group.length < reach) group.push({ finding, foundIn: match.foundIn });
+    }
+    const ordered = groups.flat();
+    return {
+      results: ordered.slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
+      total,
+      page,
+      pages: Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE)),
+    };
   });
 }
 
@@ -647,6 +723,100 @@ export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTop
     }
     return { topics: [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key)),
       withoutTopic };
+  });
+}
+
+// The findings map (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md) ---------------
+
+/** The most circles one topic shows on the map; its page lists the rest. */
+export const ATLAS_MAP_TOPIC_FINDINGS = 60;
+/** A finding published or checked within this many days gets the map's point for being new. */
+export const ATLAS_MAP_NEW_DAYS = 30;
+
+/**
+ * A finding's points on the map, the rule the page states: 2 if supervisors checked it (checked or contested); 2 for
+ * AskRigor's high certainty, 1 for moderate; 1 for counted results; 1 for two or more linked sources; 1 for being new.
+ * None depends on what the finding says.
+ */
+export interface AtlasMapPoints {
+  checked: 0 | 2;
+  certainty: 0 | 1 | 2;
+  numbers: 0 | 1;
+  sources: 0 | 1;
+  recent: 0 | 1;
+  total: number;
+}
+
+export interface AtlasMapFinding { finding: ShownFinding; points: AtlasMapPoints }
+
+export interface AtlasMapTopic {
+  /** null for the findings with no topic (older cards). */
+  topic: { key: string; label: string } | null;
+  /** How many of its findings belong on the map; at most ATLAS_MAP_TOPIC_FINDINGS of them are drawn. */
+  count: number;
+  findings: AtlasMapFinding[];
+}
+
+export interface AtlasMapModel {
+  topics: AtlasMapTopic[];
+  /** The first day that counts as new, YYYY-MM-DD. */
+  newSince: string;
+}
+
+/** The sources a finding's page links to: those with an identifier in canonical form. */
+export const linkedSources = (finding: ShownFinding) =>
+  finding.sources.filter((identifiers) => identifiers.some(canonicalIdentifier)).length;
+
+/** The newest of the day a finding was published and the day supervisors checked it, YYYY-MM-DD. */
+const latestDay = (finding: ShownFinding) => {
+  const published = finding.publishedAt.slice(0, 10);
+  const checked = finding.status.kind === "unreviewed" ? "" : finding.status.checkedOn;
+  return checked > published ? checked : published;
+};
+
+export function atlasMapPoints(finding: ShownFinding, newSince: string): AtlasMapPoints {
+  const checked = finding.status.kind === "checked" || finding.status.kind === "contested" ? 2 : 0;
+  const certainty = finding.certainty === "high" ? 2 : finding.certainty === "moderate" ? 1 : 0;
+  const numbers = finding.numbers.length > 0 ? 1 : 0;
+  const sources = linkedSources(finding) >= 2 ? 1 : 0;
+  const recent = latestDay(finding) >= newSince ? 1 : 0;
+  return { checked, certainty, numbers, sources, recent, total: checked + certainty + numbers + sources + recent };
+}
+
+/**
+ * The findings map: every shown finding but leads and superseded ones (as the home lanes), once per F number, by topic.
+ * Within a topic, more points first, then the newest published; topics with more findings first, then by label, and
+ * the findings with no topic last.
+ */
+export async function loadAtlasMap(source: AtlasPageSource, now: Date): Promise<AtlasMapModel> {
+  return await source.read(async (reads) => {
+    const newSince = new Date(now.getTime() - ATLAS_MAP_NEW_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const shown: ShownFinding[] = [];
+    for await (const finding of allShown(reads)) shown.push(finding);
+    const groups = new Map<string, { topic: AtlasMapTopic["topic"]; findings: AtlasMapFinding[] }>();
+    for (const finding of oncePerFinding(shown).filter(inLanes)) {
+      const key = finding.topic?.key ?? "";
+      let group = groups.get(key);
+      if (group === undefined) {
+        group = { topic: finding.topic === null ? null : { ...finding.topic }, findings: [] };
+        groups.set(key, group);
+      } else if (group.topic !== null && finding.topic !== null && finding.status.kind !== "unreviewed") {
+        // As on the topic page, prefer the canonical topic label over a card's earlier spelling.
+        group.topic.label = finding.topic.label;
+      }
+      group.findings.push({ finding, points: atlasMapPoints(finding, newSince) });
+    }
+    const topics = [...groups.values()].map(({ topic, findings }) => ({
+      topic,
+      count: findings.length,
+      // Stable: findings arrive newest published first.
+      findings: findings.sort((left, right) => right.points.total - left.points.total).slice(0, ATLAS_MAP_TOPIC_FINDINGS),
+    }));
+    topics.sort((left, right) => Number(left.topic === null) - Number(right.topic === null) ||
+      right.count - left.count ||
+      (left.topic?.label ?? "").localeCompare(right.topic?.label ?? "", "en") ||
+      (left.topic?.key ?? "").localeCompare(right.topic?.key ?? ""));
+    return { topics, newSince };
   });
 }
 

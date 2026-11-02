@@ -35,8 +35,9 @@ own, not joined to letters of the same kind or to digits (the `D` of `vitamin D3
 `deficiency` does not). Exact Unicode categories decide this; there is no word list, stemming or language guess.
 
 **Order.** Findings whose wording holds every word come first: those where each word stands as a whole word before the
-rest. Then findings whose text holds every word, whole words first. Newest first within each group. Each result says
-where its words were found.
+rest. Then findings whose text holds every word, whole words first. Within each of these four groups, a finding that
+holds the query as typed comes first (a number such as `P-1003`, a DOI or a phrase: `P-1003` is two words, `p` and
+`1003`, which another finding's F number can also hold), then the newest. Each result says where its words were found.
 
 **Paging.** Every match is found before the page is cut, so results page by number (`page=2`, 20 a page) with the
 total shown; the query handling is unchanged (not stored, logged or cached, `private, no-store`, `no-referrer`).
@@ -94,8 +95,15 @@ ring. A link before the clusters skips to "The map as a list": per topic, every 
 with its status and its points. Shape as well as colour shows status. Topic cards flow into one column at phone width
 (375px) and the clusters scale with it; light and dark use the existing tokens.
 
-**Layout.** A deterministic sunflower spiral per topic: circles in the topic's order, each placed at a distance that
-grows with the area before it, spread until no two overlap. The island behind a cluster is a circle around it.
+**Layout.** A deterministic sunflower spiral per topic: circles in the topic's order, the first in the middle and each
+next one on its own ray (turning by the golden angle), as close to the middle as it fits beside those already placed.
+The island behind a cluster is a circle around it.
+
+**As built** (rendered locally from invented data, every topic marked "(invented)"):
+[light, desktop](2026-11-02-atlas-findings-map-light-desktop.jpg) and
+[dark, 375px](2026-11-02-atlas-findings-map-dark-phone.jpg). The first sentence under the title carries the warning
+("a finding the Atlas holds more about, not a treatment that works better"), the key follows, then the map; the full
+rule sits under the map, so a phone reaches the clusters without scrolling past it.
 
 ## Tests
 

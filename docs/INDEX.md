@@ -119,6 +119,9 @@ complete XML protocol.
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
 - `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
   with a test of how many threads open to a plain request; waits for owner question 213.
+- `superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`: Atlas search over each finding's whole page
+  text, in any language, the wording's matches first; and `/atlas/map`, the findings as circles by topic with a stated
+  size rule that is not a treatment ranking.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none
