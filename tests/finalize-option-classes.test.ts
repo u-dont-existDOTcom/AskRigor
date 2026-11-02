@@ -460,7 +460,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
 
   if (surface === "MCP endpoint") it("publishes option_classes flat, with its catalog text", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     const tool = tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain("and whether the answer compares treatment options; with a comparison, each " +
       "plausible class of treatment, researched by name, not researched or out of reach (option_classes);");

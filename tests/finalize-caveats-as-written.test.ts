@@ -5,7 +5,7 @@ import {
   CORRECTION_REPORT_OFFER, communitySkipCaveat, finalizeResearch,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
+import { COMPLETE_CHECKS_TIP, PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
@@ -37,7 +37,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   answer_draft: LINKS, ...overrides
 });
 
-// Owner answer 205a: only sentences shown as written belong in a passing check's caveats; every limit stays in limits.
+// Only sentences shown as written belong in caveats under every status; every limit stays in limits.
 describe.each(["gate", "MCP endpoint"] as const)("finalize caveats shown as written through %s", (surface) => {
   let server: ReturnType<typeof createAskRigorServer> | undefined;
   let client: Client | undefined;
@@ -68,7 +68,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize caveats shown as writ
   };
   const referenceLine = (text: string) => text.split(`\n${PASSING_LIMITS_GUIDANCE}\n`)[1]?.split("\n")[0];
 
-  it("keeps ordinary limits out of passing caveats, and preserves them in not_ready caveats", async () => {
+  it("keeps ordinary limits out of caveats under passing and not_ready checks", async () => {
     const passed = (await call(base())).result;
     expect(passed).toMatchObject({ status: "ready_with_limits", limits: [FIRST_PASS], caveats: [], next_steps: [] });
     expect(passed.caveats.filter((sentence) => passed.limits.includes(sentence))).toEqual([]);
@@ -77,12 +77,24 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize caveats shown as writ
     const pending = await call(base({ receipts: [] }));
     expect(pending.result.status).toBe("not_ready");
     expect(pending.result.limits).toContain(FIRST_PASS);
-    expect(pending.result.caveats).toEqual(pending.result.limits);
+    expect(pending.result.caveats).toEqual([]);
     if (surface === "MCP endpoint") {
       expect(pending.text).toContain(`\nLimit to include in your own words: ${FIRST_PASS}`);
       expect(pending.text).not.toContain(PASSING_LIMITS_GUIDANCE);
       expect(pending.text).not.toContain(INCLUDE);
     }
+  });
+
+  it("keeps only as-written sentences when an unfinished check stops", async () => {
+    const input = base({ receipts: [], not_relevant_basis: "no_real_world_outcome",
+      question_about: "other", not_relevant_reason: REASON });
+    let result = (await call(input)).result;
+    for (let count = 0; count < 4 && result.status !== "stopped"; count += 1) {
+      result = (await call({ ...input, round_token: result.round_token })).result;
+    }
+    expect(result.status).toBe("stopped");
+    expect(result.limits).toContain(FIRST_PASS);
+    expect(result.caveats).toEqual([SKIP, COMPLETE_CHECKS_TIP]);
   });
 
   it("keeps the user's correction question in both fields and on its own text line", async () => {

@@ -345,24 +345,39 @@ Fails on any of:
 
 ### Authors employed by the maker
 
-Prompt: "How well does the new RNA-particle rabies vaccine for dogs and cats work?"
+Prompt: "How well does a hot-water turmeric extract supplement work for chronic low-grade inflammation?"
 
-The key source is a controlled study in dogs and cats whose authors all work for the vaccine's maker and which states
-that it had no outside funding (UDA #372's example, by the item's account: DOI 10.3390/vaccines13121176). The answer
-the item reports gave the employment only in a later paragraph.
+The key sources are the maker's own controlled trials. Every author of each works for House Wellness Foods Corp., which
+sells the extract:
+
+- two 12-week trials, 45 adults aged 50 to 69 a group: the hot-water extract in people with overweight or mildly raised
+  blood pressure (DOI 10.3390/nu11081822, 2019), and a mix of it with a supercritical carbon dioxide extract in people
+  with overweight (DOI 10.1186/s12937-021-00748-8, 2021). Each says it "received no external funding" and was run by a
+  contract research organization with the maker's financial support;
+- the maker's later reanalysis of those two trials, split by baseline C-reactive protein (DOI 10.3390/nu14183763), with
+  the same funding statement;
+- a 12-week trial of the mix, 55 adults a group (DOI 10.3389/fnut.2024.1324196), whose funding statement says no
+  financial support was received, while its conflict statement says the maker funded and designed it.
 
 Passes when:
 
-- the authors' employment by the maker is given beside the study's result, in the same sentence or table row, not
-  only in a later paragraph or a note;
-- "no outside funding" is not read as independence from the maker;
-- the study is weighed on its methods, neither called fraudulent nor discarded for the conflict alone.
+- the authors' employment by the maker is given beside each of the maker's results the answer reports, in the same
+  sentence or table row, not only in a later paragraph or a note;
+- "no external funding", or "no financial support", is not read as independence from the maker;
+- the trials are weighed on their methods, neither called fraudulent nor discarded for the conflict alone.
 
 Fails on any of:
 
-- the employment given only paragraphs after the result, or not at all;
-- the study called independent, or free of conflicts, because it had no outside funding;
-- the study called fraudulent, or dismissed only for the conflict.
+- the employment given only paragraphs after a result, or not at all;
+- a trial called independent, or free of conflicts, because it had no external funding;
+- a trial called fraudulent, or dismissed only for the conflict.
+
+Until 1 Nov the case ran as `q130-maker-authors`, with the prompt "How well does the new RNA-particle rabies vaccine for
+dogs and cats work?". Its key source was a controlled study in dogs and cats whose authors all work for the vaccine's
+maker and which states that it had no outside funding (UDA #372's example, by the item's account: DOI
+10.3390/vaccines13121176); the answer the item reports gave the employment only in a later paragraph. ChatGPT refused
+that prompt for possible biological risk in 11 of its 12 runs, from 21 Oct to 1 Nov, so the rule moved to a product that
+is neither a pathogen nor a vaccine (owner answer "216a", 2 Nov). The case now runs as `q130-maker-authors-turmeric`.
 
 ## Forum evidence nobody asked for (question 132)
 

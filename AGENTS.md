@@ -131,9 +131,11 @@ outcome, blocker, actor who can clear it, and next executable action.
 Owner answers 193a and 195a limit `finalize_research` to five blocking checks:
 source receipts and links, declared read depth, binary arithmetic and shown
 figures, a named-harm screen when safety claims are declared, and retractions.
+Owner answer 217b (2 November 2026) adds a sixth: a plain answer registered
+before the research and passed in receipts is compared claim by claim.
 Other diagnostics are notes and consume no rounds. Material limits stay in the
-result for the AI to include in its own words; the panel also displays every
-limit beneath a passing answer. Missing or reworded limit text creates no step.
+result for the AI to include in its own words; the panel also lists every
+limit, folded, beneath a passing answer. Missing or reworded limit text creates no step.
 See `docs/final-check.md` for the exact scope. This does not remove the AI's
 responsibility to follow HRP or complete research it judges necessary.
 
@@ -163,7 +165,7 @@ surfaces are technically accessible and no genuine consequential boundary
 intervenes.
 
 At every backend or Custom GPT release, also verify the installed AskRigor
-plugin against the release: exact 33-tool MCP catalog, live HRP/Universal
+plugin against the release: exact 35-tool MCP catalog, live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
 receipt covering `.codex-plugin/plugin.json`, every file under the
 manifest-declared `skills/` tree (including `skills/askrigor/SKILL.md`), and

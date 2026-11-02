@@ -14,10 +14,12 @@ import type { UnpaywallConfig } from "./unpaywall.js";
 
 const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
 const PMCID_PATTERN = /^PMC[1-9]\d{0,15}$/u;
+const PMID_PATTERN = /^[1-9]\d{0,15}$/u;
 
 export interface AcquireOpenFullTextInput {
-  doi: string;
+  doi?: string;
   pmcid?: string;
+  pmid?: string;
   candidate_urls?: CandidateUrl[];
   candidate_texts?: CandidateText[];
   public_copy_search?: PublicCopySearch;
@@ -40,8 +42,9 @@ export interface AcquireOpenFullTextRuntime {
   candidateRuntime?: CandidateFullTextRuntime;
 }
 export interface OpenFullTextAcquisitionData {
-  requested_doi: string;
+  requested_doi?: string;
   requested_pmcid?: string;
+  requested_pmid?: string;
   outcome: "full_text_indexed" | "possibly_useful_lead";
   discovery_attempts: Array<{
     route: "europe_pmc" | "unpaywall" | "candidate" | "owner_library";
@@ -64,28 +67,46 @@ export async function acquireOpenFullText(
   unpaywallConfig: UnpaywallConfig | undefined,
   runtime: AcquireOpenFullTextRuntime = {}
 ): Promise<ProvenanceEnvelope<OpenFullTextAcquisitionData>> {
-  const doi = normalizeDoi(rawInput.doi);
-  if (!DOI_PATTERN.test(doi)) throw new Error("Invalid open-full-text DOI");
+  const doi = rawInput.doi === undefined ? undefined : normalizeDoi(rawInput.doi);
+  if (doi !== undefined && !DOI_PATTERN.test(doi)) throw new Error("Invalid open-full-text DOI");
   const pmcid = rawInput.pmcid?.trim().toUpperCase();
   if (pmcid !== undefined && !PMCID_PATTERN.test(pmcid)) throw new Error("Invalid open-full-text PMCID");
+  const pmid = rawInput.pmid?.trim();
+  if (pmid !== undefined && !PMID_PATTERN.test(pmid)) throw new Error("Invalid open-full-text PMID");
+  if (doi === undefined && pmcid === undefined && pmid === undefined) {
+    const boundary = "Give at least one paper identifier: doi, pmcid or pmid.";
+    return errorEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition",
+      pagination: { exhausted: true }, returned: 0, accessStatus: "partial", limitations: [boundary],
+      code: "open_full_text_identifier_required", message: boundary, retryable: false,
+      data: { outcome: "possibly_useful_lead", discovery_attempts: [], access_boundary: boundary }
+    }) as ProvenanceEnvelope<OpenFullTextAcquisitionData>;
+  }
+  const requested = { ...(doi === undefined ? {} : { requested_doi: doi }),
+    ...(pmcid === undefined ? {} : { requested_pmcid: pmcid }), ...(pmid === undefined ? {} : { requested_pmid: pmid }) };
+  const identifier = doi ?? pmcid ?? pmid!;
   const supplied = rawInput.candidate_urls === undefined ? [] : candidateUrlsSchema.parse(rawInput.candidate_urls);
   const suppliedTexts = rawInput.candidate_texts === undefined ? [] : candidateTextsSchema.parse(rawInput.candidate_texts);
   const search = rawInput.public_copy_search === undefined ? undefined : publicCopySearchSchema.parse(rawInput.public_copy_search);
   const attempts: OpenFullTextAcquisitionData["discovery_attempts"] = [];
-  let identity: FrozenArticleIdentity = { doi };
+  let identity: FrozenArticleIdentity = { doi, pmcid, pmid };
   let licenseBasis: PublicBasis | undefined;
   let abstractText: string | undefined;
   let resolvedPmcid = pmcid;
   try {
-    // The same DOI search also supplies a single exact metadata identity; no
+    // The same identifier search also supplies a single exact metadata identity; no
     // extra metadata host or DOI redirect request is introduced.
     // A supplied search-index copy is checked against the abstract, which only "core" records carry.
-    const result = await (runtime.searchEuropePmc ?? searchEuropePmc)({ query: `DOI:"${doi}"`, pageSize: 10,
+    const query = doi !== undefined ? `DOI:"${doi}"` : pmcid !== undefined
+      ? `EXT_ID:"${pmcid}" AND SRC:PMC` : `EXT_ID:"${pmid}" AND SRC:MED`;
+    const result = await (runtime.searchEuropePmc ?? searchEuropePmc)({ query, pageSize: 10,
       ...(suppliedTexts.length > 0 ? { resultType: "core" as const } : {}) });
     if (result.access_status === "complete") {
-      const records = result.data.filter((record) => record.doi !== undefined && normalizeDoi(record.doi) === doi);
+      const records = result.data.filter((record) => doi !== undefined
+        ? record.doi !== undefined && normalizeDoi(record.doi) === doi
+        : pmcid !== undefined ? record.pmcid?.toUpperCase() === pmcid || record.source === "PMC" && record.id.toUpperCase() === pmcid
+          : record.pmid === pmid || record.source === "MED" && record.id === pmid);
       if (records.length === 1) {
-        identity = identityFromRecord(records[0]!, doi);
+        identity = { ...identity, ...identityFromRecord(records[0]!, doi ?? records[0]!.doi) };
         abstractText = records[0]!.abstractText;
         resolvedPmcid ??= records[0]!.pmcid?.toUpperCase();
       }
@@ -98,7 +119,8 @@ export async function acquireOpenFullText(
       const result = await (runtime.fetchEuropePmcFullText ?? fetchEuropePmcFullText)(resolvedPmcid);
       if ((result.access_status === "complete" || result.access_status === "partial") && "xml" in result.data) {
         const article = result.data as EuropePmcFullTextArticle;
-        if (article.doi !== undefined && normalizeDoi(article.doi) !== doi) {
+        if (doi !== undefined && article.doi !== undefined && normalizeDoi(article.doi) !== doi ||
+            pmid !== undefined && article.pmid !== undefined && article.pmid !== pmid) {
           attempts.push({ route: "europe_pmc", result: "identity_mismatch", identifier: resolvedPmcid });
         } else {
           identity = { ...identity, title_variants: titleVariants(identity.title, ...(identity.title_variants ?? []), article.title), ...(identity.title === undefined && article.title !== undefined ? { title: article.title } : {}),
@@ -107,7 +129,7 @@ export async function acquireOpenFullText(
           const admission = admitFullText(rawIndex.blocks);
           if (article.document_completeness === "full_text_with_body") {
             attempts.push({ route: "europe_pmc", result: "indexed", identifier: resolvedPmcid });
-            return indexed(doi, pmcid, attempts, toAuditableDocumentIndex(rawIndex), undefined, checkPublicCopySearch(identity, search));
+            return indexed(requested, attempts, toAuditableDocumentIndex(rawIndex), undefined, checkPublicCopySearch(identity, search));
           }
           attempts.push({ route: "europe_pmc", result: admission.state === "ABSTRACT_ONLY" ? "abstract_only" : "partial_text", identifier: resolvedPmcid });
         }
@@ -116,9 +138,9 @@ export async function acquireOpenFullText(
         ...(result.error?.retryable === undefined ? {} : { retryable: result.error.retryable }) });
     } catch (error) { attempts.push({ route: "europe_pmc", result: "error", identifier: resolvedPmcid, ...upstreamFailureDetails(error) }); }
   }
-  if (unpaywallConfig === undefined) {
+  if (doi !== undefined && unpaywallConfig === undefined) {
     attempts.push({ route: "unpaywall", result: "error", identifier: doi });
-  } else {
+  } else if (doi !== undefined && unpaywallConfig !== undefined) {
     try {
       const result = await (runtime.acquireUnpaywallFullText ?? acquireUnpaywallFullText)(doi, unpaywallConfig, { ...runtime.unpaywallRuntime, identity });
       // Metadata from both existing providers is assembled once, before any
@@ -127,7 +149,7 @@ export async function acquireOpenFullText(
       if (result.access_status === "complete" && result.data.document_index !== undefined &&
           admitFullText(result.data.document_index.blocks).state === "FULL_TEXT_READABLE") {
         attempts.push({ route: "unpaywall", result: "indexed", identifier: doi });
-        return indexed(doi, pmcid, attempts, result.data.document_index, undefined, checkPublicCopySearch(identity, search));
+        return indexed(requested, attempts, result.data.document_index, undefined, checkPublicCopySearch(identity, search));
       }
       licenseBasis = result.data.public_basis;
       const state = result.data.acquisition_state;
@@ -162,10 +184,10 @@ export async function acquireOpenFullText(
     if (result.index !== undefined && (selected === undefined || rank > selected.rank)) selected = { index: result.index, rank };
   }
   // A public copy AskRigor admitted is returned as is; the owner library only fills a gap.
-  if (selected !== undefined) return indexed(doi, pmcid, attempts, selected.index, candidates, publicCopySearch);
+  if (selected !== undefined) return indexed(requested, attempts, selected.index, candidates, publicCopySearch);
   let librarySearchRequired = false;
   let libraryBoundary = "";
-  if (runtime.ownerLibrary !== undefined) {
+  if (doi !== undefined && runtime.ownerLibrary !== undefined) {
     // A public basis shows the paper's own text beyond its abstract on a public page whose identity passed, or an
     // open license. An abstract-only page, or a bare URL AskRigor could not read, is not a public copy of the paper.
     const verifiedCandidate = results.find((result) => result.candidate.identity_verification !== "not_verified" &&
@@ -191,7 +213,7 @@ export async function acquireOpenFullText(
         const admission = index === undefined ? inspection : admitFullText(index.blocks);
         if (index !== undefined && admission?.state === "FULL_TEXT_READABLE") {
           attempts.push({ route: "owner_library", result: "indexed", identifier: doi });
-          return indexed(doi, pmcid, attempts, { ...index, source: { ...index.source,
+          return indexed(requested, attempts, { ...index, source: { ...index.source,
             provider: "owner_library", retrieval_provider: "owner_library",
             canonical_url: runtime.ownerLibrary.access === "public_only" ? publicBasis!.url : `https://doi.org/${doi}`,
             ...(runtime.ownerLibrary.access === "public_only" ? { public_basis: publicBasis } : {})
@@ -213,7 +235,7 @@ export async function acquireOpenFullText(
   }
   const state: AcquisitionState = candidates.length === 0 ? publicCopySearch.status === "declared" ? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" : "PRIMARY_OA_ROUTES_EXHAUSTED" : overallCandidateState(candidates);
   const knownTitles = titleVariants(identity.title, ...(identity.title_variants ?? []));
-  const identifiers = `${knownTitles.length > 1 ? "titles" : "title"} ${knownTitles.length === 0 ? "unknown (metadata unavailable)" : knownTitles.map((title) => JSON.stringify(title)).join(" or ")}, DOI ${doi}, PMID ${identity.pmid ?? "unknown"}, PII ${identity.pii ?? "unknown"}`;
+  const identifiers = `${knownTitles.length > 1 ? "titles" : "title"} ${knownTitles.length === 0 ? "unknown (metadata unavailable)" : knownTitles.map((title) => JSON.stringify(title)).join(" or ")}, DOI ${identity.doi ?? "unknown"}, PMID ${identity.pmid ?? "unknown"}${resolvedPmcid === undefined ? "" : `, PMCID ${resolvedPmcid}`}, PII ${identity.pii ?? "unknown"}`;
   const discovery = `Exact public-copy discovery remains: an exact search by the listed ${identifiers}. candidate_urls records public copies found; candidate_texts accepts AI-supplied search-index copies; public_copy_search records the searches, including a search that found nothing without candidate_urls or candidate_texts.`;
   const missing = publicCopySearch.status === "missing_exact_identifiers"
     ? ` The declared queries lack the exact ${publicCopySearch.missing!.join(" and ")}.` : "";
@@ -225,31 +247,32 @@ export async function acquireOpenFullText(
     ? `The owner library requires a verified public basis for this account. ${discovery}${missing}`
     : state === "PRIMARY_OA_ROUTES_EXHAUSTED"
     ? `The primary open-access routes ended without an admitted copy. ${discovery}${missing}`
-    : `No supplied or primary-route${runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`) + pmcBoundary + libraryBoundary;
+    : `No supplied or primary-route${doi === undefined || runtime.ownerLibrary === undefined ? "" : " or owner-library"} copy was admitted. The public-copy search is ${publicCopySearch.status}.${missing}`) + pmcBoundary + libraryBoundary;
   const failed = hasFailedFullTextAcquisition({ discovery_attempts: attempts, candidates, acquisition_state: state });
   return errorEnvelope({
-    provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: doi,
-    sourceIdentity: { canonical_url: `https://doi.org/${doi}` }, pagination: { exhausted: true }, returned: 0,
+    provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: identifier,
+    sourceIdentity: { canonical_url: doi !== undefined ? `https://doi.org/${doi}` : pmcid !== undefined
+      ? `https://europepmc.org/articles/${pmcid}` : `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` }, pagination: { exhausted: true }, returned: 0,
     accessStatus: failed ? "error" : "partial", limitations: [boundary,
       "The citation remains a possibly useful lead requiring further investigation; unseen contents were not treated as evidence."],
     code: failed ? "open_full_text_route_failed" : "open_full_text_not_auditable", message: boundary, retryable: failed,
-    data: { requested_doi: doi, ...(pmcid === undefined ? {} : { requested_pmcid: pmcid }), outcome: "possibly_useful_lead",
+    data: { ...requested, outcome: "possibly_useful_lead",
       discovery_attempts: attempts, acquisition_state: state, public_copy_search: publicCopySearch, ...(candidates.length === 0 ? {} : { candidates }), access_boundary: boundary }
   }) as ProvenanceEnvelope<OpenFullTextAcquisitionData>;
 }
-function indexed(doi: string, pmcid: string | undefined, attempts: OpenFullTextAcquisitionData["discovery_attempts"], index: AuditableDocumentIndex, candidates?: FullTextCandidate[], publicCopySearch?: PublicCopySearchResult): ProvenanceEnvelope<OpenFullTextAcquisitionData> {
-  return okEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: doi,
+function indexed(requested: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "requested_pmid">, attempts: OpenFullTextAcquisitionData["discovery_attempts"], index: AuditableDocumentIndex, candidates?: FullTextCandidate[], publicCopySearch?: PublicCopySearchResult): ProvenanceEnvelope<OpenFullTextAcquisitionData> {
+  return okEnvelope({ provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: requested.requested_doi ?? requested.requested_pmcid ?? requested.requested_pmid,
     sourceIdentity: { canonical_url: index.source.canonical_url, ...(index.source.title === undefined ? {} : { title: index.source.title }) },
     pagination: { exhausted: true }, returned: 1, accessStatus: "complete",
     limitations: ["The admitted document is available for a source-linked method audit; retrieval and identity verification do not establish study validity.",
       "Claims remain limited to the exact study version, program, population, comparator, outcomes, horizon, and methods actually audited."],
     rawMetadata: { selected_route: index.source.provider, format: index.source.format, content_sha256: index.source.content_sha256, block_count: index.blocks.length },
-    data: { requested_doi: doi, ...(pmcid === undefined ? {} : { requested_pmcid: pmcid }), outcome: "full_text_indexed",
+    data: { ...requested, outcome: "full_text_indexed",
       discovery_attempts: attempts, document_index: index, public_copy_search: publicCopySearch, acquisition_state: "FULL_TEXT_READABLE", ...(candidates === undefined ? {} : { candidates }) }
   });
 }
-function identityFromRecord(record: EuropePmcRecord, doi: string): FrozenArticleIdentity {
-  return { doi, ...(record.pmid === undefined ? {} : { pmid: record.pmid }), ...(record.title === undefined ? {} : { title: record.title, title_variants: [record.title] }),
+function identityFromRecord(record: EuropePmcRecord, doi: string | undefined): FrozenArticleIdentity {
+  return { ...(doi === undefined ? {} : { doi: normalizeDoi(doi) }), ...(record.pmid === undefined ? {} : { pmid: record.pmid }), ...(record.title === undefined ? {} : { title: record.title, title_variants: [record.title] }),
     ...(record.authors?.[0] === undefined ? {} : { first_author: record.authors[0] }), ...(record.year === undefined ? {} : { year: record.year }),
     ...(record.journal === undefined ? {} : { journal: record.journal }), ...(record.pii === undefined ? {} : { pii: record.pii }) };
 }
