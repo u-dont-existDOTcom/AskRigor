@@ -68,6 +68,35 @@ sample spends only where it can still change the conclusion:
    pilot's three cases again, until the budget stops it. Both stages share one ledger, so `--budget 48` at $12 a case
    keeps the sample at $60 or less.
 
+## On the Claude plan, not the API (the owner, 2 November, about 23:15 UTC)
+
+The owner asked: "why we need to use the api credits if there's no web app. you can open a claude worker any time
+right here". The API was needed only to learn what a web app would pay and how long it would take, and the pilot
+measured that. Judging Claude's answers against ChatGPT's doesn't need it: a Claude worker on the owner's Claude plan
+gives the same model's answers at no API cost and, like ChatGPT's run through Codex, is an agent run from the laptop. So
+the overnight API run was stopped before it spent anything, API spending stays at $13.09 ($0.09 for the plumbing check
+and $13.00 for the pilot), and the sample runs on the plan, in the same stages and under the same rule.
+
+- `scripts/web-engine-worker.mts` runs each turn as Claude Code headless (`claude -p`, Claude Opus 5.5 at effort
+  `high`) with the engine's system prompt (the date, the server's instructions and the skill), AskRigor's tools on the
+  engine's sign-in, web search and web fetch, and nothing else. The user's settings, plugins, skills, memory and other
+  MCP servers are left out. It starts from an empty environment, so Claude Code uses its own claude.ai login; a turn
+  that reports an API key, or isn't connected to AskRigor, stops at once.
+- The engine's own functions decide every tool call, in a hook Claude Code runs before and after each one: the same
+  refusals, the limit of 100 AskRigor calls a turn, the save guard and the protocol guard. The account is checked before
+  each case as the engine checks it. Claude Code's permissions also remove the five tools the engine refuses, in case
+  the hook can't run, so the worker isn't offered them at all (the engine offered them and refused the calls).
+- **Differences from the engine that remain:** Claude Code shows the model each AskRigor result's structured content,
+  where the engine showed its text and then its structured content, and it compacts a conversation that outgrows the
+  model's context (the record says if a case was compacted). The cost Claude Code reports is what the same requests
+  would cost on the API; on the plan they come out of the plan's usage.
+- **Checked on 2 Nov at 23:25 UTC, with two small cases and no YouTube search:** the worker reported no API key, only
+  AskRigor (30 tools), web search and web fetch, and no instructions besides the system prompt. It loaded Universal's
+  index and saw its structured result. The hook refused the call it was set to refuse, with its reason, and the protocol
+  guard stopped a turn before its second call. Both cases together would have cost $0.62 on the API.
+- `plan-sample.sh` (outside the repository, beside `sample.sh`, which is no longer used) starts stage 1 by itself after
+  tonight's regression run, as before. Stage 2 runs only under the rule above.
+
 ## The sign-in (owner question 222)
 
 AskRigor's research tools need a signed-in account, and AskRigor accepts passes only from the two apps it knows,

@@ -55,7 +55,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 export const ASKRIGOR_ORIGIN = "https://mcp.askrigor.com";
 export const DEFAULT_MODEL = "claude-opus-5-5";
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
-const DEFAULT_TOKEN_FILE = join(homedir(), ".local", "state", "askrigor-web-engine", "token.json");
+export const DEFAULT_TOKEN_FILE = join(homedir(), ".local", "state", "askrigor-web-engine", "token.json");
 const MCP_CALL_TIMEOUT_MS = 10 * 60_000;
 const MAX_RESPONSE_TOKENS = 64_000;
 const MAX_TOOL_CALLS_AT_ONCE = 4;
@@ -459,14 +459,14 @@ async function runTurn(conversation: Conversation, log: EventLog, userText: stri
   return outcome;
 }
 
-function argument(name: string): string | undefined {
+export function argument(name: string): string | undefined {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 function argumentsNamed(name: string): string[] {
   return process.argv.flatMap((value, index) => value === name && index + 1 < process.argv.length ? [process.argv[index + 1]!] : []);
 }
-function numberArgument(name: string, fallback: number): number {
+export function numberArgument(name: string, fallback: number): number {
   const value = argument(name);
   if (value === undefined) return fallback;
   const parsed = Number(value);
@@ -474,9 +474,9 @@ function numberArgument(name: string, fallback: number): number {
   return parsed;
 }
 
-interface CaseInput { id: string; turns: string[] }
+export interface CaseInput { id: string; turns: string[] }
 
-function casesFromArguments(): CaseInput[] {
+export function casesFromArguments(): CaseInput[] {
   const regress = argument("--regress");
   if (regress !== undefined) {
     const preamble = readFileSync(join(regress, "preamble.md"), "utf8").trimEnd();
@@ -514,7 +514,7 @@ export function systemPrompt(instructions: string | undefined, today: string, sk
   }];
 }
 
-async function connectAskRigor(anonymous: boolean, nowSeconds: number): Promise<{ mcp: Client; passExpiresAt?: number }> {
+export async function connectAskRigor(anonymous: boolean, nowSeconds: number): Promise<{ mcp: Client; passExpiresAt?: number }> {
   let headers: Record<string, string> = {};
   let passExpiresAt: number | undefined;
   if (!anonymous) {

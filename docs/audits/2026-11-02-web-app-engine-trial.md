@@ -76,7 +76,22 @@ judged blind, on the Claude plan:
 Under the rule written before the result (worse in all three would have held the run for the owner), stage 1 is set to
 start by itself after tonight's regression run.
 
+## The sample runs on the Claude plan
+
+At about 23:15 UTC the owner asked why API credit was needed with no web app, when a Claude worker can run here. Only
+one question needed the API: what a web app would pay for an answer and how long the answer would take. The pilot
+answered it: $1.81 to $5.67 and 6 to 19 minutes a case, at effort `high`. Comparing Claude's answers with ChatGPT's doesn't
+need the API, and the sample should have been planned on the plan from the start. The overnight API run was stopped
+before it spent anything. API spending for the trial ends at $13.09 ($0.09 for the plumbing check and $13.00 for the
+pilot), and the rest of the $60 in owner answer 226b stays unspent.
+
+The sample runs on Claude workers on the owner's Claude plan (`scripts/web-engine-worker.mts`): Claude Code run
+headless, with the engine's system prompt, AskRigor's tools on the engine's sign-in, web search and web fetch, the
+engine's refusals and guards in a hook, and nothing of the user's own settings. Two small check cases at 23:25 UTC
+showed that it used no API key and saw AskRigor's structured results, and that the hook's refusal and the protocol
+guard both worked. The remaining differences from the engine are in the plan.
+
 ## Quality
 
-Judged on the sample, in stages: stage 1's three cases, then stage 2 only if they show Claude better in more cases than
-worse (`docs/superpowers/plans/2026-11-02-web-app-engine-trial.md`).
+Judged on the sample, run on the Claude plan in stages: stage 1's three cases, then stage 2 only if they show Claude
+better in more cases than worse (`docs/superpowers/plans/2026-11-02-web-app-engine-trial.md`).
