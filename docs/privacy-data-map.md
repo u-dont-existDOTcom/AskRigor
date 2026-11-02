@@ -1565,16 +1565,6 @@ The pages (section 4C) are built, not yet released, and switched off until
   by the structural check in `apps/research-mcp/src/atlas/contact-check.ts`), a
   findings card's number (`ARF-` and four digits or more) or a YouTube link is
   held: stored with the state `held`, shown nowhere, waiting for the owner. A
-  finding whose declared fields show that it names a product or company (subject
-  type product), reports a harm (kind or direction harm) or compares what was
-  tested with what is sold, or whose card declares inhaled, injected or bladder
-  use, a paper that misreports its own results, or a serious illness, is not
-  published at its save or by `publish_cards`: it waits for the owner's review,
-  and accepting or editing it publishes it (owner answer 224a, 2 Nov 2026).
-  `publish_cards` takes such a finding's older unreviewed publication down
-  (withdrawn as `owner_unpublished`, with the private reason "waits for the
-  owner's review (owner answer 224a)"), and a decision brings it back under the
-  same number in its decided state. A
   later save joining an open card publishes nothing of its own, and a retried
   save publishes nothing twice. Publishing at a save happens only while the
   owner's Atlas actions are open (`ASKRIGOR_ATLAS_REVIEW`), so the owner can

@@ -54,8 +54,6 @@ export const FINDING_LEFT_OUT_REASONS = [
   "rejected",
   /** Its stored fields do not make a publication (a record that does not read as the card schema has it). */
   "not_publishable",
-  /** It waits for the owner's review instead (owner answer 224a): accepting it publishes it. */
-  "review_first",
 ] as const;
 export type FindingLeftOutReason = typeof FINDING_LEFT_OUT_REASONS[number];
 
@@ -68,37 +66,6 @@ export type FindingLeftOutReason = typeof FINDING_LEFT_OUT_REASONS[number];
 export type CardPublicationRoute =
   | { route: "save"; account: FindingsSaveAccount | undefined }
   | { route: "owner"; paidPrivate: boolean };
-
-/**
- * Why a finding waits for the owner's review instead of publishing at once (owner answer 224a, 2 Nov 2026): it names a
- * product or company (subject type product), reports a harm (kind or direction harm), compares what was tested with
- * what is sold, or its card declares inhaled, injected or bladder use, a paper that misreports its own results, or a
- * serious illness. Each is an exact reading of a declared field; what a finding means stays the AI's declaration.
- */
-export const REVIEW_FIRST_REASONS = [
-  "names_product", "reports_harm", "tested_vs_sold", "inhaled_injected_or_bladder_use", "misreported_paper",
-  "serious_illness",
-] as const;
-export type ReviewFirstReason = typeof REVIEW_FIRST_REASONS[number];
-
-/** The reasons a stored finding waits for the owner's review, in REVIEW_FIRST_REASONS order; empty when it publishes. */
-export function reviewFirstReasons(finding: StoredFinding): ReviewFirstReason[] {
-  const found = new Set<ReviewFirstReason>(finding.review_first ?? []);
-  if (finding.subject_type === "product") found.add("names_product");
-  if (finding.kind === "harm" || finding.direction === "harm") found.add("reports_harm");
-  if (finding.kind === "tested_vs_sold") found.add("tested_vs_sold");
-  return REVIEW_FIRST_REASONS.filter((reason) => found.has(reason));
-}
-
-/** The owner's private reason when publish_cards takes down an older publication that now waits for review (224a). */
-export const REVIEW_FIRST_REASON = "waits for the owner's review (owner answer 224a)";
-
-/** Whether a publication was taken down to wait for the owner's review, so a decision brings it back. */
-export function waitsForReview(row: Pick<AtlasPublicationView, "state" | "withdrawnBecause" | "ownerReason" |
-  "textsErasedAt" | "cardForgottenAt">): boolean {
-  return row.state === "withdrawn" && row.withdrawnBecause === "owner_unpublished" && row.ownerReason === REVIEW_FIRST_REASON &&
-    row.textsErasedAt === null && row.cardForgottenAt === null;
-}
 
 /** The card-level checks: an empty list when the card's eligible findings are published. */
 export function cardPublicationProblems(
@@ -355,11 +322,6 @@ export function planCardPublication(input: {
       leftOut.push({ findingNumber, reason: "not_publishable" });
       return;
     }
-    // Owner answer 224a: one the owner has not decided waits for review when its declared fields say so.
-    if (decided === undefined && reviewFirstReasons(finding).length > 0) {
-      leftOut.push({ findingNumber, reason: "review_first" });
-      return;
-    }
     const held = publicationHoldReasons(published);
     if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
       // A decided finding's page shows its F number's latest version, so its publication keeps version 1's fields.
@@ -477,32 +439,26 @@ export async function reconcileCardPublications(input: {
   const findingDecisions = input.decisions.filter((decision) => decision.itemKind === "finding");
   const unpublished = findingDecisions.filter((decision) => decision.decision !== "rejected" &&
     !rows.some((row) => row.findingNumber === decision.itemNumber));
-  // Owner answer 224a: a finding taken down to wait for review comes back in its decided state.
-  const waiting = findingDecisions.filter((decision) => decision.decision !== "rejected" &&
-    rows.some((row) => row.findingNumber === decision.itemNumber && waitsForReview(row)) &&
-    !live.some((row) => row.findingNumber === decision.itemNumber));
-  const creates = input.card !== undefined && !input.card.setAside && unpublished.length + waiting.length > 0;
+  const creates = input.card !== undefined && !input.card.setAside && unpublished.length > 0;
   if ((live.length === 0 && !creates) || findingDecisions.length === 0) return [];
   const numbers = [...new Set(findingDecisions.flatMap(({ publicNumber }) => publicNumber === null ? [] : [publicNumber]))];
   const intents = numbers.length === 0 ? [] : await input.intentsOf(numbers);
   const changed: AtlasPublicationView[] = [];
   if (creates) {
-    const draftsOf = (decisions: readonly AtlasDecisionView[]) => decisions.flatMap((decision) => {
+    const drafts = unpublished.flatMap((decision) => {
       const target = decidedPublicationState(decision, intents);
       const draft = target === undefined ? undefined
         : decidedPublicationDraft(input.card!.record, decision.itemNumber, target);
       return draft === undefined ? [] : [draft];
     });
-    for (const [decisions, revive] of [[unpublished, false], [waiting, true]] as const) {
-      const drafts = draftsOf(decisions);
-      if (drafts.length === 0) continue;
+    if (drafts.length > 0) {
       changed.push(...(await input.store.publish({
         cardNumber: input.cardNumber,
         cardSha256: input.card!.record.card_sha256,
         findings: drafts,
         publishedAt: input.at,
-        revive,
-      })).filter(({ outcome }) => outcome === (revive ? "revived" : "published")));
+        revive: false,
+      })).filter(({ outcome }) => outcome === "published"));
     }
   }
   for (const decision of findingDecisions) {

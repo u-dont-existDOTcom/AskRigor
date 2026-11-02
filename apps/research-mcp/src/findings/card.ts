@@ -422,11 +422,6 @@ export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & 
   youtube_videos?: number;
   /** The work a quick answer cannot do that this finding rests on, as the finalization receipt signed it. */
   verified_bases?: VerifiedBasis[];
-  /**
-   * Why the finding waits for the owner's review before it is published, as the card's later shape declares it (owner
-   * answer 224a): what its other fields cannot show.
-   */
-  review_first?: Array<"inhaled_injected_or_bladder_use" | "misreported_paper" | "serious_illness">;
 };
 
 /** A card as the library stores it. */
