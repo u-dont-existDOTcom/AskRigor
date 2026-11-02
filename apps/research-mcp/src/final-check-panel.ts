@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import {
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE,
+} from "./final-check-messages.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -27,16 +29,22 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 }
 
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
-// The verdict line (owner question 108), followed by the exact checked answer or the unfinished steps and a tip
-// for continuing (owner answer 187). All result text stays plain text in the sandboxed panel.
+// The verdict line (owner question 108), followed by folded detail under a passing check or the unfinished steps and a
+// tip for continuing (owner answer 187). All result text stays plain text in the sandboxed panel.
 // A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
 // usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
 // completion check failed"). An answer given before the check passed says so in its own last line. A stopped check is
 // the turn's final result (owner answer 172a), so its line says it was not checked, and why. The call's notes are
 // written for the AI to act on, so they come last, folded under one closed line that opens on a click (owner, 30 Oct:
 // "i got this massive askrigor check panel").
+// Owner answer 217b (2 Nov: "keep it folded, people can unfold if they want to see how the answer is different (and it
+// should briefly explain why it's different), along with limits of checking"): under a passing check the panel no
+// longer repeats the checked answer. One closed line opens the note comparing the answer with the quick answer the AI
+// wrote down before the research, and another what the check covers and the answer's limits.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
+const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
+const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
@@ -61,15 +69,32 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
-  if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
-    appendText("h2", "The answer as AskRigor checked it:");
-    appendText("p", result.checked_answer);
-  }
-  if ((result.status === "ready" || result.status === "ready_with_limits") && limits > 0) {
-    appendText("h2", "Limits of this answer:");
-    const list = doc.createElement("ul");
-    for (const limit of result.limits) if (typeof limit === "string") appendText("li", limit, list);
-    root.appendChild(list);
+  const fold = (summary) => {
+    const details = doc.createElement("details");
+    appendText("summary", summary, details);
+    root.appendChild(details);
+    return details;
+  };
+  const strings = (list) => Array.isArray(list) ? list.filter((entry) => typeof entry === "string") : [];
+  if (result.status === "ready" || result.status === "ready_with_limits") {
+    if (typeof result.plain_answer_note === "string" && result.plain_answer_note.trim() !== "") {
+      const difference = fold("How this answer differs from a quick answer");
+      appendText("p", DIFFERENCE_LEAD, difference);
+      appendText("p", result.plain_answer_note, difference);
+    }
+    const sources = result.sources && typeof result.sources === "object" ? result.sources : {};
+    const community = result.community && typeof result.community === "object" ? result.community : {};
+    const checked = fold("What AskRigor checked" +
+      (limits > 0 ? ", and this answer's " + limits + (limits === 1 ? " limit" : " limits") : ""));
+    appendText("p", CHECK_SCOPE, checked);
+    appendText("p", "Key studies whose methods were audited: " + strings(sources.validated).length +
+      ". Used only as leads: " + strings(sources.lead_only).length +
+      ". Communities searched: " + strings(community.communities_searched).length + ".", checked);
+    if (limits > 0) {
+      const list = doc.createElement("ul");
+      for (const limit of strings(result.limits)) appendText("li", limit, list);
+      checked.appendChild(list);
+    }
   }
   if (result.status === "stopped") {
     const appendSteps = (heading, steps) => {

@@ -24,8 +24,8 @@ complete XML protocol.
 ## Validation and release
 
 - [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
-- [Final-check scope](final-check.md): the five blocking checks in owner answers
-  193a and 195a, advisory notes, material limits and the passing-answer panel
+- [Final-check scope](final-check.md): the blocking checks of owner answers
+  193a, 195a and 217b, advisory notes, material limits and the folded passing-answer panel
 - [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
   itself (owner answer 189a), with what holds meanwhile
 

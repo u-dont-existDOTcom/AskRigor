@@ -91,9 +91,11 @@ import {
  * the model's own account, which is what the prose gates used to ask for.
  */
 
-// Owner answers 193a and 195 (29 October 2026): only these five checks may hold an answer back.
+// Owner answers 193a and 195 (29 October 2026): only these checks may hold an answer back. Owner answer 217b (2 November
+// 2026) adds the sixth: a plain answer registered before the research is compared with the answer, claim by claim, so
+// the note showing how the answer differs from a quick one is always there.
 export const FINAL_CHECK_BLOCKING_RULES = [
-  "source_provenance", "read_depth", "numbers", "harm_screen", "retractions"
+  "source_provenance", "read_depth", "numbers", "harm_screen", "retractions", "plain_answer_comparison"
 ] as const;
 type FinalCheckBlockingRule = typeof FINAL_CHECK_BLOCKING_RULES[number];
 
@@ -3322,8 +3324,16 @@ export function finalizeResearch(
       const registered = plainAnswer.claims;
       const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
       const comparison = input.plain_answer_comparison;
+      // Owner answer 217b: with the account's note on, a comparison that is missing or leaves a claim out holds the
+      // answer back, so the note always shows. With the note off, the account chose not to see it, so it stays a note.
+      const noteOn = options.plainAnswer?.note !== false;
       if (comparison === undefined) {
-        requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
+        missingDeclaration = true;
+        if (noteOn) {
+          addBlockingStep("plain_answer_comparison", "declaration", joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). The answer then ends with the note "), "comparing the two, which the panel also shows."));
+        } else {
+          addStep("declaration", joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
+        }
       } else {
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
@@ -3401,7 +3411,9 @@ export function finalizeResearch(
         }
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
-          addStep("declaration", joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it."));
+          const leftOut = joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it.");
+          if (noteOn) addBlockingStep("plain_answer_comparison", "declaration", leftOut);
+          else addStep("declaration", leftOut);
         } else {
           compared = registered.map((_, number) => found.get(number)!);
         }
