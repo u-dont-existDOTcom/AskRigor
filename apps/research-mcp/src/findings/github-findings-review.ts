@@ -33,7 +33,6 @@ import {
   findingSearchSchema,
   findingsCardDigest,
   findingsCardFingerprint,
-  reviewFirstSchema,
 } from "./card.js";
 import {
   BEYOND_QUICK_ANSWER_LABEL,
@@ -108,8 +107,6 @@ const storedFindingSchema = z.object({
   searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional(),
   youtube_videos: z.number().int().min(1).max(10).optional(),
   verified_bases: z.array(z.enum(VERIFIED_BASES)).min(1).max(VERIFIED_BASES.length).optional(),
-  // Owner answer 224a: the reasons a finding waits for the owner's review, as its card declared them.
-  review_first: reviewFirstSchema.optional(),
 }).strict();
 const storedRecordSchema = z.object({
   schema: z.literal("askrigor.findings-card.v1"),
