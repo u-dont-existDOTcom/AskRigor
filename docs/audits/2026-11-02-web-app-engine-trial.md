@@ -6,9 +6,10 @@ each response's usage and Anthropic's price list; the Claude Console's billing i
 ## The pilot
 
 - Engine at `31b0df0f`: Claude Opus 5.5 at effort `high`, against production build `b9e658e2` (HRP 20.6.36, Universal
-  20.5.46), through AskRigor's Claude surface, on the owner's dev account (research access active, free contributor
-  mode, card saving off), signed in by the owner at 19:44 UTC (owner answer 222a). The system prompt carried the
-  server's instructions only.
+  20.5.46), through AskRigor's Claude surface, on the owner's Google login (research access active, free contributor
+  mode, a dev account with card saving off), signed in by the owner at 19:44 UTC (owner answer 222a). ChatGPT's run
+  uses the owner's email-and-password login, the one login since owner answer 196a: another dev account with the same
+  settings. The system prompt carried the server's instructions only.
 - It ran from 19:44 to 20:26 UTC on 2 Nov, one case at a time, while the ChatGPT run on the same build continued. That
   run, three cases at a time through Codex with GPT-6.1 Sol at extra-high reasoning, had finished these cases between
   17:07 and 18:25 UTC.
