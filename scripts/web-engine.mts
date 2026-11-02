@@ -11,6 +11,7 @@
  *   --regress names a regression harness folder (preamble.md and cases/<id>.md, later turns in cases/<id>.turnN.md);
  *   each case's first message is the preamble, a blank line and the case, as the harness sends it to ChatGPT.
  *   --prompt <file> [--turn <file> ...] --id <id> runs one conversation from files instead.
+ *   ASKRIGOR_ENGINE_ACCOUNT_REFERENCE=<reference> makes it run only on that account (inspect gives the reference).
  *   --anonymous connects to the ChatGPT surface (/mcp) without a sign-in, for checking the plumbing: research tools
  *   refuse there. --tools a,b offers only those AskRigor tools. --dry lists the offered tools and spends nothing.
  *
@@ -19,8 +20,9 @@
  * never to Anthropic. It never prints the pass or the API key, and never sends either as a command-line argument.
  *
  * The engine refuses, without calling AskRigor, every call that would save, submit, review, share or change the
- * account (manage_research_access other than inspect and register_plain_answer), like the ChatGPT harness's preamble
- * and save guard. Its output
+ * account (manage_research_access other than inspect and register_plain_answer), like the ChatGPT harness's preamble.
+ * Before each case it checks that the account is an active dev account with card saving off, and it stops the run as
+ * soon as a result shows saving on or a card saved, as the harness's save guard does. Its output
  * goes outside the repository: <out>/out/<id>[.turnN].md (the answer delivered), <out>/logs/<id>[.turnN].jsonl (events
  * in the shape of a Codex event log, so the regression judging helpers read both), <out>/usage/<id>.json (each request's
  * usage, cost and time) and <out>/progress.txt.
@@ -185,6 +187,35 @@ export function readPass(path: string, nowSeconds: number): { token: string; exp
   return { token: record.access_token, expiresAt: record.expires_at };
 }
 
+/**
+ * Before a case, from manage_research_access inspect: why the engine must not run, or undefined. It runs only on an
+ * active dev account whose card saving is off (a passing check saves and publishes a findings card otherwise), and,
+ * when the run names one, only on that account's reference.
+ */
+export function accountProblem(structured: unknown, expectedReference: string | undefined): string | undefined {
+  const content = (typeof structured === "object" && structured !== null ? structured : {}) as Record<string, unknown>;
+  const access = (content.access ?? {}) as Record<string, unknown>;
+  if (content.ok !== true) return "manage_research_access inspect did not answer ok";
+  if (access.status !== "ACTIVE") return `research access is ${String(access.status ?? "unknown")}, not ACTIVE`;
+  if (expectedReference !== undefined && content.accountReference !== expectedReference) {
+    return "signed in as an account other than the one named for this run";
+  }
+  if (content.findingsSave === undefined) return "not a dev account: inspect shows no card-saving switch";
+  if (content.findingsSave !== false) return "card saving is on, so a passing check would save and publish a card";
+  return undefined;
+}
+
+/** During a case, the harness's save guard: a result showing saving on, or a findings card saved. */
+export function saveSign(tool: string, structured: unknown): "saving_on" | "card_saved" | undefined {
+  const content = (typeof structured === "object" && structured !== null ? structured : {}) as Record<string, unknown>;
+  if (tool === "manage_research_access" && content.findingsSave === true) return "saving_on";
+  if (tool === "finalize_research") {
+    const card = content.findings_card as { saved?: { status?: unknown } } | undefined;
+    if (card?.saved?.status === "saved" || card?.saved?.status === "already_saved") return "card_saved";
+  }
+  return undefined;
+}
+
 /** A secret file's one value, without white space. Never printed. */
 function secretFrom(path: string): string {
   const value = readFileSync(path, "utf8").trim();
@@ -203,7 +234,7 @@ class EventLog {
 export interface EngineLimits { maxCaseUsd: number; maxMinutes: number; maxAskRigorCalls: number; webUsesPerRequest: number }
 export interface TurnOutcome {
   answer: string;
-  stop: "answered" | "refusal" | "max_tokens" | "case_cost_limit" | "time_limit" | "api_error";
+  stop: "answered" | "refusal" | "max_tokens" | "case_cost_limit" | "time_limit" | "api_error" | "save_guard";
   detail?: string;
   requests: number;
   askrigorCalls: number;
@@ -329,6 +360,7 @@ async function runTurn(conversation: Conversation, log: EventLog, userText: stri
       if (calls.length === 0) { outcome.answer = text; break; }
 
       const results: BetaToolResultBlockParam[] = new Array(calls.length);
+      const signs: string[] = [];
       const queue = calls.map((call, index) => ({ call, index }));
       const worker = async () => {
         for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
@@ -365,10 +397,14 @@ async function runTurn(conversation: Conversation, log: EventLog, userText: stri
             error: error ?? null, status: error === undefined ? "completed" : "failed",
             seconds: (Date.now() - callStarted) / 1000,
           });
+          const sign = result === undefined ? undefined : saveSign(call.name, result.structuredContent);
+          if (sign !== undefined) signs.push(`${sign} at ${call.name}`);
         }
       };
       await Promise.all(Array.from({ length: Math.min(MAX_TOOL_CALLS_AT_ONCE, calls.length) }, worker));
       conversation.messages.push({ role: "user", content: results });
+      // The harness's save guard: saving is one switch for the whole account, so stop at the first sign.
+      if (signs.length > 0) { outcome.stop = "save_guard"; outcome.detail = signs.join("; "); break; }
     }
   } catch (error) {
     outcome.stop = "api_error";
@@ -487,6 +523,11 @@ async function main(): Promise<void> {
         console.log(JSON.stringify({ version, tools: tools.map((tool) => tool.name), instructions: mcp.getInstructions() !== undefined }));
         return;
       }
+      if (!anonymous) {
+        const inspected = await mcp.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
+        const problem = accountProblem(inspected.structuredContent, process.env.ASKRIGOR_ENGINE_ACCOUNT_REFERENCE?.trim() || undefined);
+        if (problem !== undefined) { progress(`${testCase.id} NOT RUN, and the run stops: ${problem}`); return; }
+      }
       const key = process.env.ASKRIGOR_ENGINE_KEY_FILE;
       if (key === undefined) throw new Error("ASKRIGOR_ENGINE_KEY_FILE names no key file");
       const workspace = process.env.ASKRIGOR_ENGINE_WORKSPACE_ID?.trim();
@@ -524,6 +565,7 @@ async function main(): Promise<void> {
         cost_usd: conversation.caseCostUsd, turns, requests: conversation.usageLog,
       }, null, 2));
       writeFileSync(ledger, JSON.stringify({ spent_usd: spent }));
+      if (turns.some((turn) => turn.stop === "save_guard")) { progress("SAVE_GUARD_STOP: no further case starts"); return; }
     } finally {
       await mcp.close();
     }

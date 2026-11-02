@@ -7,11 +7,13 @@ import { describe, expect, it } from "vitest";
 import {
   REFUSAL_TEXT,
   WEB_SEARCH_USD,
+  accountProblem,
   answerText,
   claudeToolFor,
   costOf,
   readPass,
   refusalFor,
+  saveSign,
   toolResultContent,
 } from "../scripts/web-engine.mts";
 
@@ -115,5 +117,29 @@ describe("web-app engine trial", () => {
     expect(readPass(path, 1_000)).toEqual({ token: "secret-pass", expiresAt: 1_000 + 24 * 3600 });
     writeFileSync(path, "not json");
     expect(readPass(path, 1_000)).toEqual({ problem: "the sign-in file is not JSON" });
+  });
+
+  it("runs only on an active dev account with card saving off, and on the account a run names", () => {
+    const inspect = (overrides: Record<string, unknown>) => ({
+      ok: true, access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" }, findingsSave: false,
+      accountReference: "aaaaaaaaaaaa", ...overrides,
+    });
+    expect(accountProblem(inspect({}), undefined)).toBeUndefined();
+    expect(accountProblem(inspect({}), "aaaaaaaaaaaa")).toBeUndefined();
+    expect(accountProblem(inspect({}), "bbbbbbbbbbbb")).toContain("other than the one named");
+    expect(accountProblem(inspect({ findingsSave: true }), undefined)).toContain("card saving is on");
+    expect(accountProblem(inspect({ findingsSave: undefined }), undefined)).toContain("not a dev account");
+    expect(accountProblem(inspect({ access: { status: "UNENROLLED", mode: null } }), undefined)).toContain("UNENROLLED");
+    expect(accountProblem(inspect({ ok: false }), undefined)).toContain("did not answer ok");
+    expect(accountProblem(undefined, undefined)).toContain("did not answer ok");
+  });
+
+  it("stops at the first sign of saving, as the harness's save guard does", () => {
+    expect(saveSign("manage_research_access", { ok: true, findingsSave: true })).toBe("saving_on");
+    expect(saveSign("manage_research_access", { ok: true, findingsSave: false })).toBeUndefined();
+    expect(saveSign("finalize_research", { findings_card: { saved: { status: "saved", card_id: "ARF-1" } } })).toBe("card_saved");
+    expect(saveSign("finalize_research", { findings_card: { saved: { status: "already_saved" } } })).toBe("card_saved");
+    expect(saveSign("finalize_research", { findings_card: { saved: { status: "not_saved" } } })).toBeUndefined();
+    expect(saveSign("finalize_research", { status: "ready" })).toBeUndefined();
   });
 });
