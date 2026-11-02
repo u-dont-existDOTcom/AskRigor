@@ -118,6 +118,22 @@ required field, caveat or blocking check is added. The published tool definition
 older description of the note's figure replacement; the runtime result supplies the actual note.
 
 
+Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
+say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
+(owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in
+`later_inputs.findings_card` (the runtime also takes it at the top level). Whether a finding draws on comments is the
+AI's judgment, in any language; the check only reads what is declared. When this call's verified receipts show that
+YouTube comments were read (a video audit whose final view returned comments, or the videos a one-call community audit
+read), a finding declared true, or one that declares nothing, is held privately for the owner's review and never
+published, the same as a finding with a video among its sources, `community_checked` or audited comments behind it; a
+note names each finding that declares nothing and asks for the declaration. A finding declared false is saved as
+before, and a finding declared true is held even when no comments were read here. With no comments read, no
+declaration is needed. The finalization receipt signs the held findings' places on the card (`held`), and the
+runtime result lists them in `findings_card.held`. The card's digest covers the declarations, so a paid-private save
+sends the card exactly as checked, declarations included. Card ARF-0272's third finding, about people commenting on a
+public demonstration, listed two DOIs and so was published; a declaration now holds such a finding, though it still
+depends on the AI declaring truthfully.
+
 The forum reader (owner answers 211a and 213b) adds no declaration or blocking rule. A `threads_read` URL with a
 verified `forum_thread_read` receipt was read through AskRigor. A community or subreddit all of whose declared
 threads have those receipts is left out of the own-web-search and Reddit-existence-only limits. A partially

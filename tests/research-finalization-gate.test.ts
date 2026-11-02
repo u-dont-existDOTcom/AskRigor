@@ -11,7 +11,8 @@ import {
   findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
-  findingsSaveOffer
+  findingsSaveOffer,
+  laterFindingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
@@ -3509,7 +3510,7 @@ describe("findings card at the final gate", () => {
   it("checks a card the answer shows and this call's receipts back, and signs it without offering anything", () => {
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     // The answer's own result is what it would be without the library: no caveat offers a save.
     expect(carded.status).toBe("ready_with_limits");
     expect(carded.status).toBe(plain.status);
@@ -3544,13 +3545,75 @@ describe("findings card at the final gate", () => {
     ] };
     const result = finalizeResearch({ ...input, findings_card: card }, options);
     expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
-    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public" });
+    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public", held: [1, 2, 3, 4, 5] });
     expect(basesClaim(result.finalization_receipt)).toEqual([
       "full_text_audit", "comment_audit", "none", "none", "full_text_audit.comment_audit"
     ]);
     // A tag is still the model's declaration, and a basis does not depend on it.
     expect(finalizeResearch({ ...input, findings_card: withFinding({ tags: [] }) }, options).findings_card)
       .toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+  });
+
+  // Owner answer 219b (2 November 2026): the AI declares for each finding whether it draws on YouTube comments, and
+  // AskRigor holds those. Once this call's receipts show comments were read, a finding with no declaration is held too.
+  it("holds findings declared as drawing on YouTube comments, and undeclared ones once comments were read", () => {
+    const heldClaim = signedClaim("held");
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], ...(declared === undefined ? {} : { draws_on_youtube_comments: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("People commenting on exercise videos reported less pain after several months.", true),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch(READY, closedOptions);
+    // The card in later_inputs (its later shape), and the same card at the top level, are one card.
+    for (const input of [{ ...READY, later_inputs: { findings_card: card } }, { ...READY, findings_card: card }]) {
+      const result = finalizeResearch(input, options);
+      expect(result).toMatchObject({ status: plain.status, next_steps: [], limits: plain.limits });
+      expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public",
+        held: [2, 3] });
+      expect(heldClaim(result.finalization_receipt)).toEqual(["2", "3"]);
+      expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(laterFindingsCardSchema.parse(card)));
+      // A note asks for the missing declaration; it holds nothing back and is never a step.
+      expect(result.notes).toContainEqual("This research read YouTube comments, and findings_card.findings[2] does not " +
+        "say whether it draws on them, so AskRigor holds it privately for its owner's review and never publishes it. " +
+        "Give each finding draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false " +
+        "when none does. Send the whole card, with that field in each finding, in later_inputs.findings_card, and check " +
+        "the answer again.");
+    }
+    // Declaring every finding leaves only the declared one held, with no note.
+    const declared = { ...card, findings: [card.findings[0], card.findings[1], { ...card.findings[2], draws_on_youtube_comments: false }] };
+    const complete = finalizeResearch({ ...READY, later_inputs: { findings_card: declared } }, options);
+    expect(complete.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(complete.finalization_receipt)).toEqual(["2"]);
+    expect((complete.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+    // Two undeclared findings are named together.
+    const two = finalizeResearch({ ...READY, findings_card: { ...card, findings: [card.findings[2], card.findings[2]] } }, options);
+    expect(two.notes).toContainEqual(expect.stringMatching(/^This research read YouTube comments, and findings_card\.findings\[0\] and findings_card\.findings\[1\] do not say whether they draw on them, so AskRigor holds them privately/u));
+    // With no comments read here, a finding needs no declaration; one declared as drawing on them is still held.
+    const noComments = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const unread = finalizeResearch({ ...noComments, findings_card: card }, options);
+    expect(unread.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(unread.finalization_receipt)).toEqual(["2"]);
+    expect((unread.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+    const none = finalizeResearch({ ...noComments, findings_card: { ...card, findings: [card.findings[0], card.findings[2]] } }, options);
+    expect(none.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 2, public_value: "public" });
+    expect(heldClaim(none.finalization_receipt)).toBeUndefined();
+    // A declaration must be a boolean: anything else drops the card, with a note, and holds nothing back.
+    const wrong = finalizeResearch({ ...READY, findings_card: { ...card, findings: [{ ...card.findings[0], draws_on_youtube_comments: "yes" }] } }, options);
+    expect(wrong.findings_card.status).toBe("rejected");
+    expect(wrong.status).toBe(plain.status);
+  });
+
+  it("asks a card's findings to declare YouTube comments only once this research read them", () => {
+    const missing = finalizeResearch(READY, options);
+    expect(missing.notes).toContainEqual(expect.stringContaining("This research read YouTube comments, so each finding " +
+      "also gives draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none " +
+      "does; send the card in later_inputs.findings_card."));
+    const unread = finalizeResearch({ ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA),
+      material_video_ids: [] }, options);
+    expect(unread.notes).toContainEqual(expect.stringContaining("Give findings_card with answer_draft"));
+    expect((unread.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
   });
 
   it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
@@ -3647,7 +3710,11 @@ describe("findings card at the final gate", () => {
       "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
       "and no personal details, and say in public_value whether they would help anyone beyond this person. A public " +
       "card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers (for an " +
-      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says.");
+      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says. " +
+      // Owner answer 219b: this research read YouTube comments, so each finding also says whether it draws on them.
+      "This research read YouTube comments, so each finding also gives draws_on_youtube_comments: true when any part " +
+      "of it rests on what commenters wrote, false when none does; send the card in later_inputs.findings_card. A " +
+      "finding drawing on them, or saying nothing, is held privately for AskRigor's owner and never published.");
     expect(missing.finalization_receipt).toEqual(expect.any(String));
     // The card is asked for with the answer, not before it.
     expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);
@@ -3708,7 +3775,7 @@ describe("findings card at the final gate", () => {
       const result = finalizeResearch({ ...READY, findings_card: personal }, gateOptions);
       expect(result).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits });
       expect(result.findings_card).toEqual({
-        status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only"
+        status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only", held: [1]
       });
       expect(result.caveats).toEqual(plain.caveats);
       expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(personal)));
@@ -3746,7 +3813,7 @@ describe("findings card at the final gate", () => {
     };
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
-    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: ["full_text_read"] })
     }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
@@ -3813,7 +3880,7 @@ describe("findings card at the final gate", () => {
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     // The offer names what was done, with this call's counts (owner answer 139c), and ends with the sentence on the
     // public Atlas (owner answers 159 and 160b).
     expect(CARD_OFFER).toBe("These findings rest on a full-text audit of 1 study and audited comments on 1 video, " +

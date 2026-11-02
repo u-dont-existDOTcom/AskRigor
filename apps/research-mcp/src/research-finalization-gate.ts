@@ -54,6 +54,7 @@ import {
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  heldByCardFields,
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
@@ -1111,7 +1112,8 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
   const normalized = normalizeFinalizeResearchInput(input) as Record<string, unknown>;
   let droppedFindingsCard = false;
   if (normalized.findings_card !== undefined) {
-    const card = finalizeResearchInputSchema.shape.findings_card.safeParse(normalized.findings_card);
+    // The card's later shape (owner answer 219b), which accepts each finding's YouTube-comments declaration.
+    const card = runtime.shape.findings_card.safeParse(normalized.findings_card);
     if (!card.success) {
       notes.push(...droppedInputNotes(card.error.issues, ["findings_card"]));
       delete normalized.findings_card;
@@ -1531,6 +1533,14 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
     "Sentences the answer shows as written, in the answer's language, under every check status; missing or reworded text does not block."),
+  // Owner answers 170, 173 and 219b, runtime only (owner answer 189a): the findings held apart from a checked card.
+  findings_card: finalizeResearchRetainedOutputSchema.shape.findings_card.extend({
+    held: z.array(z.number().int().min(1).max(5)).optional()
+      .describe("For a checked card whose findings draw on YouTube comments: their places on the card (1 for the " +
+        "first), which AskRigor holds privately for its owner's review and never publishes: by a YouTube video among " +
+        "their sources, community_checked, audited comments behind them, their draws_on_youtube_comments declaration " +
+        "or, after this research read YouTube comments, the lack of one.")
+  }).strict().describe(finalizeResearchRetainedOutputSchema.shape.findings_card.description ?? ""),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -3223,6 +3233,8 @@ export function finalizeResearch(
     corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
   });
   let cardBases: VerifiedBasis[][] | undefined;
+  // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
+  let heldFindings: number[] = [];
   // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
   // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
   // account, is not. With no research receipt there is no research to have mapped.
@@ -3263,7 +3275,12 @@ export function finalizeResearch(
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
-        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.")
+        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.",
+          // Owner answer 219b: once comments were read, each finding says whether it draws on them.
+          commentVideos.size === 0 ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
+            "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",
+            "send the card in later_inputs.findings_card. A finding drawing on them, or saying nothing, is held privately ",
+            "for AskRigor's owner and never published."))
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -3298,10 +3315,32 @@ export function finalizeResearch(
       if (findingsCard.status === "checked") {
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
         cardBases = work.map(basesOf);
+        // Owner answer 219b: a finding drawn from YouTube comments is held privately for the owner's review and never
+        // published. Beside what the card itself shows (a video among its sources, community_checked, audited comments
+        // behind it), that is the AI's declaration, in any language; once this call's receipts show comments were
+        // read, a finding without one is held too, the safe direction, and a note asks for it. One declared false is
+        // saved as before; a declaration of true holds its finding whether or not comments were read here.
+        const commentsRead = commentVideos.size > 0;
+        const findingsInCard = input.findings_card.findings;
+        heldFindings = findingsInCard.flatMap((finding, index) =>
+          heldByCardFields(finding, cardBases![index]) || finding.draws_on_youtube_comments === true ||
+            (commentsRead && finding.draws_on_youtube_comments === undefined) ? [index] : []);
+        const undeclared = findingsInCard.flatMap((finding, index) => commentsRead &&
+          finding.draws_on_youtube_comments === undefined && !heldByCardFields(finding, cardBases![index]) ? [index] : []);
+        if (undeclared.length > 0) {
+          const one = undeclared.length === 1;
+          notes.push(`This research read YouTube comments, and ${joinNames(undeclared.map((index) =>
+            `findings_card.findings[${index}]`))} ${one ? "does" : "do"} not say whether ${one ? "it draws" : "they draw"} ` +
+            `on them, so AskRigor holds ${one ? "it" : "them"} privately for its owner's review and never publishes ` +
+            `${one ? "it" : "them"}. Give each finding draws_on_youtube_comments: true when any part of it rests on what ` +
+            "commenters wrote, false when none does. Send the whole card, with that field in each finding, in " +
+            "later_inputs.findings_card, and check the answer again.");
+        }
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
         // A checked card has declared whom its findings would help (findingsCardCheck).
         const scope = input.findings_card.public_value!.scope;
-        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope };
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope,
+          ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => index + 1) }) };
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
@@ -3667,6 +3706,8 @@ export function finalizeResearch(
         ? {
             findings: findingsCardDigest(input.findings_card),
             ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) }),
+            // Owner answer 219b: the save holds these findings apart, by their places on the card, 1 for the first.
+            ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => String(index + 1)) }),
             ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) })
           }
         : {}),

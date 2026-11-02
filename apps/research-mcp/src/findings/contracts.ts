@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { RESEARCH_RECEIPT_MAX_CHARACTERS } from "../research-receipts.js";
-import { findingsCardSchema } from "./card.js";
+import { findingsCardSchema, laterFindingsCardSchema } from "./card.js";
 
 /**
  * The save a paid-private user accepts for one answer (owner decision Q11,
@@ -24,7 +24,8 @@ export const saveResearchFindingsInputSchema = z.object({
  * yes, with the caller's account key from its OAuth token.
  */
 export const findingsSaveInputSchema = z.object({
-  findings_card: findingsCardSchema,
+  // The card as checked, with each finding's YouTube-comments declaration when it gave one (owner answer 219b).
+  findings_card: laterFindingsCardSchema,
   finalization_receipt: z.string().trim().min(1).max(RESEARCH_RECEIPT_MAX_CHARACTERS),
   /** The pseudonymous research-use account key; only a keyed hash of it with the research target is stored. */
   contributor: z.string().regex(/^[a-f0-9]{64}$/u),

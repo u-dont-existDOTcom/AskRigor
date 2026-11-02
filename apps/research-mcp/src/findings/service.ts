@@ -10,6 +10,7 @@ import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldFindingsFromReceipt,
   heldYouTubeCardTextsOf,
   heldYouTubeFindingOf,
   isSafeReportedModel,
@@ -203,8 +204,13 @@ export class FindingsSaveService {
       // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c), by the finding's place
       // in the checked card; a receipt from before bases were signed stamps none.
       const bases = findingBasesFromReceipt(receipt.claims.bases, input.findings_card.findings.length);
-      const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
-        signed.includes("comment_audit") ? [index] : []));
+      // Held apart as drawn from YouTube comments: a comment audit among a finding's signed bases, or its place among
+      // those the receipt signed as held, by its declaration, the lack of one after comments were read, or the
+      // meaning judge (owner answer 219b).
+      const drawnFromComments = new Set([
+        ...(bases ?? []).flatMap((signed, index) => signed.includes("comment_audit") ? [index] : []),
+        ...heldFindingsFromReceipt(receipt.claims.held, input.findings_card.findings.length),
+      ]);
       const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
