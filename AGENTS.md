@@ -135,7 +135,9 @@ Owner answer 217b (2 November 2026) adds a sixth: a plain answer registered
 before the research and passed in receipts is compared claim by claim.
 Other diagnostics are notes and consume no rounds. Material limits stay in the
 result for the AI to include in its own words; the panel also lists every
-limit, folded, beneath a passing answer. Missing or reworded limit text creates no step.
+limit, folded, beneath a passing answer, with the checked answer's figures
+(owner answer 220a), so a figure written after the check shows. Missing or
+reworded limit text creates no step.
 See `docs/final-check.md` for the exact scope. This does not remove the AI's
 responsibility to follow HRP or complete research it judges necessary.
 

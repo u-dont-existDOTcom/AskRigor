@@ -55,8 +55,13 @@ which study it means; a source labelled by its identifier is named once. Under a
 line and folds the rest under closed lines that open on a click (owner answer 217b, 2 November 2026: "keep it
 folded, people can unfold if they want to see how the answer is different"): first the plain-answer note, how the
 answer differs from the quick answer written before the research and what backs each change; then what the check
-covers, with the counts of audited key studies, leads and communities searched, and every limit, even one the
-draft omitted. It no longer repeats the checked answer. The advisory notes, written for the AI, come last in the panel
+covers, with the counts of audited key studies, leads and communities searched, the figures of the checked answer,
+and every limit, even one the draft omitted. It no longer repeats the checked answer. AskRigor never sees the answer
+the AI writes after the check, so the figures make a change visible (owner answer 220a, 2 November 2026): any other
+figure in the answer, apart from those the plain-answer note quotes, was added or changed after the check. A figure is
+a number in digits of any script, as written, with its decimal or group separators, a fraction's slash and a percent
+sign; links, DOIs, PubMed numbers, citation markers, list numbers and the digits of a name such as COVID-19 are not
+figures. The advisory notes, written for the AI, come last in the panel
 under every status, folded under one closed line, "Notes for the AI", that opens on a click (the owner on 30 October
 2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
 only the limits that change what the person should believe or do, with which limits matter left to the AI; the

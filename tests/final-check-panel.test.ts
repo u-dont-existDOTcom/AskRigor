@@ -469,6 +469,37 @@ describe("rendered final check result", () => {
     expect(render({ status: "not_ready", plain_answer_note: note }).textContent).not.toContain("How this answer differs");
   });
 
+  // Owner answer 220a (2 Nov): AskRigor never sees the answer written after the check, so what was checked lists the
+  // checked answer's figures, and a figure the answer adds after the check is missing from that list.
+  it("lists the checked answer's figures in any script, without links, identifiers or markers (220a)", () => {
+    const checked_answer = "1. Bacopa improved recall by 12% (95% CI 4 to 20) in 3 trials of 1,000 people [1]; " +
+      "p=0.03, −0.5 SD, 12% again, 10-20 mg.\nAvoid confusing B12, COVID-19 or omega-3; see ARF-0042, PMID: 29340206, " +
+      "https://doi.org/10.1159/000337947 and doi:10.5152/iao.2021.9072. En France, 12 % ; 1,5 mg ; ١٢٪.";
+    const figures = "Figures in the answer AskRigor checked: 12% · 95% · 4 · 20 · 3 · 1,000 · " +
+      "0.03 · −0.5 · 10 · 12 % · 1,5 · ١٢٪.";
+    for (const status of ["ready", "ready_with_limits"]) {
+      const limits = status === "ready_with_limits" ? ["A limit."] : [];
+      const checked = fold(render({ status, checked_answer, limits }), "What AskRigor checked");
+      expect(checked.children.map(({ tagName, textContent }) => [tagName, textContent]).slice(1)).toEqual([
+        ["p", FINAL_CHECK_PANEL_SCOPE], ["p", COUNTS(0, 0, 0)],
+        ["p", `${figures} Any other figure in the answer was added or changed after the check.`],
+        ...(status === "ready_with_limits" ? [["ul", "A limit."]] : []),
+      ]);
+    }
+    // The quick-answer note quotes the quick answer's own figures, which the checked answer may not have.
+    const noted = fold(render({ status: "ready", checked_answer, plain_answer_note: "Without AskRigor, 40%." }),
+      "What AskRigor checked");
+    expect(noted.children[3]!.textContent).toBe(`${figures} Any other figure in the answer, apart from the ` +
+      "quick-answer note's, was added or changed after the check.");
+    expect(fold(render({ status: "ready", checked_answer: "See [2] at https://example.org/7 (PMID 42)." }),
+      "What AskRigor checked").children[3]!.textContent).toBe("The answer AskRigor checked gives no figures, so any " +
+      "figure in the answer was added after the check.");
+    for (const absent of [undefined, 7, ["12%"]]) {
+      expect(fold(render({ status: "ready", checked_answer: absent }), "What AskRigor checked").children).toHaveLength(3);
+    }
+    expect(render({ status: "not_ready", checked_answer }).textContent).not.toContain("Figures in the answer");
+  });
+
   it.each([
     [undefined, undefined], [[], []],
     [[{ kind: "research", step: "Read the study's full text." }], []],
