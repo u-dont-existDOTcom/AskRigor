@@ -134,7 +134,8 @@ complete XML protocol.
   saves and account changes; the cases and the blind judging against ChatGPT's run.
 - `audits/2026-11-02-web-app-engine-trial.md`: the trial's record: the 3-case pilot cost $13.00 (16.8, 5.8 and 18.8
   minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
-  protocols, so the engine now carries the AskRigor skill; the sample waits for owner question 226.
+  protocols, so the engine now carries the AskRigor skill and a guard; a free blind check judged Claude's answers
+  better in all three; the sample runs in two stages within $60 (owner answer 226b).
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

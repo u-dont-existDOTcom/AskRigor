@@ -43,7 +43,40 @@ The engine's system prompt now also carries the skill's text (`skills/askrigor/S
 installed plugin's), which says to load Universal and HRP. Claude thus gets more instruction than GPT sees; a web app
 AskRigor builds would write its own system prompt the same way. The pilot's three cases run again in the sample.
 
+## The free check before spending more (owner answer 226b)
+
+Owner answer 226b: up to $60 for nine cases, and "make sure before you spend so much that it's actually worthwhile,
+sounds like you wasted money on this round." The pilot bought the cost and time asked for. Its answers can't stand for
+the corrected engine, though, and a comparison of the engine's setup with ChatGPT's, at no cost, would have found the
+missing skill first. So before more is spent, the pilot's three answers and ChatGPT's answers to the same cases were
+judged blind, on the Claude plan:
+
+- **The method:** one Claude subagent judged each case's two answers, labelled A and B in an order drawn at random. It
+  had the case's criteria and the declarations of each run's last final-check call, and nothing else.
+- **Better for the person, Claude's answer in all three:**
+  - `i44`, narrowly: it says a severe allergic reaction can come after weeks of uneventful injections, with the
+    emergency signs. ChatGPT's lists more label harms, with denominators, but never says that tolerated doses don't
+    protect.
+  - `l25`: it explains why passages can't give a rate, uses a placebo row to separate reported from caused, and says
+    when A and B can be compared.
+  - `l32`: it ranks the explanations, uses each control's logic, and gives a test the person can run.
+- **Against the criteria:** Claude's `l32` passes; the five other answers meet theirs in part. In `l25` neither run
+  declared the passages as `share_of_reports`.
+- **Errors noted, all in Claude's answers:**
+  - the CJC-1295 trials with DAC called "single-dose", though they also gave repeat doses;
+  - an odds ratio of 2.6 read as "more than twice as likely";
+  - "rules out coolness, wetness and simply touching", too strong for one unblinded comparison;
+  - an assumed volume for a dab.
+
+  The judge also doubted the Golder review's "0.02% to 78%". The review's full text, as AskRigor returned it, gives
+  exactly that range in its body, by the posts counted; its abstract's 0.2% to 8% is the overall prevalence.
+- **Limits:** one judge, of Claude's own family, on three cases, with answers from the engine before the skill. Stage 1's
+  judging adds a GPT judge.
+
+Under the rule written before the result (worse in all three would have held the run for the owner), stage 1 is set to
+start by itself after tonight's regression run.
+
 ## Quality
 
-Not judged yet. The answers are of similar length to ChatGPT's, and the judging is blind, on the 15-case sample
-(question 226 sets its cap).
+Judged on the sample, in stages: stage 1's three cases, then stage 2 only if they show Claude better in more cases than
+worse (`docs/superpowers/plans/2026-11-02-web-app-engine-trial.md`).
