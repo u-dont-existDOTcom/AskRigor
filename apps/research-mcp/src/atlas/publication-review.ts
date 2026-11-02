@@ -28,6 +28,7 @@ import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/sour
 import {
   CARD_PUBLICATION_PROBLEMS,
   FINDING_LEFT_OUT_REASONS,
+  REVIEW_FIRST_REASON,
   cardSourceTitles,
   decidedPublicationState,
   planCardPublication,
@@ -178,6 +179,7 @@ const LEFT_OUT_WORDS: Record<typeof FINDING_LEFT_OUT_REASONS[number], string> = 
   youtube_comments: "drawn from YouTube comments",
   rejected: "rejected",
   not_publishable: "its stored fields do not make a publication",
+  review_first: "it waits for your review: accepting it publishes it (owner answer 224a)",
 };
 
 export class AtlasPublicationReview {
@@ -323,6 +325,24 @@ export class AtlasPublicationReview {
         sourceTitles: titles,
       });
       const leftOut = plan.leftOut.map(({ findingNumber, reason }) => ({ finding: findingNumber, reason }));
+      // Owner answer 224a: an older publication of a finding that now waits for review comes down until a decision.
+      const waiting = plan.leftOut.filter(({ reason }) => reason === "review_first").map(({ findingNumber }) => findingNumber);
+      if (plan.problems.length === 0 && waiting.length > 0) {
+        const shown = (await this.deps.publications.inspect({ cardNumbers: [number], limit: 500 })).filter((row) =>
+          row.cardSha256 === card.record.card_sha256 && row.state === "unreviewed" && waiting.includes(row.findingNumber));
+        if (shown.length > 0) {
+          const down = (await this.deps.publications.withdraw({
+            reason: "owner_unpublished",
+            publicationNumbers: shown.map(({ publicationNumber }) => publicationNumber)
+              .sort((left, right) => atlasPublicationOrder(left) - atlasPublicationOrder(right)),
+            ownerReason: REVIEW_FIRST_REASON,
+            withdrawnAt: this.deps.now().toISOString(),
+          })).map(({ publicationNumber }) => publicationNumber);
+          items.push(...(await this.deps.publications.inspect({ publicationNumbers: down, limit: 500 })).map(itemOf));
+          lines.push(`${id}: ${listed(down)} ${down.length === 1 ? "comes" : "come"} off the Atlas to wait for your ` +
+            `review (owner answer 224a); accepting ${down.length === 1 ? "it publishes it" : "them publishes them"} again.`);
+        }
+      }
       if (plan.problems.length > 0 || plan.drafts.length === 0) {
         cards.push({ card: id, outcome: "not_published", problems: plan.problems, leftOut, publications: [] });
         lines.push(`${id} is not published: ${plan.problems.length > 0

@@ -26,12 +26,16 @@ questions as asked are 223 to 225 on the owner questions page; the plan they com
    `askrigor.com/robots.txt` names the sitemap and keeps crawlers out of searches, sign-in and accounts only (a finding
    page's noindex has to be read). `/atlas/sitemap.xml` lists the topics index, and, once anything is reviewed, the
    home and "What changed" pages, the topics holding a reviewed finding and each reviewed finding's page.
-2. **224a, holding risky findings:** a finding whose declared fields show it (subject type product, kind or direction
+2. **224a, holding risky findings** (built for the declared fields; the declaration below waits for #398's later card
+   shape): a finding whose declared fields show it (subject type product, kind or direction
    harm, kind `tested_vs_sold`) waits for the owner's review instead of publishing at its save or through
    `publish_cards`; accepting it publishes it, through the path a paid private card's findings take. Reasons no
    declared field shows (inhaled, injected or bladder use; a paper that misreports its own results; a serious illness)
    come from an optional per-finding declaration in the card's later shape: a declared reason holds the finding, and a
-   card that declares none gets a note only.
+   card that declares none gets a note only. The stored finding's `review_first` field and the rule that reads it are
+   here; the declaration itself extends the later card shape #398 adds for owner answer 219b, so it is built on top of
+   #398. `publish_cards` takes an older unreviewed publication of such a finding down until a decision, and accepting
+   it brings it back under the same number (no migration: the hold reasons' list in the database is unchanged).
 3. **225a, numbers:** each group as "N out of 100", the difference's 95% range by Newcombe's score method (hybrid
    Wilson), a number needed to treat or harm only when that range leaves out zero, and "no clear difference" otherwise;
    the range assumes two independent groups, which the page says. The final check and the owner's accept check refuse a
