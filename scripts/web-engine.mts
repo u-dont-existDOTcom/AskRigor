@@ -16,6 +16,8 @@
  *   refuse there. --tools a,b offers only those AskRigor tools. --dry lists the offered tools and spends nothing.
  *   The system prompt carries AskRigor's server instructions and the AskRigor plugin's skill (skills/askrigor/SKILL.md),
  *   which says to load the Universal and HRP protocols; --no-skill leaves the skill out, as the pilot ran.
+ *   --require-protocols-by N stops the run if a case has made N AskRigor calls without loading both (owner answer 226b:
+ *   no money on a run that can't be compared).
  *
  * The sign-in (owner question 222) is the owner's: the engine reads a short-lived research:use pass from
  * ASKRIGOR_ENGINE_TOKEN_FILE (default ~/.local/state/askrigor-web-engine/token.json) and sends it only to AskRigor,
@@ -218,6 +220,24 @@ export function saveSign(tool: string, structured: unknown): "saving_on" | "card
   return undefined;
 }
 
+/** The protocol a load_protocol call loaded, when AskRigor answered it ok. */
+export function protocolLoaded(tool: string, input: unknown, structured: unknown): string | undefined {
+  if (tool !== "load_protocol") return undefined;
+  const protocol = typeof input === "object" && input !== null ? (input as Record<string, unknown>).protocol : undefined;
+  const ok = typeof structured === "object" && structured !== null && (structured as Record<string, unknown>).ok === true;
+  return ok && typeof protocol === "string" ? protocol : undefined;
+}
+
+/**
+ * The protocol guard (owner answer 226b: make sure a run is worth its cost before spending): once a case has made
+ * `by` AskRigor calls, it must have loaded both Universal and HRP, or the run stops. The pilot loaded almost none.
+ */
+export function protocolsMissing(loaded: ReadonlySet<string>, calls: number, by: number | undefined): string[] | undefined {
+  if (by === undefined || calls < by) return undefined;
+  const missing = ["universal", "hrp"].filter((name) => !loaded.has(name));
+  return missing.length === 0 ? undefined : missing;
+}
+
 /** A secret file's one value, without white space. Never printed. */
 function secretFrom(path: string): string {
   const value = readFileSync(path, "utf8").trim();
@@ -233,10 +253,13 @@ class EventLog {
   completed(item: Record<string, unknown>) { this.event({ type: "item.completed", item: { id: `item_${this.item++}`, ...item } }); }
 }
 
-export interface EngineLimits { maxCaseUsd: number; maxMinutes: number; maxAskRigorCalls: number; webUsesPerRequest: number }
+export interface EngineLimits {
+  maxCaseUsd: number; maxMinutes: number; maxAskRigorCalls: number; webUsesPerRequest: number; requireProtocolsBy?: number;
+}
 export interface TurnOutcome {
   answer: string;
-  stop: "answered" | "refusal" | "max_tokens" | "case_cost_limit" | "time_limit" | "api_error" | "save_guard";
+  stop: "answered" | "refusal" | "max_tokens" | "case_cost_limit" | "time_limit" | "api_error" | "save_guard" |
+    "protocol_guard";
   detail?: string;
   requests: number;
   askrigorCalls: number;
@@ -258,6 +281,9 @@ interface Conversation {
   limits: EngineLimits;
   usageLog: Array<Record<string, unknown>>;
   caseCostUsd: number;
+  /** AskRigor calls and protocols loaded over the whole case, for the protocol guard. */
+  caseAskRigorCalls: number;
+  protocolsLoaded: Set<string>;
 }
 
 async function callAskRigor(mcp: Client, call: BetaToolUseBlock): Promise<{ result?: CallToolResult; error?: string }> {
@@ -385,6 +411,7 @@ async function runTurn(conversation: Conversation, log: EventLog, userText: stri
             continue;
           }
           outcome.askrigorCalls++;
+          conversation.caseAskRigorCalls++;
           const callStarted = Date.now();
           const { result, error } = await callAskRigor(conversation.mcp, call);
           results[index] = result === undefined
@@ -401,12 +428,20 @@ async function runTurn(conversation: Conversation, log: EventLog, userText: stri
           });
           const sign = result === undefined ? undefined : saveSign(call.name, result.structuredContent);
           if (sign !== undefined) signs.push(`${sign} at ${call.name}`);
+          const protocol = result === undefined ? undefined : protocolLoaded(call.name, call.input, result.structuredContent);
+          if (protocol !== undefined) conversation.protocolsLoaded.add(protocol);
         }
       };
       await Promise.all(Array.from({ length: Math.min(MAX_TOOL_CALLS_AT_ONCE, calls.length) }, worker));
       conversation.messages.push({ role: "user", content: results });
       // The harness's save guard: saving is one switch for the whole account, so stop at the first sign.
       if (signs.length > 0) { outcome.stop = "save_guard"; outcome.detail = signs.join("; "); break; }
+      const missing = protocolsMissing(conversation.protocolsLoaded, conversation.caseAskRigorCalls, conversation.limits.requireProtocolsBy);
+      if (missing !== undefined) {
+        outcome.stop = "protocol_guard";
+        outcome.detail = `not loaded after ${conversation.caseAskRigorCalls} AskRigor calls: ${missing.join(", ")}`;
+        break;
+      }
     }
   } catch (error) {
     outcome.stop = "api_error";
@@ -510,6 +545,7 @@ async function main(): Promise<void> {
     maxMinutes: numberArgument("--max-minutes", 35),
     maxAskRigorCalls: numberArgument("--max-askrigor-calls", 100),
     webUsesPerRequest: numberArgument("--web-uses-per-request", 8),
+    ...(argument("--require-protocols-by") === undefined ? {} : { requireProtocolsBy: numberArgument("--require-protocols-by", 1) }),
   };
   for (const folder of ["out", "logs", "usage"]) mkdirSync(join(out, folder), { recursive: true });
   const progress = (line: string) => appendFileSync(join(out, "progress.txt"), `${line} ${new Date().toISOString()}\n`);
@@ -558,7 +594,7 @@ async function main(): Promise<void> {
         anthropic, mcp, model, effort, limits,
         system: systemPrompt(mcp.getInstructions(), new Date().toISOString().slice(0, 10), skill),
         tools: [...tools, ...webTools(limits.webUsesPerRequest)],
-        messages: [], usageLog: [], caseCostUsd: 0,
+        messages: [], usageLog: [], caseCostUsd: 0, caseAskRigorCalls: 0, protocolsLoaded: new Set(),
       };
       const caseStarted = Date.now();
       const turns: Array<Record<string, unknown>> = [];
@@ -586,6 +622,10 @@ async function main(): Promise<void> {
       }, null, 2));
       writeFileSync(ledger, JSON.stringify({ spent_usd: spent }));
       if (turns.some((turn) => turn.stop === "save_guard")) { progress("SAVE_GUARD_STOP: no further case starts"); return; }
+      if (turns.some((turn) => turn.stop === "protocol_guard")) {
+        progress("PROTOCOL_GUARD_STOP: the model did not load Universal and HRP; no further case starts");
+        return;
+      }
     } finally {
       await mcp.close();
     }

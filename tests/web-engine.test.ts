@@ -11,6 +11,8 @@ import {
   answerText,
   claudeToolFor,
   costOf,
+  protocolLoaded,
+  protocolsMissing,
   readPass,
   refusalFor,
   saveSign,
@@ -152,6 +154,18 @@ describe("web-app engine trial", () => {
     expect(accountProblem(inspect({ access: { status: "UNENROLLED", mode: null } }), undefined)).toContain("UNENROLLED");
     expect(accountProblem(inspect({ ok: false }), undefined)).toContain("did not answer ok");
     expect(accountProblem(undefined, undefined)).toContain("did not answer ok");
+  });
+
+  it("stops a run whose case has not loaded Universal and HRP by its Nth AskRigor call", () => {
+    expect(protocolLoaded("load_protocol", { protocol: "hrp", section: "core" }, { ok: true })).toBe("hrp");
+    expect(protocolLoaded("load_protocol", { protocol: "universal", section: "index" }, { ok: true })).toBe("universal");
+    expect(protocolLoaded("load_protocol", { protocol: "hrp" }, { ok: false })).toBeUndefined();
+    expect(protocolLoaded("get_protocol_manifest", { protocol: "hrp" }, { ok: true })).toBeUndefined();
+    expect(protocolsMissing(new Set(), 11, 12)).toBeUndefined();
+    expect(protocolsMissing(new Set(), 12, 12)).toEqual(["universal", "hrp"]);
+    expect(protocolsMissing(new Set(["hrp"]), 30, 12)).toEqual(["universal"]);
+    expect(protocolsMissing(new Set(["hrp", "universal"]), 30, 12)).toBeUndefined();
+    expect(protocolsMissing(new Set(), 30, undefined)).toBeUndefined();
   });
 
   it("stops at the first sign of saving, as the harness's save guard does", () => {
