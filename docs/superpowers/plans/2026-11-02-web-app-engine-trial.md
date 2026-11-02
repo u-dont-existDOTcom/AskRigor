@@ -50,6 +50,23 @@ plumbing check (two requests on the public endpoint, no sign-in) cost $0.09 and 
 owner sets the cap for the sample (question 226); a run's `--budget` is that cap less one case's ceiling, so a case
 started under the budget can't take the run past the cap.
 
+Owner answer 226b (2 Nov, about 20:43 UTC): up to $60 for nine cases, "make sure before you spend so much that it's
+actually worthwhile, sounds like you wasted money on this round." The gate passes $60 in the trial's scope. So the
+sample spends only where it can still change the conclusion:
+
+1. **Free first:** the pilot's three answers are judged blind against ChatGPT's, by a subagent on the Claude plan.
+2. **A guard:** `--require-protocols-by 10` stops the run when a case has made 10 AskRigor calls without loading both
+   Universal and HRP. Tonight's ChatGPT run loaded both by its 7th call in all 43 cases. The pilot's cases never did,
+   and the guard would have stopped them at about a dollar.
+3. **Stage 1, at most $36:** three cases ChatGPT failed or met in part (`q136-weak-lead-given`, `r376-forum-500`,
+   `q126-39-replication`), on the same build as ChatGPT's answers (the script checks it). It starts after tonight's
+   regression run ends, and after YouTube's quota resets at 08:00 UTC if that run used it up.
+4. **The rule, set before any result:** stage 2 runs only if the blind judging of stage 1 finds Claude's answers better
+   than ChatGPT's in more cases than worse. Otherwise the record says so, and the rest of the cap stays unspent.
+5. **Stage 2, the rest of the $60:** `q130-maker-authors-turmeric`, `o356-ssris-years` and `r382-week-800`, then the
+   pilot's three cases again, until the budget stops it. Both stages share one ledger, so `--budget 48` at $12 a case
+   keeps the sample at $60 or less.
+
 ## The sign-in (owner question 222)
 
 AskRigor's research tools need a signed-in account, and AskRigor accepts passes only from the two apps it knows,
@@ -82,7 +99,8 @@ From the regression list as it stands at `b9e658e2`. ChatGPT's verdicts on #393'
 
 Weighted toward cases ChatGPT met only in part or failed, where a better engine would show; three passes check that
 nothing that works gets worse. If the engine changes after the pilot, the pilot's cases run again. It did (the skill), so
-the sample is these 12 and the pilot's 3, 15 cases, on one version of the engine.
+the sample was to be these 12 and the pilot's 3, 15 cases, on one version of the engine. Owner answer 226b keeps nine:
+the pilot's three and six of the twelve, run in the stages above.
 
 ## Judging
 
