@@ -37,8 +37,8 @@ import { STRENGTH_RULE, STRONG_CLAIM } from "./strength.js";
 /**
  * The public Atlas pages' HTML (decision 171, section 4C): plain, semantic, server-rendered pages with no script and no
  * inline style, under a content policy that allows only the same-origin stylesheet. Every text a page shows goes
- * through html``, which escapes it; only markup this module writes is ever raw. Links to sources are built here from
- * identifiers in canonical form, never taken from a card's text.
+ * through html``, which escapes it; only markup this module and the Atlas's fixed-text pages (comment-maps-page.ts)
+ * write is ever raw. Links to sources are built here from identifiers in canonical form, never taken from a card's text.
  */
 
 // Escaping ------------------------------------------------------------------------------------------------------------
@@ -60,7 +60,7 @@ function part(value: HtmlValue): string {
 }
 
 /** Markup with every interpolated value escaped, unless it is markup this module made. */
-function html(strings: TemplateStringsArray, ...values: HtmlValue[]): SafeHtml {
+export function html(strings: TemplateStringsArray, ...values: HtmlValue[]): SafeHtml {
   let out = strings[0]!;
   values.forEach((value, index) => {
     out += part(value) + strings[index + 1]!;
@@ -175,6 +175,8 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
 export const findingPath = (publicationNumber: string) => `/atlas/findings/${publicationNumber}`;
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
 export const MAP_PATH = "/atlas/map";
+/** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
+export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
 const CANONICAL_ORIGIN = "https://askrigor.com";
 
 /** The label on every finding no person has reviewed yet (owner answer 224a, 2 Nov 2026). */
@@ -205,7 +207,7 @@ export interface AtlasPageReader {
   tenantSignOutHref?: string | null;
 }
 
-interface PageFrame {
+export interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
   /** Kept out of search engines (owner answer 224a): a page whose findings are all unreviewed, or not a content page. */
@@ -218,7 +220,7 @@ interface PageFrame {
   body: SafeHtml;
 }
 
-function page(frame: PageFrame): string {
+export function page(frame: PageFrame): string {
   const current = (name: PageFrame["current"]) => frame.current === name ? html` aria-current="page"` : "";
   const reader = frame.reader;
   return html`<!doctype html>
@@ -474,7 +476,11 @@ ${model.contested.length === 0 ? "" : html`<section aria-labelledby="contested">
 <ul class="pair-list">
 ${model.contested.map(contestedItem)}</ul>
 </section>
-`}<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
+`}<section aria-labelledby="comment-maps">
+<h2 id="comment-maps">Comment maps</h2>
+<p>AskRigor maps what the people who commented under a health video say happened when they tried its method. The maps are kept privately for now, so none is shown here. <a href="${COMMENT_MAPS_PATH}">How comment maps work, what they can’t show, and why they aren’t here</a></p>
+</section>
+<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
     noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.strongestChecked, ...model.recentlyPublished,

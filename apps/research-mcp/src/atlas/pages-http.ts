@@ -42,9 +42,11 @@ import {
   type AtlasFindingParticipationView,
 } from "./page-data.js";
 import { escapeHtml, passesPageGuard } from "./page-guard.js";
+import { renderAtlasCommentMaps } from "./comment-maps-page.js";
 import {
   ATLAS_CSS,
   ACCOUNT_PATH,
+  COMMENT_MAPS_PATH,
   OWN_COMMENTS_PATH,
   atlasPageProblems,
   findingPath,
@@ -191,6 +193,7 @@ export type AtlasRoute =
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   | { kind: "topics" }
   | { kind: "map" }
+  | { kind: "comment-maps" }
   | { kind: "search" }
   | { kind: "sitemap" }
   | { kind: "topic"; topicKey: string }
@@ -236,6 +239,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/findings") return { kind: "findings" };
   if (pathname === "/atlas/topics") return { kind: "topics" };
   if (pathname === "/atlas/map") return { kind: "map" };
+  if (pathname === COMMENT_MAPS_PATH) return { kind: "comment-maps" };
   if (pathname === "/atlas/search") return { kind: "search" };
   if (pathname === "/atlas/sitemap.xml") return { kind: "sitemap" };
   const topic = TOPIC_ROUTE.exec(pathname);
@@ -691,9 +695,12 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
-  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" }>,
-    source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
+  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" |
+    "comment-maps" }>, source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
+      case "comment-maps":
+        // Fixed text: it reads nothing from the source.
+        return checked({ status: 200, html: renderAtlasCommentMaps(reader) });
       case "home":
         return checked({ status: 200, html: renderAtlasHome(await loadAtlasHome(source), reader) });
       case "changes":
@@ -1127,7 +1134,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await ownCommentsRoute(request, response, participation, source, now);
           return true;
         }
-        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" }>;
+        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" |
+          "comment-maps" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);

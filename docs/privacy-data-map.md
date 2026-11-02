@@ -1754,6 +1754,16 @@ their status, certainty, figures, number of linked sources and dates; it reads n
 vote or comment and is cached like the topics page. No new data is read, kept or
 shown, and no table, view, function, grant or migration is introduced.
 
+How comment maps work (plan
+`docs/superpowers/plans/2026-11-02-atlas-comment-maps-public-without-approval.md`):
+`/atlas/comment-maps` is fixed text that explains AskRigor's comment maps (what
+the people who commented under a health video say happened when they tried its
+method) and what they can't show, and the Atlas home links to it. It reads
+nothing, from the database or from YouTube, and shows no map, count, video, channel
+or link to YouTube: the maps made so far are kept privately while AskRigor waits
+for YouTube's answer (owner answer 208b), and findings drawn from YouTube comments
+are never published. Nothing is collected, kept or shown that was not before.
+
 ## Atlas votes and comments
 
 Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24
