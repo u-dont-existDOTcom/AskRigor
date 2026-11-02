@@ -3607,6 +3607,41 @@ describe("findings card at the final gate", () => {
     expect(wrong.status).toBe(plain.status);
   });
 
+  // Owner answer 224a (2 November 2026): a finding that should wait for the owner's review before it is published
+  // declares why (review_first). One without the declaration is published as before, so the final check only notes it.
+  it("notes a published card's findings that do not say whether they wait for review, holding nothing back", () => {
+    const finding = (claim: string, reviewFirst?: string[]) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], draws_on_youtube_comments: false, ...(reviewFirst === undefined ? {} : { review_first: reviewFirst }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials."),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch(READY, closedOptions);
+    const result = finalizeResearch({ ...READY, later_inputs: { findings_card: card } }, options);
+    expect(result).toMatchObject({ status: plain.status, next_steps: [] });
+    expect(result.findings_card).toMatchObject({ status: "checked", problems: [] });
+    expect(result.notes).toContainEqual("findings_card.findings[0] and findings_card.findings[1] do not say whether they " +
+      "wait for AskRigor's owner to review them before they are published. Give each finding review_first: " +
+      "inhaled_injected_or_bladder_use, misreported_paper or serious_illness for each that applies, or an empty list " +
+      "when none does. Send the whole card, with that field in each finding, in later_inputs.findings_card.");
+    // Declared, even as none, there is no note; the card's digest covers the declarations.
+    const declared = { ...card, findings: [{ ...card.findings[0], review_first: [] },
+      { ...card.findings[1], review_first: ["serious_illness"] }] };
+    const complete = finalizeResearch({ ...READY, later_inputs: { findings_card: declared } }, options);
+    expect((complete.notes ?? []).some((note) => note.includes("review_first"))).toBe(false);
+    expect(findingsClaim(complete.finalization_receipt)).toBe(findingsCardDigest(laterFindingsCardSchema.parse(declared)));
+    // A paid private card waits for the owner's acceptance anyway: no note.
+    const offered = finalizeResearch({ ...READY, later_inputs: { findings_card: card } },
+      { secret: SECRET, now, findings: "offer" as const });
+    expect((offered.notes ?? []).some((note) => note.includes("review_first"))).toBe(false);
+    // Only the three reasons, each once.
+    for (const wrong of [["names_product"], ["serious_illness", "serious_illness"]]) {
+      const dropped = finalizeResearch({ ...READY, findings_card: { ...card, findings: [{ ...card.findings[0], review_first: wrong }] } },
+        options);
+      expect(dropped.findings_card.status, JSON.stringify(wrong)).toBe("rejected");
+    }
+  });
+
   // Owner answer 221 (2 November 2026): the meaning judge reads a passing check for the owner's dev accounts. Its
   // notes go to the AI only, and a finding it reads as resting on YouTube comments is held; it never blocks.
   it("applies the meaning judge's reading: holds what it reads as drawn from comments, and adds only notes", () => {

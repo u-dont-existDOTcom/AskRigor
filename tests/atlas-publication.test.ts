@@ -24,9 +24,11 @@ import {
 import {
   findingsCardDigest,
   findingsCardSchema,
+  laterFindingsCardSchema,
   withoutYouTubeData,
   type StoredFinding,
 } from "../apps/research-mcp/src/findings/card.js";
+import { parseFindingsRecordBody } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { parseMarker } from "../apps/research-mcp/src/findings/github-findings.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import {
@@ -309,6 +311,25 @@ describe("publishing at the save", () => {
     expect(rows[1]!.published).toEqual(publishedFindingOf(stored, 1));
     expect(markerOf(h.github.issue(42).body)).toMatchObject({ atlas_publish: true });
     expect(markerOf(h.github.issue(42).body)).not.toHaveProperty("paid_private");
+  });
+
+  it("stores each finding's review_first with the card, and the library reads it back (owner answer 224a)", async () => {
+    const h = harness();
+    const card = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, review_first: ["serious_illness"] },
+      { ...VELMOR_CARD.findings[1]!, review_first: [] }] };
+    const parsed = laterFindingsCardSchema.parse(card);
+    await expect(h.service.save({
+      findings_card: card,
+      contributor: "1".padStart(64, "0"),
+      finalization_receipt: issueResearchReceipt("finalization", {
+        status: "ready", depth: "standard", target: "0123456789ab", findings: findingsCardDigest(parsed),
+        bases: parsed.findings.map(() => "full_text_audit"),
+      }, { secret: SECRET, now: () => NOW }),
+    }, CONTEXT(FREE))).resolves.toMatchObject({ status: "saved" });
+    const read = parseFindingsRecordBody(h.github.issue(42).body, "card");
+    expect(read).not.toBe("tampered");
+    expect((read as { record: FindingsRecord }).record.card.findings.map(({ review_first }) => review_first))
+      .toEqual([["serious_illness"], []]);
   });
 
   it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {
