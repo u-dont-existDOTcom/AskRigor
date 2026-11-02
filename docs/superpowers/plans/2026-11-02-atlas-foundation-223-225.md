@@ -50,3 +50,19 @@ questions as asked are 223 to 225 on the owner questions page; the plan they com
 5. **Votes become "report a problem"**, with a reason, sending the finding to review; nothing ranks by reports.
 
 The "Colds and flu" page waits for the owner's approval of the respiratory batch.
+
+## Still to build, and where
+
+- **The review-first declaration** (224a's reasons no field shows) and **the bottom-line box's card shape** (223a's
+  question pages) both extend the card's later shape that #398 adds for owner answer 219b (`laterFindingSchema`, the
+  `findings_card` entries in `later-inputs.ts`, the final check's note, the save). They are built on top of #398, not
+  here, so the two branches don't each grow their own later shape. This branch already reads a stored `review_first`.
+- **Question pages** (here): one page per research answer, opening with the bottom-line box ("a quick answer says / the
+  checked studies show / what to try first, what to avoid, what's unknown"), each line linked to its findings, then the
+  card's shown findings. The box is read from the published fields when a card carries one; a place is left for the
+  owner's approved rewrites of existing cards. Code checks that the box claims no more certainty than its weakest
+  finding.
+- **"Report a problem"** (here): the vote form becomes a report with a reason (a wrong number, a misread study, a
+  retraction, unclear, unsafe, or a missing study, whose PubMed or DOI number code checks). A report sends the finding to
+  the owner's review queue; nothing is ranked by reports. It changes what is collected, so it needs a migration, the
+  privacy data map, the privacy page and the terms.
