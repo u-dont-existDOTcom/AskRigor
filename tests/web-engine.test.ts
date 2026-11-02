@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,8 @@ import {
   readPass,
   refusalFor,
   saveSign,
+  skillBody,
+  systemPrompt,
   toolResultContent,
 } from "../scripts/web-engine.mts";
 
@@ -38,6 +40,24 @@ describe("web-app engine trial", () => {
     })).toBeUndefined();
     expect(refusalFor("finalize_research", { answer_draft: "..." })).toBeUndefined();
     expect(refusalFor("search_pubmed", { query: "x" })).toBeUndefined();
+  });
+
+  it("tells the model the date, the server instructions and the AskRigor skill, which says to load the protocols", () => {
+    const skill = skillBody(readFileSync(new URL("../skills/askrigor/SKILL.md", import.meta.url), "utf8"));
+    expect(skill.startsWith("# AskRigor")).toBe(true);
+    expect(skill).toContain("Load Universal first");
+    const [block] = systemPrompt("Before research, call manage_research_access.", "2026-11-02", skill);
+    expect(block?.text).toBe([
+      "Today's date is 2026-11-02.",
+      "AskRigor's tools are connected as the AskRigor app; you also have web search and web fetch.",
+      "", "AskRigor's server instructions:", "Before research, call manage_research_access.",
+      "", "AskRigor's skill, how to run AskRigor:", "", skill,
+    ].join("\n"));
+    expect(block?.cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
+    expect(systemPrompt(undefined, "2026-11-02", undefined)[0]?.text).toBe([
+      "Today's date is 2026-11-02.",
+      "AskRigor's tools are connected as the AskRigor app; you also have web search and web fetch.",
+    ].join("\n"));
   });
 
   it("offers an MCP tool to Claude with its name, description and input schema", () => {

@@ -129,6 +129,12 @@ complete XML protocol.
   pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
   from 43% to none; answers still changed after a passing check; three regression cards published when the account's
   saving was switched on from outside the run (owner questions 218 and 219).
+- `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
+  Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
+  saves and account changes; the cases and the blind judging against ChatGPT's run.
+- `audits/2026-11-02-web-app-engine-trial.md`: the trial's record: the 3-case pilot cost $13.00 (16.8, 5.8 and 18.8
+  minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
+  protocols, so the engine now carries the AskRigor skill; the sample waits for owner question 226.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

@@ -15,11 +15,20 @@ log and each request's cost. A laptop script, not a site.
   with the connector, Anthropic's servers would receive it. The loop also lets the engine refuse calls before they reach
   AskRigor and time each one.
 - **What it refuses, without calling AskRigor:** every save, submission, review or share, and every
-  `manage_research_access` action other than `inspect`. The ChatGPT harness forbids the first three in its preamble and
-  watches the save switch after each case; the engine makes it impossible. Card saving stays off on the dev account.
+  `manage_research_access` action other than `inspect` and `register_plain_answer` (the plain answer the final check
+  compares claim by claim, owner answer 217b; ChatGPT's runs use exactly these two). The ChatGPT harness forbids the
+  first three in its preamble and watches the save switch after each case; the engine makes them impossible.
+- **The account:** before each case the engine inspects it and runs only on an active dev account with card saving
+  off, and on the account the run names. It stops the run at the first result that shows saving on or a card saved,
+  as the harness's save guard does.
 - **The same prompt as ChatGPT's run:** each case's first message is the harness's preamble and the case, word for word;
-  later turns are the case's turn files. The system prompt is the date, one line naming the tools, and the server's
-  instructions, which an MCP client receives when it connects.
+  later turns are the case's turn files. The system prompt is the date, one line naming the tools, the server's
+  instructions, which an MCP client receives when it connects, and, since the pilot, the AskRigor plugin's skill
+  (`skills/askrigor/SKILL.md`, the same bytes as the plugin installed in Codex). In the pilot, without the skill, Claude
+  loaded 0 to 2 protocol sections a case, against 11 to 34 for ChatGPT, because the server's instructions don't mention
+  the protocols. Codex shows GPT the skill's name and one-line description, not its text, and GPT loads them anyway. A web
+  app AskRigor builds writes its own system prompt, so the engine gives Claude the skill's text, which says to load
+  Universal and HRP. `--no-skill` runs it as the pilot ran.
 - **Limits per turn, as the harness's:** 35 minutes (the harness's `timeout 2100`). The engine adds a hard ceiling of 100
   AskRigor calls a turn (the preamble asks for about 60) and a cost ceiling per case, and a run stops at its budget.
 - **Settings:** effort `high`, adaptive thinking with summaries in the log, server-side refusal fallback (`fallbacks:
@@ -36,8 +45,10 @@ log and each request's cost. A laptop script, not a site.
 Owner answer 221 allows Claude API inference for "trying an AskRigor web app", from the owner's monthly Claude API credit
 ($200 this month on the account whose key AskRigor was given). The policy record is on `claude/next-build-20261102`
 (`aa46501d`, scope `ASKRIGOR_WEB_APP_TRIAL`). Its gate passes a $20 pilot request in that scope, and fails the same
-request without the scope, as a control (2 Nov, 18:3x UTC). The plumbing check (two requests on the public endpoint, no
-sign-in) cost $0.09. After the pilot, the owner sets the cap for the sample.
+request without the scope, as a control (2 Nov, 18:3x UTC), and the pilot's worst case, $36 (three cases at $12). The
+plumbing check (two requests on the public endpoint, no sign-in) cost $0.09 and the pilot $13.00. After the pilot, the
+owner sets the cap for the sample (question 226); a run's `--budget` is that cap less one case's ceiling, so a case
+started under the budget can't take the run past the cap.
 
 ## The sign-in (owner question 222)
 
@@ -52,7 +63,10 @@ ChatGPT's and Claude's. The session never signs in. Question 222 asks the owner 
 - **b:** the owner gets a pass from Auth0's Authentication API Debugger extension and saves it in a file.
 - **c:** a release that accepts a third app, the engine's own (what a real web app needs).
 
-The sign-in command is built after the owner's answer.
+The owner chose a (222a, about 19:05 UTC), added the address and saved the two files. `scripts/web-engine-sign-in.mts`
+is the one command: PKCE with a loopback address on the laptop, the Google connection, a fresh sign-in, `research:use`
+only. It keeps the pass only if it is for AskRigor's Claude surface, issued to the Claude app, for a Google login, with
+no other scope, and never keeps the refresh token. The owner signed in at 19:44 UTC.
 
 ## Cases, chosen before any result
 
@@ -67,7 +81,8 @@ From the regression list as it stands at `b9e658e2`. ChatGPT's verdicts on #393'
   `r382-week-800` [in part], `s360-studies` [in part].
 
 Weighted toward cases ChatGPT met only in part or failed, where a better engine would show; three passes check that
-nothing that works gets worse. If the engine changes after the pilot, the pilot's cases run again.
+nothing that works gets worse. If the engine changes after the pilot, the pilot's cases run again. It did (the skill), so
+the sample is these 12 and the pilot's 3, 15 cases, on one version of the engine.
 
 ## Judging
 

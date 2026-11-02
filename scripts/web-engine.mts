@@ -14,6 +14,8 @@
  *   ASKRIGOR_ENGINE_ACCOUNT_REFERENCE=<reference> makes it run only on that account (inspect gives the reference).
  *   --anonymous connects to the ChatGPT surface (/mcp) without a sign-in, for checking the plumbing: research tools
  *   refuse there. --tools a,b offers only those AskRigor tools. --dry lists the offered tools and spends nothing.
+ *   The system prompt carries AskRigor's server instructions and the AskRigor plugin's skill (skills/askrigor/SKILL.md),
+ *   which says to load the Universal and HRP protocols; --no-skill leaves the skill out, as the pilot ran.
  *
  * The sign-in (owner question 222) is the owner's: the engine reads a short-lived research:use pass from
  * ASKRIGOR_ENGINE_TOKEN_FILE (default ~/.local/state/askrigor-web-engine/token.json) and sends it only to AskRigor,
@@ -459,13 +461,19 @@ function casesFromArguments(): CaseInput[] {
   return [{ id, turns: [readFileSync(prompt, "utf8"), ...argumentsNamed("--turn").map((file) => readFileSync(file, "utf8"))] }];
 }
 
-function systemPrompt(instructions: string | undefined, today: string): BetaTextBlockParam[] {
+/** The AskRigor plugin's skill without its front matter: the part a model follows. */
+export function skillBody(markdown: string): string {
+  return markdown.replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+}
+
+export function systemPrompt(instructions: string | undefined, today: string, skill: string | undefined): BetaTextBlockParam[] {
   return [{
     type: "text",
     text: [
       `Today's date is ${today}.`,
       "AskRigor's tools are connected as the AskRigor app; you also have web search and web fetch.",
       ...(instructions === undefined ? [] : ["", "AskRigor's server instructions:", instructions]),
+      ...(skill === undefined ? [] : ["", "AskRigor's skill, how to run AskRigor:", "", skill]),
     ].join("\n"),
     cache_control: { type: "ephemeral", ttl: "1h" },
   }];
@@ -508,6 +516,11 @@ async function main(): Promise<void> {
 
   const version = await fetch(new URL("/version", ASKRIGOR_ORIGIN)).then((response) => response.json()).catch(() => null);
   const only = argument("--tools")?.split(",").map((name) => name.trim());
+  // The AskRigor plugin's skill, the same bytes as the installed plugin's, tells the model to load Universal and HRP;
+  // the server instructions alone do not, and the pilot's Claude then loaded little of either. --no-skill leaves it out.
+  const skillFile = readFileSync(new URL("../skills/askrigor/SKILL.md", import.meta.url), "utf8");
+  const skill = process.argv.includes("--no-skill") ? undefined : skillBody(skillFile);
+  const skillSha256 = skill === undefined ? null : sha256(skillFile);
   let spent = 0;
   const ledger = join(out, "usage", "ledger.json");
   if (existsSync(ledger)) spent = (JSON.parse(readFileSync(ledger, "utf8")) as { spent_usd: number }).spent_usd;
@@ -520,7 +533,11 @@ async function main(): Promise<void> {
       const tools = listed.tools.filter((tool) => only === undefined || only.includes(tool.name))
         .map((tool) => claudeToolFor(tool as McpToolDescription));
       if (dry) {
-        console.log(JSON.stringify({ version, tools: tools.map((tool) => tool.name), instructions: mcp.getInstructions() !== undefined }));
+        const system = systemPrompt(mcp.getInstructions(), new Date().toISOString().slice(0, 10), skill);
+        console.log(JSON.stringify({
+          version, tools: tools.map((tool) => tool.name), instructions: mcp.getInstructions() !== undefined,
+          skill_sha256: skillSha256, system_characters: system[0]?.text.length,
+        }));
         return;
       }
       if (!anonymous) {
@@ -539,7 +556,7 @@ async function main(): Promise<void> {
       });
       const conversation: Conversation = {
         anthropic, mcp, model, effort, limits,
-        system: systemPrompt(mcp.getInstructions(), new Date().toISOString().slice(0, 10)),
+        system: systemPrompt(mcp.getInstructions(), new Date().toISOString().slice(0, 10), skill),
         tools: [...tools, ...webTools(limits.webUsesPerRequest)],
         messages: [], usageLog: [], caseCostUsd: 0,
       };
@@ -548,7 +565,10 @@ async function main(): Promise<void> {
       for (const [index, userText] of testCase.turns.entries()) {
         const name = index === 0 ? testCase.id : `${testCase.id}.turn${index + 1}`;
         const log = new EventLog(join(out, "logs", `${name}.jsonl`));
-        log.event({ type: "thread.started", thread_id: randomUUID(), engine: { model, effort, surface: anonymous ? "/mcp" : "/mcp/claude", version } });
+        log.event({
+          type: "thread.started", thread_id: randomUUID(),
+          engine: { model, effort, surface: anonymous ? "/mcp" : "/mcp/claude", version, skill_sha256: skillSha256 },
+        });
         writeFileSync(join(out, "logs", `${name}.prompt.md`), userText);
         const outcome = await runTurn(conversation, log, userText);
         writeFileSync(join(out, "out", `${name}.md`), outcome.answer);
@@ -559,7 +579,7 @@ async function main(): Promise<void> {
       }
       spent += conversation.caseCostUsd;
       writeFileSync(join(out, "usage", `${testCase.id}.json`), JSON.stringify({
-        case: testCase.id, model, effort, limits, version, surface: anonymous ? "/mcp" : "/mcp/claude",
+        case: testCase.id, model, effort, limits, version, surface: anonymous ? "/mcp" : "/mcp/claude", skill_sha256: skillSha256,
         pass_expires_at: passExpiresAt === undefined ? null : new Date(passExpiresAt * 1000).toISOString(),
         started: new Date(caseStarted).toISOString(), seconds: (Date.now() - caseStarted) / 1000,
         cost_usd: conversation.caseCostUsd, turns, requests: conversation.usageLog,
