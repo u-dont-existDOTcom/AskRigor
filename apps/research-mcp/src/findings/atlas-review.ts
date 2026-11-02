@@ -128,6 +128,7 @@ import {
   type AtlasSourceCheck,
   type AtlasSourceCheckCache,
   type AtlasSourceChecks,
+  type AtlasSourceTitleLookup,
 } from "./source-checks.js";
 
 /**
@@ -947,6 +948,12 @@ export interface AtlasReviewDependencies {
    * actions and the home page's picks need them; without them those actions answer that they are not configured.
    */
   participation?: AtlasModerationStore;
+  /**
+   * The titles and years publish_cards publishes with a card's sources (plan
+   * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
+   * passes atlasSourceTitleLookup; without it, a page shows each source's identifier alone.
+   */
+  sourceTitles?: (providers: AtlasProviderConfig) => AtlasSourceTitleLookup;
 }
 
 // Plain words for the writer's failure codes --------------------------------------------------------------------------
@@ -1072,7 +1079,7 @@ export class AtlasReview {
         case "unpublish_finding":
         case "publish_cards":
         case "set_aside_cards":
-          return await this.publicationAction(request.action, request);
+          return await this.publicationAction(request.action, request, providers);
         case "list_comments":
         case "hide_comment":
         case "show_comment":
@@ -1089,7 +1096,8 @@ export class AtlasReview {
 
   // The publications (decision 171) -------------------------------------------------------------------------------------
 
-  private async publicationAction(action: AtlasPublicationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+  private async publicationAction(action: AtlasPublicationAction, request: AtlasReviewRequest,
+    providers: AtlasProviderConfig): Promise<AtlasReviewResult> {
     const publications = this.deps.publications;
     if (publications === undefined) {
       return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
@@ -1101,6 +1109,7 @@ export class AtlasReview {
       reader: this.deps.reader,
       inbox: this.deps.inbox,
       now: this.now,
+      ...(this.deps.sourceTitles === undefined ? {} : { sourceTitles: this.deps.sourceTitles(providers) }),
     }).run({
       action,
       ...(request.publicationState === undefined ? {} : { publicationState: request.publicationState }),

@@ -1,4 +1,4 @@
-import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-repository";
+import type { AtlasLabel } from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
 import { escapeHtml } from "./page-guard.js";
@@ -27,6 +27,7 @@ import {
   type ShownNumber,
   type ShownRelated,
   type ShownSearch,
+  type ShownSource,
 } from "./page-data.js";
 import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
 
@@ -289,6 +290,7 @@ ${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<
 const FOUND_IN_WORDS: Record<AtlasSearchField, string> = {
   wording: "the wording",
   question: "the question",
+  usual_answer: "the usual answer",
   applies_to: "whom it applies to",
   subject: "the subject",
   topic: "the topic",
@@ -358,11 +360,22 @@ function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml
   }
   return html`<li class="finding">
 ${badge(finding)}
+${questionLine(finding)}
 <p class="finding-claim"><a href="${findingPath(finding.publicationNumber)}">${finding.claim}</a></p>
 <p class="meta">${joined(facts, " · ")}</p>
 ${extra === "" ? "" : html`${extra}
 `}</li>
 `;
+}
+
+/**
+ * The question a listed finding's research answered, so a finding is never listed as a bare sentence; one published
+ * without it says so (its topic follows in the facts line).
+ */
+function questionLine(finding: ShownFinding): SafeHtml {
+  return finding.question === null
+    ? html`<p class="finding-question">Published without its question${finding.topic === null ? " or a topic" : ""}</p>`
+    : html`<p class="finding-question">Question: ${finding.question}</p>`;
 }
 
 function findingList(findings: readonly ShownFinding[]): SafeHtml {
@@ -777,12 +790,34 @@ function search(entry: ShownSearch): SafeHtml {
 `;
 }
 
-function source(identifiers: AtlasPageSourceIdentifiers): SafeHtml | "" {
-  const links = identifiers.flatMap((identifier) => {
+function source(entry: ShownSource): SafeHtml | "" {
+  const links = entry.identifiers.flatMap((identifier) => {
     const link = sourceLink(identifier);
     return link === undefined ? [] : [html`<a href="${link.href}">${link.text}</a>`];
   });
-  return links.length === 0 ? "" : html`<li>${joined(links, " · ")}</li>
+  if (links.length === 0) return "";
+  const named = entry.title === null ? ""
+    : html`<cite>${entry.title}</cite>${entry.year === null ? "" : html` (${entry.year})`}. `;
+  return html`<li>${named}${joined(links, " · ")}</li>
+`;
+}
+
+/** What the card's research found: every finding the pages show from it, this one marked and the others linked. */
+function cardFindings(finding: ShownFinding, siblings: readonly ShownFinding[]): SafeHtml | "" {
+  if (siblings.length === 0) return "";
+  const all = [finding, ...siblings].sort((left, right) =>
+    Number(left.publicationNumber.slice(2)) - Number(right.publicationNumber.slice(2)));
+  return html`<section aria-labelledby="card-findings">
+<h2 id="card-findings">What this research found</h2>
+<p>${all.length} findings from the same research are published here. Each has its own page.</p>
+<ol class="card-findings">
+${all.map((entry) => html`<li${entry === finding ? html` aria-current="page"` : ""}>${badge(entry)}
+<p class="finding-claim">${entry === finding ? html`<strong>This finding:</strong> ${entry.claim}`
+    : html`<a href="${findingPath(entry.publicationNumber)}">${entry.claim}</a>`}</p>
+${entry.certainty === null ? "" : html`<p class="meta">How sure: ${CERTAINTY_WORDS[entry.certainty]}</p>
+`}</li>
+`)}</ol>
+</section>
 `;
 }
 
@@ -882,16 +917,32 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.researchCheckedOn !== null) dates.push(html`Research last checked ${day(finding.researchCheckedOn)}`);
   if (finding.askrigorVersion !== null) dates.push(html`AskRigor ${finding.askrigorVersion}`);
   const sources = finding.sources.map(source).filter((item): item is SafeHtml => item !== "");
+  // The question its research answered opens the page, or a plain note when it was published without one.
+  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${finding.question}</p>`
+    : html`<p class="question question-missing">This finding was published without the question its research answered${finding.topic === null
+      ? ", and without a topic." : html`. Its topic: <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>.`}</p>`;
+  // The usual answer, then why this finding isn't it; without the usual answer, the why alone, as before.
+  const usual = finding.usualAnswer !== null ? html`<section aria-labelledby="usual">
+<h2 id="usual">The usual answer</h2>
+<p>What a quick, ordinary answer would say: ${finding.usualAnswer}</p>
+${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${finding.whyNotUsual}</p>
+`}</section>
+` : finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
+<h2 id="usual">Why this isn’t the usual answer</h2>
+<p>${finding.whyNotUsual}</p>
+</section>
+`;
 
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a>${finding.topic === null ? ""
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
 ${statusBlock(finding)}
+${question}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
 ${joined(facts, "\n")}
 </dl>`}
-${finding.numbers.length === 0 ? "" : html`<section aria-labelledby="numbers">
+${usual}${cardFindings(finding, model.siblings)}${finding.numbers.length === 0 ? "" : html`<section aria-labelledby="numbers">
 <h2 id="numbers">The numbers</h2>
 <p>Each rate is a group’s count divided by its size. The number needed to treat or harm is 1 divided by the difference between the two rates, rounded up; AskRigor works them out from the counts.</p>
 ${finding.numbers.map(figure)}</section>
@@ -899,10 +950,6 @@ ${finding.numbers.map(figure)}</section>
 <h2 id="searches">What was searched, and found nothing</h2>
 <ul class="search-list">
 ${finding.searches.map(search)}</ul>
-</section>
-`}${finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
-<h2 id="usual">Why this isn’t the usual answer</h2>
-<p>${finding.whyNotUsual}</p>
 </section>
 `}${finding.whatWouldChangeIt === null ? "" : html`<section aria-labelledby="change">
 <h2 id="change">What would change it</h2>
@@ -1285,6 +1332,13 @@ p, li, dd { max-width: 72ch; }
 .contested-pair .finding { margin: 0.75rem 0 0; }
 .finding-claim { margin: 0.35rem 0; font-size: 1.05rem; }
 .finding-claim a { font-weight: 600; }
+.finding-question { margin: 0.45rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.question { margin: 0 0 0.75rem; font-size: 1.1rem; }
+.question .eyebrow { display: block; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; }
+.question-missing { color: var(--muted); font-size: 1rem; }
+.card-findings { margin: 0; padding-left: 1.5rem; }
+.card-findings li { margin: 0.9rem 0; }
+.card-findings li[aria-current] .finding-claim { font-weight: 600; }
 .meta { margin: 0.35rem 0 0; font-size: 0.95rem; }
 .reason, .note { margin: 0.5rem 0 0; }
 

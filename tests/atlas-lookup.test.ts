@@ -83,7 +83,8 @@ describe("Atlas lookup through the existing public search tool", () => {
     const finding: AtlasPageFinding = { atlasNumber: "F-1001", question: "What comes next?", links: [{ atlasNumber: "F-1002", relation: "narrows", direction: "outgoing" }], entryKind: "lead", label: "lead", topic: { key: "velmor-syndrome", label: "Velmor syndrome" }, versionNumber: 1,
       content: { wording: "Current canonical zentarine lead", certainty: "very_low", appliesTo: "Adults", numbers: [], verifiedBases: [], whyNotUsual: "Open question", whatWouldChangeIt: "A trial" },
       erased: false, acceptedOn: "2026-11-04", researchCheckedOn: "2026-11-04", askrigorVersion: "0.1.0",
-      sources: [[{ scheme: "doi", value: "10.0000/lead" }]], contradicts: [], replacedBy: [] };
+      sources: [{ identifiers: [{ scheme: "doi", value: "10.0000/lead" }], title: null, year: null }], contradicts: [],
+      replacedBy: [] };
     const publicSource: AtlasPageSource = { read: (work) => memory.read((reads) => work({ ...reads,
       listPublications: (query) => reads.listPublications({ ...query, topicKey: undefined }),
       readFindings: async (numbers) => numbers.includes("F-1001") ? [finding] : [],

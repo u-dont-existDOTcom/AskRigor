@@ -411,6 +411,20 @@ export function devAccountKeysFromEnv(
 // RESEARCH_ACCOUNT_REFERENCE_CHARACTERS in @askrigor/evidence-repository; a test holds the two equal.
 export const DEV_ACCOUNT_REFERENCE_CHARACTERS = 12;
 
+/** The PubMed (NCBI E-utilities) settings the connector's provider tools and the Atlas's source lookups use. */
+export function ncbiConfigFromEnv(env: NodeJS.ProcessEnv = process.env): { tool: string; email: string; apiKey?: string } {
+  return {
+    tool: env.NCBI_TOOL ?? "askrigor",
+    email: env.NCBI_EMAIL ?? "",
+    ...(env.NCBI_API_KEY === undefined ? {} : { apiKey: env.NCBI_API_KEY }),
+  };
+}
+
+/** The Crossref settings the connector's provider tools and the Atlas's source lookups use. */
+export function crossrefConfigFromEnv(env: NodeJS.ProcessEnv = process.env): { mailto: string } {
+  return { mailto: env.CROSSREF_MAILTO ?? "" };
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

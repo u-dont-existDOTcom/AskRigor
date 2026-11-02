@@ -8,6 +8,7 @@ import { Pool } from "pg";
 
 import {
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V2,
   AtlasFindingPromotionRunner,
   AtlasParticipationError,
   AtlasPublicationError,
@@ -2650,11 +2651,17 @@ export async function verifyAtlasPages(context: {
       ({ findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: published(claim) });
     const card = 7201;
     const digest = atlasHex("synthetic-pages-card");
+    // The first with its card's context (version 2): the question, the usual answer and a source's title and year.
+    const withContext: AtlasPublicationDraft = { ...unreviewedDraft(1, "PAGES-UNREVIEWED claim."), published: {
+      ...published("PAGES-UNREVIEWED claim."), schema: ATLAS_PUBLICATION_SCHEMA_V2,
+      question: "PAGES-QUESTION Does an invented option help?", usual_answer: "PAGES-USUAL A quick answer says it helps.",
+      source_details: [{ source: "10.0000/synthetic-pages", title: "PAGES-TITLE A synthetic paper", year: 2023 }],
+    } };
     const rows = await store.publish({
       cardNumber: card,
       cardSha256: digest,
       findings: [
-        unreviewedDraft(1, "PAGES-UNREVIEWED claim."),
+        withContext,
         unreviewedDraft(2, "PAGES-CARD-WORDING claim."),
         { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
           published: published("PAGES-HELD claim.") },
@@ -2672,6 +2679,7 @@ export async function verifyAtlasPages(context: {
     await store.decide({ cardNumber: card, findingNumber: 5, state: "accepted", atlasNumber: withdrawn.public_number,
       decidedAt: tick() });
 
+    const columns = (row: object) => Object.keys(row).sort().join();
     const read = await source.read(async (reads) => ({
       listed: await reads.listPublications({ publicationNumbers: rows.map(({ publicationNumber }) => publicationNumber),
         limit: 10 }),
@@ -2681,8 +2689,15 @@ export async function verifyAtlasPages(context: {
       findings: await reads.readFindings([checked.public_number, withdrawn.public_number]),
       contradictions: await reads.listContradictions(50),
       changes: await reads.listChanges(50),
+      siblings: await reads.listCardSiblings([unreviewed!]),
     }));
-    const columns = (row: object) => Object.keys(row).sort().join();
+    // The card's other publications in a state the pages show, by number only; never the held or rejected one.
+    assert(
+      read.siblings.map(({ publicationNumber, siblingNumber }) => `${publicationNumber}:${siblingNumber}`).join() ===
+        [accepted, withdrawnAfter].map((number) => `${unreviewed}:${number}`).join() &&
+        read.siblings.every((row) => columns(row) === "publicationNumber,siblingNumber"),
+      `ATLAS_PAGES_SIBLINGS_MISMATCH ${JSON.stringify(read.siblings)}`,
+    );
     assert(
       read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
@@ -2700,7 +2715,9 @@ export async function verifyAtlasPages(context: {
     assert(
       checkedFinding?.label === "checked" && findingOf(withdrawn.public_number)?.label === "withdrawn" &&
         checkedFinding.acceptedOn !== null && /^\d{4}-\d{2}-\d{2}$/u.test(checkedFinding.researchCheckedOn) &&
-        checkedFinding.sources.length > 0 && !checkedFinding.erased,
+        checkedFinding.sources.length > 0 && !checkedFinding.erased &&
+        // Each source with its newest public-record check's title and year.
+        checkedFinding.sources.every(({ title, year }) => title?.startsWith("Synthetic zentarine trial") === true && year === 2024),
       "ATLAS_PAGES_FINDINGS_MISMATCH",
     );
     assert(
@@ -2718,7 +2735,10 @@ export async function verifyAtlasPages(context: {
     const home = renderAtlasHome(await loadAtlasHome(source));
     assert(
       acceptedHtml.includes(escapeHtml(checkedFinding.content.wording)) && !acceptedHtml.includes("PAGES-CARD-WORDING") &&
-        acceptedHtml.includes(`Atlas number ${checked.public_number}`) && !acceptedHtml.includes(NOT_CHECKED_LABEL) &&
+        // Its own label is not the unreviewed one; its card's unreviewed sibling, listed on it, keeps its own.
+        acceptedHtml.includes(`Atlas number ${checked.public_number}`) &&
+        !acceptedHtml.includes(`<p class="status-label">${NOT_CHECKED_LABEL}</p>`) &&
+        acceptedHtml.includes(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>`) &&
         unreviewedHtml.includes(NOT_CHECKED_LABEL) && unreviewedHtml.includes("PAGES-UNREVIEWED claim.") &&
         home.includes("PAGES-UNREVIEWED claim.") &&
         (await loadAtlasFinding(source, held!)) === undefined &&
@@ -2726,6 +2746,16 @@ export async function verifyAtlasPages(context: {
         (await loadAtlasFinding(source, withdrawnAfter!)) === undefined,
       "ATLAS_PAGES_RENDERED_MISMATCH",
     );
+    // Its card's context, and its card's shown sibling by its accepted wording (plan 2026-11-02-atlas-finding-pages-in-context.md).
+    const context = {
+      question: unreviewedHtml.includes("PAGES-QUESTION Does an invented option help?"),
+      usual: unreviewedHtml.includes("What a quick, ordinary answer would say: PAGES-USUAL A quick answer says it helps."),
+      title: unreviewedHtml.includes("<cite>PAGES-TITLE A synthetic paper</cite> (2023)."),
+      research: unreviewedHtml.includes("What this research found"),
+      sibling: unreviewedHtml.includes(`href="/atlas/findings/${accepted}">${escapeHtml(checkedFinding.content.wording)}</a>`),
+      canonicalTitle: acceptedHtml.includes("<cite>Synthetic zentarine trial"),
+    };
+    assert(Object.values(context).every(Boolean), `ATLAS_PAGES_CONTEXT_MISMATCH ${JSON.stringify(context)}`);
     for (const page of [acceptedHtml, unreviewedHtml, home]) {
       assert(
         atlasPageProblems(page).length === 0 && !page.includes("ARF-") && !page.includes(digest) &&

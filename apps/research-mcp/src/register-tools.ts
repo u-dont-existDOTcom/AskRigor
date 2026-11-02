@@ -76,8 +76,10 @@ import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
+  ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
@@ -3615,17 +3617,11 @@ async function verifyIntegrity(
 }
 
 function ncbiConfig() {
-  return {
-    tool: process.env.NCBI_TOOL ?? "askrigor",
-    email: process.env.NCBI_EMAIL ?? "",
-    ...(process.env.NCBI_API_KEY === undefined
-      ? {}
-      : { apiKey: process.env.NCBI_API_KEY })
-  };
+  return ncbiConfigFromEnv();
 }
 
 function crossrefConfig() {
-  return { mailto: process.env.CROSSREF_MAILTO ?? "" };
+  return crossrefConfigFromEnv();
 }
 
 function youtubeConfig() {

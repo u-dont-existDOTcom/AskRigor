@@ -1,6 +1,7 @@
 import {
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_VERIFIED_BASES,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
@@ -21,6 +22,7 @@ import type {
   FindingsSaveAccount,
   SavedFindingsCard,
 } from "../findings/service.js";
+import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/source-checks.js";
 import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js";
 
 /**
@@ -163,7 +165,8 @@ const YOUTUBE_REFERENCE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
 /**
  * Every text a publication shows, by field: the topic (its key read as words, as the card's privacy screen reads it),
  * the claim, whom it applies to, the subject, each figure's labels, each search's query, why it is not the usual answer
- * and what would change it. Source identifiers are identifiers, not text.
+ * and what would change it; with version 2, the card's question and usual answer and each source's title. Source
+ * identifiers are identifiers, not text.
  */
 export function publishedTexts(published: AtlasPublishedFinding): Array<[string, string]> {
   return [
@@ -183,6 +186,9 @@ export function publishedTexts(published: AtlasPublishedFinding): Array<[string,
     ...(published.searches ?? []).map((search, at): [string, string] => [`searches[${at}].query`, search.query]),
     ["why_not_usual", published.why_not_usual],
     ["what_would_change_it", published.what_would_change_it],
+    ...(published.question === undefined ? [] : [["question", published.question] as [string, string]]),
+    ...(published.usual_answer === undefined ? [] : [["usual_answer", published.usual_answer] as [string, string]]),
+    ...(published.source_details ?? []).map(({ title }, at): [string, string] => [`source_details[${at}].title`, title]),
   ];
 }
 
@@ -192,13 +198,60 @@ export function publishedTexts(published: AtlasPublishedFinding): Array<[string,
  * a YouTube link. Empty when it is shown.
  */
 export function publicationHoldReasons(published: AtlasPublishedFinding): AtlasPublicationHoldReason[] {
-  const found = new Set<AtlasPublicationHoldReason>();
-  for (const [, text] of publishedTexts(published)) {
-    for (const kind of contactDetailKinds(text)) found.add(kind);
-    if (containsCardReference(text)) found.add("card_reference");
-    if (YOUTUBE_REFERENCE.test(text)) found.add("youtube_link");
-  }
+  const found = new Set(publishedTexts(published).flatMap(([, text]) => textHoldReasons(text)));
   return ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => found.has(reason));
+}
+
+/** What one text holds that the pages never show, by the same three checks. */
+function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
+  return [
+    ...contactDetailKinds(text),
+    ...(containsCardReference(text) ? ["card_reference" as const] : []),
+    ...(YOUTUBE_REFERENCE.test(text) ? ["youtube_link" as const] : []),
+  ];
+}
+
+/**
+ * A publication with its card's context (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md):
+ * version 2, with the card's question and usual answer (the card's own general wording, which the free notice says a
+ * published card holds) and each source's title and year where its public record gave one. A title is provider text:
+ * one that holds what the pages never show, or does not fit, is left out rather than holding the finding. The fields as
+ * they are when the context does not make a publication (a card text longer than the publication takes, say).
+ */
+export function withCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
+  titles: AtlasSourceTitles = new Map()): AtlasPublishedFinding {
+  const plain = withoutDirectionControls;
+  const details = published.sources.flatMap((source) => {
+    const found = titles.get(source);
+    const title = found === undefined ? "" : plain(found.title).replace(/[\s\p{Cc}]+/gu, " ").trim();
+    const year = found?.year ?? null;
+    return title === "" || title.length > 500 || textHoldReasons(title).length > 0 ? []
+      : [{ source, title, year: year !== null && Number.isInteger(year) && year >= 1500 && year <= 2200 ? year : null }];
+  });
+  const parsed = atlasPublishedFindingSchema.safeParse({
+    ...published,
+    schema: ATLAS_PUBLICATION_SCHEMA_V2,
+    question: plain(record.card.question),
+    usual_answer: plain(record.card.usual_answer),
+    ...(details.length === 0 ? {} : { source_details: details }),
+  });
+  return parsed.success ? parsed.data : published;
+}
+
+/**
+ * The titles of a card's sources, looked up once for all its findings; none when there is no lookup or it fails, which
+ * never holds publishing back.
+ */
+export async function cardSourceTitles(record: FindingsRecord, lookup: AtlasSourceTitleLookup | undefined):
+  Promise<AtlasSourceTitles> {
+  const sources = [...new Set(record.card.findings.flatMap((finding) => finding.sources)
+    .filter((source) => !isYouTubeVideoId(source)))];
+  if (lookup === undefined || sources.length === 0) return new Map();
+  try {
+    return await lookup(sources);
+  } catch {
+    return new Map();
+  }
 }
 
 /** What a decided finding's publication becomes: accepted or edited with its F number, or rejected. */
@@ -246,6 +299,8 @@ export function planCardPublication(input: {
   decided?: ReadonlyMap<number, DecidedPublicationState>;
   /** publish_cards only: a topic for a card that declares none. */
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>;
+  /** The card's sources' titles and years, for the findings published unreviewed. */
+  sourceTitles?: AtlasSourceTitles;
 }): CardPublicationPlan {
   const problems = cardPublicationProblems(input.record, input.setAside, input.route);
   if (problems.length > 0) return { problems, drafts: [], leftOut: [] };
@@ -269,12 +324,15 @@ export function planCardPublication(input: {
     }
     const held = publicationHoldReasons(published);
     if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
+      // A decided finding's page shows its F number's latest version, so its publication keeps version 1's fields.
       drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null, published });
       return;
     }
-    drafts.push(held.length === 0
-      ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published }
-      : { findingNumber, state: "held", atlasNumber: null, heldBecause: held, published });
+    const shown = withCardContext(published, input.record, input.sourceTitles);
+    const holds = publicationHoldReasons(shown);
+    drafts.push(holds.length === 0
+      ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: shown }
+      : { findingNumber, state: "held", atlasNumber: null, heldBecause: holds, published: shown });
   });
   return { problems, drafts, leftOut };
 }
@@ -289,7 +347,12 @@ export function planCardPublication(input: {
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
 
-  constructor(private readonly options: { store: AtlasPublicationStore; now?: () => Date }) {
+  constructor(private readonly options: {
+    store: AtlasPublicationStore;
+    now?: () => Date;
+    /** The sources' titles and years for the pages; without it, a page shows each source's identifier alone. */
+    sourceTitles?: AtlasSourceTitleLookup;
+  }) {
     this.now = options.now ?? (() => new Date());
   }
 
@@ -310,11 +373,13 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         failure = error;
       }
     }
-    if (saved.kind === "created") {
+    if (saved.kind === "created" && cardPublicationProblems(saved.record, saved.setAside,
+      { route: "save", account: saved.account }).length === 0) {
       const plan = planCardPublication({
         record: saved.record,
         setAside: saved.setAside,
         route: { route: "save", account: saved.account },
+        sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
         await this.options.store.publish({

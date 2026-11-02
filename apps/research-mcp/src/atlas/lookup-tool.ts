@@ -72,7 +72,8 @@ function publicFinding(finding: ShownFinding, origin: string): z.output<typeof f
   return { publication_number: finding.publicationNumber, atlas_number: finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber,
     state: checked ? "checked" : NOT_CHECKED_LABEL, label: finding.status.kind, certainty: finding.certainty,
     wording: finding.claim, applies_to: finding.appliesTo, question: finding.question, topic: finding.topic,
-    sources: finding.sources, links: finding.links, page_url: atlasPageUrl(finding.publicationNumber, origin) };
+    sources: finding.sources.map(({ identifiers }) => identifiers), links: finding.links,
+    page_url: atlasPageUrl(finding.publicationNumber, origin) };
 }
 export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDependencies = {}): Promise<z.output<typeof atlasLookupOutputSchema>> {
   const input = atlasLookupInputSchema.parse(raw);

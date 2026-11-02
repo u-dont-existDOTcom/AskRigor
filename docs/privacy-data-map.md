@@ -1583,7 +1583,19 @@ The pages (section 4C) are built, not yet released, and switched off until
   harm are worked out when the pages render, so the card's are not kept), the
   searches of a search that found nothing, its source identifiers, why the usual
   answer misses it and what would change it; its verified bases; the day the card
-  was saved; and the AskRigor version from the card's stamp. Then its state
+  was saved; and the AskRigor version from the card's stamp. A finding published
+  unreviewed (a free card at its save, or the owner's choice of card) also holds
+  its card's question and usual answer, the card's own general wording ("the
+  question in general terms", as notice version 4 says a published card holds
+  it), and each source's title and year from its public record (Crossref,
+  PubMed, Europe PMC or ClinicalTrials.gov, looked up at publication through the
+  source checks' provider calls; a source no provider answers for keeps its
+  identifier alone): `askrigor.atlas-publication.v2`, plan
+  `docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`. The
+  question and usual answer go through the same hold check as every other
+  published text; a title that fails it, or does not fit, is left out. A
+  decided finding's publication, and so a paid private card's, keeps the earlier
+  fields without them: its page shows its F number's version. Then its state
   (`unreviewed`, `accepted` with its F number, `edited`, `rejected`,
   `withdrawn` or `held`), why it is held (the kinds found, never the matched
   text) or withdrawn (`card_forgotten`, `card_set_aside`, `owner_unpublished`
@@ -1617,7 +1629,13 @@ The pages (section 4C) are built, not yet released, and switched off until
   supplies its stored label). A live topicless publication is withdrawn as
   `owner_unpublished`, with the private reason `filed under <topic key> (owner answer 191b)`,
   then revived with the new topic and the same P number. The stored card and its
-  digest are unchanged. Accepting or editing a finding whose card has no publication of
+  digest are unchanged. In the same way, `publish_cards` gives a card's older
+  unreviewed publications (published before the card's context was) their card's
+  question, usual answer and source titles: each is withdrawn as
+  `owner_unpublished` with the private reason `to add its card's question, usual
+  answer and source titles`, then revived with its stored fields and the context,
+  under the same P number; one whose context would hold it keeps its fields.
+  Accepting or editing a finding whose card has no publication of
   it (a paid private card, whose findings are published only after the owner
   accepts them, or one of the owner's own older cards that `publish_cards` has
   not published) publishes it in that state, with the card's published fields,
@@ -1644,10 +1662,17 @@ The pages (section 4C) are built, not yet released, and switched off until
   public number, state, F number, published fields and dates of an unreviewed,
   accepted or edited publication: never the card's number or digest, the
   finding's place on the card, the owner's private reason, or why one was held
-  or withdrawn. An unreviewed publication shows its published fields with the
-  label "Not checked by supervisors yet"; an accepted or edited one shows its F
-  number's latest version from the canonical Atlas (its wording, fields,
-  numbers, searches and its sources' identifiers), its F number and the day it
+  or withdrawn. A finding page lists the card's other shown findings by a read
+  that matches the card's digest inside the query and returns only their P
+  numbers; the digest never leaves the database, and a forgotten card's
+  publications, which keep no digest, list none. An unreviewed publication shows
+  its published fields with the label "Not checked by supervisors yet", with its
+  card's question and usual answer and its sources' titles when it was published
+  with them, or a note that it was published without its question; an accepted
+  or edited one shows its F number's latest version from the canonical Atlas (its
+  wording, public question, usual answer, fields, numbers, searches and its
+  sources' identifiers, with the title and year of each source's newest
+  public-record check in `atlas_source_checks`), its F number and the day it
   was checked, and nothing of the card's own wording; held, rejected and
   withdrawn publications, one whose F number the timer has not written yet, and
   a finding withdrawn after acceptance or whose latest wording was erased show
@@ -1684,9 +1709,12 @@ The pages (section 4C) are built, not yet released, and switched off until
 
 Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public
 publication/canonical fields above. Topic maps add the canonical public question
-and unwithdrawn link relations; they never read a private card question or render
-link rationale. Shown-publication rules also govern counts, search and map nodes.
-No new database table, view, function, grant or migration is introduced.
+and unwithdrawn link relations; they never read a card question that was not
+published or render link rationale (since the plan of 2 November 2026, an
+unreviewed publication's published fields may carry its card's question, above,
+which the topic map and lists show like a canonical one). Shown-publication rules
+also govern counts, search and map nodes. No new database table, view, function,
+grant or migration is introduced.
 
 Search queries (`GET /atlas/search?q=…`, at most 300 UTF-16 code units and 20
 words) are request-local input. They are **not stored or logged**, not placed in
@@ -1706,9 +1734,10 @@ With participation off the header still has the GET search form.
 Full-text search and the findings map (plan
 `docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`):
 search matches the text each shown finding's page shows (its wording, question,
-whom it applies to, subject, topic, why it isn't the usual answer, what would
-change it, its figures' outcome, follow-up, option and comparator, its searches,
-its source identifiers and its P and F numbers), never a label the pages add, a
+usual answer, whom it applies to, subject, topic, why it isn't the usual answer,
+what would change it, its figures' outcome, follow-up, option and comparator,
+its searches, its sources' titles and identifiers, and its P and F numbers), never
+a label the pages add, a
 vote, a comment, or a card's or version's text the pages leave out; its paging
 links carry the query and a page number. Searches match against that public
 text, read once and kept in memory like a rendered page (60 seconds, dropped on

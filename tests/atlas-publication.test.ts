@@ -20,6 +20,7 @@ import {
   publicationHoldReasons,
   publishedFindingOf,
   reconcileCardPublications,
+  withCardContext,
 } from "../apps/research-mcp/src/atlas/publication.js";
 import {
   findingsCardDigest,
@@ -39,6 +40,7 @@ import {
   type FindingsSaveAccount,
   type FindingsSaveContext,
 } from "../apps/research-mcp/src/findings/service.js";
+import type { AtlasSourceTitleLookup } from "../apps/research-mcp/src/findings/source-checks.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
@@ -241,6 +243,58 @@ describe("which findings and cards are published", () => {
       .toEqual({ problems: ["set_aside"], drafts: [], leftOut: [] });
   });
 
+  it("publishes an unreviewed finding with its card's question, usual answer and source titles, a decided one without", () => {
+    const record = recordOf(VELMOR_CARD);
+    const [first, second] = VELMOR_CARD.findings.map(({ sources }) => sources[0]!);
+    const titles = new Map([
+      [first!, { title: "An invented trial of zentarine\u202e in Velmor syndrome", year: 2025 }],
+      // Provider text that holds what the pages never show is left out, not held.
+      [second!, { title: "Write to someone@example.org for the protocol", year: 2024 }],
+    ]);
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE }, sourceTitles: titles });
+    expect(plan.drafts.map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    expect(plan.drafts[0]!.published).toEqual({ ...publishedFindingOf(record, 1), schema: "askrigor.atlas-publication.v2",
+      question: VELMOR_CARD.question, usual_answer: VELMOR_CARD.usual_answer,
+      source_details: [{ source: first, title: "An invented trial of zentarine in Velmor syndrome", year: 2025 }] });
+    expect(plan.drafts[1]!.published).not.toHaveProperty("source_details");
+    expect(plan.drafts[1]!.published).toMatchObject({ question: VELMOR_CARD.question });
+    // Without a lookup, the context alone.
+    expect(planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } }).drafts[0]!.published)
+      .toEqual(withCardContext(publishedFindingOf(record, 1)!, record));
+    // A decided finding's page shows its F number's version: its publication keeps version 1's fields.
+    const decided = planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false },
+      decided: new Map([[1, { state: "accepted" as const, atlasNumber: "F-1001" }]]), sourceTitles: titles });
+    expect(decided.drafts.map(({ published }) => published.schema))
+      .toEqual(["askrigor.atlas-publication.v1", "askrigor.atlas-publication.v2"]);
+    expect(decided.drafts[0]!.published).toEqual(publishedFindingOf(record, 1));
+  });
+
+  it("holds the card's findings when its question or usual answer holds what the pages never show", () => {
+    for (const [field, text, reason] of [
+      ["question", "Should I take zentarine? Reply to me at jane.doe@example.org", "email_address"],
+      ["usual_answer", "Ask the clinic on 020 7946 0958 for zentarine.", "phone_number"],
+      ["question", "Is zentarine as good as ARF-0142 says?", "card_reference"],
+    ] as const) {
+      const plan = planCardPublication({ record: recordOf({ ...VELMOR_CARD, [field]: text }), setAside: false,
+        route: { route: "save", account: FREE } });
+      expect(plan.drafts.map(({ state, heldBecause }) => [state, heldBecause]), field)
+        .toEqual([["held", [reason]], ["held", [reason]]]);
+    }
+  });
+
+  it("publishes version 1's fields when the card's context does not fit a publication", () => {
+    const record = recordOf(VELMOR_CARD);
+    const long = { ...record, card: { ...record.card, usual_answer: "x ".repeat(250).trim() } };
+    const plan = planCardPublication({ record: long, setAside: false, route: { route: "save", account: FREE } });
+    expect(plan.drafts[0]!.published).toEqual(publishedFindingOf(long, 1));
+    // A title too long, or with no year Crossref could give, is left out or kept without its year.
+    const [source] = VELMOR_CARD.findings[0]!.sources;
+    const titled = withCardContext(publishedFindingOf(record, 1)!, record, new Map([[source!, { title: "t".repeat(501), year: 2025 }]]));
+    expect(titled).not.toHaveProperty("source_details");
+    expect(withCardContext(publishedFindingOf(record, 1)!, record, new Map([[source!, { title: "A trial", year: 99 }]])))
+      .toMatchObject({ source_details: [{ source, title: "A trial", year: null }] });
+  });
+
   it("gives a decided finding's publication its state from the decision and the F number's intents", () => {
     const intent = (intentKind: AtlasIntentView["intentKind"], status: AtlasIntentView["status"], payload: object) =>
       ({ intentKind, publicNumber: "F-1001", status, payload }) as unknown as AtlasIntentView;
@@ -264,7 +318,7 @@ describe("publishing at the save", () => {
   const CONTEXT = (account?: FindingsSaveAccount): FindingsSaveContext =>
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
-  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore()) {
+  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -278,7 +332,7 @@ describe("publishing at the save", () => {
       version: "0.1.0",
       build: "0123abc",
       now: () => NOW,
-      publisher: new AtlasCardPublisher({ store, now: () => NOW }),
+      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }) }),
     });
     const save = (card: object, account: FindingsSaveAccount | undefined, thread = "1", receiptClaims: object = {}) => {
       const parsed = findingsCardSchema.parse(card);
@@ -306,9 +360,42 @@ describe("publishing at the save", () => {
       ["P-1001", 42, 1, "unreviewed"]]);
     const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
     expect(rows[0]!.cardSha256).toBe(stored.card_sha256);
-    expect(rows[1]!.published).toEqual(publishedFindingOf(stored, 1));
+    // Version 2: the card's question and usual answer with the fields (no title lookup in this harness).
+    expect(rows[1]!.published).toEqual(withCardContext(publishedFindingOf(stored, 1)!, stored));
+    expect(rows[1]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2", question: VELMOR_CARD.question,
+      usual_answer: VELMOR_CARD.usual_answer });
+    expect(rows[1]!.published).not.toHaveProperty("source_details");
     expect(markerOf(h.github.issue(42).body)).toMatchObject({ atlas_publish: true });
     expect(markerOf(h.github.issue(42).body)).not.toHaveProperty("paid_private");
+  });
+
+  it("looks the card's sources up for their titles once, and publishes without them when the lookup fails", async () => {
+    const asked: string[][] = [];
+    const titled = new InMemoryAtlasPublicationStore();
+    const lookup = async (sources: readonly string[]) => {
+      asked.push([...sources]);
+      return new Map([[sources[0]!, { title: "An invented trial", year: 2025 }]]);
+    };
+    const h = harness(titled, lookup);
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect(asked).toEqual([VELMOR_CARD.findings.map(({ sources }) => sources[0]!)]);
+    const [second, first] = await titled.inspect({});
+    expect(first!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2",
+      source_details: [{ source: VELMOR_CARD.findings[0]!.sources[0], title: "An invented trial", year: 2025 }] });
+    expect(second!.published).not.toHaveProperty("source_details");
+
+    const failing = harness(new InMemoryAtlasPublicationStore(), async () => { throw new Error("provider down"); });
+    await expect(failing.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved" });
+    await failing.service.publicationsSettled();
+    expect((await failing.store.inspect({})).map(({ state, published }) => [state, published?.schema]))
+      .toEqual([["unreviewed", "askrigor.atlas-publication.v2"], ["unreviewed", "askrigor.atlas-publication.v2"]]);
+    // No lookup for a card that does not publish.
+    asked.length = 0;
+    const paid = harness(new InMemoryAtlasPublicationStore(), lookup);
+    await paid.save(VELMOR_CARD, { mode: "PAID_PRIVATE", noticeVersion: null });
+    await paid.service.publicationsSettled();
+    expect(asked).toEqual([]);
   });
 
   it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {

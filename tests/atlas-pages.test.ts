@@ -41,7 +41,7 @@ import {
   type AtlasPagesHandler,
   type RenderedAtlasPage,
 } from "../apps/research-mcp/src/atlas/pages-http.js";
-import { planCardPublication } from "../apps/research-mcp/src/atlas/publication.js";
+import { planCardPublication, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { atlasPagesEnabledFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   findingsCardDigest,
@@ -64,6 +64,9 @@ const SAVED_AT = "2026-11-04T09:00:00.000Z";
 const CSP = "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; " +
   "base-uri 'none'; object-src 'none'";
 
+/** An accepted finding's usual answer, which its page shows (plan 2026-11-02-atlas-finding-pages-in-context.md). */
+const CANONICAL_USUAL_ANSWER = "CANONICALUSUALANSWER a quick answer calls it gentle.";
+
 /** What no page may ever hold. */
 const NEVER = {
   answerQuote: "ANSWERQUOTESENTINEL the answer's own sentence",
@@ -80,7 +83,6 @@ const NEVER = {
   videoFinding: "VIDEOFINDINGSENTINEL",
   olderVideoFinding: "OLDERVIDEOSENTINEL",
   video: "dQw4w9WgXcQ",
-  usualAnswer: "USUALANSWERSENTINEL",
   whoElse: "WHOELSESENTINEL",
   whatItChanges: "WHATITCHANGESSENTINEL",
 } as const;
@@ -147,7 +149,7 @@ function acceptPayload(options: {
       wording: options.wording,
       appliesTo: "Adults with Velmor syndrome",
       certainty: options.certainty ?? "moderate",
-      usualAnswer: `${NEVER.usualAnswer} a quick answer calls it gentle.`,
+      usualAnswer: CANONICAL_USUAL_ANSWER,
       whyNotUsual: "Quick answers miss the trial's numbers.",
       whatWouldChangeIt: "A second trial of similar size.",
       whoElse: `${NEVER.whoElse} adults weighing zentarine.`,
@@ -423,7 +425,7 @@ describe("the finding pages", () => {
     expect(edited.response.status).toBe(200);
     expect(edited.body).toContain(escapeHtml(editedWording));
     expect(edited.body).not.toContain(NEVER.cardWording);
-    expect(edited.body).not.toContain(NOT_CHECKED_LABEL);
+    expect(edited.body).not.toContain(`<p class="status-label">${NOT_CHECKED_LABEL}</p>`);
     expect(edited.body).toContain(`Atlas number ${numbers.edited}`);
     expect(edited.body).toMatch(/Checked by supervisors <time datetime="2026-11-04">4 Nov 2026<\/time>/u);
     expect(edited.body).toContain('Research last checked <time datetime="2026-11-03">3 Nov 2026</time>');
@@ -445,6 +447,120 @@ describe("the finding pages", () => {
     expect(lead.body).toContain('<p class="status-label">Lead</p>');
     expect(lead.body).toContain("kept it as a lead: no verified basis backs it yet.");
     expect(lead.body).toContain(`Atlas number ${numbers.lead}`);
+  });
+
+  it("open with the question its research answered, then the usual answer and the card's other findings", async () => {
+    const { source, shown } = await fixture();
+    const base = await serve(pages(source));
+    const { body } = await text(base, `/atlas/findings/${shown.effect}`);
+    const at = (fragment: string) => {
+      const index = body.indexOf(fragment);
+      expect(index, fragment).toBeGreaterThan(-1);
+      return index;
+    };
+    const status = at(`<p class="status-label">${NOT_CHECKED_LABEL}</p>`);
+    const question = at(`<p class="question"><span class="eyebrow">The question</span> ${escapeHtml(VELMOR_CARD.question)}</p>`);
+    const claim = at(`<h1 class="claim">${escapeHtml(VELMOR_CARD.findings[0]!.claim)}</h1>`);
+    const usual = at(`<p>What a quick, ordinary answer would say: ${escapeHtml(VELMOR_CARD.usual_answer)}</p>`);
+    at(`<p><strong>Why this finding isn’t it:</strong> ${escapeHtml(VELMOR_CARD.findings[0]!.why_not_usual)}</p>`);
+    const research = at('<h2 id="card-findings">What this research found</h2>');
+    const sources = at('<h2 id="sources">Sources</h2>');
+    expect([status < question, question < claim, claim < usual, usual < research, research < sources]).toEqual(Array(5).fill(true));
+    // The card's two published findings, in order: this one marked, the other linked with its label. Its third, drawn
+    // from comments, was never published.
+    at("2 findings from the same research are published here. Each has its own page.");
+    at(`<li aria-current="page"><p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\n<p class="finding-claim">` +
+      `<strong>This finding:</strong> ${escapeHtml(VELMOR_CARD.findings[0]!.claim)}</p>`);
+    at(`<p class="finding-claim"><a href="/atlas/findings/${shown.nothingFound}">${escapeHtml(VELMOR_CARD.findings[1]!.claim)}</a></p>`);
+    at("<p class=\"meta\">How sure: Very low</p>");
+    const other = (await text(base, `/atlas/findings/${shown.nothingFound}`)).body;
+    expect(other).toContain(`<a href="/atlas/findings/${shown.effect}">${escapeHtml(VELMOR_CARD.findings[0]!.claim)}</a>`);
+    expect(other).toContain(`<strong>This finding:</strong> ${escapeHtml(VELMOR_CARD.findings[1]!.claim)}`);
+    // A card of one published finding has no such list.
+    expect((await text(base, `/atlas/findings/${shown.hip}`)).body).not.toContain("What this research found");
+    // An accepted finding shows its accepted version's question and usual answer, never its card's.
+    const edited = (await text(base, `/atlas/findings/${shown.edited}`)).body;
+    expect(edited).toContain('<span class="eyebrow">The question</span> Does zentarine ease the hand tremor of Velmor ' +
+      "syndrome in adults?</p>");
+    expect(edited).toContain(`What a quick, ordinary answer would say: ${CANONICAL_USUAL_ANSWER}`);
+    expect(edited).toContain("<strong>Why this finding isn’t it:</strong> Quick answers miss the trial&#39;s numbers.");
+    expect(edited).not.toContain(escapeHtml(VELMOR_CARD.usual_answer));
+  });
+
+  it("list only a card's shown findings beside it: never a held, rejected or unpublished one", async () => {
+    const store = atlas();
+    const card = { ...VELMOR_CARD, findings: [
+      VELMOR_CARD.findings[0]!,
+      { ...VELMOR_CARD.findings[1]!, claim: "Zentarine may ease the voice tremor; ask Dr Velm on 020 7946 0958." },
+      { ...VELMOR_CARD.findings[1]!, claim: "UNPUBLISHEDSIBLING a third finding the owner took down." },
+      { ...VELMOR_CARD.findings[1]!, claim: "REJECTEDSIBLING a fourth finding the owner rejected." },
+    ] };
+    const { rows } = await store.publish(6100, recordOf(card));
+    const number = (finding: number) => rows.find(({ findingNumber }) => findingNumber === finding)!.publicationNumber;
+    expect(rows.map(({ state }) => state)).toEqual(["unreviewed", "held", "unreviewed", "unreviewed"]);
+    await store.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: [number(3)], ownerReason: "Not now.",
+      withdrawnAt: store.tick() });
+    await store.publications.decide({ cardNumber: 6100, findingNumber: 4, state: "rejected", atlasNumber: null,
+      decidedAt: store.tick() });
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    expect(await source.read((reads) => reads.listCardSiblings([number(1)]))).toEqual([]);
+    // Only the siblings must show; the held one is listed beside its shown sibling.
+    expect(await source.read((reads) => reads.listCardSiblings([number(2)])))
+      .toEqual([{ publicationNumber: number(2), siblingNumber: number(1) }]);
+    const base = await serve(pages(source));
+    const page = (await text(base, `/atlas/findings/${number(1)}`)).body;
+    expect(page).not.toContain("What this research found");
+    for (const absent of ["020 7946 0958", "UNPUBLISHEDSIBLING", "REJECTEDSIBLING"]) expect(page).not.toContain(absent);
+  });
+
+  it("say when a finding was published without its question, and show its topic instead", async () => {
+    const store = atlas();
+    const older = async (cardNumber: number, card: object) => {
+      const record = recordOf(card);
+      return (await store.publications.publish({ cardNumber, cardSha256: record.card_sha256, publishedAt: store.tick(),
+        revive: false, findings: [{ findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+          published: publishedFindingOf(record, 1)! }] }))[0]!.publicationNumber;
+    };
+    const filed = await older(5001, oneFindingCard("An older finding, published before its question was."));
+    const { topic: _topic, ...topicless } = oneFindingCard("An older finding with no topic either.");
+    const loose = await older(5002, topicless);
+    const base = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    const page = (await text(base, `/atlas/findings/${filed}`)).body;
+    expect(page).toContain('<p class="question question-missing">This finding was published without the question its ' +
+      'research answered. Its topic: <a href="/atlas/topics/velmor-syndrome">Velmor syndrome</a>.</p>');
+    expect(page).not.toContain('<h2 id="usual">The usual answer</h2>');
+    expect(page).toContain('<h2 id="usual">Why this isn’t the usual answer</h2>');
+    expect(page).toContain(`<p class="status-label">${NOT_CHECKED_LABEL}</p>`);
+    expect((await text(base, `/atlas/findings/${loose}`)).body).toContain("This finding was published without the question " +
+      "its research answered, and without a topic.");
+    const list = (await text(base, "/atlas/findings")).body;
+    expect(list).toContain('<p class="finding-question">Published without its question</p>');
+    expect(list).toContain('<p class="finding-question">Published without its question or a topic</p>');
+  });
+
+  it("show each source by its title and year, then its identifier links", async () => {
+    const { source, store, shown } = await fixture();
+    const base = await serve(pages(source));
+    // An accepted finding's source, by its newest public-record check.
+    expect((await text(base, `/atlas/findings/${shown.edited}`)).body).toContain('<li><cite>An invented trial</cite> (2025). ' +
+      '<a href="https://doi.org/10.0000/synthetic-velmor-a">DOI 10.0000/synthetic-velmor-a</a> · ' +
+      '<a href="https://pubmed.ncbi.nlm.nih.gov/40123456/">PMID 40123456</a></li>');
+    // An unreviewed finding's sources, by the titles published with it; one with no title keeps its identifier alone.
+    const record = recordOf({ ...oneFindingCard("A finding with a titled source and an untitled one."),
+      findings: [{ ...oneFindingCard("A finding with a titled source and an untitled one.").findings[0]!,
+        sources: ["10.0000/synthetic-titled", "PMID: 40999999"] }] });
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE },
+      sourceTitles: new Map([["10.0000/synthetic-titled", { title: "Quarnelle <b>and</b> the tremor: a trial", year: 2019 }]]) });
+    const [row] = await store.publications.publish({ cardNumber: 6001, cardSha256: record.card_sha256, findings: plan.drafts,
+      publishedAt: store.tick(), revive: false });
+    const page = (await text(base, `/atlas/findings/${row!.publicationNumber}`)).body;
+    expect(page).toContain('<li><cite>Quarnelle &lt;b&gt;and&lt;/b&gt; the tremor: a trial</cite> (2019). ' +
+      '<a href="https://doi.org/10.0000/synthetic-titled">DOI 10.0000/synthetic-titled</a></li>');
+    expect(page).toContain('<li><a href="https://pubmed.ncbi.nlm.nih.gov/40999999/">PMID 40999999</a></li>');
+    // Search reads the titles the page shows.
+    const found = (await text(base, "/atlas/search?q=quarnelle")).body;
+    expect(found).toContain(`href="/atlas/findings/${row!.publicationNumber}"`);
+    expect(found).toContain("Found in the sources.");
   });
 
   it("escape every text, and hold no script tag", async () => {
@@ -506,6 +622,20 @@ describe("the finding pages", () => {
 });
 
 describe("the home, topic and changes pages", () => {
+  it("list each finding under the question its research answered, wherever findings are listed", async () => {
+    const { source } = await fixture();
+    const base = await serve(pages(source));
+    const card = `<p class="finding-question">Question: ${escapeHtml(VELMOR_CARD.question)}</p>`;
+    const accepted = '<p class="finding-question">Question: Does zentarine ease the hand tremor of Velmor syndrome in adults?</p>';
+    for (const path of ["/atlas", "/atlas/findings", "/atlas/topics/velmor-syndrome", "/atlas/search?q=zentarine", "/atlas/map"]) {
+      const { body } = await text(base, path);
+      expect(body, path).toContain(card);
+      expect(body, path).toContain(accepted);
+      // The question comes between the label and the finding.
+      expect(body, path).toMatch(new RegExp(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\\n<p class="finding-question">`, "u"));
+    }
+  });
+
   it("lead the home page with recently published, recently checked and contested findings, and no picks yet", async () => {
     const { source, shown } = await fixture();
     const base = await serve(pages(source));
@@ -935,6 +1065,27 @@ describe("the pages' PostgreSQL reads", () => {
     }
   });
 
+  it("find a finding's card siblings inside the read, selecting only their numbers", async () => {
+    const { source, calls } = recorded((sql) => sql.includes("JOIN atlas_publications sibling") ? [
+      { publication_number: "P-1001", sibling_number: "P-1002" },
+      { publication_number: "P-1001", sibling_number: "ARF-0042" },
+    ] : []);
+    expect(await source.read((reads) => reads.listCardSiblings(["P-1001", "P-1001"])))
+      .toEqual([{ publicationNumber: "P-1001", siblingNumber: "P-1002" }]);
+    const read = calls.find(({ sql }) => sql.includes("JOIN atlas_publications sibling"))!;
+    expect(read.sql).toMatch(/^SELECT listed\.publication_number, sibling\.publication_number AS sibling_number FROM atlas_publications listed JOIN/u);
+    expect(read.sql).toContain("ON sibling.card_sha256 = listed.card_sha256 AND sibling.publication_number <> listed.publication_number");
+    expect(read.sql).toContain("AND listed.card_sha256 IS NOT NULL");
+    expect(read.sql).toContain("AND ((sibling.state = 'unreviewed' AND sibling.published_json IS NOT NULL) OR " +
+      "sibling.state IN ('accepted', 'edited'))");
+    expect(read.sql).not.toMatch(/finding_number|card_number/u);
+    expect(read.values).toEqual([["P-1001"]]);
+    expect(await source.read((reads) => reads.listCardSiblings([]))).toEqual([]);
+    await expect(source.read((reads) => reads.listCardSiblings(["F-1001"]))).rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
+    await expect(source.read((reads) => reads.listCardSiblings(Array.from({ length: 501 }, (_, index) => `P-${1001 + index}`))))
+      .rejects.toThrow("ATLAS_PAGE_QUERY_INVALID");
+  });
+
   it("roll back and release the connection when a read fails, and refuse a query that is not valid", async () => {
     const { source, calls, released } = recorded(() => [], /FROM atlas_finding_changes recorded JOIN/u);
     await expect(source.read((reads) => reads.listChanges(5))).rejects.toThrow("statement failed");
@@ -1173,7 +1324,10 @@ describe("Atlas navigation (183b)", () => {
   it("keeps empty and single-finding maps simple and bounds each SVG for many findings", async () => {
     const f = await fixture();
     const single = (await loadAtlasTopic(f.source, "hip-osteoarthritis"))!;
-    const one = renderAtlasTopic(single);
+    // Its one finding carries its card's question: one panel of questions, one of findings.
+    expect(renderAtlasTopic(single).match(/<svg /gu)).toHaveLength(2);
+    const one = renderAtlasTopic({ ...single, sections: single.sections.map((section) => ({ ...section,
+      findings: section.findings.map((finding) => ({ ...finding, question: null })) })) });
     expect(one.match(/<svg /gu)).toHaveLength(1);
     expect(one).toContain("Question not recorded");
     const empty = renderAtlasTopic({ ...single, sections: [], connections: [] });
@@ -1306,7 +1460,12 @@ describe("full-text search", () => {
     const found = async (words: string) => (await loadAtlasSearch(f.source, { search: q(words) })).results
       .map(({ finding, foundIn }) => ({ number: finding.publicationNumber, foundIn }));
     // Further down the page: why it isn't the usual answer, what would change it, the numbers, the searches, sources.
-    expect(await found("gentle")).toEqual([{ number: f.shown.effect, foundIn: ["why_not_usual"] }]);
+    expect(await found("harms")).toEqual([{ number: f.shown.effect, foundIn: ["why_not_usual"] }]);
+    // The usual answer: the card's for an unreviewed finding, the accepted version's for a checked one.
+    expect((await found("tolerated")).map(({ number }) => number).sort()).toEqual([f.shown.effect, f.shown.nothingFound].sort());
+    expect((await found("tolerated")).map(({ foundIn }) => foundIn)).toEqual([["usual_answer"], ["usual_answer"]]);
+    expect((await found("CANONICALUSUALANSWER")).map(({ number }) => number).sort())
+      .toEqual([f.shown.edited, f.shown.lowDose, f.shown.lead].sort());
     expect(await found("nausea")).toEqual([{ number: f.shown.effect, foundIn: ["wording"] }]);
     expect((await found("similar size")).map(({ number }) => number).sort())
       .toEqual([f.shown.edited, f.shown.effect, f.shown.lowDose, f.shown.lead].sort());
@@ -1322,27 +1481,26 @@ describe("full-text search", () => {
     expect((await found(f.shown.hip))[0]).toEqual({ number: f.shown.hip, foundIn: ["number"] });
     // Never a label the pages add, the card's or version's hidden texts, or a publication that does not show.
     expect(await found("moderate")).toEqual([]);
-    for (const hidden of [NEVER.usualAnswer, NEVER.whoElse, NEVER.whatItChanges, NEVER.cardWording, NEVER.answerQuote,
+    for (const hidden of [NEVER.whoElse, NEVER.whatItChanges, NEVER.cardWording, NEVER.answerQuote,
       NEVER.videoFinding, NEVER.olderVideoFinding, NEVER.rejected, NEVER.unpublished, NEVER.pending, NEVER.withdrawnClaim,
       "LINKRATIONALESENTINEL", "WITHDRAWNNOTE", "zentarine.trials"]) {
       expect(await found(hidden), hidden).toEqual([]);
     }
     const edited = (await loadAtlasFindings(f.source)).findings.find(({ publicationNumber }) => publicationNumber === f.shown.edited)!;
-    expect(searchTextsOf(edited).map(({ field }) => field)).toEqual(["wording", "question", "applies_to", "subject", "topic",
-      "why_not_usual", "what_would_change_it", "numbers", "sources", "number"]);
+    expect(searchTextsOf(edited).map(({ field }) => field)).toEqual(["wording", "question", "usual_answer", "applies_to",
+      "subject", "topic", "why_not_usual", "what_would_change_it", "numbers", "sources", "number"]);
     expect(searchTextsOf(edited).find(({ field }) => field === "sources")!.text)
-      .toBe("DOI 10.0000/synthetic-velmor-a\nPMID 40123456");
+      .toBe("An invented trial\nDOI 10.0000/synthetic-velmor-a\nPMID 40123456");
   });
 
-  it("reads only text the pages show: each part of a finding's search text is on its page, the question on its topic's", async () => {
+  it("reads only text the pages show: each part of a finding's search text is on its page", async () => {
     const f = await fixture();
     const base = await serve(pages(f.source));
     for (const finding of (await loadAtlasFindings(f.source)).findings) {
       const page = (await text(base, findingPath(finding.publicationNumber))).body;
-      const topic = finding.topic === null ? "" : (await text(base, `/atlas/topics/${finding.topic.key}`)).body;
       for (const { field, text: value } of searchTextsOf(finding)) {
         for (const line of value.split("\n")) {
-          expect(field === "question" ? topic : page, `${finding.publicationNumber} ${field}: ${line}`).toContain(escapeHtml(line));
+          expect(page, `${finding.publicationNumber} ${field}: ${line}`).toContain(escapeHtml(line));
         }
       }
     }
@@ -1378,7 +1536,7 @@ describe("full-text search", () => {
     await Promise.all([text(base, "/atlas/search?q=zentarine"), text(base, "/atlas/search?q=placebo&page=2")]);
     expect(reads).toBe(1);
     now += 59_000;
-    expect(ids((await text(base, "/atlas/search?q=gentle")).body)).toEqual([f.shown.effect]);
+    expect(ids((await text(base, "/atlas/search?q=harms")).body)).toEqual([f.shown.effect]);
     expect(reads).toBe(1);
     now += 2_000;
     await text(base, "/atlas/search?q=zentarine");

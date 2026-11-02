@@ -252,6 +252,28 @@ export async function checkAtlasSources(
   return { status: overallStatus(checks), sources: checks };
 }
 
+/** Sources' titles and years from their public records, by the source as a card gives it. */
+export type AtlasSourceTitles = ReadonlyMap<string, { title: string; year: number | null }>;
+/** Looks sources up; a source with no title is left out of the answer. */
+export type AtlasSourceTitleLookup = (sources: readonly string[]) => Promise<AtlasSourceTitles>;
+
+/**
+ * The titles and years an Atlas publication shows with its sources (plan
+ * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), through the checks' own provider calls and
+ * their 10-minute reuse. A source that is not a study identifier, that no provider has a record of, or that a provider
+ * could not answer for just now is left out: its page shows its identifier alone.
+ */
+export function atlasSourceTitleLookup(options: AtlasSourceCheckOptions): AtlasSourceTitleLookup {
+  return async (sources) => {
+    const titles = new Map<string, { title: string; year: number | null }>();
+    for (const check of (await checkAtlasSources(sources, options)).sources) {
+      if (check.outcome !== "checked" || check.record.title === undefined) continue;
+      titles.set(check.source, { title: check.record.title, year: check.record.year === undefined ? null : Number(check.record.year) });
+    }
+    return titles;
+  };
+}
+
 // Each source's calls run one after another, so this bounds the requests in flight: Crossref's polite pool, which
 // every DOI's work and markers go to, admits only a few at once.
 const SOURCES_CHECKED_AT_ONCE = 3;

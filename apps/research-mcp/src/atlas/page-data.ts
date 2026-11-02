@@ -82,10 +82,22 @@ export interface ShownRelated {
   publicationNumber: string | null;
 }
 
+/** A source: its identifiers in canonical form, with the title and year its public record gives, when known. */
+export interface ShownSource {
+  identifiers: AtlasPageSourceIdentifiers;
+  title: string | null;
+  year: number | null;
+}
+
 export interface ShownFinding {
   publicationNumber: string;
-  /** Only the canonical public question; older/unreviewed publications have no published question. */
+  /**
+   * The question its research answered: an accepted finding's canonical public question, or the card's question an
+   * unreviewed publication carries (version 2); null for a publication published without it.
+   */
   question: string | null;
+  /** What a quick, ordinary answer would say: the canonical version's, or the card's (version 2); null when not known. */
+  usualAnswer: string | null;
   links: AtlasPageFinding["links"];
   status: ShownStatus;
   topic: { key: string; label: string } | null;
@@ -98,8 +110,8 @@ export interface ShownFinding {
   direction: AtlasFindingDirection | null;
   numbers: ShownNumber[];
   searches: ShownSearch[];
-  /** Each source by its identifiers, parsed by exact patterns; anything else is left out. */
-  sources: AtlasPageSourceIdentifiers[];
+  /** Each source by its identifiers, parsed by exact patterns (anything else is left out), with its title and year. */
+  sources: ShownSource[];
   whyNotUsual: string | null;
   whatWouldChangeIt: string | null;
   verifiedBases: AtlasVerifiedBasis[];
@@ -159,6 +171,8 @@ export interface AtlasTopicModel {
 
 export interface AtlasFindingModel {
   finding: ShownFinding;
+  /** The other findings the pages show from the same card, in number order. */
+  siblings: ShownFinding[];
   /**
    * Votes and comments (decision 171, section 4E): the totals, the comments that show and the signed-in viewer's own;
    * null when votes and comments are switched off, and then nothing of them renders.
@@ -333,9 +347,11 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
 }
 
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
+  const details = new Map((published.source_details ?? []).map(({ source, title, year }) => [source, { title, year }]));
   return {
     publicationNumber: publication.publicationNumber,
-    question: null,
+    question: published.question ?? null,
+    usualAnswer: published.usual_answer ?? null,
     links: [],
     status: { kind: "unreviewed" },
     topic: published.topic === null ? null : { key: published.topic.key, label: published.topic.label },
@@ -365,7 +381,8 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     })),
     sources: published.sources.flatMap((source) => {
       const identifier = sourceIdentifierOf(source);
-      return identifier === undefined ? [] : [[identifier]];
+      return identifier === undefined ? []
+        : [{ identifiers: [identifier], title: details.get(source)?.title ?? null, year: details.get(source)?.year ?? null }];
     }),
     whyNotUsual: published.why_not_usual,
     whatWouldChangeIt: published.what_would_change_it,
@@ -390,6 +407,7 @@ function fromCanonical(
   return {
     publicationNumber: publication.publicationNumber,
     question: finding.question,
+    usualAnswer: content.usualAnswer ?? null,
     links: finding.links,
     status: {
       kind: label,
@@ -422,8 +440,8 @@ function fromCanonical(
       dateRange: search.dateRange === undefined ? null : { start: search.dateRange.start, end: search.dateRange.end },
     })),
     sources: finding.sources
-      .map((identifiers) => identifiers.filter(canonicalIdentifier))
-      .filter((identifiers) => identifiers.length > 0),
+      .map((source) => ({ ...source, identifiers: source.identifiers.filter(canonicalIdentifier) }))
+      .filter(({ identifiers }) => identifiers.length > 0),
     whyNotUsual: content.whyNotUsual,
     whatWouldChangeIt: content.whatWouldChangeIt,
     verifiedBases: [...content.verifiedBases],
@@ -648,6 +666,7 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
   const parts: Array<[AtlasSearchField, ReadonlyArray<string | null | undefined>]> = [
     ["wording", [finding.claim]],
     ["question", [finding.question]],
+    ["usual_answer", [finding.usualAnswer]],
     ["applies_to", [finding.appliesTo]],
     ["subject", [finding.subject]],
     ["topic", [finding.topic?.label]],
@@ -655,8 +674,10 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
     ["what_would_change_it", [finding.whatWouldChangeIt]],
     ["numbers", finding.numbers.flatMap((entry) => [entry.outcome, entry.followUp, entry.option, entry.comparator])],
     ["searches", finding.searches.map(({ query }) => query)],
-    ["sources", finding.sources.flat().filter(canonicalIdentifier)
-      .map(({ scheme, value }) => `${SOURCE_SCHEME_WORDS[scheme]} ${value}`)],
+    ["sources", finding.sources.flatMap(({ identifiers, title }) => [
+      ...(title === null ? [] : [title]),
+      ...identifiers.filter(canonicalIdentifier).map(({ scheme, value }) => `${SOURCE_SCHEME_WORDS[scheme]} ${value}`),
+    ])],
     ["number", [finding.publicationNumber, finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber]],
   ];
   return parts.flatMap(([field, values]) => {
@@ -800,7 +821,7 @@ export interface AtlasMapModel {
 
 /** The sources a finding's page links to: those with an identifier in canonical form. */
 export const linkedSources = (finding: ShownFinding) =>
-  finding.sources.filter((identifiers) => identifiers.some(canonicalIdentifier)).length;
+  finding.sources.filter(({ identifiers }) => identifiers.some(canonicalIdentifier)).length;
 
 /** The newest of the day a finding was published and the day supervisors checked it, YYYY-MM-DD. */
 const latestDay = (finding: ShownFinding) => {
@@ -896,9 +917,14 @@ export async function loadAtlasFinding(
     const related = await relatedFindings(reads, partners);
     const shown = shownFindingOf(publication, findings, related);
     if (shown === undefined) return undefined;
+    const siblingNumbers = (await reads.listCardSiblings([publicationNumber])).map(({ siblingNumber }) => siblingNumber);
+    const siblings = siblingNumbers.length === 0 ? []
+      : (await shownFindings(reads, await reads.listPublications({ publicationNumbers: siblingNumbers,
+        limit: Math.min(siblingNumbers.length, READ_CHUNK) })))
+        .sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber));
     const participation = options.participation === undefined ? null
       : await reads.readParticipation(publicationNumber, options.participation.participantKey, options.participation.before);
-    return { finding: shown, participation };
+    return { finding: shown, siblings, participation };
   });
 }
 

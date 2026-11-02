@@ -659,6 +659,24 @@ logs. Keep request-URL logging disabled/redacted on both public proxy paths.
 Search is excluded from the in-process page cache; list caches retain the
 existing bounds, with separate normalized filter/cursor keys.
 
+Finding pages in context (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`) add no
+migration or grant: new publications carry their card's question, usual answer and
+sources' titles (`askrigor.atlas-publication.v2`), and the pages read a finding's card
+siblings by P number only. After the deploy, run `publish_cards` over the cards that have
+unreviewed publications (`list_publications` names them, at most 20 cards a call): each
+older publication gets its card's context under the same P number, and the reply names
+any whose context would be held. Then check `/atlas/findings/P-1020`: the question above
+the finding, "The usual answer", "What this research found" with the card's other
+findings linked and labelled, the label "Not checked by supervisors yet" unchanged, and
+each source by its title and year where its public record has one; and that every list
+(home, All findings, a topic, a search, the map's list) shows the question above each
+finding, or "Published without its question". Before rolling back to a build that reads
+only version 1, run as the migrator, in the living-evidence schema:
+`UPDATE atlas_publications SET published_json = (published_json - 'question' - 'usual_answer' - 'source_details') || '{"schema":"askrigor.atlas-publication.v1"}'::jsonb WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v2';`
+(an older build's publication store refuses a row it cannot read, and its pages leave
+such a row out).
+
 Check a topic with a single finding and one with many: inline SVG panels place
 findings by certainty, keep unreviewed findings and leads apart, and draw named
 connections with linked endpoints. Full questions, findings and links must also

@@ -35,7 +35,7 @@ export function atlasSearchQuery(raw: string | null): { query: AtlasSearchQuery 
 // Full-text matching (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md) ---------------
 
 /** The parts of a finding's page that search reads, in the page's order; the wording is the title a list shows. */
-export const ATLAS_SEARCH_FIELDS = ["wording", "question", "applies_to", "subject", "topic", "why_not_usual",
+export const ATLAS_SEARCH_FIELDS = ["wording", "question", "usual_answer", "applies_to", "subject", "topic", "why_not_usual",
   "what_would_change_it", "numbers", "searches", "sources", "number"] as const;
 export type AtlasSearchField = typeof ATLAS_SEARCH_FIELDS[number];
 export interface AtlasSearchText { field: AtlasSearchField; text: string }

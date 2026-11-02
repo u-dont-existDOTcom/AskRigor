@@ -122,6 +122,9 @@ complete XML protocol.
 - `superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`: Atlas search over each finding's whole page
   text, in any language, the wording's matches first; and `/atlas/map`, the findings as circles by topic with a stated
   size rule that is not a treatment ranking.
+- `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
+  research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
+  "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

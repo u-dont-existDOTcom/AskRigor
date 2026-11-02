@@ -15,8 +15,10 @@ import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
   atlasReviewEnabledFromEnv,
+  crossrefConfigFromEnv,
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
+  ncbiConfigFromEnv,
   researchContributionReviewConfigFromEnv,
   SERVICE_VERSION,
 } from "../config.js";
@@ -40,6 +42,7 @@ import {
   type FindingsSaveContext,
   type ProtocolIdentity,
 } from "./service.js";
+import { atlasSourceTitleLookup } from "./source-checks.js";
 
 const CONFIGURATION_ERROR = "Findings library configuration unavailable";
 
@@ -116,9 +119,14 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       version: SERVICE_VERSION,
       build: askrigorBuildCommitFromEnv(),
       now,
-      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C).
+      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C); its sources'
+      // titles come from their public records, through the provider settings the connector's own tools use.
       ...(publications === undefined ? {} : {
-        publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
+        publisher: new AtlasCardPublisher({
+          store: announcingPublicationStore(publications),
+          now,
+          sourceTitles: atlasSourceTitleLookup({ crossref: crossrefConfigFromEnv(), pubmed: ncbiConfigFromEnv(), now }),
+        }),
       }),
       // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the
       // research-access role.
@@ -213,6 +221,8 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
       // moved out of cards stored before, and deleted with a forgotten card.
       held: heldYouTubeFindingsStoresFromEnv(env).review,
+      // publish_cards looks a card's sources up for their titles and years, with the call's provider settings.
+      sourceTitles: (providers) => atlasSourceTitleLookup({ ...providers, now }),
     });
   } catch {
     return undefined;

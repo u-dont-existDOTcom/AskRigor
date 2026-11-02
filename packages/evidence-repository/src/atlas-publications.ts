@@ -100,15 +100,34 @@ export const atlasPublishedNumberSchema = z.object({
 export type AtlasPublishedNumber = z.infer<typeof atlasPublishedNumberSchema>;
 
 /**
+ * Published fields with their card's context (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md):
+ * v1's, and the card's question and usual answer, with its sources' titles and years from their public records.
+ */
+export const ATLAS_PUBLICATION_SCHEMA_V2 = "askrigor.atlas-publication.v2";
+/** The longest card question and usual answer a publication takes: the card's own bounds. */
+export const ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS = 300;
+export const ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS = 400;
+
+/** A source's title and year from its public record (Crossref, PubMed, Europe PMC or ClinicalTrials.gov). */
+export const atlasPublishedSourceDetailSchema = z.object({
+  /** The source as the publication's sources give it. */
+  source: publishedText(300),
+  title: publishedText(500),
+  year: z.number().int().min(1500).max(2200).nullable(),
+}).strict();
+export type AtlasPublishedSourceDetail = z.infer<typeof atlasPublishedSourceDetailSchema>;
+
+/**
  * What the Atlas publishes of one finding, projected from the stored card: the card's topic; the finding's claim,
  * certainty, whom it applies to, kind, subject and its type, direction, numbers block (null when the card declares
  * none), searches for a search that found nothing (null when the card declares none), source identifiers, why it is not
  * the usual answer and what would change it; its verified bases; the day the card was saved; and the AskRigor version
- * from the card's stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface
- * or the reported model: the schema is strict and has no field for them.
+ * from the card's stamp. Version 2 adds the card's question and usual answer, and its sources' titles and years where a
+ * public record gave them. Never the ARF number, the account or contributor, the thread key, the answer quote, the
+ * surface or the reported model: the schema is strict and has no field for them.
  */
 export const atlasPublishedFindingSchema = z.object({
-  schema: z.literal(ATLAS_PUBLICATION_SCHEMA),
+  schema: z.enum([ATLAS_PUBLICATION_SCHEMA, ATLAS_PUBLICATION_SCHEMA_V2]),
   topic: z.object({
     key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
     label: publishedText(200),
@@ -136,7 +155,25 @@ export const atlasPublishedFindingSchema = z.object({
     .refine((bases) => new Set(bases).size === bases.length, { message: "each basis once" }),
   saved_on: isoDateSchema,
   askrigor_version: z.string().regex(/^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u),
-}).strict();
+  question: publishedText(ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS).optional(),
+  usual_answer: publishedText(ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS).optional(),
+  source_details: z.array(atlasPublishedSourceDetailSchema).max(10).optional(),
+}).strict().superRefine((published, context) => {
+  // Version 2 always has the card's question and usual answer; version 1 has none of version 2's fields.
+  const v2 = published.schema === ATLAS_PUBLICATION_SCHEMA_V2;
+  for (const key of ["question", "usual_answer"] as const) {
+    if (v2 !== (published[key] !== undefined)) {
+      context.addIssue({ code: "custom", path: [key], message: v2 ? "version 2 has it" : "version 1 has no such field" });
+    }
+  }
+  if (!v2 && published.source_details !== undefined) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "version 1 has no such field" });
+  }
+  const named = (published.source_details ?? []).map(({ source }) => source);
+  if (named.some((source) => !published.sources.includes(source)) || new Set(named).size !== named.length) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "each detail names one published source, once" });
+  }
+});
 export type AtlasPublishedFinding = z.infer<typeof atlasPublishedFindingSchema>;
 
 // The store ---------------------------------------------------------------------------------------------------------
