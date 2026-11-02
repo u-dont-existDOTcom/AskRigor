@@ -134,6 +134,33 @@ sends the card exactly as checked, declarations included. Card ARF-0272's third 
 public demonstration, listed two DOIs and so was published; a declaration now holds such a finding, though it still
 depends on the AI declaring truthfully.
 
+Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
+Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call
+(`apps/research-mcp/src/meaning-judge.ts`; `claude-opus-5-5` at effort low by default, structured JSON output, a fixed
+rubric) and reads the check again with its reply. It has four jobs:
+
+1. When this call's receipts show YouTube comments were read, whether each finding of the checked card rests on them.
+   A finding it reads so is held like a declared one (the safe direction), signed in the receipt's `held`, with a note.
+2. Whether each change the plain-answer note credits to its work is backed by what it names: a study backs only what
+   it examined, a video's comments only what commenters reported, a forum link only what people there reported. Any
+   audited study used to count as backing; the judge's doubt is a note.
+3. Whether each limit applies to this answer; a limit whose premise is false here (an unblinded-test limit when the
+   only test is clinical monitoring, a different-tissue limit naming the same tissue twice) gets a note. The panel
+   still lists every limit.
+4. Whether each card finding makes sense on its own to a reader of the public Atlas who never saw the question; a
+   fragment such as Atlas publication P-1020's ("The camping bundles do not isolate…", applying to "Interpretation of
+   the two audited camping papers.") gets a note asking for a rewrite.
+
+Jobs 2 to 4 only add notes. A failure, timeout, refusal or reached daily cap leaves the check as it was and adds one
+note saying the judge did not run. The runtime result reports `meaning_judge` (`status`, `reason`, `held`, `notes`).
+It is off unless `ASKRIGOR_MEANING_JUDGE=on`, with the key read from `ASKRIGOR_MEANING_JUDGE_KEY_FILE` (a read-only
+mounted secret), `ASKRIGOR_MEANING_JUDGE_WORKSPACE_ID` for an organization-scoped key, and optional
+`ASKRIGOR_MEANING_JUDGE_MODEL`, `_EFFORT` (`low` or `medium`), `_DAILY_CAP_USD` (default 10) and `_TIMEOUT_SECONDS`
+(default 60). It is paid from the owner's monthly Claude API credits under the policy's `OWNER_ANSWER_221`. Its
+development measurement on #393's run is `docs/audits/2026-11-02-meaning-judge-development.md`; as the owner's
+question put it, it returns notes only and stops no answer until a regression run has measured it against the
+owner's judges.
+
 The forum reader (owner answers 211a and 213b) adds no declaration or blocking rule. A `threads_read` URL with a
 verified `forum_thread_read` receipt was read through AskRigor. A community or subreddit all of whose declared
 threads have those receipts is left out of the own-web-search and Reddit-existence-only limits. A partially

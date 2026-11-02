@@ -22,7 +22,7 @@ import {
   manageResearchAccessInputSchema, plainAnswerRequest
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
-  FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch,
+  FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch, meaningJudgeSourceOf,
   finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -113,6 +113,34 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(check({ plain_answer_comparison: [
       { ...COMPARISON[0]!, claim: `  ${CLAIMS[0]!.toUpperCase()} ` }, COMPARISON[1]!
     ] })).toMatchObject({ next_steps: [], plain_answer: { status: "registered" } });
+  });
+
+  // Owner answer 221: any audited study is accepted as backing, so the meaning judge, on the owner's dev accounts, reads
+  // whether each change the note credits is really backed by what it names. Its doubts are notes only.
+  it("gives the meaning judge the entries the note credits, and adds its doubts as notes only", () => {
+    const result = check();
+    // The not_checked entry is not the judge's question; the credited one keeps its place in the comparison.
+    expect(meaningJudgeSourceOf(result)!.comparison).toEqual([{ ...COMPARISON[0], number: 1 }]);
+    // A sentence the check accepted as a correction the research found is marked so.
+    const corrections = [{ retracted: "Colds always last a week.", change: CORRECTED, by_user: false }];
+    expect(meaningJudgeSourceOf(check({ corrections }))!.comparison)
+      .toEqual([{ ...COMPARISON[0], number: 1, researchResult: "correction" }]);
+    // An entry the note gives as not checked, such as a qualification with nothing behind it, is left out too.
+    expect(meaningJudgeSourceOf(check({ plain_answer_comparison: [{ ...COMPARISON[0]!, outcome: "qualified",
+      sources: ["10.1000/never-read"] }, COMPARISON[1]!] }))!.comparison).toEqual([]);
+    const judged = assertNextStepsContract(finalizeResearch(base(), {
+      secret: SECRET, plainAnswer: { note: true, account: ACCOUNT },
+      meaningJudgment: { status: "ran", youtube: [], limits: [], standalone: [],
+        comparison: [{ item: 1, backed: false, why: "The trial studied people with low levels only." },
+          { item: 2, backed: false, why: "Not credited, so not judged." }] }
+    }));
+    expect(judged).toMatchObject({ status: result.status, next_steps: [], plain_answer_note: NOTE,
+      meaning_judge: { status: "ran", held: 0, notes: 1 } });
+    expect((judged.notes ?? []).filter((note) => note.startsWith("The meaning judge"))).toEqual([
+      "The meaning judge doubts that plain_answer_comparison[0] is backed by what it names (The trial studied people " +
+        "with low levels only). Name in its sources what shows this change, give the sentence that states what the " +
+        "research found, or give it as not_checked, and check the answer again."
+    ]);
   });
 
   it("quotes claims in any language exactly as the comparison copies them", () => {

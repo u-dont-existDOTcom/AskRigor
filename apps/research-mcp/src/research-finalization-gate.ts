@@ -47,6 +47,7 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import {
   toolListNoticeRule, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
 } from "./tool-list-currency.js";
+import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -1541,6 +1542,15 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
         "their sources, community_checked, audited comments behind them, their draws_on_youtube_comments declaration " +
         "or, after this research read YouTube comments, the lack of one.")
   }).strict().describe(finalizeResearchRetainedOutputSchema.shape.findings_card.description ?? ""),
+  // Owner answer 221, runtime only (owner answer 189a): whether the meaning judge read this check, for a dev account.
+  meaning_judge: z.object({
+    status: z.enum(["ran", "skipped"]),
+    reason: z.string().optional(),
+    held: z.number().int().nonnegative(),
+    notes: z.number().int().nonnegative()
+  }).strict().optional()
+    .describe("For the owner's dev accounts, once the check passes: whether the meaning judge read the answer, how " +
+      "many findings it held as resting on YouTube comments, and how many notes it added. It never blocks."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1555,6 +1565,11 @@ export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchem
 export interface FinalizeResearchOptions {
   secret: string | undefined;
   secondReading?: { status: "ran"; findings: SecondReaderFinding[] } | { status: "skipped"; reason: string };
+  /**
+   * The meaning judge's reading of this check's earlier pass (owner answer 221, dev accounts only): notes for the AI,
+   * and the findings it reads as resting on YouTube comments, which are held. It never blocks.
+   */
+  meaningJudgment?: MeaningJudgment;
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -3235,6 +3250,9 @@ export function finalizeResearch(
   let cardBases: VerifiedBasis[][] | undefined;
   // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
   let heldFindings: number[] = [];
+  // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
+  const judgeHeld: number[] = [];
+  const judgeNotes: string[] = [];
   // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
   // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
   // account, is not. With no research receipt there is no research to have mapped.
@@ -3262,6 +3280,9 @@ export function finalizeResearch(
     : registeredPlainAnswer(verified, options.plainAnswer.account, targetDigest);
   // Each registered claim with what the research found, for the note.
   let compared: ComparedClaim[] | undefined;
+  // The comparison entries the note shows with what backs them, by their place in plain_answer_comparison, which the
+  // meaning judge reads (owner answer 221); an entry the note gives as not checked is not its question.
+  const creditedComparison = new Set<number>();
   if (draft === undefined) {
     requireDeclaration(
       rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
@@ -3322,9 +3343,23 @@ export function finalizeResearch(
         // saved as before; a declaration of true holds its finding whether or not comments were read here.
         const commentsRead = commentVideos.size > 0;
         const findingsInCard = input.findings_card.findings;
-        heldFindings = findingsInCard.flatMap((finding, index) =>
-          heldByCardFields(finding, cardBases![index]) || finding.draws_on_youtube_comments === true ||
-            (commentsRead && finding.draws_on_youtube_comments === undefined) ? [index] : []);
+        const heldOtherwise = (index: number) => heldByCardFields(findingsInCard[index]!, cardBases![index]) ||
+          findingsInCard[index]!.draws_on_youtube_comments === true ||
+          (commentsRead && findingsInCard[index]!.draws_on_youtube_comments === undefined);
+        // Owner answer 221: a finding the meaning judge reads as resting on YouTube comments is held too, the safe
+        // direction, whatever its declaration; it judges only when comments were read.
+        const judged = options.meaningJudgment?.status === "ran" && commentsRead ? options.meaningJudgment.youtube : [];
+        for (const { finding: number, rests, why } of judged) {
+          const index = number - 1;
+          if (!rests || index < 0 || index >= findingsInCard.length || heldOtherwise(index)) continue;
+          judgeHeld.push(index);
+          judgeNotes.push(`The meaning judge reads findings_card.findings[${index}] as resting on YouTube comments${because(why)}, ` +
+            "so AskRigor holds it privately for its owner's review and never publishes it, " +
+            (findingsInCard[index]!.draws_on_youtube_comments === false
+              ? "though it declares draws_on_youtube_comments false. If it does draw on them, declare it true."
+              : "as it would a finding declared to draw on them."));
+        }
+        heldFindings = findingsInCard.flatMap((_, index) => heldOtherwise(index) || judgeHeld.includes(index) ? [index] : []);
         const undeclared = findingsInCard.flatMap((finding, index) => commentsRead &&
           finding.draws_on_youtube_comments === undefined && !heldByCardFields(finding, cardBases![index]) ? [index] : []);
         if (undeclared.length > 0) {
@@ -3441,6 +3476,7 @@ export function finalizeResearch(
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
             }
           }
+          if (shown) creditedComparison.add(index);
           found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked" } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
@@ -3591,6 +3627,36 @@ export function finalizeResearch(
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
       "or do, in your own words, and call finalize_research again with the changed draft.");
   }
+  // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
+  const judgment = options.meaningJudgment;
+  if (judgment !== undefined && passed) {
+    if (judgment.status === "skipped") {
+      judgeNotes.push(`The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
+        "this check is as it would be without it.");
+    } else {
+      // Only an entry the note credits to its work was the judge's question.
+      for (const { item, backed, why } of judgment.comparison) {
+        if (backed || !creditedComparison.has(item - 1)) continue;
+        judgeNotes.push(`The meaning judge doubts that plain_answer_comparison[${item - 1}] is backed by what it names` +
+          `${because(why)}. Name in its sources what shows this change, give the sentence that states what the research ` +
+          "found, or give it as not_checked, and check the answer again.");
+      }
+      for (const { limit, why } of judgment.limits) {
+        const text = limits[limit - 1];
+        if (text === undefined) continue;
+        judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
+          `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
+      }
+      const card = findingsCard.status === "checked" ? input.findings_card : undefined;
+      for (const { finding, standsAlone, why } of judgment.standalone) {
+        if (standsAlone || card?.findings[finding - 1] === undefined) continue;
+        judgeNotes.push(`The meaning judge reads findings_card.findings[${finding - 1}] as not making sense on its own ` +
+          `to a reader of the public Atlas who never saw the question${because(why)}. Rewrite its claim to say what was found, ` +
+          "about what and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.");
+      }
+    }
+    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(note);
+  }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
     if (at >= 0) caveats.splice(at, 1);
@@ -3625,7 +3691,13 @@ export function finalizeResearch(
     answer_checked: draft !== undefined,
     ...(passed && input.answer_draft !== undefined ? { checked_answer: input.answer_draft } : {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    findings_card: findingsCard
+    findings_card: findingsCard,
+    ...(judgment === undefined || !passed ? {} : { meaning_judge: {
+      status: judgment.status,
+      ...(judgment.status === "skipped" ? { reason: judgment.reason } : {}),
+      held: judgeHeld.length,
+      notes: judgeNotes.length
+    } })
   };
   output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
   if (status === "ready") output.check_line = CHECK_LINE;
@@ -3732,7 +3804,62 @@ export function finalizeResearch(
   if (checkRound?.status === "open") {
     output.round_token = checkRound.token;
   }
-  return finalizeResearchOutputSchema.parse(output);
+  const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
+  if (passed && draft !== undefined) {
+    MEANING_JUDGE_SOURCES.set(parsedOutput, {
+      answer: input.answer_draft ?? draft,
+      commentsRead: commentVideos.size > 0,
+      ...(findingsCard.status === "checked" && input.findings_card !== undefined ? { card: input.findings_card } : {}),
+      // Each entry the note credits, with what the check accepted its sentence as, exactly: a declared search that found
+      // nothing, or a correction the research found, which backs an entry that names no source.
+      ...(plainAnswer?.status === "registered" && input.plain_answer_comparison !== undefined
+        ? { comparison: input.plain_answer_comparison.flatMap((entry, place) => {
+            if (!creditedComparison.has(place)) return [];
+            const quote = entry.answer_quote;
+            const result = quote === undefined ? undefined
+              : absenceClaims.some(({ quote: claimed }, index) => acceptedAbsences.has(index) && sameQuote(quote, claimed))
+                ? "not_found" as const
+                : (input.corrections ?? []).some(({ change, by_user }) => by_user === false && sameQuote(quote, change))
+                  ? "correction" as const : undefined;
+            return [{ ...entry, number: place + 1, ...(result === undefined ? {} : { researchResult: result }) }];
+          }) } : {}),
+      keySources: input.key_sources,
+      limits: [...parsedOutput.limits]
+    });
+  }
+  return parsedOutput;
+}
+
+// What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
+// result object.
+const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
+
+/** What the meaning judge may read of this result's check: a passing check with a draft only. */
+export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {
+  return MEANING_JUDGE_SOURCES.get(result);
+}
+
+// Why the meaning judge did not run, as its note says it.
+const MEANING_JUDGE_SKIP_REASONS: Readonly<Record<string, string>> = {
+  off: "it is off",
+  daily_budget: "its daily cap is reached",
+  error: "the call failed",
+  timeout: "it timed out",
+  refusal: "the model declined",
+  unreadable: "its reply could not be read"
+};
+
+/** The meaning judge's reason, as its note gives it: " (reason)", or nothing when it gave none. */
+function because(why: string): string {
+  const reason = why.replace(/[.\s]+$/u, "");
+  return reason === "" ? "" : ` (${reason})`;
+}
+
+/** A limit's opening words, to name it in a note: at most twelve words. */
+function limitOpening(text: string): string {
+  const words = text.replace(/\s+/gu, " ").trim().split(" ");
+  return words.length <= 12 ? words.join(" ") : `${words.slice(0, 12).join(" ")}…`;
 }
 
 /**

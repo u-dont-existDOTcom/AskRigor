@@ -14,8 +14,10 @@ import {
   findingsSaveOffer,
   laterFindingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
+import type { MeaningJudgment } from "../apps/research-mcp/src/meaning-judge.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
+  meaningJudgeSourceOf,
   MOBILE_NOTICE,
   TOOL_LIST_REFRESH_HINT,
   type RedditThreadCheck,
@@ -3603,6 +3605,82 @@ describe("findings card at the final gate", () => {
     const wrong = finalizeResearch({ ...READY, findings_card: { ...card, findings: [{ ...card.findings[0], draws_on_youtube_comments: "yes" }] } }, options);
     expect(wrong.findings_card.status).toBe("rejected");
     expect(wrong.status).toBe(plain.status);
+  });
+
+  // Owner answer 221 (2 November 2026): the meaning judge reads a passing check for the owner's dev accounts. Its
+  // notes go to the AI only, and a finding it reads as resting on YouTube comments is held; it never blocks.
+  it("applies the meaning judge's reading: holds what it reads as drawn from comments, and adds only notes", () => {
+    const heldClaim = signedClaim("held");
+    const finding = (claim: string) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"], tags: [],
+      draws_on_youtube_comments: false });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials."),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch({ ...READY, findings_card: card }, options);
+    expect(plain.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 2, public_value: "public" });
+    // What the judge may read of this check: the draft, the checked card, its limits, and that comments were read.
+    const source = meaningJudgeSourceOf(plain)!;
+    expect(source).toMatchObject({ commentsRead: true, limits: plain.limits, card: { findings: [
+      expect.objectContaining({ claim: card.findings[0].claim }), expect.objectContaining({ claim: card.findings[1].claim })
+    ] } });
+    expect(source.answer).toContain("Exercise therapy has the strongest evidence for hip osteoarthritis.");
+    expect(source).not.toHaveProperty("comparison");
+    const judgment: MeaningJudgment = {
+      status: "ran",
+      youtube: [{ finding: 1, rests: false, why: "Trials only." },
+        { finding: 2, rests: true, why: "It repeats what commenters reported." }],
+      comparison: [{ item: 1, backed: false, why: "There is no comparison." }],
+      limits: [{ limit: 1, why: "The answer proposes no self-test." }],
+      standalone: [{ finding: 1, standsAlone: true, why: "" }, { finding: 2, standsAlone: false, why: "It leans on this research." }],
+    };
+    const judged = finalizeResearch({ ...READY, findings_card: card }, { ...options, meaningJudgment: judgment });
+    // Nothing it says holds the answer back.
+    expect(judged).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits,
+      caveats: plain.caveats });
+    expect(judged.findings_card).toEqual({ ...plain.findings_card, held: [2] });
+    expect(heldClaim(judged.finalization_receipt)).toEqual(["2"]);
+    expect(heldClaim(plain.finalization_receipt)).toBeUndefined();
+    const opening = plain.limits[0]!.split(" ").slice(0, 12).join(" ");
+    const judgeNotes = (judged.notes ?? []).filter((note) => note.startsWith("The meaning judge"));
+    expect(judgeNotes).toEqual([
+      "The meaning judge reads findings_card.findings[1] as resting on YouTube comments (It repeats what commenters " +
+        "reported), so AskRigor holds it privately for its owner's review and never publishes it, though it declares " +
+        "draws_on_youtube_comments false. If it does draw on them, declare it true.",
+      `The meaning judge reads limits[0] (${JSON.stringify(plain.limits[0]!.split(" ").length > 12 ? `${opening}…` : opening)}) ` +
+        "as not applying to this answer (The answer proposes no self-test). Leave it out of the answer's own words; " +
+        "the panel still lists it.",
+      "The meaning judge reads findings_card.findings[1] as not making sense on its own to a reader of the public Atlas " +
+        "who never saw the question (It leans on this research). Rewrite its claim to say what was found, about what " +
+        "and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.",
+    ]);
+    expect(judged.meaning_judge).toEqual({ status: "ran", held: 1, notes: 3 });
+    // A finding held already is not held again, and with no comments read its YouTube judgments count for nothing.
+    const declared = finalizeResearch({ ...READY, findings_card: { ...card, findings: [card.findings[0],
+      { ...card.findings[1], draws_on_youtube_comments: true }] } }, { ...options, meaningJudgment: judgment });
+    expect(declared.meaning_judge).toMatchObject({ held: 0, notes: 2 });
+    const noComments = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const unread = finalizeResearch({ ...noComments, findings_card: card }, { ...options, meaningJudgment: judgment });
+    expect(unread.findings_card).not.toHaveProperty("held");
+    expect(meaningJudgeSourceOf(finalizeResearch({ ...noComments, findings_card: card }, options))?.commentsRead).toBe(false);
+  });
+
+  it("says once when the meaning judge did not run, and leaves the check as it was", () => {
+    const plain = finalizeResearch({ ...READY, findings_card: CARD }, options);
+    for (const [reason, words] of [["timeout", "it timed out"], ["daily_budget", "its daily cap is reached"],
+      ["refusal", "the model declined"], ["error", "the call failed"], ["unreadable", "its reply could not be read"]] as const) {
+      const skipped = finalizeResearch({ ...READY, findings_card: CARD },
+        { ...options, meaningJudgment: { status: "skipped", reason } });
+      expect(skipped).toMatchObject({ status: plain.status, next_steps: plain.next_steps, findings_card: plain.findings_card });
+      expect((skipped.notes ?? []).filter((note) => note.startsWith("The meaning judge"))).toEqual([
+        `The meaning judge did not run (${words}); this check is as it would be without it.`]);
+      expect(skipped.meaning_judge).toEqual({ status: "skipped", reason, held: 0, notes: 1 });
+    }
+    // A check that does not pass gives the judge nothing, and a judgment given to one adds nothing.
+    const notReady = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: undefined }, options);
+    expect(meaningJudgeSourceOf(notReady)).toBeUndefined();
+    expect(finalizeResearch({ ...READY, findings_card: CARD, answer_draft: undefined },
+      { ...options, meaningJudgment: { status: "skipped", reason: "timeout" } })).not.toHaveProperty("meaning_judge");
   });
 
   it("asks a card's findings to declare YouTube comments only once this research read them", () => {

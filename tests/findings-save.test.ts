@@ -54,6 +54,7 @@ import {
   registerTools,
   type RegisterToolsOptions,
 } from "../apps/research-mcp/src/register-tools.js";
+import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import {
   RESEARCH_MAP_OFFERED,
@@ -691,6 +692,56 @@ describe("finalize_research, save_research_findings and the findings library", (
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);
+  });
+
+  // Owner answer 221 (2 November 2026): the meaning judge, a Claude API call, reads a passing check for the owner's dev
+  // accounts only, once per check. Its notes go to the AI; it never blocks, and a failure leaves one note.
+  it("asks the meaning judge only for a dev account's passing check, and never lets it hold the answer back", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const bundles: MeaningJudgeBundle[] = [];
+    const meaningJudge: MeaningJudge = {
+      enabled: true,
+      judge: async (bundle) => {
+        bundles.push(bundle);
+        return { cached: false, costUsd: 0.03, milliseconds: 5, judgment: { status: "ran", youtube: [], comparison: [],
+          limits: [], standalone: [{ finding: 1, standsAlone: false, why: "It leans on this research." }] } };
+      },
+    };
+    const { findingsSave } = recorder();
+    const tool = (judge: MeaningJudge) => connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, meaningJudge: judge,
+    });
+    // A research account that is not a dev account: no call.
+    const plain = await tool(meaningJudge)(request(), "auth0|free");
+    expect(plain.structuredContent).toMatchObject({ status: "ready_with_limits" });
+    expect(plain.structuredContent).not.toHaveProperty("meaning_judge");
+    expect(bundles).toEqual([]);
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const judged = await tool(meaningJudge)(request(), "auth0|free");
+    expect(bundles).toHaveLength(1);
+    expect(bundles[0]).toMatchObject({ comments_read: false, comparison: [],
+      card: { findings: [expect.objectContaining({ number: 1, answer_quote: QUOTE, sources: ["PMC10518852"] })] } });
+    expect(bundles[0]!.answer).toContain(QUOTE);
+    const before = plain.structuredContent as Record<string, unknown>;
+    expect(judged.structuredContent).toMatchObject({ status: before.status, next_steps: before.next_steps,
+      limits: before.limits, caveats: before.caveats, findings_card: before.findings_card,
+      finalization_receipt: expect.any(String), meaning_judge: { status: "ran", held: 0, notes: 1 } });
+    const text = (result: CallToolResult) => (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text(judged)).toContain("- The meaning judge reads findings_card.findings[0] as not making sense on its own to " +
+      "a reader of the public Atlas who never saw the question (It leans on this research).");
+    // A check that has not passed is never read.
+    const notReady = await tool(meaningJudge)(request({ receipts: [] }), "auth0|free");
+    expect(notReady.structuredContent).toMatchObject({ status: "not_ready" });
+    expect(bundles).toHaveLength(1);
+    // A judge that fails leaves the check as it was, with one note; one that is off is never asked.
+    const failing = await tool({ enabled: true, judge: async () => { throw new Error("synthetic failure"); } })(
+      request(), "auth0|free");
+    expect(failing.structuredContent).toMatchObject({ status: "ready_with_limits",
+      meaning_judge: { status: "skipped", reason: "error", held: 0, notes: 1 } });
+    expect(text(failing)).toContain("- The meaning judge did not run (the call failed); this check is as it would be without it.");
+    const off = await tool({ enabled: false, judge: async () => { throw new Error("never called"); } })(request(), "auth0|free");
+    expect(off.structuredContent).not.toHaveProperty("meaning_judge");
   });
 
   it("shows findings-card saving to dev accounts only, and only they can switch their own setting", async () => {

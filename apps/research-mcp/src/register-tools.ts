@@ -9,6 +9,7 @@ import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -249,6 +250,8 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  meaningJudgeSourceOf,
+  type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
@@ -811,6 +814,8 @@ export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 export interface RegisterToolsOptions {
   /** Replaces the configured second reader for deterministic tests. */
   secondReader?: SecondReader;
+  /** Replaces the configured meaning judge (owner answer 221) for deterministic tests. */
+  meaningJudge?: MeaningJudge;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -2445,7 +2450,8 @@ function defineResearchOperations(
             }
           : {})
       };
-      let result = finalizeResearch(input, finalizeOptions);
+      let gateOptions: FinalizeResearchOptions = finalizeOptions;
+      let result = finalizeResearch(input, gateOptions);
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
       if (reader.enabled && checkedInput?.answer_draft !== undefined &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
@@ -2454,7 +2460,23 @@ function defineResearchOperations(
           key_terms: checkedInput.key_terms ?? [],
           scale_results: checkedInput.scale_results ?? []
         });
-        result = finalizeResearch(input, { ...finalizeOptions, secondReading });
+        gateOptions = { ...gateOptions, secondReading };
+        result = finalizeResearch(input, gateOptions);
+      }
+      // Owner answer 221: for the owner's dev accounts only, a passing check is read once by the meaning judge, a
+      // Claude API call paid from the owner's monthly credits. Its notes go to the AI, and the findings it reads as
+      // resting on YouTube comments are held, before any save below. It never blocks: whatever happens to the call,
+      // the check stays as it is, with a note when the judge did not run.
+      const judge = options.meaningJudge ?? meaningJudgeFromEnv();
+      if (judge.enabled && researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        const source = meaningJudgeSourceOf(result);
+        const bundle = source === undefined ? undefined : meaningJudgeBundle(source);
+        if (bundle !== undefined) {
+          const judgment = await judge.judge(bundle).then(({ judgment: read }) => read,
+            () => ({ status: "skipped" as const, reason: "error" as const }));
+          result = finalizeResearch(input, { ...gateOptions, meaningJudgment: judgment });
+        }
       }
       if (
         account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"

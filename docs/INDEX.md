@@ -133,6 +133,11 @@ complete XML protocol.
   pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
   from 43% to none; answers still changed after a passing check; three regression cards published when the account's
   saving was switched on from outside the run (owner questions 218 and 219).
+- `audits/2026-11-02-meaning-judge-development.md`: the meaning judge of owner answer 221 (a Claude API call in the
+  final check, for the owner's dev accounts only, notes only apart from holding findings drawn from YouTube comments),
+  measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
+  the judges' known cases 4 of 4 (YouTube comments), 33 of 35 (comparison backing), 13 of 14 (limits) and 5 of 5
+  (findings that stand on their own); USD 16.30 in all for development; the rubric frozen for validation on #394's run.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none
