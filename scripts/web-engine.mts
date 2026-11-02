@@ -19,7 +19,8 @@
  * never to Anthropic. It never prints the pass or the API key, and never sends either as a command-line argument.
  *
  * The engine refuses, without calling AskRigor, every call that would save, submit, review, share or change the
- * account (manage_research_access other than inspect), like the ChatGPT harness's preamble and save guard. Its output
+ * account (manage_research_access other than inspect and register_plain_answer), like the ChatGPT harness's preamble
+ * and save guard. Its output
  * goes outside the repository: <out>/out/<id>[.turnN].md (the answer delivered), <out>/logs/<id>[.turnN].jsonl (events
  * in the shape of a Codex event log, so the regression judging helpers read both), <out>/usage/<id>.json (each request's
  * usage, cost and time) and <out>/progress.txt.
@@ -72,9 +73,13 @@ const REFUSED_TOOLS: ReadonlySet<string> = new Set([
   "submit_lesson_candidate",
   "review_research_contribution",
   "review_evidence_gap_submissions",
-  "share_answer",
-  "delete_shared_answer",
 ]);
+/**
+ * The manage_research_access actions a research turn uses: reading the account's state, and registering the plain
+ * answer before research (owner answer 217b's comparison needs its receipt). Every other action changes the account
+ * (accepting a mode, revoking, the note, lesson-report and card-saving settings) or shares an answer.
+ */
+const RESEARCH_ACCESS_ACTIONS: ReadonlySet<unknown> = new Set(["inspect", "register_plain_answer"]);
 export const REFUSAL_TEXT =
   "Not sent: this AskRigor web-app engine trial makes no save, submission, review, share or account change. " +
   "Continue without this call.";
@@ -84,7 +89,7 @@ export function refusalFor(name: string, input: unknown): string | undefined {
   if (REFUSED_TOOLS.has(name)) return REFUSAL_TEXT;
   if (name === "manage_research_access") {
     const action = typeof input === "object" && input !== null ? (input as Record<string, unknown>).action : undefined;
-    if (action !== "inspect") return REFUSAL_TEXT;
+    if (!RESEARCH_ACCESS_ACTIONS.has(action)) return REFUSAL_TEXT;
   }
   return undefined;
 }

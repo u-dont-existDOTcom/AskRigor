@@ -19,14 +19,21 @@ describe("web-app engine trial", () => {
   it("refuses every save, submission, review, share and account change without calling AskRigor", () => {
     for (const name of [
       "save_research_findings", "submit_research_contribution", "submit_lesson_candidate",
-      "review_research_contribution", "review_evidence_gap_submissions", "share_answer", "delete_shared_answer",
+      "review_research_contribution", "review_evidence_gap_submissions",
     ]) {
       expect(refusalFor(name, {})).toBe(REFUSAL_TEXT);
     }
-    expect(refusalFor("manage_research_access", { action: "set_findings_save", findingsSave: true })).toBe(REFUSAL_TEXT);
-    expect(refusalFor("manage_research_access", { action: "accept_free_contributor" })).toBe(REFUSAL_TEXT);
-    expect(refusalFor("manage_research_access", {})).toBe(REFUSAL_TEXT);
+    for (const action of [
+      "accept_free_contributor", "activate_paid_private", "revoke", "set_plain_answer_note",
+      "set_detailed_lesson_reports", "set_findings_save", "share_answer", "delete_shared_answer", undefined,
+    ]) {
+      expect(refusalFor("manage_research_access", { action })).toBe(REFUSAL_TEXT);
+    }
     expect(refusalFor("manage_research_access", { action: "inspect" })).toBeUndefined();
+    // The plain answer is registered before research; the final check compares the answer with it (owner answer 217b).
+    expect(refusalFor("manage_research_access", {
+      action: "register_plain_answer", plainAnswer: { text: "Yes.", claims: ["Yes."] },
+    })).toBeUndefined();
     expect(refusalFor("finalize_research", { answer_draft: "..." })).toBeUndefined();
     expect(refusalFor("search_pubmed", { query: "x" })).toBeUndefined();
   });
