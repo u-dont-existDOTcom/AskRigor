@@ -36,10 +36,13 @@ questions as asked are 223 to 225 on the owner questions page; the plan they com
    here; the declaration itself extends the later card shape #398 adds for owner answer 219b, so it is built on top of
    #398. `publish_cards` takes an older unreviewed publication of such a finding down until a decision, and accepting
    it brings it back under the same number (no migration: the hold reasons' list in the database is unchanged).
-3. **225a, numbers:** each group as "N out of 100", the difference's 95% range by Newcombe's score method (hybrid
+3. **225a, numbers** (built): each group as "N out of 100", the difference's 95% range by Newcombe's score method (hybrid
    Wilson), a number needed to treat or harm only when that range leaves out zero, and "no clear difference" otherwise;
    the range assumes two independent groups, which the page says. The final check and the owner's accept check refuse a
-   card's number needed to treat or harm when the difference is not clear.
+   card's number needed to treat or harm when the difference is not clear (`difference_not_clear`, with the range in
+   percentage points). The tests' worked example moved from 30 of 120 against 18 of 120 (range -0.2 to 20 points, not
+   clear) to 60 of 240 against 36 of 240 (2.8 to 17.1): the same rates and numbers needed. Newcombe's published examples
+   check the range.
 4. **Question pages** open with a bottom-line box ("a quick answer says / the checked studies show / what to try first,
    what to avoid, what's unknown"), each line linked to its findings; code checks that the box claims no more certainty
    than its weakest finding. New cards carry it in the card's later shape; existing cards get it from the owner's

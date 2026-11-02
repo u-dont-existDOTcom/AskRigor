@@ -121,8 +121,8 @@ const MADE_WITH = {
 };
 const DECIDED_WITH = { askrigorVersion: "0.2.0", build: "unknown", protocols: MADE_WITH.protocols };
 const TREMOR = {
-  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-  comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+  comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 };
 
 /** An accept intent's payload, as the owner's accept_finding records it. */
@@ -261,9 +261,9 @@ async function fixture() {
 
   // Edited at acceptance: the card's wording is replaced by the owner's.
   const editedCard = await store.publish(4244, recordOf(oneFindingCard(
-    `${NEVER.cardWording}: zentarine 20 mg halved the tremor score in 30 of 120 against 18 of 120 on placebo.`)));
-  const editedWording = "Accepted wording: in one invented trial, zentarine 20 mg halved the tremor score in 30 of 120 " +
-    "against 18 of 120 on placebo over 12 weeks.";
+    `${NEVER.cardWording}: zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo.`)));
+  const editedWording = "Accepted wording: in one invented trial, zentarine 20 mg halved the tremor score in 60 of 240 " +
+    "against 36 of 240 on placebo over 12 weeks.";
   const editedNumber = await store.accept(4244, acceptPayload({
     wording: editedWording,
     cardWording: "card",
@@ -389,11 +389,11 @@ describe("the finding pages", () => {
     // Each group's count and size, the rates and the numbers needed, worked out from the counts.
     for (const fragment of [
       "<strong>tremor score halved</strong>, over 12 weeks (more is better)",
-      "<td>30 of 120</td><td>25%</td>", "<td>18 of 120</td><td>15%</td>",
+      "<td>60 of 240</td><td>25</td>", "<td>36 of 240</td><td>15</td>",
       "<strong>Number needed to treat: 10</strong>",
       "About 1 in 10 more people had this outcome with zentarine 20 mg than with placebo.",
       "<strong>nausea</strong>, over 12 weeks (fewer is better)",
-      "<td>12 of 120</td><td>10%</td>", "<td>6 of 120</td><td>5%</td>",
+      "<td>24 of 240</td><td>10</td>", "<td>12 of 240</td><td>5</td>",
       "<strong>Number needed to harm: 20</strong>",
     ]) {
       expect(body).toContain(fragment);
@@ -735,24 +735,34 @@ describe("source links and figures", () => {
     expect(sourceLink({ scheme: "url", value: "https://evil.example" })).toBeUndefined();
   });
 
-  it("work out rates to one decimal, and a number needed to treat or harm by which group did better", async () => {
+  it("show each group out of 100 with the difference's range, and a number needed only when it is clear (225a)", async () => {
     expect([percent(30, 120), percent(1, 3), percent(1, 120), percent(0, 50), percent(50, 50)])
       .toEqual(["25%", "33.3%", "0.8%", "0%", "100%"]);
     const store = atlas();
     const { rows } = await store.publish(4500, recordOf(oneFindingCard("Fewer relapses on zentarine in an invented trial.", {
       numbers: [
-        { outcome: "relapse", better: "fewer", option: "zentarine", option_events: 18, option_total: 120,
-          comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks", harms_none_found: true },
+        { outcome: "relapse", better: "fewer", option: "zentarine", option_events: 36, option_total: 240,
+          comparator: "placebo", comparator_events: 60, comparator_total: 240, follow_up: "52 weeks", harms_none_found: true },
         { outcome: "response", better: "more", option: "zentarine", option_events: 20, option_total: 100,
           comparator: "placebo", comparator_events: 20, comparator_total: 100, follow_up: "52 weeks" },
+        // 18 of 120 against 30 of 120: the range runs from 20 fewer to 0.2 more, so no clear difference.
+        { outcome: "infection", better: "fewer", option: "zentarine", option_events: 18, option_total: 120,
+          comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks" },
       ],
     })));
     const base = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
     const { body } = await text(base, `/atlas/findings/${rows[0]!.publicationNumber}`);
+    expect(body).toContain("<td>36 of 240</td><td>15</td>");
+    expect(body).toContain("<th scope=\"col\">Out of 100</th>");
+    expect(body).toContain("<p>Difference: 10 fewer out of 100 with zentarine than with placebo (95% range: 17.1 fewer to " +
+      "2.8 fewer).</p>");
     expect(body).toContain("<strong>Number needed to treat: 10</strong>. About 1 in 10 fewer people had this outcome " +
       "with zentarine than with placebo.");
     expect(body).toContain("No harms were found over the same follow-up.");
     expect(body).toContain("The two groups’ rates are the same, so there is no number needed to treat or harm.");
+    expect(body).toContain("(95% range: 20 fewer to 0.2 more).</p>\n<p><strong>No clear difference</strong>: the range " +
+      "includes no difference, so there is no number needed to treat or harm.</p>");
+    expect(body).toContain("it treats the groups as independent, so it does not allow for a crossover or clustered design");
   });
 
   it("refuse to serve a page that holds a script, a card reference or a YouTube link", () => {
@@ -1521,7 +1531,7 @@ describe("full-text search", () => {
     expect(rank("vitamin d", wording("Vitamin B12 deficiency is common."))).toBeUndefined();
     expect(rank("vitamin", wording("Vitamins A and E."))).toBe(1);
     expect(rank("omega 3", wording("Omega-3 fatty acids."))).toBe(0);
-    expect(rank("3", wording("30 of 120 adults."))).toBeUndefined();
+    expect(rank("3", wording("60 of 240 adults."))).toBeUndefined();
     expect(rank("strasse", wording("Straße"))).toBe(0);
     expect(rank("ΒΙΤΑΜΙΝΗ", wording("η βιταμίνη D"))).toBe(0);
     expect(rank("витамин", wording("Витамины D и кальций"))).toBe(1);

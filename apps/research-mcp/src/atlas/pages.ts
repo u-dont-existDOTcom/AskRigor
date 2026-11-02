@@ -1,6 +1,6 @@
 import type { AtlasLabel } from "@askrigor/evidence-repository";
 
-import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
+import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
 import { escapeHtml } from "./page-guard.js";
 import {
   ATLAS_FINDINGS_PER_PAGE,
@@ -130,9 +130,20 @@ function day(value: string): SafeHtml {
 
 /** A rate as a percentage with at most one decimal. */
 export function percent(events: number, total: number): string {
-  const rounded = Math.round((1_000 * events) / total) / 10;
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+  return `${outOf100(events / total)}%`;
 }
+
+/** A share as a number out of 100, to one decimal place where it has one. */
+export function outOf100(share: number): string {
+  const rounded = Math.round(1_000 * share) / 10;
+  return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+/** A difference out of 100 in words: "10 more", "3.5 fewer" or "no difference". */
+const differenceWords = (share: number) => {
+  const text = outOf100(Math.abs(share));
+  return text === "0" ? "no difference" : `${text} ${share > 0 ? "more" : "fewer"}`;
+};
 
 const disagreementWords = (disagreement: string | null) =>
   disagreement === null ? "what they found" : DISAGREEMENT_WORDS[disagreement] ?? "how the studies were done";
@@ -852,9 +863,16 @@ function figure(entry: ShownNumber): SafeHtml {
   // acceptance check figures with.
   const [option, comparator] = binaryGroups(counts);
   const contrast = binaryContrast(counts);
+  // Owner answer 225a: the difference out of 100 with its 95% range, and a number needed only when the range leaves
+  // out no difference.
+  const range = differenceRange(counts);
+  const difference = html`<p>Difference: ${differenceWords(range.difference)} out of 100 with ${option.name} than with ${comparator.name} (95% range: ${differenceWords(range.lower)} to ${differenceWords(range.upper)}).</p>
+`;
   let needed: SafeHtml;
   if (contrast === undefined) {
     needed = html`The two groups’ rates are the same, so there is no number needed to treat or harm.`;
+  } else if (!range.clear) {
+    needed = html`<strong>No clear difference</strong>: the range includes no difference, so there is no number needed to treat or harm.`;
   } else {
     // The option did better when a larger share had an outcome more people should have, or a smaller share one fewer
     // should (atlasNumbersProblems reads it the same way).
@@ -864,12 +882,12 @@ function figure(entry: ShownNumber): SafeHtml {
   return html`<figure class="figure">
 <figcaption><strong>${withoutEndPunctuation(entry.outcome)}</strong>, over ${withoutEndPunctuation(entry.followUp)} (${entry.better === "more" ? "more" : "fewer"} is better)</figcaption>
 <table>
-<thead><tr><th scope="col">Group</th><th scope="col">People with the outcome</th><th scope="col">Rate</th></tr></thead>
+<thead><tr><th scope="col">Group</th><th scope="col">People with the outcome</th><th scope="col">Out of 100</th></tr></thead>
 <tbody>
-${[option, comparator].map(({ name, events, total }) => html`<tr><th scope="row">${name}</th><td>${events} of ${total}</td><td>${percent(events, total)}</td></tr>
+${[option, comparator].map(({ name, events, total }) => html`<tr><th scope="row">${name}</th><td>${events} of ${total}</td><td>${outOf100(events / total)}</td></tr>
 `)}</tbody>
 </table>
-<p>${needed}</p>
+${difference}<p>${needed}</p>
 ${entry.harmsNoneFound ? html`<p>No harms were found over the same follow-up.</p>` : ""}
 </figure>
 `;
@@ -1035,7 +1053,7 @@ ${joined(facts, "\n")}
 </dl>`}
 ${usual}${cardFindings(finding, model.siblings)}${finding.numbers.length === 0 ? "" : html`<section aria-labelledby="numbers">
 <h2 id="numbers">The numbers</h2>
-<p>Each rate is a group’s count divided by its size. The number needed to treat or harm is 1 divided by the difference between the two rates, rounded up; AskRigor works them out from the counts.</p>
+<p>Each group is shown as how many out of 100 had the outcome. The 95% range of the difference is worked out from the two groups’ counts by Newcombe’s method; it treats the groups as independent, so it does not allow for a crossover or clustered design. A number needed to treat or harm, 1 divided by the difference rounded up, is shown only when that range leaves out no difference. AskRigor works all of them out from the counts.</p>
 ${finding.numbers.map(figure)}</section>
 `}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
 <h2 id="searches">What was searched, and found nothing</h2>

@@ -266,8 +266,8 @@ describe("the publications through the owner's review", () => {
     expect((await h.promote()).result.status).toBe("promoted");
     expect((await h.promote()).result.status).toBe("promoted");
     const corrected = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
-      wording: "In one invented trial of 240 adults, zentarine 20 mg halved the tremor score in 30 of 120 against 18 of " +
-        "120 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 12 of 120 against 6 of 120, a " +
+      wording: "In one invented trial of 480 adults, zentarine 20 mg halved the tremor score in 60 of 240 against 36 of " +
+        "240 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 24 of 240 against 12 of 240, a " +
         "number needed to harm of 20.",
       note: "Said the trial size without the condition.", eraseWording: true });
     expect(corrected.structured.outcome, corrected.text).toBe("finding_queued");
