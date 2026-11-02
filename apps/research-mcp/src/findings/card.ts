@@ -206,11 +206,33 @@ export const DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION = "Whether this finding draws
   "numbers), false when none does. AskRigor holds a finding that draws on them privately for its owner's review and " +
   "never publishes it; when this research read YouTube comments, a finding without this declaration is held too.";
 
+/**
+ * Owner answer 224a (2 November 2026): a finding that involves inhaled, injected or bladder use, says a paper misreports
+ * its own results, or concerns a serious illness waits for the owner's review instead of publishing at once. No other
+ * field shows these, so the AI declares them for each finding in the card's later shape, in any language; the Atlas
+ * reads only what it declares. A finding with no declaration is published as before, and the final check adds a note.
+ */
+export const REVIEW_FIRST_DECLARATIONS = ["inhaled_injected_or_bladder_use", "misreported_paper", "serious_illness"] as const;
+export type ReviewFirstDeclaration = typeof REVIEW_FIRST_DECLARATIONS[number];
+
+export const REVIEW_FIRST_DESCRIPTION = "Why this finding should wait for AskRigor's owner to review it before it is " +
+  "published: inhaled_injected_or_bladder_use when it involves taking something by inhaling, injecting or into the " +
+  "bladder; misreported_paper when it says a paper misreports its own results; serious_illness when it concerns a " +
+  "serious illness. An empty list when none applies. A finding with any of them is published only after the owner " +
+  "accepts it.";
+
+export const reviewFirstSchema = z.array(z.enum(REVIEW_FIRST_DECLARATIONS)).max(REVIEW_FIRST_DECLARATIONS.length)
+  .refine((reasons) => new Set(reasons).size === reasons.length, { message: "each reason once" });
+
 export const laterFindingSchema = findingsCardSchema.shape.findings.element.extend({
-  draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION)
+  draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION),
+  review_first: reviewFirstSchema.optional().describe(REVIEW_FIRST_DESCRIPTION)
 }).strict();
 
-/** The findings card with each finding's declaration of owner answer 219b, as finalize_research and the save read it. */
+/**
+ * The findings card with each finding's declarations of owner answers 219b and 224a, as finalize_research and the save
+ * read it.
+ */
 export const laterFindingsCardSchema = findingsCardSchema.extend({
   findings: z.array(laterFindingSchema).min(1).max(5).describe(FINDINGS_DESCRIPTION)
 }).strict();

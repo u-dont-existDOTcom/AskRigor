@@ -3371,6 +3371,21 @@ export function finalizeResearch(
             "commenters wrote, false when none does. Send the whole card, with that field in each finding, in " +
             "later_inputs.findings_card, and check the answer again.");
         }
+        // Owner answer 224a: a finding that should wait for the owner's review before it is published declares why
+        // (review_first). One without the declaration is published as before, so this is a note, and only for a public
+        // card saved, and published, at once; the declaration is the AI's, in any language.
+        const unsaid = options.findings === "save" && input.findings_card.public_value?.scope === "public"
+          ? findingsInCard.flatMap((finding, index) => finding.review_first === undefined && !heldFindings.includes(index)
+            ? [index] : [])
+          : [];
+        if (unsaid.length > 0) {
+          const one = unsaid.length === 1;
+          notes.push(`${joinNames(unsaid.map((index) => `findings_card.findings[${index}]`))} ${one ? "does" : "do"} not ` +
+            `say whether ${one ? "it waits" : "they wait"} for AskRigor's owner to review ${one ? "it" : "them"} before ` +
+            `${one ? "it is" : "they are"} published. Give each finding review_first: inhaled_injected_or_bladder_use, ` +
+            "misreported_paper or serious_illness for each that applies, or an empty list when none does. Send the " +
+            "whole card, with that field in each finding, in later_inputs.findings_card.");
+        }
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
         // A checked card has declared whom its findings would help (findingsCardCheck).
         const scope = input.findings_card.public_value!.scope;
