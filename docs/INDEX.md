@@ -123,6 +123,12 @@ complete XML protocol.
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
 - `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
   with a test of how many threads open to a plain request; waits for owner question 213.
+- `audits/2026-11-02-owner-regressions-393-judgment.md`: the owner regressions on #393's build `61215c0b` against
+  question 193's signals (86 cases: 45 pass, 39 in part, 1 fails, 1 not judged; against #389's build 8 better, 6 worse;
+  the low-calorie runs 6, 4 and 1 fails, 4 better; the new turmeric case of owner answer 216a in part): 111 of 113 checks
+  pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
+  from 43% to none; answers still changed after a passing check; three regression cards published when the account's
+  saving was switched on from outside the run (owner questions 218 and 219).
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none
