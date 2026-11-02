@@ -54,7 +54,8 @@ Owner answer 226b (2 Nov, about 20:43 UTC): up to $60 for nine cases, "make sure
 actually worthwhile, sounds like you wasted money on this round." The gate passes $60 in the trial's scope. So the
 sample spends only where it can still change the conclusion:
 
-1. **Free first:** the pilot's three answers are judged blind against ChatGPT's, by a subagent on the Claude plan.
+1. **Free first:** the pilot's three answers are judged blind against ChatGPT's, by a subagent on the Claude plan. If
+   Claude's are judged worse in all three, stage 1 waits for the owner; otherwise it is set to start by itself.
 2. **A guard:** `--require-protocols-by 10` stops the run when a case has made 10 AskRigor calls without loading both
    Universal and HRP. Tonight's ChatGPT run loaded both by its 7th call in all 43 cases. The pilot's cases never did,
    and the guard would have stopped them at about a dollar.
