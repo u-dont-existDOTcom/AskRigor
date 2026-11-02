@@ -27,6 +27,7 @@ import {
   loadAtlasFinding,
   loadAtlasFindings,
   loadAtlasMap,
+  loadAtlasSitemap,
   loadAtlasSearchIndex,
   loadAtlasTopics,
   searchAtlasIndex,
@@ -52,6 +53,7 @@ import {
   renderAtlasFinding,
   renderAtlasFindings,
   renderAtlasMap,
+  renderAtlasSitemap,
   renderAtlasTopics,
   renderAtlasSearch,
   renderAtlasHome,
@@ -190,6 +192,7 @@ export type AtlasRoute =
   | { kind: "topics" }
   | { kind: "map" }
   | { kind: "search" }
+  | { kind: "sitemap" }
   | { kind: "topic"; topicKey: string }
   | { kind: "finding"; publicationNumber: string }
   // Votes and comments (section 4E), only while they are switched on.
@@ -234,6 +237,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/topics") return { kind: "topics" };
   if (pathname === "/atlas/map") return { kind: "map" };
   if (pathname === "/atlas/search") return { kind: "search" };
+  if (pathname === "/atlas/sitemap.xml") return { kind: "sitemap" };
   const topic = TOPIC_ROUTE.exec(pathname);
   if (topic !== null) return { kind: "topic", topicKey: topic[1]! };
   const finding = PUBLICATION_ROUTE.exec(pathname);
@@ -1100,6 +1104,13 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       }
       try {
         const now = clock();
+        if (route.kind === "sitemap") {
+          // Owner answer 224a: only reviewed findings and the pages that hold them, kept like a page.
+          const sitemap = await cache.get(pathname, async () => ({ status: 200,
+            html: renderAtlasSitemap(await loadAtlasSitemap(source)) }));
+          write(response, 200, "application/xml; charset=utf-8", sitemap.html);
+          return true;
+        }
         if (participation !== undefined && (route.kind === "sign-in" || route.kind === "callback")) {
           await signInRoute(route, request, response, participation, now);
           return true;

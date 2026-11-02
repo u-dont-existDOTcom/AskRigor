@@ -517,6 +517,7 @@ for required_member in \
   site/terms/index.html \
   site/support/index.html \
   site/assets/site.css \
+  site/robots.txt \
   ops/public-site/Caddyfile.site \
   ops/public-site/compose.site.yaml \
   ops/public-site/install-public-site.sh

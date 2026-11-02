@@ -28,8 +28,8 @@ import {
 import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasMap, loadAtlasSearch,
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink, renderAtlasMap,
-  renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
+import { AI_LABEL, ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
+  renderAtlasMap, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
   type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
@@ -469,7 +469,8 @@ describe("the finding pages", () => {
     // The card's two published findings, in order: this one marked, the other linked with its label. Its third, drawn
     // from comments, was never published.
     at("2 findings from the same research are published here. Each has its own page.");
-    at(`<li aria-current="page"><p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\n<p class="finding-claim">` +
+    at(`<li aria-current="page"><p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p><p class="ai-label">${AI_LABEL}</p>\n` +
+      '<p class="finding-claim">' +
       `<strong>This finding:</strong> ${escapeHtml(VELMOR_CARD.findings[0]!.claim)}</p>`);
     at(`<p class="finding-claim"><a href="/atlas/findings/${shown.nothingFound}">${escapeHtml(VELMOR_CARD.findings[1]!.claim)}</a></p>`);
     at("<p class=\"meta\">How sure: Very low</p>");
@@ -647,7 +648,8 @@ describe("the home, topic and changes pages", () => {
       expect(body, path).toContain(card);
       expect(body, path).toContain(accepted);
       // The question comes between the label and the finding.
-      expect(body, path).toMatch(new RegExp(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\\n<p class="finding-question">`, "u"));
+      expect(body, path).toMatch(new RegExp(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p><p class="ai-label">` +
+        `${AI_LABEL}</p>\\n<p class="finding-question">`, "u"));
     }
   });
 
@@ -762,6 +764,68 @@ describe("source links and figures", () => {
 });
 
 // Routes, headers and the switch --------------------------------------------------------------------------------------
+
+describe("search engines and the AI label (owner answer 224a)", () => {
+  const NOINDEX = '<meta name="robots" content="noindex">';
+
+  it("keep unreviewed findings out of search engines and label them, and index what a person reviewed", async () => {
+    const { source, shown } = await fixture();
+    const base = await serve(pages(source));
+    const unreviewed = (await text(base, `/atlas/findings/${shown.effect}`)).body;
+    expect(unreviewed).toContain(NOINDEX);
+    expect(unreviewed).toContain(`<p class="ai-label">${AI_LABEL}.</p>`);
+    expect(AI_LABEL).toBe("Written by an AI, not yet reviewed by a person");
+    const reviewed = (await text(base, `/atlas/findings/${shown.edited}`)).body;
+    expect(reviewed).not.toContain(NOINDEX);
+    expect(reviewed).not.toContain(`<p class="ai-label">${AI_LABEL}.</p>`);
+    // A list holding a reviewed finding is indexed; one of unreviewed findings only is not. Searches never are.
+    expect((await text(base, "/atlas/findings")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/findings?filter=unreviewed")).body).toContain(NOINDEX);
+    expect((await text(base, "/atlas/findings?filter=checked")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics/hip-osteoarthritis")).body).toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics/velmor-syndrome")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/search?q=zentarine")).body).toContain(NOINDEX);
+    // Every unreviewed finding a list shows carries the label.
+    const list = (await text(base, "/atlas/findings?filter=unreviewed")).body;
+    expect(list.match(/class="badge badge-unreviewed"/gu)!.length).toBe(list.match(/class="ai-label"/gu)!.length);
+    // With only unreviewed findings, the home page and the map are kept out too.
+    const store = atlas();
+    await store.publish(7300, recordOf(VELMOR_CARD));
+    const fresh = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    for (const path of ["/atlas", "/atlas/map", "/atlas/findings"]) {
+      expect((await text(fresh, path)).body, path).toContain(NOINDEX);
+    }
+  });
+
+  it("list in the sitemap only reviewed findings and the pages that hold them", async () => {
+    const { source, shown, numbers } = await fixture();
+    const base = await serve(pages(source));
+    const { response, body } = await text(base, "/atlas/sitemap.xml");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8");
+    expect(body.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'))
+      .toBe(true);
+    const locations = [...body.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]);
+    expect(locations).toEqual([
+      "https://askrigor.com/atlas/topics", "https://askrigor.com/atlas", "https://askrigor.com/atlas/changes",
+      "https://askrigor.com/atlas/topics/velmor-syndrome",
+      ...[shown.edited, shown.lowDose, shown.lead].sort((left, right) => Number(left.slice(2)) - Number(right.slice(2)))
+        .map((number) => `https://askrigor.com/atlas/findings/${number}`),
+    ]);
+    for (const number of [shown.effect, shown.nothingFound, shown.hip]) expect(body).not.toContain(`/findings/${number}<`);
+    expect(body).toContain("<lastmod>2026-11-04</lastmod>");
+    expect(body).not.toMatch(/ARF-|youtu|F-1\d{3}/u);
+    expect(numbers.edited).toMatch(/^F-/u);
+    expect((await fetch(`${base}/atlas/sitemap.xml`, { method: "HEAD" })).status).toBe(200);
+    // Nothing reviewed yet: the topics index alone.
+    const store = atlas();
+    await store.publish(7400, recordOf(VELMOR_CARD));
+    const fresh = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    expect([...(await text(fresh, "/atlas/sitemap.xml")).body.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]))
+      .toEqual(["https://askrigor.com/atlas/topics"]);
+  });
+});
 
 describe("the routes", () => {
   it("answer each page and the stylesheet, and 404 every other path under /atlas", async () => {

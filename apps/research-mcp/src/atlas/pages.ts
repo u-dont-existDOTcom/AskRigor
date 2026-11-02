@@ -21,6 +21,7 @@ import {
   type AtlasMapTopic,
   type AtlasOwnerPick,
   type AtlasSearchModel,
+  type AtlasSitemapEntry,
   type AtlasTopicModel,
   type AtlasTopicsModel,
   type ShownFinding,
@@ -163,6 +164,12 @@ export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
 export const MAP_PATH = "/atlas/map";
 const CANONICAL_ORIGIN = "https://askrigor.com";
 
+/** The label on every finding no person has reviewed yet (owner answer 224a, 2 Nov 2026). */
+export const AI_LABEL = "Written by an AI, not yet reviewed by a person";
+
+/** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
+const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
+
 function relatedLink(related: ShownRelated): SafeHtml {
   return related.publicationNumber === null ? html`${related.atlasNumber}`
     : html`<a href="${findingPath(related.publicationNumber)}">${related.publicationNumber}</a>`;
@@ -183,6 +190,8 @@ export interface AtlasPageReader {
 interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
+  /** Kept out of search engines (owner answer 224a): a page whose findings are all unreviewed, or not a content page. */
+  noindex?: boolean;
   title: string;
   description: string;
   current?: "home" | "changes" | "account" | "findings" | "topics" | "map" | "search";
@@ -201,6 +210,7 @@ function page(frame: PageFrame): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="${frame.description}">
 ${frame.noReferrer ? html`<meta name="referrer" content="no-referrer">` : ""}
+${frame.noindex ? html`<meta name="robots" content="noindex">` : ""}
 <title>${frame.title}</title>
 ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN}${frame.path}">
 `}<link rel="stylesheet" href="/atlas/atlas.css">
@@ -270,6 +280,7 @@ export function renderAtlasFindings(model: AtlasFindingsModel, reader?: AtlasPag
   const filters = Object.entries(FILTER_WORDS).map(([filter, label]) => html`<li><a
 href="/atlas/findings?filter=${filter}"${filter === model.filter ? html` aria-current="page"` : ""}>${label}</a></li>`);
   return page({ path: "/atlas/findings", title: "All findings | AskRigor Atlas", current: "findings", reader,
+    noindex: unreviewedOnly(model.findings),
     description: "Every finding published in the AskRigor Atlas, newest first.",
     body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first.</p>
 <nav aria-label="Filter findings"><ul class="nav-list">${filters}</ul></nav>
@@ -321,6 +332,7 @@ export function renderAtlasSearch(model: { text: string; message: string | null;
   }
   // Search never carries account state, a canonical query URL, form tokens or a personalized header.
   return page({ path: null, title: "Search findings | AskRigor Atlas", current: "search", reader, noReferrer: true,
+    noindex: true,
     description: "Search the public findings in the AskRigor Atlas.",
     body: html`<h1>Search findings</h1>
 ${searchForm("atlas-query", model.text)}
@@ -345,7 +357,8 @@ ${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${join
 // A finding in a list ---------------------------------------------------------------------------------------------------
 
 function badge(finding: ShownFinding): SafeHtml {
-  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>`;
+  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>${finding.status.kind === "unreviewed"
+    ? html`<p class="ai-label">${AI_LABEL}</p>` : ""}`;
 }
 
 function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml {
@@ -439,6 +452,8 @@ ${model.contested.map(contestedItem)}</ul>
 `}<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
+    noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.recentlyPublished,
+      ...model.recentlyChecked, ...model.contested.flatMap(({ findings }) => findings)]),
     title: "AskRigor Atlas",
     description: "Findings from research done with AskRigor, written without the people who asked.",
     current: "home",
@@ -621,6 +636,7 @@ ${findingList(section.findings)}
 `)}`;
   return page({
     path: topicPath(model.topic.key),
+    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)),
     reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
@@ -776,6 +792,7 @@ ${topic.findings.map((entry) => {
 `)}</section>`}`;
   return page({
     path: MAP_PATH,
+    noindex: unreviewedOnly(model.topics.flatMap(({ findings }) => findings.map(({ finding }) => finding))),
     title: "Findings map | AskRigor Atlas",
     description: "Published findings in the AskRigor Atlas as circles, one cluster per topic, sized by a stated rule.",
     current: "map",
@@ -791,6 +808,7 @@ function statusBlock(finding: ShownFinding): SafeHtml {
   if (status.kind === "unreviewed") {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
+<p class="ai-label">${AI_LABEL}.</p>
 <p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.</p>
 </div>`;
   }
@@ -1036,6 +1054,7 @@ ${sources}</ul>
 `}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
+    noindex: finding.status.kind === "unreviewed",
     reader,
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
     description: shortened(finding.claim, 160),
@@ -1094,12 +1113,25 @@ ${model.entries.map(changeItem)}</ol>`}`;
   });
 }
 
+// The sitemap -----------------------------------------------------------------------------------------------------------
+
+/** The sitemap's XML (sitemaps.org 0.9) on the public origin: reviewed findings and the pages that hold them. */
+export function renderAtlasSitemap(entries: readonly AtlasSitemapEntry[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.map(({ path, lastModified }) => `<url><loc>${escapeHtml(`${CANONICAL_ORIGIN}${path}`)}</loc>${lastModified === null ? ""
+    : `<lastmod>${escapeHtml(lastModified)}</lastmod>`}</url>
+`).join("")}</urlset>
+`;
+}
+
 // Pages without a model -------------------------------------------------------------------------------------------------
 
 export function renderAtlasNotFound(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Not found | AskRigor Atlas",
     description: "There is no Atlas page at this address.",
     body: html`<h1>Not found</h1>
@@ -1112,6 +1144,7 @@ export function renderAtlasUnavailable(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Unavailable | AskRigor Atlas",
     description: "The Atlas is unavailable right now.",
     body: html`<h1>The Atlas is unavailable right now</h1>
@@ -1130,6 +1163,7 @@ export function renderAtlasAccount(view: AtlasAccountView): string {
   const tokens = view.tokens;
   return page({
     path: null,
+    noindex: true,
     current: "account",
     reader: view.reader,
     title: "Your account | AskRigor Atlas",
@@ -1203,6 +1237,7 @@ export function renderAtlasOwnComments(view: AtlasOwnCommentsView, reader?: Atla
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Your votes and comments | AskRigor Atlas",
     description: "The votes you gave and the comments you posted in the AskRigor Atlas.",
     body: html`<h1>Your votes and comments</h1>
@@ -1250,6 +1285,7 @@ export function renderAtlasMessage(title: string, message: string, back: { href:
   return page({
     reader,
     path: null,
+    noindex: true,
     title: `${title} | AskRigor Atlas`,
     description: title,
     body: html`<h1>${title}</h1>
@@ -1262,6 +1298,7 @@ export function renderAtlasTooManyRequests(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Too many requests | AskRigor Atlas",
     description: "Too many requests for Atlas pages.",
     body: html`<h1>Too many requests</h1>
@@ -1424,6 +1461,8 @@ p, li, dd { max-width: 72ch; }
   font-weight: 700;
 }
 .badge-unreviewed { background: var(--unreviewed-surface); color: var(--unreviewed); }
+.ai-label { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.9rem; font-style: italic; }
+.status .ai-label { color: inherit; font-size: 1rem; }
 .badge-checked { background: var(--checked-surface); color: var(--checked); }
 .badge-contested { background: var(--contested-surface); color: var(--contested); }
 .badge-lead, .badge-superseded { background: var(--quiet-surface); color: var(--quiet); }

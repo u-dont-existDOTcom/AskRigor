@@ -635,6 +635,44 @@ async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator
   }
 }
 
+/** One page of the sitemap: its path on the public origin, and the day it last changed when known. */
+export interface AtlasSitemapEntry {
+  path: string;
+  lastModified: string | null;
+}
+
+/**
+ * The sitemap (owner answer 224a, 2 Nov 2026): only reviewed findings, and the pages that hold them. Unreviewed findings
+ * are kept out of search engines, so their pages carry noindex and are never listed here. The topics index, which shows
+ * no finding's text, is always listed.
+ */
+export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSitemapEntry[]> {
+  return await source.read(async (reads) => {
+    const reviewed: Array<ShownFinding & { status: Exclude<ShownStatus, { kind: "unreviewed" }> }> = [];
+    for await (const finding of allShown(reads)) {
+      if (finding.status.kind !== "unreviewed") reviewed.push(finding as typeof reviewed[number]);
+    }
+    const once = oncePerFinding(reviewed) as typeof reviewed;
+    const entries: AtlasSitemapEntry[] = [{ path: "/atlas/topics", lastModified: null }];
+    if (once.length === 0) return entries;
+    const newest = once.reduce((day, { status }) => status.checkedOn > day ? status.checkedOn : day, "");
+    entries.push({ path: "/atlas", lastModified: newest }, { path: "/atlas/changes", lastModified: newest });
+    const topics = new Map<string, string>();
+    for (const finding of once) {
+      if (finding.topic === null) continue;
+      const day = topics.get(finding.topic.key) ?? "";
+      if (finding.status.checkedOn > day) topics.set(finding.topic.key, finding.status.checkedOn);
+    }
+    for (const [key, day] of [...topics].sort(([left], [right]) => left.localeCompare(right))) {
+      entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
+    }
+    for (const finding of once.sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber))) {
+      entries.push({ path: `/atlas/findings/${finding.publicationNumber}`, lastModified: finding.status.checkedOn });
+    }
+    return entries;
+  });
+}
+
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
 export async function loadAtlasFindings(source: AtlasPageSource, options: {
   before?: string; filter?: AtlasFindingFilter; topicKey?: string;
