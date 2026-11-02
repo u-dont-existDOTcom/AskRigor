@@ -118,12 +118,6 @@ required field, caveat or blocking check is added. The published tool definition
 older description of the note's figure replacement; the runtime result supplies the actual note.
 
 
-Owner answer 224a (2 November 2026) adds another declaration to the same later shape, and no blocking rule: each
-finding may give `review_first`, the reasons it should wait for the owner's review before the Atlas publishes it
-(`inhaled_injected_or_bladder_use`, `misreported_paper`, `serious_illness`, or an empty list). It is stored with the
-card, and the Atlas reads it. For a public card saved in free contributor mode, a note names each finding that does not
-declare it and asks for the declaration; the card is checked, signed and saved as before.
-
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
 (owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in

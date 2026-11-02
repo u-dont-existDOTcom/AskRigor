@@ -1084,16 +1084,6 @@ What the model sends, and when:
   for records by their numbers is not read as a phone number. The sentence on what
   communities reported that the pages may one day show (owner decision 4a) is
   not collected: no schema accepts it, and nothing stores it.
-- Owner answer 224a (2 November 2026; built, not yet released), in the same
-  later shape: each finding may give `review_first`, the reasons it waits for
-  the owner's review before it is published (`inhaled_injected_or_bladder_use`,
-  `misreported_paper`, `serious_illness`, or an empty list), the model's
-  declaration, in any language. Unlike the YouTube-comments declaration it is
-  stored with the saved card, so the Atlas reads it when it publishes the card
-  (the finding is then published only after the owner accepts it). It describes
-  the finding, never the person. A public card saved in free contributor mode
-  whose findings do not declare it gets a non-blocking note; nothing is held
-  back for its absence.
 - Owner answer 219b (2 November 2026; built, not yet released), in the same
   card's later shape, sent in `later_inputs.findings_card` (or at the top level
   where the app lets it through; the published card stays fixed): each finding

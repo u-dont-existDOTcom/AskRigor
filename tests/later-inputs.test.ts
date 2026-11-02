@@ -267,13 +267,5 @@ describe("later_inputs (owner answer 189a)", () => {
     const wrong = { ...card, findings: [{ ...CARD.findings[0], draws_on_youtube_comments: "yes" }] };
     expect(text(await save.execute({ ...base, later_inputs: { findings_card: wrong } }, {} as never)))
       .toContain("later_inputs.findings_card.findings[0].draws_on_youtube_comments");
-    // Owner answer 224a: each finding's review_first, in the same later shape.
-    const reviewFirst = { ...CARD, findings: [{ ...CARD.findings[0], review_first: ["inhaled_injected_or_bladder_use"] }] };
-    const parsed = parseFinalizeResearchInput({ research_target: "Synthetic target", answer_draft: "Draft.", receipts: [],
-      later_inputs: { findings_card: reviewFirst } });
-    expect(parsed.data?.findings_card?.findings[0]?.review_first).toEqual(["inhaled_injected_or_bladder_use"]);
-    const unknown = { ...CARD, findings: [{ ...CARD.findings[0], review_first: ["product"] }] };
-    expect(text(await save.execute({ ...base, later_inputs: { findings_card: unknown } }, {} as never)))
-      .toContain("later_inputs.findings_card.findings[0].review_first");
   });
 });

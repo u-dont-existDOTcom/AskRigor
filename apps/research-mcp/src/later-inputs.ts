@@ -28,15 +28,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_card: laterFindingsCardSchema.optional()
       .describe("The findings card, as published, with each finding's draws_on_youtube_comments: true when any part " +
         "of it rests on YouTube comments read in this research, false otherwise. A finding drawing on them is held " +
-        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared. " +
-        "Each finding also gives review_first: the reasons it waits for the owner's review before it is published " +
-        "(inhaled_injected_or_bladder_use, misreported_paper, serious_illness), or an empty list.")
+        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
     findings_card: laterFindingsCardSchema
       .describe("The card exactly as the last finalize_research call checked it, with each finding's " +
-        "draws_on_youtube_comments and review_first as that call had it.")
+        "draws_on_youtube_comments as that call had it.")
   },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
