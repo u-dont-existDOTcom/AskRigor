@@ -83,7 +83,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     record_type: "atlas_lookup", retrieved_at: now().toISOString(), status: "complete", query_words: query?.words ?? [],
     topic_key: input.topic_key ?? null, findings: [], has_more: false, topic_leads: [], open_trails: [],
     trails_have_more: false, limitations: [
-      "Word search reads each public finding's text as the Atlas search page does: every word must be there, case and accents ignored, as part of a longer word too, but a single letter or digit only on its own; findings whose wording holds every word come first. Different wording may leave relevant findings unmatched. No match is not evidence of absence.",
+      "Word search reads each public finding's text as the Atlas search page does: every word must be there, case and accents ignored, also inside a longer word, except that a word of one or two letters of an alphabet with capitals or digits counts only on its own and a number never inside a longer number; findings whose wording holds every word come first. Different wording may leave relevant findings unmatched. No match is not evidence of absence.",
       "Unchecked findings are leads, never established findings. Re-read at least one of their sources before using them beyond a lead.",
       "Stored plans and their trails are research control, not evidence. Currentness is not assessed.",
     ],
@@ -116,7 +116,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     } else {
       const search = await loadAtlasSearch(dependencies.source, { search: query, ...topicKey });
       findings = search.results.slice(0, input.limit).map(({ finding }) => finding);
-      output.has_more = search.total > input.limit;
+      output.has_more = search.total > findings.length;
     }
     output.findings = findings.map((finding) => publicFinding(finding, origin));
     const topics = [...new Set([...(input.topic_key === undefined ? [] : [input.topic_key]),

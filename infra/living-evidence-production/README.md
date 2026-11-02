@@ -643,8 +643,11 @@ accents, Greek/Cyrillic and Japanese), anywhere in a finding's page text (try a
 word that only its "What would change it" holds) and inside longer words (a
 word of a Chinese or Japanese wording, and, as an example, `vitamin` for
 `vitamins`), list the findings whose wording holds the words first, page results
-by number with the total shown, and handle blank, overlong and markup-containing
-input as escaped normal pages. The findings map (plan
+by number with the total shown (past 2,000 matches it says only the first 2,000
+are listed), keep a number from matching inside a longer one (try `12 weeks`
+against a PMID holding 12), and handle blank, overlong and markup-containing
+input as escaped normal pages. Searches match against a 60-second in-memory copy
+of the shown findings' public text, dropped on every change; no query is kept. The findings map (plan
 `../../docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`)
 must show its rule, its key with "Not checked by supervisors yet", one cluster per
 topic whose circles open their findings, and the same findings in the list below;

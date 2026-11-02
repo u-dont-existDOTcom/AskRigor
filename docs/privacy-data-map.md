@@ -1710,7 +1710,9 @@ whom it applies to, subject, topic, why it isn't the usual answer, what would
 change it, its figures' outcome, follow-up, option and comparator, its searches,
 its source identifiers and its P and F numbers), never a label the pages add, a
 vote, a comment, or a card's or version's text the pages leave out; its paging
-links carry the query and a page number. `/atlas/map` draws the same shown
+links carry the query and a page number. Searches match against that public
+text, read once and kept in memory like a rendered page (60 seconds, dropped on
+every change, while it takes at most 32 MiB); it never holds a query. `/atlas/map` draws the same shown
 findings, leaving out leads and superseded ones, as circles by topic, sized from
 their status, certainty, figures, number of linked sources and dates; it reads no
 vote or comment and is cached like the topics page. No new data is read, kept or

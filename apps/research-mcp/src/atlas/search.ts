@@ -4,9 +4,13 @@ export const ATLAS_SEARCH_MAX_LENGTH = 300;
 export const ATLAS_SEARCH_MAX_WORDS = 20;
 export interface AtlasSearchQuery { text: string; words: string[] }
 
-/** Compatibility forms, full case folding and accents folded. Keep vowel signs and other non-diacritic script marks. */
+/**
+ * Compatibility forms and full case folding, and the combining accents U+0300 to U+036F dropped after decomposition (the
+ * accents of Latin, Greek and Cyrillic letters). Every other mark stays, since it tells words apart: a Thai tone mark
+ * (ไข้ and ไข่), a Japanese voicing or length mark (コーヒー and コピー), a vowel sign.
+ */
 export function atlasSearchFold(text: string): string {
-  return unicodeCaseFold(text.normalize("NFKC")).normalize("NFD").replace(/\p{Diacritic}/gu, "").normalize("NFC");
+  return unicodeCaseFold(text.normalize("NFKC")).normalize("NFD").replace(/[\u0300-\u036f]/gu, "").normalize("NFC");
 }
 
 /** Exact tokens, without stemming or language guesses. */
@@ -78,42 +82,64 @@ function characterBefore(text: string, index: number): string | undefined {
 const characterAt = (text: string, index: number): string | undefined =>
   index >= text.length ? undefined : String.fromCodePoint(text.codePointAt(index)!);
 
-/**
- * A single digit, or a single letter of an alphabet with capitals (the D of "vitamin D", as an example), matches only
- * where it stands on its own; a longer word, or one character of a script without capitals, may sit inside a longer word.
- */
-function mustStandAlone(characters: readonly string[]): boolean {
-  const kind = kindOf(characters[0]);
-  return characters.length === 1 && (kind === CASED || kind === DIGIT);
+/** A search's words, each with what matching it needs, and the query as typed: prepared once per search. */
+export interface PreparedAtlasSearch {
+  words: Array<{ word: string; first: number; last: number; alone: boolean }>;
+  typed: string;
 }
 
-/** A folded word's best place in a folded text: 2 standing whole, 1 inside a longer word, 0 nowhere. */
-function occurrence(text: string, word: string): 0 | 1 | 2 {
-  const characters = Array.from(word);
-  const first = kindOf(characters[0]);
-  const last = kindOf(characters.at(-1));
-  const alone = mustStandAlone(characters);
+/**
+ * A word of one or two characters, each a digit or a letter of an alphabet with capitals (as examples, the D of
+ * "vitamin D", MS, D3 or 12), matches only where it stands on its own. A longer word, or a word of a script without
+ * capitals (one Chinese character can be a word), may also sit inside a longer word.
+ */
+const standsAloneOnly = (characters: readonly string[]) => characters.length <= 2 &&
+  characters.every((character) => [CASED, DIGIT].includes(kindOf(character)));
+
+export function prepareAtlasSearch(query: AtlasSearchQuery): PreparedAtlasSearch {
+  return {
+    words: query.words.map((word) => {
+      const characters = Array.from(word);
+      return { word, first: kindOf(characters[0]), last: kindOf(characters.at(-1)), alone: standsAloneOnly(characters) };
+    }),
+    // As typed, without the quotation marks around a phrase.
+    typed: atlasSearchFold(query.text).replace(/\p{White_Space}+/gu, " ").trim()
+      .replace(/^\p{Quotation_Mark}+|\p{Quotation_Mark}+$/gu, ""),
+  };
+}
+
+/**
+ * A folded word's best place in a folded text: 2 standing whole, 1 inside a longer word, 0 nowhere. Inside a longer word,
+ * a digit at the word's edge never continues a number (as examples, 50 is not in 500, nor 12 in 40123456).
+ */
+function occurrence(text: string, word: PreparedAtlasSearch["words"][number]): 0 | 1 | 2 {
   let best: 0 | 1 = 0;
-  for (let at = text.indexOf(word); at !== -1; at = text.indexOf(word, at + 1)) {
-    if (!joined(kindOf(characterBefore(text, at)), first) && !joined(last, kindOf(characterAt(text, at + word.length)))) {
-      return 2;
-    }
-    if (!alone) best = 1;
+  for (let at = text.indexOf(word.word); at !== -1; at = text.indexOf(word.word, at + 1)) {
+    const before = joined(kindOf(characterBefore(text, at)), word.first);
+    const after = joined(word.last, kindOf(characterAt(text, at + word.word.length)));
+    if (!before && !after) return 2;
+    if (!word.alone && !(before && word.first === DIGIT) && !(after && word.last === DIGIT)) best = 1;
   }
   return best;
 }
 
+/** Texts folded for matching, once. */
+export const foldAtlasSearchTexts = (texts: readonly AtlasSearchText[]): AtlasSearchText[] =>
+  texts.map(({ field, text }) => ({ field, text: atlasSearchFold(text) }));
+
 /** Whether every word of the query is in the texts, and how well; undefined when one is missing. */
 export function atlasSearchMatch(query: AtlasSearchQuery, texts: readonly AtlasSearchText[]): AtlasSearchMatch | undefined {
-  const folded = texts.map(({ field, text }) => ({ field, text: atlasSearchFold(text) }));
-  // As typed, without the quotation marks around a phrase.
-  const typed = atlasSearchFold(query.text).replace(/\p{White_Space}+/gu, " ").trim()
-    .replace(/^\p{Quotation_Mark}+|\p{Quotation_Mark}+$/gu, "");
+  return matchFoldedAtlasSearch(prepareAtlasSearch(query), foldAtlasSearchTexts(texts));
+}
+
+/** atlasSearchMatch, for a prepared search and texts already folded. */
+export function matchFoldedAtlasSearch(search: PreparedAtlasSearch, folded: readonly AtlasSearchText[]):
+  AtlasSearchMatch | undefined {
   const found = new Set<AtlasSearchField>();
   let inWording = true;
   let wholeInWording = true;
   let whole = true;
-  for (const word of query.words) {
+  for (const word of search.words) {
     let best = 0;
     let bestField: AtlasSearchField | undefined;
     let wording = 0;
@@ -132,6 +158,6 @@ export function atlasSearchMatch(query: AtlasSearchQuery, texts: readonly AtlasS
     wholeInWording &&= wording === 2;
   }
   const rank: AtlasSearchRank = inWording ? (wholeInWording ? 0 : 1) : whole ? 2 : 3;
-  return { rank, asTyped: folded.some(({ text }) => text.includes(typed)),
+  return { rank, asTyped: folded.some(({ text }) => text.includes(search.typed)),
     foundIn: ATLAS_SEARCH_FIELDS.filter((field) => found.has(field)) };
 }

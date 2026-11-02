@@ -57,7 +57,8 @@ describe("Atlas lookup through the existing public search tool", () => {
     // As on the search page: part of a longer word matches, a single letter only on its own.
     const numbers = async (query: string) => (await lookup({ query })).findings.map((f) => f.publication_number).sort();
     expect(await numbers("zent")).toEqual(await numbers("zentarine"));
-    expect((await lookup({ query: "zentarine" })).limitations[0]).toContain("as part of a longer word too");
+    expect((await lookup({ query: "zentarine" })).limitations[0])
+      .toContain("also inside a longer word, except that a word of one or two letters of an alphabet with capitals or digits");
   });
   it("preserves the pages' bounds, and returns a bounded slice with more state", async () => {
     for (const query of ["", "a".repeat(301), Array(21).fill("word").join(" ")]) expect(atlasLookupInputSchema.safeParse({ query }).success).toBe(false);

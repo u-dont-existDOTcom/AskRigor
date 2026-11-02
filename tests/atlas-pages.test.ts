@@ -26,10 +26,12 @@ import {
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
 import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasMap, loadAtlasSearch,
-  loadAtlasTopics, loadAtlasTopic, searchTextsOf, type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, mapRadius, percent, sourceLink, renderAtlasMap,
-  renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
-import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
+  loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
+  type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink, renderAtlasMap,
+  renderAtlasSearch, renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
+import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
+  type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
   ATLAS_PAGE_HEADERS,
   AtlasPageCache,
@@ -1070,8 +1072,14 @@ describe("Atlas navigation (183b)", () => {
     expect(page.response.headers.get("cache-control")).toBe("private, no-store");
     expect(page.response.headers.get("referrer-policy")).toBe("no-referrer");
     expect(page.response.headers.getSetCookie()).toEqual([]);
+    // Page 2 renders a pager link back, with the query as percent-encoded bytes only.
+    const pageTwo = await text(base, `/atlas/search?q=${encodeURIComponent(hostile)}&page=2`);
+    expect(pageTwo.body).toMatch(/<a rel="prev" href="\/atlas\/search\?q=(?:%[0-9a-f]{2})+">Previous results<\/a>/u);
+    expect(pageTwo.body).not.toMatch(/<script|\son[a-z]+=|<iframe/iu);
+    expect(atlasPageProblems(pageTwo.body)).toEqual([]);
+    // Searches match against the findings' public text, read once and kept like a page; the query is never kept.
     await text(base, `/atlas/search?q=${encodeURIComponent(hostile)}`);
-    expect(reads).toBe(2);
+    expect(reads).toBe(1);
   });
 
   it("keys cached lists by the bounded filter and cursor, never by unrelated parameters, and invalidates them", async () => {
@@ -1212,6 +1220,8 @@ describe("Atlas navigation (183b)", () => {
 // Full-text search and the findings map (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md)
 
 describe("full-text search", () => {
+  const ids = (body: string) => [...body.matchAll(/class="finding-claim"><a href="\/atlas\/findings\/(P-\d+)"/gu)]
+    .map((match) => match[1]);
   const q = (words: string) => atlasSearchQuery(words).query!;
   const wording = (text: string, rest: AtlasSearchText[] = []): AtlasSearchText[] => [{ field: "wording", text }, ...rest];
   const rank = (words: string, texts: AtlasSearchText[]) => atlasSearchMatch(q(words), texts)?.rank;
@@ -1238,6 +1248,34 @@ describe("full-text search", () => {
     expect(rank("วิตามิน", wording("วิตามินดีช่วยลดการหกล้ม"))).toBe(1);
     expect(rank("ecole", wording("L'ÉCOLE"))).toBe(0);
     expect(rank("l", wording("L'ÉCOLE"))).toBe(0);
+  });
+
+  it("keeps short words and numbers precise: no number inside a longer one, no two-letter word inside a longer word", () => {
+    // Every example is synthetic; the words are examples, not a list the search holds.
+    expect(rank("50 mg", wording("500 mg of an invented option eased it."))).toBeUndefined();
+    expect(atlasSearchMatch(q("50 mg"), wording("An invented option eased it.", [{ field: "numbers", text: "50 mg\nplacebo" }])))
+      .toEqual({ rank: 2, asTyped: true, foundIn: ["numbers"] });
+    expect(atlasSearchMatch(q("12 weeks"), wording("Over weeks of use.", [{ field: "sources", text: "PMID 40123456" },
+      { field: "number", text: "P-1012\nF-1120" }]))).toBeUndefined();
+    expect(rank("2026", wording("In 20261 invented trials."))).toBeUndefined();
+    expect(rank("ms fatigue", wording("Fatigue symptoms eased."))).toBeUndefined();
+    expect(atlasSearchMatch(q("MS fatigue"), wording("Fatigue eased.", [{ field: "applies_to", text: "Adults with MS" }])))
+      .toEqual({ rank: 2, asTyped: false, foundIn: ["wording", "applies_to"] });
+    expect(rank("ED", wording("Treated adults improved."))).toBeUndefined();
+    expect(rank("ED", wording("Adults with ED improved."))).toBe(0);
+    expect(rank("d3", wording("Vitamin D30 is invented."))).toBeUndefined();
+    expect(rank("b12", wording("Vitamin B12 deficiency."))).toBe(0);
+    // Three letters, or a script without capitals, may still sit inside a longer word.
+    expect(rank("flu", wording("Influenza vaccines."))).toBe(1);
+    expect(rank("铁", wording("补铁剂"))).toBe(1);
+  });
+
+  it("folds accents but keeps the marks that tell words apart", () => {
+    expect(rank("cafe", wording("Café au lait"))).toBe(0);
+    expect(rank("ไข้", wording("ไข่ไก่"))).toBeUndefined();
+    expect(rank("ไข่", wording("ไข่ไก่"))).toBe(1);
+    expect(rank("コーヒー", wording("コピーした資料"))).toBeUndefined();
+    expect(rank("コピー", wording("コピーした資料"))).toBe(1);
   });
 
   it("needs every word somewhere, ranks the wording first and whole words before parts, and says where it found them", () => {
@@ -1296,6 +1334,64 @@ describe("full-text search", () => {
       .toBe("DOI 10.0000/synthetic-velmor-a\nPMID 40123456");
   });
 
+  it("reads only text the pages show: each part of a finding's search text is on its page, the question on its topic's", async () => {
+    const f = await fixture();
+    const base = await serve(pages(f.source));
+    for (const finding of (await loadAtlasFindings(f.source)).findings) {
+      const page = (await text(base, findingPath(finding.publicationNumber))).body;
+      const topic = finding.topic === null ? "" : (await text(base, `/atlas/topics/${finding.topic.key}`)).body;
+      for (const { field, text: value } of searchTextsOf(finding)) {
+        for (const line of value.split("\n")) {
+          expect(field === "question" ? topic : page, `${finding.publicationNumber} ${field}: ${line}`).toContain(escapeHtml(line));
+        }
+      }
+    }
+  });
+
+  it("lists at most 100 pages of 20, says so, and never offers a page past them", async () => {
+    const seed = (await loadAtlasFindings((await fixture()).source)).findings[0]!;
+    const index: AtlasSearchIndex = { bytes: 0, entries: Array.from({ length: 2_050 }, (_, number) => ({
+      finding: { ...seed, publicationNumber: `P-${10_000 - number}` },
+      texts: foldAtlasSearchTexts([{ field: "wording", text: `An invented common finding ${number}.` }]),
+    })) };
+    const last = searchAtlasIndex(index, { search: q("common"), page: 100 });
+    expect(last).toMatchObject({ total: 2_050, page: 100, pages: 100 });
+    expect(last.results.map(({ finding }) => finding.publicationNumber)).toEqual(
+      Array.from({ length: 20 }, (_, offset) => `P-${10_000 - 1_980 - offset}`));
+    expect(() => searchAtlasIndex(index, { search: q("common"), page: 101 })).toThrow("ATLAS_SEARCH_PAGE_INVALID");
+    const body = renderAtlasSearch({ text: "common", message: null, results: last });
+    expect(body).toContain("2,050 findings match; the first 2,000 are listed, page 100 of 100. Add words to narrow the search.");
+    expect(body).not.toContain('rel="next"');
+    expect(body).toContain('<a rel="prev" href="/atlas/search?q=%63%6f%6d%6d%6f%6e&amp;page=99">Previous results</a>');
+    const first = renderAtlasSearch({ text: "common", message: null, results: searchAtlasIndex(index, { search: q("common") }) });
+    expect(first).toContain("page 1 of 100.");
+    expect(first).toContain('<a rel="next" href="/atlas/search?q=%63%6f%6d%6d%6f%6e&amp;page=2">Next results</a>');
+  });
+
+  it("matches against the findings' text kept like a page: one read until a change or 60 seconds, within its size bound", async () => {
+    const f = await fixture();
+    let reads = 0;
+    const source: AtlasPageSource = { read: async (work) => { reads += 1; return f.source.read(work); } };
+    const signal = new AtlasChangeSignal();
+    let now = Date.parse(SAVED_AT);
+    const base = await serve(pages(source, { signal, now: () => now }));
+    await Promise.all([text(base, "/atlas/search?q=zentarine"), text(base, "/atlas/search?q=placebo&page=2")]);
+    expect(reads).toBe(1);
+    now += 59_000;
+    expect(ids((await text(base, "/atlas/search?q=gentle")).body)).toEqual([f.shown.effect]);
+    expect(reads).toBe(1);
+    now += 2_000;
+    await text(base, "/atlas/search?q=zentarine");
+    expect(reads).toBe(2);
+    signal.announce();
+    await text(base, "/atlas/search?q=zentarine");
+    expect(reads).toBe(3);
+    const uncached = await serve(pages(source, { searchIndex: { maxBytes: 0 } }));
+    await text(uncached, "/atlas/search?q=zentarine");
+    await text(uncached, "/atlas/search?q=zentarine");
+    expect(reads).toBe(5);
+  });
+
   it("puts wording matches first, whole words before parts and newer before older, and pages by number", async () => {
     const store = atlas();
     const publish = async (cardNumber: number, claim: string, why = "Quick answers miss it.") =>
@@ -1319,7 +1415,8 @@ describe("full-text search", () => {
     expect(page.body).toContain("Found in why it isn’t the usual answer.");
     expect(page.body).not.toContain('rel="next"');
     expect(page.body).toContain("Search reads each finding’s whole text");
-    expect(page.body).toContain("such as the D in vitamin D, counts only where it stands on its own.");
+    expect(page.body).toContain("(for example, the D in vitamin D, MS or D3) counts only where it stands on its own, and a " +
+      "number never counts inside a longer number (for example, 50 doesn’t find 500).");
     for (const odd of ["0", "abc", "101", "1e2", "-1", "2.5"]) {
       expect((await text(base, `/atlas/search?q=magnesium&page=${odd}`)).body).toContain("5 findings match.");
     }
@@ -1353,6 +1450,31 @@ describe("the findings map", () => {
     // Later, nothing is new.
     expect(numbersOf(await loadAtlasMap(f.source, new Date("2026-12-31T00:00:00.000Z")))[0]!.findings)
       .toEqual([[f.shown.edited, 4], [f.shown.lowDose, 2], [f.shown.effect, 2], [f.shown.nothingFound, 0]]);
+  });
+
+  it("leaves out a superseded finding and draws an F number shown by two publications once, by the newer", async () => {
+    const f = await fixture();
+    const earlier = (await f.store.publish(9996, recordOf(oneFindingCard("An earlier checked finding.")))).rows[0]!
+      .publicationNumber;
+    const earlierNumber = await f.store.accept(9996, acceptPayload({ wording: "An earlier checked finding." }));
+    await f.store.publications.decide({ cardNumber: 9996, findingNumber: 1, state: "accepted", atlasNumber: earlierNumber,
+      decidedAt: f.store.tick() });
+    await f.store.record({ kind: "link", publicNumber: f.numbers.edited, relation: "replaces", toPublicNumber: earlierNumber,
+      disagreement: null, rationale: "PRIVATERATIONALE", decidedWith: DECIDED_WITH });
+    const again = (await f.store.publish(9997, recordOf(oneFindingCard("The low dose, checked again.")))).rows[0]!
+      .publicationNumber;
+    await f.store.publications.decide({ cardNumber: 9997, findingNumber: 1, state: "accepted", atlasNumber: f.numbers.lowDose,
+      decidedAt: f.store.tick() });
+    const listed = (await loadAtlasFindings(f.source)).findings;
+    expect(listed.find(({ publicationNumber }) => publicationNumber === earlier)!.status.kind).toBe("superseded");
+    expect(listed.filter(({ status }) => status.kind !== "unreviewed" && status.atlasNumber === f.numbers.lowDose)
+      .map(({ publicationNumber }) => publicationNumber)).toEqual([again, f.shown.lowDose]);
+    const drawn = (await loadAtlasMap(f.source, ON)).topics.flatMap(({ findings }) =>
+      findings.map(({ finding }) => finding.publicationNumber));
+    expect(drawn).not.toContain(earlier);
+    expect(drawn).not.toContain(f.shown.lowDose);
+    expect(drawn).toContain(again);
+    expect(new Set(drawn).size).toBe(drawn.length);
   });
 
   it("orders topics by size with findings without a topic last, and caps each topic's circles", async () => {

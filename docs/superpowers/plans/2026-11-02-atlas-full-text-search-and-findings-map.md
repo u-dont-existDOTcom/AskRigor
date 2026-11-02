@@ -27,12 +27,21 @@ comments, card or version fields the pages don't show (the usual answer, who els
 a held, rejected or withdrawn publication. The Atlas keeps no quotes or source titles (a source is its identifiers), so
 there are none to search; adding them would publish more than the pages show.
 
-**How a word matches.** Words split as today (spaces and punctuation), and both sides fold as today (compatibility
-forms, full case folding, accents). A word matches where it occurs in the text, also inside a longer word, so
-`vitamin` (an example) also finds `vitamins`, and words in scripts written without spaces are found. One exception keeps
-short words precise: a single digit, or a single letter of an alphabet with capitals, matches only where it stands on its
-own, not joined to letters of the same kind or to digits (the `D` of `vitamin D3` stands on its own; the `d` of
-`deficiency` does not). Exact Unicode categories decide this; there is no word list, stemming or language guess.
+**How a word matches.** Words split as today (spaces and punctuation). Both sides fold compatibility forms, full case,
+and the combining accents U+0300 to U+036F (the accents of Latin, Greek and Cyrillic letters); every other mark stays,
+since it tells words apart (a Thai tone mark: ไข้ and ไข่; a Japanese voicing or length mark: コーヒー and コピー). A word
+matches where it occurs in the text, also inside a longer word, so `vitamin` (an example) also finds `vitamins`, and
+words in scripts written without spaces are found. Two exceptions keep short words and numbers precise:
+
+- a word of one or two characters, each a digit or a letter of an alphabet with capitals (as examples `D`, `MS`, `D3`,
+  `12`), matches only where it stands on its own, not joined to letters of the same kind or to digits (the `D` of
+  `vitamin D3` stands on its own; `MS` inside `symptoms` and `ed` inside `treated` do not);
+- inside a longer word, a digit at the word's edge never continues a number (`50` is not in `500`, nor `12` in a PMID
+  `40123456` or a number `P-1012`).
+
+Exact Unicode categories and the word's length decide this; there is no word list, stemming or language guess. A word
+of three letters or more, or of a script without capitals (one Chinese character can be a word, as can a single Arabic
+or Hebrew letter as a prefix), may still sit inside a longer word.
 
 **Order.** Findings whose wording holds every word come first: those where each word stands as a whole word before the
 rest. Then findings whose text holds every word, whole words first. Within each of these four groups, a finding that
@@ -40,14 +49,20 @@ holds the query as typed comes first (a number such as `P-1003`, a DOI or a phra
 `1003`, which another finding's F number can also hold), then the newest. Each result says where its words were found.
 
 **Paging.** Every match is found before the page is cut, so results page by number (`page=2`, 20 a page) with the
-total shown; the query handling is unchanged (not stored, logged or cached, `private, no-store`, `no-referrer`).
+total shown, up to 100 pages: past 2,000 matches the page says only the first 2,000 are listed and asks for more words.
+The query handling is unchanged (not stored, logged or cached, `private, no-store`, `no-referrer`).
+
+**The text searches match against** (the search index): every shown publication with its page's text folded once,
+kept in memory for 60 seconds and dropped on every change, like a rendered page, while its estimate stays within 32 MiB
+(several thousand findings at today's lengths; a larger Atlas is read afresh for each search). It holds the public text the pages show, never a query.
+Folding every publication for each search cost about 15 ms at 111 findings and would cost about a second at 10,000.
 
 **Database.** None: the search keeps reading the same snapshot through the same parameterized reads, with no new SQL,
 index, migration or grant. PostgreSQL text search was considered and left out: its stemming dictionaries are
 per-language, its `simple` parser splits on spaces, a trigram index needs an extension and a migration, and matching in
 SQL would repeat the shown-finding rules (published fields for unreviewed findings, the latest accepted version
-otherwise) where a mistake would match text the pages hide. The Atlas holds about a hundred findings; revisit at about
-ten thousand publications, with a measurement.
+otherwise) where a mistake would match text the pages hide. The Atlas holds about a hundred findings; revisit when the
+search index outgrows its bound, with a measurement.
 
 **The MCP tool follows the pages.** `search_research_frontiers` returns the first `limit` findings in the same order,
 with `has_more` when more match, and its result's limitation says how matching works. Its input and description are

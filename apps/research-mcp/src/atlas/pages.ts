@@ -3,7 +3,9 @@ import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
 import { escapeHtml } from "./page-guard.js";
 import {
+  ATLAS_FINDINGS_PER_PAGE,
   ATLAS_MAP_NEW_DAYS,
+  ATLAS_SEARCH_MAX_PAGE,
   NOT_CHECKED_LABEL,
   SOURCE_SCHEME_WORDS,
   canonicalIdentifier,
@@ -298,6 +300,10 @@ const FOUND_IN_WORDS: Record<AtlasSearchField, string> = {
   number: "its number",
 };
 
+/** How many matches a search lists across its pages. */
+const LISTED_RESULTS = ATLAS_SEARCH_MAX_PAGE * ATLAS_FINDINGS_PER_PAGE;
+const count = (value: number) => value.toLocaleString("en-US");
+
 const searchPageHref = (text: string, page: number) =>
   `/atlas/search?q=${queryParameter(text)}${page === 1 ? "" : `&amp;page=${page}`}`;
 
@@ -319,13 +325,14 @@ ${searchForm("atlas-query", model.text)}
 <p>Search reads each finding’s whole text: its wording, question, whom it applies to, subject, topic, numbers, searches, why it isn’t the usual answer, what would change it, its sources and its number.</p>
 <ul>
 <li>Every word you type must be there. Case and accents don’t matter.</li>
-<li>A word can be part of a longer one (for example, vitamin also finds vitamins), but a single letter or digit, such as the D in vitamin D, counts only where it stands on its own.</li>
+<li>A word can be part of a longer one (for example, vitamin also finds vitamins). A word of one or two letters of an alphabet with capitals or digits (for example, the D in vitamin D, MS or D3) counts only where it stands on its own, and a number never counts inside a longer number (for example, 50 doesn’t find 500).</li>
 <li>Findings whose wording holds all your words come first. Then whole words come before parts of words, your words as you typed them (for example a number such as P-1003, or a phrase) before the same words apart, and newer findings before older ones.</li>
 </ul>
 ${model.message === null ? "" : html`<p role="status">${model.message}</p>`}
 ${results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
 <p role="status">${results.total === 0 ? "No findings match these words."
-    : html`${results.total} ${results.total === 1 ? "finding matches" : "findings match"}${results.pages === 1 ? "" : html`, page ${results.page} of ${results.pages}`}.`}</p>
+    : results.total > LISTED_RESULTS ? html`${count(results.total)} findings match; the first ${count(LISTED_RESULTS)} are listed, page ${results.page} of ${results.pages}. Add words to narrow the search.`
+      : html`${count(results.total)} ${results.total === 1 ? "finding matches" : "findings match"}${results.pages === 1 ? "" : html`, page ${results.page} of ${results.pages}`}.`}</p>
 ${results.results.length === 0 ? (results.total === 0 ? "" : html`<p>There are no results on this page. <a href="${new SafeHtml(searchPageHref(model.text, 1))}">Go to the first page of results</a>.</p>`)
     : html`<ul class="finding-list">
 ${results.results.map(({ finding, foundIn }) => findingItem(finding,

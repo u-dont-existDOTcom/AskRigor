@@ -27,11 +27,13 @@ import {
   loadAtlasFinding,
   loadAtlasFindings,
   loadAtlasMap,
-  loadAtlasSearch,
+  loadAtlasSearchIndex,
   loadAtlasTopics,
+  searchAtlasIndex,
   ATLAS_FINDING_FILTERS,
   ATLAS_SEARCH_MAX_PAGE,
   type AtlasFindingFilter,
+  type AtlasSearchIndex,
   loadAtlasHome,
   loadAtlasOwnComments,
   loadAtlasTopic,
@@ -115,7 +117,8 @@ import {
  * the address is believed only with that secret and the public origin's Host, so no request that reached
  * mcp.askrigor.com directly can choose its address, whatever the mcp block forwards. Rendered pages are cached in
  * memory for 60 seconds for readers who are not signed in, except search, bounded in number and size, and dropped whenever a
- * publication, an accepted finding, a vote or a comment changes in this process (change-signal.ts).
+ * publication, an accepted finding, a vote or a comment changes in this process (change-signal.ts). Searches match
+ * against the shown findings' public text, kept in memory the same way (AtlasSearchIndexCache); no query is kept.
  *
  * With votes and comments switched on (ASKRIGOR_ATLAS_PARTICIPATION=enabled, every part configured), the sign-in
  * routes (/atlas/auth/login, /atlas/auth/callback, /atlas/auth/logout) and the forms (a finding's /vote and /comments,
@@ -154,6 +157,12 @@ export const ATLAS_PAGE_CACHE_LIMITS = {
   ttlMs: 60_000,
   maxEntries: 256,
   maxBytes: 8 * 1_024 * 1_024,
+} as const;
+
+/** The shown findings' folded search texts are kept as long as a rendered page, while they take at most maxBytes. */
+export const ATLAS_SEARCH_INDEX_LIMITS = {
+  ttlMs: 60_000,
+  maxBytes: 32 * 1_024 * 1_024,
 } as const;
 
 /**
@@ -249,6 +258,44 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
       : { kind: "report-comment", publicId: commentForm[1]! };
   }
   return undefined;
+}
+
+/**
+ * The search index (page-data.ts): what every search matches against, so that searches neither read every publication
+ * nor fold its text again. It holds the public text the pages show, never a query. Kept for ttlMs while it takes at most
+ * maxBytes (a larger Atlas is read afresh for each search); one load at a time; clear() drops it, and a load that began
+ * before it is not kept.
+ */
+export class AtlasSearchIndexCache {
+  private kept: { index: AtlasSearchIndex; expiresAt: number } | undefined;
+  private pending: Promise<AtlasSearchIndex> | undefined;
+  private generation = 0;
+
+  constructor(private readonly options: { ttlMs: number; maxBytes: number; now?: () => number }) {}
+
+  clear(): void {
+    this.generation += 1;
+    this.kept = undefined;
+    this.pending = undefined;
+  }
+
+  async get(load: () => Promise<AtlasSearchIndex>): Promise<AtlasSearchIndex> {
+    const now = (this.options.now ?? Date.now)();
+    if (this.kept !== undefined && this.kept.expiresAt > now) return this.kept.index;
+    this.kept = undefined;
+    if (this.pending !== undefined) return await this.pending;
+    const generation = this.generation;
+    const loading = load().then((index) => {
+      if (generation === this.generation && index.bytes <= this.options.maxBytes) {
+        this.kept = { index, expiresAt: (this.options.now ?? Date.now)() + this.options.ttlMs };
+      }
+      return index;
+    }).finally(() => {
+      if (this.pending === loading) this.pending = undefined;
+    });
+    this.pending = loading;
+    return await loading;
+  }
 }
 
 export interface RenderedAtlasPage {
@@ -380,9 +427,10 @@ export interface CreateAtlasPagesHandlerOptions {
   /** What the pages read; undefined while enabled means they are not configured, and answer 503. */
   source?: AtlasPageSource;
   rateLimiter?: TokenBucketLimiter;
-  /** The signal that drops the cache; the process's own by default. */
+  /** The signal that drops the caches; the process's own by default. */
   signal?: AtlasChangeSignal;
   cache?: Partial<typeof ATLAS_PAGE_CACHE_LIMITS>;
+  searchIndex?: Partial<typeof ATLAS_SEARCH_INDEX_LIMITS>;
   now?: () => number;
   /** Votes, comments and sign-in (ASKRIGOR_ATLAS_PARTICIPATION=enabled); without them only GET search forms show. */
   participation?: AtlasParticipationRuntime;
@@ -518,7 +566,13 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   const publicHost = hostOf(options.publicOrigin);
   const proxySecret = options.proxySecret ?? null;
   const cache = new AtlasPageCache({ ...ATLAS_PAGE_CACHE_LIMITS, ...options.cache, now: options.now });
-  if (options.enabled) (options.signal ?? atlasChanges).subscribe(() => cache.clear());
+  const searchIndex = new AtlasSearchIndexCache({ ...ATLAS_SEARCH_INDEX_LIMITS, ...options.searchIndex, now: options.now });
+  if (options.enabled) {
+    (options.signal ?? atlasChanges).subscribe(() => {
+      cache.clear();
+      searchIndex.clear();
+    });
+  }
   const participation = options.participation;
   const limiter = (name: keyof typeof ATLAS_PARTICIPATION_LIMITS) => participation?.limiters?.[name] ??
     createTokenBucketLimiter({ ...ATLAS_PARTICIPATION_LIMITS[name], maxKeys: 10_000, idleTtlMs: 2 * 60 * 60_000 });
@@ -1023,14 +1077,15 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       }
       const source = options.source;
       if (route.kind === "search") {
-        // Queries are transient: no cache key, cached HTML, session inspection, account data, query log or write.
-        // This still uses the common address limiter and method/body checks above.
+        // Queries are transient: no cache key, cached HTML, session inspection, account data, query log or write. The
+        // search index they match against holds only the pages' public text. This still uses the common address
+        // limiter and method/body checks above.
         const query = queryOf(request);
         const parsed = atlasSearchQuery(query.get("q"));
         try {
           if (parsed.query !== null && source === undefined) throw new Error("ATLAS_READER_UNAVAILABLE");
-          const results = parsed.query === null ? null
-            : await loadAtlasSearch(source!, { search: parsed.query, page: searchPage(query) });
+          const results = parsed.query === null ? null : searchAtlasIndex(
+            await searchIndex.get(() => loadAtlasSearchIndex(source!)), { search: parsed.query, page: searchPage(query) });
           const page = checked({ status: 200, html: renderAtlasSearch({ ...parsed, results },
             participation === undefined ? undefined : signedOutReader("/atlas/search")) });
           write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, "referrer-policy": "no-referrer" });

@@ -19,7 +19,9 @@ import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor
 
 import { passesPageGuard } from "./page-guard.js";
 import {
-  atlasSearchMatch,
+  foldAtlasSearchTexts,
+  matchFoldedAtlasSearch,
+  prepareAtlasSearch,
   type AtlasSearchField,
   type AtlasSearchQuery,
   type AtlasSearchText,
@@ -663,48 +665,81 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
   });
 }
 
-/** The deepest results page a search answers. */
+/** The deepest results page a search answers: the first 2,000 matches are listed, and a narrower search finds the rest. */
 export const ATLAS_SEARCH_MAX_PAGE = 100;
 export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[] }
 export interface AtlasSearchModel {
   results: AtlasSearchResult[];
   /** How many findings match in all. */
   total: number;
-  /** This page, from 1, and how many pages the matches fill (at least 1). */
+  /** This page, from 1, and how many pages the listed matches fill: at least 1, at most ATLAS_SEARCH_MAX_PAGE. */
   page: number;
   pages: number;
 }
 
 /**
- * Every shown publication whose text holds the query's words (search.ts): by rank, those holding the query as typed
- * first within a rank, and the newest first among equals, a page of ATLAS_FINDINGS_PER_PAGE at a time. Each group keeps
- * only the matches the page can reach.
+ * What a search matches against: every shown publication, newest first, with the text its page shows folded once, and
+ * roughly how much memory that takes (two bytes a character, for the folded text and the finding's own).
  */
+export interface AtlasSearchIndex {
+  entries: Array<{ finding: ShownFinding; texts: AtlasSearchText[] }>;
+  bytes: number;
+}
+
+export async function loadAtlasSearchIndex(source: AtlasPageSource): Promise<AtlasSearchIndex> {
+  return await source.read(async (reads) => {
+    const entries: AtlasSearchIndex["entries"] = [];
+    let bytes = 0;
+    for await (const finding of allShown(reads)) {
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      bytes += 1_024 + texts.reduce((sum, { text }) => sum + 4 * text.length, 0);
+      entries.push({ finding, texts });
+    }
+    return { entries, bytes };
+  });
+}
+
+function searchPageOf(page: number | undefined): number {
+  const value = page ?? 1;
+  if (!Number.isSafeInteger(value) || value < 1 || value > ATLAS_SEARCH_MAX_PAGE) throw new Error("ATLAS_SEARCH_PAGE_INVALID");
+  return value;
+}
+
+/**
+ * The publications whose text holds the query's words (search.ts): by rank, those holding the query as typed first
+ * within a rank, and the newest first among equals, a page of ATLAS_FINDINGS_PER_PAGE at a time. Each group keeps only
+ * the matches the page can reach.
+ */
+export function searchAtlasIndex(index: AtlasSearchIndex, options: {
+  search: AtlasSearchQuery; topicKey?: string; page?: number;
+}): AtlasSearchModel {
+  const page = searchPageOf(options.page);
+  const search = prepareAtlasSearch(options.search);
+  const reach = page * ATLAS_FINDINGS_PER_PAGE;
+  const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
+  let total = 0;
+  for (const { finding, texts } of index.entries) {
+    if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
+    const match = matchFoldedAtlasSearch(search, texts);
+    if (match === undefined) continue;
+    total += 1;
+    const group = groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!;
+    if (group.length < reach) group.push({ finding, foundIn: match.foundIn });
+  }
+  return {
+    results: groups.flat().slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
+    total,
+    page,
+    pages: Math.min(ATLAS_SEARCH_MAX_PAGE, Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE))),
+  };
+}
+
+/** A search read afresh, in one snapshot. */
 export async function loadAtlasSearch(source: AtlasPageSource, options: {
   search: AtlasSearchQuery; topicKey?: string; page?: number;
 }): Promise<AtlasSearchModel> {
-  const page = options.page ?? 1;
-  if (!Number.isSafeInteger(page) || page < 1 || page > ATLAS_SEARCH_MAX_PAGE) throw new Error("ATLAS_SEARCH_PAGE_INVALID");
-  return await source.read(async (reads) => {
-    const reach = page * ATLAS_FINDINGS_PER_PAGE;
-    const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
-    let total = 0;
-    for await (const finding of allShown(reads)) {
-      if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
-      const match = atlasSearchMatch(options.search, searchTextsOf(finding));
-      if (match === undefined) continue;
-      total += 1;
-      const group = groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!;
-      if (group.length < reach) group.push({ finding, foundIn: match.foundIn });
-    }
-    const ordered = groups.flat();
-    return {
-      results: ordered.slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
-      total,
-      page,
-      pages: Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE)),
-    };
-  });
+  searchPageOf(options.page);
+  return searchAtlasIndex(await loadAtlasSearchIndex(source), options);
 }
 
 export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTopicsModel> {
