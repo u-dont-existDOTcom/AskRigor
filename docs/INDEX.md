@@ -108,6 +108,10 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-02-owner-answer-215a-production-release.md`: release of #394 (owner answers 215a and 217b): the forum
+  reader's two tools (35 tools; the apps need one refresh), HRP 20.6.36, the privacy page of 2 November, the folded panel
+  and the quick-answer comparison as the sixth blocking check; the reader's read-only mount and settings, acceptance, the
+  site, the plugin receipt, both connector probes and the rollback.
 - `audits/2026-11-01-owner-answer-214a-production-release.md`: release of #393 (owner answer 214a): a passing check's caveats shown
   as written, the plain-answer note (210b), InfoAccess one request at a time; acceptance, both connector probes, the plugin receipt
   and the rollback; no site, migration, protocol or tool-list change.
