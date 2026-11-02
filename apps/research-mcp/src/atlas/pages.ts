@@ -9,6 +9,7 @@ import {
   NOT_CHECKED_LABEL,
   SOURCE_SCHEME_WORDS,
   canonicalIdentifier,
+  strengthOf,
   type AtlasChangeEntry,
   type AtlasChangesModel,
   type AtlasContestedPair,
@@ -31,6 +32,7 @@ import {
   type ShownSource,
 } from "./page-data.js";
 import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
+import { STRENGTH_RULE, STRONG_CLAIM } from "./strength.js";
 
 /**
  * The public Atlas pages' HTML (decision 171, section 4C): plain, semantic, server-rendered pages with no script and no
@@ -177,6 +179,11 @@ const CANONICAL_ORIGIN = "https://askrigor.com";
 
 /** The label on every finding no person has reviewed yet (owner answer 224a, 2 Nov 2026). */
 export const AI_LABEL = "Written by an AI, not yet reviewed by a person";
+
+/** The mark on an unreviewed finding whose claim is strong (the owner, 2 Nov 2026: "the more it needs checking"). */
+export const NEEDS_CHECKING_LABEL = "A strong claim: it needs checking";
+const needsChecking = (finding: ShownFinding) =>
+  finding.status.kind === "unreviewed" && strengthOf(finding).total >= STRONG_CLAIM;
 
 /** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
 const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
@@ -351,7 +358,7 @@ ${searchForm("atlas-query", model.text)}
 <ul>
 <li>Every word you type must be there. Case and accents don’t matter.</li>
 <li>A word can be part of a longer one (for example, vitamin also finds vitamins). A word of one or two letters of an alphabet with capitals or digits (for example, the D in vitamin D, MS or D3) counts only where it stands on its own, and a number never counts inside a longer number (for example, 50 doesn’t find 500).</li>
-<li>Findings whose wording holds all your words come first. Then whole words come before parts of words, your words as you typed them (for example a number such as P-1003, or a phrase) before the same words apart, and newer findings before older ones.</li>
+<li>Findings whose wording holds all your words come first. Then whole words come before parts of words, your words as you typed them (for example a number such as P-1003, or a phrase) before the same words apart, stronger claims before weaker ones, and newer findings before older ones.</li>
 </ul>
 ${model.message === null ? "" : html`<p role="status">${model.message}</p>`}
 ${results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
@@ -368,7 +375,8 @@ ${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${join
 // A finding in a list ---------------------------------------------------------------------------------------------------
 
 function badge(finding: ShownFinding): SafeHtml {
-  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>${finding.status.kind === "unreviewed"
+  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>${needsChecking(finding)
+    ? html` <p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>` : ""}${finding.status.kind === "unreviewed"
     ? html`<p class="ai-label">${AI_LABEL}</p>` : ""}`;
 }
 
@@ -445,7 +453,13 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <p>A finding is published as soon as its findings card is saved, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
-${ownerPicks(model.picks)}<section aria-labelledby="recently-published">
+${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
+<h2 id="strongest-checked">Strongest checked findings</h2>
+<p>${STRENGTH_RULE} Only findings checked by supervisors are listed here; an unreviewed strong claim is marked “${NEEDS_CHECKING_LABEL}”.</p>
+${model.strongestChecked.length === 0 ? html`<p>No finding has been checked by supervisors yet.</p>`
+    : findingList(model.strongestChecked)}
+</section>
+<section aria-labelledby="recently-published">
 <h2 id="recently-published">Recently published</h2>
 ${model.recentlyPublished.length === 0 ? html`<p>Nothing is published yet.</p>` : findingList(model.recentlyPublished)}
 </section>
@@ -463,7 +477,7 @@ ${model.contested.map(contestedItem)}</ul>
 `}<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
-    noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.recentlyPublished,
+    noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.strongestChecked, ...model.recentlyPublished,
       ...model.recentlyChecked, ...model.contested.flatMap(({ findings }) => findings)]),
     title: "AskRigor Atlas",
     description: "Findings from research done with AskRigor, written without the people who asked.",
@@ -765,7 +779,7 @@ export function renderAtlasMap(model: AtlasMapModel, reader?: AtlasPageReader): 
 <li>1 if its page links to two or more sources;</li>
 <li>1 if it was published or checked in the last ${ATLAS_MAP_NEW_DAYS} days.</li>
 </ul>
-<p>In each topic, findings with more points come first, in the middle of its cluster, then the newest. Topics with more findings come first. Leads, and findings a newer one replaced, are on each topic’s page instead.</p>
+<p>In each topic, the stronger claims come first, in the middle of its cluster, then findings with more points, then the newest. ${STRENGTH_RULE} Topics with more findings come first. Leads, and findings a newer one replaced, are on each topic’s page instead.</p>
 <p><strong>The map is not a ranking of treatments and not a recommendation.</strong> Nothing in the rule depends on what a finding says: a big circle can be a harm, a treatment that did nothing, or a search that found nothing. AskRigor’s certainty is its own rating, not a formal GRADE assessment, and nothing here is medical advice.</p>
 </section>`;
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
@@ -820,7 +834,9 @@ function statusBlock(finding: ShownFinding): SafeHtml {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
 <p class="ai-label">${AI_LABEL}.</p>
-<p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.</p>
+${needsChecking(finding) ? html`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>
+` : ""}<p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
+    ? " Its claim is strong, so it needs checking before anyone relies on it." : ""}</p>
 </div>`;
   }
   const checked = html`AskRigor’s owner checked it on ${day(status.checkedOn)}.`;
@@ -1479,6 +1495,7 @@ p, li, dd { max-width: 72ch; }
   font-weight: 700;
 }
 .badge-unreviewed { background: var(--unreviewed-surface); color: var(--unreviewed); }
+.badge-needs-checking { background: var(--contested-surface); color: var(--contested); }
 .ai-label { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.9rem; font-style: italic; }
 .status .ai-label { color: inherit; font-size: 1rem; }
 .badge-checked { background: var(--checked-surface); color: var(--checked); }

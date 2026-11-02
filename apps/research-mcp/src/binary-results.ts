@@ -1,7 +1,10 @@
 import type { AtlasNumberEntry } from "@askrigor/evidence-repository";
 
 import { normalizedFindingsText } from "./findings/card.js";
+import { differenceRange } from "./difference-range.js";
 import { includesAbsoluteNumber, numberReadings, withAsciiDigits } from "./unicode-numbers.js";
+
+export { differenceRange };
 
 /**
  * Yes-or-no results for two groups: finalize_research's binary_results for an answer (AskRigor#356), and the numbers
@@ -51,32 +54,6 @@ export function binaryContrast(result: BinaryCounts):
     reciprocal: Number(people) / Number(difference),
     roundedUp: Number(people % difference === 0n ? roundedDown : roundedDown + 1n)
   };
-}
-
-// The 97.5th percentile of the standard normal distribution, for two-sided 95% ranges.
-const Z_95 = 1.959963984540054;
-
-/** The Wilson score interval of one group's rate, events of total, at 95%. */
-function wilsonInterval(events: number, total: number): { rate: number; lower: number; upper: number } {
-  const z2 = Z_95 * Z_95;
-  const centre = (events + z2 / 2) / (total + z2);
-  const half = Z_95 * Math.sqrt(events * (total - events) / total + z2 / 4) / (total + z2);
-  return { rate: events / total, lower: Math.max(0, centre - half), upper: Math.min(1, centre + half) };
-}
-
-/**
- * The 95% range of a yes-or-no result's difference in rates, the option's minus the comparator's (owner answer 225a,
- * 2 Nov 2026), by Newcombe's hybrid score method (method 10 of Newcombe 1998, from each group's Wilson interval), which
- * holds up with small counts and with no events in a group. It treats the two groups as independent: it does not allow
- * for a crossover or clustered design. The difference is clear when the range leaves out zero.
- */
-export function differenceRange(result: BinaryCounts): { difference: number; lower: number; upper: number; clear: boolean } {
-  const option = wilsonInterval(result.option_events, result.option_total);
-  const comparator = wilsonInterval(result.comparator_events, result.comparator_total);
-  const difference = option.rate - comparator.rate;
-  const lower = difference - Math.sqrt((option.rate - option.lower) ** 2 + (comparator.upper - comparator.rate) ** 2);
-  const upper = difference + Math.sqrt((option.upper - option.rate) ** 2 + (comparator.rate - comparator.lower) ** 2);
-  return { difference, lower, upper, clear: lower > 0 || upper < 0 };
 }
 
 /** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */

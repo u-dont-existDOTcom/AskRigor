@@ -1731,6 +1731,13 @@ existing bounded 60-second content cache; no reader identifiers enter its keys.
 Search's generic sign-in entry, when enabled, returns to the query-free path.
 With participation off the header still has the GET search form.
 
+Ranking by claim strength (the owner, 2 November 2026; plan
+`docs/superpowers/plans/2026-11-02-atlas-foundation-223-225.md`): the pages, the
+findings map and the owner's `list_findings` order findings by a score worked
+out in code from each finding's declared certainty, kind and two-group counts.
+It reads nothing about a reader, a contributor, votes or comments, and nothing
+new is stored.
+
 Full-text search and the findings map (plan
 `docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`):
 search matches the text each shown finding's page shows (its wording, question,

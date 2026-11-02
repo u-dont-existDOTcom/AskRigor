@@ -503,6 +503,16 @@ describe("the publications through the owner's review", () => {
     ]);
   });
 
+  it("lists the cards that wait with the strongest claim first (the owner, 2 Nov 2026)", async () => {
+    const h = harness();
+    // Saved first: a low-certainty effect whose difference is not clear (strength 2).
+    await h.save(DOI_CARD);
+    // Saved second: a moderate effect with a clear difference of 10 out of 100 (strength 4).
+    await h.save(VELMOR_CARD);
+    const listed = await h.call({ action: "list_findings" });
+    expect(listed.structured.findings.cards.map(({ card }: { card: string }) => card)).toEqual(["ARF-0043", "ARF-0042"]);
+  });
+
   it("uses the owner's topic for an unpublished older card and keeps a declared topic", async () => {
     const h = harness();
     const { topic: _topic, ...card } = DOI_CARD;

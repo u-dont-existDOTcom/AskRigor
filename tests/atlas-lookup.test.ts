@@ -40,8 +40,10 @@ describe("Atlas lookup through the existing public search tool", () => {
       .map(({ finding }) => finding);
     expect(output.findings.map((f) => f.publication_number)).toEqual(page.map((f) => f.publicationNumber));
     expect(output.findings).toHaveLength(3);
-    expect(output.findings[0]).toMatchObject({ state: "Not checked by supervisors yet", certainty: "low", wording: expect.any(String), sources: [[{ scheme: "pmid", value: "40123456" }]], topic: { key: "velmor-syndrome" } });
-    expect(output.findings[0]!.page_url).toBe(`${origin}/atlas/findings/${output.findings[0]!.publication_number}`);
+    // Equal matches come stronger claims first (atlas/strength.ts), as on the pages.
+    const low = output.findings.find(({ certainty }) => certainty === "low")!;
+    expect(low).toMatchObject({ state: "Not checked by supervisors yet", certainty: "low", wording: expect.any(String), sources: [[{ scheme: "pmid", value: "40123456" }]], topic: { key: "velmor-syndrome" } });
+    expect(low.page_url).toBe(`${origin}/atlas/findings/${low.publication_number}`);
     expect(verifyResearchReceipt(output.research_receipt!, receipt)).toMatchObject({ ok: true, kind: "atlas_lookup", issued_at: now().toISOString(), claims: {
       words: ["zentarine"], target: researchTargetDigest(TARGET), found: page.map(atlasReceiptFinding),
     } });

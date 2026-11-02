@@ -25,11 +25,12 @@ import {
   announcingPublicationStore,
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
-import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasMap, loadAtlasSearch,
+import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasHome, loadAtlasMap, loadAtlasSearch,
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { AI_LABEL, ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
+import { AI_LABEL, ATLAS_CSS, NEEDS_CHECKING_LABEL, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
   renderAtlasMap, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
+import { STRENGTH_RULE, claimStrength } from "../apps/research-mcp/src/atlas/strength.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
   type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
@@ -1731,6 +1732,44 @@ describe("full-text search", () => {
   });
 });
 
+describe("claim strength (the owner, 2 Nov 2026)", () => {
+  it("scores a claim by how sure, its kind and a clear difference, from declared fields alone", () => {
+    const numbers = (optionEvents: number, optionTotal: number, comparatorEvents: number, comparatorTotal: number) =>
+      [{ optionEvents, optionTotal, comparatorEvents, comparatorTotal }];
+    expect(claimStrength({ certainty: "high", kind: "correction", numbers: [] }))
+      .toEqual({ certainty: 3, kind: 2, difference: 0, total: 5 });
+    expect(claimStrength({ certainty: "moderate", kind: "effect", numbers: numbers(60, 240, 36, 240) }))
+      .toEqual({ certainty: 2, kind: 1, difference: 1, total: 4 });
+    // A difference whose range includes no difference counts nothing; 10 out of 100 a point, at most 3.
+    expect(claimStrength({ certainty: "low", kind: "harm", numbers: numbers(30, 120, 18, 120) }).difference).toBe(0);
+    expect(claimStrength({ certainty: "very_low", kind: "overlooked_option", numbers: numbers(90, 100, 10, 100) }))
+      .toEqual({ certainty: 0, kind: 2, difference: 3, total: 5 });
+    expect(claimStrength({ certainty: null, kind: "nothing_found", numbers: [] }).total).toBe(0);
+    expect(claimStrength({ certainty: "high", kind: null, numbers: [] }).total).toBe(3);
+    expect(STRENGTH_RULE).toMatch(/^Stronger claims come first: /u);
+  });
+
+  it("leads the home page with reviewed findings only, and marks a strong unreviewed claim as needing checking", async () => {
+    const f = await fixture();
+    const home = await loadAtlasHome(f.source);
+    expect(home.strongestChecked.map(({ publicationNumber }) => publicationNumber)).toEqual([f.shown.edited, f.shown.lowDose]);
+    expect(home.strongestChecked.every(({ status }) => status.kind !== "unreviewed")).toBe(true);
+    const base = await serve(pages(f.source));
+    const body = (await text(base, "/atlas")).body;
+    expect(body.indexOf('id="strongest-checked"')).toBeLessThan(body.indexOf('id="recently-published"'));
+    expect(body).toContain(escapeHtml(STRENGTH_RULE));
+    // A high-certainty correction, not reviewed yet, is strong: it is marked as needing checking.
+    const store = atlas();
+    const { rows } = await store.publish(7500, recordOf(oneFindingCard("Quick answers say zentarine is gentle; the trial " +
+      "counted more nausea.", { certainty: "high", kind: "correction", numbers: undefined })));
+    const strong = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    const page = (await text(strong, `/atlas/findings/${rows[0]!.publicationNumber}`)).body;
+    expect(page).toContain(`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>`);
+    expect(page).toContain("Its claim is strong, so it needs checking before anyone relies on it.");
+    expect((await text(base, `/atlas/findings/${f.shown.effect}`)).body).not.toContain(NEEDS_CHECKING_LABEL);
+  });
+});
+
 describe("the findings map", () => {
   const ON = new Date("2026-11-05T00:00:00.000Z");
   const numbersOf = (model: Awaited<ReturnType<typeof loadAtlasMap>>) => model.topics.map((topic) => ({
@@ -1742,9 +1781,10 @@ describe("the findings map", () => {
     const f = await fixture();
     const model = await loadAtlasMap(f.source, ON);
     expect(model.newSince).toBe("2026-10-06");
-    // Points: checked 2, certainty (high 2, moderate 1), counted results 1, two or more sources 1, new 1.
+    // Points: checked 2, certainty (high 2, moderate 1), counted results 1, two or more sources 1, new 1. The order is
+    // the claims' strength first (edited and effect 4, lowDose 2, nothingFound 0), then points.
     expect(numbersOf(model)).toEqual([
-      { topic: "velmor-syndrome", count: 4, findings: [[f.shown.edited, 5], [f.shown.lowDose, 3], [f.shown.effect, 3],
+      { topic: "velmor-syndrome", count: 4, findings: [[f.shown.edited, 5], [f.shown.effect, 3], [f.shown.lowDose, 3],
         [f.shown.nothingFound, 1]] },
       { topic: "hip-osteoarthritis", count: 1, findings: [[f.shown.hip, 2]] },
     ]);
@@ -1752,7 +1792,7 @@ describe("the findings map", () => {
     expect(model.topics[0]!.findings[0]!.points).toEqual({ checked: 2, certainty: 1, numbers: 1, sources: 0, recent: 1, total: 5 });
     // Later, nothing is new.
     expect(numbersOf(await loadAtlasMap(f.source, new Date("2026-12-31T00:00:00.000Z")))[0]!.findings)
-      .toEqual([[f.shown.edited, 4], [f.shown.lowDose, 2], [f.shown.effect, 2], [f.shown.nothingFound, 0]]);
+      .toEqual([[f.shown.edited, 4], [f.shown.effect, 2], [f.shown.lowDose, 2], [f.shown.nothingFound, 0]]);
   });
 
   it("leaves out a superseded finding and draws an F number shown by two publications once, by the newer", async () => {
@@ -1848,7 +1888,7 @@ describe("the findings map", () => {
     const map = body.slice(body.indexOf('<h2 id="map-topics">'), body.indexOf('<h2 id="map-list">'));
     const list = body.slice(body.indexOf('<h2 id="map-list">'));
     const links = (html: string) => [...html.matchAll(/href="\/atlas\/findings\/(P-\d+)"/gu)].map((match) => match[1]);
-    expect(links(map)).toEqual([f.shown.edited, f.shown.lowDose, f.shown.effect, f.shown.nothingFound, f.shown.hip]);
+    expect(links(map)).toEqual([f.shown.edited, f.shown.effect, f.shown.lowDose, f.shown.nothingFound, f.shown.hip]);
     expect(links(list)).toEqual(links(map));
     expect(map).toContain('role="group" aria-labelledby="map-topic-1"');
     expect(map).toContain(`<title>${f.shown.effect}: ${escapeHtml(VELMOR_CARD.findings[0]!.claim)} (${NOT_CHECKED_LABEL}; 3 points)</title>`);

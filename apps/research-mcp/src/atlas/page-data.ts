@@ -18,6 +18,7 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { passesPageGuard } from "./page-guard.js";
+import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
   foldAtlasSearchTexts,
   matchFoldedAtlasSearch,
@@ -148,6 +149,11 @@ export interface AtlasHomeModel {
   picks: readonly AtlasOwnerPick[];
   recentlyPublished: ShownFinding[];
   recentlyChecked: ShownFinding[];
+  /**
+   * The home page's top places (the owner, 2 Nov 2026): reviewed findings only, the strongest claims first
+   * (strength.ts), so an unreviewed finding never leads the page.
+   */
+  strongestChecked: ShownFinding[];
   contested: AtlasContestedPair[];
 }
 
@@ -234,7 +240,13 @@ export interface AtlasChangesModel {
 }
 
 /** How many findings each home lane shows, and how many publications it reads to fill itself. */
-export const ATLAS_LANE_SIZES = { published: 20, checked: 10, contested: 10 } as const;
+export const ATLAS_LANE_SIZES = { published: 20, checked: 10, contested: 10, strongest: 10 } as const;
+
+/** A shown finding's claim strength (strength.ts), from its declared fields alone. */
+export const strengthOf = (finding: ShownFinding): ClaimStrength => claimStrength(finding);
+
+/** Stronger claims first; findings of equal strength keep the order they had. */
+export const byStrength = (left: ShownFinding, right: ShownFinding) => strengthOf(right).total - strengthOf(left).total;
 const LANE_READ = 60;
 const CONTRADICTIONS_READ = 50;
 /** The most findings a topic page shows. */
@@ -498,9 +510,6 @@ const inLanes = (finding: ShownFinding) => finding.status.kind !== "lead" && fin
 /** The same link-derived canonical label defines the home lane and the all-findings contested filter. */
 const isContested = (finding: ShownFinding) => finding.status.kind === "contested";
 
-const CERTAINTY_RANK: Record<AtlasCertainty, number> = { high: 0, moderate: 1, low: 2, very_low: 3 };
-const certaintyRank = (finding: ShownFinding) => finding.certainty === null ? 4 : CERTAINTY_RANK[finding.certainty];
-
 // The pages' models ---------------------------------------------------------------------------------------------------
 
 /** The home page: the owner's picks with their reasons, then recently published, recently checked and contested findings. */
@@ -532,7 +541,14 @@ export async function loadAtlasHome(source: AtlasPageSource): Promise<AtlasHomeM
         Date.parse(right.stateChangedAt) - Date.parse(left.stateChangedAt)))
       .slice(0, ATLAS_LANE_SIZES.checked);
 
-    return { picks, recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
+    // Every reviewed finding the lanes show, the strongest claims first.
+    const reviewed: ShownFinding[] = [];
+    for await (const finding of allShown(reads)) {
+      if (finding.status.kind !== "unreviewed" && inLanes(finding)) reviewed.push(finding);
+    }
+    const strongestChecked = oncePerFinding(reviewed).sort(byStrength).slice(0, ATLAS_LANE_SIZES.strongest);
+
+    return { picks, strongestChecked, recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
   });
 }
 
@@ -575,9 +591,10 @@ export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string):
     if (shown.length === 0) return undefined;
     const label = shown.find((finding) => finding.status.kind !== "unreviewed")?.topic?.label ??
       shown[0]!.topic!.label;
+    // Checked findings first; then the stronger claims (strength.ts), then the newest.
     const order = (left: ShownFinding, right: ShownFinding) =>
       Number(left.status.kind === "unreviewed") - Number(right.status.kind === "unreviewed") ||
-      certaintyRank(left) - certaintyRank(right) ||
+      byStrength(left, right) ||
       Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
     const sections = TOPIC_SECTIONS.map(({ id, heading }) => ({
       id,
@@ -782,9 +799,10 @@ export function searchAtlasIndex(index: AtlasSearchIndex, options: {
     const match = matchFoldedAtlasSearch(search, texts);
     if (match === undefined) continue;
     total += 1;
-    const group = groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!;
-    if (group.length < reach) group.push({ finding, foundIn: match.foundIn });
+    groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
   }
+  // Within a group of equal matches, the stronger claims first (strength.ts), then the newest, as the index holds them.
+  for (const group of groups) group.sort((left, right) => byStrength(left.finding, right.finding));
   return {
     results: groups.flat().slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
     total,
@@ -904,7 +922,9 @@ export async function loadAtlasMap(source: AtlasPageSource, now: Date): Promise<
       topic,
       count: findings.length,
       // Stable: findings arrive newest published first.
-      findings: findings.sort((left, right) => right.points.total - left.points.total).slice(0, ATLAS_MAP_TOPIC_FINDINGS),
+      // The stronger claims first (strength.ts), then more points, then the newest.
+      findings: findings.sort((left, right) => byStrength(left.finding, right.finding) ||
+        right.points.total - left.points.total).slice(0, ATLAS_MAP_TOPIC_FINDINGS),
     }));
     topics.sort((left, right) => Number(left.topic === null) - Number(right.topic === null) ||
       right.count - left.count ||

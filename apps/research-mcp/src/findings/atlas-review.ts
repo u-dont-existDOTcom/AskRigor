@@ -117,6 +117,7 @@ import {
   type FindingsCardRead,
   type FindingsDecisionMarker,
 } from "./github-findings-review.js";
+import { storedClaimStrength } from "../atlas/strength.js";
 import { publicFindingsCardId } from "./github-findings.js";
 import { moveYouTubeFindings, type YouTubeFindingsMoveReport } from "./held-youtube-move.js";
 import type { FindingsRecord, FindingsStamp, ProtocolIdentity } from "./service.js";
@@ -1240,7 +1241,8 @@ export class AtlasReview {
         }
         continue;
       }
-      waiting.push({ ...card, key: cursorKeyOf(card.labels, card.record, card.number) });
+      const undecided = new Set(card.record.card.findings.flatMap((_, index) => decided.has(index + 1) ? [] : [index + 1]));
+      waiting.push({ ...card, key: cursorKeyOf(card.labels, card.record, card.number, undecided) });
     }
     waiting.sort((left, right) => compareCursorKeys(left.key, right.key));
     const remaining = after === undefined ? waiting : waiting.filter(({ key }) => compareCursorKeys(key, after) > 0);
@@ -4046,17 +4048,27 @@ const LIST_PAGE = 10;
 
 /** A card's place in the list: beyond-quick-answer first, then the oldest save, then the issue number. */
 interface CursorKey {
+  /** The strength of the card's strongest finding that waits (atlas/strength.ts): the stronger first. */
+  g: number;
   b: 0 | 1;
   s: string;
   n: number;
 }
 
-function cursorKeyOf(labels: readonly string[], record: FindingsRecord, number: number): CursorKey {
-  return { b: isBeyondQuickAnswer(labels) ? 0 : 1, s: record.stamp.saved_at, n: number };
+/**
+ * Where a card waits in list_findings: its strongest undecided finding's claim strength first (the owner, 2 Nov 2026:
+ * "the stronger the claim is, the higher it ranks, but the more it needs checking"), then beyond a quick answer, then
+ * the oldest save, then the card's number.
+ */
+function cursorKeyOf(labels: readonly string[], record: FindingsRecord, number: number,
+  undecided: ReadonlySet<number> = new Set(record.card.findings.map((_, index) => index + 1))): CursorKey {
+  const strongest = Math.max(0, ...record.card.findings.flatMap((finding, index) =>
+    undecided.has(index + 1) ? [storedClaimStrength(finding).total] : []));
+  return { g: strongest, b: isBeyondQuickAnswer(labels) ? 0 : 1, s: record.stamp.saved_at, n: number };
 }
 
 function compareCursorKeys(left: CursorKey, right: CursorKey): number {
-  return left.b - right.b || Date.parse(left.s) - Date.parse(right.s) || left.n - right.n;
+  return right.g - left.g || left.b - right.b || Date.parse(left.s) - Date.parse(right.s) || left.n - right.n;
 }
 
 function encodeCursor(key: CursorKey): string {
@@ -4068,10 +4080,11 @@ function decodeCursor(cursor: string): CursorKey | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
     if (typeof value !== "object" || value === null) return null;
-    const { b, s, n, ...rest } = value as Record<string, unknown>;
-    return Object.keys(rest).length === 0 && (b === 0 || b === 1) && typeof s === "string" &&
+    const { g, b, s, n, ...rest } = value as Record<string, unknown>;
+    return Object.keys(rest).length === 0 && typeof g === "number" && Number.isSafeInteger(g) && g >= 0 &&
+        (b === 0 || b === 1) && typeof s === "string" &&
         Number.isFinite(Date.parse(s)) && typeof n === "number" && Number.isSafeInteger(n) && n >= 1
-      ? { b, s, n }
+      ? { g, b, s, n }
       : null;
   } catch {
     return null;
