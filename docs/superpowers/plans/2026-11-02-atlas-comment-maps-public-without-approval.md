@@ -27,6 +27,8 @@ don't support, and the owner question that decides the rest.
   features, or companies", so the feature is "comment maps", never "YouTube comment maps", on public pages.
 - Tests: `tests/atlas-comment-maps-page.test.ts`. Privacy: `docs/privacy-data-map.md` (Atlas pages); the privacy page is
   unchanged, since nothing new is collected, kept or shown.
+- Preview (local server, invented data, 2 Nov): `2026-11-02-atlas-comment-maps-page.jpg`, light at 820 px. Checked in a
+  browser as well: dark mode, a 375 px phone width with no sideways scrolling, and the home page's section.
 
 ## The rules read (2 Nov 2026)
 
