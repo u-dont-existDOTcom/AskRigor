@@ -398,6 +398,25 @@ describe("publishing at the save", () => {
     expect(asked).toEqual([]);
   });
 
+  it("keeps every kind of space a card was written with, from the save to its publication, in any language", async () => {
+    // No-break, narrow no-break, thin and ideographic spaces, as AI-written text often holds them (2 Nov 2026: some
+    // findings reached the library with their words run together; the library and the Atlas keep what they are sent).
+    const spaced = {
+      claim: "Over 16\u00A0weeks, colds occurred in 71\u202Fof\u202F145 Yestimun\u2009900\u00A0mg participants.",
+      applies_to: "Adultes de 18\u00A0à\u00A065\u00A0ans\u202F; 成人\u3000(16\u00A0週間)",
+      why_not_usual: "Взрослые\u00A0люди и\u202Fдети: 16\u00A0недель.",
+    };
+    const card = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, ...spaced }, VELMOR_CARD.findings[1]!] };
+    const h = harness();
+    await expect(h.save(card, FREE)).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
+    expect(stored.card.findings[0]).toMatchObject(spaced);
+    const published = (await h.store.inspect({})).find(({ findingNumber }) => findingNumber === 1)!.published!;
+    expect([published.claim, published.applies_to, published.why_not_usual])
+      .toEqual([spaced.claim, spaced.applies_to, spaced.why_not_usual]);
+  });
+
   it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {
     for (const [account, paid] of [
       [{ mode: "PAID_PRIVATE", noticeVersion: null }, true],

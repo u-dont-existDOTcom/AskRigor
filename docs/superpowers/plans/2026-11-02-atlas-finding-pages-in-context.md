@@ -105,3 +105,17 @@ only adds the context the Atlas already holds or can look up.
 - Pages: the question, the no-question note with the topic, the usual answer, siblings with labels and links, titles
   and years with identifier links, the label unchanged, lists with the question, search over the new texts.
 - A local preview with invented data, light and dark, desktop and 375px.
+
+## Two bugs from the review of the live Atlas (2 November, evening)
+
+- **Topic maps:** a node said "Question not recorded" and cut its label mid-word. It now names the finding's question
+  (its Q number), or, for a finding published without one, its topic ("Topic: …"). Labels break between words with
+  Unicode's word boundaries in any script (`wrapWords`): Chinese and Japanese characters take two columns, closing
+  punctuation stays with its word, and only a word longer than a line is cut, with "…" for what is left out.
+- **Findings with their words run together** (P-1031, P-1032, P-1060, P-1061, P-1092, P-1093 and smaller cases): the
+  stored cards already hold the text that way, and the save path refuses a card whose digest differs from the one the
+  final check signed, so the text reached the server like that, from the research AI's tool call. The library, the
+  publication, the pages and search keep every kind of space (tests in French, Russian, Chinese and Japanese text).
+  Republishing cannot repair those findings: the owner's edit, a corrected save of the research, or unpublishing can.
+  Catching such text when a card is checked is a judgment of meaning (Thai and Chinese write without spaces), so it
+  belongs to the next build's judge, not a pattern.

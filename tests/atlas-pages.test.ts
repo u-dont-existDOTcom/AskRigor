@@ -29,7 +29,7 @@ import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAt
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink, renderAtlasMap,
-  renderAtlasSearch, renderAtlasTopic } from "../apps/research-mcp/src/atlas/pages.js";
+  renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
   type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
@@ -561,6 +561,21 @@ describe("the finding pages", () => {
     const found = (await text(base, "/atlas/search?q=quarnelle")).body;
     expect(found).toContain(`href="/atlas/findings/${row!.publicationNumber}"`);
     expect(found).toContain("Found in the sources.");
+  });
+
+  it("show every kind of space a finding was published with, and search across it", async () => {
+    const store = atlas();
+    const claim = "Over 16\u00A0weeks, colds occurred in 71\u202Fof\u202F145 participants; 成人\u300016\u00A0週間; " +
+      "Взрослые\u00A0люди\u2009и дети.";
+    const { rows } = await store.publish(6200, recordOf(oneFindingCard(claim)));
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    const base = await serve(pages(source));
+    expect((await text(base, `/atlas/findings/${rows[0]!.publicationNumber}`)).body).toContain(`<h1 class="claim">${claim}</h1>`);
+    for (const words of ["16 weeks", "71 of 145", "Взрослые люди"]) {
+      expect((await loadAtlasSearch(source, { search: atlasSearchQuery(words).query! })).results
+        .map(({ finding }) => finding.publicationNumber), words)
+        .toEqual([rows[0]!.publicationNumber]);
+    }
   });
 
   it("escape every text, and hold no script tag", async () => {
@@ -1329,7 +1344,8 @@ describe("Atlas navigation (183b)", () => {
     const one = renderAtlasTopic({ ...single, sections: single.sections.map((section) => ({ ...section,
       findings: section.findings.map((finding) => ({ ...finding, question: null })) })) });
     expect(one.match(/<svg /gu)).toHaveLength(1);
-    expect(one).toContain("Question not recorded");
+    expect(one).not.toContain("Question not recorded");
+    expect(one).toContain("Topic: Hip osteoarthritis");
     const empty = renderAtlasTopic({ ...single, sections: [], connections: [] });
     expect(empty).toContain('aria-label="No findings yet"');
     const seed = single.sections[0]!.findings[0]!;
@@ -1346,6 +1362,61 @@ describe("Atlas navigation (183b)", () => {
     expect(many).toContain("Finding 199 &lt;tag&gt; &amp; quoted");
     expect(atlasPageProblems(many)).toEqual([]);
     expect(many).not.toMatch(/<script|<foreignObject|\son[a-z]+=|\sstyle=/iu);
+  });
+
+  it("names each node by its question or, published without one, its topic, and never cuts a label mid-word", async () => {
+    const f = await fixture();
+    const topic = (await loadAtlasTopic(f.source, "velmor-syndrome"))!;
+    const findings = topic.sections.flatMap(({ findings }) => findings);
+    const body = renderAtlasTopic(topic);
+    expect(body).not.toContain("Question not recorded");
+    // Findings with their card's question carry its Q number; one published without it is placed by its topic.
+    const effect = findings.find(({ publicationNumber }) => publicationNumber === f.shown.effect)!;
+    expect(body).toMatch(new RegExp(`">${f.shown.effect} · Q\\d+</text>`, "u"));
+    const older = renderAtlasTopic({ ...topic, sections: topic.sections.map((section) => ({ ...section,
+      findings: section.findings.map((finding) => finding.publicationNumber === effect.publicationNumber
+        ? { ...finding, question: null } : finding) })) });
+    expect(older).toContain(`<title>${effect.publicationNumber}: Topic: Velmor syndrome. ${escapeHtml(effect.claim)}.`);
+    expect(older).toContain(`${effect.publicationNumber}: ${escapeHtml(effect.claim)}</a>.\nTopic: Velmor syndrome.`);
+    expect(older).not.toContain("Question not recorded");
+    // Every node's two lines are whole words of its finding, in order, the last with "…" when more is left.
+    for (const finding of findings) {
+      const node = new RegExp(`<a href="${findingPath(finding.publicationNumber)}">\\n<title>[^<]*</title>\\n<rect[^>]*/>\\n` +
+        "<text[^>]*>[^<]*</text>\\n<text[^>]*>([^<]*)</text>\\n<text[^>]*>([^<]*)</text>", "u").exec(body);
+      expect(node, finding.publicationNumber).not.toBeNull();
+      const shown = [node![1]!, node![2]!].filter(Boolean).join(" ").replace(/…$/u, "");
+      const claim = escapeHtml(finding.claim);
+      expect(claim.startsWith(shown), `${finding.publicationNumber}: ${shown}`).toBe(true);
+      expect(shown.length === claim.length || /^[\s\p{P}]/u.test(claim.slice(shown.length)) ||
+        /[\s\p{P}]$/u.test(shown), `${finding.publicationNumber} ends mid-word: ${shown}`).toBe(true);
+    }
+  });
+
+  it("wraps labels between words in any script, cutting only a word longer than a line", () => {
+    expect(wrapWords("Supervised exercise therapy reduced pain more than usual care.", 19, 2))
+      .toEqual(["Supervised exercise", "therapy reduced…"]);
+    expect(wrapWords("Zentarine 20 mg halved the tremor score.", 19, 2)).toEqual(["Zentarine 20 mg", "halved the tremor…"]);
+    expect(wrapWords("Short.", 19, 2)).toEqual(["Short."]);
+    // A run with no spaces is cut where the line ends, and only then.
+    expect(wrapWords("Over16weeks, clinicallyconfirmedcolds occurred", 19, 2)).toEqual(["Over16weeks,", "clinicallyconfirme…"]);
+    // Chinese and Japanese take two columns a character and break between words; closing punctuation keeps its word.
+    expect(wrapWords("泽他林减轻了成人的手部震颤，但恶心增加了。", 19, 2)).toEqual(["泽他林减轻了成人的", "手部震颤，但恶心…"]);
+    expect(wrapWords("ゼンタリンは成人の手の震えを和らげたが、吐き気が増えた。", 19, 2)).toEqual(["ゼンタリンは成人の", "手の震えを和らげた…"]);
+    // Thai, written without spaces between words, breaks between its words too.
+    const thaiText = "เซนทารีนช่วยลดอาการสั่นของมือในผู้ใหญ่";
+    const thai = wrapWords(thaiText, 19, 2);
+    const words = [...new Intl.Segmenter(undefined, { granularity: "word" }).segment(thaiText)].map(({ segment }) => segment);
+    const boundaries = words.map((_, index) => words.slice(0, index + 1).join(""));
+    expect(thai).toHaveLength(2);
+    expect(boundaries).toContain(thai[0]);
+    expect(boundaries).toContain(`${thai[0]}${thai[1]!.replace(/…$/u, "")}`);
+    for (const text of ["Une étude inventée : la zentarine a réduit le tremblement de 30 %.", "Зентарин уменьшил тремор у взрослых.",
+      "زنتارين خفف الرعشة لدى البالغين."]) {
+      const lines = wrapWords(text, 19, 3);
+      expect(lines.join(" ").replace(/…$/u, "").split(" ").every((word) => text.split(" ").includes(word) ||
+        text.includes(word)), text).toBe(true);
+      expect(lines.every((line) => Array.from(line).length <= 19), text).toBe(true);
+    }
   });
 
   it("includes incoming links from other topics in their original direction, but no withdrawn endpoint", async () => {

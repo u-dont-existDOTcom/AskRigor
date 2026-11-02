@@ -460,6 +460,76 @@ const RELATION_WORDS = { same_as: "same as", narrows: "narrows", contradicts: "c
 const mapColumn = (finding: ShownFinding) => finding.status.kind === "unreviewed" ? 4
   : finding.status.kind === "lead" ? 5 : finding.certainty === null ? 6
     : ["high", "moderate", "low", "very_low"].indexOf(finding.certainty);
+const WORDS = new Intl.Segmenter(undefined, { granularity: "word" });
+// A wide character (Chinese, Japanese and Korean scripts, full-width forms) takes two columns of a label.
+const WIDE = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\u3000-\u303f\uff01-\uff60\uffe0-\uffe6]/u;
+const columns = (text: string) => Array.from(text).reduce((sum, character) => sum + (WIDE.test(character) ? 2 : 1), 0);
+// Closing punctuation never starts a line: it stays with the word before it.
+const CLOSING = /^[\p{Pe}\p{Pf}\p{Po}]+$/u;
+
+/**
+ * A text in at most `lines` lines of at most `width` columns, broken between words as Unicode's word boundaries find
+ * them in any script (Chinese, Japanese and Thai included); only a word longer than a line is cut. When text is left
+ * over, the last line ends with "…", by whole words where it can.
+ */
+export function wrapWords(text: string, width: number, lines: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  let space = false;
+  let leftOver = false;
+  /** Starts a line with a segment, cutting a word longer than a line; false when no line is left. */
+  const start = (segment: string): boolean => {
+    let rest = segment;
+    while (columns(rest) > width) {
+      if (out.length === lines) return false;
+      let head = "";
+      for (const character of Array.from(rest)) {
+        if (columns(head + character) > width) break;
+        head += character;
+      }
+      out.push(head);
+      rest = rest.slice(head.length);
+    }
+    if (out.length === lines) return false;
+    line = rest;
+    return true;
+  };
+  for (const { segment } of WORDS.segment(text.replace(/\s+/gu, " ").trim())) {
+    if (segment === " ") {
+      space = line !== "";
+      continue;
+    }
+    const joined = `${line}${space ? " " : ""}${segment}`;
+    space = false;
+    if (line !== "" && (columns(joined) <= width || CLOSING.test(segment) && !joined.endsWith(` ${segment}`))) {
+      line = joined;
+      continue;
+    }
+    if (line !== "") {
+      out.push(line);
+      line = "";
+    }
+    if (!start(segment)) {
+      leftOver = true;
+      break;
+    }
+  }
+  if (line !== "") {
+    if (out.length < lines) out.push(line);
+    else leftOver = true;
+  }
+  if (leftOver && out.length > 0) {
+    let last = out.at(-1)!;
+    while (columns(last) + 1 > width) {
+      const words = [...WORDS.segment(last)].map(({ segment }) => segment);
+      last = words.length > 1 ? words.slice(0, -1).join("").trimEnd()
+        : Array.from(last).slice(0, -1).join("");
+    }
+    out[out.length - 1] = `${last}…`;
+  }
+  return out;
+}
+
 const chunks = <T,>(items: readonly T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
 
@@ -468,7 +538,9 @@ const chunks = <T,>(items: readonly T[], size: number): T[][] =>
 function topicMap(model: AtlasTopicModel): SafeHtml {
   const findings = model.sections.flatMap(({ findings }) => findings);
   const questions = [...new Set(findings.flatMap(({ question }) => question === null ? [] : [question]))];
-  const questionNumber = (finding: ShownFinding) => finding.question === null ? "Question not recorded"
+  // A finding published without its question is placed by its topic instead (the plan of 2 November 2026).
+  const topicWords = (finding: ShownFinding) => `Topic: ${finding.topic?.label ?? model.topic.label}`;
+  const questionNumber = (finding: ShownFinding) => finding.question === null ? topicWords(finding)
     : `Q${questions.indexOf(finding.question) + 1}`;
   const questionPanels = chunks(questions, MAP_PANEL_SIZE).map((panel, index) => html`<div class="map-scroll">
 <svg class="topic-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 ${panel.length * 48 + 40}"
@@ -479,7 +551,7 @@ ${panel.map((question, row) => {
     const y = row * 48 + 36;
     return html`<a href="${findingPath(finding.publicationNumber)}"><title>${question}</title>
 <rect class="map-node" x="8" y="${y - 22}" width="1100" height="36" rx="5"/>
-<text x="18" y="${y}">${questionNumber(finding)}: ${Array.from(question).slice(0, 125).join("")}${Array.from(question).length > 125 ? "…" : ""}</text></a>`;
+<text x="18" y="${y}">${questionNumber(finding)}: ${wrapWords(question, 125, 1)[0] ?? ""}</text></a>`;
   })}</svg></div>`);
   const panels = chunks(findings, MAP_PANEL_SIZE).map((panel, index) => {
     const rows = MAP_COLUMNS.map((_, column) => panel.filter((finding) => mapColumn(finding) === column));
@@ -492,13 +564,14 @@ ${rows.map((column, col) => html`<text class="map-heading" x="${col * 160 + 8}" 
 ${column.map((finding, row) => {
       const x = col * 160 + 8;
       const y = 45 + row * 88;
-      const claim = Array.from(finding.claim);
+      const [first = "", second = ""] = wrapWords(finding.claim, 19, 2);
       return html`<a href="${findingPath(finding.publicationNumber)}">
-<title>${finding.publicationNumber}: ${finding.question ?? "Question not recorded"}. ${finding.claim}. ${STATUS_WORDS[finding.status.kind]}.</title>
+<title>${finding.publicationNumber}: ${finding.question ?? topicWords(finding)}. ${finding.claim}. ${STATUS_WORDS[finding.status.kind]}.</title>
 <rect class="map-node" x="${x}" y="${y}" width="144" height="78" rx="5"/>
-<text x="${x + 6}" y="${y + 17}">${finding.publicationNumber} · ${finding.question === null ? "—" : questionNumber(finding)}</text>
-<text x="${x + 6}" y="${y + 36}">${claim.slice(0, 17).join("")}</text>
-<text x="${x + 6}" y="${y + 54}">${claim.slice(17, 33).join("")}${claim.length > 33 ? "…" : ""}</text>
+<text x="${x + 6}" y="${y + 17}">${finding.question === null ? finding.publicationNumber
+        : `${finding.publicationNumber} · ${questionNumber(finding)}`}</text>
+<text x="${x + 6}" y="${y + 36}">${first}</text>
+<text x="${x + 6}" y="${y + 54}">${second}</text>
 </a>`;
     })}`)}
 </svg></div>`;
