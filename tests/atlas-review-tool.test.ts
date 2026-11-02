@@ -45,12 +45,12 @@ const PROVIDERS = {
 const fixture = (path: string) => readFile(new URL(`fixtures/${path}`, import.meta.url), "utf8");
 
 const TREMOR = {
-  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-  comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+  comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 };
 const NAUSEA = {
-  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12, option_total: 120,
-  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24, option_total: 240,
+  comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20,
 };
 const LOW_DOSE = {
   outcome: "tremor score halved", better: "more", option: "zentarine 5 mg", option_events: 20, option_total: 100,
@@ -888,7 +888,7 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
       schema: "askrigor.atlas-finding-intent.v1", kind: "accept", entryKind: "finding", leadOrigin: null,
       editedAtAcceptance: false, topic: { key: "velmor-syndrome", label: null },
       question: "Does zentarine cause nausea in Velmor syndrome?",
-      content: { wording: "Nausea affected 12 of 120 adults on zentarine 20 mg against 6 of 120 on placebo over 12 weeks.",
+      content: { wording: "Nausea affected 24 of 240 adults on zentarine 20 mg against 12 of 240 on placebo over 12 weeks.",
         appliesTo: "Adults with Velmor syndrome", certainty: "low", usualAnswer: "It is well tolerated.",
         whyNotUsual: "Quick answers call it well tolerated.", whatWouldChangeIt: "A longer trial.", whoElse: null,
         whatItChanges: null, tags: [], verifiedBases: ["full_text_audit"], numbers: [] },

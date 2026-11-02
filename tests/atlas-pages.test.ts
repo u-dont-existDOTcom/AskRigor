@@ -28,8 +28,8 @@ import {
 import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasMap, loadAtlasSearch,
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
-import { ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink, renderAtlasMap,
-  renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
+import { AI_LABEL, ATLAS_CSS, atlasPageProblems, clusterLayout, escapeHtml, findingPath, mapRadius, percent, sourceLink,
+  renderAtlasMap, renderAtlasSearch, renderAtlasTopic, wrapWords } from "../apps/research-mcp/src/atlas/pages.js";
 import { atlasSearchMatch, atlasSearchQuery, atlasSearchWords, foldAtlasSearchTexts,
   type AtlasSearchText } from "../apps/research-mcp/src/atlas/search.js";
 import {
@@ -121,8 +121,8 @@ const MADE_WITH = {
 };
 const DECIDED_WITH = { askrigorVersion: "0.2.0", build: "unknown", protocols: MADE_WITH.protocols };
 const TREMOR = {
-  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-  comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+  comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 };
 
 /** An accept intent's payload, as the owner's accept_finding records it. */
@@ -261,9 +261,9 @@ async function fixture() {
 
   // Edited at acceptance: the card's wording is replaced by the owner's.
   const editedCard = await store.publish(4244, recordOf(oneFindingCard(
-    `${NEVER.cardWording}: zentarine 20 mg halved the tremor score in 30 of 120 against 18 of 120 on placebo.`)));
-  const editedWording = "Accepted wording: in one invented trial, zentarine 20 mg halved the tremor score in 30 of 120 " +
-    "against 18 of 120 on placebo over 12 weeks.";
+    `${NEVER.cardWording}: zentarine 20 mg halved the tremor score in 60 of 240 against 36 of 240 on placebo.`)));
+  const editedWording = "Accepted wording: in one invented trial, zentarine 20 mg halved the tremor score in 60 of 240 " +
+    "against 36 of 240 on placebo over 12 weeks.";
   const editedNumber = await store.accept(4244, acceptPayload({
     wording: editedWording,
     cardWording: "card",
@@ -389,11 +389,11 @@ describe("the finding pages", () => {
     // Each group's count and size, the rates and the numbers needed, worked out from the counts.
     for (const fragment of [
       "<strong>tremor score halved</strong>, over 12 weeks (more is better)",
-      "<td>30 of 120</td><td>25%</td>", "<td>18 of 120</td><td>15%</td>",
+      "<td>60 of 240</td><td>25</td>", "<td>36 of 240</td><td>15</td>",
       "<strong>Number needed to treat: 10</strong>",
       "About 1 in 10 more people had this outcome with zentarine 20 mg than with placebo.",
       "<strong>nausea</strong>, over 12 weeks (fewer is better)",
-      "<td>12 of 120</td><td>10%</td>", "<td>6 of 120</td><td>5%</td>",
+      "<td>24 of 240</td><td>10</td>", "<td>12 of 240</td><td>5</td>",
       "<strong>Number needed to harm: 20</strong>",
     ]) {
       expect(body).toContain(fragment);
@@ -469,7 +469,8 @@ describe("the finding pages", () => {
     // The card's two published findings, in order: this one marked, the other linked with its label. Its third, drawn
     // from comments, was never published.
     at("2 findings from the same research are published here. Each has its own page.");
-    at(`<li aria-current="page"><p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\n<p class="finding-claim">` +
+    at(`<li aria-current="page"><p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p><p class="ai-label">${AI_LABEL}</p>\n` +
+      '<p class="finding-claim">' +
       `<strong>This finding:</strong> ${escapeHtml(VELMOR_CARD.findings[0]!.claim)}</p>`);
     at(`<p class="finding-claim"><a href="/atlas/findings/${shown.nothingFound}">${escapeHtml(VELMOR_CARD.findings[1]!.claim)}</a></p>`);
     at("<p class=\"meta\">How sure: Very low</p>");
@@ -647,7 +648,8 @@ describe("the home, topic and changes pages", () => {
       expect(body, path).toContain(card);
       expect(body, path).toContain(accepted);
       // The question comes between the label and the finding.
-      expect(body, path).toMatch(new RegExp(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>\\n<p class="finding-question">`, "u"));
+      expect(body, path).toMatch(new RegExp(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p><p class="ai-label">` +
+        `${AI_LABEL}</p>\\n<p class="finding-question">`, "u"));
     }
   });
 
@@ -733,24 +735,34 @@ describe("source links and figures", () => {
     expect(sourceLink({ scheme: "url", value: "https://evil.example" })).toBeUndefined();
   });
 
-  it("work out rates to one decimal, and a number needed to treat or harm by which group did better", async () => {
+  it("show each group out of 100 with the difference's range, and a number needed only when it is clear (225a)", async () => {
     expect([percent(30, 120), percent(1, 3), percent(1, 120), percent(0, 50), percent(50, 50)])
       .toEqual(["25%", "33.3%", "0.8%", "0%", "100%"]);
     const store = atlas();
     const { rows } = await store.publish(4500, recordOf(oneFindingCard("Fewer relapses on zentarine in an invented trial.", {
       numbers: [
-        { outcome: "relapse", better: "fewer", option: "zentarine", option_events: 18, option_total: 120,
-          comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks", harms_none_found: true },
+        { outcome: "relapse", better: "fewer", option: "zentarine", option_events: 36, option_total: 240,
+          comparator: "placebo", comparator_events: 60, comparator_total: 240, follow_up: "52 weeks", harms_none_found: true },
         { outcome: "response", better: "more", option: "zentarine", option_events: 20, option_total: 100,
           comparator: "placebo", comparator_events: 20, comparator_total: 100, follow_up: "52 weeks" },
+        // 18 of 120 against 30 of 120: the range runs from 20 fewer to 0.2 more, so no clear difference.
+        { outcome: "infection", better: "fewer", option: "zentarine", option_events: 18, option_total: 120,
+          comparator: "placebo", comparator_events: 30, comparator_total: 120, follow_up: "52 weeks" },
       ],
     })));
     const base = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
     const { body } = await text(base, `/atlas/findings/${rows[0]!.publicationNumber}`);
+    expect(body).toContain("<td>36 of 240</td><td>15</td>");
+    expect(body).toContain("<th scope=\"col\">Out of 100</th>");
+    expect(body).toContain("<p>Difference: 10 fewer out of 100 with zentarine than with placebo (95% range: 17.1 fewer to " +
+      "2.8 fewer).</p>");
     expect(body).toContain("<strong>Number needed to treat: 10</strong>. About 1 in 10 fewer people had this outcome " +
       "with zentarine than with placebo.");
     expect(body).toContain("No harms were found over the same follow-up.");
     expect(body).toContain("The two groups’ rates are the same, so there is no number needed to treat or harm.");
+    expect(body).toContain("(95% range: 20 fewer to 0.2 more).</p>\n<p><strong>No clear difference</strong>: the range " +
+      "includes no difference, so there is no number needed to treat or harm.</p>");
+    expect(body).toContain("it treats the groups as independent, so it does not allow for a crossover or clustered design");
   });
 
   it("refuse to serve a page that holds a script, a card reference or a YouTube link", () => {
@@ -762,6 +774,68 @@ describe("source links and figures", () => {
 });
 
 // Routes, headers and the switch --------------------------------------------------------------------------------------
+
+describe("search engines and the AI label (owner answer 224a)", () => {
+  const NOINDEX = '<meta name="robots" content="noindex">';
+
+  it("keep unreviewed findings out of search engines and label them, and index what a person reviewed", async () => {
+    const { source, shown } = await fixture();
+    const base = await serve(pages(source));
+    const unreviewed = (await text(base, `/atlas/findings/${shown.effect}`)).body;
+    expect(unreviewed).toContain(NOINDEX);
+    expect(unreviewed).toContain(`<p class="ai-label">${AI_LABEL}.</p>`);
+    expect(AI_LABEL).toBe("Written by an AI, not yet reviewed by a person");
+    const reviewed = (await text(base, `/atlas/findings/${shown.edited}`)).body;
+    expect(reviewed).not.toContain(NOINDEX);
+    expect(reviewed).not.toContain(`<p class="ai-label">${AI_LABEL}.</p>`);
+    // A list holding a reviewed finding is indexed; one of unreviewed findings only is not. Searches never are.
+    expect((await text(base, "/atlas/findings")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/findings?filter=unreviewed")).body).toContain(NOINDEX);
+    expect((await text(base, "/atlas/findings?filter=checked")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics/hip-osteoarthritis")).body).toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics/velmor-syndrome")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/topics")).body).not.toContain(NOINDEX);
+    expect((await text(base, "/atlas/search?q=zentarine")).body).toContain(NOINDEX);
+    // Every unreviewed finding a list shows carries the label.
+    const list = (await text(base, "/atlas/findings?filter=unreviewed")).body;
+    expect(list.match(/class="badge badge-unreviewed"/gu)!.length).toBe(list.match(/class="ai-label"/gu)!.length);
+    // With only unreviewed findings, the home page and the map are kept out too.
+    const store = atlas();
+    await store.publish(7300, recordOf(VELMOR_CARD));
+    const fresh = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    for (const path of ["/atlas", "/atlas/map", "/atlas/findings"]) {
+      expect((await text(fresh, path)).body, path).toContain(NOINDEX);
+    }
+  });
+
+  it("list in the sitemap only reviewed findings and the pages that hold them", async () => {
+    const { source, shown, numbers } = await fixture();
+    const base = await serve(pages(source));
+    const { response, body } = await text(base, "/atlas/sitemap.xml");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/xml; charset=utf-8");
+    expect(body.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'))
+      .toBe(true);
+    const locations = [...body.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]);
+    expect(locations).toEqual([
+      "https://askrigor.com/atlas/topics", "https://askrigor.com/atlas", "https://askrigor.com/atlas/changes",
+      "https://askrigor.com/atlas/topics/velmor-syndrome",
+      ...[shown.edited, shown.lowDose, shown.lead].sort((left, right) => Number(left.slice(2)) - Number(right.slice(2)))
+        .map((number) => `https://askrigor.com/atlas/findings/${number}`),
+    ]);
+    for (const number of [shown.effect, shown.nothingFound, shown.hip]) expect(body).not.toContain(`/findings/${number}<`);
+    expect(body).toContain("<lastmod>2026-11-04</lastmod>");
+    expect(body).not.toMatch(/ARF-|youtu|F-1\d{3}/u);
+    expect(numbers.edited).toMatch(/^F-/u);
+    expect((await fetch(`${base}/atlas/sitemap.xml`, { method: "HEAD" })).status).toBe(200);
+    // Nothing reviewed yet: the topics index alone.
+    const store = atlas();
+    await store.publish(7400, recordOf(VELMOR_CARD));
+    const fresh = await serve(pages(new InMemoryAtlasPageSource({ publications: store.publications })));
+    expect([...(await text(fresh, "/atlas/sitemap.xml")).body.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]))
+      .toEqual(["https://askrigor.com/atlas/topics"]);
+  });
+});
 
 describe("the routes", () => {
   it("answer each page and the stylesheet, and 404 every other path under /atlas", async () => {
@@ -1457,7 +1531,7 @@ describe("full-text search", () => {
     expect(rank("vitamin d", wording("Vitamin B12 deficiency is common."))).toBeUndefined();
     expect(rank("vitamin", wording("Vitamins A and E."))).toBe(1);
     expect(rank("omega 3", wording("Omega-3 fatty acids."))).toBe(0);
-    expect(rank("3", wording("30 of 120 adults."))).toBeUndefined();
+    expect(rank("3", wording("60 of 240 adults."))).toBeUndefined();
     expect(rank("strasse", wording("Straße"))).toBe(0);
     expect(rank("ΒΙΤΑΜΙΝΗ", wording("η βιταμίνη D"))).toBe(0);
     expect(rank("витамин", wording("Витамины D и кальций"))).toBe(1);

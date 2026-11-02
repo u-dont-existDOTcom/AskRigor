@@ -659,6 +659,13 @@ logs. Keep request-URL logging disabled/redacted on both public proxy paths.
 Search is excluded from the in-process page cache; list caches retain the
 existing bounds, with separate normalized filter/cursor keys.
 
+Search engines (owner answer 224a; plan `../../docs/superpowers/plans/2026-11-02-atlas-foundation-223-225.md`): check
+that an unreviewed finding's page, `/atlas/findings?filter=unreviewed` and any search carry
+`<meta name="robots" content="noindex">` and the label "Written by an AI, not yet reviewed by a person", that a
+reviewed finding's page does not, that `/atlas/sitemap.xml` answers `application/xml` with the topics index and only
+reviewed findings and the pages that hold them, and, after the site packet is installed, that
+`https://askrigor.com/robots.txt` names that sitemap.
+
 Finding pages in context (plan
 `../../docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`) add no
 migration or grant: new publications carry their card's question, usual answer and

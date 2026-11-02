@@ -53,6 +53,32 @@ export function binaryContrast(result: BinaryCounts):
   };
 }
 
+// The 97.5th percentile of the standard normal distribution, for two-sided 95% ranges.
+const Z_95 = 1.959963984540054;
+
+/** The Wilson score interval of one group's rate, events of total, at 95%. */
+function wilsonInterval(events: number, total: number): { rate: number; lower: number; upper: number } {
+  const z2 = Z_95 * Z_95;
+  const centre = (events + z2 / 2) / (total + z2);
+  const half = Z_95 * Math.sqrt(events * (total - events) / total + z2 / 4) / (total + z2);
+  return { rate: events / total, lower: Math.max(0, centre - half), upper: Math.min(1, centre + half) };
+}
+
+/**
+ * The 95% range of a yes-or-no result's difference in rates, the option's minus the comparator's (owner answer 225a,
+ * 2 Nov 2026), by Newcombe's hybrid score method (method 10 of Newcombe 1998, from each group's Wilson interval), which
+ * holds up with small counts and with no events in a group. It treats the two groups as independent: it does not allow
+ * for a crossover or clustered design. The difference is clear when the range leaves out zero.
+ */
+export function differenceRange(result: BinaryCounts): { difference: number; lower: number; upper: number; clear: boolean } {
+  const option = wilsonInterval(result.option_events, result.option_total);
+  const comparator = wilsonInterval(result.comparator_events, result.comparator_total);
+  const difference = option.rate - comparator.rate;
+  const lower = difference - Math.sqrt((option.rate - option.lower) ** 2 + (comparator.upper - comparator.rate) ** 2);
+  const upper = difference + Math.sqrt((option.upper - option.rate) ** 2 + (comparator.rate - comparator.lower) ** 2);
+  return { difference, lower, upper, clear: lower > 0 || upper < 0 };
+}
+
 /** Text without surrounding spaces or a closing sentence mark or semicolon, spaces made single. */
 export function withoutEndPunctuation(text: string): string {
   let result = text.replace(/\s+/gu, " ").trim();
@@ -69,6 +95,7 @@ export function withoutEndPunctuation(text: string): string {
 export const ATLAS_NUMBERS_PROBLEM_CODES = [
   "events_exceed_total",
   "same_rates",
+  "difference_not_clear",
   "nnt_and_nnh",
   "wrong_direction",
   "not_reciprocal_rounded_up",
@@ -125,10 +152,20 @@ export function atlasNumbersProblems(
     const stated = (["nnt", "nnh"] as const).filter((field) => entry[field] !== undefined);
     // The number the counts support: an nnt when the option did better, an nnh when it did worse.
     let supported: "nnt" | "nnh" | undefined;
+    let unclear = false;
     const contrast = overCounted.length > 0 ? undefined : binaryContrast(entry);
     if (overCounted.length === 0 && stated.length > 0 && contrast === undefined) {
       add(at, "same_rates", `${at}'s counts give the same rate in both groups, so there is no number needed to treat ` +
         `or harm: leave ${stated.join(" and ")} out.`);
+    } else if (contrast !== undefined && stated.length > 0 && !differenceRange(entry).clear) {
+      // Owner answer 225a: a number needed to treat or harm only when the difference is clear. Its other checks wait
+      // until it is left out.
+      unclear = true;
+      const range = differenceRange(entry);
+      const points = (value: number) => Number((value * 100).toFixed(1));
+      add(at, "difference_not_clear", `${at} gives ${stated.join(" and ")}, but the difference between the groups is ` +
+        `not clear: its 95% range runs from ${points(range.lower)} to ${points(range.upper)} percentage points, which ` +
+        `includes no difference. Leave ${stated.join(" and ")} out and say there was no clear difference.`);
     } else if (contrast !== undefined && stated.length > 0) {
       // The option did better when a larger share had an outcome more people should have, or a smaller share one
       // fewer should.
@@ -162,11 +199,11 @@ export function atlasNumbersProblems(
       add(at, "group_figure_not_shown", `${at} gives a figure the ${named} does not show for ${name}: the ${named} ` +
         `contains neither its events and total (${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
     }
-    for (const field of shown.numbersNeededNotShown) {
+    for (const field of unclear ? [] : shown.numbersNeededNotShown) {
       add(at, "number_needed_not_shown", `${at} gives a number needed to ${field === "nnt" ? "treat" : "harm"} ` +
         `the ${named} does not show: the ${named} does not contain ${entry[field]}.`);
     }
-    if (stated.length > 0 && !shown.followUpShown) {
+    if (stated.length > 0 && !unclear && !shown.followUpShown) {
       add(at, "follow_up_not_shown", `${at} gives a number needed to treat or harm without its follow-up: the ` +
         `${named} does not contain the declared follow-up.`);
     }
@@ -174,7 +211,9 @@ export function atlasNumbersProblems(
     // whose counts make its number one needed to harm, or leave none, is not asked for them: its own problem changes
     // the number first.
     const followUp = followUpText(entry.follow_up);
-    if (entry.nnt === undefined) {
+    if (unclear) {
+      // Nothing more until its number needed is left out.
+    } else if (entry.nnt === undefined) {
       if (entry.harms_none_found === true) {
         add(at, "harms_none_found_without_nnt", `${at} gives harms_none_found without nnt: it goes only beside a ` +
           "number needed to treat. Leave it out here.");

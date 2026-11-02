@@ -20,6 +20,7 @@ import {
   publicationHoldReasons,
   publishedFindingOf,
   reconcileCardPublications,
+  reviewFirstReasons,
   withCardContext,
 } from "../apps/research-mcp/src/atlas/publication.js";
 import {
@@ -108,10 +109,10 @@ describe("what the Atlas publishes of a finding", () => {
       subject_type: "supplement",
       direction: "benefit",
       numbers: [
-        { outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-          comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks" },
-        { outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12, option_total: 120,
-          comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks" },
+        { outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+          comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks" },
+        { outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24, option_total: 240,
+          comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks" },
       ],
       searches: null,
       sources: ["10.0000/synthetic-velmor-a"],
@@ -293,6 +294,29 @@ describe("which findings and cards are published", () => {
     expect(titled).not.toHaveProperty("source_details");
     expect(withCardContext(publishedFindingOf(record, 1)!, record, new Map([[source!, { title: "A trial", year: 99 }]])))
       .toMatchObject({ source_details: [{ source, title: "A trial", year: null }] });
+  });
+
+  it("reads why a finding waits for review from its declared fields, and leaves it out of instant publishing (224a)", () => {
+    const base = recordOf(VELMOR_CARD).card.findings[0]!;
+    expect(reviewFirstReasons(base)).toEqual([]);
+    expect(reviewFirstReasons({ ...base, subject_type: "product" })).toEqual(["names_product"]);
+    expect(reviewFirstReasons({ ...base, direction: "harm" })).toEqual(["reports_harm"]);
+    expect(reviewFirstReasons({ ...base, kind: "harm", direction: "benefit" })).toEqual(["reports_harm"]);
+    expect(reviewFirstReasons({ ...base, kind: "tested_vs_sold", subject_type: "product" }))
+      .toEqual(["names_product", "tested_vs_sold"]);
+    expect(reviewFirstReasons({ ...base, review_first: ["serious_illness", "inhaled_injected_or_bladder_use"] }))
+      .toEqual(["inhaled_injected_or_bladder_use", "serious_illness"]);
+    const card = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, subject_type: "product" }, VELMOR_CARD.findings[1]!] };
+    const record = recordOf(card);
+    for (const route of [{ route: "save" as const, account: FREE }, { route: "owner" as const, paidPrivate: false }]) {
+      const plan = planCardPublication({ record, setAside: false, route });
+      expect(plan.drafts.map(({ findingNumber }) => findingNumber), route.route).toEqual([2]);
+      expect(plan.leftOut, route.route).toEqual([{ findingNumber: 1, reason: "review_first" }]);
+    }
+    // Once the owner has decided it, it publishes in its decided state.
+    expect(planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false },
+      decided: new Map([[1, { state: "accepted" as const, atlasNumber: "F-1001" }]]) }).drafts[0])
+      .toMatchObject({ findingNumber: 1, state: "accepted", atlasNumber: "F-1001" });
   });
 
   it("gives a decided finding's publication its state from the decision and the F number's intents", () => {

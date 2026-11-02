@@ -14,7 +14,8 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
-import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
+import { AtlasCardPublisher, REVIEW_FIRST_REASON, publishedFindingOf, reconcileCardPublications }
+  from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
@@ -265,8 +266,8 @@ describe("the publications through the owner's review", () => {
     expect((await h.promote()).result.status).toBe("promoted");
     expect((await h.promote()).result.status).toBe("promoted");
     const corrected = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
-      wording: "In one invented trial of 240 adults, zentarine 20 mg halved the tremor score in 30 of 120 against 18 of " +
-        "120 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 12 of 120 against 6 of 120, a " +
+      wording: "In one invented trial of 480 adults, zentarine 20 mg halved the tremor score in 60 of 240 against 36 of " +
+        "240 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 24 of 240 against 12 of 240, a " +
         "number needed to harm of 20.",
       note: "Said the trial size without the condition.", eraseWording: true });
     expect(corrected.structured.outcome, corrected.text).toBe("finding_queued");
@@ -501,6 +502,61 @@ describe("the publications through the owner's review", () => {
       ["P-1002", "held", "askrigor.atlas-publication.v2"],
       ["P-1001", "unreviewed", "askrigor.atlas-publication.v1"],
     ]);
+  });
+
+  it("holds a finding that names a product or reports a harm for review, and accepting it publishes it (224a)", async () => {
+    await stubProviders();
+    const h = harness();
+    const risky = { ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, subject_type: "product" }] };
+    await h.save(risky);
+    // Not published at its save: it waits for the owner's review.
+    expect(await states(h)).toEqual([]);
+    const published = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(published.structured.publications.cards[0]).toMatchObject({ outcome: "not_published",
+      leftOut: [{ finding: 1, reason: "review_first" }] });
+    expect(published.text).toContain("it waits for your review: accepting it publishes it (owner answer 224a)");
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0042", 1) });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    expect(await states(h)).toEqual([["P-1001", 42, 1, "accepted", "F-1001"]]);
+  });
+
+  it("takes an older publication that now waits for review off the Atlas, and a decision brings it back (224a)", async () => {
+    await stubProviders();
+    const h = harness();
+    await h.save(DOI_CARD, null);
+    const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
+    // Published before 224a, then found to report a harm.
+    const harmful = { ...stored, card: { ...stored.card, findings: [{ ...stored.card.findings[0]!, direction: "harm" as const }] } };
+    await h.publications.publish({ cardNumber: 42, cardSha256: stored.card_sha256, publishedAt: "2026-11-04T08:00:00.000Z",
+      revive: false, findings: [{ findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+        published: publishedFindingOf(harmful, 1)! }] });
+    const review = new AtlasPublicationReview({
+      publications: h.publications,
+      store: { inspectCards: async () => [], inspectIntents: async () => [] },
+      reader: h.canonical,
+      inbox: {
+        readCard: async () => ({ status: "found", card: { number: 42, state: "open", labels: [],
+          marks: { atlasPublish: false, paidPrivate: false }, record: harmful, occurrences: [], decisions: [] } }),
+        openCards: async () => [],
+        repositoryIssues: async () => [],
+        setAside: async () => undefined,
+      },
+      now: () => new Date("2026-11-04T09:00:00.000Z"),
+    });
+    const result = await review.run({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(result.text).toContain("ARF-0042: P-1001 comes off the Atlas to wait for your review (owner answer 224a); " +
+      "accepting it publishes it again.");
+    expect((await h.publications.inspect({}))[0]).toMatchObject({ state: "withdrawn", withdrawnBecause: "owner_unpublished",
+      ownerReason: REVIEW_FIRST_REASON });
+    // Accepting it brings it back, in its decided state, under the same number.
+    const changed = await reconcileCardPublications({
+      store: h.publications, cardNumber: 42, at: "2026-11-04T10:00:00.000Z", intentsOf: async () => [],
+      decisions: [{ itemKind: "finding", itemNumber: 1, decision: "accepted", publicNumber: "F-1001" } as never],
+      card: { record: harmful, setAside: false },
+    });
+    expect(changed.map(({ publicationNumber, state, atlasNumber }) => [publicationNumber, state, atlasNumber]))
+      .toEqual([["P-1001", "accepted", "F-1001"]]);
   });
 
   it("uses the owner's topic for an unpublished older card and keeps a declared topic", async () => {
