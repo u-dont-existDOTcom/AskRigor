@@ -7,7 +7,16 @@ import { ErrorCode, McpError, type CallToolResult } from "@modelcontextprotocol/
 import { redditPostId } from "@askrigor/sources";
 import { z } from "zod";
 
-const DEADLINE_MS = 45_000;
+// A call ends within this, its wait for its turn included, so it answers before the strictest client limit the
+// repository records: Claude waits 60 seconds for a tool (docs/superpowers/plans/2026-09-26-instruction-optimization.md).
+const DEADLINE_MS = 50_000;
+// How long a call waits for its turn before it answers busy with a retry hint. Waiting adds no load on Reddit, and the
+// host gets one request at a time (owner answer 213b), so a second request at once is never sent. Before, a call
+// waited up to 45 seconds and then read for up to 45 more: #394's run lost seven parallel reads of q128-oral-liver,
+// all busy at once, with nothing to say when to try again.
+const START_WAIT_MS = 10_000;
+// About how long one call holds the line, for the retry hint: a 34-comment thread was read in 7 seconds on 1 Nov.
+const TYPICAL_CALL_MS = 10_000;
 const MAXIMUM_MORE_LENGTH = 1_000_000;
 const MAXIMUM_COMMENT_CHARACTERS = 100_000;
 const IDLE_MS = 5 * 60_000;
@@ -20,7 +29,9 @@ const IDLE_MS = 5 * 60_000;
 export const SEARCH_PAGE_SIZE = 25;
 const SORT = ["relevance", "hot", "top", "new", "comments"] as const;
 const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
+// Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
+const line: object[] = [];
 type FailureState = "not_found" | "invalid" | "unavailable" | "busy";
 export interface RedditReaderComment {
   id: string; parent_id: string; depth: number; person?: string; is_original_poster: boolean;
@@ -30,6 +41,8 @@ export interface RedditThreadResult {
   access_state: "read" | FailureState; url: string; community?: string; title?: string; created?: string | number;
   post_text?: string; comments?: RedditReaderComment[]; thread_comment_count?: number;
   comments_read?: number; comments_without_text?: number; truncated?: boolean; more?: string;
+  /** With busy: about how long the calls ahead of it should take. */
+  retry_after_seconds?: number;
 }
 export interface RedditSearchInput {
   query: string; subreddit?: string; sort?: typeof SORT[number]; time?: typeof TIME[number]; after?: string;
@@ -37,6 +50,8 @@ export interface RedditSearchInput {
 export interface RedditSearchResult {
   access_state: "searched" | FailureState;
   threads: { url: string; subreddit: string; title: string }[]; returned: number; after?: string;
+  /** With busy: about how long the calls ahead of it should take. */
+  retry_after_seconds?: number;
 }
 export interface RedditReaderClient {
   readThread(url: string, more?: string): Promise<RedditThreadResult>;
@@ -44,8 +59,12 @@ export interface RedditReaderClient {
   close(): Promise<void>;
 }
 class ReaderError extends Error {
-  constructor(readonly code: FailureState) { super(`Reddit reader ${code}`); }
+  constructor(readonly code: FailureState, readonly retryAfterSeconds?: number) { super(`Reddit reader ${code}`); }
 }
+/** A failure as a result: busy carries its retry hint. */
+const failure = (error: unknown) => error instanceof ReaderError
+  ? { access_state: error.code, ...(error.retryAfterSeconds === undefined ? {} : { retry_after_seconds: error.retryAfterSeconds }) }
+  : { access_state: "unavailable" as const };
 const timestamp = z.union([z.string(), z.number().finite()]);
 const token = z.string().min(1).max(64_000);
 const postSchema = z.object({
@@ -148,6 +167,9 @@ export function createRedditReaderClient(options: {
     return parsed.data;
   };
   const queued = async <T>(work: (signal: AbortSignal, end: number) => Promise<T>): Promise<T> => {
+    const end = Date.now() + (options.deadlineMs ?? DEADLINE_MS);
+    const place = {};
+    line.push(place);
     const previous = readerTurn;
     let release!: () => void;
     const done = new Promise<void>((resolve) => { release = resolve; });
@@ -156,15 +178,18 @@ export function createRedditReaderClient(options: {
     let admitted = false;
     try {
       admitted = await Promise.race([previous.then(() => true), new Promise<boolean>((resolve) => {
-        waiting = setTimeout(() => resolve(false), options.busyWaitMs ?? DEADLINE_MS);
+        waiting = setTimeout(() => resolve(false), Math.min(options.busyWaitMs ?? START_WAIT_MS, end - Date.now()));
       })]);
       clearTimeout(waiting);
-      if (!admitted) throw new ReaderError("busy");
+      // Each call still ahead, the running one included, holds the line about TYPICAL_CALL_MS.
+      if (!admitted) {
+        throw new ReaderError("busy", Math.min(120, Math.max(5, Math.ceil(line.indexOf(place) * TYPICAL_CALL_MS / 1_000))));
+      }
       clearTimeout(idleTimer);
-      const duration = options.deadlineMs ?? DEADLINE_MS;
-      return await work(AbortSignal.timeout(duration), Date.now() + duration);
+      return await work(AbortSignal.timeout(Math.max(0, end - Date.now())), end);
     } finally {
       clearTimeout(waiting);
+      line.splice(line.indexOf(place), 1);
       release();
       if (admitted && connection !== undefined) idleTimer = setTimeout(() => { void close(); }, options.idleMs ?? IDLE_MS);
       idleTimer?.unref?.();
@@ -183,7 +208,7 @@ export function createRedditReaderClient(options: {
           return { access_state: "searched", threads, returned: threads.length, ...(result.next_page_token === null ? {} : { after: result.next_page_token }) };
         });
       } catch (error) {
-        return { access_state: error instanceof ReaderError ? error.code : "unavailable", threads: [], returned: 0 };
+        return { ...failure(error), threads: [], returned: 0 };
       }
     },
     async readThread(url, more) {
@@ -258,7 +283,7 @@ export function createRedditReaderClient(options: {
             truncated: incomplete || next !== undefined || (pending === undefined && values.length < post.comment_count),
             ...(next === undefined ? {} : { more: next }) };
         });
-      } catch (error) { return { access_state: error instanceof ReaderError ? error.code : "unavailable", url }; }
+      } catch (error) { return { ...failure(error), url }; }
     }
   };
 }

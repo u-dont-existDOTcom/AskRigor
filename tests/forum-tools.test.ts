@@ -141,6 +141,22 @@ describe("forum tools", () => {
       expect(verified.ok && verified.claims.more).toBe(more);
     }
   });
+  // #394's run: q128-oral-liver sent seven reads at once, and all came back busy with nothing to say when to try again.
+  it("passes a busy reader's retry hint on in text and limitations, and asks for one read at a time", async () => {
+    thread.mockResolvedValue({ access_state: "busy", url: URL, retry_after_seconds: 20 });
+    search.mockResolvedValue({ access_state: "busy", threads: [], returned: 0, retry_after_seconds: 30 });
+    const caller = await client();
+    for (const [name, args, seconds] of [["read_forum_thread", { url: URL }, 20], ["search_reddit_threads", { query: "exercise outcomes" }, 30]] as const) {
+      const result = await caller.callTool({ name, arguments: args });
+      expect(result.isError).not.toBe(true);
+      const note = `The reader is busy with other requests: try this again in about ${seconds} seconds, and read threads ` +
+        "one after another, not in parallel, since it takes one request at a time.";
+      expect(result.structuredContent).toMatchObject({ access_status: "inaccessible", limitations: [note], data: { access_state: "busy" } });
+      expect(result.structuredContent!.data).not.toHaveProperty("retry_after_seconds");
+      expect(result.structuredContent).not.toHaveProperty("research_receipt");
+      expect((result.content[0] as { text: string }).text).toContain(note);
+    }
+  });
   it("refuses personal search words with quoted matches before contacting the reader", async () => {
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query: "how can I fix my bad hip" } });
     expect(result.isError).not.toBe(true);
