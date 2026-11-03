@@ -107,7 +107,8 @@ Figure parsing accepts an interdigit middle dot as a decimal point, including st
 figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
 what they took or did without assuming who runs the test.
 
-A plain-answer confirmation needs the same backing as a qualification: a study audited in full text here, a video whose
+A plain-answer confirmation or correction needs the same backing as a qualification (a first-turn correction too, since
+#394's run printed an unbacked one as the research's): a study audited in full text here, a video whose
 comments were read here, a sentence the answer declares as not found or as a correction it found, or, since owner answer
 210b (1 November 2026), a forum thread this call declares it read, for a claim about what people report. Which claims
 those are is the AI's declaration. The note names up to three such threads. When every thread behind a claim has a verified `forum_thread_read`
@@ -120,7 +121,10 @@ each registered claim with its figures, including figures absent from the checke
 with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
 says so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
 required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
-older description of the note's figure replacement; the runtime result supplies the actual note.
+older description of the note's figure replacement and of a first-turn correction's sources
+(`docs/tool-list-changes-waiting.md`); the runtime result supplies the actual note. A plain answer registered after
+research began is not compared, and the registration's result no longer says it was registered before research: the
+server keeps no record of the research, so only the final check can tell, by the receipts' signed order.
 
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may

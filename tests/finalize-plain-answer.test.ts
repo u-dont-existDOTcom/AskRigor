@@ -262,7 +262,14 @@ describe("finalize_research compares the answer with the plain answer registered
 
   it("keeps an unshown change in the note as not checked, naming the problem", () => {
     const corrected = (entry: Partial<Comparison[number]>): Comparison => [{ ...COMPARISON[0]!, ...entry }, COMPARISON[1]!];
-    expect(steps({ plain_answer_comparison: corrected({ sources: undefined }) })).toEqual([]);
+    // #394's run: l32-negative-controls' first turn printed a correction with nothing behind it as the research's, while
+    // unbacked confirmations and qualifications read "did not check that". A correction now needs the same backing.
+    expect(steps({ plain_answer_comparison: corrected({ sources: undefined }) })).toEqual([
+      "plain_answer_comparison[0] is corrected with nothing behind it that a quick answer could not have: give in " +
+        "sources a study audited in full text here, a video whose comments were read here or, for a claim about what " +
+        "people report, a forum thread read here (the link community_searches threads_read gives), or quote as " +
+        "answer_quote a sentence that absence_claims also declares." + UNTIL_CHECKED
+    ]);
     expect(steps({ plain_answer_comparison: corrected({ answer_quote: undefined }) })).toEqual([
       "plain_answer_comparison[0] is corrected without answer_quote: copy the answer's own sentence for this item from answer_draft." + UNTIL_CHECKED
     ]);
@@ -279,7 +286,7 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(check({ plain_answer_comparison: corrected({ answer_quote: undefined }) }).plain_answer_note).toBe(NOT_CHECKED_NOTE);
     expect(check({ plain_answer_comparison: corrected({ answer_quote: "Vitamin D never works." }) }).plain_answer_note).toBe(NOT_CHECKED_NOTE);
     expect(check({ plain_answer_comparison: corrected({ sources: [DOI, "10.1000/never-audited"] }) }).plain_answer_note).toBe(NOTE);
-    expect(check({ plain_answer_comparison: corrected({ sources: undefined }) })).toHaveProperty("plain_answer_note");
+    expect(check({ plain_answer_comparison: corrected({ sources: undefined }) }).plain_answer_note).toBe(NOT_CHECKED_NOTE);
   });
 
   it("needs each registered claim once, copied as registered", () => {
@@ -369,9 +376,12 @@ describe("finalize_research compares the answer with the plain answer registered
 
   it("gives no note, and holds nothing back, without this account's plain answer registered before this research", () => {
     const later = " For a later question, register its plain answer before researching it.";
+    // #394's run: q136-weak-lead-given registered again after research began and passed only that receipt.
     const afterResearch = "The plain answer passed was registered after a research receipt passed here was issued, so " +
-      "it cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
-      "register its plain answer before researching it, and pass only receipts issued after it.";
+      "it cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for " +
+      "this research target was registered before the research began, pass its research_receipt with the others: the " +
+      "check compares that one. For a later question, register its plain answer before researching it, and pass only " +
+      "receipts issued after it.";
     const otherDiscovery = issueResearchReceipt("youtube_search", {
       videos: [], q: "a1a1a1a1a1a1", target: researchTargetDigest("Another question"), t: 200
     }, { secret: SECRET });
@@ -404,6 +414,10 @@ describe("finalize_research compares the answer with the plain answer registered
     const result = check({ receipts: [plainReceipt(1_000), earlier, audit()] });
     expect(result).toMatchObject({ next_steps: [], plain_answer: { status: "registered", claims: 2 } });
     expect(result.plain_answer_note).toBe(NOTE);
+    // A second registration after research began does not replace the first, when both are passed (q136-weak-lead-given).
+    const again = check({ receipts: [plainReceipt(1_000), audit(), plainReceipt(2_500, ["Vitamin D cures colds."])] });
+    expect(again).toMatchObject({ next_steps: [], plain_answer: { status: "registered", claims: 2 } });
+    expect(again.plain_answer_note).toBe(NOTE);
   });
 
   it("removes only the note when the account turned it off: the comparison is still asked for and checked", () => {
@@ -576,6 +590,13 @@ describe("manage_research_access and finalize_research through the connector (ow
     expect(text(registered)).toContain(`research_receipt: ${receipt}`);
     expect(text(registered)).toContain(FINALIZE_REMINDER);
     expect(text(registered)).toContain(`Claims: 0 ${JSON.stringify(CLAIMS[0])}; 1 ${JSON.stringify(CLAIMS[1])}.`);
+    // The server cannot tell at registration whether research began, so the result doesn't say it didn't (#394's run:
+    // q136-weak-lead-given registered again after research began, and both results said "registered before research").
+    expect(text(registered)).toContain("Plain answer registered: 2 claims, signed with the time. The final check compares " +
+      "the answer with the latest plain answer this account registered for the research target before the research's " +
+      "first receipt, so one registered after research began is not compared; if one for this research target was " +
+      "registered before the research began, pass that receipt too.");
+    expect(text(registered)).not.toContain("registered before research:");
 
     const refused = async (input: Record<string, unknown>, problems: string[]) => {
       const result = await manage(input, "auth0|dev");
@@ -777,18 +798,33 @@ describe("27 Oct exact plain-answer note regressions", () => {
     expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
     expect(result.next_steps).toEqual([]);
   });
-  it("q136-responders: a first-turn correction uses the answer's sentence without inventing a prior delivered error", () => {
+  it("q136-responders and l32: a first-turn correction needs backing, and is never asked of corrections", () => {
     const result = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "corrected", answer_quote: finding }] });
     expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.plain_answer_note).toContain(`This research corrected that: “${finding}”`);
+    // #394's run: l32-negative-controls' first turn printed such a correction, with nothing behind it, as the research's.
+    expect(result.plain_answer_note).toBe(`Without AskRigor, a quick answer would have said: “${claim}” This research did not check that.`);
+    expect(advisoryNotes(result).join(" ")).toContain("plain_answer_comparison[0] is corrected with nothing behind it");
+    expect(advisoryNotes(result).join(" ")).not.toContain("corrections");
     const missing = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "corrected" }] });
     expect(advisoryNotes(missing).join(" ")).not.toContain("corrections");
     const qualified = check({ receipts: [plainReceipt(1_000, [claim])], key_sources: [], answer_draft: `${finding}\n\nNo study's methods were checked in full text for this answer.`,
       plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding }] });
     expect(advisoryNotes(qualified).join(" ")).not.toContain("corrections");
+  });
+});
+
+// #394's run: when a quoted sentence ended inside bold markers, the note put a full stop after its closing quotation mark.
+describe("the note's quotations end their sentences inside emphasis", () => {
+  it("adds no full stop after a bolded quote that ends its own sentence", () => {
+    const bold = `**${CORRECTED}**`;
+    const result = check({ answer_draft: `${LINK}\n\n${bold} ${QUALIFIED}`,
+      plain_answer_comparison: [{ ...COMPARISON[0]!, answer_quote: bold }, COMPARISON[1]!] });
+    expect(result.next_steps).toEqual([]);
+    expect(result.plain_answer_note).toContain(`from a full-text audit of 1 study: “${bold}” It would also have said:`);
+    expect(result.plain_answer_note).not.toContain(`${bold}”.`);
   });
 });
 

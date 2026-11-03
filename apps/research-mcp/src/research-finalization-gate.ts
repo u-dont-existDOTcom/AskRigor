@@ -3502,9 +3502,10 @@ export function finalizeResearch(
             if (reused !== undefined) notShown(rule`${at}.answer_quote repeats plain_answer_comparison[${reused.index}].answer_quote: one quote backs only one item.`);
             usedQuotes.push({ quote: entry.answer_quote, index });
             if (entry.answer_quote.trimEnd().endsWith(":")) notShown(rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
-            // A first-turn plain answer was never delivered: its correction is the answer's own sentence, not a
-            // retraction of something the user saw. Confirmed and qualified items name the same research basis.
-            if (!(firstTurn && entry.outcome === "corrected") && !backed) {
+            // A correction names what backs it, as a confirmation or qualification does: #394's run printed an unbacked
+            // first-turn correction as the research's (l32-negative-controls). A first-turn plain answer was never
+            // shown, so its correction is not one the corrections field declares, and the step doesn't ask for that.
+            if (!backed) {
               notShown(joinRules(joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here, a video whose comments were read here or, for a claim about "), "what people report, a forum thread read here (the link community_searches threads_read gives), or quote as "), firstTurn
                 ? "answer_quote a sentence that absence_claims also declares."
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
@@ -4430,8 +4431,10 @@ const PLAIN_ANSWER_REASONS = {
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
     `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
   after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
-    "cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
-    "register its plain answer before researching it, and pass only receipts issued after it.",
+    "cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for this " +
+    "research target was registered before the research began, pass its research_receipt with the others: the check " +
+    "compares that one. For a later question, register its plain answer before researching it, and pass only receipts " +
+    "issued after it.",
   note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
     "without it; manage_research_access with action set_plain_answer_note turns it back on."
 } as const;
@@ -4457,10 +4460,13 @@ export function sentencesOf(text: string): (claim: string) => boolean {
   return (claim) => statesCaveat(blocks, claim);
 }
 
-/** Text in quotation marks, exactly as given, ending its sentence. */
+/**
+ * Text in quotation marks, exactly as given, ending its sentence. A sentence may end inside closing brackets, quotation
+ * marks or Markdown emphasis: a bolded quote's "**" after its full stop drew a stray period in #394's run.
+ */
 function quotation(text: string): string {
   const quoted = text.trim();
-  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"']*$/u.test(quoted) ? "" : "."}`;
+  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"'*_]*$/u.test(quoted) ? "" : "."}`;
 }
 
 /**
