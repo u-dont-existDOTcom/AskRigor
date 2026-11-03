@@ -24,6 +24,9 @@ complete XML protocol.
 ## Validation and release
 
 - [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
+- [Private-map leak check](private-map-leak-check.md): the exact pre-push check that refuses numbers and IDs from the
+  owner's private comment maps (owner answers 175, 208b, 212b); its plan and history replay are
+  [superpowers/plans/2026-11-03-private-map-leak-check.md](superpowers/plans/2026-11-03-private-map-leak-check.md)
 - [Final-check scope](final-check.md): the blocking checks of owner answers
   193a, 195a and 217b, advisory notes, material limits and the folded passing-answer panel
 - [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
@@ -144,6 +147,17 @@ complete XML protocol.
   measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
   the judges' known cases 4 of 4 (YouTube comments), 33 of 35 (comparison backing), 13 of 14 (limits) and 5 of 5
   (findings that stand on their own); USD 16.30 in all for development; the rubric frozen for validation on #394's run.
+- `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
+  Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
+  saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
+  23:15 UTC, the sample on Claude workers on the owner's Claude plan (`scripts/web-engine-worker.mts`), not the API.
+- `audits/2026-11-02-web-app-engine-trial.md`: the trial's record: the 3-case pilot cost $13.00 (16.8, 5.8 and 18.8
+  minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
+  protocols, so the engine now carries the AskRigor skill and a guard; a free blind check judged Claude's answers
+  better in all three; the sample runs in two stages (owner answer 226b) on the Claude plan, so API spending ends at
+  $13.09. Stage 1 (3 Nov) answered all three and passed every check; two blind judges agreed only on `r376`, for
+  ChatGPT's answer, where AskRigor's Reddit reader couldn't open a thread for Claude, so stage 2 didn't run and the
+  trial ends about level.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

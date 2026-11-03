@@ -256,6 +256,12 @@ and error states. Health/research policy and substantive protocol changes requir
 owner judgment: through the ChatGPT reasoning surface for GPT workers, or as a
 question on the owner questions page from a Claude session.
 
+Numbers and IDs from the owner's private comment maps (per-video counts, comment totals, video IDs) never go into this
+repository, test fixtures and judgment drafts included. `scripts/check-private-map-leaks.mts` compares what a push adds
+with those pages exactly (`docs/private-map-leak-check.md`); `.githooks/pre-push` runs it once the owner sets
+`core.hooksPath`. Invent fixture numbers that match no private map, and check a branch by hand with
+`npm run check:private-maps -- range origin/main..HEAD`.
+
 The production server is the SSH alias `mission-control-secondary`. It serves
 mcp.askrigor.com and askrigor.com, and other projects too. Treat every command
 on it as a production action. In `ssh -n mission-control-secondary ...`, `-n`
