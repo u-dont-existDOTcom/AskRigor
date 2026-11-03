@@ -92,6 +92,9 @@ The rules leave it unclear, so it went to the owner (question 227) instead:
   "outcomes" label is drawn from comments, so it stays off public pages.
 - **Already public:** `docs/youtube-channel-registry.md` in this repository holds those channel IDs. The first were
   added on 30 Oct, so they reach 30 days on 29 Nov 2026: refreshed through the API by then (1 unit each), or taken out.
+  Taken out by draft #406 (into main, apart from this stack); the ID is looked up by the handle when an answer uses the
+  channel. The registry's video IDs stay: none came through the API (three the owner named, 25 found by the 31 Oct
+  discovery's web searches and only confirmed by ID afterwards), so they are not API Data.
 
 ## The owner question, and the answer
 
