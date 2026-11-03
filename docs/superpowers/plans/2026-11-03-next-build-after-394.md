@@ -2,7 +2,7 @@
 
 Branch `claude/next-build-20261102` (draft PR #398), from main's merge of #394 (`b9e658e2`, live since 11:52 UTC on 2
 Nov, owner answers 215a and 217b). Built under owner rule 148a; a release needs the owner's explicit yes. Main was
-taken in again on 3 Nov at `b2014dee` (#404, #406 and #407).
+taken in again on 3 Nov at `b2014dee` (#404, #406 and #407) and `c9d98611` (#410, owner answer 234a).
 
 ## Built
 
@@ -81,6 +81,12 @@ After the web-app trial (3 Nov):
     - any other code stays `unavailable`, and its note names it ("The Reddit reader's host answered ...").
 
     Only the code's name passes on, never the host's message. The tool list is unchanged.
+12. **Comments read outside an audit count for the findings hold** (owner answer 219b, `3fbd1446`). Comments read only
+    through `get_youtube_comments` or `search_youtube_comments` gave no receipt, so a finding that rested on them and
+    declared nothing was published. Each tool now signs `youtube_comments_read` when comments came back: the video and
+    how many records, never their text. The final check reads it for the card alone: it asks for the declaration,
+    holds a finding with none, and lets the meaning judge run. It is no audit, so community evidence is checked as
+    before. The tool list is unchanged: the receipt rides in the runtime output schema, as `get_youtube_video`'s does.
 
 ## The numbers chosen
 
@@ -133,23 +139,21 @@ After the web-app trial (3 Nov):
     nothing.
   - The judge's cap is checked before each call and charged after it, so calls running at once can pass it by their own
     cost (about USD 0.03 each). The development measurement script is held to the same cap per process.
+  - Fix 12 needs the AI to pass the receipt: one left out gets no hold on a finding that declares nothing.
 - **Waiting for the next tool list** (`docs/tool-list-changes-waiting.md`): the `key_sources` description and the
   description of a first-turn correction's sources.
 
 ## Release steps, waiting for the owner's yes
 
-First, owner answer 219b's known gap: comments read only through `get_youtube_comments` or `search_youtube_comments`
-give no receipt, so a finding that draws on them without saying so isn't held. It is fixed on this branch, or recorded
-above as a limit, before the release.
-
 1. `npm run lessons:status`, the full gate on the final head, and CI's checks on PR #398.
 2. Mark #398 ready and merge it at its checked head.
 3. Build the image and run its no-secret gate. The tool list is unchanged (35 tools, the frozen fixtures), so the apps
-   need no refresh. HRP stays 20.6.36 and Universal 20.5.46. There is no migration, site page or plugin file.
+   need no refresh. HRP stays 20.6.36 and Universal 20.5.46. Migration 0024 (#410) is the one migration, and the Atlas
+   pages change with it. There is no plugin file.
 4. Switch production as for #394:
    - record the prior state;
    - load the image and stop the promotion timer;
-   - dump the schema, migrate (nothing new) and run the role scripts;
+   - dump the schema, migrate (0024) and run the role scripts, since the review role gains the two functions of #410;
    - recreate `research-mcp`.
 
    The meaning judge stays off unless the owner switches it on for the dev accounts, by mounting its key file
@@ -161,7 +165,10 @@ above as a limit, before the release.
    - the promotion one-shot and the timer.
 
    Then the plugin receipt, a connector probe in each app, and the release record with its rollback.
-6. On the new build, rerun:
+6. Keep the 74 cards and the 41 findings for AskRigor's research, as "After release" in
+   `2026-11-03-atlas-kept-for-research.md` says (owner answers 229a, 231a and 233a), and check that they still answer
+   the Atlas lookup and leave the lists.
+7. On the new build, rerun:
    - the two runs OpenAI's capacity stopped (`r382-other-aims-metabolic`, and `r377-continue`'s second turn);
    - `r332-agar-yields` and `s359-t5-aerobic`, once InfoAccess answers again.
 
