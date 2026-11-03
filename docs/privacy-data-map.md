@@ -1764,6 +1764,15 @@ or link to YouTube: the maps made so far are kept privately while AskRigor waits
 for YouTube's answer (owner answer 208b), and findings drawn from YouTube comments
 are never published. Nothing is collected, kept or shown that was not before.
 
+The owner's private comment maps (owner answer 227): `atlas/comment-map-pages.ts`
+and `scripts/render-private-comment-maps.mts` render a maps file kept outside this
+repository into one page kept outside it, for the owner only; the script refuses a
+path inside the repository. A maps file holds, per video, its ID, AskRigor's own
+labels, the channel's name, how the comments were chosen, and counts (people who
+said they tried the method and how it went, how long it lasted, harm kinds and other
+methods credited, and comments left out); never comment text, commenters' names or
+keys, or comment IDs. The server serves no such page and reads no maps file.
+
 ## Atlas votes and comments
 
 Decision 171, sections 4D and 4E (owner answers 168a and "171 approved", 24

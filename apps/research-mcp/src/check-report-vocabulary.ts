@@ -1655,6 +1655,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "login_required",
   "low",
   "lower",
+  "lowest_hash",
   "lt",
   "lte",
   "main",

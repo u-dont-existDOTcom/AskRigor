@@ -93,8 +93,31 @@ The rules leave it unclear, so it went to the owner (question 227) instead:
 - **Already public:** `docs/youtube-channel-registry.md` in this repository holds those channel IDs. The first were
   added on 30 Oct, so they reach 30 days on 29 Nov 2026: refreshed through the API by then (1 unit each), or taken out.
 
-## The owner question
+## The owner question, and the answer
 
 Question 227 on the owner page: keep the channel list and video links off the Atlas until YouTube answers (and take
 the registry's API channel IDs out of the public file before 29 Nov), build both from non-YouTube sources only, or ask
 YouTube about public pages first.
+
+The owner's answer, 2 Nov about 23:42 UTC: "227 i thought you were building this for me privately and then when yt
+ap[proves we can publish". So the maps are built as Atlas pages now, shown only to the owner, and published when YouTube
+agrees; the channel list and video claims follow the same rule.
+
+## Built privately for the owner (owner answer 227)
+
+- `apps/research-mcp/src/atlas/comment-map-pages.ts`: the maps file's shape (`askrigor.comment-maps.v1`: per video its
+  ID, AskRigor's own label and problem, the channel's name, the sample, the counts, harm kinds and leads; never comment
+  text, commenters' names or keys, or comment IDs; every count must add up, or the file is refused); 95% Wilson ranges
+  worked out from the counts, never from a range already rounded; ranking only within one problem, only with at least 20
+  people who said they tried the method, by the low end of the range of those who said it helped; and the page: marked
+  private and kept out of search engines, problems with two or more videos ranked, the rest in one table, then every
+  map, with what else commenters credit ranked by how many said each helped and the methods one person credits folded
+  away. A video is linked only in the owner's view (decision 171 bars YouTube links on the Atlas).
+- `scripts/render-private-comment-maps.mts`: renders a maps file kept outside this repository into one page kept outside
+  it (stylesheet written in, file readable by its owner only), and refuses either path inside the repository, links
+  followed. Tests: `tests/atlas-comment-map-pages.test.ts`, invented videos only.
+- Not served: no route, no store, no data. askrigor.com is unchanged, and the owner's maps and their page stay in the
+  owner's private repository.
+- **To publish, when YouTube agrees** (and answers the follow-up about public pages, since the 31 Oct email covers
+  answers only): the maps in AskRigor's private store, an Atlas route to the same renderer, the owner's decision on video
+  links, the privacy page and data map, and a release with the owner's yes.
