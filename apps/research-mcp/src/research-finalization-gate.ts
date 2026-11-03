@@ -1872,7 +1872,10 @@ export function finalizeResearch(
   const forumSearches = (input.community_searches ?? []).filter(({ platform, access_boundary }) =>
     platform !== "review_site" && access_boundary !== "supplied_by_user");
   if (forumSearches.length > 0) {
-    const threads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
+    // Each thread once, by its comparable link, whether declared or read by the reader with a verified receipt: in #394's
+    // run, l49-b-label declared the 3 threads it classified of the 9 the reader read, and the note counted 3.
+    const threads = new Set([...forumSearches.flatMap(({ threads_read }) =>
+      threads_read.map(({ url }) => forumThreadDigest(url))), ...forumReadUrls]);
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
     if (threads.size === 0) {

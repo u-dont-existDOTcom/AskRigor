@@ -33,7 +33,8 @@ missing declarations, wording and quote guidance, key terms, unfinished research
 landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
 currency. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
 `docs/superpowers/plans/2026-10-31-video-comment-maps.md`): forum evidence resting on fewer than five threads read, or
-on one community; no study search issued after the first YouTube community receipt (the loop); and the emergency
+on one community (each thread once by its comparable link, counting those the reader's verified receipts show read
+as well as those declared); no study search issued after the first YouTube community receipt (the loop); and the emergency
 exemption declared while key sources show the research went on. These notes never become next steps or consume check
 rounds. The round limit, stuck-step logic and
 stopped-check report apply only to the six blocking checks. A usable draft and research target are still needed

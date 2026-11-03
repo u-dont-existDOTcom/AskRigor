@@ -350,6 +350,22 @@ describe("finalize_research gate", () => {
       }
     });
 
+    // #394's run: l49-b-label declared the 3 threads it classified, of the 9 the reader read, and the note counted 3.
+    it("counts the threads the reader's receipts show read, and each thread once", () => {
+      const declared = search("first", 2);
+      const reads = Array.from({ length: 5 }, (_, i) => sign("forum_thread_read", {
+        u: forumThreadDigest(`https://first.example/threads/${i}`), n: 1_500, v: "page"
+      }));
+      const result = check({ community_searches: [declared, search("second", 1)], receipts: reads });
+      expect(result.notes.join(" ")).not.toContain("Forum evidence rests on");
+      passing(result);
+      // A thread's second page, and its receipt under another form of its link, count once with it.
+      const paged = check({ community_searches: [{ ...search("first", 0), threads_read: [
+        { url: "https://first.example/threads/9" }, { url: "https://first.example/threads/9/page-2" }] }],
+      receipts: [sign("forum_thread_read", { u: forumThreadDigest("https://www.first.example/threads/9/"), n: 1_500, v: "page" })] });
+      expect(paged.notes).toContain(depthNote(1, 1));
+    });
+
     it("removes own-web-search limits only for communities whose every thread has a valid read receipt", () => {
       const searches = [search("first", 2), search("second", 1)];
       const receipts = searches[0]!.threads_read.map(({ url }) => sign("forum_thread_read", {
