@@ -7,7 +7,11 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    A receipt-tied web address works without a DOI or an answer marker. A receipt that fails verification
    does not count and produces a note. A link counts wherever the answer writes it, inside parentheses too, and a
    step offers only pages a source's kind has (until the 30 Oct rerun, "([label](URL))." read as "URL))." and was
-   refused, and web addresses were offered as doi.org links).
+   refused, and web addresses were offered as doi.org links). A forum thread `read_forum_thread` read counts by its
+   verified `forum_thread_read` receipt, matched by the thread's comparable link, and any link to the same thread is
+   its link; it is not asked for a DOI, full text or lead (#394's run, 3 November 2026, refused two such threads). A
+   note asks for a study a claim rests on to be added to `key_sources` only when this check would accept it there;
+   otherwise it asks for the study to be looked up first.
 2. A study's declared `read_depth` matches its receipts.
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
 4. Declared `safety_claims` have a `harm_screen` naming at least one harm actually searched. Duplicates, other

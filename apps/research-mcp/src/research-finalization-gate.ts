@@ -2447,26 +2447,41 @@ export function finalizeResearch(
     const source = sourceIdentifierOf(id);
     return source !== undefined && atlasSources.has(atlasSourceDigest(source));
   };
-  const keyLinks = input.key_sources.map((source) => {
-    const id = normalizeIdentifier(source.id);
+  const sourceLinks = (sourceId: string) => {
+    const id = normalizeIdentifier(sourceId);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
     const linkIds = [...new Set([...ids, ...ids.flatMap((candidate) => papers.identifiers(candidate))])];
     return { id, pubmedDoi, ids, linkIds, linkPages: papers.pages(linkIds) };
-  });
-  for (const [index, source] of input.key_sources.entries()) {
-    const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
-    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
+  };
+  // The search-result, record, full-text, audit, lead and route-failure receipts naming a source's identifiers or pages.
+  const paperReceipts = ({ linkIds, linkPages }: ReturnType<typeof sourceLinks>): VerifiedReceipt[] => {
     const receiptIds = [...new Set([...linkIds, ...linkPages.values()].map(normalizeIdentifier))];
-    const sourceReceipts = verified.filter(({ kind, claims }) =>
+    return verified.filter(({ kind, claims }) =>
       (PAPER_TIE_KINDS.has(kind) || kind === "literature_search" || kind === "full_text_lead" ||
         kind === "full_text_route_failure") &&
       [...["id", "doi", "pmid", "pmcid", "url"].map((key) => text(claims[key])), ...list(claims.ids)]
         .some((value) => value !== "" && receiptIds.includes(normalizeIdentifier(value))));
-    if (sourceReceipts.length === 0 && !checkedInAtlas(source.id)) {
+  };
+  // A forum thread read_forum_thread read: its verified forum_thread_read receipt signs the thread's comparable link,
+  // so any link to the same thread matches it (#394's run, 3 Nov: r376-forum-500 and r376-later-phase lost a round each
+  // to threads refused here although their receipts were passed and verified).
+  const threadReadHere = (sourceId: string): boolean =>
+    /^https?:\/\//iu.test(sourceId.trim()) && forumReadUrls.has(forumThreadDigest(sourceId));
+  // What the sources check accepts as a key source's provenance, so no note asks for a source it would refuse.
+  const foundHere = (sourceId: string): boolean => paperReceipts(sourceLinks(sourceId)).length > 0 ||
+    checkedInAtlas(sourceId) || threadReadHere(sourceId);
+  const keyLinks = input.key_sources.map((source) => sourceLinks(source.id));
+  for (const [index, source] of input.key_sources.entries()) {
+    const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
+    const threadRead = threadReadHere(source.id);
+    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages) ||
+      (threadRead && comparableUrl(link) === comparableUrl(source.id));
+    const sourceReceipts = paperReceipts(keyLinks[index]!);
+    if (sourceReceipts.length === 0 && !checkedInAtlas(source.id) && !threadRead) {
       // A source no AskRigor tool can look up would otherwise hold the check until its round limit (case r329, 28 Oct).
-      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead or route-failure research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
+      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead, route-failure or forum-thread research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID, read_forum_thread reads a forum thread). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
     }
     const audited = sourceReceipts.some(({ kind }) => kind === "study_audit" || kind === "review_audit");
     const read = audited || sourceReceipts.some(({ kind }) => kind === "full_text_read");
@@ -2524,6 +2539,8 @@ export function finalizeResearch(
       validatedSources.push(source.id);
       continue;
     }
+    // A thread AskRigor's reader read is a community source, cited by its link: no full text, audit or lead applies.
+    if (threadRead) continue;
     if (ids.some((candidate) => leadIds.has(candidate))) {
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, leadAttempts)) continue;
       leadSources.push(source.id);
@@ -2870,10 +2887,17 @@ export function finalizeResearch(
     const source = keySourceFor(id);
     return source?.answer_marker ?? source?.id ?? id;
   };
+  // A study is asked into key_sources only when the sources check would accept it there: in #393's run and #394's
+  // n389-forum-depth this step asked for a label and a PMC page that the sources check then refused, costing a round.
   const undeclaredStudies = (at: string, studies: readonly string[]): void => {
     const missing = studies.filter((id) => keySourceFor(id) === undefined);
-    if (missing.length > 0) {
-      addStep("declaration", joinRules(rule`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources `, "with its read depth and link, so its reading is checked like any key study."));
+    const found = missing.filter(foundHere);
+    const unfound = missing.filter((id) => !foundHere(id));
+    if (found.length > 0) {
+      addStep("declaration", joinRules(rule`${at} rests on ${found.join(", ")}, which key_sources does not list: add each to key_sources `, "with its read depth and link, so its reading is checked like any key study."));
+    }
+    if (unfound.length > 0) {
+      addStep("declaration", joinRules(joinRules(joinRules(rule`${at} rests on ${unfound.join(", ")}, which no receipt passed here shows was found or looked up, so `, "key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, fetch_pubmed_record for a "), "PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass its research_receipt, then add it to key_sources "), "with its read depth and link. A source no AskRigor tool can look up, such as a page only your own search found, is not a key source: say in the answer that AskRigor did not look it up."));
     }
   };
   for (const [index, claim] of (input.safety_claims ?? []).entries()) {
