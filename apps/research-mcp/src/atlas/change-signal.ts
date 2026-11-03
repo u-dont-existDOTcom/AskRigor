@@ -59,6 +59,9 @@ export function announcingPublicationStore(
     markEdited: (atlasNumber, editedAt) => announcing(signal, () => store.markEdited(atlasNumber, editedAt)),
     withdraw: (withdrawal) => announcing(signal, () => store.withdraw(withdrawal)),
     eraseTexts: (atlasNumber, erasedAt) => announcing(signal, () => store.eraseTexts(atlasNumber, erasedAt)),
+    // Owner answers 229a and 231a: keeping a publication for research takes it off every list.
+    keep: (change) => announcing(signal, () => store.keep(change)),
+    inspectKept: () => store.inspectKept(),
   };
 }
 

@@ -7,6 +7,7 @@ import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.j
 import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
+import { keepItemsInputSchema } from "./atlas/kept-review.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -51,6 +52,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
       .describe("With read_shared_answer or delete_shared_answer: the ID list_shared_answers gave."),
+    // Owner answers 229a and 231a: findings kept for AskRigor's research only.
+    items: keepItemsInputSchema.optional()
+      .describe("With keep_for_research or show_on_pages: P and F numbers, up to 100."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

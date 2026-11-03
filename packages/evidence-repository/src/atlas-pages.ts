@@ -68,6 +68,8 @@ export interface AtlasPagePublication {
   published: AtlasPublishedFinding | null;
   publishedAt: string;
   stateChangedAt: string;
+  /** Kept for AskRigor's research only (owner answers 229a and 231a): its page shows; no list does. */
+  kept: boolean;
 }
 
 export interface AtlasPagePublicationQuery {
@@ -80,6 +82,8 @@ export interface AtlasPagePublicationQuery {
   states?: readonly AtlasPageState[];
   /** published (the default): newest published first; changed: newest state change first. */
   order?: "published" | "changed";
+  /** Owner answers 229a and 231a: true reads the publications kept for research too (a page, the lookup). */
+  includeKept?: boolean;
   /** 1 to ATLAS_PAGE_PUBLICATIONS_PER_READ. */
   limit: number;
 }
@@ -187,7 +191,8 @@ function validatePublicationQuery(query: AtlasPagePublicationQuery): Required<Pi
     (query.atlasNumbers !== undefined && !query.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) ||
     (query.topicKey !== undefined && !TOPIC_KEY.test(query.topicKey)) ||
     (query.states !== undefined && !query.states.every((state) => (ATLAS_PAGE_STATES as readonly string[]).includes(state))) ||
-    (query.order !== undefined && query.order !== "published" && query.order !== "changed")) {
+    (query.order !== undefined && query.order !== "published" && query.order !== "changed") ||
+    (query.includeKept !== undefined && typeof query.includeKept !== "boolean")) {
     throw new AtlasPageQueryError();
   }
   return { ...query, order: query.order ?? "published" };
@@ -213,6 +218,7 @@ function pagePublicationOf(row: {
   published: unknown;
   publishedAt: string;
   stateChangedAt: string;
+  kept: boolean;
 }): AtlasPagePublication | undefined {
   const state = (ATLAS_PAGE_STATES as readonly string[]).includes(row.state) ? row.state as AtlasPageState : undefined;
   if (state === undefined || !PUBLICATION_NUMBER.test(row.publicationNumber)) return undefined;
@@ -227,6 +233,7 @@ function pagePublicationOf(row: {
     published,
     publishedAt: row.publishedAt,
     stateChangedAt: row.stateChangedAt,
+    kept: row.kept,
   };
 }
 
@@ -311,7 +318,7 @@ const changeKindSchema = z.enum(ATLAS_PAGE_CHANGE_KINDS);
 
 // The only columns of atlas_publications a page reads.
 const PAGE_PUBLICATION_COLUMNS = "listed.publication_number, listed.state, listed.atlas_number, listed.published_json, " +
-  "listed.published_at, listed.state_changed_at";
+  "listed.published_at, listed.state_changed_at, listed.kept_for_research_at IS NOT NULL AS kept";
 
 function publicationsSql(order: "published" | "changed"): string {
   return `SELECT ${PAGE_PUBLICATION_COLUMNS}
@@ -321,6 +328,7 @@ function publicationsSql(order: "published" | "changed"): string {
      AND ($1::text[] IS NULL OR listed.state = ANY($1::text[]))
      AND ($2::text[] IS NULL OR listed.publication_number = ANY($2::text[]))
      AND ($3::text[] IS NULL OR listed.atlas_number = ANY($3::text[]))
+     AND ($7::boolean OR listed.kept_for_research_at IS NULL)
      AND ($4::text IS NULL
           OR (listed.state = 'unreviewed' AND listed.published_json -> 'topic' ->> 'key' = $4::text)
           OR (listed.state IN ('accepted', 'edited') AND EXISTS (
@@ -440,6 +448,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         published_json: unknown;
         published_at: Date | string;
         state_changed_at: Date | string;
+        kept: boolean;
       }>(publicationsSql(query.order), [
         query.states === undefined ? null : [...query.states],
         query.publicationNumbers === undefined ? null : [...query.publicationNumbers],
@@ -447,6 +456,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         query.topicKey ?? null,
         query.limit,
         query.before ?? null,
+        query.includeKept === true,
       ]);
       return result.rows.flatMap((row) => {
         const publication = pagePublicationOf({
@@ -456,6 +466,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           published: row.published_json,
           publishedAt: instant(row.published_at),
           stateChangedAt: instant(row.state_changed_at),
+          kept: row.kept === true,
         });
         return publication === undefined ? [] : [publication];
       });
@@ -680,6 +691,7 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
               atlasPublicationOrder(row.publicationNumber) < atlasPublicationOrder(cursor.publicationNumber)))))
           .filter((row) => (row.state === "unreviewed" && row.published !== null) ||
             row.state === "accepted" || row.state === "edited")
+          .filter((row) => query.includeKept === true || !this.stores.publications.isKept(row.publicationNumber))
           .filter((row) => (query.states === undefined || (query.states as readonly string[]).includes(row.state)) &&
             (query.publicationNumbers === undefined || query.publicationNumbers.includes(row.publicationNumber)) &&
             (query.atlasNumbers === undefined || (row.atlasNumber !== null && query.atlasNumbers.includes(row.atlasNumber))) &&
@@ -689,7 +701,7 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           .sort((left, right) => time(right) - time(left) ||
             atlasPublicationOrder(right.publicationNumber) - atlasPublicationOrder(left.publicationNumber))
           .flatMap((row) => {
-            const publication = pagePublicationOf(row);
+            const publication = pagePublicationOf({ ...row, kept: this.stores.publications.isKept(row.publicationNumber) });
             return publication === undefined ? [] : [publication];
           })
           .slice(0, query.limit);
