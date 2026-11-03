@@ -85,7 +85,7 @@ export function passFrom(
   const claims = jwtClaims(token);
   if (claims === undefined) return { problem: "the access token is not a JWT" };
   const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (!audiences.includes(CLAUDE_SURFACE)) return { problem: "the access token is not for AskRigor's Claude surface" };
+  if (!audiences.some((audience) => audience === CLAUDE_SURFACE)) return { problem: "the access token is not for AskRigor's Claude surface" };
   if (claims.azp !== clientId && claims.client_id !== clientId) return { problem: "the access token is for another application" };
   if (typeof claims.sub !== "string" || !claims.sub.startsWith("google-oauth2|")) {
     return { problem: "the sign-in was not the Google login: sign in again and choose Google" };

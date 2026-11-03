@@ -45,6 +45,8 @@ describe("web-app engine sign-in", () => {
     expect(JSON.stringify(kept)).not.toContain("never kept");
     expect(passFrom({ access_token: jwt(claims({ aud: "https://mcp.askrigor.com/mcp" })) }, CLIENT, 1_000))
       .toEqual({ problem: expect.stringContaining("not for AskRigor's Claude surface") });
+    expect(passFrom({ access_token: jwt(claims({ aud: `${CLAUDE_SURFACE}.example.org` })) }, CLIENT, 1_000))
+      .toEqual({ problem: expect.stringContaining("not for AskRigor's Claude surface") });
     expect(passFrom({ access_token: jwt(claims({ azp: "another" })) }, CLIENT, 1_000))
       .toEqual({ problem: expect.stringContaining("another application") });
     expect(passFrom({ access_token: jwt(claims({ sub: "auth0|owner" })) }, CLIENT, 1_000))
