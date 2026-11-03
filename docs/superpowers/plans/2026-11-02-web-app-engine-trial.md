@@ -140,7 +140,7 @@ summaries for both runs. Each case's two answers go to the judges as A and B in 
 doesn't know which engine wrote which. Judges: Claude subagents, and the other model family (GPT through Codex) on the
 same blind packets, because a Claude judge may favour Claude's answers; the record reports where they disagree.
 
-**Two judges, one rule (written on 3 Nov at about 08:55 UTC, after stage 1 ran and before either judge saw it):** for
+**Two judges, one rule (written on 3 Nov at 08:43 UTC, after stage 1 ran and before either judge saw it):** for
 the stage-2 rule, a case counts as won by Claude, or by ChatGPT, only when both judges prefer the same answer. A split or
 a tie counts as neither. Stage 2 runs only if Claude wins more cases than ChatGPT does.
 
