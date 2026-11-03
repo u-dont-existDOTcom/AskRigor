@@ -164,7 +164,8 @@ Jobs 2 to 4 only add notes. A failure, timeout, refusal or reached daily cap lea
 note saying the judge did not run. The runtime result reports `meaning_judge` (`status`, `reason`, `held`, `notes`).
 It is off unless `ASKRIGOR_MEANING_JUDGE=on`, with the key read from `ASKRIGOR_MEANING_JUDGE_KEY_FILE` (a read-only
 mounted secret), `ASKRIGOR_MEANING_JUDGE_WORKSPACE_ID` for an organization-scoped key, and optional
-`ASKRIGOR_MEANING_JUDGE_MODEL`, `_EFFORT` (`low` or `medium`), `_DAILY_CAP_USD` (default 10) and `_TIMEOUT_SECONDS`
+`ASKRIGOR_MEANING_JUDGE_MODEL`, `_EFFORT` (`low` or `medium`), `_DAILY_CAP_USD` (default 3, the owner's "hard cap of $3 a
+day") and `_TIMEOUT_SECONDS`
 (default 60). It is paid from the owner's monthly Claude API credits under the policy's `OWNER_ANSWER_221`. Its
 development measurement on #393's run is `docs/audits/2026-11-02-meaning-judge-development.md`; as the owner's
 question put it, it returns notes only and stops no answer until a regression run has measured it against the

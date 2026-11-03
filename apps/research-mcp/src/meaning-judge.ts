@@ -260,6 +260,7 @@ const PRICES: Readonly<Record<string, Prices>> = {
 
 const HOUR = 60 * 60 * 1_000;
 const DEFAULT_TIMEOUT_SECONDS = 60;
+const DEFAULT_DAILY_CAP_USD = 3;
 const MAX_OUTPUT_TOKENS = 16_000;
 const MAX_WHY = 200;
 const EFFORTS = new Set(["low", "medium"]);
@@ -356,7 +357,8 @@ export function createMeaningJudge(dependencies: MeaningJudgeDependencies = {}):
   const apiKey = key;
   const model = env.ASKRIGOR_MEANING_JUDGE_MODEL?.trim() || "claude-opus-5-5";
   const workspace = env.ASKRIGOR_MEANING_JUDGE_WORKSPACE_ID?.trim() || undefined;
-  const cap = Number(env.ASKRIGOR_MEANING_JUDGE_DAILY_CAP_USD ?? 10);
+  // Owner answer 221 approved "a hard cap of $3 a day (at most about $90 of the $200 a month)".
+  const cap = Number(env.ASKRIGOR_MEANING_JUDGE_DAILY_CAP_USD ?? DEFAULT_DAILY_CAP_USD);
   const effort = env.ASKRIGOR_MEANING_JUDGE_EFFORT?.trim() || "low";
   const timeoutSeconds = Number(env.ASKRIGOR_MEANING_JUDGE_TIMEOUT_SECONDS ?? DEFAULT_TIMEOUT_SECONDS);
   const prices = PRICES[model];

@@ -86,8 +86,10 @@
 - **Job 4** fails P-1020 and the fragments like it. In a hand-read sample of 22 failures from an earlier run, most were
   caveats about studies or carried a "whom it applies to" that describes the research; a few were borderline, with the
   missing context in the subject the page shows above the claim, which v6's rubric now asks the judge to read.
-- **Cost:** at about USD 0.03 a check, the default daily cap of USD 10 allows about 330 checks a day, and a regression
-  run of 113 turns costs about USD 3.5, well inside the owner's monthly credit.
+- **Cost:** at about USD 0.03 a check, the default daily cap of USD 3 (owner answer 221's "hard cap of $3 a day"; it
+  was USD 10 when this was measured) allows about 100 checks a day. A regression run of 113 turns costs about USD 3.5,
+  well inside the owner's monthly credit but above one day's cap: in a run within one UTC day the judge stops near its
+  end, and each later check carries the note that it did not run.
 - **Next:** the rubric is frozen at `2026-11-02.6`. The validation step is #394's run, which nothing here has read, and
   the judge stays notes-only until a regression run has measured it against the owner's judges.
 

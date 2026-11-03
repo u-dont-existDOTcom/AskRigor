@@ -266,6 +266,24 @@ describe("the meaning judge's call", () => {
     }
   });
 
+  // Owner answer 221: "a hard cap of $3 a day". The default was USD 10 until the build after #394.
+  it("stops at USD 3 a day unless the server's settings give another cap", async () => {
+    // Each reply costs 500,000 * 4 / 1e6 = USD 2.
+    const costly = message({ usage: { ...message().usage, input_tokens: 500_000, output_tokens: 0, cache_read_input_tokens: 0 } });
+    const fake = fakeClient(costly);
+    const { judge: configured } = judge(fake);
+    for (const answer of ["First answer.", "Second answer."]) {
+      expect((await configured.judge(meaningJudgeBundle({ ...SOURCE, answer })!)).judgment.status).toBe("ran");
+    }
+    expect((await configured.judge(meaningJudgeBundle({ ...SOURCE, answer: "Third answer." })!)).judgment)
+      .toEqual({ status: "skipped", reason: "daily_budget" });
+    expect(fake.requests).toHaveLength(2);
+    const { judge: raised } = judge(fakeClient(costly), { ASKRIGOR_MEANING_JUDGE_DAILY_CAP_USD: "5" });
+    for (const answer of ["First answer.", "Second answer.", "Third answer."]) {
+      expect((await raised.judge(meaningJudgeBundle({ ...SOURCE, answer })!)).judgment.status).toBe("ran");
+    }
+  });
+
   it("reuses a judgment for an hour, and stops at the daily cap until the next UTC day", async () => {
     let now = Date.parse("2026-11-02T12:00:00Z");
     // Each reply costs (4,000 * 4 + 700 * 20 + 3,000 * 0.2) / 1e6 = USD 0.0306.
