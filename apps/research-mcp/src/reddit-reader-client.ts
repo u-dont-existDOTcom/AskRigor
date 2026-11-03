@@ -32,7 +32,7 @@ const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
 // Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
 const line: object[] = [];
-type FailureState = "not_found" | "invalid" | "unavailable" | "busy";
+type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available";
 export interface RedditReaderComment {
   id: string; parent_id: string; depth: number; person?: string; is_original_poster: boolean;
   text: string | null; removed: boolean; collapsed: boolean; score: number; created: string | number; url: string;
@@ -159,8 +159,11 @@ export function createRedditReaderClient(options: {
     }
     if (result.isError) {
       const failure = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(data);
-      throw new ReaderError(failure.success && failure.data.error.code === "THREAD_NOT_RENDERED" ? "not_found"
-        : failure.success && failure.data.error.code === "INVALID_INPUT" ? "invalid" : "unavailable");
+      const code = failure.success ? failure.data.error.code : undefined;
+      // LOGIN_REQUIRED: the host's own Reddit sign-in has lapsed, and only its operator can renew it. On 3 Nov every
+      // thread read answered it while searches still worked, and the AI, told only "unavailable", kept trying.
+      throw new ReaderError(code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid"
+        : code === "LOGIN_REQUIRED" ? "not_available" : "unavailable");
     }
     const parsed = schema.safeParse(data);
     if (!parsed.success) throw new ReaderError("unavailable");

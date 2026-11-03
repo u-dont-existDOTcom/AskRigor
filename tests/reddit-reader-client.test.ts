@@ -193,9 +193,10 @@ describe("Reddit stdio reader", () => {
     expect(events.find((record) => record.event === "start").input).toEqual({ ...input, limit: 25 });
     expect(JSON.stringify(events.find((record) => record.event === "boot"))).not.toContain(input.query);
   });
-  it.each(["THREAD_NOT_RENDERED", "INVALID_INPUT", "UNKNOWN"])("maps %s without exposing provider text", async (code) => {
+  it.each(["THREAD_NOT_RENDERED", "INVALID_INPUT", "LOGIN_REQUIRED", "UNKNOWN"])("maps %s without exposing provider text", async (code) => {
     const { client } = await fake(`error-${code}`);
-    const expected = code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid" : "unavailable";
+    const expected = code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid"
+      : code === "LOGIN_REQUIRED" ? "not_available" : "unavailable";
     expect(await client.readThread(URL)).toEqual({ access_state: expected, url: URL });
     expect(await client.searchThreads({ query: "synthetic" })).toEqual({ access_state: expected, threads: [], returned: 0 });
   });

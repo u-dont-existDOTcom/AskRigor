@@ -157,6 +157,21 @@ describe("forum tools", () => {
       expect((result.content[0] as { text: string }).text).toContain(note);
     }
   });
+  it("says a signed-out reader stays signed out, so the AI stops calling it and says why", async () => {
+    thread.mockResolvedValue({ access_state: "not_available", url: URL });
+    search.mockResolvedValue({ access_state: "not_available", threads: [], returned: 0 });
+    const caller = await client();
+    for (const [name, args] of [["read_forum_thread", { url: URL }], ["search_reddit_threads", { query: "exercise outcomes" }]] as const) {
+      const result = await caller.callTool({ name, arguments: args });
+      expect(result.isError).not.toBe(true);
+      const note = "AskRigor's Reddit reader has been signed out of Reddit, and stays so until AskRigor's operator signs " +
+        "it back in: don't call it again in this research. Reddit stays with the AI's own search, and the answer says " +
+        "that the reader couldn't read Reddit, and why.";
+      expect(result.structuredContent).toMatchObject({ access_status: "inaccessible", limitations: [note], data: { access_state: "not_available" } });
+      expect(result.structuredContent).not.toHaveProperty("research_receipt");
+      expect((result.content[0] as { text: string }).text).toContain(note);
+    }
+  });
   it("refuses personal search words with quoted matches before contacting the reader", async () => {
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query: "how can I fix my bad hip" } });
     expect(result.isError).not.toBe(true);
