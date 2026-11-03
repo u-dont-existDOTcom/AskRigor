@@ -179,7 +179,7 @@ describe("Reddit stdio reader", () => {
     expect((await records()).filter((record) => record.event === "start").slice(0, 2).map((record) => record.input.thread))
       .toEqual(["https://redd.it/abc123", "https://www.reddit.com/r/synthetic/comments/abc123/"]);
   });
-  it("searches seven posts, forwards filters on stdin and reuses its lazy connection", async () => {
+  it("asks for a page of 25, forwards filters on stdin and reuses its lazy connection", async () => {
     const { client, records, log } = await fake();
     await expect(readFile(log)).rejects.toMatchObject({ code: "ENOENT" });
     const input = { query: "synthetic research", subreddit: "synthetic", sort: "top" as const, time: "year" as const, after: "synthetic-after" };
@@ -189,7 +189,8 @@ describe("Reddit stdio reader", () => {
     await client.searchThreads({ query: "second wording" });
     const events = await records();
     expect(events.filter((record) => record.event === "boot")).toHaveLength(1);
-    expect(events.find((record) => record.event === "start").input).toEqual(input);
+    // Without a page size the host returned 7 (#394's run); 25 is Reddit's own default page.
+    expect(events.find((record) => record.event === "start").input).toEqual({ ...input, limit: 25 });
     expect(JSON.stringify(events.find((record) => record.event === "boot"))).not.toContain(input.query);
   });
   it.each(["THREAD_NOT_RENDERED", "INVALID_INPUT", "UNKNOWN"])("maps %s without exposing provider text", async (code) => {

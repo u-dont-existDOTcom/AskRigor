@@ -11,6 +11,13 @@ const DEADLINE_MS = 45_000;
 const MAXIMUM_MORE_LENGTH = 1_000_000;
 const MAXIMUM_COMMENT_CHARACTERS = 100_000;
 const IDLE_MS = 5 * 60_000;
+/**
+ * The page a search asks the host for. Without a size the host returned 7 threads (#394's run: 138 of 148 searches,
+ * none with a next page), so "found" counted a page and could not tell a niche topic from a busy one. 25 is Reddit's
+ * own default page (its maximum is 100): a fuller page without asking Reddit for more than one, and 25 titles leave
+ * the AI a choice without filling its context. The host's next-page token gives the next 25.
+ */
+export const SEARCH_PAGE_SIZE = 25;
 const SORT = ["relevance", "hot", "top", "new", "comments"] as const;
 const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
 let readerTurn = Promise.resolve();
@@ -171,7 +178,7 @@ export function createRedditReaderClient(options: {
           sort: z.enum(SORT).optional(), time: z.enum(TIME).optional(), after: token.optional() }).safeParse(input);
         if (!request.success) throw new ReaderError("invalid");
         return await queued(async (signal, end): Promise<RedditSearchResult> => {
-          const result = await call("search_reddit", request.data, searchSchema, signal, end);
+          const result = await call("search_reddit", { ...request.data, limit: SEARCH_PAGE_SIZE }, searchSchema, signal, end);
           const threads = result.posts.map(({ url, subreddit, title }) => ({ url, subreddit, title }));
           return { access_state: "searched", threads, returned: threads.length, ...(result.next_page_token === null ? {} : { after: result.next_page_token }) };
         });

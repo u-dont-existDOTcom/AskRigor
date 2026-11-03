@@ -312,8 +312,8 @@ describe("finalize_research gate", () => {
 
     it("adds verified search counts without counting duplicate thread links twice or blocking", () => {
       const links = ["https://forum.example/threads/1", "https://forum.example/threads/2"];
-      const receipts = [sign("forum_search", { q: "first", u: links.map(forumThreadDigest) }),
-        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)] })];
+      const receipts = [sign("forum_search", { q: "first", u: links.map(forumThreadDigest), more: "0" }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)], more: "0" })];
       const result = check({ community_searches: [search("first", 1)], receipts });
       expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 2 threads. Only 2 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
       passing(result);
@@ -323,11 +323,27 @@ describe("finalize_research gate", () => {
     });
 
     it("uses singular thread wording when searches find only one thread", () => {
-      const receipts = [sign("forum_search", { q: "first", u: [forumThreadDigest("https://forum.example/threads/1")] }),
-        sign("forum_search", { q: "second", u: [forumThreadDigest("https://forum.example/threads/1")] })];
+      const receipts = [sign("forum_search", { q: "first", u: [forumThreadDigest("https://forum.example/threads/1")], more: "0" }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest("https://forum.example/threads/1")], more: "0" })];
       const result = check({ community_searches: [search("first", 1)], receipts });
       expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 1 thread. Only 1 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
       passing(result);
+    });
+
+    // #394's run: 138 of 148 searches returned exactly 7 threads, one page with no next page, and the note called
+    // those pages what the searches found and, under five, said few threads exist.
+    it("counts a page, not a total, when a search left more pages or could not tell", () => {
+      const links = ["https://www.reddit.com/r/first/comments/a1/", "https://www.reddit.com/r/first/comments/a2/"];
+      const page = (more?: string) => [sign("forum_search", { q: "first", u: links.map(forumThreadDigest), ...(more === undefined ? {} : { more }) }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)], more: "0" })];
+      const listed = (more: string) => depthNote(1, 1).replace("community. Keep", `community. AskRigor's searches listed 2 threads on the result pages read${more}: in the answer, give that as the threads those pages listed, not as how many there are. Keep`);
+      for (const [more, words] of [["1", ", and more pages exist"], [undefined, ""]] as const) {
+        const result = check({ community_searches: [search("first", 1)], receipts: page(more) });
+        expect(result.notes).toContain(listed(words));
+        expect(result.notes.join(" ")).not.toContain("say in the answer that few threads exist");
+        expect(result.notes.join(" ")).not.toContain("Only 2 turned up");
+        passing(result);
+      }
     });
 
     it("removes own-web-search limits only for communities whose every thread has a valid read receipt", () => {

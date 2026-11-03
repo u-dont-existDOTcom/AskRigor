@@ -119,6 +119,28 @@ describe("forum tools", () => {
       expect((result.content[0] as { text: string }).text).toMatch(/and why you stopped\.$/u);
     }
   });
+  // #394's run: 138 of 148 searches returned exactly 7 threads and none offered a next page, so "found" counted a page.
+  it("says whether a search's page is all there is, and signs only what it knows", async () => {
+    const threads = (count: number) => Array.from({ length: count }, (_, index) =>
+      ({ url: `https://www.reddit.com/r/example/comments/p${index}/`, subreddit: "example", title: `Report ${index}` }));
+    search.mockResolvedValueOnce({ access_state: "searched", threads: threads(25), returned: 25, after: "next" })
+      .mockResolvedValueOnce({ access_state: "searched", threads: threads(12), returned: 12 })
+      .mockResolvedValueOnce({ access_state: "searched", threads: threads(25), returned: 25 });
+    const caller = await client();
+    const expected = [
+      ["one page: more exist, and its after gives the next page", "1"],
+      ["all this search found", "0"],
+      ["a full page, and Reddit offered no next page, so whether more exist is unknown", undefined]
+    ] as const;
+    for (const [page, more] of expected) {
+      const result = await caller.callTool({ name: "search_reddit_threads", arguments: { query: "exercise outcomes" } });
+      const text = (result.content[0] as { text: string }).text;
+      expect(text).toContain(`, ${page}; access status searched.`);
+      expect(text).toContain("Each search returns one page of up to 25 threads: pass its after for the next page");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      expect(verified.ok && verified.claims.more).toBe(more);
+    }
+  });
   it("refuses personal search words with quoted matches before contacting the reader", async () => {
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query: "how can I fix my bad hip" } });
     expect(result.isError).not.toBe(true);

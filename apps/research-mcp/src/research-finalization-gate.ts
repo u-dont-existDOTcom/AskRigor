@@ -1855,9 +1855,16 @@ export function finalizeResearch(
     .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
   const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
-  const searchDepth = forumSearchReceipts.length === 0 ? "" : ` AskRigor's searches found ${forumFound.size} ${forumFound.size === 1 ? "thread" : "threads"}.` +
-    (forumSearchReceipts.length >= 2 && forumFound.size < 5
-      ? ` Only ${forumFound.size} turned up in ${forumSearchReceipts.length} searches: if other wordings find no more, say in the answer that few threads exist.` : "");
+  // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
+  // A full page without a next page, or a receipt from before, leaves it unknown, and then the threads found are a
+  // count of pages, not how many there are (#394's run: 138 of 148 searches returned exactly 7, none with a next page).
+  const searchPages = forumSearchReceipts.map(({ claims }) => text(claims.more));
+  const foundThreads = `${forumFound.size} ${forumFound.size === 1 ? "thread" : "threads"}`;
+  const searchDepth = forumSearchReceipts.length === 0 ? ""
+    : searchPages.every((more) => more === "0")
+      ? ` AskRigor's searches found ${foundThreads}.` + (forumSearchReceipts.length >= 2 && forumFound.size < 5
+        ? ` Only ${forumFound.size} turned up in ${forumSearchReceipts.length} searches: if other wordings find no more, say in the answer that few threads exist.` : "")
+      : ` AskRigor's searches listed ${foundThreads} on the result pages read${searchPages.includes("1") ? ", and more pages exist" : ""}: in the answer, give that as the threads those pages listed, not as how many there are.`;
   const forumSearches = (input.community_searches ?? []).filter(({ platform, access_boundary }) =>
     platform !== "review_site" && access_boundary !== "supplied_by_user");
   if (forumSearches.length > 0) {
