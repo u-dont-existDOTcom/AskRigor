@@ -75,7 +75,7 @@ import {
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
 
-import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-client.js";
+import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
@@ -3224,6 +3224,8 @@ function registerOpenFullTextMcpTools(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
+      // From the call's start, so its earlier routes' time counts too.
+      const libraryDeadline = Date.now() + LIBRARY_CALL_DEADLINE_MS;
       let runtime: AcquireOpenFullTextRuntime | undefined;
       const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
       if (infoAccess !== undefined && "subject" in auth) {
@@ -3233,7 +3235,7 @@ function registerOpenFullTextMcpTools(
         const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
           (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService)) !== undefined
             ? "public_only" : undefined;
-        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
+        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi, libraryDeadline) } };
       }
       return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
     }

@@ -29,7 +29,8 @@ export interface OwnerLibraryPdf {
   sha256: string;
   size: number;
 }
-export type OwnerLibraryErrorCode = "unavailable" | "not_found" | "checksum_mismatch" | "too_large" | "busy" | "invalid_response";
+export type OwnerLibraryErrorCode = "unavailable" | "not_found" | "checksum_mismatch" | "too_large" | "busy" | "invalid_response" |
+  "timeout";
 export interface AcquireOpenFullTextRuntime {
   ownerLibrary?: {
     access: "owner" | "public_only";
@@ -227,9 +228,12 @@ export async function acquireOpenFullText(
         // another try. The regression run on #389's build called the route up to 16 times for one such paper. A busy
         // library is a failure to retry, which the boundary says.
         const answered = code === "not_found" || code === "invalid_response";
-        attempts.push({ route: "owner_library", result: answered ? "not_found" : "error", identifier: doi });
+        attempts.push({ route: "owner_library", result: answered ? "not_found" : "error", identifier: doi,
+          ...(code === "timeout" ? { failure_kind: "timeout" as const } : {}) });
         if (code === "invalid_response") libraryBoundary = " The owner library could not supply this paper, so repeating the call is unlikely to help.";
         if (code === "busy") libraryBoundary = " The owner library stayed busy with other requests, so the same call may work in a minute.";
+        // The call's own deadline ended the library route, so the result reaches the AI before the app gives up on it.
+        if (code === "timeout") libraryBoundary = " The owner library did not answer within this call's time, so the same call may work in a minute.";
       }
     }
   }
