@@ -106,7 +106,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
   }
   const returned = new Map<string, ShownFinding>();
   try {
-    const page = await loadAtlasFindings(dependencies.source, { ...(query === undefined ? {} : { search: query }),
+    const page = await loadAtlasFindings(dependencies.source, { includeKept: true, ...(query === undefined ? {} : { search: query }),
       ...(input.topic_key === undefined ? {} : { topicKey: input.topic_key }) });
     const findings = page.findings.slice(0, input.limit);
     output.findings = findings.map((finding) => publicFinding(finding, origin));
@@ -116,7 +116,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     // Topic leads do not need to contain the query's words; they are open leads of the matched topic.
     for (const finding of findings) returned.set(finding.publicationNumber, finding);
     for (const topicKey of topics) {
-      const topic = await loadAtlasTopic(dependencies.source, topicKey);
+      const topic = await loadAtlasTopic(dependencies.source, topicKey, { includeKept: true });
       const leads = topic?.sections.find(({ id }) => id === "leads")?.findings ?? [];
       const bounded = leads.filter((finding) => {
         if (returned.has(finding.publicationNumber)) return true;
