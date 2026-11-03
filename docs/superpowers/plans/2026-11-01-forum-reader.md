@@ -1,7 +1,7 @@
 # AskRigor reads forum threads itself
 
-Owner answer 211a, 1 November 2026. A plan for a later build, not built yet: the Reddit source is an open owner question,
-and the tool list should change once.
+Owner answers 211a and 213b, 1 November 2026. Built on the branch `claude/forum-reader-20261101`, for a release the owner says yes
+to. It changes the tool list once, with the changes that were waiting for that, and carries HRP 20.6.36 for the owner's yes.
 
 ## Why
 
@@ -37,7 +37,8 @@ The reader stops at every one of the middle three. It solves no challenge and us
 
 ## Design
 
-- **A new tool, `read_forum_thread`,** flat input: `url`. It adds to the list, so that release says the apps need one refresh.
+- **Two new tools,** so that release says the apps need one refresh: `read_forum_thread` (input `url`) and `search_reddit_threads` (input
+  `query`), whose results give the numbers an answer needs: how many threads were found, and how many read.
 - It checks robots.txt under RFC 9309, then fetches through `fetchDiscoveredDocument` (public addresses only, byte and time
   limits) with AskRigor's user agent.
 - It returns the page's visible text with block boundaries, its title, `next_page` when the page links a next one, and
@@ -52,11 +53,14 @@ The reader stops at every one of the middle three. It solves no challenge and us
 ## Reddit
 
 Reddit's own API is out (question 33, 4 October; the owner again on 1 November: approval is hard, and the API lags by six
-months), and nothing goes to Reddit. Reddit threads stay with each AI's own search unless owner question 213 gives another
-source. The tool's fields don't depend on which source it is.
+months), and nothing goes to Reddit about it. AskRigor reads Reddit through a reader service on the owner's server (owner answer
+213b, for all users): over SSH, on a key only production holds, one request at a time. On 1 November it read 33 of a
+34-comment thread in 7 seconds, and each search returned up to 7 threads. It passes no bot check: if Reddit starts asking for one, or
+the reader stops working, `read_forum_thread` says so, and Reddit stays with each AI's own search. Usernames never reach the
+result: `person` is a per-thread key, so the AI counts people once.
 
 ## Order
 
-1. Owner question 213.
-2. Build on a branch of its own, with the changes in `docs/tool-list-changes-waiting.md`, so the apps refresh once.
+1. Build (`read_forum_thread`, `search_reddit_threads`), with the changes in `docs/tool-list-changes-waiting.md`, so the apps refresh once.
+2. The release prepares a key on the host and its known-hosts file, and the reader's side accepts that key (needs the owner).
 3. Regression: the forum cases, counted by `tools/forum-depth.py`, against the median of 2.

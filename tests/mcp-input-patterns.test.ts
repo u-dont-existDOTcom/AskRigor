@@ -82,7 +82,7 @@ describe("published MCP input patterns", () => {
         await server.connect(serverTransport);
         await client.connect(clientTransport);
         const { tools } = await client.listTools();
-        expect(tools).toHaveLength(surface === "/mcp/gemini" ? 22 : 33);
+        expect(tools).toHaveLength(surface === "/mcp/gemini" ? 22 : 35);
         // Gemini deliberately publishes pattern constraints as prose hints.
         // Check every registered input even when its pattern is not published.
         const patterns = new Map([...inputs].map(([name, input]) => [name, inspectZod(input, `${surface} ${name}`)]));

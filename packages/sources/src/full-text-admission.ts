@@ -31,7 +31,7 @@ export const publicCopySearchSchema = z.object({
 }).strict();
 export const publicCopySearchResultSchema = z.object({
   status: z.enum(["declared", "not_declared", "missing_exact_identifiers"]),
-  missing: z.array(z.enum(["doi", "title"])).optional(),
+  missing: z.array(z.enum(["doi", "pmcid", "pmid", "title"])).optional(),
   query_count: z.number().int().min(0).max(12)
 }).strict();
 export type PublicCopySearch = z.output<typeof publicCopySearchSchema>;
@@ -57,7 +57,8 @@ export const fullTextCandidateSchema = z.object({
 }).strict();
 export type FullTextCandidate = z.output<typeof fullTextCandidateSchema>;
 export interface FrozenArticleIdentity {
-  doi: string;
+  doi?: string;
+  pmcid?: string;
   pmid?: string;
   title?: string;
   title_variants?: readonly string[];
@@ -162,8 +163,13 @@ export function titleVariants(...titles: Array<string | undefined>): string[] {
 }
 export function checkPublicCopySearch(identity: FrozenArticleIdentity, search?: PublicCopySearch): PublicCopySearchResult {
   if (search === undefined) return { status: "not_declared", query_count: 0 };
-  const missing: Array<"doi" | "title"> = [];
-  if (!search.queries.some((query) => query.toLowerCase().includes(identity.doi.toLowerCase()))) missing.push("doi");
+  const missing: Array<"doi" | "pmcid" | "pmid" | "title"> = [];
+  const identifier = identity.doi !== undefined ? { key: "doi" as const, value: identity.doi }
+    : identity.pmcid !== undefined ? { key: "pmcid" as const, value: identity.pmcid }
+      : identity.pmid === undefined ? undefined : { key: "pmid" as const, value: identity.pmid };
+  if (identifier !== undefined && !search.queries.some((query) => query.toLowerCase().includes(identifier.value.toLowerCase()))) {
+    missing.push(identifier.key);
+  }
   const titles = titleVariants(identity.title, ...(identity.title_variants ?? []));
   if (titles.length > 0 && !search.queries.some((query) =>
     titles.some((title) => normalizeIdentityText(query).includes(normalizeIdentityText(title)))
@@ -180,7 +186,7 @@ export function verifyArticleIdentity(
   const titles = titleVariants(identity.title, ...(identity.title_variants ?? []));
   if (ownTitle !== undefined && titles.length > 0 &&
       !titles.some((title) => compactIdentityText(ownTitle) === compactIdentityText(title))) return undefined;
-  if (options.citation_doi !== undefined) {
+  if (options.citation_doi !== undefined && identity.doi !== undefined) {
     const doi = options.citation_doi.trim().toLowerCase().replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
     return doi === identity.doi.toLowerCase() ? "doi_exact" : undefined;
   }
@@ -192,8 +198,10 @@ export function verifyArticleIdentity(
     ? sectionKind(line) === "references"
     : sectionKind(line) !== undefined || IDENTITY_BODY_BOUNDARIES.includes(normalizedHeading(line)));
   const front = boundary < 0 ? area : lines.slice(0, boundary).join("\n");
-  const escaped = identity.doi.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  if (new RegExp(`(?:^|[^a-z0-9/])${escaped}(?=$|[\\s<>.,;)])`, "u").test(front.toLowerCase())) return "doi_exact";
+  if (identity.doi !== undefined) {
+    const escaped = identity.doi.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    if (new RegExp(`(?:^|[^a-z0-9/])${escaped}(?=$|[\\s<>.,;)])`, "u").test(front.toLowerCase())) return "doi_exact";
+  }
   const compact = compactIdentityText(front);
   const pii = compactIdentityText(identity.pii ?? "");
   if (pii.length >= 10 && compact.includes(pii)) return "pii_exact";

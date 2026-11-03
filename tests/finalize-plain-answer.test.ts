@@ -23,7 +23,7 @@ import {
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch,
-  finalizeResearchInputSchema, plainAnswerClaimDigest, type FinalizeResearchInput
+  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
   discoveryQueryDigest, issueResearchReceipt, plainAnswerAccountBinding, researchTargetDigest, verifyResearchReceipt
@@ -204,10 +204,23 @@ describe("finalize_research compares the answer with the plain answer registered
     expect(backed.plain_answer_note).toContain(`This research ${outcome} that, from a full-text audit of 1 study:`);
   });
 
-  it("asks for the comparison, and blocks until it is given or the plain answer's receipt is left out", () => {
+  // Owner answer 217b (2 Nov 2026): with the account's note on, a missing comparison holds the answer back, so the note
+  // always shows; with the note off it stays advice. Without the plain answer's receipt there is nothing to compare.
+  it("blocks until the comparison is given while the note is on, and only advises with the note off", () => {
     const result = check({ plain_answer_comparison: undefined });
-    expect(result.status).toBe("ready_with_limits");
-    expect(advisoryNotes(result)).toEqual([
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([
+      "Give plain_answer_comparison: for each of the 2 claims of the plain answer registered before this research, " +
+        "copied exactly as manage_research_access listed it, whether the research confirmed, corrected or qualified " +
+        "it, or did not check it (outcome); a confirmation, correction or qualification also gives the answer's sentence stating " +
+        "it (answer_quote) and what backs it (sources). The answer then ends with the note comparing the two, which " +
+        "the panel also shows."
+    ]);
+    expect(result.next_step_kinds).toEqual(["declaration"]);
+    expect(result).not.toHaveProperty("plain_answer_note");
+    const off = check({ plain_answer_comparison: undefined }, false);
+    expect(off.status).toBe("ready_with_limits");
+    expect(advisoryNotes(off)).toEqual([
       "Give plain_answer_comparison: for each of the 2 claims of the plain answer registered before this research, " +
         "copied exactly as manage_research_access listed it, whether the research confirmed, corrected or qualified " +
         "it, or did not check it (outcome); a confirmation, correction or qualification also gives the answer's sentence stating " +
@@ -215,8 +228,7 @@ describe("finalize_research compares the answer with the plain answer registered
         "out of receipts: the answer then ends without the note.",
       TOOL_LIST_REFRESH_HINT
     ]);
-    expect(result).not.toHaveProperty("plain_answer_note");
-    expect(result.finalization_receipt).toEqual(expect.any(String));
+    expect(off.finalization_receipt).toEqual(expect.any(String));
     expect(check({ plain_answer_comparison: undefined, receipts: [audit()] }).status).toBe("ready_with_limits");
   });
 
@@ -243,7 +255,10 @@ describe("finalize_research compares the answer with the plain answer registered
   });
 
   it("needs each registered claim once, copied as registered", () => {
-    expect(steps({ plain_answer_comparison: [COMPARISON[0]!] })).toEqual([
+    // A claim left out holds the answer back while the note is on (owner answer 217b); extra entries stay advice.
+    const left = check({ plain_answer_comparison: [COMPARISON[0]!] });
+    expect(left.status).toBe("not_ready");
+    expect(left.next_steps).toEqual([
       "plain_answer_comparison leaves out claim 1 of the plain answer registered before this research, as " +
         "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, " +
         "corrected or qualified it, or did not check it."
@@ -684,8 +699,8 @@ describe("manage_research_access and finalize_research through the connector (ow
       "this research was passed in receipts, so the answer ends without the note comparing it with one.");
   });
 
-  it("adds no tool: the catalog stays at 33, and neither tool has a Custom GPT Action path", () => {
-    expect(RESEARCH_OPERATIONS).toHaveLength(33);
+  it("adds no tool: the catalog stays at 35, and neither tool has a Custom GPT Action path", () => {
+    expect(RESEARCH_OPERATIONS).toHaveLength(35);
     for (const name of ["manage_research_access", "finalize_research"]) {
       expect(RESEARCH_OPERATIONS.find((operation) => operation.name === name)?.actionEnabled).toBe(false);
     }
@@ -834,6 +849,23 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     expect(comparisonNotes(result)).toEqual([]);
   });
 
+  it("calls threads read here only when every thread behind the claim has a verified read receipt", () => {
+    const receipt = issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(thread.url), n: 20, v: "reddit", t: 2_500 }, { secret: SECRET });
+    const result = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt] });
+    expect(result.plain_answer_note).toBe(threadNote.replace("my own reading of 1 forum thread", "1 forum thread read here"));
+    const other = { url: "https://forum.example/threads/2", title: "Other experiences" };
+    const mixed = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt], community_searches: [search([thread, other])],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url, other.url] }] });
+    expect(mixed.plain_answer_note).toContain("my own reading of 2 forum threads");
+    const both = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt,
+      issueResearchReceipt("forum_thread_read", { u: forumThreadDigest(other.url), n: 1_500, v: "page", t: 3_000 }, { secret: SECRET })],
+      community_searches: [search([thread, other])],
+      plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding, sources: [thread.url, other.url] }] });
+    expect(both.plain_answer_note).toContain("2 forum threads read here");
+    const changed = forumCheck({ receipts: [plainReceipt(1_000, [claim]), audit(), receipt.slice(0, -1)] });
+    expect(changed.plain_answer_note).toBe(threadNote);
+  });
+
   it("matches an old.reddit.com source to the www.reddit.com thread declared read", () => {
     const result = forumCheck({ plain_answer_comparison: [{ claim, outcome: "qualified", answer_quote: finding,
       sources: ["https://old.reddit.com/r/Supplements/comments/abc123/vitamin_d/"] }] });
@@ -888,14 +920,20 @@ describe("owner answer 210b: the plain-answer note keeps checked claims and name
     expect(comparisonNotes(result)).toEqual([sourcesAdvisory(url), unbackedAdvisory(0, "qualified")]);
   });
 
-  it("still withholds the note when a registered claim is left out, naming that claim", () => {
-    const result = check({ plain_answer_comparison: [COMPARISON[0]!] });
-    expect(result.status).toBe("ready_with_limits");
-    expect(result.next_steps).toEqual([]);
-    expect(result).not.toHaveProperty("plain_answer_note");
-    expect(comparisonNotes(result)).toEqual(["plain_answer_comparison leaves out claim 1 of the plain answer " +
+  it("still withholds the note when a registered claim is left out, naming that claim, and blocks while the note is on", () => {
+    const leftOut = "plain_answer_comparison leaves out claim 1 of the plain answer " +
       "registered before this research, as manage_research_access numbered them: give each, copied exactly, " +
-      "with whether the research confirmed, corrected or qualified it, or did not check it."]);
+      "with whether the research confirmed, corrected or qualified it, or did not check it.";
+    const result = check({ plain_answer_comparison: [COMPARISON[0]!] });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([leftOut]);
+    expect(result).not.toHaveProperty("plain_answer_note");
+    // With the note off (the account's choice), the claim left out is advice and the answer passes without the note.
+    const off = check({ plain_answer_comparison: [COMPARISON[0]!] }, false);
+    expect(off.status).toBe("ready_with_limits");
+    expect(off.next_steps).toEqual([]);
+    expect(off).not.toHaveProperty("plain_answer_note");
+    expect(comparisonNotes(off)).toEqual([leftOut]);
   });
 
   it("keeps the note for complete entries beside an unknown claim, with its advisory", () => {

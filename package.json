@@ -33,6 +33,7 @@
     "test:n8n-pilot": "tsx scripts/smoke-n8n-control-plane.mts",
     "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
+    "check:private-maps": "tsx scripts/check-private-map-leaks.mts",
     "living-evidence:preflight": "tsx scripts/living-evidence-task-preflight.mts",
     "living-evidence:acceptance": "tsx scripts/living-evidence-task-acceptance.mts",
     "living-evidence:pilot": "tsx scripts/run-living-evidence-pilot.mts",
@@ -67,6 +68,7 @@
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.32.1",
     "fast-xml-parser": "5.11.2",

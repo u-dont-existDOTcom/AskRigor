@@ -61,6 +61,33 @@ function checkReceipt(page: Awaited<ReturnType<typeof call>>, index: AuditableDo
   expect(verifyResearchReceipt(page.research_receipt!, { secret: `${SECRET}other` })).toEqual({ ok: false, reason: "signature_invalid" });
 }
 describe("full_text_read receipts through the MCP endpoint", () => {
+  it.each([{ pmcid: "PMC9876543" }, { pmid: "9876543" }])("signs the existing paper identifiers without a DOI (%j)", async (input) => {
+    const index = documentIndex("Synthetic methods, results and conclusions for identifier receipt checks.");
+    delete index.source.doi;
+    index.source.primary_identifier = input.pmcid ?? input.pmid!;
+    const result = acquisition(index);
+    delete result.data.requested_doi;
+    Object.assign(result.data, "pmcid" in input ? { requested_pmcid: input.pmcid } : { requested_pmid: input.pmid });
+    acquire.mockResolvedValueOnce(result);
+    const page = await call("acquire_open_full_text", input);
+    const verified = verifyResearchReceipt(page.research_receipt!, { secret: SECRET });
+    expect(verified).toMatchObject({ ok: true, kind: "full_text_read", claims: {
+      id: index.source.primary_identifier, pmid: "9876543", pmcid: "PMC9876543",
+      content: index.source.content_sha256.slice(0, 16)
+    } });
+    if (!verified.ok) throw new Error("Receipt not verified");
+    expect(verified.claims).not.toHaveProperty("doi");
+  });
+
+  it("returns a missing-identifier refusal as ordinary content without a receipt", async () => {
+    const actual = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    acquire.mockImplementationOnce((input) => actual.acquireOpenFullText(input, undefined));
+    const result = await call("acquire_open_full_text", {});
+    expect(result).toMatchObject({ status: "possibly_useful_lead",
+      access_boundary: "Give at least one paper identifier: doi, pmcid or pmid." });
+    expect(result.research_receipt).toBeUndefined();
+  });
+
   it("issues a text-free receipt when acquisition exhausts the first page", async () => {
     const index = documentIndex("Synthetic methods, results and conclusions for reading receipt checks.");
     acquire.mockResolvedValueOnce(acquisition(index));

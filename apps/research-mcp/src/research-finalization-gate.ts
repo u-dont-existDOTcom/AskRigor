@@ -91,9 +91,11 @@ import {
  * the model's own account, which is what the prose gates used to ask for.
  */
 
-// Owner answers 193a and 195 (29 October 2026): only these five checks may hold an answer back.
+// Owner answers 193a and 195 (29 October 2026): only these checks may hold an answer back. Owner answer 217b (2 November
+// 2026) adds the sixth: a plain answer registered before the research is compared with the answer, claim by claim, so
+// the note showing how the answer differs from a quick one is always there.
 export const FINAL_CHECK_BLOCKING_RULES = [
-  "source_provenance", "read_depth", "numbers", "harm_screen", "retractions"
+  "source_provenance", "read_depth", "numbers", "harm_screen", "retractions", "plain_answer_comparison"
 ] as const;
 type FinalCheckBlockingRule = typeof FINAL_CHECK_BLOCKING_RULES[number];
 
@@ -237,7 +239,7 @@ export const NAMED_TARGET_FIELDS = [
   "components", "dose_or_intensity", "frequency_and_duration", "population", "outcome", "time_horizon"
 ] as const;
 type NamedTargetField = typeof NAMED_TARGET_FIELDS[number];
-export const NAMED_TARGET_SOURCES = ["video_read", "video_description_only", "person", "source_text"] as const;
+export const NAMED_TARGET_SOURCES = ["video_read", "description_only", "person", "source_text"] as const;
 export const TARGET_MATCHES = ["same", "different", "not_described"] as const;
 export const UNWATCHED_CONTENT_SOURCES = ["description_only", "person"] as const;
 const NAMED_TARGET_LABEL_MAX_CHARACTERS = 160;
@@ -624,11 +626,11 @@ export const finalizeResearchInputSchema = z.object({
         "characters: for example, the video's 2-minute bouncing routine."),
     described_from: z.enum(NAMED_TARGET_SOURCES)
       .describe("Where its description comes from: video_read, the video as extract_youtube_video_claims read it; " +
-        "video_description_only, the video's title and description only; person, what the person said; " +
+        "description_only, the video's title and description only; person, what the person said; " +
         "source_text, a study, a label or another text."),
     video_id: youtubeVideoIdSchema.optional()
       .describe("The video's 11-character ID, when it comes from a video; needed with video_read and " +
-        "video_description_only."),
+        "description_only."),
     components: z.string().trim().min(1).max(NAMED_TARGET_FIELD_MAX_CHARACTERS)
       .describe(`What it is made of, every part its description names, in at most ${NAMED_TARGET_FIELD_MAX_CHARACTERS} ` +
         `characters, or "${PROGRAM_NOT_DESCRIBED}".`),
@@ -924,8 +926,9 @@ export const finalizeResearchInputSchema = z.object({
       .describe("With confirmed, corrected or qualified: the answer's own sentence stating that item's finding, used for one item only, " +
         "copied from answer_draft."),
     sources: z.array(z.string().trim().min(1).max(300)).max(10).optional()
-      .describe("What backs it: studies audited in full text here (DOI, PMID or PMCID) or videos whose comments were " +
-        "read here (video ID); left out for a first-turn correction backed by the answer's own sentence, or when its sentence is one absence_claims or a correction the research found " +
+      .describe("What backs it: studies audited in full text here (DOI, PMID or PMCID), videos whose comments were " +
+        "read here (video ID), or, for a claim about what people report, forum threads read here (the link " +
+        "community_searches threads_read gives); left out for a first-turn correction backed by the answer's own sentence, or when its sentence is one absence_claims or a correction the research found " +
         "also declares.")
   }).strict()).max(PLAIN_ANSWER_LIMITS.claims).optional()
     .describe("With answer_draft, when a plain answer registered with manage_research_access before this research is " +
@@ -1081,6 +1084,9 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
     if (empty(copy.report_identity)) delete copy.report_identity;
     return copy;
   });
+  if (object(input.named_target) && input.named_target.described_from === "video_description_only") {
+    input.named_target = { ...input.named_target, described_from: "description_only" };
+  }
   if (object(input.findings_card) && empty(input.findings_card.findings)) delete input.findings_card;
   return input;
 }
@@ -1416,9 +1422,11 @@ const finalizeResearchRetainedOutputSchema = z.object({
     .describe("When stopped: the server's bounded debug report, with fixed rule wording and only exact server-owned names or whole numbers; all other inserted values are masked."),
   check_report_token: z.string().optional()
     .describe("When stopped: pass verbatim to submit_lesson_candidate as check_report_token only after the user agrees to send the shown bug report."),
-  limits: z.array(z.string()),
+  limits: z.array(z.string()).describe(
+    "Material limits, all shown beneath a passing checked answer in the panel. That answer states in its own words " +
+    "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: z.array(z.string())
-    .describe("Sentences the answer must contain, each as its own sentence and as written; a link's text may change."),
+    .describe("Sentences the answer shows as written, in the answer's language, under every check status; missing or reworded text does not block."),
   must_report: z.array(z.string())
     .describe("What the answer must report from each evidence lane researched, even when weak or neutral."),
   check_line: z.string().optional(),
@@ -1498,8 +1506,8 @@ const finalizeResearchRetainedOutputSchema = z.object({
       "which holds nothing back."),
   plain_answer_note: z.string().optional()
     .describe("When ready, for a registered plain answer: the note the answer ends with, before saved_line and " +
-      "check_line, quoting its claims exactly except a claim with a figure absent from the checked draft, which is " +
-      "replaced by a fixed sentence, and saying what the research found and what backs each change."),
+      "check_line, quoting its claims exactly, including figures. A confirmed or qualified claim whose figures the " +
+      "checked draft does not show says the figures were not checked; the note says what the research found and what backs it."),
   carry_forward: z.string().optional(),
   carried: carriedStateSchema.optional(),
   carry_forward_note: z.string().optional(),
@@ -1522,8 +1530,7 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "Material limits, all shown beneath a passing checked answer in the panel. That answer states in its own words " +
     "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
-    "Sentences the answer shows as written, in the answer's language. Under a passing check only these, such as the " +
-    "correction-report question; missing or reworded text does not block."),
+    "Sentences the answer shows as written, in the answer's language, under every check status; missing or reworded text does not block."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1819,6 +1826,13 @@ export function finalizeResearch(
 
   // Count declared forum reads only; review corpora and unread communities add no threads or communities.
   // Reports the user pasted are not a search of the community, so nothing there is left to read.
+  const forumReadUrls = new Set(verified.filter(({ kind }) => kind === "forum_thread_read")
+    .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
+  const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
+  const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
+  const searchDepth = forumSearchReceipts.length === 0 ? "" : ` AskRigor's searches found ${forumFound.size} ${forumFound.size === 1 ? "thread" : "threads"}.` +
+    (forumSearchReceipts.length >= 2 && forumFound.size < 5
+      ? ` Only ${forumFound.size} turned up in ${forumSearchReceipts.length} searches: if other wordings find no more, say in the answer that few threads exist.` : "");
   const forumSearches = (input.community_searches ?? []).filter(({ platform, access_boundary }) =>
     platform !== "review_site" && access_boundary !== "supplied_by_user");
   if (forumSearches.length > 0) {
@@ -1826,9 +1840,9 @@ export function finalizeResearch(
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
     if (threads.size === 0) {
-      addStep("research", rule`No forum thread was read. If the searches found none, say so in the answer, with what was searched; if threads exist, read them, or say why they went unread: pages wouldn't open or time ran out (HRP SearchSaturationAndStopping).`);
+      addStep("research", rule`No forum thread was read. If the searches found none, say so in the answer, with what was searched; if threads exist, read them with read_forum_thread, or say why they went unread: pages wouldn't open or time ran out (HRP SearchSaturationAndStopping).`);
     } else if (threads.size < 5 || communities.size === 1) {
-      addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): open each one in full, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
+      addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}.${searchDepth} Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): find them with search_reddit_threads, open each one in full with read_forum_thread, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
     }
   }
   const youtubeCommunityReceipts = verified.filter(({ kind }) => kind === "youtube_scout" ||
@@ -2133,7 +2147,7 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads));
+      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads, forumReadUrls));
     commercialReviewCoverage(input, { addStep, requireDeclaration });
   }
 
@@ -2348,7 +2362,7 @@ export function finalizeResearch(
       routeFailures.set(doi, failures);
     }
     if (kind === "full_text_lead") {
-      for (const key of ["doi", "pmcid"]) {
+      for (const key of ["doi", "pmcid", "pmid"]) {
         const value = claims[key];
         if (typeof value === "string" && value.length > 0) {
           const id = normalizeIdentifier(value);
@@ -2639,7 +2653,7 @@ export function finalizeResearch(
     source[targetMatchField(field)];
   if (target === undefined) {
     if (videosRead.size > 0 || videosUnread.size > 0) {
-      requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(joinRules("Give named_target: the person gave a video, which extract_youtube_video_claims read or ", "could not read, so the answer is about what it puts forward. Give its label as the answer names it; "), "described_from, where its description comes from (video_read, video_description_only, person or "), "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, "), "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source "), "then says how it matches each one (target_components to target_time_horizon: same, different or "), "not_described)."));
+      requireDeclaration(joinRules(joinRules(joinRules(joinRules(joinRules(joinRules("Give named_target: the person gave a video, which extract_youtube_video_claims read or ", "could not read, so the answer is about what it puts forward. Give its label as the answer names it; "), "described_from, where its description comes from (video_read, description_only, person or "), "source_text), with the video's video_id; and its components, dose_or_intensity, frequency_and_duration, "), "population, outcome and time_horizon, each in a few words or \"program not described\". Each key source "), "then says how it matches each one (target_components to target_time_horizon: same, different or "), "not_described)."));
     }
     if (input.key_sources.some((source) => NAMED_TARGET_FIELDS.some((field) => matchOf(source, field) !== undefined))) {
       addStep("declaration", joinRules("key_sources gives target_components to target_time_horizon without named_target, what ", "they are matched with: give named_target, or leave the matches out."));
@@ -2647,18 +2661,18 @@ export function finalizeResearch(
   } else {
     const video = target.video_id;
     const describedFrom = target.described_from;
-    if (video === undefined && (describedFrom === "video_read" || describedFrom === "video_description_only")) {
+    if (video === undefined && (describedFrom === "video_read" || describedFrom === "description_only")) {
       addStep("declaration", joinRules(rule`named_target is described_from ${describedFrom} without video_id: give the video's `, "11-character ID."));
     } else if (describedFrom === "video_read" && video !== undefined && !videosRead.has(video)) {
-      addStep("declaration", unfinishedReadings.has(video) ? joinRules(joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video `, rule`${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give `), "described_from as the case is, video_description_only or person.") : videosUnread.has(video) ? joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims could not read video `, rule`${video}: give described_from as the case is, video_description_only or person.`) : joinRules(joinRules(rule`named_target is described_from video_read, but no research_receipt passed here shows that `, rule`extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or `), "give described_from as the case is."));
+      addStep("declaration", unfinishedReadings.has(video) ? joinRules(joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video `, rule`${video}: finish the reading with its continuation_token and pass the research_receipt it returns, or give `), "described_from as the case is, description_only or person.") : videosUnread.has(video) ? joinRules(rule`named_target is described_from video_read, but extract_youtube_video_claims could not read video `, rule`${video}: give described_from as the case is, description_only or person.`) : joinRules(joinRules(rule`named_target is described_from video_read, but no research_receipt passed here shows that `, rule`extract_youtube_video_claims read video ${video}: read it and pass the research_receipt it returns, or `), "give described_from as the case is."));
     }
     const entry = video === undefined ? undefined : unwatched.get(video);
-    const declared = describedFrom === "person" ? "person" : describedFrom === "video_description_only"
+    const declared = describedFrom === "person" ? "person" : describedFrom === "description_only"
       ? "description_only" : undefined;
     if (entry !== undefined && declared !== undefined && entry.from !== declared) {
       // The two fields spell the same source differently, and the app's copy of the schema refuses the other field's
-      // word (the 30 Oct rerun's l22: content_from "video_description_only"), so the step names the matching pair.
-      addStep("declaration", joinRules(joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree (content_from `), "description_only goes with described_from video_description_only, and person with person)."));
+      // word (the 30 Oct rerun's l22: content_from "description_only"), so the step names the matching pair.
+      addStep("declaration", joinRules(joinRules(rule`named_target is described_from ${describedFrom} for video ${video}, but `, rule`unwatched_videos[${entry.index}] gives its content_from as ${entry.from}: make the two agree (content_from `), "description_only goes with described_from description_only, and person with person)."));
     }
     // Each key study's match with each field, as the model judges it; a field the target leaves undescribed matches
     // nothing, so no study is the same there or differs there.
@@ -3310,8 +3324,16 @@ export function finalizeResearch(
       const registered = plainAnswer.claims;
       const count = registered.length === 1 ? "1 claim" : `${registered.length} claims`;
       const comparison = input.plain_answer_comparison;
+      // Owner answer 217b: with the account's note on, a comparison that is missing or leaves a claim out holds the
+      // answer back, so the note always shows. With the note off, the account chose not to see it, so it stays a note.
+      const noteOn = options.plainAnswer?.note !== false;
       if (comparison === undefined) {
-        requireDeclaration(joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
+        missingDeclaration = true;
+        if (noteOn) {
+          addBlockingStep("plain_answer_comparison", "declaration", joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). The answer then ends with the note "), "comparing the two, which the panel also shows."));
+        } else {
+          addStep("declaration", joinRules(joinRules(joinRules(joinRules(rule`Give plain_answer_comparison: for each of the ${count} of the plain answer registered `, "before this research, copied exactly as manage_research_access listed it, whether the research confirmed, "), "corrected or qualified it, or did not check it (outcome); a confirmation, correction or qualification also gives the "), "answer's sentence stating it (answer_quote) and what backs it (sources). Without that field, leave the "), "plain answer's research_receipt out of receipts: the answer then ends without the note."));
+        }
       } else {
         // Registered claim number -> the entry giving it, and what the research found for it.
         const entryFor = new Map<number, number>();
@@ -3321,10 +3343,11 @@ export function finalizeResearch(
         // Owner answer 210b: a forum thread this call declares it read can back a claim about what people report. Which
         // claims those are is the model's declaration; the note names the threads, as its own reading, since AskRigor
         // can confirm that a Reddit thread exists but not what it says.
-        const threadsRead = new Map<string, { url: string; title?: string | undefined }>();
+        const threadsRead = new Map<string, { url: string; title?: string | undefined; readHere: boolean }>();
         for (const search of input.community_searches ?? []) {
           if (search.platform === "review_site") continue;
-          for (const thread of search.threads_read) threadsRead.set(comparableUrl(thread.url), thread);
+          for (const thread of search.threads_read) threadsRead.set(comparableUrl(thread.url), { ...thread,
+            readHere: forumReadUrls.has(forumThreadDigest(thread.url)) });
         }
         for (const [index, entry] of comparison.entries()) {
           const at = `plain_answer_comparison[${index}]`;
@@ -3388,7 +3411,9 @@ export function finalizeResearch(
         }
         const left = registered.flatMap((_, number) => entryFor.has(number) ? [] : [number]);
         if (left.length > 0) {
-          addStep("declaration", joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it."));
+          const leftOut = joinRules(joinRules(joinRules(rule`plain_answer_comparison leaves out ${left.length === 1 ? rule`claim` : rule`claims`} `, rule`${joinNames(left.map(String))} of the plain answer registered before this research, as `), "manage_research_access numbered them: give each, copied exactly, with whether the research confirmed, "), "corrected or qualified it, or did not check it.");
+          if (noteOn) addBlockingStep("plain_answer_comparison", "declaration", leftOut);
+          else addStep("declaration", leftOut);
         } else {
           compared = registered.map((_, number) => found.get(number)!);
         }
@@ -3493,6 +3518,7 @@ export function finalizeResearch(
   );
   if (checkRound?.status === "stopped") {
     caveats.push(COMPLETE_CHECKS_TIP);
+    asWritten.add(COMPLETE_CHECKS_TIP);
 
   }
   const roundOpen = checkRound?.status === "open" ? checkRound.open : [];
@@ -3512,12 +3538,7 @@ export function finalizeResearch(
         ? "ready_with_limits"
         : "ready";
   const passed = status === "ready" || status === "ready_with_limits";
-  // Owner answer 205a: a passing check's panel lists its limits, and the answer states in its own words only those that
-  // change what the person should believe or do. The published schema calls caveats "Sentences the answer must
-  // contain, each as its own sentence and as written", and the plugin skill says to copy them (owner answer 189a keeps
-  // both), so a passing check returns there only the sentences the answer shows as written. The 1 Nov regression run
-  // on #389's build pasted every limit after the check, once under "AskRigor's final check requires these evidence
-  // limits to remain explicit".
+  // Limits stay in limits under every status; caveats holds only sentences the answer shows as written.
   const materialLimits = limits.filter((limit) => !asWritten.has(limit));
   if (passed && draft !== undefined && materialLimits.length >= 3) {
     // Exact copying only: retain wording, case and punctuation apart from straight/curly quotes and whitespace.
@@ -3544,7 +3565,7 @@ export function finalizeResearch(
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
     limits,
-    caveats: passed ? caveats.filter((caveat) => asWritten.has(caveat)) : caveats,
+    caveats: caveats.filter((caveat) => asWritten.has(caveat)),
     must_report: mustReport,
     receipts_verified: verified.length,
     receipts_rejected: [...rejected, ...offTarget].sort((left, right) => left.index - right.index),
@@ -4137,7 +4158,7 @@ interface ComparedClaim {
   quote?: string;
   work?: VerifiedWork;
   /** Forum threads read here that back it (owner answer 210b). */
-  threads?: ReadonlyArray<{ url: string; title?: string | undefined }>;
+  threads?: ReadonlyArray<{ url: string; title?: string | undefined; readHere: boolean }>;
 }
 
 type RegisteredPlainAnswer =
@@ -4244,13 +4265,14 @@ function quotation(text: string): string {
  * The forum threads behind a claim, in the words the note shows (owner answer 210b): the AI's own reading, named, since
  * AskRigor cannot verify what a thread says. Three are named, so a claim with many does not fill the note.
  */
-function readThreadsPhrase(threads: ReadonlyArray<{ url: string; title?: string | undefined }>): string {
+function readThreadsPhrase(threads: ReadonlyArray<{ url: string; title?: string | undefined; readHere: boolean }>): string {
   const named = threads.slice(0, 3).map(({ url, title }) => {
     const shown = title?.replace(/[[\]]/gu, "").trim();
     return `[${shown === undefined || shown === "" ? "this thread" : shown}](${url})`;
   });
   const more = threads.length - named.length;
-  return `my own reading of ${threads.length === 1 ? "1 forum thread" : `${threads.length} forum threads`} ` +
+  const count = threads.length === 1 ? "1 forum thread" : `${threads.length} forum threads`;
+  return `${threads.every(({ readHere }) => readHere) ? `${count} read here` : `my own reading of ${count}`} ` +
     `(${named.join(", ")}${more > 0 ? ` and ${more} more` : ""})`;
 }
 
@@ -4594,7 +4616,11 @@ function trimLinkEnd(link: string): string {
   return end;
 }
 
-function comparableUrl(url: string): string {
+export function forumThreadDigest(url: string): string {
+  return createHash("sha256").update(comparableUrl(url)).digest("hex").slice(0, 16);
+}
+
+export function comparableUrl(url: string): string {
   const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
   try {
     const link = new globalThis.URL(trimmed);
@@ -5074,7 +5100,8 @@ function communityCoverage(
   input: FinalizeResearchInput,
   youtubeResearched: boolean,
   out: DeclarationSteps & { requireLimit: (text: RuleInput, ...sentences: string[]) => void; lanes: string[] },
-  redditThreads?: ReadonlyMap<string, RedditThreadCheck>
+  redditThreads?: ReadonlyMap<string, RedditThreadCheck>,
+  forumReadUrls: ReadonlySet<string> = new Set()
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
   // Communities read, one entry per community however many searches it had.
@@ -5355,7 +5382,8 @@ function communityCoverage(
   // AskRigor cannot see the client's web search, so these reports carry no
   // receipt: the answer says so and links the threads, which readers can check.
   // Reddit can confirm its threads exist as cited, but not what they report.
-  const unconfirmed = read.filter(({ confirmed, supplied }) => !confirmed && !supplied);
+  const readHere = (entry: CommunityRead) => entry.urls.every((url) => forumReadUrls.has(forumThreadDigest(url)));
+  const unconfirmed = read.filter((entry) => !entry.confirmed && !entry.supplied && !readHere(entry));
   if (unconfirmed.length > 0) {
     const names = unconfirmed.map(({ name }) => name);
     const one = names.length === 1;
@@ -5365,7 +5393,7 @@ function communityCoverage(
         `could not verify. ${completedCaveat(one ? "Community:" : "Communities:", names.join("; "))}`
     );
   }
-  const confirmedRead = read.filter(({ confirmed }) => confirmed);
+  const confirmedRead = read.filter((entry) => entry.confirmed && !readHere(entry));
   if (confirmedRead.length > 0) {
     const names = confirmedRead.map(({ name }) => name);
     const one = names.length === 1;

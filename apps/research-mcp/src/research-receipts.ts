@@ -45,6 +45,8 @@ export const RESEARCH_RECEIPT_KINDS = [
   "pubmed_record",
   "doi_resolution",
   "literature_search",
+  "forum_thread_read",
+  "forum_search",
   "full_text_lead",
   "full_text_route_failure",
   "full_text_read",

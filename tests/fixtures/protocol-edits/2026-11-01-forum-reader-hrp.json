@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner answers 211a and 213b (2026-11-01): exact owner-supplied HRP 20.6.36 forum-reader wording; reversible edits chained above HRP 20.6.35. CoreHierarchy and every core section are unchanged.",
+  "hrp": {
+    "from": {
+      "version": "20.6.35",
+      "sha256": "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
+    },
+    "to": {
+      "version": "20.6.36",
+      "sha256": "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
+    },
+    "edits": [
+      [
+        "version=\"20.6.35\" revisionDate=\"2026-10-31\"",
+        "version=\"20.6.36\" revisionDate=\"2026-11-01\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.36\" priority=\"Critical\">\n   Owner answers 211a and 213b of 1 November 2026, outside the core, which is unchanged: SearchSaturationAndStopping uses\n   AskRigor's own forum reader first where it is available, and a page that refuses it stays unread.\n  </Revision>\n"
+      ],
+      [
+        "   say so and try another forum. State how many threads were found, opened and read, and why reading stopped: few\n   threads exist, pages would not open, or time ran out.\n",
+        "   say so and try another forum. Where AskRigor's search_reddit_threads and read_forum_thread are available, use them\n   first; a page they report as refusing access stays unread. State how many threads were found, opened and read, and\n   why reading stopped: few threads exist, pages would not open, or time ran out.\n"
+      ]
+    ]
+  }
+}
