@@ -166,3 +166,9 @@ then what failed or harmed. People's reports for the problem are counted beside 
   become 0025 (placements) and 0026 (reports), and the search index, map, sitemap and Health pages leave kept
   publications out.
 
+- 3 Nov: step 5. `share_report` and `take_down_report` on manage_research_access (`later_inputs.atlasReport`,
+  `later_inputs.reportNumber`; `apps/research-mcp/src/atlas/report-door.ts`), under the account's Atlas participant
+  key, with the account tool's published error codes reused. The line that offers it to a person's AI goes in the
+  final check's result once #398 merges.
+- Merging with #398: the generated `apps/research-mcp/src/check-report-vocabulary.ts` conflicts at one sorted spot;
+  regenerate it (`npx tsx scripts/generate-check-report-vocabulary.mts --write`) rather than editing by hand.

@@ -52,6 +52,13 @@ import {
   type SharedAnswerVersions,
 } from "./shared-answers.js";
 import {
+  atlasReportResultSchema,
+  shareReport,
+  takeDownReport,
+  type AtlasReportDoor,
+  type ReportRefusalCode,
+} from "./atlas/report-door.js";
+import {
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   researchTargetDigest,
   type ResearchReceiptClaims,
@@ -90,6 +97,9 @@ export const manageResearchAccessInputSchema = z.object({
     // Owner answer 200a: runtime-only actions, named by the final check's share_offer (owner answer 189a).
     "share_answer",
     "delete_shared_answer",
+    // Owner answer 229a: a person's report of what worked for them, to the Atlas, and its take-down (runtime only).
+    "share_report",
+    "take_down_report",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -180,6 +190,8 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     kept: z.string(),
   }).strict().optional(),
   sharedAnswerDeleted: z.boolean().optional(),
+  // Owner answer 229a: the report sent to the Atlas, or taken down.
+  atlasReport: atlasReportResultSchema.optional(),
 }).strict();
 
 /**
@@ -294,6 +306,8 @@ export interface ResearchContributorToolOptions {
   devAccountKeys?: () => ReadonlySet<string>;
   /** Shared questions and answers (owner answer 200a), with the versions they are given under; undefined when off. */
   sharedAnswers?: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> };
+  /** People's reports to the Atlas (owner answer 229a); undefined while the Atlas takes none. */
+  atlasReports?: AtlasReportDoor;
 }
 
 export interface ResearchMapOptions {
@@ -521,6 +535,35 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           };
         }
         return shareAnswer(options.service, sharing, auth.subject, parsed.sharedAnswer!);
+      }
+      // Owner answer 229a: a person's report to the Atlas, sent by their own AI on their yes, and its take-down.
+      if ((parsed.action === "share_report") !== (parsed.atlasReport !== undefined)) {
+        return accessError("invalid_request", "later_inputs.atlasReport goes only with action share_report, which needs it.");
+      }
+      if ((parsed.action === "take_down_report") !== (parsed.reportNumber !== undefined)) {
+        return accessError("invalid_request",
+          "later_inputs.reportNumber goes only with action take_down_report, which needs it.");
+      }
+      if (parsed.action === "share_report" || parsed.action === "take_down_report") {
+        const door = options.atlasReports;
+        if (door === undefined) {
+          return accessError("sharing_unavailable", "This AskRigor server does not take Atlas reports yet, so nothing " +
+            "was sent or taken down.");
+        }
+        await options.service.activeAccount(auth.subject);
+        const ok = (text: string, atlasReport: z.infer<typeof atlasReportResultSchema>): CallToolResult => ({
+          content: [{ type: "text", text }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, atlasReport }),
+        });
+        const refuse = (code: ReportRefusalCode, message: string, problems: string[] = []): CallToolResult => ({
+          content: [{ type: "text", text: problems.length === 0 ? message : `${message} ${problems.join(" ")}` }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+            ...(problems.length === 0 ? {} : { problems }), error: { code, message } }),
+          isError: true,
+        });
+        return parsed.action === "share_report"
+          ? await shareReport(door, auth.subject, parsed.atlasReport!, refuse, ok, new Date())
+          : await takeDownReport(door, auth.subject, parsed.reportNumber!, refuse, ok);
       }
       if (
         (parsed.action === "accept_free_contributor") !==

@@ -202,6 +202,7 @@ import {
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
+import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
   buildStagedAnalysis,
@@ -961,6 +962,8 @@ function defineResearchOperations(
   // account tool nor the final check's offer), when the server keeps them.
   const sharing = options.mcpSurface === "/mcp/gemini" ? undefined
     : options.sharedAnswers !== undefined ? options.sharedAnswers ?? undefined : sharedAnswersFromEnv();
+  // Owner answer 229a: people's reports to the Atlas, the MCP connector's like sharing.
+  const atlasReports = options.mcpSurface === "/mcp/gemini" ? undefined : atlasReportDoorFromEnv();
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -1925,6 +1928,7 @@ function defineResearchOperations(
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
       devAccountKeys: () => devAccountKeysFromEnv(),
+      ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
         options.runningVersions ?? await versionPayload().then(runningVersionsOf, () => ({})) } }),

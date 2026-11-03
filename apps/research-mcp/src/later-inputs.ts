@@ -8,6 +8,7 @@ import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
+import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -37,6 +38,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With share_answer: the de-identified copy the person saw and confirmed."),
     shareCode: shareCodeSchema.optional()
       .describe("With delete_shared_answer: the code share_answer returned."),
+    // Owner answer 229a: a person's report to the Atlas, and its take-down.
+    atlasReport: atlasReportShareSchema.optional()
+      .describe("With share_report: the report exactly as the person saw and confirmed it, with its research."),
+    reportNumber: reportNumberSchema.optional(),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
