@@ -46,9 +46,9 @@ const MAPS = [
         helped_more_than_video: 1, helped_after_video_failed: 1 },
     ] }),
   map({ video_id: "BBBBBBBBBB2", label: "A smaller invented routine", problem: "Velmor dizziness (invented)", tried: 40,
-    outcomes: { better: 35, no_change: 2, worse: 2, mixed: 1 } }),
+    outcomes: { better: 34, no_change: 3, worse: 2, mixed: 1 } }),
   map({ video_id: "CCCCCCCCCC3", label: "A barely tried invented routine", problem: "Velmor dizziness (invented)",
-    tried: 16, outcomes: { better: 13, no_change: 2, worse: 1, mixed: 0 }, leads: [], harm_kinds: [] }),
+    tried: 18, outcomes: { better: 15, no_change: 2, worse: 1, mixed: 0 }, leads: [], harm_kinds: [] }),
   map({ video_id: "DDDDDDDDDD4", label: "Zentarine <b>& \"drops\"</b> (invented)", problem: "Ostrel heel pain (invented)",
     tried: 26, outcomes: { better: 16, no_change: 5, worse: 3, mixed: 2 } }),
 ];
@@ -82,9 +82,9 @@ describe("the counts", () => {
   it("rank only within a problem, by the low end of the range, and list too few reports apart", () => {
     const [velmor, ostrel] = rankWithinProblems(FILE.maps);
     expect(velmor!.problem).toBe("Velmor dizziness (invented)");
-    // 35 of 40 has the higher low end (0.74 against 0.68), so it ranks above 48 of 60.
+    // 34 of 40 has the higher low end (0.71 against 0.68), so it ranks above 48 of 60.
     expect(velmor!.ranked.map(({ video_id }) => video_id)).toEqual(["BBBBBBBBBB2", "AAAAAAAAAA1"]);
-    expect(velmor!.tooFew.map(({ tried }) => tried)).toEqual([16]);
+    expect(velmor!.tooFew.map(({ tried }) => tried)).toEqual([18]);
     expect(RANK_MIN_TRIED).toBe(20);
     expect(ostrel!.ranked.map(({ video_id }) => video_id)).toEqual(["DDDDDDDDDD4"]);
     expect(ostrel!.tooFew).toEqual([]);
@@ -134,9 +134,9 @@ describe("the private page", () => {
     expect(velmor.indexOf("A smaller invented routine")).toBeLessThan(velmor.indexOf("The big invented routine"));
     // A range keeps its dash with its numbers in a narrow cell.
     expect(velmor).toContain('<td><a href="#map-2">A smaller invented routine</a> (An invented channel)</td><td>40</td>' +
-      "<td>35 (74\u2060–\u206095%)</td>");
+      "<td>34 (71\u2060–\u206093%)</td>");
     expect(velmor).toContain("Too few reports to rank (fewer than 20 people who said they tried it): " +
-      '<a href="#map-3">A barely tried invented routine</a> (16 people).');
+      '<a href="#map-3">A barely tried invented routine</a> (18 people).');
     const single = page.slice(page.indexOf('<h3 id="one-video">'), page.indexOf('<h2 id="the-maps">'));
     expect(single).toContain("Each of these problems has one video mapped, so there is nothing to rank it against yet.");
     expect(single).toContain("<tr><td>Ostrel heel pain (invented)</td><td><a href=\"#map-4\">Zentarine");
