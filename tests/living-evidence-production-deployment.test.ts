@@ -22,6 +22,8 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "moderate_atlas_comment", "set_atlas_commenter_stopped", "set_atlas_home_picks",
   "inspect_atlas_home_picks",
 ];
+// Owner answer 229a: migration 0024's two placement functions, for the review role.
+const ATLAS_PLACEMENT_FUNCTIONS = ["set_atlas_placements", "inspect_atlas_placements"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
   "report_atlas_comment", "end_atlas_sessions", "atlas_session_current", "forget_atlas_participant",
@@ -146,7 +148,7 @@ describe("production living-evidence deployment", () => {
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
     // 0022's five moderation functions (decision 171).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(25);
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(27);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -312,12 +314,12 @@ describe("production living-evidence deployment", () => {
     const repository = await read("packages/evidence-repository/src/postgres.ts");
 
     // Atlas migrations follow 0016; 0019 holds the findings drawn from YouTube comments (owner answer 173), 0020
-    // widens the notice constraint for v4, 0021 adds the publications, 0022 the votes and comments, and 0023 the
-    // findings save switch (decision 171).
+    // widens the notice constraint for v4, 0021 adds the publications, 0022 the votes and comments, 0023 the
+    // findings save switch (decision 171), and 0024 the placements under Health (owner answer 229a).
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
       '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      ' +
-      '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n    ]');
+      '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n      "0024_atlas_placements",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -377,9 +379,10 @@ describe("production living-evidence deployment", () => {
     }
     const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
     expect(granted.filter((name) => name!.includes("atlas")))
-      .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS]);
+      .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+        ...ATLAS_PLACEMENT_FUNCTIONS]);
     // With the three contribution functions and migration 0019's six (owner answer 173).
-    expect(granted).toHaveLength(25);
+    expect(granted).toHaveLength(27);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -666,9 +669,10 @@ describe("production living-evidence deployment", () => {
     const migrate = repository.slice(repository.indexOf("async migrate()"), repository.indexOf("].map(async (migrationId)"));
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     expect(order.indexOf("0021_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
-    // Decision 171: 0022, the votes and comments, comes right after it, then 0023, the findings save switch.
-    expect(order.slice(-3)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
-      "0023_research_findings_save_switch"]);
+    // Decision 171: 0022, the votes and comments, comes right after it, then 0023, the findings save switch, then
+    // 0024, the placements under Health (owner answer 229a).
+    expect(order.slice(-4)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+      "0023_research_findings_save_switch", "0024_atlas_placements"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");

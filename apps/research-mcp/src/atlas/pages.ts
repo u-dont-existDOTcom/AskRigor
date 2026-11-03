@@ -188,7 +188,7 @@ const needsChecking = (finding: ShownFinding) =>
   finding.status.kind === "unreviewed" && strengthOf(finding).total >= STRONG_CLAIM;
 
 /** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
-const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
+export const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
 
 function relatedLink(related: ShownRelated): SafeHtml {
   return related.publicationNumber === null ? html`${related.atlasNumber}`
@@ -214,7 +214,7 @@ export interface PageFrame {
   noindex?: boolean;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account" | "findings" | "topics" | "map" | "search";
+  current?: "home" | "changes" | "account" | "findings" | "health" | "topics" | "map" | "search";
   reader?: AtlasPageReader;
   noReferrer?: boolean;
   body: SafeHtml;
@@ -242,6 +242,7 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <nav aria-label="Atlas navigation"><ul class="nav-list">
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
 <li><a href="/atlas/findings"${current("findings")}>All findings</a></li>
+<li><a href="/atlas/health"${current("health")}>Health</a></li>
 <li><a href="/atlas/topics"${current("topics")}>Topics</a></li>
 <li><a href="${MAP_PATH}"${current("map")}>Findings map</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
@@ -412,7 +413,7 @@ function questionLine(finding: ShownFinding): SafeHtml {
     : html`<p class="finding-question">Question: ${finding.question}</p>`;
 }
 
-function findingList(findings: readonly ShownFinding[]): SafeHtml {
+export function findingList(findings: readonly ShownFinding[]): SafeHtml {
   return html`<ul class="finding-list">
 ${findings.map((finding) => findingItem(finding))}</ul>`;
 }

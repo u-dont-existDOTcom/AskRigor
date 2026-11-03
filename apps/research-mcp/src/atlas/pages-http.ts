@@ -22,6 +22,7 @@ import {
   type TokenBucketLimiter,
 } from "../rate-limit.js";
 import { announcingParticipationStore, atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
+import { loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory } from "./health-pages.js";
 import {
   loadAtlasChanges,
   loadAtlasFinding,
@@ -183,6 +184,7 @@ export const ATLAS_PARTICIPATION_LIMITS = {
 
 const PUBLICATION_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})$/u;
 const TOPIC_ROUTE = /^\/atlas\/topics\/([a-z0-9][a-z0-9._-]{0,199})$/u;
+const SUBCATEGORY_ROUTE = /^\/atlas\/health\/([a-z][a-z0-9-]{0,59})$/u;
 const FINDING_FORM_ROUTE = /^\/atlas\/findings\/(P-[1-9][0-9]{3,11})\/(vote|comments)$/u;
 const COMMENT_FORM_ROUTE = /^\/atlas\/comments\/(C-[1-9][0-9]{3,11})\/(delete|report)$/u;
 
@@ -192,6 +194,8 @@ export type AtlasRoute =
   | { kind: "changes" }
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
   | { kind: "topics" }
+  | { kind: "health" }
+  | { kind: "subcategory"; subcategoryKey: string }
   | { kind: "map" }
   | { kind: "comment-maps" }
   | { kind: "search" }
@@ -238,10 +242,13 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/changes") return { kind: "changes" };
   if (pathname === "/atlas/findings") return { kind: "findings" };
   if (pathname === "/atlas/topics") return { kind: "topics" };
+  if (pathname === "/atlas/health") return { kind: "health" };
   if (pathname === "/atlas/map") return { kind: "map" };
   if (pathname === COMMENT_MAPS_PATH) return { kind: "comment-maps" };
   if (pathname === "/atlas/search") return { kind: "search" };
   if (pathname === "/atlas/sitemap.xml") return { kind: "sitemap" };
+  const subcategory = SUBCATEGORY_ROUTE.exec(pathname);
+  if (subcategory !== null) return { kind: "subcategory", subcategoryKey: subcategory[1]! };
   const topic = TOPIC_ROUTE.exec(pathname);
   if (topic !== null) return { kind: "topic", topicKey: topic[1]! };
   const finding = PUBLICATION_ROUTE.exec(pathname);
@@ -695,8 +702,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
-  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" |
-    "comment-maps" }>, source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
+  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "health" |
+    "subcategory" | "map" | "comment-maps" }>, source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "comment-maps":
         // Fixed text: it reads nothing from the source.
@@ -709,6 +716,13 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         return checked({ status: 200, html: renderAtlasFindings(await loadAtlasFindings(source, route), reader) });
       case "topics":
         return checked({ status: 200, html: renderAtlasTopics(await loadAtlasTopics(source), reader) });
+      case "health":
+        return checked({ status: 200, html: renderAtlasHealth(await loadAtlasHealth(source), reader) });
+      case "subcategory": {
+        const model = await loadAtlasSubcategory(source, route.subcategoryKey);
+        return checked(model === undefined ? { status: 404, html: renderAtlasNotFound(reader) }
+          : { status: 200, html: renderAtlasSubcategory(model, reader) });
+      }
       case "map":
         return checked({ status: 200, html: renderAtlasMap(await loadAtlasMap(source, clock()), reader) });
       case "topic": {
@@ -1134,8 +1148,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await ownCommentsRoute(request, response, participation, source, now);
           return true;
         }
-        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "map" |
-          "comment-maps" }>;
+        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "health" |
+          "subcategory" | "map" | "comment-maps" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);

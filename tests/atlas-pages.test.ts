@@ -7,6 +7,7 @@ import {
   AtlasFindingPromotionRunner,
   InMemoryAtlasCanonicalStore,
   InMemoryAtlasPageSource,
+  InMemoryAtlasPlacements,
   InMemoryAtlasPromotionStore,
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
@@ -25,6 +26,10 @@ import {
   announcingPublicationStore,
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
+import { loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory }
+  from "../apps/research-mcp/src/atlas/health-pages.js";
+import { HEALTH } from "../apps/research-mcp/src/atlas/health-tree.js";
+import { AtlasPlacementReview } from "../apps/research-mcp/src/atlas/placement-review.js";
 import { ATLAS_MAP_TOPIC_FINDINGS, NOT_CHECKED_LABEL, sourceIdentifierOf, loadAtlasFindings, loadAtlasHome, loadAtlasMap, loadAtlasSearch,
   loadAtlasTopics, loadAtlasTopic, searchAtlasIndex, searchTextsOf, type AtlasSearchIndex,
   type ShownFinding } from "../apps/research-mcp/src/atlas/page-data.js";
@@ -1934,3 +1939,92 @@ describe("the findings map", () => {
     expect((await text(base, "/atlas/topics")).body).toContain('<a href="/atlas/map">See the topics on the findings map</a>');
   });
 });
+
+describe("the Health pages (owner answer 229a)", () => {
+  const at = "2026-11-04T12:00:00.000Z";
+
+  async function placed() {
+    const { store, shown, hidden, numbers } = await fixture();
+    const placements = new InMemoryAtlasPlacements();
+    const source = new InMemoryAtlasPageSource({ publications: store.publications, canonical: store.canonical, placements });
+    const before = await loadAtlasHealth(source);
+    await placements.setPlacements([
+      { itemNumber: shown.effect, categoryKey: "health", subcategoryKey: "sleep" },
+      // An accepted finding sits there by its F number.
+      { itemNumber: numbers.lowDose, categoryKey: "health", subcategoryKey: "sleep" },
+      { itemNumber: shown.hip, categoryKey: "health", subcategoryKey: "joints-muscles-and-pain" },
+      // A hidden publication, a number nothing shows and another category count nowhere under Health.
+      { itemNumber: hidden.rejected, categoryKey: "health", subcategoryKey: "eyes" },
+      { itemNumber: "P-9999", categoryKey: "health", subcategoryKey: "eyes" },
+      { itemNumber: shown.nothingFound, categoryKey: "other", subcategoryKey: "sleep" },
+    ], at);
+    return { store, shown, numbers, placements, source, before };
+  }
+
+  it("lists all 22 subcategories with how many shown items each holds", async () => {
+    const { source, before } = await placed();
+    const model = await loadAtlasHealth(source);
+    expect(model.subcategories.map(({ key }) => key)).toEqual(HEALTH.subcategories.map(({ key }) => key));
+    expect(model.subcategories).toHaveLength(22);
+    expect(Object.fromEntries(model.subcategories.filter(({ count }) => count > 0).map(({ key, count }) => [key, count])))
+      .toEqual({ sleep: 2, "joints-muscles-and-pain": 1 });
+    expect(before.unplaced - model.unplaced).toBe(3);
+    const page = renderAtlasHealth(model);
+    expect(page).toContain('<a href="/atlas/health/sleep">Sleep</a> <span class="meta">(2 items)</span>');
+    expect(page).toContain('<li>Eyes <span class="meta">(nothing yet)</span></li>');
+    expect(page).toContain('<a href="/atlas/health" aria-current="page">Health</a>');
+  });
+
+  it("lists a subcategory's findings, checked first; a key the tree doesn't have has no page", async () => {
+    const { source, shown, numbers } = await placed();
+    const sleep = (await loadAtlasSubcategory(source, "sleep"))!;
+    expect(sleep.findings.map(({ publicationNumber, status }) =>
+      status.kind === "unreviewed" ? publicationNumber : status.atlasNumber)).toEqual([numbers.lowDose, shown.effect]);
+    const page = renderAtlasSubcategory(sleep);
+    expect(page).toContain("<h1>Sleep</h1>");
+    expect(page).not.toContain('content="noindex"');
+    const eyes = (await loadAtlasSubcategory(source, "eyes"))!;
+    expect(eyes.findings).toEqual([]);
+    expect(renderAtlasSubcategory(eyes)).toContain("Nothing is here yet.");
+    expect(await loadAtlasSubcategory(source, "colds")).toBeUndefined();
+  });
+
+  it("serves /atlas/health and its subcategories, and routes nothing else there", async () => {
+    const { source } = await placed();
+    expect(atlasRouteOf("/atlas/health")).toEqual({ kind: "health" });
+    expect(atlasRouteOf("/atlas/health/mens-health")).toEqual({ kind: "subcategory", subcategoryKey: "mens-health" });
+    expect(atlasRouteOf("/atlas/health/Mens")).toBeUndefined();
+    const base = await serve(pages(source));
+    expect((await text(base, "/atlas/health")).response.status).toBe(200);
+    const sleep = await text(base, "/atlas/health/sleep");
+    expect(sleep.response.status).toBe(200);
+    expect(sleep.body).toContain("<h1>Sleep</h1>");
+    expect((await text(base, "/atlas/health/not-a-subcategory")).response.status).toBe(404);
+  });
+
+  it("places items through the review and lists the shown publications that sit nowhere", async () => {
+    const { store, shown, placements } = await placed();
+    const review = new AtlasPlacementReview({ placements, publications: store.publications, now: () => new Date(at) });
+    const unplaced = await review.run({ action: "list_unplaced" });
+    expect(unplaced.outcome).toBe("unplaced_listed");
+    const listed = unplaced.placements!.unplaced.map(({ publication }) => publication);
+    expect(listed).not.toContain(shown.effect);
+    expect(listed).not.toContain(shown.hip);
+    expect(listed).toContain(shown.nothingFound);
+    expect(unplaced.placements!.subcategories).toHaveLength(22);
+
+    const done = await review.run({ action: "place_items", placements: [
+      { item: shown.nothingFound, subcategory: "brain-and-memory" }, { item: shown.hip, subcategory: null }] });
+    expect(done).toMatchObject({ ok: true, outcome: "items_placed", placements: { changed: 2 } });
+    expect(done.text).toContain(`${shown.nothingFound}: Health > Brain and memory`);
+    expect(done.text).toContain(`${shown.hip}: out of the tree`);
+    expect((await placements.listPlacements()).find(({ itemNumber }) => itemNumber === shown.hip)).toBeUndefined();
+
+    for (const placements of [[], [{ item: shown.hip, subcategory: "colds" }],
+      [{ item: shown.hip, subcategory: "sleep" }, { item: shown.hip, subcategory: "eyes" }]]) {
+      const refused = await review.run({ action: "place_items", placements: placements as never });
+      expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    }
+  });
+});
+

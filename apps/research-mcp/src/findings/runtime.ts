@@ -1,5 +1,6 @@
 import {
   PostgresAtlasModerationStore,
+  PostgresAtlasPlacementStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
@@ -8,6 +9,7 @@ import { getProtocolManifest } from "@askrigor/protocol";
 
 import {
   announcingModerationStore,
+  announcingPlacementStore,
   announcingPublicationStore,
   announcingReviewStore,
 } from "../atlas/change-signal.js";
@@ -190,6 +192,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       })),
       // Decision 171, section 4E: the comments' moderation and the home page's picks, through the same role's functions.
       participation: announcingModerationStore(new PostgresAtlasModerationStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // Owner answer 229a: where items sit under Health, through the same role's two placement functions.
+      placements: announcingPlacementStore(new PostgresAtlasPlacementStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,

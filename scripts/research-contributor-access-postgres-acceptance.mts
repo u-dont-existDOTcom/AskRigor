@@ -1429,6 +1429,8 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
   "set_atlas_home_picks",
 ] as const;
+// Owner answer 229a: migration 0024's two placement functions, for the review role.
+const ATLAS_PLACEMENT_FUNCTIONS = ["inspect_atlas_placements", "set_atlas_placements"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -3894,7 +3896,7 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
+          ...ATLAS_PLACEMENT_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();
@@ -3908,6 +3910,26 @@ export async function verifyAtlasStorage(context: {
       );
       await client.query("SELECT * FROM forget_atlas_cards(ARRAY[9010], $1::timestamptz)", [now]);
     });
+    // Owner answer 229a (migration 0024): the review role sets, moves and removes placements and lists them; a
+    // malformed entry changes nothing; the reader reads the table for the pages.
+    await asRole("askrigor_research_review", async (client) => {
+      const set = await client.query<{ changed: number }>(
+        `SELECT set_atlas_placements('[{"item":"P-9001","category":"health","subcategory":"sleep"},` +
+        `{"item":"F-9002","category":"health","subcategory":"eyes"}]'::jsonb, $1::timestamptz) AS changed`, [now]);
+      assert(set.rows[0]?.changed === 2, "ATLAS_PLACEMENTS_NOT_SET");
+      await client.query(`SELECT set_atlas_placements('[{"item":"F-9002","category":null,"subcategory":null}]'::jsonb,
+        $1::timestamptz)`, [now]);
+      const listed = await client.query<{ placement_item: string }>("SELECT * FROM inspect_atlas_placements()");
+      assert(listed.rows.map(({ placement_item }) => placement_item).join() === "P-9001", "ATLAS_PLACEMENTS_NOT_LISTED");
+      // In the same transaction (asRole rolls back), the reader sees the row the pages read.
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const read = await client.query<{ item_number: string }>("SELECT item_number FROM atlas_placements");
+      assert(read.rows.map(({ item_number }) => item_number).join() === "P-9001", "ATLAS_PLACEMENTS_NOT_READABLE");
+    });
+    await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
+      `SELECT set_atlas_placements('[{"item":"P-9001","category":"Health","subcategory":"sleep"}]'::jsonb, now())`,
+    )), "ATLAS_PLACEMENT_INPUT_INVALID");
+    checks.push("atlas_placements_set_by_the_review_role_and_read_by_the_reader");
     await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
       `SELECT * FROM record_atlas_finding_intent($1::uuid, 'withdraw', 'F-1001', '{}'::jsonb, $2, NULL,
          $3::timestamptz, NULL)`,

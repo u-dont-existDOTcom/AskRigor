@@ -3,6 +3,7 @@ import type {
   AtlasParticipationStore,
   AtlasPublicationStore,
   AtlasReviewStore,
+  AtlasPlacementStore,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -111,5 +112,16 @@ export function announcingModerationStore(
       announcing(signal, () => store.setCommenterStopped(commenterTag, stopped, at)),
     setHomePicks: (picks, at) => announcing(signal, () => store.setHomePicks(picks, at)),
     inspectHomePicks: () => store.inspectHomePicks(),
+  };
+}
+
+/** The placements (owner answer 229a): a change moves items between the Health pages. */
+export function announcingPlacementStore(
+  store: AtlasPlacementStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasPlacementStore {
+  return {
+    setPlacements: (changes, at) => announcing(signal, () => store.setPlacements(changes, at)),
+    listPlacements: () => store.listPlacements(),
   };
 }

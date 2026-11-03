@@ -495,7 +495,7 @@ async function shownFindings(reads: AtlasPageReads, publications: readonly Atlas
 }
 
 /** One entry per accepted finding (two publications can show one F number after a re-check): the first in order. */
-function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
+export function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
   const seen = new Set<string>();
   return findings.filter((finding) => {
     if (finding.status.kind === "unreviewed") return true;
@@ -640,7 +640,7 @@ export interface AtlasTopicsModel {
 }
 
 /** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
-async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator<ShownFinding> {
+export async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator<ShownFinding> {
   let cursor = before;
   for (;;) {
     const publications = await reads.listPublications({ limit: READ_CHUNK, ...(cursor === undefined ? {} : { before: cursor }) });

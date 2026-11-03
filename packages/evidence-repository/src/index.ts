@@ -382,6 +382,7 @@ export {
   type AtlasPageFinding,
   type AtlasPageFindingSource,
   type AtlasPageHomePick,
+  type AtlasPagePlacement,
   type AtlasPagePublication,
   type AtlasPagePublicationQuery,
   type AtlasPageReads,
@@ -391,6 +392,15 @@ export {
   type AtlasPageSourceScheme,
   type AtlasPageState,
 } from "./atlas-pages.js";
+export {
+  ATLAS_PLACEMENTS_PER_CALL,
+  AtlasPlacementError,
+  InMemoryAtlasPlacements,
+  PostgresAtlasPlacementStore,
+  type AtlasPlacement,
+  type AtlasPlacementChange,
+  type AtlasPlacementStore,
+} from "./atlas-placements.js";
 export {
   ATLAS_COMMENT_MAX_CHARACTERS,
   ATLAS_COMMENT_STATES,

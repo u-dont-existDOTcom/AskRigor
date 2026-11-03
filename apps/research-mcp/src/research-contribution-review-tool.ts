@@ -31,6 +31,7 @@ import {
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
+import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
@@ -77,6 +78,12 @@ export const researchContributionReviewInputSchema = z.object({
     return;
   }
   if (isAtlasReviewAction(value.action)) {
+    // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
+    const placements = (value as { placements?: unknown }).placements;
+    if ((value.action === "place_items") !== (placements !== undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "place_items"
+        ? "place_items needs later_inputs.placements" : `${value.action} does not take placements` });
+    }
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
   }
@@ -232,6 +239,8 @@ const sharedAnswerSummarySchema = z.object({
 
 /** The review tool's results as the server checks them: the published fields and the shared answers' (200a). */
 export const researchContributionReviewRuntimeOutputSchema = researchContributionReviewOutputSchema.safeExtend({
+  // Owner answer 229a: place_items and list_unplaced, runtime-only (owner answer 189a).
+  placements: atlasPlacementsSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -529,7 +538,7 @@ function reviewError(
  * checks_not_passed, try_again_later) has ok false and is an answer the AI acts on, not an error.
  */
 function atlasToolResult(result: AtlasReviewResult): CallToolResult {
-  const structuredContent = researchContributionReviewOutputSchema.parse({
+  const structuredContent = researchContributionReviewRuntimeOutputSchema.parse({
     ok: result.ok,
     ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
     ...(result.findings === undefined ? {} : { findings: result.findings }),
@@ -542,6 +551,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     ...(result.publications === undefined ? {} : { publications: result.publications }),
     ...(result.participation === undefined ? {} : { participation: result.participation }),
+    ...(result.placements === undefined ? {} : { placements: result.placements }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

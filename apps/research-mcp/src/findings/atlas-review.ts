@@ -50,6 +50,7 @@ import {
   type AtlasPublicationState,
   type AtlasPublicationStore,
   type AtlasModerationStore,
+  type AtlasPlacementStore,
   type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
@@ -87,6 +88,14 @@ import {
   type AtlasParticipation,
   type AtlasParticipationAction,
 } from "../atlas/participation-review.js";
+import {
+  ATLAS_PLACEMENT_ACTIONS,
+  ATLAS_PLACEMENT_OUTCOMES,
+  AtlasPlacementReview,
+  type AtlasPlacementAction,
+  type AtlasPlacements,
+  type placementsInputSchema,
+} from "../atlas/placement-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -174,6 +183,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_PUBLICATION_ACTIONS,
   // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
   ...ATLAS_PARTICIPATION_ACTIONS,
+  // Owner answer 229a: where items sit under Health.
+  ...ATLAS_PLACEMENT_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -201,6 +212,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "youtube_findings_deleted",
   ...ATLAS_PUBLICATION_OUTCOMES,
   ...ATLAS_PARTICIPATION_OUTCOMES,
+  ...ATLAS_PLACEMENT_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -395,6 +407,8 @@ export interface AtlasReviewRequest {
   comment?: string;
   commenter?: string;
   picks?: Array<{ publication: string; reason: string }>;
+  /** place_items (owner answer 229a), from later_inputs.placements. */
+  placements?: import("zod").infer<typeof placementsInputSchema>;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -440,6 +454,9 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   stop_commenter: ["commenter"],
   restore_commenter: ["commenter"],
   set_picks: ["picks"],
+  // Owner answer 229a: the placements come in later_inputs.placements.
+  place_items: [],
+  list_unplaced: ["cursor"],
 };
 
 /**
@@ -912,6 +929,8 @@ export interface AtlasReviewResult {
   publications?: AtlasPublications;
   /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
   participation?: AtlasParticipation;
+  /** Owner answer 229a: the placements set, or the publications that sit in no subcategory. */
+  placements?: AtlasPlacements;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -949,6 +968,8 @@ export interface AtlasReviewDependencies {
    * actions and the home page's picks need them; without them those actions answer that they are not configured.
    */
   participation?: AtlasModerationStore;
+  /** Where items sit under Health (owner answer 229a), through the review role's two placement functions. */
+  placements?: AtlasPlacementStore;
   /**
    * The titles and years publish_cards publishes with a card's sources (plan
    * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
@@ -1089,6 +1110,9 @@ export class AtlasReview {
         case "restore_commenter":
         case "set_picks":
           return await this.participationAction(request.action, request);
+        case "place_items":
+        case "list_unplaced":
+          return await this.placementAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1133,6 +1157,27 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async placementAction(action: AtlasPlacementAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const placements = this.deps.placements;
+    if (placements === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas's categories are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasPlacementReview({ placements, now: this.now,
+      ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }) }).run({
+      action,
+      ...(request.placements === undefined ? {} : { placements: request.placements }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.placements === undefined ? {} : { placements: result.placements }),
+    };
+  }
 
   private async participationAction(action: AtlasParticipationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const moderation = this.deps.participation;

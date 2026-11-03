@@ -6,6 +6,7 @@ import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
+import { placementsInputSchema } from "./atlas/placement-review.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -39,6 +40,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
       .describe("With read_shared_answer or delete_shared_answer: the ID list_shared_answers gave."),
+    // Owner answer 229a: where items sit under Health.
+    placements: placementsInputSchema.optional()
+      .describe("With place_items: [{item, subcategory}], 1 to 200 entries; subcategory a key list_unplaced lists, or null."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

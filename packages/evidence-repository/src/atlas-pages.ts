@@ -25,6 +25,7 @@ import {
   type AtlasPageParticipation,
   type InMemoryAtlasParticipation,
 } from "./atlas-participation.js";
+import type { InMemoryAtlasPlacements } from "./atlas-placements.js";
 import {
   atlasPublicationOrder,
   atlasPublishedFindingSchema,
@@ -153,6 +154,13 @@ export interface AtlasPageHomePick {
   reason: string;
 }
 
+/** Where an item sits in the categories (owner answer 229a, migration 0024). */
+export interface AtlasPagePlacement {
+  itemNumber: string;
+  categoryKey: string;
+  subcategoryKey: string;
+}
+
 /** The reads one page makes, inside one snapshot. */
 export interface AtlasPageReads {
   /** Publications in a state the pages show: unreviewed with its published fields, accepted or edited. */
@@ -182,6 +190,8 @@ export interface AtlasPageReads {
   listOwnVotes(participantKey: string, before: number | undefined, limit: number): Promise<AtlasPageOwnVote[]>;
   /** The owner's picks for the home page, in order. */
   listHomePicks(): Promise<AtlasPageHomePick[]>;
+  /** Where each item sits in the categories (owner answer 229a), by item number. */
+  listPlacements(): Promise<AtlasPagePlacement[]>;
 }
 
 /** Where the pages read from: each page's reads run in one read-only snapshot. */
@@ -667,6 +677,12 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       return (await client.query<{ slot: number; publication_number: string; reason: string }>(HOME_PICKS_SQL)).rows
         .map((row) => ({ slot: Number(row.slot), publicationNumber: row.publication_number, reason: row.reason }));
     },
+
+    async listPlacements() {
+      return (await client.query<{ item_number: string; category_key: string; subcategory_key: string }>(
+        "SELECT item_number, category_key, subcategory_key FROM atlas_placements ORDER BY item_number")).rows
+        .map((row) => ({ itemNumber: row.item_number, categoryKey: row.category_key, subcategoryKey: row.subcategory_key }));
+    },
   };
 }
 
@@ -718,6 +734,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     canonical?: InMemoryAtlasCanonicalStore;
     /** Votes, comments and picks (section 4E); none without it. */
     participation?: InMemoryAtlasParticipation;
+    /** Where items sit in the categories (owner answer 229a); none without it. */
+    placements?: InMemoryAtlasPlacements;
   }) {}
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -871,6 +889,9 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
 
       listHomePicks: async () => (await this.stores.participation?.inspectHomePicks() ?? [])
         .map(({ slot, publicationNumber, reason }) => ({ slot, publicationNumber, reason })),
+
+      listPlacements: async () => (await this.stores.placements?.listPlacements() ?? [])
+        .map(({ itemNumber, categoryKey, subcategoryKey }) => ({ itemNumber, categoryKey, subcategoryKey })),
     };
   }
 }
