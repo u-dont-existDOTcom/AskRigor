@@ -133,6 +133,12 @@ complete XML protocol.
   pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
   from 43% to none; answers still changed after a passing check; three regression cards published when the account's
   saving was switched on from outside the run (owner questions 218 and 219).
+- `audits/2026-11-03-owner-regressions-394-judgment.md`: the owner regressions on #394's build `b9e658e2` against
+  question 193's signals (85 cases: 40 pass, 44 in part, 1 fails; against #393's build 7 better, 12 worse, eight of
+  them for the plain-answer note dropped after the check; the low-calorie runs 4, 6 and none fails, 1 not judged):
+  108 of 111 checks pass by their second call, none never passes, 1 call fails on format, 33 cases pass twice in a
+  row; the forum reader raised the median threads read from 3 to 7; its threads refused as key sources and its
+  searches capped at 7; InfoAccess stuck from about 23:22 UTC; two runs lost to OpenAI's capacity, to be rerun.
 - `audits/2026-11-02-meaning-judge-development.md`: the meaning judge of owner answer 221 (a Claude API call in the
   final check, for the owner's dev accounts only, notes only apart from holding findings drawn from YouTube comments),
   measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
