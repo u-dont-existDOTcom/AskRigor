@@ -148,3 +148,8 @@ a tie counts as neither. Stage 2 runs only if Claude wins more cases than ChatGP
 
 A pull request with the engine and its tests, a record under `docs/audits/` (cost and time per case, and quality against
 ChatGPT's run), and a line on the owner page.
+
+**The outcome (3 Nov):** stage 1 ran from 08:05 to 08:40 UTC on the plan. Under the rule above, stage 2 doesn't run:
+the two judges agreed on one case, `r376`, for ChatGPT's answer, and split on the other two. In `r376` AskRigor's
+Reddit reader couldn't open any thread for Claude's run. The record has the details. The sign-in's pass was deleted when
+the trial ended; the owner removes the laptop return address and the two files (step 3 of question 222).

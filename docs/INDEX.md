@@ -137,7 +137,9 @@ complete XML protocol.
   minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
   protocols, so the engine now carries the AskRigor skill and a guard; a free blind check judged Claude's answers
   better in all three; the sample runs in two stages (owner answer 226b) on the Claude plan, so API spending ends at
-  $13.09.
+  $13.09. Stage 1 (3 Nov) answered all three and passed every check; two blind judges agreed only on `r376`, for
+  ChatGPT's answer, where AskRigor's Reddit reader couldn't open a thread for Claude, so stage 2 didn't run and the
+  trial ends about level.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

@@ -91,7 +91,100 @@ engine's refusals and guards in a hook, and nothing of the user's own settings. 
 showed that it used no API key and saw AskRigor's structured results, and that the hook's refusal and the protocol
 guard both worked. The remaining differences from the engine are in the plan.
 
-## Quality
+## Stage 1, on the Claude plan
 
-Judged on the sample, run on the Claude plan in stages: stage 1's three cases, then stage 2 only if they show Claude
-better in more cases than worse (`docs/superpowers/plans/2026-11-02-web-app-engine-trial.md`).
+- **The run:** worker at `1346b3aa`, against production build `b9e658e2` (checked before it started), on the owner's
+  Google login. Claude Code 2.1.312, Claude Opus 5.5 at effort `high`. It started at 08:05 UTC on 3 Nov, five minutes after
+  YouTube's daily quota reset: tonight's regression run, which ended at 01:41 UTC, had used up the quota. It ended at 08:40
+  UTC.
+- **Checks:** every case reported no API key and was connected to AskRigor. Each loaded Universal and HRP by its seventh
+  AskRigor call. No call was refused, no conversation was compacted, and the account's card saving stayed off.
+- **Plan usage:** none of it was API spending. The plan's rate-limit notices during the run showed its five-hour window at 3% or
+  less and its week at 40 to 41%, with other sessions using the same plan.
+
+| Case | Time, Claude / ChatGPT | AskRigor calls, Claude / ChatGPT | Protocol loads, Claude / ChatGPT | Final-check calls, Claude / ChatGPT | Cost had it run on the API |
+|---|---|---|---|---|---|
+| `q136-weak-lead-given` | 17.7 / 16.3 min | 44 / 66 | 2 / 11 | 2 / 3 | $6.31 |
+| `r376-forum-500` | 11.0 / 13.4 min | 51 / 59 | 3 / 11 | 2 / 5 | $4.35 |
+| `q126-39-replication` | 6.1 / 12.3 min | 29 / 55 | 5 / 9 | 1 / 4 | $2.66 |
+
+- **ChatGPT's answers:** from tonight's regression run on the same build (2 Nov, 21:07 to 23:36 UTC).
+- **Protocol loads:** Claude's were fewer but broader. In `q136` it loaded Universal's and HRP's core sections. In
+  `q126-39` it loaded both indexes and then the sections the case needs (`claim_scope_predicate_alignment_gate`,
+  `AnswerShapeController`, `StatisticalAndClinicalInterpretation`).
+- **The final check:**
+  - `q126-39` passed at its first call.
+  - `r376` passed at its second.
+  - `q136` passed at its first call; Claude then searched further and checked again.
+- **Sources Claude's runs lacked:** Europe PMC failed at every call. Its own public interface answered 503 at 08:42 UTC, an
+  outage at Europe PMC's end; Claude searched PubMed instead. ChatGPT's runs the night before had Europe PMC. Gemini's
+  YouTube scout was out of budget in `q136` and `r376`. Web fetch failed on two pages, one of
+  them on old.reddit.com.
+- **Other errors:** five AskRigor calls were rejected for their input and succeeded on the next call:
+  - a plain-answer claim too long, or not copied exactly;
+  - a review audit whose source didn't match;
+  - a figure without its working.
+
+## Stage 1's blind judging
+
+- **The packet:** each case's question, its criteria (`docs/owner-regressions.md` at `b9e658e2`, the sections whole),
+  and the two answers as A and B, in an order drawn at random. The key stayed in another folder until both verdicts were
+  in.
+- **The judges:** a Claude subagent on the plan, and GPT-6.1 Sol at extra-high reasoning through Codex, read-only, with
+  its apps, browser and the owner's other servers off. Each read only the packet.
+- **The rule:** how two judges count was committed (`6714abb2`) before either started. A case counts only when both
+  prefer the same answer.
+
+| Case | Claude judge prefers | GPT judge prefers | Counts for | Criteria, Claude judge (Claude's / ChatGPT's) | Criteria, GPT judge (Claude's / ChatGPT's) | ChatGPT's answer in #394's judgment |
+|---|---|---|---|---|---|---|
+| `q136-weak-lead-given` | Claude's | ChatGPT's | neither | in part / in part | fails / fails | fails |
+| `r376-forum-500` | ChatGPT's | ChatGPT's | ChatGPT | in part / in part | in part / passes | in part |
+| `q126-39-replication` | ChatGPT's | Claude's | neither | in part / passes | fails / fails | passes |
+
+Claude won no case and ChatGPT one, so **under the rule, stage 2 doesn't run.** Neither judge simply favoured its own
+family: the Claude judge preferred ChatGPT's answer in two cases, and the GPT judge preferred Claude's in one.
+
+What decided each case:
+
+- **`q136`, a weak lead:**
+  - Both answers keep the pasted plant off the shortlist, name the user's abstract as its source and say it wasn't
+    found. Both give it a section of its own instead of a brief line at the end, so neither meets that criterion.
+  - The Claude judge preferred Claude's answer: it gives an order by IBS type and covers the non-plant options.
+  - The GPT judge preferred ChatGPT's: it reads single trials more closely and adds safety points Claude's lacks, such
+    as the peanut oil in an anise capsule.
+  - Errors in Claude's answer:
+    - it turns the rat dose into a human "helpful dose" of 3 to 4 g a day;
+    - it says the plant "has never been tested in people", where the abstract says only that no study has been
+      reported;
+    - it calls psyllium "the lowest-risk option" without having checked its risks.
+- **`r376`, months at 500 kcal:**
+  - Both judges preferred ChatGPT's answer. It states its rule, names the one report that qualifies, and labels each
+    near miss.
+  - Claude's answer calls its best report "the closest match" without saying whether any report qualifies.
+  - It also reads one statistic two ways: "47% more than they reported", then under-reporting "by about half".
+  - Claude's run had little to work with. AskRigor's forum reader returned `inaccessible` for all six Reddit threads it
+    tried, and for both in `q136`. The night before, ChatGPT's run read 11 of the 16 it tried. At 09:00 UTC the reader
+    still couldn't open a thread it had read then. So this case's comparison is confounded by a reader failure on
+    production, outside the trial.
+- **`q126-39`, a failed replication:**
+  - ChatGPT's answer identifies the studies as Cook and Persinger (2001) and Granqvist and colleagues (2005). It
+    reconstructs both, and reports the later study's tests by suggestibility.
+  - Claude's searched another literature (theta-burst and rTMS studies of hypnotic suggestibility), couldn't identify
+    the studies, and assumed the later one "reported only an overall average".
+  - The Claude judge preferred ChatGPT's answer, for answering from the studies themselves.
+  - The GPT judge preferred Claude's, and failed both. The criteria section says the case's studies "are made up", so it
+    took ChatGPT's identification (89 people, not 90) as unsupported. That sentence was in the packet because the
+    section was copied whole; the prompt follows those two papers closely. The split stands under the rule.
+- **Tools that worked for ChatGPT's runs but not Claude's:** Europe PMC, the Reddit reader and Gemini's YouTube scout.
+  Only the Reddit reader plausibly changed a verdict (`r376`).
+
+## What the trial shows
+
+- **Cost and time**, the one question that needed the API: $1.81 to $5.67 and 6 to 19 minutes a case at effort `high`
+  in the pilot. Stage 1's three cases would have cost $2.66 to $6.31 on the API.
+- **Quality:** with the skill, Claude loaded the protocols, passed the final check and made fewer AskRigor calls, and
+  its answers were about level with ChatGPT's. Two judges of different families agreed on one case of three, for
+  ChatGPT's answer, in the case where Claude's run couldn't read Reddit. Nothing here shows that an AskRigor web app on
+  Claude would answer better than ChatGPT's app does now.
+- **The end:** under the rule the trial ends after stage 1. API spending stays at $13.09. Stage 1 and its judging used
+  the owner's Claude plan and, for the GPT judge, the owner's ChatGPT plan.
