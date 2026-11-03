@@ -79,8 +79,8 @@ printed or written but counts and masked line shapes.
 | `718e20f3`, `7d4dfef2` regression judgments | 21, 22 Oct | 1 counts each | Coincidence: three ordinary two-digit numbers of one map in a run of results |
 
 So two commits in 2,137 were false alarms (about one push in a thousand), and every real leak was caught. Scanning the
-current tree of `main` as if it were all added today finds the same two coincidences and four comment totals in
-public plan lines (listed on the owner page, not here).
+current tree of `main` as if it were all added today finds the same two coincidences and three comment totals on
+three lines of public plans (listed on the owner page, not here).
 
 The 2 Nov fixture, as it stood in the unpushed commit `6025d739`, is refused (7 places: totals and counts of two maps
 that share a video). Its amended version `1e2f1b7d`, which is on the branch of draft #405, is not clean either: lines
