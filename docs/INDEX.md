@@ -124,6 +124,8 @@ complete XML protocol.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-03-atlas-kept-for-research.md`: findings kept for AskRigor's research but not shown (owner
+  answers 229a and 231a): in the research lookup and at their own pages, on no list, topic, search or home page.
 - `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
   with a test of how many threads open to a plain request; waits for owner question 213.
 - `audits/2026-11-02-owner-regressions-393-judgment.md`: the owner regressions on #393's build `61215c0b` against

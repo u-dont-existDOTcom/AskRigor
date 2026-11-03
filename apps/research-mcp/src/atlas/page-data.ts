@@ -107,6 +107,11 @@ export interface ShownFinding {
   replacedBy: ShownRelated[];
   publishedAt: string;
   stateChangedAt: string;
+  /**
+   * Kept for AskRigor's research only (owner answers 229a and 231a): its page and the research lookup show it; no list,
+   * topic, home page, search, map or sitemap does.
+   */
+  kept: boolean;
 }
 
 /** The owner's "most important now" pick with its reason (decision 2a). */
@@ -302,7 +307,7 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
     for (;;) {
       const page = await reads.listPublications({
         atlasNumbers: numbers.slice(start, start + READ_CHUNK), states: ["accepted", "edited"], limit: READ_CHUNK,
-        ...(before === undefined ? {} : { before }),
+        includeKept: true, ...(before === undefined ? {} : { before }),
       });
       publications.push(...page);
       if (page.length < READ_CHUNK) break;
@@ -365,6 +370,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     replacedBy: [],
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
+    kept: publication.kept,
   };
 }
 
@@ -428,6 +434,7 @@ function fromCanonical(
       ({ atlasNumber, publicationNumber: related.get(atlasNumber)?.publicationNumber ?? null })),
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
+    kept: publication.kept,
   };
 }
 
@@ -536,10 +543,11 @@ async function contestedPairs(reads: AtlasPageReads): Promise<AtlasContestedPair
 }
 
 /** A topic page: the findings on the topic, by section; undefined when none shows. */
-export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string): Promise<AtlasTopicModel | undefined> {
+export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string, options: { includeKept?: boolean } = {}):
+  Promise<AtlasTopicModel | undefined> {
   return await source.read(async (reads) => {
     const shown = oncePerFinding(await shownFindings(reads,
-      await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS })))
+      await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS, includeKept: options.includeKept === true })))
       // A finding shows on the page of the topic it shows with.
       .filter((finding) => finding.topic?.key === topicKey);
     if (shown.length === 0) return undefined;
@@ -593,10 +601,11 @@ export interface AtlasTopicsModel {
 }
 
 /** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
-async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator<ShownFinding> {
+async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false): AsyncGenerator<ShownFinding> {
   let cursor = before;
   for (;;) {
-    const publications = await reads.listPublications({ limit: READ_CHUNK, ...(cursor === undefined ? {} : { before: cursor }) });
+    const publications = await reads.listPublications({ limit: READ_CHUNK, includeKept,
+      ...(cursor === undefined ? {} : { before: cursor }) });
     for (const finding of await shownFindings(reads, publications)) yield finding;
     if (publications.length < READ_CHUNK) return;
     const next = publications.at(-1)!.publicationNumber;
@@ -608,11 +617,13 @@ async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
 export async function loadAtlasFindings(source: AtlasPageSource, options: {
   before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery; topicKey?: string;
+  /** The research lookup reads the findings kept for research too (owner answers 229a and 231a); the pages never do. */
+  includeKept?: boolean;
 } = {}): Promise<AtlasFindingsModel> {
   return await source.read(async (reads) => {
     const filter = options.filter ?? "all";
     const findings: ShownFinding[] = [];
-    for await (const finding of allShown(reads, options.before)) {
+    for await (const finding of allShown(reads, options.before, options.includeKept === true)) {
       if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
       if ((filter === "checked" && finding.status.kind === "unreviewed") ||
         (filter === "unreviewed" && finding.status.kind !== "unreviewed") ||
@@ -681,7 +692,8 @@ export async function loadAtlasFinding(
   options: { participation?: { participantKey: string | null; before?: number } } = {},
 ): Promise<AtlasFindingModel | undefined> {
   return await source.read(async (reads) => {
-    const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1 });
+    // A finding kept for research keeps its own page (owner answers 229a and 231a).
+    const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1, includeKept: true });
     if (publication === undefined) return undefined;
     const findings = publication.atlasNumber === null ? new Map<string, AtlasPageFinding>()
       : await readFindings(reads, [publication.atlasNumber]);
