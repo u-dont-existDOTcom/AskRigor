@@ -26,7 +26,7 @@ import {
   announcingPublicationStore,
   announcingReviewStore,
 } from "../apps/research-mcp/src/atlas/change-signal.js";
-import { loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory }
+import { glanceOf, loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory }
   from "../apps/research-mcp/src/atlas/health-pages.js";
 import { HEALTH } from "../apps/research-mcp/src/atlas/health-tree.js";
 import { AtlasPlacementReview } from "../apps/research-mcp/src/atlas/placement-review.js";
@@ -1983,10 +1983,36 @@ describe("the Health pages (owner answer 229a)", () => {
     const page = renderAtlasSubcategory(sleep);
     expect(page).toContain("<h1>Sleep</h1>");
     expect(page).not.toContain('content="noindex"');
+    // At a glance first: the effect's clear two-group result, with its comparison and follow-up.
+    const row = sleep.glance.encouraging.find(({ publicationNumber }) => publicationNumber === shown.effect)!;
+    expect(row).toMatchObject({ kind: "controlled", comparison: "placebo", followUp: "12 weeks",
+      result: "tremor score halved: 25 out of 100 with zentarine 20 mg (60 of 240) against 15 out of 100 (36 of 240)" });
+    expect(page.indexOf("At a glance")).toBeGreaterThan(-1);
+    expect(page.indexOf("At a glance")).toBeLessThan(page.indexOf("<h2>Findings</h2>"));
+    expect(page).toContain("A controlled comparison");
     const eyes = (await loadAtlasSubcategory(source, "eyes"))!;
     expect(eyes.findings).toEqual([]);
     expect(renderAtlasSubcategory(eyes)).toContain("Nothing is here yet.");
     expect(await loadAtlasSubcategory(source, "colds")).toBeUndefined();
+  });
+
+  it("puts harms, no-effect findings and clear results the wrong way under what failed or harmed", () => {
+    const base = { claim: "An invented claim.", certainty: "low", appliesTo: null, numbers: [], kind: "effect",
+      direction: "benefit" };
+    const counts = (optionEvents: number, comparatorEvents: number) => ({ outcome: "relapse", better: "fewer", option: "A",
+      optionEvents, optionTotal: 100, comparator: "B", comparatorEvents, comparatorTotal: 100, followUp: "1 year",
+      harmsNoneFound: false });
+    const glance = glanceOf([
+      { ...base, publicationNumber: "P-9001", kind: "harm", direction: "harm" },
+      { ...base, publicationNumber: "P-9002", direction: "no_effect" },
+      { ...base, publicationNumber: "P-9003", numbers: [counts(50, 20)] },
+      // No clear difference: no row.
+      { ...base, publicationNumber: "P-9004", numbers: [counts(11, 10)] },
+      { ...base, publicationNumber: "P-9005", numbers: [counts(20, 50)] },
+    ] as never, []);
+    expect(glance.encouraging.map(({ publicationNumber }) => publicationNumber)).toEqual(["P-9005"]);
+    expect(glance.failed.map(({ publicationNumber, kind }) => [publicationNumber, kind]))
+      .toEqual([["P-9001", "harm"], ["P-9002", "no_effect"], ["P-9003", "controlled"]]);
   });
 
   it("serves /atlas/health and its subcategories, and routes nothing else there", async () => {

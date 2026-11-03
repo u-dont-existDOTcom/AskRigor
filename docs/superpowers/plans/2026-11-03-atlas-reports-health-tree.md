@@ -172,3 +172,13 @@ then what failed or harmed. People's reports for the problem are counted beside 
   final check's result once #398 merges.
 - Merging with #398: the generated `apps/research-mcp/src/check-report-vocabulary.ts` conflicts at one sorted spot;
   regenerate it (`npx tsx scripts/generate-check-report-vocabulary.mts --write`) rather than editing by hand.
+- 3 Nov: step 7, its first part. Each Health subcategory page opens with "At a glance" (`glanceOf` in
+  `apps/research-mcp/src/atlas/health-pages.ts`): encouraging results (a clear two-group difference the good way,
+  largest first, each with its result out of 100 and counts, comparison, follow-up, how sure, and whom it applies to),
+  then what failed or harmed (clear results the wrong way, declared harms, no effect), then people's reports counted.
+  Built from declared fields alone.
+- Still to build: the scorecard's own rows (a named practitioner's published outcome series, a programme's outcomes,
+  a historical lead), stored apart and shown only with the owner's yes for each, after a source check of its numbers
+  and a named-person screen; the line offering door 2 in the final check's result (after #398); placing today's
+  findings with `place_items` after release; and, before release, taking in main (#410's migration first, so this
+  stack's become 0025 and 0026), with the search index, map, sitemap and Health pages leaving kept publications out.

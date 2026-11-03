@@ -2,7 +2,8 @@ import type { AtlasPagePlacement, AtlasPageReport, AtlasPageSource } from "@askr
 
 import { HEALTH, healthPath, type AtlasCategory, type AtlasSubcategory } from "./health-tree.js";
 import { allShown, byStrength, oncePerFinding, type ShownFinding } from "./page-data.js";
-import { findingList, html, page, unreviewedOnly, type AtlasPageReader } from "./pages.js";
+import { differenceRange } from "../difference-range.js";
+import { findingList, findingPath, html, outOf100, page, unreviewedOnly, type AtlasPageReader } from "./pages.js";
 import { SHARE_PATH, reportPath } from "./report-pages.js";
 
 /**
@@ -25,6 +26,72 @@ export interface AtlasSubcategoryModel {
   findings: ShownFinding[];
   /** People's published reports placed here (owner answer 229a), newest first. */
   reports: AtlasPageReport[];
+  /** The page's first section: the problem at a glance (owner, 3 Nov: GPT's scorecard, "make that prominent"). */
+  glance: AtlasGlance;
+}
+
+/**
+ * One row of a page at a glance, in the shape of the practitioner scorecard: what it is, its result with the
+ * comparison it was measured against, its follow-up, and its limit. Built from a finding's declared fields alone, so
+ * every language reads alike: a two-group result whose 95% range leaves out no difference (difference-range.ts) is a
+ * controlled result, encouraging when the option did better on that outcome and failed when it did worse; a finding
+ * declared a harm, or no effect, goes with what failed or harmed.
+ */
+export interface GlanceRow {
+  publicationNumber: string;
+  claim: string;
+  kind: "controlled" | "harm" | "no_effect";
+  result: string | null;
+  comparison: string | null;
+  followUp: string | null;
+  sure: string | null;
+  appliesTo: string | null;
+}
+
+export interface AtlasGlance {
+  encouraging: GlanceRow[];
+  failed: GlanceRow[];
+  reports: { count: number; worked: number; didNot: number };
+}
+
+const SURE_WORDS = { high: "Highly sure", moderate: "Moderately sure", low: "A little sure", very_low: "Very unsure" } as const;
+
+export function glanceOf(findings: readonly ShownFinding[], reports: readonly AtlasPageReport[]): AtlasGlance {
+  const encouraging: Array<GlanceRow & { size: number }> = [];
+  const failed: GlanceRow[] = [];
+  for (const finding of findings) {
+    const base = { publicationNumber: finding.publicationNumber, claim: finding.claim,
+      sure: finding.certainty === null ? null : SURE_WORDS[finding.certainty], appliesTo: finding.appliesTo };
+    let placed = false;
+    for (const entry of finding.numbers) {
+      const range = differenceRange({ option_events: entry.optionEvents, option_total: entry.optionTotal,
+        comparator_events: entry.comparatorEvents, comparator_total: entry.comparatorTotal });
+      if (!range.clear) continue;
+      const better = entry.better === "more" ? range.difference > 0 : range.difference < 0;
+      const row: GlanceRow = { ...base, kind: "controlled",
+        result: `${entry.outcome}: ${outOf100(entry.optionEvents / entry.optionTotal)} out of 100 with ${entry.option} ` +
+          `(${entry.optionEvents} of ${entry.optionTotal}) against ${outOf100(entry.comparatorEvents / entry.comparatorTotal)} ` +
+          `out of 100 (${entry.comparatorEvents} of ${entry.comparatorTotal})`,
+        comparison: entry.comparator, followUp: entry.followUp };
+      if (better) encouraging.push({ ...row, size: Math.abs(range.difference) });
+      else failed.push(row);
+      placed = true;
+      break;
+    }
+    if (placed) continue;
+    if (finding.kind === "harm" || finding.direction === "harm") {
+      failed.push({ ...base, kind: "harm", result: null, comparison: null, followUp: null });
+    } else if (finding.direction === "no_effect") {
+      failed.push({ ...base, kind: "no_effect", result: null, comparison: null, followUp: null });
+    }
+  }
+  encouraging.sort((left, right) => right.size - left.size);
+  return {
+    encouraging: encouraging.map(({ size: _size, ...row }) => row),
+    failed,
+    reports: { count: reports.length, worked: reports.reduce((sum, report) => sum + report.answers.worked, 0),
+      didNot: reports.reduce((sum, report) => sum + report.answers.didNot, 0) },
+  };
 }
 
 /** The subcategory a shown finding sits in, by its publication's number first, then its accepted finding's. */
@@ -93,7 +160,8 @@ export async function loadAtlasSubcategory(source: AtlasPageSource, subcategoryK
     .map(({ finding }) => finding)
     .sort(order);
   const reports = placed.reports.filter((entry) => entry.subcategoryKey === subcategoryKey).map(({ report }) => report);
-  return { category: { key: HEALTH.key, label: HEALTH.label }, subcategory, findings, reports };
+  return { category: { key: HEALTH.key, label: HEALTH.label }, subcategory, findings, reports,
+    glance: glanceOf(findings, reports) };
 }
 
 const itemsWord = (count: number) => count === 1 ? "1 item" : `${count} items`;
@@ -117,6 +185,7 @@ export function renderAtlasSubcategory(model: AtlasSubcategoryModel, reader?: At
     description: `${model.subcategory.label}: findings in the AskRigor Atlas.`,
     body: html`<p class="meta"><a href="${healthPath()}">${model.category.label}</a></p>
 <h1>${model.subcategory.label}</h1>
+${glanceSection(model.glance)}
 ${model.findings.length === 0 && model.reports.length === 0 ? html`<p>Nothing is here yet.</p>` : ""}
 ${model.reports.length === 0 ? "" : html`<h2>People’s reports</h2>
 <p class="meta">Each is one person’s experience in their words, checked by an AI, with the research around it.</p>
@@ -126,3 +195,33 @@ ${model.reports.length === 0 ? "" : html`<h2>People’s reports</h2>
 ${findingList(model.findings)}`}
 <p><a href="${SHARE_PATH}">Share what worked for you</a></p>` });
 }
+
+const KIND_LINES = { controlled: "A controlled comparison", harm: "A harm", no_effect: "No effect found" } as const;
+
+function glanceRow(row: GlanceRow) {
+  const parts = [
+    ...(row.result === null ? [] : [html`${row.result}`]),
+    ...(row.comparison === null ? [] : [html`Compared with ${row.comparison}`]),
+    ...(row.followUp === null ? [] : [html`Followed for ${row.followUp}`]),
+    ...(row.sure === null ? [] : [html`${row.sure}`]),
+    ...(row.appliesTo === null ? [] : [html`For ${row.appliesTo}`]),
+  ];
+  return html`<li><p><span class="badge">${KIND_LINES[row.kind]}</span> <a href="${findingPath(row.publicationNumber)}">${row.claim}</a></p>
+${parts.length === 0 ? "" : html`<p class="meta">${parts.map((part, index) => index === 0 ? part : html` · ${part}`)}</p>`}</li>`;
+}
+
+/** The problem at a glance: encouraging results first, then what failed or harmed, then people's reports. */
+function glanceSection(glance: AtlasGlance) {
+  if (glance.encouraging.length === 0 && glance.failed.length === 0 && glance.reports.count === 0) return "";
+  return html`<section class="glance" aria-labelledby="at-a-glance"><h2 id="at-a-glance">At a glance</h2>
+<p class="meta">Results with a clear difference between two groups, each with what it was compared with, how long it was followed and how sure AskRigor is; then what failed or harmed.</p>
+<h3>Encouraging results</h3>
+${glance.encouraging.length === 0 ? html`<p>None with a clear difference yet.</p>`
+    : html`<ul class="glance-list">${glance.encouraging.map(glanceRow)}</ul>`}
+<h3>What failed or harmed</h3>
+${glance.failed.length === 0 ? html`<p>Nothing yet.</p>` : html`<ul class="glance-list">${glance.failed.map(glanceRow)}</ul>`}
+${glance.reports.count === 0 ? "" : html`<p>People’s reports here: ${glance.reports.count}. ${glance.reports.worked} ${glance.reports.worked === 1 ? "person said" : "people said"} one worked for them too; ${glance.reports.didNot} said it didn’t.</p>`}
+</section>
+`;
+}
+
