@@ -110,6 +110,11 @@ GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_placements(jsonb, timestampt
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_placements()
   TO askrigor_research_review;
+-- Owner answer 229a (migration 0025): the check's queue and its verdicts on people's reports.
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_reports(text, bigint, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_report(text, text, text, text, jsonb, text, text, timestamptz)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

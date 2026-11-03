@@ -27,6 +27,15 @@ import {
 } from "./atlas-participation.js";
 import type { InMemoryAtlasPlacements } from "./atlas-placements.js";
 import {
+  atlasReportTextOf,
+  type AtlasOwnReport,
+  type AtlasPageReport,
+  type AtlasReportHoldReason,
+  type AtlasReportRefuseReason,
+  type AtlasReportState,
+  type InMemoryAtlasReports,
+} from "./atlas-reports.js";
+import {
   atlasPublicationOrder,
   atlasPublishedFindingSchema,
   type AtlasPublishedFinding,
@@ -192,6 +201,12 @@ export interface AtlasPageReads {
   listHomePicks(): Promise<AtlasPageHomePick[]>;
   /** Where each item sits in the categories (owner answer 229a), by item number. */
   listPlacements(): Promise<AtlasPagePlacement[]>;
+  /** A published report (owner answer 229a), with the signed-in viewer's own answer when a key is given; else null. */
+  readReport(publicId: string, viewerKey: string | null): Promise<AtlasPageReport | null>;
+  /** Every published report, newest first. */
+  listReports(): Promise<AtlasPageReport[]>;
+  /** A signed-in reader's own reports in every state, newest first. */
+  listOwnReports(participantKey: string): Promise<AtlasOwnReport[]>;
 }
 
 /** Where the pages read from: each page's reads run in one read-only snapshot. */
@@ -678,11 +693,64 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         .map((row) => ({ slot: Number(row.slot), publicationNumber: row.publication_number, reason: row.reason }));
     },
 
+    async readReport(publicId, viewerKey) {
+      if (!/^R-[1-9][0-9]{3,}$/u.test(publicId) || (viewerKey !== null && !/^[a-f0-9]{64}$/u.test(viewerKey))) return null;
+      const [row] = (await client.query(reportPageSql("$2", " AND stored.report_number = $1::bigint"),
+        [Number(publicId.slice(2)), viewerKey])).rows;
+      return row === undefined ? null : pageReportOf(row, viewerKey !== null);
+    },
+
+    async listReports() {
+      return (await client.query(`${reportPageSql("$1")} ORDER BY stored.report_number DESC`, [null])).rows
+        .map((row) => pageReportOf(row, false));
+    },
+
+    async listOwnReports(participantKey) {
+      if (!/^[a-f0-9]{64}$/u.test(participantKey)) return [];
+      return (await client.query<{ report_number: string; problem: string | null; tried: string | null;
+        state: AtlasReportState; hold_reason: AtlasReportHoldReason | null; refuse_reason: AtlasReportRefuseReason | null;
+        received_at: Date | string }>(
+        `SELECT report_number, problem, tried, state, hold_reason, refuse_reason, received_at FROM atlas_reports
+          WHERE participant_key = $1 ORDER BY report_number DESC`, [participantKey])).rows
+        .map((row) => ({ publicId: `R-${Number(row.report_number)}`, problem: row.problem, tried: row.tried,
+          state: row.state, holdReason: row.hold_reason, refuseReason: row.refuse_reason,
+          receivedAt: instant(row.received_at) }));
+    },
+
     async listPlacements() {
       return (await client.query<{ item_number: string; category_key: string; subcategory_key: string }>(
         "SELECT item_number, category_key, subcategory_key FROM atlas_placements ORDER BY item_number")).rows
         .map((row) => ({ itemNumber: row.item_number, categoryKey: row.category_key, subcategoryKey: row.subcategory_key }));
     },
+  };
+}
+
+/** Published reports and their totals, with the viewer's key as the parameter named; callers add the order. */
+const reportPageSql = (viewer: string, condition = "") => `SELECT stored.report_number, stored.display_name, stored.problem, stored.tried, stored.dose,
+       stored.how_used, stored.how_long, stored.what_happened, stored.how_long_lasted, stored.side_effects,
+       stored.other_changes, stored.research, stored.ai_warning, stored.checked_at,
+       (SELECT count(*) FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.answer = 'worked') AS worked,
+       (SELECT count(*) FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.answer = 'did_not') AS did_not,
+       stored.participant_key = ${viewer}::text AS own,
+       (SELECT answer.answer FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.participant_key = ${viewer}::text) AS viewer_answer
+  FROM atlas_reports stored
+ WHERE stored.state = 'published'${condition}`;
+
+function pageReportOf(row: Record<string, unknown>, withViewer: boolean): AtlasPageReport {
+  const checkedAt = row.checked_at as Date | string;
+  return {
+    publicId: `R-${Number(row.report_number)}`,
+    displayName: typeof row.display_name === "string" ? row.display_name : null,
+    text: atlasReportTextOf(row),
+    research: (row.research as Record<string, unknown> | null) ?? null,
+    aiWarning: typeof row.ai_warning === "string" ? row.ai_warning : null,
+    publishedAt: (checkedAt instanceof Date ? checkedAt : new Date(checkedAt)).toISOString(),
+    answers: { worked: Number(row.worked), didNot: Number(row.did_not) },
+    viewer: withViewer ? { own: row.own === true,
+      answer: row.viewer_answer === "worked" || row.viewer_answer === "did_not" ? row.viewer_answer : null } : null,
   };
 }
 
@@ -736,6 +804,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     participation?: InMemoryAtlasParticipation;
     /** Where items sit in the categories (owner answer 229a); none without it. */
     placements?: InMemoryAtlasPlacements;
+    /** People's reports (owner answer 229a); none without it. */
+    reports?: InMemoryAtlasReports;
   }) {}
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -889,6 +959,10 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
 
       listHomePicks: async () => (await this.stores.participation?.inspectHomePicks() ?? [])
         .map(({ slot, publicationNumber, reason }) => ({ slot, publicationNumber, reason })),
+
+      readReport: async (publicId, viewerKey) => await this.stores.reports?.pageReport(publicId, viewerKey) ?? null,
+      listReports: async () => await this.stores.reports?.publishedReports() ?? [],
+      listOwnReports: async (participantKey) => await this.stores.reports?.ownReports(participantKey) ?? [],
 
       listPlacements: async () => (await this.stores.placements?.listPlacements() ?? [])
         .map(({ itemNumber, categoryKey, subcategoryKey }) => ({ itemNumber, categoryKey, subcategoryKey })),

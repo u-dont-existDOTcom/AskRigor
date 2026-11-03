@@ -1431,6 +1431,11 @@ const ATLAS_MODERATION_FUNCTIONS = [
 ] as const;
 // Owner answer 229a: migration 0024's two placement functions, for the review role.
 const ATLAS_PLACEMENT_FUNCTIONS = ["inspect_atlas_placements", "set_atlas_placements"] as const;
+// Owner answer 229a: migration 0025's report functions, four for the access role and two for the review role.
+const ATLAS_REPORT_ACCESS_FUNCTIONS = [
+  "forget_atlas_reports", "set_atlas_report_answer", "submit_atlas_report", "take_down_atlas_report",
+] as const;
+const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_reports"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -3146,7 +3151,7 @@ export async function verifyAtlasParticipation(context: {
     // With the pending-withdrawal function and migration 0019's hold (owner answer 173).
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
-        "withdraw_pending_research_contribution_proposals"].sort().join(),
+        ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals"].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -3896,7 +3901,8 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...ATLAS_PLACEMENT_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
+          ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS,
+          ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();
@@ -3930,6 +3936,51 @@ export async function verifyAtlasStorage(context: {
       `SELECT set_atlas_placements('[{"item":"P-9001","category":"Health","subcategory":"sleep"}]'::jsonb, now())`,
     )), "ATLAS_PLACEMENT_INPUT_INVALID");
     checks.push("atlas_placements_set_by_the_review_role_and_read_by_the_reader");
+
+    // Owner answer 229a (migration 0025): a report through the access role, the check's verdict through the review
+    // role, an answer from someone else and never from its author, its take-down; a refused report keeps no text.
+    await asRole("askrigor_research_access", async (client) => {
+      const author = "a".repeat(64);
+      const other = "b".repeat(64);
+      const report = JSON.stringify({ problem: "Synthetic itch", tried: "A synthetic cream", whatHappened: "It eased." });
+      const [submitted] = (await client.query<{ report_public_id: string }>(
+        "SELECT report_public_id FROM submit_atlas_report($1, 'form', $2::jsonb, $3::timestamptz)",
+        [author, report, now])).rows;
+      const spam = (await client.query<{ report_public_id: string }>(
+        "SELECT report_public_id FROM submit_atlas_report($1, 'ai_app', $2::jsonb, $3::timestamptz)",
+        [author, report, now])).rows[0]!.report_public_id;
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      const queued = await client.query<{ report_number: string }>("SELECT * FROM inspect_atlas_reports('received', NULL, 20)");
+      assert(queued.rows.length === 2, "ATLAS_REPORTS_NOT_QUEUED");
+      const decided = await client.query<{ report_state: string }>(
+        `SELECT report_state FROM decide_atlas_report($1, 'publish_with_warning', 'Synthetic caution.', NULL, NULL,
+           'health', 'skin-hair-and-nails', $2::timestamptz)`, [submitted!.report_public_id, now]);
+      assert(decided.rows[0]?.report_state === "published", "ATLAS_REPORT_NOT_PUBLISHED");
+      await client.query(`SELECT * FROM decide_atlas_report($1, 'refuse', NULL, 'spam', NULL, NULL, NULL, $2::timestamptz)`,
+        [spam, now]);
+      await client.query("SET LOCAL ROLE askrigor_research_access");
+      const totals = await client.query<{ worked: string }>(
+        "SELECT * FROM set_atlas_report_answer($1, $2, 'worked', $3::timestamptz)", [other, submitted!.report_public_id, now]);
+      assert(Number(totals.rows[0]?.worked) === 1, "ATLAS_REPORT_ANSWER_NOT_COUNTED");
+      await client.query("SAVEPOINT own_answer");
+      await expectMessage(() => client.query("SELECT * FROM set_atlas_report_answer($1, $2, 'worked', $3::timestamptz)",
+        [author, submitted!.report_public_id, now]), "ATLAS_REPORT_OWN");
+      await client.query("ROLLBACK TO SAVEPOINT own_answer");
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const read = await client.query<{ state: string; problem: string | null; placed: number }>(
+        `SELECT stored.state, stored.problem,
+                (SELECT count(*)::int FROM atlas_placements place WHERE place.item_number = 'R-' || stored.report_number) AS placed
+           FROM atlas_reports stored ORDER BY stored.report_number`);
+      assert(read.rows.map(({ state, problem, placed }) => `${state}:${problem ?? "-"}:${placed}`).join() ===
+        "published:Synthetic itch:1,refused:-:0", `ATLAS_REPORTS_NOT_AS_DECIDED ${JSON.stringify(read.rows)}`);
+      await client.query("SET LOCAL ROLE askrigor_research_access");
+      const down = await client.query<{ removed: boolean }>("SELECT take_down_atlas_report($1, $2) AS removed",
+        [author, submitted!.report_public_id]);
+      assert(down.rows[0]?.removed === true, "ATLAS_REPORT_NOT_TAKEN_DOWN");
+      const forgot = await client.query<{ reports_deleted: string }>("SELECT * FROM forget_atlas_reports($1)", [author]);
+      assert(Number(forgot.rows[0]?.reports_deleted) === 1, "ATLAS_REPORTS_NOT_FORGOTTEN");
+    });
+    checks.push("atlas_reports_submitted_checked_answered_and_taken_down_through_their_roles");
     await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
       `SELECT * FROM record_atlas_finding_intent($1::uuid, 'withdraw', 'F-1001', '{}'::jsonb, $2, NULL,
          $3::timestamptz, NULL)`,
