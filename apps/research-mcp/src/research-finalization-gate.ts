@@ -5253,6 +5253,22 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
   }
 }
 
+/**
+ * A boundary's limit for a community whose threads the reader read here: some pages stayed unread, and only their
+ * reports are left out. Undefined for a boundary that leaves out no reports (no relevant results, reports supplied).
+ */
+function pagesLeftCaveat(name: string, boundary: NonNullable<CommunitySearch["access_boundary"]>): string | undefined {
+  const starts: Partial<Record<typeof boundary, string>> = {
+    no_web_search: "Part of a community I read could not be searched from this app:",
+    login_required: "Some pages of a community I read need a login to read:",
+    blocked: "Some pages of a community I read blocked access:",
+    retrieval_failed: "Some pages of a community I read could not be retrieved:",
+    not_found: "Some pages of a community I read could not be found:"
+  };
+  const start = starts[boundary];
+  return start === undefined ? undefined : `${completedCaveat(start, name)} Reports on those pages are not included.`;
+}
+
 function forumLane(search: CommunitySearch): string {
   const read = search.review_corpora === undefined
     ? `${search.threads_read.length} thread(s) read`
@@ -5321,6 +5337,13 @@ function communityCoverage(
   if (youtubeResearched) {
     searched.set("youtube", communities.find(({ platform }) => platform === "youtube")?.name ?? "YouTube");
   }
+  // Communities with a thread the reader read here, by a verified receipt: an access boundary declared there stopped
+  // some of their pages, not their reports. In #394's run the panel said "Reports there are not included" of
+  // communities the answer used: q120-sleep-inside-outside's second turn declared a busy read as a second, blocked
+  // entry beside four threads read, and q135-low-stakes declared a thread read and retrieval_failed in one entry.
+  const readByReader = new Set((input.community_searches ?? []).filter(({ threads_read }) =>
+    threads_read.some(({ url }) => forumReadUrls.has(forumThreadDigest(url))))
+    .map(({ community, platform }) => communityKey(community, platform)));
   for (const search of input.community_searches ?? []) {
     const name = search.community;
     if (search.platform === "review_site" && search.report_identity !== undefined) {
@@ -5493,9 +5516,10 @@ function communityCoverage(
     if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary === "not_found" || search.access_boundary === "supplied_by_user") unsearched.add(key);
     if (search.access_boundary !== undefined) {
+      const pagesLeft = readByReader.has(key) ? pagesLeftCaveat(name, search.access_boundary) : undefined;
       out.requireLimit(
-        search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
-        boundaryCaveat(name, search.access_boundary)
+        pagesLeft !== undefined ? rule`Some pages of ${name}, a community read here, stopped at an access boundary (${search.access_boundary}); say so.` : search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+        pagesLeft ?? boundaryCaveat(name, search.access_boundary)
       );
     }
     if (search.threads_read.length === 0) continue;
