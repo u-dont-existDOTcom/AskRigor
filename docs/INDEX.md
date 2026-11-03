@@ -132,6 +132,10 @@ complete XML protocol.
 - `superpowers/plans/2026-11-02-atlas-foundation-223-225.md`: the Atlas foundation the owner chose (223a, 224a, 225a):
   unreviewed findings kept out of search engines and labelled, risky ones held for review, numbers "out of 100" with a
   range, question pages with a bottom-line box, and "report a problem" in place of votes.
+- `superpowers/plans/2026-11-03-atlas-reports-health-tree.md`: people's own reports of what worked for them (owner
+  answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
+  AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
+  practitioner scorecard.
 - `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
   research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
   "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
