@@ -104,7 +104,7 @@ const INDIRECT_LIMIT = "No key study is shown to have tested the video's 2-minut
   "as the caveat does.";
 const REQUIRED = "Give named_target: the person gave a video, which extract_youtube_video_claims read or could not " +
   "read, so the answer is about what it puts forward. Give its label as the answer names it; described_from, where " +
-  "its description comes from (video_read, video_description_only, person or source_text), with the video's video_id; " +
+  "its description comes from (video_read, description_only, person or source_text), with the video's video_id; " +
   "and its components, dose_or_intensity, frequency_and_duration, population, outcome and time_horizon, each in a few " +
   "words or \"program not described\". Each key source then says how it matches each one (target_components to " +
   "target_time_horizon: same, different or not_described).";
@@ -147,7 +147,7 @@ describe("the named target's sentences", () => {
     expect([...NAMED_TARGET_FIELDS]).toEqual([
       "components", "dose_or_intensity", "frequency_and_duration", "population", "outcome", "time_horizon"
     ]);
-    expect([...NAMED_TARGET_SOURCES]).toEqual(["video_read", "video_description_only", "person", "source_text"]);
+    expect([...NAMED_TARGET_SOURCES]).toEqual(["video_read", "description_only", "person", "source_text"]);
   });
 
   it("reads the HRP's sentinel with its legacy spacing, hyphen, underscore and case variants, and nothing else", () => {
@@ -322,22 +322,33 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     });
 
     it("asks the named target and the video's entry to agree on where the account comes from", async () => {
-      const result = await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },
+      const result = await call({ named_target: { ...ROUTINE, described_from: "description_only" },
         unwatched_videos: [{ video_id: VIDEO, content_from: "person" }] });
-      expect(advisoryNotes(result)).toEqual([`named_target is described_from video_description_only for video ${VIDEO}, ` +
+      expect(advisoryNotes(result)).toEqual([`named_target is described_from description_only for video ${VIDEO}, ` +
         "but unwatched_videos[0] gives its content_from as person: make the two agree (content_from description_only " +
-        "goes with described_from video_description_only, and person with person)."]);
+        "goes with described_from description_only, and person with person)."]);
       expect(result.next_step_kinds).toEqual([]);
       // Agreeing, the caveat comes from its title and description.
-      expect(await call({ named_target: { ...ROUTINE, described_from: "video_description_only" },
+      expect(await call({ named_target: { ...ROUTINE, described_from: "description_only" },
         answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` }))
         .toMatchObject({ status: "ready_with_limits", limits: [UNWATCHED, INDIRECT] });
+    });
+
+    it("accepts a stale app's video_description_only as description_only", async () => {
+      const current = { named_target: { ...ROUTINE, described_from: "description_only" as const },
+        answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` };
+      const modern = await call(current);
+      const legacy = await call({ ...current,
+        named_target: { ...ROUTINE, described_from: "video_description_only" } } as unknown as Partial<FinalizeResearchInput>);
+      expect(legacy.status).toBe(modern.status);
+      expect(legacy.limits).toEqual(modern.limits);
+      expect(advisoryNotes(legacy)).toEqual(advisoryNotes(modern));
     });
 
     it("refuses described_from video_read for a video AskRigor could not read, or did not try to", async () => {
       expect(await steps({ named_target: { ...ROUTINE, described_from: "video_read" } })).toEqual([
         `named_target is described_from video_read, but extract_youtube_video_claims could not read video ${VIDEO}: ` +
-          "give described_from as the case is, video_description_only or person."
+          "give described_from as the case is, description_only or person."
       ]);
       expect(await steps({ receipts: [audit(JUMPS), reviewAudit(SNACKS)], named_target: { ...ROUTINE, described_from: "video_read" },
         answer_draft: `${STUDY_LINES}\n\n${INDIRECT}` })).toEqual([
@@ -394,12 +405,23 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
         caveats: [], limits: [UNWATCHED_PERSON, INDIRECT] });
     });
 
+    it("accepts a stale app's video_description_only as description_only", async () => {
+      const current = { named_target: { ...ROUTINE, described_from: "description_only" as const },
+        answer_draft: `${STUDY_LINES}\n\n${UNWATCHED} ${INDIRECT}` };
+      const modern = await call(current);
+      const legacy = await call({ ...current,
+        named_target: { ...ROUTINE, described_from: "video_description_only" } } as unknown as Partial<FinalizeResearchInput>);
+      expect(legacy.status).toBe(modern.status);
+      expect(legacy.limits).toEqual(modern.limits);
+      expect(advisoryNotes(legacy)).toEqual(advisoryNotes(modern));
+    });
+
     it("refuses described_from video_read until the reading is finished", async () => {
       expect(await steps({ receipts: withReceipts(pending), named_target: { ...ROUTINE, described_from: "video_read" } }))
         .toEqual([
           `named_target is described_from video_read, but extract_youtube_video_claims had not finished reading video ` +
             `${VIDEO}: finish the reading with its continuation_token and pass the research_receipt it returns, or give ` +
-            "described_from as the case is, video_description_only or person."
+            "described_from as the case is, description_only or person."
         ]);
     });
   });
@@ -548,7 +570,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
 
   if (surface === "MCP endpoint") it("publishes the declarations flat, with their catalog text", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     const tool = tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain("whole-intervention identity (intervention_identity), the one thing the question " +
       "is about and how each key study matches it (named_target), videos AskRigor could not read (unwatched_videos), ");

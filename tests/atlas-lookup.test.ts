@@ -179,11 +179,11 @@ describe("Atlas lookup through the existing public search tool", () => {
     expect(mixed.caveats).not.toContain(ATLAS_LOOKUP_FAILED_CAVEAT);
     expect(JSON.stringify(failing)).not.toContain("PRIVATE ERROR");
   });
-  it("keeps 33 tools and allows the public lookup without enrolling a research account", async () => {
+  it("keeps 35 tools and allows the public lookup without enrolling a research account", async () => {
     const tools = new Map<string, { config: any; execute: Function }>();
     registerTools({ registerTool: (name: string, config: any, execute: Function) => tools.set(name, { config, execute }) } as never,
       { researchAccessRequired: true, atlasLookupSource: await source(), atlasLookupReader: reader });
-    expect(RESEARCH_OPERATIONS).toHaveLength(33);
+    expect(RESEARCH_OPERATIONS).toHaveLength(35);
     const tool = tools.get("search_research_frontiers")!;
     expect(tool.config._meta.securitySchemes).toContainEqual({ type: "noauth" });
     const result = await tool.execute({ query: "zentarine", research_target: TARGET }, {});

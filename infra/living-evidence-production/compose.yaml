@@ -1,6 +1,8 @@
 services:
   research-mcp:
     image: ${ASKRIGOR_RESEARCH_IMAGE:?set exact reviewed AskRigor image}
+    volumes:
+      - /opt/askrigor/state/reddit-reader:/run/askrigor-reddit-reader:ro
     depends_on:
       living-evidence-postgres:
         condition: service_healthy
