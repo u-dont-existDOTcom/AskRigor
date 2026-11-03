@@ -188,3 +188,17 @@ What decided each case:
   Claude would answer better than ChatGPT's app does now.
 - **The end:** under the rule the trial ends after stage 1. API spending stays at $13.09. Stage 1 and its judging used
   the owner's Claude plan and, for the GPT judge, the owner's ChatGPT plan.
+
+## Lesson closeout
+
+`npm run lessons:status` at 11:24 UTC on 3 Nov: 34 open, none needing review, 1 accepted but not incorporated, 38
+incorporated or closed, none eligible for deletion, and no lane items unrecorded. None bears on this trial.
+
+Two points of method for the next comparison of two systems. Both are specific to this kind of trial and recorded
+here, so no new lesson is filed:
+
+- **Check each shared source just before each side runs,** and wait if one fails, so both sides have the same tools.
+  Here the Reddit reader worked for ChatGPT's runs the night before and failed for Claude's, in the one case the
+  judges agreed on.
+- **Give the judges the pass criteria, not notes on how the cases were made.** A judge who reads that a case's studies
+  "are made up" knows something the answer's author couldn't.
