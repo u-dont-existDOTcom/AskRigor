@@ -87,6 +87,8 @@ After the web-app trial (3 Nov):
     how many records, never their text. The final check reads it for the card alone: it asks for the declaration,
     holds a finding with none, and lets the meaning judge run. It is no audit, so community evidence is checked as
     before. The tool list is unchanged: the receipt rides in the runtime output schema, as `get_youtube_video`'s does.
+13. **Dependabot alert 34** (`cb8ea85a`, Dependabot's #408): `@hono/node-server` 2.1.0 to 2.1.6 in the lockfile. The MCP
+    SDK brings it in, and AskRigor doesn't use the affected `serveStatic`. `npm audit --omit=dev` finds nothing.
 
 ## The numbers chosen
 
