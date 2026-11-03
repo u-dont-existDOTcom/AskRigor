@@ -1,7 +1,8 @@
 # The build after #394
 
 Branch `claude/next-build-20261102` (draft PR #398), from main's merge of #394 (`b9e658e2`, live since 11:52 UTC on 2
-Nov, owner answers 215a and 217b). Built under owner rule 148a; a release needs the owner's explicit yes.
+Nov, owner answers 215a and 217b). Built under owner rule 148a; a release needs the owner's explicit yes. Main was
+taken in again on 3 Nov at `b2014dee` (#404, #406 and #407).
 
 ## Built
 
@@ -66,11 +67,11 @@ After the web-app trial (3 Nov):
     `unavailable`, so the AI kept trying (six reads in one trial run) and couldn't say why. The host's code now maps
     to `not_available`, and the result says the reader stays signed out until AskRigor's operator signs it in again:
     don't call it again in this research, leave Reddit to the AI's own search, and say why in the answer.
-11. **Every failure the reader host names, named** (owner answer 230a). The host's browser reader has more codes than
-    the three AskRigor knew, and every other one came back as `unavailable`, so the AI and a run's logs couldn't tell a
-    lapsed sign-in from a moment's error. On 2 Nov, from 19:19 to 23:55 UTC, reads and searches failed within 1.5
-    seconds for one to six minutes at a time and then worked again, and nothing records what the host said. The
-    host's codes now map by a table taken from its source:
+11. **Every failure the reader host names, named** (owner answer 230a, `dac56359`). The host's browser reader has more
+    codes than the three AskRigor knew, and every other one came back as `unavailable`, so the AI and a run's logs
+    couldn't tell a lapsed sign-in from a moment's error. On 2 Nov, from 19:19 to 23:55 UTC, reads and searches failed
+    within 1.5 seconds for one to six minutes at a time and then worked again, and nothing records what the host
+    said. The host's codes now map by a table taken from its source:
     - `HUMAN_CHECK_REQUIRED` and `BROWSER_UNAVAILABLE` join `LOGIN_REQUIRED` as `not_available`, each with its own
       note, since only AskRigor's operator can clear them;
     - `BROWSER_BUSY` (another client holds the host's one browser) is `busy`, with a retry hint;
@@ -136,6 +137,10 @@ After the web-app trial (3 Nov):
   description of a first-turn correction's sources.
 
 ## Release steps, waiting for the owner's yes
+
+First, owner answer 219b's known gap: comments read only through `get_youtube_comments` or `search_youtube_comments`
+give no receipt, so a finding that draws on them without saying so isn't held. It is fixed on this branch, or recorded
+above as a limit, before the release.
 
 1. `npm run lessons:status`, the full gate on the final head, and CI's checks on PR #398.
 2. Mark #398 ready and merge it at its checked head.
