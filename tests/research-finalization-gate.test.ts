@@ -38,6 +38,10 @@ import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messag
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+const LEAD_RECEIPT_ID_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+// #394's run: the check still said the full-text tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI
+// for a paper never tried (o355-scoped-list); since #394 acquire_open_full_text fetches by PMID or PMCID too.
+const NO_DOI_WORDING = /requires a DOI|without a DOI|lists no DOI|without DOIs/u;
 // Pinned word for word: the step for each receipt that failed verification, by the verifier's reason.
 const LEAVE_IT_OUT = "Leaving it out is allowed; work that rests only on it then needs its call again.";
 const REJECTED_RECEIPT_STEPS = {
@@ -2093,20 +2097,27 @@ describe("finalize_research gate", () => {
     }
   });
 
-  it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
+  it("asks to fetch a key study PubMed lists without a DOI by its PMID, then gives the lead's own reason", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
-    const result = finalizeResearch({
+    const request = {
       receipts: [survey, emptySearch, repeatScout, videoA, study, noDoiRecord],
-      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
-      key_sources: [{ read_depth: "abstract_only", answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" }]
-    }, options);
-    expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(result.limits).toContain(
-      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
-        "lists without a DOI, so its methods were not checked."
-    );
-    expect(result.limits.join(" ")).not.toContain("not openly available");
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ read_depth: "abstract_only" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const }]
+    };
+    const untried = finalizeResearch(request, options);
+    expect(untried.status).toBe("ready_with_limits");
+    expect(untried.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(untried)).toContain("Try acquire_open_full_text for PMID: 31234567 with pmid 31234567 before " +
+      `treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`);
+    expect(untried.limits).toContain("Only the abstract of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.");
+    expect(JSON.stringify(untried)).not.toMatch(NO_DOI_WORDING);
+    const tried = finalizeResearch({ ...request, receipts: [...request.receipts,
+      sign("full_text_lead", { pmid: "31234567", state: "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" }, options)] }, options);
+    expect(tried.status).toBe("ready_with_limits");
+    expect(tried.sources.lead_only).toEqual(["PMID: 31234567"]);
+    expect(tried.limits).toContain("The full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was not " +
+      "openly available, so its methods were not checked.");
+    expect(JSON.stringify(tried)).not.toMatch(NO_DOI_WORDING);
   });
 
   describe("owner question 113: repeated primary-service failures", () => {
@@ -2272,8 +2283,10 @@ describe("finalize_research gate", () => {
 
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
+    // Fetched by its PMID, as acquire_open_full_text has allowed since #394.
+    const pmidLead = sign("full_text_lead", { pmid: "31234567", state: "ABSTRACT_ONLY" }, options);
     const result = finalizeResearch({
-      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord, pmidLead],
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
@@ -2291,9 +2304,8 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
   "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
   "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/HipOA.",
-  "Only part of the text of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.",
   "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its methods were not checked.",
-  "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked.",
+  "Only the abstract of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was readable, so its methods were not checked.",
   "This was a first pass: some studies and communities were not reached yet.",
   "Some comments on [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) could not be read, so its comment evidence is incomplete."
 ]);
@@ -2305,12 +2317,12 @@ describe("finalize_research gate", () => {
     const caveats = [
       result.limits.find((text) => text.startsWith("Some comments on"))!,
       result.limits.find((text) => text.startsWith("The full text of"))!,
-      result.limits.find((text) => text.startsWith("AskRigor could not fetch"))!,
+      result.limits.find((text) => text.startsWith("Only the abstract of"))!,
       FIRST_PASS_LIMIT
     ];
     const request = {
       research_depth: "deep" as const,
-      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord, pmidLead],
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
@@ -2328,12 +2340,12 @@ describe("finalize_research gate", () => {
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
     expectPassingLimits(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract."),
-      ["AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked."]);
+      ["Only the abstract of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was readable, so its methods were not checked."]);
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
       caveats[0]!.replace("[this video]", "[Hip exercises that helped me]"),
       caveats[1]!,
-      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("could not", "**could not**")
+      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("was readable", "**was readable**")
         .replace("so its methods", "so\nits methods").replace("were not checked", "were\u00a0not checked")
     )).toMatchObject({ status: "ready_with_limits", next_steps: [] });
 
@@ -2386,7 +2398,7 @@ describe("finalize_research gate", () => {
     expect(tried.sources.lead_only).toEqual(["10.1016/j.joca.2020.01.001"]);
   });
 
-  it("keeps a DOI-less PMID as a lead even when PMC hosts a copy the acquisition tool cannot request", () => {
+  it("asks to fetch a DOI-less PMID by its PMID and the PMC copy PubMed lists, before citing it as a lead", () => {
     const pmcRecord = sign("pubmed_record", { pmid: "31234567", pmcid: "PMC7654321" }, options);
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study, pmcRecord],
@@ -2399,9 +2411,11 @@ describe("finalize_research gate", () => {
       ]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.']);
-    expect(result.limits.join(" ")).toContain("which PubMed lists without a DOI");
+    expect(result.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(["Try acquire_open_full_text " +
+      "for PMID: 31234567 with pmid 31234567 and pmcid PMC7654321 before treating it as lead_only; pass the " +
+      `research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`]);
+    expect(JSON.stringify(result)).not.toMatch(NO_DOI_WORDING);
   });
 
   it("binds material videos to discovery receipts passed in the same call", () => {
@@ -2467,8 +2481,9 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      'Cite "Study" (PMC123) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.',
-      "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
+      `Try acquire_open_full_text for PMC123 with pmcid PMC123 before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`,
+      "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt, then try acquire_open_full_text: with its " +
+        "DOI when PubMed lists one, and otherwise with the PMID and any PMCID it lists.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
         LEAD_RECEIPT_SEARCH_TEXT,
       "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
@@ -2493,10 +2508,10 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "PMC5640576", status: "lead_only", read_depth: "partial_text", answer_marker: "Study" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMC5640576"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.']);
-    expect(result.limits.join(" ")).toContain("its full-text tool requires a DOI and none was known");
-    expect(result.limits.join(" ")).toContain("PMC5640576");
+    expect(result.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(["Try acquire_open_full_text " +
+      `for PMC5640576 with pmcid PMC5640576 before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`]);
+    expect(JSON.stringify(result)).not.toMatch(NO_DOI_WORDING);
   });
 
   it("closes a material video's bounded audit and requires its count and non-ranking caveats", () => {

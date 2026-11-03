@@ -155,6 +155,10 @@ export const TOOL_LIST_REFRESH_HINT = ruleText(TOOL_LIST_REFRESH_RULE);
 const LEAD_RECEIPT_SEARCH_RULE = joinRules("A lead receipt needs the public-copy search recorded: search for the exact DOI ",
   "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.");
 export const LEAD_RECEIPT_SEARCH = ruleText(LEAD_RECEIPT_SEARCH_RULE);
+// The same for a paper without a DOI, which acquire_open_full_text has fetched by PMCID or PMID since #394.
+const LEAD_RECEIPT_ID_SEARCH_RULE = joinRules(joinRules("A lead receipt needs the public-copy search recorded: search for the ",
+  "exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass "),
+  "those searches as public_copy_search and any public copy found as candidate_urls.");
 
 // Community evidence declared not relevant because the question has no real-world outcome: the answer says so in this
 // sentence, completed by the reason the call declares (owner question 125, from lesson #38, where a question whether
@@ -2596,23 +2600,19 @@ export function finalizeResearch(
       continue;
     }
     if (isPmid(id) && pubmedDoi === undefined) {
-      addStep("research", 
-        rule`Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
-      );
+      addStep("research", joinRules(rule`Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt, then try `,
+        "acquire_open_full_text: with its DOI when PubMed lists one, and otherwise with the PMID and any PMCID it lists."));
       continue;
     }
     const knownDoi = isDoi(id) ? id : pubmedDoi || papers.identifiers(id).find(isDoi);
     if (knownDoi === undefined) {
-      // The tool requires a DOI even when PMC hosts an open copy. Never ask for an identifier we do not have.
-      leadSources.push(source.id);
-      if (source.other_route === "read") {
-        readThroughOtherTool(source.id, id);
-        continue;
-      }
-      addStep("declaration",
-        joinRules(rule`Cite ${keySourceName(source)} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
-      );
-      unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
+      // Since #394 acquire_open_full_text fetches a paper by PMCID or PMID, so one without a DOI is tried before it is
+      // cited as a lead, and its lead receipt then gives the real reason it stayed unread. #394's run was still told the
+      // tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI for a paper never tried
+      // (o355-scoped-list). Only identifiers the receipts give are asked for.
+      const pmcid = isPmcid(id) ? id : pmcidFor(id);
+      const by = [...isPmid(id) ? [`pmid ${id}`] : [], ...pmcid === undefined ? [] : [`pmcid ${pmcid}`]].join(" and ");
+      addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text with ${by}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_ID_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id} with ${by} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_RULE}`));
       continue;
     }
     const target = isDoi(id) ? source.id : knownDoi;
@@ -4632,14 +4632,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
   OTHER_TOOL: [
     "One key study, {links}, was read through another tool, not audited by AskRigor",
     "Key studies {links} were read through another tool, not audited by AskRigor"
-  ],
-  NO_DOI: [
-    "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
-    "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
-  ],
-  NO_KNOWN_DOI: [
-    "AskRigor could not fetch the full text of {links}: its full-text tool requires a DOI and none was known",
-    "AskRigor could not fetch the full texts of {links}: its full-text tool requires a DOI and none was known"
   ],
   ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
   PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
