@@ -177,8 +177,11 @@ then what failed or harmed. People's reports for the problem are counted beside 
   largest first, each with its result out of 100 and counts, comparison, follow-up, how sure, and whom it applies to),
   then what failed or harmed (clear results the wrong way, declared harms, no effect), then people's reports counted.
   Built from declared fields alone.
-- Still to build: the scorecard's own rows (a named practitioner's published outcome series, a programme's outcomes,
-  a historical lead), stored apart and shown only with the owner's yes for each, after a source check of its numbers
-  and a named-person screen; the line offering door 2 in the final check's result (after #398); placing today's
+- 3 Nov: step 7, its second part. The scorecard's own rows (migration 0026, `atlas_glance_rows`; the review's
+  `propose_glance_row`, `list_glance_rows`, `show_glance_row` with `confirm: true` as the owner's yes for each row, and
+  `withdraw_glance_row`; `apps/research-mcp/src/atlas/glance-review.ts`), shown at a glance after the computed rows of
+  their kind, with their limits and sources. GPT's practitioner scorecard becomes rows only after a source check of
+  each row's numbers and a named-person screen, then the owner's yes.
+- Still to build: the line offering door 2 in the final check's result (after #398); placing today's
   findings with `place_items` after release; and, before release, taking in main (#410's migration first, so this
   stack's become 0025 and 0026), with the search index, map, sitemap and Health pages leaving kept publications out.

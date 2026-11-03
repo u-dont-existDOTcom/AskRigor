@@ -9,6 +9,7 @@ import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
+import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -56,6 +57,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With check_report or decide_report: the report, such as R-1001."),
     verdict: reportVerdictSchema.optional()
       .describe("With check_report or decide_report: {verdict, aiWarning?, reason?, subcategory?, research?}."),
+    // The owner, 3 Nov: a problem's rows at a glance.
+    glanceRow: glanceRowInputSchema.optional()
+      .describe("With propose_glance_row: {subcategory, rowClass, what, result, comparison, followUp, limits, sources, namesAPerson}."),
+    glanceRowId: glanceRowIdSchema.optional().describe("With show_glance_row or withdraw_glance_row: the row, such as G-1001."),
+    glanceState: z.enum(["proposed", "shown", "withdrawn"]).optional()
+      .describe("With list_glance_rows: the state to list; proposed by default."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

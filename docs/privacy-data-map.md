@@ -1944,6 +1944,11 @@ people's own reports of what they tried for a health problem and what happened, 
   or refuse. The model judges meaning; the server checks the verdict's shape exactly.
 - **Where items sit** (migration 0024, `atlas_placements`): one subcategory under Health per publication, accepted
   finding or report, by item number. Nothing about a person.
+- **Rows at a glance** (migration 0026, `atlas_glance_rows`; the owner, 3 Nov, on GPT's practitioner scorecard): a
+  problem's curated rows (a controlled result, a named practitioner's published outcome series, a programme's
+  outcomes, a historical lead, or what failed or harmed), each with its result, comparison, follow-up, limits and
+  sources. A row is proposed privately and shown only on the owner's yes for it. A row naming a person holds that
+  person's published outcomes only, never an allegation; nothing about the people treated is stored.
 - **Stated limits.** A report is health information its author chose to publish; the Atlas cannot check that it is
   true. Research attached by a person's own AI is checked for its shape and links, not redone, before it is shown.
 

@@ -1436,6 +1436,8 @@ const ATLAS_REPORT_ACCESS_FUNCTIONS = [
   "forget_atlas_reports", "set_atlas_report_answer", "submit_atlas_report", "take_down_atlas_report",
 ] as const;
 const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_reports"] as const;
+// The owner, 3 Nov: migration 0026's three functions for a problem's rows at a glance.
+const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -3901,7 +3903,7 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS,
+          ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS,
           ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
@@ -3981,6 +3983,32 @@ export async function verifyAtlasStorage(context: {
       assert(Number(forgot.rows[0]?.reports_deleted) === 1, "ATLAS_REPORTS_NOT_FORGOTTEN");
     });
     checks.push("atlas_reports_submitted_checked_answered_and_taken_down_through_their_roles");
+
+    // The owner, 3 Nov (migration 0026): a row at a glance is proposed privately, shown on the owner's yes, read by
+    // the reader only once shown, and withdrawn for good.
+    await asRole("askrigor_research_review", async (client) => {
+      const row = JSON.stringify({ category: "health", subcategory: "gut-health", rowClass: "lead",
+        what: "An invented historical lead", result: "9 of 10 reported better", comparison: null, followUp: "1 year",
+        limits: "Selected cases; no comparison.", sources: ["PMID: 12345678"], namesAPerson: false });
+      const [proposed] = (await client.query<{ row_public_id: string }>(
+        "SELECT row_public_id FROM propose_atlas_glance_row($1::jsonb, $2::timestamptz)", [row, now])).rows;
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const hidden = await client.query("SELECT 1 FROM atlas_glance_rows WHERE state = 'shown'");
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      const shown = await client.query<{ row_state: string }>(
+        "SELECT row_state FROM set_atlas_glance_row_state($1, 'shown', $2::timestamptz)", [proposed!.row_public_id, now]);
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const visible = await client.query("SELECT 1 FROM atlas_glance_rows WHERE state = 'shown'");
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      await client.query("SELECT * FROM set_atlas_glance_row_state($1, 'withdrawn', $2::timestamptz)", [proposed!.row_public_id, now]);
+      await client.query("SAVEPOINT withdrawn_row");
+      await expectMessage(() => client.query("SELECT * FROM set_atlas_glance_row_state($1, 'shown', $2::timestamptz)",
+        [proposed!.row_public_id, now]), "ATLAS_GLANCE_WITHDRAWN");
+      await client.query("ROLLBACK TO SAVEPOINT withdrawn_row");
+      assert(hidden.rows.length === 0 && shown.rows[0]?.row_state === "shown" && visible.rows.length === 1,
+        "ATLAS_GLANCE_ROWS_MISMATCH");
+    });
+    checks.push("atlas_glance_rows_proposed_shown_on_the_owners_yes_and_withdrawn");
     await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
       `SELECT * FROM record_atlas_finding_intent($1::uuid, 'withdraw', 'F-1001', '{}'::jsonb, $2, NULL,
          $3::timestamptz, NULL)`,

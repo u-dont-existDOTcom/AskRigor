@@ -52,6 +52,7 @@ import {
   type AtlasModerationStore,
   type AtlasPlacementStore,
   type AtlasReportReviewStore,
+  type AtlasGlanceStore,
   type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
@@ -105,6 +106,14 @@ import {
   type AtlasReports,
   type ReportVerdictInput,
 } from "../atlas/report-review.js";
+import {
+  ATLAS_GLANCE_ACTIONS,
+  ATLAS_GLANCE_OUTCOMES,
+  AtlasGlanceReview,
+  type AtlasGlance,
+  type AtlasGlanceAction,
+  type GlanceRowInput,
+} from "../atlas/glance-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -195,6 +204,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   // Owner answer 229a: where items sit under Health, and people's reports.
   ...ATLAS_PLACEMENT_ACTIONS,
   ...ATLAS_REPORT_ACTIONS,
+  // The owner, 3 Nov: a problem's rows at a glance, each shown on the owner's yes.
+  ...ATLAS_GLANCE_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -224,6 +235,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_PARTICIPATION_OUTCOMES,
   ...ATLAS_PLACEMENT_OUTCOMES,
   ...ATLAS_REPORT_OUTCOMES,
+  ...ATLAS_GLANCE_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -424,6 +436,10 @@ export interface AtlasReviewRequest {
   reportState?: "received" | "published" | "held" | "refused";
   report?: string;
   verdict?: ReportVerdictInput;
+  /** A problem's rows at a glance, from later_inputs.glanceRow, glanceRowId and glanceState. */
+  glanceRow?: GlanceRowInput;
+  glanceRowId?: string;
+  glanceState?: "proposed" | "shown" | "withdrawn";
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -476,6 +492,11 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   list_reports: ["cursor"],
   check_report: [],
   decide_report: ["confirm"],
+  // The rows, their ids and the state to list come in later_inputs.
+  propose_glance_row: [],
+  list_glance_rows: [],
+  show_glance_row: ["confirm"],
+  withdraw_glance_row: [],
 };
 
 /**
@@ -952,6 +973,8 @@ export interface AtlasReviewResult {
   placements?: AtlasPlacements;
   /** Owner answer 229a: the reports listed, or the one checked or decided. */
   reports?: AtlasReports;
+  /** The rows at a glance listed, or the one proposed or changed. */
+  glance?: AtlasGlance;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -993,6 +1016,8 @@ export interface AtlasReviewDependencies {
   placements?: AtlasPlacementStore;
   /** People's reports (owner answer 229a), through the review role's two report functions. */
   reports?: AtlasReportReviewStore;
+  /** A problem's rows at a glance, through the review role's three glance functions. */
+  glance?: AtlasGlanceStore;
   /**
    * The titles and years publish_cards publishes with a card's sources (plan
    * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
@@ -1140,6 +1165,11 @@ export class AtlasReview {
         case "check_report":
         case "decide_report":
           return await this.reportAction(request.action, request);
+        case "propose_glance_row":
+        case "list_glance_rows":
+        case "show_glance_row":
+        case "withdraw_glance_row":
+          return await this.glanceAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1184,6 +1214,28 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const glance = this.deps.glance;
+    if (glance === undefined) {
+      return errorOf("review_service_unavailable", "The rows at a glance are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasGlanceReview({ glance, now: this.now }).run({
+      action,
+      ...(request.glanceRow === undefined ? {} : { glanceRow: request.glanceRow }),
+      ...(request.glanceRowId === undefined ? {} : { glanceRowId: request.glanceRowId }),
+      ...(request.glanceState === undefined ? {} : { glanceState: request.glanceState }),
+      ...(request.confirm === undefined ? {} : { confirm: request.confirm }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.glance === undefined ? {} : { glance: result.glance }),
+    };
+  }
 
   private async reportAction(action: AtlasReportAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const reports = this.deps.reports;

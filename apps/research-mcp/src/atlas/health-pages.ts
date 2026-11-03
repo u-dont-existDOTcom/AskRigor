@@ -1,9 +1,9 @@
-import type { AtlasPagePlacement, AtlasPageReport, AtlasPageSource } from "@askrigor/evidence-repository";
+import type { AtlasGlanceRow, AtlasPagePlacement, AtlasPageReport, AtlasPageSource } from "@askrigor/evidence-repository";
 
 import { HEALTH, healthPath, type AtlasCategory, type AtlasSubcategory } from "./health-tree.js";
-import { allShown, byStrength, oncePerFinding, type ShownFinding } from "./page-data.js";
+import { allShown, byStrength, oncePerFinding, sourceIdentifierOf, type ShownFinding } from "./page-data.js";
 import { differenceRange } from "../difference-range.js";
-import { findingList, findingPath, html, outOf100, page, unreviewedOnly, type AtlasPageReader } from "./pages.js";
+import { findingList, findingPath, html, outOf100, page, sourceLink, unreviewedOnly, type AtlasPageReader } from "./pages.js";
 import { SHARE_PATH, reportPath } from "./report-pages.js";
 
 /**
@@ -38,14 +38,18 @@ export interface AtlasSubcategoryModel {
  * declared a harm, or no effect, goes with what failed or harmed.
  */
 export interface GlanceRow {
-  publicationNumber: string;
+  /** A finding's publication, or null for a row the owner said yes to showing. */
+  publicationNumber: string | null;
   claim: string;
-  kind: "controlled" | "harm" | "no_effect";
+  kind: "controlled" | "harm" | "no_effect" | "practitioner" | "programme" | "lead" | "failed";
   result: string | null;
   comparison: string | null;
   followUp: string | null;
   sure: string | null;
   appliesTo: string | null;
+  /** A shown row's own limits and sources (the owner, 3 Nov: GPT's scorecard); empty for a finding's row. */
+  limits: string | null;
+  sources: readonly string[];
 }
 
 export interface AtlasGlance {
@@ -56,12 +60,14 @@ export interface AtlasGlance {
 
 const SURE_WORDS = { high: "Highly sure", moderate: "Moderately sure", low: "A little sure", very_low: "Very unsure" } as const;
 
-export function glanceOf(findings: readonly ShownFinding[], reports: readonly AtlasPageReport[]): AtlasGlance {
+export function glanceOf(findings: readonly ShownFinding[], reports: readonly AtlasPageReport[],
+  shown: readonly AtlasGlanceRow[] = []): AtlasGlance {
   const encouraging: Array<GlanceRow & { size: number }> = [];
   const failed: GlanceRow[] = [];
   for (const finding of findings) {
     const base = { publicationNumber: finding.publicationNumber, claim: finding.claim,
-      sure: finding.certainty === null ? null : SURE_WORDS[finding.certainty], appliesTo: finding.appliesTo };
+      sure: finding.certainty === null ? null : SURE_WORDS[finding.certainty], appliesTo: finding.appliesTo,
+      limits: null, sources: [] };
     let placed = false;
     for (const entry of finding.numbers) {
       const range = differenceRange({ option_events: entry.optionEvents, option_total: entry.optionTotal,
@@ -86,9 +92,17 @@ export function glanceOf(findings: readonly ShownFinding[], reports: readonly At
     }
   }
   encouraging.sort((left, right) => right.size - left.size);
+  // The rows the owner said yes to, after the computed ones of their kind, in the scorecard's classes' order.
+  const curated = (row: AtlasGlanceRow): GlanceRow => ({ publicationNumber: null, claim: row.what, kind: row.rowClass,
+    result: row.result, comparison: row.comparison, followUp: row.followUp, sure: null, appliesTo: null,
+    limits: row.limits, sources: row.sources });
+  const order = ["controlled", "practitioner", "programme", "lead"] as const;
+  const shownEncouraging = shown.filter(({ rowClass }) => rowClass !== "failed")
+    .sort((left, right) => order.indexOf(left.rowClass as typeof order[number]) -
+      order.indexOf(right.rowClass as typeof order[number]));
   return {
-    encouraging: encouraging.map(({ size: _size, ...row }) => row),
-    failed,
+    encouraging: [...encouraging.map(({ size: _size, ...row }) => row), ...shownEncouraging.map(curated)],
+    failed: [...failed, ...shown.filter(({ rowClass }) => rowClass === "failed").map(curated)],
     reports: { count: reports.length, worked: reports.reduce((sum, report) => sum + report.answers.worked, 0),
       didNot: reports.reduce((sum, report) => sum + report.answers.didNot, 0) },
   };
@@ -111,6 +125,7 @@ function placementOf(finding: ShownFinding, placements: ReadonlyMap<string, Atla
 interface Placed {
   findings: Array<{ finding: ShownFinding; subcategoryKey: string | undefined }>;
   reports: Array<{ report: AtlasPageReport; subcategoryKey: string | undefined }>;
+  glanceRows: AtlasGlanceRow[];
 }
 
 async function placedItems(source: AtlasPageSource, category: AtlasCategory): Promise<Placed> {
@@ -126,6 +141,7 @@ async function placedItems(source: AtlasPageSource, category: AtlasCategory): Pr
     return {
       findings: oncePerFinding(shown).map((finding) => ({ finding, subcategoryKey: placementOf(finding, placements, category) })),
       reports: (await reads.listReports()).map((report) => ({ report, subcategoryKey: subcategoryOf(report.publicId) })),
+      glanceRows: (await reads.listGlanceRows()).filter(({ categoryKey }) => categoryKey === category.key),
     };
   });
 }
@@ -161,7 +177,7 @@ export async function loadAtlasSubcategory(source: AtlasPageSource, subcategoryK
     .sort(order);
   const reports = placed.reports.filter((entry) => entry.subcategoryKey === subcategoryKey).map(({ report }) => report);
   return { category: { key: HEALTH.key, label: HEALTH.label }, subcategory, findings, reports,
-    glance: glanceOf(findings, reports) };
+    glance: glanceOf(findings, reports, placed.glanceRows.filter((row) => row.subcategoryKey === subcategoryKey)) };
 }
 
 const itemsWord = (count: number) => count === 1 ? "1 item" : `${count} items`;
@@ -196,7 +212,19 @@ ${findingList(model.findings)}`}
 <p><a href="${SHARE_PATH}">Share what worked for you</a></p>` });
 }
 
-const KIND_LINES = { controlled: "A controlled comparison", harm: "A harm", no_effect: "No effect found" } as const;
+const KIND_LINES = {
+  controlled: "A controlled comparison", harm: "A harm", no_effect: "No effect found",
+  practitioner: "A named practitioner’s published results", programme: "A programme’s results",
+  lead: "A historical lead worth chasing", failed: "Failed or harmed",
+} as const;
+
+/** A shown row's source, linked: a study by its identifier, otherwise its https address. */
+function sourceItem(source: string) {
+  const identifier = sourceIdentifierOf(source);
+  const link = identifier === undefined ? undefined : sourceLink(identifier);
+  if (link !== undefined) return html`<a href="${link.href}">${link.text}</a>`;
+  return html`<a href="${source}" rel="nofollow noopener noreferrer">${new URL(source).hostname.replace(/^www\./u, "")}</a>`;
+}
 
 function glanceRow(row: GlanceRow) {
   const parts = [
@@ -206,8 +234,12 @@ function glanceRow(row: GlanceRow) {
     ...(row.sure === null ? [] : [html`${row.sure}`]),
     ...(row.appliesTo === null ? [] : [html`For ${row.appliesTo}`]),
   ];
-  return html`<li><p><span class="badge">${KIND_LINES[row.kind]}</span> <a href="${findingPath(row.publicationNumber)}">${row.claim}</a></p>
-${parts.length === 0 ? "" : html`<p class="meta">${parts.map((part, index) => index === 0 ? part : html` · ${part}`)}</p>`}</li>`;
+  return html`<li><p><span class="badge">${KIND_LINES[row.kind]}</span> ${row.publicationNumber === null ? html`${row.claim}`
+    : html`<a href="${findingPath(row.publicationNumber)}">${row.claim}</a>`}</p>
+${parts.length === 0 ? "" : html`<p class="meta">${parts.map((part, index) => index === 0 ? part : html` · ${part}`)}</p>`}
+${row.limits === null ? "" : html`<p class="meta">What keeps it from proving more: ${row.limits}</p>`}
+${row.sources.length === 0 ? "" : html`<p class="meta">Sources: ${row.sources.map((source, index) => index === 0
+      ? sourceItem(source) : html`, ${sourceItem(source)}`)}</p>`}</li>`;
 }
 
 /** The problem at a glance: encouraging results first, then what failed or harmed, then people's reports. */

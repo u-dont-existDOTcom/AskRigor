@@ -27,6 +27,13 @@ import {
 } from "./atlas-participation.js";
 import type { InMemoryAtlasPlacements } from "./atlas-placements.js";
 import {
+  ATLAS_GLANCE_PAGE_SQL,
+  atlasGlanceRowOf,
+  type AtlasGlanceRow,
+  type AtlasGlanceRowRecord,
+  type InMemoryAtlasGlanceRows,
+} from "./atlas-glance.js";
+import {
   atlasReportTextOf,
   type AtlasOwnReport,
   type AtlasPageReport,
@@ -207,6 +214,8 @@ export interface AtlasPageReads {
   listReports(): Promise<AtlasPageReport[]>;
   /** A signed-in reader's own reports in every state, newest first. */
   listOwnReports(participantKey: string): Promise<AtlasOwnReport[]>;
+  /** The rows the owner said yes to showing at a glance (owner, 3 Nov: "make that prominent"), oldest first. */
+  listGlanceRows(): Promise<AtlasGlanceRow[]>;
 }
 
 /** Where the pages read from: each page's reads run in one read-only snapshot. */
@@ -717,6 +726,10 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           receivedAt: instant(row.received_at) }));
     },
 
+    async listGlanceRows() {
+      return (await client.query<AtlasGlanceRowRecord>(ATLAS_GLANCE_PAGE_SQL)).rows.map(atlasGlanceRowOf);
+    },
+
     async listPlacements() {
       return (await client.query<{ item_number: string; category_key: string; subcategory_key: string }>(
         "SELECT item_number, category_key, subcategory_key FROM atlas_placements ORDER BY item_number")).rows
@@ -806,6 +819,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     placements?: InMemoryAtlasPlacements;
     /** People's reports (owner answer 229a); none without it. */
     reports?: InMemoryAtlasReports;
+    /** The rows shown at a glance on the owner's yes; none without it. */
+    glance?: InMemoryAtlasGlanceRows;
   }) {}
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -963,6 +978,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
       readReport: async (publicId, viewerKey) => await this.stores.reports?.pageReport(publicId, viewerKey) ?? null,
       listReports: async () => await this.stores.reports?.publishedReports() ?? [],
       listOwnReports: async (participantKey) => await this.stores.reports?.ownReports(participantKey) ?? [],
+
+      listGlanceRows: async () => this.stores.glance?.shownRows() ?? [],
 
       listPlacements: async () => (await this.stores.placements?.listPlacements() ?? [])
         .map(({ itemNumber, categoryKey, subcategoryKey }) => ({ itemNumber, categoryKey, subcategoryKey })),

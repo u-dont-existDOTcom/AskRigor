@@ -5,6 +5,7 @@ import type {
   AtlasReviewStore,
   AtlasPlacementStore,
   AtlasReportReviewStore,
+  AtlasGlanceStore,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -135,5 +136,14 @@ export function announcingReportReviewStore(
   return {
     inspectReports: (state, after, limit) => store.inspectReports(state, after, limit),
     decideReport: (decision) => announcing(signal, () => store.decideReport(decision)),
+  };
+}
+
+/** The rows at a glance (the owner, 3 Nov): showing or withdrawing one changes a Health page. */
+export function announcingGlanceStore(store: AtlasGlanceStore, signal: AtlasChangeSignal = atlasChanges): AtlasGlanceStore {
+  return {
+    propose: (row, at) => store.propose(row, at),
+    setState: (publicId, state, at) => announcing(signal, () => store.setState(publicId, state, at)),
+    inspect: (state, after, limit) => store.inspect(state, after, limit),
   };
 }

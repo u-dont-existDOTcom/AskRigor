@@ -2,6 +2,7 @@ import {
   PostgresAtlasModerationStore,
   PostgresAtlasPlacementStore,
   PostgresAtlasReportReviewStore,
+  PostgresAtlasGlanceStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
@@ -12,6 +13,7 @@ import {
   announcingModerationStore,
   announcingPlacementStore,
   announcingReportReviewStore,
+  announcingGlanceStore,
   announcingPublicationStore,
   announcingReviewStore,
 } from "../atlas/change-signal.js";
@@ -206,6 +208,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       })),
       // Owner answer 229a: people's reports, through the same role's two report functions.
       reports: announcingReportReviewStore(new PostgresAtlasReportReviewStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // The owner, 3 Nov: a problem's rows at a glance, through the same role's three glance functions.
+      glance: announcingGlanceStore(new PostgresAtlasGlanceStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,
