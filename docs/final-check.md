@@ -132,16 +132,18 @@ say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or f
 (owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in
 `later_inputs.findings_card` (the runtime also takes it at the top level). Whether a finding draws on comments is the
 AI's judgment, in any language; the check only reads what is declared. When this call's verified receipts show that
-YouTube comments were read (a video audit whose final view returned comments, or the videos a one-call community audit
-read), a finding declared true, or one that declares nothing, is held privately for the owner's review and never
-published, the same as a finding with a video among its sources, `community_checked` or audited comments behind it; a
+YouTube comments were read (a video audit whose final view returned comments, the videos a one-call community audit
+read, or comments `get_youtube_comments` or `search_youtube_comments` returned), a finding declared true, or one that
+declares nothing, is held privately for the owner's review and never published, the same as a finding with a video among its sources, `community_checked` or audited comments behind it; a
 note names each finding that declares nothing and asks for the declaration. A finding declared false is saved as
 before, and a finding declared true is held even when no comments were read here. With no comments read, no
 declaration is needed. The finalization receipt signs the held findings' places on the card (`held`), and the
 runtime result lists them in `findings_card.held`. The card's digest covers the declarations, so a paid-private save
 sends the card exactly as checked, declarations included. Card ARF-0272's third finding, about people commenting on a
 public demonstration, listed two DOIs and so was published; a declaration now holds such a finding, though it still
-depends on the AI declaring truthfully.
+depends on the AI declaring truthfully. The receipt from `get_youtube_comments` and `search_youtube_comments`
+(`youtube_comments_read`) counts only here: it is no audit, so community evidence is checked as before. An AI that
+leaves the receipt out gets no hold on a finding that declares nothing, as with any receipt left out.
 
 Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
 Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call

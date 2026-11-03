@@ -1091,8 +1091,11 @@ What the model sends, and when:
   (`draws_on_youtube_comments`, a boolean). Whether it does is the model's
   declaration, in any language; the check compares only what is declared. When
   the call's verified receipts show YouTube comments were read (a video audit
-  whose final view returned comments, or the videos a one-call community audit
-  read), a finding declared `true`, or with no declaration, is held apart like
+  whose final view returned comments, the videos a one-call community audit
+  read, or comments `get_youtube_comments` or `search_youtube_comments`
+  returned, whose receipt `youtube_comments_read` signs the video ID and how
+  many records came back, never what they say), a finding declared `true`, or
+  with no declaration, is held apart like
   any other finding drawn from YouTube comments, and a note asks for the missing
   declaration; one declared `false` is saved as before. A finding declared `true`
   is held whether or not comments were read here. The finalization receipt signs

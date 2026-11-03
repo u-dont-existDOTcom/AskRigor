@@ -3741,6 +3741,36 @@ describe("findings card at the final gate", () => {
     expect((unread.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
   });
 
+  // Owner answer 219b's known gap: comments read outside an audit left no receipt, so a finding resting on them and
+  // saying nothing was published. Their receipt holds it, and asks nothing else that an audit would.
+  it("holds an undeclared finding after comments read outside an audit, and changes nothing else", () => {
+    const heldClaim = signedClaim("held");
+    const noAudit = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const direct = { ...noAudit, receipts: [...noAudit.receipts,
+      sign("youtube_comments_read", { video: "ccccccccccc", records: 12 }, options)] };
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], ...(declared === undefined ? {} : { draws_on_youtube_comments: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("People commenting on exercise videos reported less pain after several months."),
+    ] };
+    expect(finalizeResearch(direct, options).notes).toContainEqual(expect.stringContaining("This research read YouTube " +
+      "comments, so each finding also gives draws_on_youtube_comments"));
+    const result = finalizeResearch({ ...direct, findings_card: card }, options);
+    const without = finalizeResearch({ ...noAudit, findings_card: card }, options);
+    expect(result.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(result.finalization_receipt)).toEqual(["2"]);
+    expect(result.notes).toContainEqual(expect.stringMatching(/^This research read YouTube comments, and findings_card\.findings\[1\] does not say/u));
+    // It is no audit: nothing about community evidence changes, and the check ends as it would without the receipt.
+    expect(result).toMatchObject({ status: without.status, next_steps: without.next_steps, limits: without.limits,
+      must_report: without.must_report });
+    // Declared, it is held only if it says it draws on them.
+    const declared = { ...card, findings: [card.findings[0], { ...card.findings[1], draws_on_youtube_comments: false }] };
+    const saved = finalizeResearch({ ...direct, findings_card: declared }, options);
+    expect(saved.findings_card).not.toHaveProperty("held");
+    expect((saved.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+  });
+
   it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
     const absenceQuery = "médicament élimination enfant";
     const pubmedSearch = sign("literature_search", { src: "pubmed", q: discoveryQueryDigest([absenceQuery]), ret: 0, n: 0 },

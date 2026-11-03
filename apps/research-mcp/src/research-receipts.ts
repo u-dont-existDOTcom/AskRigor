@@ -35,6 +35,9 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_video_metadata",
   "youtube_video_audit",
   "youtube_community_audit",
+  // Comments get_youtube_comments or search_youtube_comments returned, read outside an audit (owner answer 219b). Only
+  // the findings card's hold reads it: it is no audit, so nothing else about community evidence changes.
+  "youtube_comments_read",
   "youtube_video_claims",
   // AskRigor#359: a video extract_youtube_video_claims identified but did not read, with its refusal's code. Never a
   // read video: youtube_video_claims alone says that.

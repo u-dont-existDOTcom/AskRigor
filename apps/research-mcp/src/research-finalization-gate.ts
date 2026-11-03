@@ -1943,6 +1943,7 @@ export function finalizeResearch(
   const targetDigest = researchTargetDigest(input.research_target);
   const offTarget: FinalizeResearchOutput["receipts_rejected"] = [];
   const offTargetVideos = new Set<string>();
+  let directlyReadComments = false;
   for (const receipt of verified) {
     const { kind, claims } = receipt;
     if (DISCOVERY_KINDS.has(kind) && text(claims.target) !== targetDigest) {
@@ -1988,6 +1989,7 @@ export function finalizeResearch(
         Number(text(claims.shown) || text(claims.records)),
         text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
+    if (kind === "youtube_comments_read") directlyReadComments = true;
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
       // survey; each material video still needs its own video audit.
@@ -2007,6 +2009,8 @@ export function finalizeResearch(
     ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
     ...communityRead
   ]);
+  // Owner answer 219b: whether this research read YouTube comments, for the findings card, by an audit or outside one.
+  const commentsRead = commentVideos.size > 0 || directlyReadComments;
   const readVideos = new Set([...audited.keys(), ...communityRead]);
   let materialVideos: string[] = [];
   let saturated = false;
@@ -3332,7 +3336,7 @@ export function finalizeResearch(
       requireDeclaration(
         joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
-          commentVideos.size === 0 ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
+          !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
             "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",
             "send the card in later_inputs.findings_card. A finding drawing on them, or saying nothing, is held privately ",
             "for AskRigor's owner and never published."))
@@ -3375,7 +3379,6 @@ export function finalizeResearch(
         // behind it), that is the AI's declaration, in any language; once this call's receipts show comments were
         // read, a finding without one is held too, the safe direction, and a note asks for it. One declared false is
         // saved as before; a declaration of true holds its finding whether or not comments were read here.
-        const commentsRead = commentVideos.size > 0;
         const findingsInCard = input.findings_card.findings;
         const heldOtherwise = (index: number) => heldByCardFields(findingsInCard[index]!, cardBases![index]) ||
           findingsInCard[index]!.draws_on_youtube_comments === true ||
@@ -3844,7 +3847,7 @@ export function finalizeResearch(
   if (passed && draft !== undefined) {
     MEANING_JUDGE_SOURCES.set(parsedOutput, {
       answer: input.answer_draft ?? draft,
-      commentsRead: commentVideos.size > 0,
+      commentsRead,
       ...(findingsCard.status === "checked" && input.findings_card !== undefined ? { card: input.findings_card } : {}),
       // Each entry the note credits, with what the check accepted its sentence as, exactly: a declared search that found
       // nothing, or a correction the research found, which backs an entry that names no source.

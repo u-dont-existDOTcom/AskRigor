@@ -1580,10 +1580,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
           result
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure();
         return youtubeToolResult(
@@ -1611,10 +1611,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
           commentSearchOutput(result)
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure(query);
         return youtubeToolResult(
@@ -3170,6 +3170,16 @@ function researchReceipt(
     : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
 }
 
+// Owner answer 219b: comments returned outside an audit leave a receipt too, so a findings card that says nothing about
+// them is held. It signs the video and how many records came back, never what they say.
+function youtubeCommentsReadReceipt(
+  result: { primary_identifier?: string | undefined; pagination: { returned: number } }
+): string | undefined {
+  return result.primary_identifier === undefined || result.pagination.returned === 0
+    ? undefined
+    : researchReceipt("youtube_comments_read", { video: result.primary_identifier, records: result.pagination.returned });
+}
+
 // A receipt's issue time has whole seconds, so each receipt also signs `t`, a
 // millisecond time that only increases within this process. finalize_research
 // orders research by it, never by the order the caller passes receipts in.
@@ -3581,7 +3591,8 @@ function collectResearchOperations(
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
         : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
-        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+        : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
+          ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
