@@ -140,3 +140,19 @@ then what failed or harmed. People's reports for the problem are counted beside 
 7. Problem pages at a glance; with 231B, the switch for accepted findings.
 8. The full gate (`npm run verify`), the private-map check, a draft pull request into #405's branch, and the owner
    page. Release only with the owner's yes.
+
+## Progress
+
+- 3 Nov, `b67569d5`: step 2 done. The Health tree (`apps/research-mcp/src/atlas/health-tree.ts`), migration 0024
+  (`atlas_placements`; the review role's `set_atlas_placements` and `inspect_atlas_placements`), the review's
+  `place_items` (`later_inputs.placements`) and `list_unplaced` (`apps/research-mcp/src/atlas/placement-review.ts`),
+  `/atlas/health` and `/atlas/health/<key>` (`health-pages.ts`), and the Health link in the header.
+- 3 Nov, `30162a77`: step 3's store. Migration 0025 (`atlas_reports`, `atlas_report_answers`; the access role's
+  `submit_atlas_report`, `take_down_atlas_report`, `set_atlas_report_answer`, `forget_atlas_reports`; the review role's
+  `inspect_atlas_reports`, `decide_atlas_report`), `packages/evidence-repository/src/atlas-reports.ts` (in memory and
+  PostgreSQL), the pages' reads (`readReport`, `listReports`, `listOwnReports`). `npm run
+  contributor-access:postgres-acceptance` runs a report through every role on a real database.
+- Next in step 3: the HTTP side in `pages-http.ts` (the form at `/atlas/share`, the card at `/atlas/reports/R-<n>`,
+  answers, `/atlas/account/reports` with take-down, and "delete everything" also calling `forgetReports`), the reports
+  under their subcategory on the Health pages, and the privacy page, terms and data map. Then step 4 (the review's
+  `list_reports`, `check_report`, `decide_report` over `AtlasReportReviewStore`, and `docs/atlas-report-check.md`).
