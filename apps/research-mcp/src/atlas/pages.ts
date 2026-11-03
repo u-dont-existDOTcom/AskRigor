@@ -60,6 +60,9 @@ function part(value: HtmlValue): string {
 }
 
 /** Markup with every interpolated value escaped, unless it is markup this module made. */
+/** The type only: markup is made by html`` alone, never by constructing it elsewhere. */
+export type { SafeHtml };
+
 export function html(strings: TemplateStringsArray, ...values: HtmlValue[]): SafeHtml {
   let out = strings[0]!;
   values.forEach((value, index) => {
@@ -1222,6 +1225,7 @@ ${hiddenFields(tokens.name, ACCOUNT_PATH)}
 <button type="submit" class="quiet">Save name</button>
 </form>`}
 <p><a href="${OWN_COMMENTS_PATH}">Your votes and comments</a>, to find and delete any of them</p>
+<p><a href="/atlas/account/reports">Your reports</a>, to see where each stands and take any of them down · <a href="/atlas/share">Share what worked for you</a></p>
 <h2>What the Atlas keeps</h2>
 <p>The Atlas keeps your votes, your comments with the display name you choose, and your reports, under a key derived
 from your account, never your email address. Votes are shown only as totals; comments are public. It keeps no record

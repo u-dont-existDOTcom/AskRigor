@@ -1916,6 +1916,37 @@ While it is off, the pages show no participation form or sign-in link and keep n
   only what they show. PostgreSQL keeps deleted row versions until vacuum and
   the write-ahead log recycle them.
 
+## Atlas reports and the Health tree
+
+Owner answer 229a (3 November 2026; plan `docs/superpowers/plans/2026-11-03-atlas-reports-health-tree.md`), built,
+not yet released, and offered only while votes and comments are switched on (`ASKRIGOR_ATLAS_PARTICIPATION=enabled`):
+people's own reports of what they tried for a health problem and what happened, published once an AI check passes.
+
+- **What a report holds** (migration 0025, `atlas_reports`): the author's participant key (as for comments: an HMAC of
+  the account key, never an email address, OAuth subject or account key); the door it came by (the Atlas form, or the
+  person's own AI app); the name it is published under, or none; the problem; what was tried, how much, how it was
+  used and for how long; what happened and how long it lasted; side effects; anything else that changed; the research
+  around it (what others report on public forums, by link and outcome; studies by title, year, identifier and finding;
+  safety; what isn't known), from the person's AI or from AskRigor's check; its state; the AI warning when the check
+  wrote one; the reason it was held or refused; and its times. Contact details and links are refused at the form and in
+  the research's texts, as for comments; the research links only to pages that are not YouTube.
+- **Who sees it.** Received and held reports are private: the owner's review sees them without the author's key.
+  A published report is public in its author's words, under the name they chose or none, with its AI warning and its
+  research. A refused report keeps only its number, state and reason: its text, name and research are deleted when it
+  is refused.
+- **Answers** (`atlas_report_answers`): "it worked for me too" or "it didn't", one per signed-in participant key and
+  report, never from its author, shown only as totals.
+- **Deletion.** Its author takes a report down at any time from `/atlas/account/reports`: it is deleted with its
+  answers and its place. Deleting everything from the account page deletes the participant's reports and their answers
+  on other reports, with their votes and comments.
+- **The check.** An AI working for AskRigor (a Claude session on the owner's plan; no API) reads each received report
+  through the owner-only review tool and records one verdict: publish, publish with an AI warning, hold for the owner,
+  or refuse. The model judges meaning; the server checks the verdict's shape exactly.
+- **Where items sit** (migration 0024, `atlas_placements`): one subcategory under Health per publication, accepted
+  finding or report, by item number. Nothing about a person.
+- **Stated limits.** A report is health information its author chose to publish; the Atlas cannot check that it is
+  true. Research attached by a person's own AI is checked for its shape and links, not redone, before it is shown.
+
 ## Research data not persistently stored
 
 - Raw OAuth subjects, account email/contact fields, access tokens, passwords,
