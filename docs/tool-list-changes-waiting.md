@@ -5,4 +5,9 @@ release's record says the apps need one refresh. A fix that needs the published 
 with what it would change and what holds meanwhile. Fixes that fit the later shapes, the runtime enums, results or the
 protocol are made at once instead.
 
-No changes are waiting. The forum-reader build includes the unified `description_only` spelling, PMID/PMCID-only full-text acquisition, and `caveats` wording and behavior under every check status.
+The forum-reader build included the unified `description_only` spelling, PMID/PMCID-only full-text acquisition, and
+`caveats` wording and behavior under every check status.
+
+| Waiting change | Why it needs the list | Meanwhile | Found |
+|---|---|---|---|
+| `finalize_research` `key_sources`: say that a forum thread `read_forum_thread` read can be a key source by its link, where `id` now says "DOI, PMID or PMCID". | It is published text. | The sources check accepts such a thread by its verified `forum_thread_read` receipt, and its step names that receipt. | The regression run on #394's build, `r376-forum-500` and `r376-later-phase`, 3 November 2026 |
