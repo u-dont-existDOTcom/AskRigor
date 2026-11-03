@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Refuses a push that would publish numbers or IDs from the owner's private comment maps; see
+# scripts/check-private-map-leaks.mts and docs/private-map-leak-check.md. Git does not run this folder's hooks until
+#   git config core.hooksPath .githooks
+# is set (the owner decides; every worktree of a clone shares that setting). `git push --no-verify` skips the check.
+set -eu
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+node_bin=""
+pinned="${NVM_DIR:-$HOME/.nvm}/versions/node/v$(cat "$repo/.nvmrc" 2>/dev/null || true)/bin/node"
+if [ -x "$pinned" ]; then
+  node_bin="$pinned"
+elif command -v node >/dev/null 2>&1; then
+  node_bin="$(command -v node)"
+fi
+if [ -z "$node_bin" ]; then
+  echo "pre-push: Node $(cat "$repo/.nvmrc" 2>/dev/null || echo 24) was not found, so the private-map check could not run; push refused (git push --no-verify skips it)." >&2
+  exit 1
+fi
+
+# Node 24 runs the TypeScript script as it is; no install step is needed in a fresh worktree.
+exec "$node_bin" --no-warnings "$repo/scripts/check-private-map-leaks.mts" pre-push "$@"
