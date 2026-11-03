@@ -168,7 +168,9 @@ describe("Reddit stdio reader", () => {
     }
   });
   it("keeps the pending continuation when a later page reaches the overall deadline", async () => {
-    const { client } = await fake("slow-continuation", { deadlineMs: 600 });
+    // The deadline also covers starting the fake reader's process, which can take over a second while the full gate runs
+    // (a 600 ms deadline failed there once on 3 Nov), so it leaves room for that; the slow page still outlasts it.
+    const { client } = await fake("slow-continuation", { deadlineMs: 3_000 });
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 2 });
     expect(JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"))).toMatchObject({ pages: ["page-1"] });
