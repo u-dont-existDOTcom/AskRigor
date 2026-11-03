@@ -109,7 +109,7 @@ describe("the final check's private debug report", () => {
     expect(result.check_report!.could_not.some(({ rule }) => rule.includes("daily quota"))).toBe(false);
     expect(result.check_report!.limits).toEqual([]);
     expect(result.limits).toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
-    expect(result.caveats).toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
+    expect(result.caveats).not.toContain("YouTube's daily search limit stopped 5 searches in this research; a later turn can rerun them after the limit resets.");
     expect(JSON.stringify(result.check_report)).not.toContain(TARGET);
   });
 

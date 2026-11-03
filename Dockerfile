@@ -26,6 +26,8 @@ COPY --from=build /app/project/PROJECT_INSTRUCTIONS.md ./project/PROJECT_INSTRUC
 COPY --from=build /app/project/FORUM_SIGNAL_MODULE.md ./project/FORUM_SIGNAL_MODULE.md
 COPY --from=build /app/integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*
+
 USER node
 EXPOSE 3000
 CMD ["node", "apps/research-mcp/dist/index.js"]

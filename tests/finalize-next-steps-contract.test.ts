@@ -62,7 +62,7 @@ const researchedClass = { option_class: "mineral binders", state: "researched" a
 
 describe("finalize next-step identifier contract", () => {
   it("derives allowed identifiers from all schema depths, enums, tool names and reviewed output fields", () => {
-    expect(inventory.tools).toHaveLength(33);
+    expect(inventory.tools).toHaveLength(35);
     for (const identifier of ["registry_code", "other_variant_excluded", "outcome_search", "outcome_search_boundary",
       "read_depth", "answer_marker", "full_text_audited", "full_text_read", "partial_text", "abstract_only",
       "conference_abstract", "secondary_only", "metadata_only", "inaccessible", "route_error", "lab_preparation", "covered", "answer_quotes", "not_applicable", "full_text_search", "run", "not_needed", "ratings_shown", "no_text_search", "search_blocked", "benefit", "no_effect", "worse", "adverse", "stopped", "minimal_important_difference",
@@ -412,7 +412,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalizer contract, links and 
   });
   if (surface === "MCP endpoint") it("publishes a version-independent contract schema and returns its running value in get_protocol_manifest", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     for (const name of ["finalize_research", "get_protocol_manifest"]) {
       const schema = tools.find((tool) => tool.name === name)!.outputSchema!;
       const contract = (schema.properties as Record<string, unknown>).contract;

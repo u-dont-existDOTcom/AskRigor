@@ -19,6 +19,7 @@ import {
   TOOL_LIST_REFRESH_HINT,
   type RedditThreadCheck,
   normalizeIdentifier,
+  forumThreadDigest,
   protocolNamesFrom
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -274,7 +275,7 @@ describe("finalize_research gate", () => {
     };
     const loopNote = "No study search came after the community research. Turn the treatments, diagnoses, subgroups and harms the community reports name into study searches before concluding (HRP BidirectionalEvidenceDiscoveryAndTriangulationLoop), and say in the answer which community leads changed the study search.";
     const emergencyNote = "Research went past the emergency warning, so community evidence applies: the emergency exemption covers only an answer that is the warning itself (HRP NonActivation).";
-    const depthNote = (n: number, m: number) => `Forum evidence rests on ${n} ${n === 1 ? "thread" : "threads"} read in ${m} ${m === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): open each one in full, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`;
+    const depthNote = (n: number, m: number) => `Forum evidence rests on ${n} ${n === 1 ? "thread" : "threads"} read in ${m} ${m === 1 ? "community" : "communities"}. Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): find them with search_reddit_threads, open each one in full with read_forum_thread, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`;
     const search = (community: string, count: number, platform = "forum") => ({
       ...REDDIT_SEARCH, community, platform,
       threads_read: Array.from({ length: count }, (_, i) => ({ url: `https://${community}.example/threads/${i}` }))
@@ -306,10 +307,44 @@ describe("finalize_research gate", () => {
       passing(result);
     });
 
+    it("adds verified search counts without counting duplicate thread links twice or blocking", () => {
+      const links = ["https://forum.example/threads/1", "https://forum.example/threads/2"];
+      const receipts = [sign("forum_search", { q: "first", u: links.map(forumThreadDigest) }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)] })];
+      const result = check({ community_searches: [search("first", 1)], receipts });
+      expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 2 threads. Only 2 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
+      passing(result);
+      const invalid = check({ community_searches: [search("first", 1)], receipts: [receipts[0]!.slice(0, -1)] });
+      expect(invalid.notes).toContain(depthNote(1, 1));
+      expect(invalid.notes?.join(" ")).not.toContain("AskRigor's searches found");
+    });
+
+    it("uses singular thread wording when searches find only one thread", () => {
+      const receipts = [sign("forum_search", { q: "first", u: [forumThreadDigest("https://forum.example/threads/1")] }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest("https://forum.example/threads/1")] })];
+      const result = check({ community_searches: [search("first", 1)], receipts });
+      expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 1 thread. Only 1 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
+      passing(result);
+    });
+
+    it("removes own-web-search limits only for communities whose every thread has a valid read receipt", () => {
+      const searches = [search("first", 2), search("second", 1)];
+      const receipts = searches[0]!.threads_read.map(({ url }) => sign("forum_thread_read", {
+        u: forumThreadDigest(url), n: 1_500, v: "page"
+      }));
+      const result = finalizeResearch({ ...base, community_evidence: "researched", community_searches: searches,
+        principal_communities: searches.map(({ community }) => ({ name: community, platform: "forum", reason: "Public reports" })), receipts }, options);
+      const limit = result.limits.find((line) => line.startsWith("Reports from"));
+      expect(limit).toContain("second"); expect(limit).not.toContain("first");
+      const partial = finalizeResearch({ ...base, community_evidence: "researched", community_searches: [searches[0]],
+        principal_communities: [{ name: "first", platform: "forum", reason: "Public reports" }], receipts: receipts.slice(0, 1) }, options);
+      expect(partial.limits.join(" ")).toContain("Community: first");
+    });
+
     it("asks for the reason when no forum thread was read, and leaves reports the user pasted alone", () => {
       const none = check({ community_searches: [search("first", 0)] });
       expect(none.notes).toContain("No forum thread was read. If the searches found none, say so in the answer, with " +
-        "what was searched; if threads exist, read them, or say why they went unread: pages wouldn't open or time ran " +
+        "what was searched; if threads exist, read them with read_forum_thread, or say why they went unread: pages wouldn't open or time ran " +
         "out (HRP SearchSaturationAndStopping).");
       expect(none.notes?.some((note) => note.startsWith("Forum evidence rests on"))).toBe(false);
       passing(none);
