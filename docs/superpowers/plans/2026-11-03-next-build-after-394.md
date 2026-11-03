@@ -59,6 +59,14 @@ From the judgment, one commit each:
    starts. A route that runs out is recorded as an owner-library failure (`failure_kind` timeout), with a retry
    receipt.
 
+After the web-app trial (3 Nov):
+
+10. **A signed-out reader says so** (`b5f4d756`). From the morning of 3 Nov the reader host answered `LOGIN_REQUIRED`
+    to every thread read, while searches still worked. Its own Reddit sign-in had lapsed. AskRigor passed it on as
+    `unavailable`, so the AI kept trying (six reads in one trial run) and couldn't say why. The host's code now maps
+    to `not_available`, and the result says the reader stays signed out until AskRigor's operator signs it in again:
+    don't call it again in this research, leave Reddit to the AI's own search, and say why in the answer.
+
 ## The numbers chosen
 
 - **Reddit's page, 25** (fix 2):
@@ -129,7 +137,8 @@ From the judgment, one commit each:
    read-only and adding its settings to `runtime.env`.
 5. Acceptance:
    - `/version`, and 35 tools equal to the fixtures;
-   - the reader (`READER_OK`), the full-text probe and the blocking probe;
+   - the reader (`READER_OK`, which reads a thread, so it fails while the reader host is signed out of Reddit: the
+     owner signs it in first), the full-text probe and the blocking probe;
    - the promotion one-shot and the timer.
 
    Then the plugin receipt, a connector probe in each app, and the release record with its rollback.
