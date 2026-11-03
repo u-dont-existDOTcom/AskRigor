@@ -34,7 +34,7 @@
   },
   {
     "name": "load_protocol",
-    "description": "Canonical protocol text, 40,000-byte pages. section: \"index\" lists.",
+    "description": "Canonical protocol text, 40,000-byte pages. section: \"index\".",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -216,7 +216,7 @@
   },
   {
     "name": "acquire_open_full_text",
-    "description": "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five.",
+    "description": "Acquires one paper identified by at least one of doi, pmcid or.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -227,6 +227,10 @@
         "pmcid": {
           "type": "string",
           "description": "Pattern: ^[Pp][Mm][Cc][1-9]\\d{0,15}$."
+        },
+        "pmid": {
+          "type": "string",
+          "description": "Pattern: ^[1-9]\\d{0,15}$."
         },
         "candidate_urls": {
           "type": "array",
@@ -298,10 +302,7 @@
             "queries"
           ]
         }
-      },
-      "required": [
-        "doi"
-      ]
+      }
     },
     "annotations": {
       "readOnlyHint": true,
@@ -311,7 +312,7 @@
   },
   {
     "name": "continue_open_full_text",
-    "description": "Retrieves the next contiguous page of an existing document_handle.",
+    "description": "Retrieves the next contiguous page of an existing.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -332,7 +333,7 @@
   },
   {
     "name": "validate_study_method_audit",
-    "description": "Validates a full-text, source-linked individual-study audit on the.",
+    "description": "Validates a full-text, source-linked individual-study audit on.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -635,7 +636,7 @@
   },
   {
     "name": "validate_review_method_audit",
-    "description": "Validates a full-text, source-linked review or guideline audit on.",
+    "description": "Validates a full-text, source-linked review or guideline audit.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -903,7 +904,7 @@
   },
   {
     "name": "fetch_clinical_trial",
-    "description": "Retrieve one ClinicalTrials.gov study by NCT ID, preserving supplied.",
+    "description": "Retrieve one ClinicalTrials.gov study by NCT ID, preserving.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -924,7 +925,7 @@
   },
   {
     "name": "resolve_doi",
-    "description": "Resolve a DOI or bibliographic citation through Crossref metadata.",
+    "description": "Resolve a DOI or bibliographic citation through Crossref.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -945,7 +946,7 @@
   },
   {
     "name": "check_retraction_status",
-    "description": "Check traceable Crossref update metadata for a DOI without inferring.",
+    "description": "Check traceable Crossref update metadata for a DOI without.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1050,7 +1051,7 @@
   },
   {
     "name": "get_youtube_comments",
-    "description": "Retrieve all API-visible YouTube top-level comments and, by default.",
+    "description": "Retrieve all API-visible YouTube top-level comments and, by.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1079,7 +1080,7 @@
   },
   {
     "name": "search_youtube_comments",
-    "description": "Retrieve a query-bounded API-visible YouTube comment-thread subset.",
+    "description": "Retrieve a query-bounded API-visible YouTube comment-thread.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1113,7 +1114,7 @@
   },
   {
     "name": "audit_youtube_community",
-    "description": "Retrieves YouTube community evidence in one read-only call: bounded.",
+    "description": "Retrieves YouTube community evidence in one read-only call.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1204,7 +1205,7 @@
   },
   {
     "name": "survey_youtube_community",
-    "description": "Surveys bounded YouTube video candidates for a community-evidence.",
+    "description": "Surveys bounded YouTube video candidates for a.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -1354,7 +1355,7 @@
   },
   {
     "name": "get_research_frontier",
-    "description": "Retrieve an exact stored formal research frontier by frontier UUID.",
+    "description": "Retrieve an exact stored formal research frontier by frontier.",
     "inputSchema": {
       "type": "object",
       "properties": {

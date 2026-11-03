@@ -123,7 +123,7 @@ describe("YouTube product identity integration", () => {
     const [a, b] = InMemoryTransport.createLinkedPair();
     try {
       await server.connect(b); await client.connect(a);
-      expect((await client.listTools()).tools).toHaveLength(33);
+      expect((await client.listTools()).tools).toHaveLength(35);
       const call = async (name: string, args: Record<string, unknown>, refused = false) => {
         const result = await client.callTool({ name, arguments: args });
         if (refused) expect(result.isError).toBe(true);

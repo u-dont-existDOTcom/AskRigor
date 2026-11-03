@@ -23,8 +23,12 @@ complete XML protocol.
 
 ## Validation and release
 
-- [Final-check scope](final-check.md): the five blocking checks in owner answers
-  193a and 195a, advisory notes, material limits and the passing-answer panel
+- [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
+- [Private-map leak check](private-map-leak-check.md): the exact pre-push check that refuses numbers and IDs from the
+  owner's private comment maps (owner answers 175, 208b, 212b); its plan and history replay are
+  [superpowers/plans/2026-11-03-private-map-leak-check.md](superpowers/plans/2026-11-03-private-map-leak-check.md)
+- [Final-check scope](final-check.md): the blocking checks of owner answers
+  193a, 195a and 217b, advisory notes, material limits and the folded passing-answer panel
 - [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
   itself (owner answer 189a), with what holds meanwhile
 
@@ -107,6 +111,9 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-01-owner-answer-214a-production-release.md`: release of #393 (owner answer 214a): a passing check's caveats shown
+  as written, the plain-answer note (210b), InfoAccess one request at a time; acceptance, both connector probes, the plugin receipt
+  and the rollback; no site, migration, protocol or tool-list change.
 - `audits/2026-10-31-owner-answer-209a-production-release.md`: release of #389 (owner answer 209a): the comment-audit
   fix, forum depth and the studies loop, the in-answer comment map, the regression run's findings, 205a's limit line
   and HRP 20.6.35; acceptance, both connector probes, the plugin receipt and the rollback; no site, migration or
@@ -128,6 +135,23 @@ complete XML protocol.
 - `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
   research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
   "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
+- `audits/2026-11-02-owner-regressions-393-judgment.md`: the owner regressions on #393's build `61215c0b` against
+  question 193's signals (86 cases: 45 pass, 39 in part, 1 fails, 1 not judged; against #389's build 8 better, 6 worse;
+  the low-calorie runs 6, 4 and 1 fails, 4 better; the new turmeric case of owner answer 216a in part): 111 of 113 checks
+  pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
+  from 43% to none; answers still changed after a passing check; three regression cards published when the account's
+  saving was switched on from outside the run (owner questions 218 and 219).
+- `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
+  Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
+  saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
+  23:15 UTC, the sample on Claude workers on the owner's Claude plan (`scripts/web-engine-worker.mts`), not the API.
+- `audits/2026-11-02-web-app-engine-trial.md`: the trial's record: the 3-case pilot cost $13.00 (16.8, 5.8 and 18.8
+  minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
+  protocols, so the engine now carries the AskRigor skill and a guard; a free blind check judged Claude's answers
+  better in all three; the sample runs in two stages (owner answer 226b) on the Claude plan, so API spending ends at
+  $13.09. Stage 1 (3 Nov) answered all three and passed every check; two blind judges agreed only on `r376`, for
+  ChatGPT's answer, where AskRigor's Reddit reader couldn't open a thread for Claude, so stage 2 didn't run and the
+  trial ends about level.
 - `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
   outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
   low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none

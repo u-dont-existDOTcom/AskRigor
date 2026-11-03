@@ -88,7 +88,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.mcp).toEqual({
       submissionMode: "with_mcp",
       serverURL: "https://mcp.askrigor.com/mcp",
-      expectedToolCount: 33
+      expectedToolCount: 35
     });
   });
 
@@ -102,7 +102,7 @@ describe("AskRigor public submission packet", () => {
 
     expect(packet.mcp.expectedToolCount).toBe(inventory.tools.length);
     expect(packet.releaseNotes.join(" ")).toContain(`${inventory.tools.length} OAuth-scoped tools`);
-    expect(packet.releaseNotes.join(" ")).toContain("27 read-only operations");
+    expect(packet.releaseNotes.join(" ")).toContain("29 read-only operations");
     expect(packet.externalGates.scanTools?.note).toContain(
       `${inventory.tools.length}-tool inventory`
     );

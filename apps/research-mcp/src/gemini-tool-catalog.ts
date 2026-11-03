@@ -52,6 +52,8 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
       "scout_gemini_youtube_candidates",
       "extract_youtube_video_claims",
       "finalize_research",
+      "read_forum_thread",
+      "search_reddit_threads",
     ].includes(name));
   const fullTools = operations
     .map((operation) => ({

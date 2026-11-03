@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.35" revisionDate="2026-10-31" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.36" revisionDate="2026-11-01" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,10 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.36" priority="Critical">
+   Owner answers 211a and 213b of 1 November 2026, outside the core, which is unchanged: SearchSaturationAndStopping uses
+   AskRigor's own forum reader first where it is available, and a page that refuses it stays unread.
+  </Revision>
   <Revision version="20.6.35" priority="Critical">
    Owner rule 148a and the owner's requests of 30 and 31 October 2026 (AskRigor#390, forum depth, video comment maps),
    all outside the core, which is unchanged: CrowdSourcedAndClinicalSignalAudit's emergency exemption covers only an
@@ -4484,8 +4488,9 @@
    planned sample is exhausted, or access limits require an indeterminate or low-confidence classification. Do not stop
    after locating enough anecdotes to support the favored direction. On a forum, open each relevant thread the searches
    find and read all of it, replies included, in more than one community where they exist; when a page will not open,
-   say so and try another forum. State how many threads were found, opened and read, and why reading stopped: few
-   threads exist, pages would not open, or time ran out.
+   say so and try another forum. Where AskRigor's search_reddit_threads and read_forum_thread are available, use them
+   first; a page they report as refusing access stays unread. State how many threads were found, opened and read, and
+   why reading stopped: few threads exist, pages would not open, or time ran out.
   </Rule>
 
   <Rule name="YouTubeCreatorCommentCorpusHandling" priority="Critical">

@@ -212,7 +212,7 @@ export async function acquireUnpaywallFullText(
 }
 
 interface ExtractPdfInput {
-  doi: string;
+  doi?: string;
   title?: string;
   version?: string;
   canonicalUrl: string;
@@ -289,9 +289,11 @@ export async function extractAuditablePdf(
     return auditableDocumentIndexSchema.parse({
       source: {
         provider: "unpaywall_open_location",
-        primary_identifier: input.doi,
+        primary_identifier: input.doi ?? input.identity?.pmcid ?? input.identity?.pmid,
         canonical_url: input.canonicalUrl,
-        doi: input.doi,
+        ...(input.doi === undefined ? {} : { doi: input.doi }),
+        ...(input.identity?.pmcid === undefined ? {} : { pmcid: input.identity.pmcid }),
+        ...(input.identity?.pmid === undefined ? {} : { pmid: input.identity.pmid }),
         ...(input.title === undefined ? {} : { title: input.title }),
         ...(input.version === undefined ? {} : { version: input.version }),
         format: "pdf_text",

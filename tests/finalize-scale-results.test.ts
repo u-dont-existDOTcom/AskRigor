@@ -242,9 +242,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     }
   });
 
-  if (surface === "MCP endpoint") it("retains 33 tools and pins the descriptive finalize_research catalog text", async () => {
+  if (surface === "MCP endpoint") it("retains 35 tools and pins the descriptive finalize_research catalog text", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     // tests/mcp-tools.test.ts pins the whole description; this file checks the scale_results part.
     expect(tools.find(({ name }) => name === "finalize_research")?.description).toContain(
       "(scale_results: quoted explanations with the scale name, range, values and benchmark)"
