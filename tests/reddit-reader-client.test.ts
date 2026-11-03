@@ -193,12 +193,22 @@ describe("Reddit stdio reader", () => {
     expect(events.find((record) => record.event === "start").input).toEqual({ ...input, limit: 25 });
     expect(JSON.stringify(events.find((record) => record.event === "boot"))).not.toContain(input.query);
   });
-  it.each(["THREAD_NOT_RENDERED", "INVALID_INPUT", "LOGIN_REQUIRED", "UNKNOWN"])("maps %s without exposing provider text", async (code) => {
+  // The host's codes, from its browser reader's source, and one it might add later.
+  it.each([
+    ["THREAD_NOT_RENDERED", "not_found"], ["INVALID_INPUT", "invalid"], ["LOGIN_REQUIRED", "not_available"],
+    ["HUMAN_CHECK_REQUIRED", "not_available"], ["BROWSER_UNAVAILABLE", "not_available"], ["ACCESS_DENIED", "blocked"],
+    ["NOT_PUBLIC", "blocked"], ["WEBSITE_READ_FAILED", "unavailable"], ["UNKNOWN", "unavailable"]
+  ])("maps %s to %s and names the code without exposing provider text", async (code, expected) => {
     const { client } = await fake(`error-${code}`);
-    const expected = code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid"
-      : code === "LOGIN_REQUIRED" ? "not_available" : "unavailable";
-    expect(await client.readThread(URL)).toEqual({ access_state: expected, url: URL });
-    expect(await client.searchThreads({ query: "synthetic" })).toEqual({ access_state: expected, threads: [], returned: 0 });
+    expect(await client.readThread(URL)).toEqual({ access_state: expected, url: URL, host_code: code });
+    expect(await client.searchThreads({ query: "synthetic" })).toEqual({ access_state: expected, threads: [], returned: 0, host_code: code });
+  });
+  it("answers the host's busy with a retry hint, and passes on no code that isn't one", async () => {
+    // The host locks its one browser for each read, whichever client sent it, and asks for a retry in 2 seconds.
+    expect(await (await fake("error-BROWSER_BUSY")).client.readThread(URL))
+      .toEqual({ access_state: "busy", url: URL, retry_after_seconds: 5, host_code: "BROWSER_BUSY" });
+    expect(await (await fake("error-not a code")).client.searchThreads({ query: "synthetic" }))
+      .toEqual({ access_state: "unavailable", threads: [], returned: 0 });
   });
   it("rejects malformed data without reconnecting", async () => {
     const { client, records } = await fake("malformed");

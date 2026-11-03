@@ -158,8 +158,8 @@ describe("forum tools", () => {
     }
   });
   it("says a signed-out reader stays signed out, so the AI stops calling it and says why", async () => {
-    thread.mockResolvedValue({ access_state: "not_available", url: URL });
-    search.mockResolvedValue({ access_state: "not_available", threads: [], returned: 0 });
+    thread.mockResolvedValue({ access_state: "not_available", url: URL, host_code: "LOGIN_REQUIRED" });
+    search.mockResolvedValue({ access_state: "not_available", threads: [], returned: 0, host_code: "LOGIN_REQUIRED" });
     const caller = await client();
     for (const [name, args] of [["read_forum_thread", { url: URL }], ["search_reddit_threads", { query: "exercise outcomes" }]] as const) {
       const result = await caller.callTool({ name, arguments: args });
@@ -168,9 +168,49 @@ describe("forum tools", () => {
         "it back in: don't call it again in this research. Reddit stays with the AI's own search, and the answer says " +
         "that the reader couldn't read Reddit, and why.";
       expect(result.structuredContent).toMatchObject({ access_status: "inaccessible", limitations: [note], data: { access_state: "not_available" } });
+      expect(result.structuredContent!.data).not.toHaveProperty("host_code");
       expect(result.structuredContent).not.toHaveProperty("research_receipt");
       expect((result.content[0] as { text: string }).text).toContain(note);
     }
+  });
+  // On 2 Nov reads and searches failed within 1.5 seconds for minutes at a time, each one only "unavailable".
+  it.each([
+    ["HUMAN_CHECK_REQUIRED", "not_available", "Reddit wants a human check from AskRigor's Reddit reader, which stays " +
+      "stopped until AskRigor's operator completes it: don't call it again in this research. Reddit stays with the AI's " +
+      "own search, and the answer says that the reader couldn't read Reddit, and why."],
+    ["BROWSER_UNAVAILABLE", "not_available", "AskRigor's Reddit reader couldn't start its browser, and stays stopped " +
+      "until AskRigor's operator restarts it: don't call it again in this research. Reddit stays with the AI's own " +
+      "search, and the answer says that the reader couldn't read Reddit, and why."],
+    ["ACCESS_DENIED", "blocked", "Reddit's network security blocked AskRigor's Reddit reader: don't call it again in " +
+      "this research. Reddit stays with the AI's own search, and the answer says that the reader couldn't read Reddit, " +
+      "and why."],
+    ["NOT_PUBLIC", "blocked", "Reddit shows this as a private community, which AskRigor's Reddit reader doesn't read: leave it out."],
+    ["WEBSITE_READ_FAILED", "unavailable", "The Reddit reader's host answered WEBSITE_READ_FAILED."],
+    ["THREAD_NOT_RENDERED", "not_found", undefined]
+  ] as const)("tells the AI what the host's %s means", async (code, access_state, note) => {
+    thread.mockResolvedValue({ access_state, url: URL, host_code: code });
+    search.mockResolvedValue({ access_state, threads: [], returned: 0, host_code: code });
+    const caller = await client();
+    for (const [name, args] of [["read_forum_thread", { url: URL }], ["search_reddit_threads", { query: "exercise outcomes" }]] as const) {
+      const result = await caller.callTool({ name, arguments: args });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({ access_status: "inaccessible", limitations: note === undefined ? [] : [note],
+        data: { access_state } });
+      expect(result.structuredContent!.data).not.toHaveProperty("host_code");
+      expect(result.structuredContent).not.toHaveProperty("research_receipt");
+      if (note !== undefined) expect((result.content[0] as { text: string }).text).toContain(note);
+    }
+  });
+  it("passes the host's code from the real reader to the note, never its message", async () => {
+    const reader = createRedditReaderClient({ target: "synthetic@reader.invalid", keyFile: "/synthetic/key",
+      knownHostsFile: "/synthetic/known-hosts", command: process.execPath,
+      args: [fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-server.mjs", import.meta.url)), "error-COMMENTS_NOT_RENDERED"] });
+    try {
+      const result = await (await client({ redditReader: reader })).callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      expect(result.structuredContent).toMatchObject({ access_status: "inaccessible",
+        limitations: ["The Reddit reader's host answered COMMENTS_NOT_RENDERED."], data: { access_state: "unavailable" } });
+      expect(JSON.stringify(result)).not.toContain("Synthetic private provider message");
+    } finally { await reader.close(); }
   });
   it("refuses personal search words with quoted matches before contacting the reader", async () => {
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query: "how can I fix my bad hip" } });

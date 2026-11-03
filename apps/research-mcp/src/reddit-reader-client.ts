@@ -32,7 +32,23 @@ const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
 // Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
 const line: object[] = [];
-type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available";
+type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked";
+/**
+ * The host's failure codes, taken from its browser reader's source, and the states they give. A code not listed stays
+ * unavailable. Each result names its code (host_code), so the AI's note and a run's logs say what the host answered: on
+ * 2 Nov reads and searches failed within 1.5 seconds for minutes at a time, and every one said only "unavailable".
+ */
+const HOST_FAILURES: ReadonlyMap<string, FailureState> = new Map([
+  ["THREAD_NOT_RENDERED", "not_found"], ["INVALID_INPUT", "invalid"],
+  // Only the host's operator can clear these: its Reddit sign-in has lapsed (3 Nov), Reddit wants a human check (as at
+  // the first sign-in), or its browser can't start.
+  ["LOGIN_REQUIRED", "not_available"], ["HUMAN_CHECK_REQUIRED", "not_available"], ["BROWSER_UNAVAILABLE", "not_available"],
+  // Another client holds the host's one browser: the host reads one page at a time, for every client.
+  ["BROWSER_BUSY", "busy"],
+  // Reddit refuses the read: its network-security block page, or a private community.
+  ["ACCESS_DENIED", "blocked"], ["NOT_PUBLIC", "blocked"]
+]);
+const HOST_CODE = /^[A-Z][A-Z0-9_]{1,63}$/u;
 export interface RedditReaderComment {
   id: string; parent_id: string; depth: number; person?: string; is_original_poster: boolean;
   text: string | null; removed: boolean; collapsed: boolean; score: number; created: string | number; url: string;
@@ -43,6 +59,8 @@ export interface RedditThreadResult {
   comments_read?: number; comments_without_text?: number; truncated?: boolean; more?: string;
   /** With busy: about how long the calls ahead of it should take. */
   retry_after_seconds?: number;
+  /** With a failure the host reported: its code, never its message. */
+  host_code?: string;
 }
 export interface RedditSearchInput {
   query: string; subreddit?: string; sort?: typeof SORT[number]; time?: typeof TIME[number]; after?: string;
@@ -52,6 +70,8 @@ export interface RedditSearchResult {
   threads: { url: string; subreddit: string; title: string }[]; returned: number; after?: string;
   /** With busy: about how long the calls ahead of it should take. */
   retry_after_seconds?: number;
+  /** With a failure the host reported: its code, never its message. */
+  host_code?: string;
 }
 export interface RedditReaderClient {
   readThread(url: string, more?: string): Promise<RedditThreadResult>;
@@ -59,11 +79,12 @@ export interface RedditReaderClient {
   close(): Promise<void>;
 }
 class ReaderError extends Error {
-  constructor(readonly code: FailureState, readonly retryAfterSeconds?: number) { super(`Reddit reader ${code}`); }
+  constructor(readonly code: FailureState, readonly retryAfterSeconds?: number, readonly hostCode?: string) { super(`Reddit reader ${code}`); }
 }
-/** A failure as a result: busy carries its retry hint. */
+/** A failure as a result: busy carries its retry hint, and a failure the host reported its code. */
 const failure = (error: unknown) => error instanceof ReaderError
-  ? { access_state: error.code, ...(error.retryAfterSeconds === undefined ? {} : { retry_after_seconds: error.retryAfterSeconds }) }
+  ? { access_state: error.code, ...(error.retryAfterSeconds === undefined ? {} : { retry_after_seconds: error.retryAfterSeconds }),
+    ...(error.hostCode === undefined ? {} : { host_code: error.hostCode }) }
   : { access_state: "unavailable" as const };
 const timestamp = z.union([z.string(), z.number().finite()]);
 const token = z.string().min(1).max(64_000);
@@ -158,12 +179,14 @@ export function createRedditReaderClient(options: {
       catch { throw new ReaderError("unavailable"); }
     }
     if (result.isError) {
-      const failure = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(data);
-      const code = failure.success ? failure.data.error.code : undefined;
-      // LOGIN_REQUIRED: the host's own Reddit sign-in has lapsed, and only its operator can renew it. On 3 Nov every
-      // thread read answered it while searches still worked, and the AI, told only "unavailable", kept trying.
-      throw new ReaderError(code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid"
-        : code === "LOGIN_REQUIRED" ? "not_available" : "unavailable");
+      const reported = z.object({ error: z.object({ code: z.string(), message: z.string(),
+        retry_after_seconds: z.number().finite().optional() }) }).safeParse(data);
+      const error = reported.success ? reported.data.error : undefined;
+      // Only a code's name passes on, never the host's message.
+      const code = error !== undefined && HOST_CODE.test(error.code) ? error.code : undefined;
+      const state = (code === undefined ? undefined : HOST_FAILURES.get(code)) ?? "unavailable";
+      throw new ReaderError(state, state === "busy" ? Math.min(120, Math.max(5, Math.ceil(error?.retry_after_seconds ?? 5)))
+        : undefined, code);
     }
     const parsed = schema.safeParse(data);
     if (!parsed.success) throw new ReaderError("unavailable");

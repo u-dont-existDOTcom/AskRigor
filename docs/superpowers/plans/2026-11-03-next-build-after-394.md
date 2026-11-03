@@ -66,6 +66,20 @@ After the web-app trial (3 Nov):
     `unavailable`, so the AI kept trying (six reads in one trial run) and couldn't say why. The host's code now maps
     to `not_available`, and the result says the reader stays signed out until AskRigor's operator signs it in again:
     don't call it again in this research, leave Reddit to the AI's own search, and say why in the answer.
+11. **Every failure the reader host names, named** (owner answer 230a). The host's browser reader has more codes than
+    the three AskRigor knew, and every other one came back as `unavailable`, so the AI and a run's logs couldn't tell a
+    lapsed sign-in from a moment's error. On 2 Nov, from 19:19 to 23:55 UTC, reads and searches failed within 1.5
+    seconds for one to six minutes at a time and then worked again, and nothing records what the host said. The
+    host's codes now map by a table taken from its source:
+    - `HUMAN_CHECK_REQUIRED` and `BROWSER_UNAVAILABLE` join `LOGIN_REQUIRED` as `not_available`, each with its own
+      note, since only AskRigor's operator can clear them;
+    - `BROWSER_BUSY` (another client holds the host's one browser) is `busy`, with a retry hint;
+    - `ACCESS_DENIED` (Reddit's network-security block) is `blocked`, and the reader stops for that research, since
+      sites that refuse stay refused;
+    - `NOT_PUBLIC` (a private community) is `blocked`, and that community is left out;
+    - any other code stays `unavailable`, and its note names it ("The Reddit reader's host answered ...").
+
+    Only the code's name passes on, never the host's message. The tool list is unchanged.
 
 ## The numbers chosen
 
