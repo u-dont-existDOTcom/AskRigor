@@ -7,6 +7,7 @@ import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.j
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
+import { reportVerdictSchema } from "./atlas/report-review.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -43,6 +44,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // Owner answer 229a: where items sit under Health.
     placements: placementsInputSchema.optional()
       .describe("With place_items: [{item, subcategory}], 1 to 200 entries; subcategory a key list_unplaced lists, or null."),
+    // Owner answer 229a: people's reports.
+    reportState: z.enum(["received", "published", "held", "refused"]).optional()
+      .describe("With list_reports: the state to list; received (the check's queue) by default."),
+    report: z.string().trim().regex(/^[Rr]-[1-9][0-9]{3,}$/u).optional()
+      .describe("With check_report or decide_report: the report, such as R-1001."),
+    verdict: reportVerdictSchema.optional()
+      .describe("With check_report or decide_report: {verdict, aiWarning?, reason?, subcategory?, research?}."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

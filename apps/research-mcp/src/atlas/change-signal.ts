@@ -4,6 +4,7 @@ import type {
   AtlasPublicationStore,
   AtlasReviewStore,
   AtlasPlacementStore,
+  AtlasReportReviewStore,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -123,5 +124,16 @@ export function announcingPlacementStore(
   return {
     setPlacements: (changes, at) => announcing(signal, () => store.setPlacements(changes, at)),
     listPlacements: () => store.listPlacements(),
+  };
+}
+
+/** People's reports in the review (owner answer 229a): a verdict can publish one, so it drops the pages' cache. */
+export function announcingReportReviewStore(
+  store: AtlasReportReviewStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasReportReviewStore {
+  return {
+    inspectReports: (state, after, limit) => store.inspectReports(state, after, limit),
+    decideReport: (decision) => announcing(signal, () => store.decideReport(decision)),
   };
 }

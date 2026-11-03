@@ -32,6 +32,7 @@ import {
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
+import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
 import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
@@ -83,6 +84,15 @@ export const researchContributionReviewInputSchema = z.object({
     if ((value.action === "place_items") !== (placements !== undefined)) {
       context.addIssue({ code: "custom", message: value.action === "place_items"
         ? "place_items needs later_inputs.placements" : `${value.action} does not take placements` });
+    }
+    // Owner answer 229a: the report inputs go only with the report actions.
+    const reportInputs = value as { reportState?: unknown; report?: unknown; verdict?: unknown };
+    const reportAction = value.action === "list_reports" || value.action === "check_report" || value.action === "decide_report";
+    for (const field of ["reportState", "report", "verdict"] as const) {
+      const allowed = field === "reportState" ? value.action === "list_reports" : reportAction && value.action !== "list_reports";
+      if (reportInputs[field] !== undefined && !allowed) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
     }
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
@@ -241,6 +251,8 @@ const sharedAnswerSummarySchema = z.object({
 export const researchContributionReviewRuntimeOutputSchema = researchContributionReviewOutputSchema.safeExtend({
   // Owner answer 229a: place_items and list_unplaced, runtime-only (owner answer 189a).
   placements: atlasPlacementsSchema.optional(),
+  // Owner answer 229a: list_reports, check_report and decide_report, runtime-only (owner answer 189a).
+  reports: atlasReportsSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -552,6 +564,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.publications === undefined ? {} : { publications: result.publications }),
     ...(result.participation === undefined ? {} : { participation: result.participation }),
     ...(result.placements === undefined ? {} : { placements: result.placements }),
+    ...(result.reports === undefined ? {} : { reports: result.reports }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

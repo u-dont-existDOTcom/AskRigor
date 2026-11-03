@@ -156,3 +156,13 @@ then what failed or harmed. People's reports for the problem are counted beside 
   answers, `/atlas/account/reports` with take-down, and "delete everything" also calling `forgetReports`), the reports
   under their subcategory on the Health pages, and the privacy page, terms and data map. Then step 4 (the review's
   `list_reports`, `check_report`, `decide_report` over `AtlasReportReviewStore`, and `docs/atlas-report-check.md`).
+- 3 Nov, `26cf961b`: step 3 done. The form, the report page, answers, take-down, the account page, the reports on
+  their Health page, and the privacy page, terms and data map (the privacy page's date changes at release).
+- 3 Nov: step 4. The review's `list_reports`, `check_report` (the AI check's verdict, no confirmation: 229a) and
+  `decide_report` (the owner's word on a held report, with `confirm: true`), in `apps/research-mcp/src/atlas/report-review.ts`;
+  the checker's steps in `docs/atlas-report-check.md`.
+- Owner 232b: the four finding-page drafts wait and go out with this build. Owner 231a: findings kept for AskRigor's
+  research but not shown are built on their own, in #410 into main; when this stack next takes in main, its migrations
+  become 0025 (placements) and 0026 (reports), and the search index, map, sitemap and Health pages leave kept
+  publications out.
+

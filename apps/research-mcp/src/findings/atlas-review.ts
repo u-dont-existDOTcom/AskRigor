@@ -51,6 +51,7 @@ import {
   type AtlasPublicationStore,
   type AtlasModerationStore,
   type AtlasPlacementStore,
+  type AtlasReportReviewStore,
   type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
@@ -96,6 +97,14 @@ import {
   type AtlasPlacements,
   type placementsInputSchema,
 } from "../atlas/placement-review.js";
+import {
+  ATLAS_REPORT_ACTIONS,
+  ATLAS_REPORT_OUTCOMES,
+  AtlasReportReview,
+  type AtlasReportAction,
+  type AtlasReports,
+  type ReportVerdictInput,
+} from "../atlas/report-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -183,8 +192,9 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_PUBLICATION_ACTIONS,
   // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
   ...ATLAS_PARTICIPATION_ACTIONS,
-  // Owner answer 229a: where items sit under Health.
+  // Owner answer 229a: where items sit under Health, and people's reports.
   ...ATLAS_PLACEMENT_ACTIONS,
+  ...ATLAS_REPORT_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -213,6 +223,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_PUBLICATION_OUTCOMES,
   ...ATLAS_PARTICIPATION_OUTCOMES,
   ...ATLAS_PLACEMENT_OUTCOMES,
+  ...ATLAS_REPORT_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -409,6 +420,10 @@ export interface AtlasReviewRequest {
   picks?: Array<{ publication: string; reason: string }>;
   /** place_items (owner answer 229a), from later_inputs.placements. */
   placements?: import("zod").infer<typeof placementsInputSchema>;
+  /** People's reports (owner answer 229a), from later_inputs.reportState, later_inputs.report and later_inputs.verdict. */
+  reportState?: "received" | "published" | "held" | "refused";
+  report?: string;
+  verdict?: ReportVerdictInput;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -457,6 +472,10 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   // Owner answer 229a: the placements come in later_inputs.placements.
   place_items: [],
   list_unplaced: ["cursor"],
+  // Owner answer 229a: the report, its verdict and the state to list come in later_inputs.
+  list_reports: ["cursor"],
+  check_report: [],
+  decide_report: ["confirm"],
 };
 
 /**
@@ -931,6 +950,8 @@ export interface AtlasReviewResult {
   participation?: AtlasParticipation;
   /** Owner answer 229a: the placements set, or the publications that sit in no subcategory. */
   placements?: AtlasPlacements;
+  /** Owner answer 229a: the reports listed, or the one checked or decided. */
+  reports?: AtlasReports;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -970,6 +991,8 @@ export interface AtlasReviewDependencies {
   participation?: AtlasModerationStore;
   /** Where items sit under Health (owner answer 229a), through the review role's two placement functions. */
   placements?: AtlasPlacementStore;
+  /** People's reports (owner answer 229a), through the review role's two report functions. */
+  reports?: AtlasReportReviewStore;
   /**
    * The titles and years publish_cards publishes with a card's sources (plan
    * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
@@ -1113,6 +1136,10 @@ export class AtlasReview {
         case "place_items":
         case "list_unplaced":
           return await this.placementAction(request.action, request);
+        case "list_reports":
+        case "check_report":
+        case "decide_report":
+          return await this.reportAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1157,6 +1184,29 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async reportAction(action: AtlasReportAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const reports = this.deps.reports;
+    if (reports === undefined) {
+      return errorOf("review_service_unavailable", "People's reports are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasReportReview({ reports, now: this.now }).run({
+      action,
+      ...(request.reportState === undefined ? {} : { reportState: request.reportState }),
+      ...(request.report === undefined ? {} : { report: request.report }),
+      ...(request.verdict === undefined ? {} : { verdict: request.verdict }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+      ...(request.confirm === undefined ? {} : { confirm: request.confirm }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.reports === undefined ? {} : { reports: result.reports }),
+    };
+  }
 
   private async placementAction(action: AtlasPlacementAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const placements = this.deps.placements;

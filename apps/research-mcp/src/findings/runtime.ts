@@ -1,6 +1,7 @@
 import {
   PostgresAtlasModerationStore,
   PostgresAtlasPlacementStore,
+  PostgresAtlasReportReviewStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
@@ -10,6 +11,7 @@ import { getProtocolManifest } from "@askrigor/protocol";
 import {
   announcingModerationStore,
   announcingPlacementStore,
+  announcingReportReviewStore,
   announcingPublicationStore,
   announcingReviewStore,
 } from "../atlas/change-signal.js";
@@ -198,6 +200,12 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       })),
       // Owner answer 229a: where items sit under Health, through the same role's two placement functions.
       placements: announcingPlacementStore(new PostgresAtlasPlacementStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // Owner answer 229a: people's reports, through the same role's two report functions.
+      reports: announcingReportReviewStore(new PostgresAtlasReportReviewStore({
         connectionString: review.connectionString,
         schema: review.schema,
         ssl: review.ssl,
