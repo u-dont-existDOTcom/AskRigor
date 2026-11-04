@@ -32,7 +32,7 @@ const PINS = {
   from: { version: "20.5.42", sha256: "0401335ed4b1f0ec44d4d7351ecb369828dd1c7f362b5c4e0234df22c7f10173" },
   to: { version: "20.5.43", sha256: "7f03ddbd280a9906860f5a34b022b95931f61da87377b3c6e33afcdbaf9a1bdd" },
   universal20541: "115b22a595b4cdcd663bb60986bd3dba0fb0d3f65f64bcc7bbb6d5a4bfd8a708",
-  hrp: { version: "20.6.36", sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa" },
+  hrp: { version: "20.6.37", sha256: "ebc72d1f8f48e01e499dc31b2005386287c962ef0ad8ac37dbd2c7c5e941243d" },
 } as const;
 const WIDTH = 118;
 const NEXT_STEP = "For every substantive response, finish with an explicit “Next step:”";
