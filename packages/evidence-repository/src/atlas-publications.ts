@@ -267,10 +267,52 @@ export interface AtlasPublicationStore {
   withdraw(withdrawal: AtlasPublicationWithdrawal): Promise<AtlasPublicationView[]>;
   /** Decision 7: the published fields of the publications naming the F number are erased. */
   eraseTexts(atlasNumber: string, erasedAt: string): Promise<AtlasPublicationView[]>;
+  /**
+   * Owner answers 229a and 231a: keeps publications for AskRigor's research only (in the lookup, with their pages, but
+   * on no list), with the owner's private reason, or shows them again. NOT_KEEPABLE, and nothing changed, when one of
+   * them is held, rejected, forgotten, set aside or replaced.
+   */
+  keep(change: AtlasKeepChange): Promise<AtlasKeptView[]>;
+  /** Every publication kept for research only. */
+  inspectKept(): Promise<AtlasKeptView[]>;
+}
+
+/** Publications to keep for research only (keep true, with a reason) or to show again (keep false). */
+export interface AtlasKeepChange {
+  publicationNumbers: readonly string[];
+  /** Every publication naming each F number. */
+  atlasNumbers: readonly string[];
+  keep: boolean;
+  reason: string | null;
+  at: string;
+}
+
+export interface AtlasKeptView {
+  publicationNumber: string;
+  state: AtlasPublicationState;
+  atlasNumber: string | null;
+  kept: boolean;
+  /** The owner's private reason; only from inspectKept. */
+  reason: string | null;
+  keptAt: string | null;
+}
+
+/** The most numbers one keep takes, as migration 0024 does. */
+export const ATLAS_KEEP_NUMBERS_PER_CALL = 100;
+
+function validateKeep(change: AtlasKeepChange): void {
+  const count = change.publicationNumbers.length + change.atlasNumbers.length;
+  const reasonOk = change.keep
+    ? typeof change.reason === "string" && change.reason === change.reason.trim() && change.reason.length >= 1 &&
+      change.reason.length <= 2_000
+    : change.reason === null;
+  if (count < 1 || count > ATLAS_KEEP_NUMBERS_PER_CALL || !reasonOk || !validInstant(change.at) ||
+    !change.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number)) ||
+    !change.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) throw invalid();
 }
 
 export class AtlasPublicationError extends Error {
-  constructor(readonly code: "INPUT_INVALID", message = "The Atlas publication request is not valid.") {
+  constructor(readonly code: "INPUT_INVALID" | "NOT_KEEPABLE", message = "The Atlas publication request is not valid.") {
     super(message);
   }
 }
@@ -509,6 +551,48 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.rows.map((row) => structuredClone(row));
   }
 
+  private readonly kept = new Map<string, { reason: string; at: string }>();
+
+  async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
+    validateKeep(change);
+    const at = iso(change.at);
+    const targets = this.rows.filter((row) => change.publicationNumbers.includes(row.publicationNumber) ||
+      (row.atlasNumber !== null && change.atlasNumbers.includes(row.atlasNumber)))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber));
+    const unpublished = (row: AtlasPublicationView) => row.state === "withdrawn" &&
+      row.withdrawnBecause === "owner_unpublished" && row.atlasNumber === null && row.published !== null;
+    const shown = (row: AtlasPublicationView) => (row.state === "unreviewed" && row.published !== null) ||
+      row.state === "accepted" || row.state === "edited";
+    if (change.keep && !targets.every((row) => unpublished(row) || shown(row))) {
+      throw new AtlasPublicationError("NOT_KEEPABLE", "A publication in that state can't be kept for research.");
+    }
+    for (const row of targets) {
+      if (!change.keep) {
+        this.kept.delete(row.publicationNumber);
+        continue;
+      }
+      if (unpublished(row)) {
+        Object.assign(row, { state: "unreviewed", withdrawnBecause: null, ownerReason: null,
+          stateChangedAt: at > row.stateChangedAt ? at : row.stateChangedAt });
+      }
+      this.kept.set(row.publicationNumber, { reason: change.reason!, at });
+    }
+    return targets.map((row) => ({ publicationNumber: row.publicationNumber, state: row.state, atlasNumber: row.atlasNumber,
+      kept: this.kept.has(row.publicationNumber), reason: null, keptAt: null }));
+  }
+
+  async inspectKept(): Promise<AtlasKeptView[]> {
+    return this.rows.filter((row) => this.kept.has(row.publicationNumber))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+      .map((row) => ({ publicationNumber: row.publicationNumber, state: row.state, atlasNumber: row.atlasNumber, kept: true,
+        reason: this.kept.get(row.publicationNumber)!.reason, keptAt: this.kept.get(row.publicationNumber)!.at }));
+  }
+
+  /** Whether a publication is kept for research only, for the in-memory pages. */
+  isKept(publicationNumber: string): boolean {
+    return this.kept.has(publicationNumber);
+  }
+
   private change(
     selected: (row: AtlasPublicationView) => boolean,
     apply: (row: AtlasPublicationView) => void,
@@ -617,11 +701,32 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
     await this.pool.end();
   }
 
+  async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
+    validateKeep(change);
+    const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
+      kept_atlas_number: string | null; kept: boolean }>(
+      `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`,
+      [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]);
+    return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
+      atlasNumber: row.kept_atlas_number, kept: row.kept, reason: null, keptAt: null }));
+  }
+
+  async inspectKept(): Promise<AtlasKeptView[]> {
+    const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
+      kept_atlas_number: string | null; kept_reason: string; kept_at: Date | string }>(
+      `SELECT * FROM ${this.schema}.inspect_atlas_kept_publications()`, []);
+    return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
+      atlasNumber: row.kept_atlas_number, kept: true, reason: row.kept_reason, keptAt: instant(row.kept_at) }));
+  }
+
   private async call<Row extends object>(sql: string, values: unknown[]): Promise<{ rows: Row[] }> {
     try {
       return await this.pool.query(sql, values) as unknown as { rows: Row[] };
     } catch (error) {
       if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_INPUT_INVALID")) throw invalid();
+      if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_KEEPABLE")) {
+        throw new AtlasPublicationError("NOT_KEEPABLE", "A publication in that state can't be kept for research.");
+      }
       throw error;
     }
   }

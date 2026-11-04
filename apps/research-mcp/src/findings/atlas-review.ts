@@ -87,6 +87,13 @@ import {
   type AtlasParticipation,
   type AtlasParticipationAction,
 } from "../atlas/participation-review.js";
+import {
+  ATLAS_KEEP_ACTIONS,
+  ATLAS_KEEP_OUTCOMES,
+  AtlasKeptReview,
+  type AtlasKeepAction,
+  type AtlasKept,
+} from "../atlas/kept-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -173,6 +180,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_PUBLICATION_ACTIONS,
   // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
   ...ATLAS_PARTICIPATION_ACTIONS,
+  // Owner answers 229a and 231a: findings kept for AskRigor's research only.
+  ...ATLAS_KEEP_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -200,6 +209,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "youtube_findings_deleted",
   ...ATLAS_PUBLICATION_OUTCOMES,
   ...ATLAS_PARTICIPATION_OUTCOMES,
+  ...ATLAS_KEEP_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -394,6 +404,8 @@ export interface AtlasReviewRequest {
   comment?: string;
   commenter?: string;
   picks?: Array<{ publication: string; reason: string }>;
+  /** keep_for_research and show_on_pages (owner answers 229a and 231a), from later_inputs.items. */
+  items?: string[];
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -439,6 +451,10 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   stop_commenter: ["commenter"],
   restore_commenter: ["commenter"],
   set_picks: ["picks"],
+  // Owner answers 229a and 231a; more numbers come in later_inputs.items.
+  keep_for_research: ["publication", "atlasNumber", "reason"],
+  show_on_pages: ["publication", "atlasNumber"],
+  list_kept: [],
 };
 
 /**
@@ -911,6 +927,8 @@ export interface AtlasReviewResult {
   publications?: AtlasPublications;
   /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
   participation?: AtlasParticipation;
+  /** Owner answers 229a and 231a: the publications kept for research, or shown again. */
+  kept?: AtlasKept;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -1088,6 +1106,10 @@ export class AtlasReview {
         case "restore_commenter":
         case "set_picks":
           return await this.participationAction(request.action, request);
+        case "keep_for_research":
+        case "show_on_pages":
+        case "list_kept":
+          return await this.keepAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1132,6 +1154,28 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async keepAction(action: AtlasKeepAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasKeptReview({ publications, now: this.now }).run({
+      action,
+      ...(request.publication === undefined ? {} : { publication: request.publication }),
+      ...(request.atlasNumber === undefined ? {} : { atlasNumber: request.atlasNumber }),
+      ...(request.items === undefined ? {} : { items: request.items }),
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.kept === undefined ? {} : { kept: result.kept }),
+    };
+  }
 
   private async participationAction(action: AtlasParticipationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const moderation = this.deps.participation;

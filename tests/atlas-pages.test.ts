@@ -42,6 +42,9 @@ import {
   type RenderedAtlasPage,
 } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { planCardPublication, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
+import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
+import { KEPT_FOR_RESEARCH_LINE } from "../apps/research-mcp/src/atlas/pages.js";
+import { loadAtlasFinding, loadAtlasHome } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasPagesEnabledFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   findingsCardDigest,
@@ -1116,7 +1119,7 @@ describe("the pages' PostgreSQL reads", () => {
   it("read in one read-only snapshot through the reader, selecting no column that names a card or the owner's reasons", async () => {
     const { source, calls, released } = recorded((sql) => sql.includes("FROM atlas_publications") ? [
       { publication_number: "P-1001", state: "unreviewed", atlas_number: null, published_json: published,
-        published_at: new Date("2026-11-04T09:00:00Z"), state_changed_at: new Date("2026-11-04T09:00:00Z") },
+        published_at: new Date("2026-11-04T09:00:00Z"), state_changed_at: new Date("2026-11-04T09:00:00Z"), kept: false },
       // One that does not read as the schema has it is left out.
       { publication_number: "P-1002", state: "unreviewed", atlas_number: null, published_json: { claim: "x" },
         published_at: new Date("2026-11-04T09:00:00Z"), state_changed_at: new Date("2026-11-04T09:00:00Z") },
@@ -1129,7 +1132,7 @@ describe("the pages' PostgreSQL reads", () => {
     }));
     expect(result.publications).toEqual([{
       publicationNumber: "P-1001", state: "unreviewed", atlasNumber: null, published,
-      publishedAt: "2026-11-04T09:00:00.000Z", stateChangedAt: "2026-11-04T09:00:00.000Z",
+      publishedAt: "2026-11-04T09:00:00.000Z", stateChangedAt: "2026-11-04T09:00:00.000Z", kept: false,
     }]);
     expect(result.findings).toEqual([]);
     expect(calls.slice(0, 3).map(({ sql }) => sql)).toEqual([
@@ -1140,16 +1143,17 @@ describe("the pages' PostgreSQL reads", () => {
     expect(calls.at(-1)!.sql).toBe("COMMIT");
     expect(released()).toBe(1);
     const select = calls.find(({ sql }) => sql.includes("FROM atlas_publications"))!;
-    expect(select.sql).toMatch(/^SELECT listed\.publication_number, listed\.state, listed\.atlas_number, listed\.published_json, listed\.published_at, listed\.state_changed_at FROM atlas_publications listed WHERE/u);
+    // kept (owner answers 229a and 231a): whether it is kept for research, never the owner's reason for it.
+    expect(select.sql).toMatch(/^SELECT listed\.publication_number, listed\.state, listed\.atlas_number, listed\.published_json, listed\.published_at, listed\.state_changed_at, listed\.kept_for_research_at IS NOT NULL AS kept FROM atlas_publications listed WHERE/u);
     expect(select.sql).toContain("ORDER BY listed.state_changed_at DESC");
-    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20, null]);
+    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20, null, false]);
     await source.read((reads) => reads.listPublications({ before: "P-1001", limit: 20 }));
     const cursorRead = calls.filter(({ sql }) => sql.includes("FROM atlas_publications")).at(-1)!;
     expect(cursorRead.sql).toContain("listed.published_at");
     expect(cursorRead.sql).toContain("substring(anchor.publication_number FROM 3)::bigint");
-    expect(cursorRead.values).toEqual([null, null, null, null, 20, "P-1001"]);
+    expect(cursorRead.values).toEqual([null, null, null, null, 20, "P-1001", false]);
     for (const { sql } of calls) {
-      expect(sql).not.toMatch(/card_number|card_sha256|owner_reason|held_because|withdrawn_because|finding_number|card_forgotten_at|texts_erased_at|'held'|'rejected'|'withdrawn'/u);
+      expect(sql).not.toMatch(/card_number|card_sha256|owner_reason|kept_reason|held_because|withdrawn_because|finding_number|card_forgotten_at|texts_erased_at|'held'|'rejected'|'withdrawn'/u);
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|nextval)\b|inspect_atlas_publications|atlas_card_decisions|atlas_finding_intents/u);
     }
   });
@@ -1892,5 +1896,91 @@ describe("the findings map", () => {
     expect(head.body).toBe("");
     expect((await text(base, "/atlas")).body).toContain('<a href="/atlas/map">See every finding on the findings map</a>');
     expect((await text(base, "/atlas/topics")).body).toContain('<a href="/atlas/map">See the topics on the findings map</a>');
+  });
+});
+
+describe("findings kept for AskRigor's research only (owner answers 229a and 231a)", () => {
+  const at = "2026-11-04T12:00:00.000Z";
+  const numbersOf = (findings: readonly { publicationNumber: string }[]) => findings.map(({ publicationNumber }) => publicationNumber);
+
+  it("keeps an unreviewed publication and an accepted finding off every list, in the lookup, with their own pages", async () => {
+    const { store, source, shown, numbers } = await fixture();
+    const review = new AtlasKeptReview({ publications: store.publications, now: () => new Date(at) });
+    const before = numbersOf((await loadAtlasFindings(source)).findings);
+    expect(before).toContain(shown.effect);
+    expect(before).toContain(shown.lowDose);
+    const kept = await review.run({ action: "keep_for_research", publication: shown.effect, atlasNumber: numbers.lowDose,
+      reason: "owner answer 231a" });
+    expect(kept).toMatchObject({ ok: true, outcome: "kept_for_research" });
+    expect(kept.kept!.items.map(({ publication, kept: isKept }) => [publication, isKept]).sort())
+      .toEqual([[shown.effect, true], [shown.lowDose, true]].sort());
+
+    // Off the lists, the home page and the topics.
+    const after = numbersOf((await loadAtlasFindings(source)).findings);
+    expect(after).not.toContain(shown.effect);
+    expect(after).not.toContain(shown.lowDose);
+    const home = await loadAtlasHome(source);
+    expect(JSON.stringify(home)).not.toContain(`"publicationNumber":"${shown.effect}"`);
+    expect(JSON.stringify(await loadAtlasTopics(source))).toBeDefined();
+    // Off search and the map, which read the same list; search finds them only for the research lookup.
+    const search = atlasSearchQuery("similar size").query!;
+    const searched = await loadAtlasSearch(source, { search });
+    expect(numbersOf(searched.results.map(({ finding }) => finding))).not.toContain(shown.effect);
+    expect(numbersOf(searched.results.map(({ finding }) => finding))).not.toContain(shown.lowDose);
+    const onMap = (await loadAtlasMap(source, new Date(at))).topics.flatMap(({ findings }) => findings.map(({ finding }) => finding));
+    expect(numbersOf(onMap)).not.toContain(shown.effect);
+    expect(numbersOf(onMap)).not.toContain(shown.lowDose);
+    const researched = (await loadAtlasSearch(source, { search, includeKept: true })).results.map(({ finding }) => finding);
+    expect(researched.filter(({ kept: isKept }) => isKept).map(({ publicationNumber }) => publicationNumber).sort())
+      .toEqual([shown.effect, shown.lowDose].sort());
+    // In the research lookup's reads, marked kept.
+    const lookup = (await loadAtlasFindings(source, { includeKept: true })).findings;
+    expect(lookup.filter(({ kept: isKept }) => isKept).map(({ publicationNumber }) => publicationNumber).sort())
+      .toEqual([shown.effect, shown.lowDose].sort());
+    // Its own page stays, says why, and is kept out of search engines.
+    const page = (await loadAtlasFinding(source, shown.effect))!;
+    expect(page.finding.kept).toBe(true);
+    const base = await serve(pages(source));
+    const served = await text(base, `/atlas/findings/${shown.effect}`);
+    expect(served.response.status).toBe(200);
+    expect(served.body).toContain(escapeHtml(KEPT_FOR_RESEARCH_LINE));
+    expect(served.body).toContain('<meta name="robots" content="noindex">');
+    expect((await text(base, "/atlas/findings")).body).not.toContain(`/atlas/findings/${shown.effect}"`);
+
+    // Listed with its private reason, then shown again.
+    expect((await review.run({ action: "list_kept" })).kept!.items.map(({ reason }) => reason))
+      .toEqual(["owner answer 231a", "owner answer 231a"]);
+    expect(await review.run({ action: "show_on_pages", items: [shown.effect, numbers.lowDose] }))
+      .toMatchObject({ ok: true, outcome: "shown_on_pages" });
+    expect(numbersOf((await loadAtlasFindings(source)).findings)).toContain(shown.effect);
+  });
+
+  it("leaves a kept finding off its card's other findings, and lists the shown ones on its own page", async () => {
+    const store = atlas();
+    const card = { ...VELMOR_CARD, findings: [VELMOR_CARD.findings[0]!,
+      { ...VELMOR_CARD.findings[1]!, claim: "KEPTSIBLING a second finding, kept for research." }] };
+    const [first, second] = (await store.publish(6200, recordOf(card))).rows.map(({ publicationNumber }) => publicationNumber);
+    await store.publications.keep({ publicationNumbers: [second!], atlasNumbers: [], keep: true, reason: "owner answer 229a", at: store.tick() });
+    const source = new InMemoryAtlasPageSource({ publications: store.publications });
+    expect((await loadAtlasFinding(source, first!))!.siblings).toEqual([]);
+    expect(numbersOf((await loadAtlasFinding(source, second!))!.siblings)).toEqual([first]);
+  });
+
+  it("brings an unpublished card back kept, refuses held and rejected ones, and needs the owner's reason", async () => {
+    const { store, source, hidden } = await fixture();
+    const review = new AtlasKeptReview({ publications: store.publications, now: () => new Date(at) });
+    expect(await review.run({ action: "keep_for_research", items: [hidden.unpublished] }))
+      .toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    const back = await review.run({ action: "keep_for_research", items: [hidden.unpublished], reason: "owner answer 229a" });
+    expect(back.kept!.items).toMatchObject([{ publication: hidden.unpublished, state: "unreviewed", kept: true }]);
+    expect(numbersOf((await loadAtlasFindings(source)).findings)).not.toContain(hidden.unpublished);
+    expect(numbersOf((await loadAtlasFindings(source, { includeKept: true })).findings)).toContain(hidden.unpublished);
+    for (const number of [hidden.held, hidden.rejected]) {
+      const refused = await review.run({ action: "keep_for_research", items: [number], reason: "owner answer 231a" });
+      expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+      expect(refused.text).toContain("can't be kept for research");
+    }
+    expect((await loadAtlasFindings(source, { includeKept: true })).findings.map(({ publicationNumber }) => publicationNumber))
+      .not.toContain(hidden.held);
   });
 });

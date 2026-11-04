@@ -111,11 +111,11 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     // The search page's order (best matches first) or, for a topic alone, the newest first.
     let findings: ShownFinding[];
     if (query === undefined) {
-      const page = await loadAtlasFindings(dependencies.source, topicKey);
+      const page = await loadAtlasFindings(dependencies.source, { includeKept: true, ...topicKey });
       findings = page.findings.slice(0, input.limit);
       output.has_more = page.before !== null || page.findings.length > input.limit;
     } else {
-      const search = await loadAtlasSearch(dependencies.source, { search: query, ...topicKey });
+      const search = await loadAtlasSearch(dependencies.source, { search: query, includeKept: true, ...topicKey });
       findings = search.results.slice(0, input.limit).map(({ finding }) => finding);
       output.has_more = search.total > findings.length;
     }
@@ -125,7 +125,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
     // Topic leads do not need to contain the query's words; they are open leads of the matched topic.
     for (const finding of findings) returned.set(finding.publicationNumber, finding);
     for (const topicKey of topics) {
-      const topic = await loadAtlasTopic(dependencies.source, topicKey);
+      const topic = await loadAtlasTopic(dependencies.source, topicKey, { includeKept: true });
       const leads = topic?.sections.find(({ id }) => id === "leads")?.findings ?? [];
       const bounded = leads.filter((finding) => {
         if (returned.has(finding.publicationNumber)) return true;
