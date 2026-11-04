@@ -172,7 +172,7 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
       name: "HRP", version: "20.6.38", revisionDate: "2026-11-04",
-      sha256: "a375666426b6af1d385feb3d316c90a9cc574f45a3ad50b9547ae8c91558609b",
+      sha256: "1c3e56fa6f73845f00c1bba00ed74eb67860b34dc98a05b3892360c8b98e8f5e",
     });
   });
 

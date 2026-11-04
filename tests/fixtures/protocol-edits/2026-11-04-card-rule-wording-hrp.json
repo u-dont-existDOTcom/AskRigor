@@ -1,5 +1,5 @@
 {
-  "purpose": "The owner's review of 4 November 2026: FindingsCardForAPerson says what the test is and what a new card replaces.",
+  "purpose": "The owner's review of 4 November 2026: FindingsCardForAPerson says what the test is and what a new card replaces. Lesson 54 adds ChangeIsNotHarm.",
   "hrp": {
     "from": {
       "version": "20.6.37",
@@ -7,7 +7,7 @@
     },
     "to": {
       "version": "20.6.38",
-      "sha256": "a375666426b6af1d385feb3d316c90a9cc574f45a3ad50b9547ae8c91558609b"
+      "sha256": "1c3e56fa6f73845f00c1bba00ed74eb67860b34dc98a05b3892360c8b98e8f5e"
     },
     "edits": [
       [
@@ -16,11 +16,15 @@
       ],
       [
         " <RevisionHistory>\n",
-        " <RevisionHistory>\n  <Revision version=\"20.6.38\" priority=\"Critical\">\n   The owner's review of 4 November 2026, outside the core, which is unchanged: FindingsCardForAPerson's test is a plain\n   search of the problem by someone who has never heard of the option, a mention doesn't fail a finding, a new card\n   replaces an earlier one only on the same question (owner answer 240a), and a card may not appear at once.\n  </Revision>\n"
+        " <RevisionHistory>\n  <Revision version=\"20.6.38\" priority=\"Critical\">\n   The owner's review of 4 November 2026, outside the core, which is unchanged: FindingsCardForAPerson's test is a plain\n   search of the problem by someone who has never heard of the option, a mention doesn't fail a finding, a new card\n   replaces an earlier one only on the same question (owner answer 240a), and a card may not appear at once. Under owner\n   rule 148a, lesson 54 adds ChangeIsNotHarm.\n  </Revision>\n"
       ],
       [
         "   A findings card can go public as soon as it is saved, so it is the last step of the research, not its record. Put a\n   finding on it only if a plain web search of the question a person would type doesn't already make its point or offer\n   something better, and if it changes what someone would do. Write the card's question as that person would ask it.\n   Give each condition its own card and its own research target: a new card replaces every earlier open card under the\n   same research target. With nothing that passes, send no card.\n",
         "   A findings card can go public once it is saved, so it is the last step of the research, not its record. Put a finding\n   on it only if a plain web search of the problem, by someone who has never heard of this option, doesn't already give\n   its useful point or offer something better, and if it changes what someone would do. Write the card's question as\n   that person would ask it. Give each condition its own card: a new card replaces an earlier open card only on the same\n   question. With nothing that passes, send no card.\n"
+      ],
+      [
+        "  <Rule name=\"ModuleOutputs\" priority=\"Critical\">\n",
+        "  <Rule name=\"ChangeIsNotHarm\" priority=\"Critical\">\n   A study reporting that something changed hasn't shown harm. Before an animal study supports a harm or hazard claim,\n   name at least one outcome that got worse, with its direction, comparator, size and uncertainty, and give the key\n   results that showed no difference, the species and the dose. Say so when the paper's own figures disagree, and keep\n   the conclusion to a possible hazard, not an established human harm.\n  </Rule>\n\n  <Rule name=\"ModuleOutputs\" priority=\"Critical\">\n"
       ]
     ]
   }

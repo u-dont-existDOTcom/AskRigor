@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { coreSectionNames, getProtocolManifest, loadProtocol, protocolSections } from "@askrigor/protocol";
+import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
 import { undoCardRuleWordingHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-depth.js";
@@ -17,6 +17,16 @@ describe("the owner's review of 4 November 2026: HRP 20.6.38", () => {
     expect(rule).toContain("a new card replaces an earlier open card only on the same question");
     expect(rule).toContain("can go public once it is saved");
     expect(rule).not.toContain("research target");
+  });
+
+  // Lesson 54, under owner rule 148a.
+  it("doesn't let a change in an animal study stand for harm", async () => {
+    const elements = protocolNamedElements(await loadProtocol("hrp"), "ChangeIsNotHarm");
+    expect(elements).toHaveLength(1);
+    expect(elements[0]!.section).toBe("OutputFormatting");
+    const text = (await loadProtocol("hrp")).replace(/\s+/gu, " ");
+    expect(text).toContain("A study reporting that something changed hasn't shown harm.");
+    expect(text).toContain("name at least one outcome that got worse, with its direction, comparator, size and uncertainty");
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
@@ -44,7 +54,7 @@ describe("the owner's review of 4 November 2026: HRP 20.6.38", () => {
     const prior = await undoCardRuleWordingHrp(text);
     expect(hash(prior)).toBe(hrp.from.sha256);
     expect(hrp.from.version).toBe("20.6.37");
-    expect(hrp.edits).toHaveLength(3);
+    expect(hrp.edits).toHaveLength(4);
     expect(await undoWhatPeopleWantHrp(text)).toBe(await undoWhatPeopleWantHrp(prior));
   });
 });

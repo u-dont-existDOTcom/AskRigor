@@ -55,3 +55,16 @@ rule again also showed that its last line still described replacement as it was 
    exist may lose it, and the queue finds copies by the label.
 3. HRP 20.6.38's manifest, plugin and connector receipts as for #411. No migration, no role script, no tool-list change.
 4. After the switch, one refused card through a dev account with saving on, read back from the list and closed by hand.
+
+## Lesson closeout
+
+`npm run lessons:status` at 21:03 UTC on 4 Nov: 37 open, 1 needing review, 1 accepted but not incorporated, 40 incorporated
+or closed, none eligible for deletion, and no lane items unrecorded. The one needing review, lesson 54, is that an animal
+study's "changes" aren't harm until a worse outcome is named. The lesson says rules already covered part of this, and
+`HarmWarningCalibration` and `RiskLanguageOutput` do cover the comparator and the species. They don't say that a change
+isn't harm, or ask for the results that showed no difference, so lesson 54 is accepted and built here as `ChangeIsNotHarm`.
+It changes how a result is reported, not the method, so under 148a it isn't a question. It is marked incorporated when this
+PR is released.
+
+This work added no new lesson of its own. The stall in the lanes came from my own test, and that's recorded in
+`docs/atlas-quick-answer-test.md`.

@@ -54,7 +54,8 @@
   <Revision version="20.6.38" priority="Critical">
    The owner's review of 4 November 2026, outside the core, which is unchanged: FindingsCardForAPerson's test is a plain
    search of the problem by someone who has never heard of the option, a mention doesn't fail a finding, a new card
-   replaces an earlier one only on the same question (owner answer 240a), and a card may not appear at once.
+   replaces an earlier one only on the same question (owner answer 240a), and a card may not appear at once. Under owner
+   rule 148a, lesson 54 adds ChangeIsNotHarm.
   </Revision>
   <Revision version="20.6.37" priority="Critical">
    Owner answer 237a of 4 November 2026, from the report on what people want from AI answers, and the owner's request of
@@ -5298,6 +5299,13 @@
   <Rule name="SignIsNotADiagnosis" priority="Critical">
    A sign such as a smell or a texture shows what may be happening, not what is proven: give its ordinary causes, say
    what it can't show, and base the advice on the real risk, such as time and temperature for food.
+  </Rule>
+
+  <Rule name="ChangeIsNotHarm" priority="Critical">
+   A study reporting that something changed hasn't shown harm. Before an animal study supports a harm or hazard claim,
+   name at least one outcome that got worse, with its direction, comparator, size and uncertainty, and give the key
+   results that showed no difference, the species and the dose. Say so when the paper's own figures disagree, and keep
+   the conclusion to a possible hazard, not an established human harm.
   </Rule>
 
   <Rule name="ModuleOutputs" priority="Critical">
