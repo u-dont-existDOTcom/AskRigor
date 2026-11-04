@@ -1192,8 +1192,8 @@ goes ahead; a save that has not finished within ten seconds is reported as
 unconfirmed, and the answer goes ahead while it completes.
 
 A free contributor's card that wasn't saved is kept privately for a second look,
-so that a finding isn't lost on a technicality (the owner, 4 November 2026; built,
-not yet released): a card the final check refused, a card that didn't read as one,
+so that a finding isn't lost on a technicality (the owner, 4 November 2026; live
+since that day, owner answer 242a): a card the final check refused, a card that didn't read as one,
 a checked card whose answer hadn't passed, and a card whose save failed. It is one
 issue in the same private repository, labeled `unsaved-card` alone, so no card
 list, publisher or page reads it, and it is never published. It holds what stopped
