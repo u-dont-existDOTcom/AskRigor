@@ -59,8 +59,11 @@ function sourceLineOutcome(line) {
   const where = (section) => typeof section === "string" && section !== "" ? " (" + section + ")" : "";
   const quote = (name, outcome, section) => outcome === "found" ? name + " found" + where(section)
     : outcome === "not_found" ? name + " NOT found" : name + " not looked up";
-  if (line.reason === "not_a_key_source" || line.reason === "no_text" || line.reason === "text_unavailable") {
-    return "not looked up: AskRigor has no text of this paper to look in.";
+  if (line.sentence === "not_checked" && line.conclusion === "not_checked") {
+    return line.reason === "text_expired" ? "not looked up: AskRigor no longer holds this paper's text."
+      : line.reason === "too_short" ? "not looked up: the quotes are too short to mean much."
+      : line.reason === "not_a_key_source" ? "not looked up: this isn't one of the answer's key sources."
+      : "not looked up: AskRigor has no text of this paper to look in.";
   }
   if (line.sentence === "found" && line.conclusion === "found" && line.text !== "search_copy") {
     return "\u2713 both quotes are in " + place + where(line.sentence_section) + where(line.conclusion_section) + ".";

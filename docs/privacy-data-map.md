@@ -1968,7 +1968,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   AskRigor fetched the copy itself, reading and study or review audit receipts
   also sign its public HTTPS URL (`url`, at most 500 characters), the same URL
   the tool returned; a search-index copy the AI supplied and a lead's unread
-  candidate URLs are never signed. `resolve_doi` returns the landing page
+  candidate URLs are never signed. Since owner answer 237a (built, not yet
+  released), reading and audit receipts also sign the document handle the tool
+  already returned, a random reference with no meaning of its own that expires
+  with the held text, so the final check can look source lines up in it.
+  `resolve_doi` returns the landing page
   Crossref lists as the DOI's registered page (`landing_url`, an HTTP or HTTPS
   URL without credentials, at most 500 characters) and signs it with the
   resolved DOI in a `doi_resolution` receipt. `finalize_research` treats the
@@ -2008,8 +2012,8 @@ pending-proposal stores have their own strict contracts and authority boundaries
   domain-separated key derived from the finalization signing secret, or else the
   YouTube continuation secret. They carry only public identifiers (YouTube
   video IDs, DOIs, PMIDs, PMCIDs), the public paper pages described above (a
-  DOI's registered landing page; the URL of a copy AskRigor fetched), the
-  bounded normalized product claim above
+  DOI's registered landing page; the URL of a copy AskRigor fetched), the random
+  handle of a full text AskRigor holds, the bounded normalized product claim above
   when product identity was declared, completion states, a refusal's fixed
   code for a video not read, counts, the publication dates a literature search
   was restricted to (two dates, no query text), and the issue

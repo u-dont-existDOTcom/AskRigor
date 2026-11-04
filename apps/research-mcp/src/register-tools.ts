@@ -2462,9 +2462,10 @@ function defineResearchOperations(
       // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
       const lookups = sourceLineRequestsOf(result);
       if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
-        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts);
         const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
+          .catch(() => late);
         gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
         result = finalizeResearch(input, gateOptions);
       }

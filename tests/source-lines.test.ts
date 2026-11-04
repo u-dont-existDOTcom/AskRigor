@@ -316,9 +316,21 @@ describe("the panel", () => {
     expect(panel({ ...labelled, text: "search_copy" }).join(" ")).toContain("a copy the AI supplied, not one AskRigor fetched itself");
   });
 
-  it("says when there was no text to look in", () => {
-    expect(panel({ ...labelled, sentence: "not_checked", conclusion: "not_checked", reason: "no_text" }))
-      .toContain("[Smith 2021]: not looked up: AskRigor has no text of this paper to look in.");
+  it.each([
+    ["no_text", "AskRigor has no text of this paper to look in."],
+    ["text_unavailable", "AskRigor has no text of this paper to look in."],
+    ["text_expired", "AskRigor no longer holds this paper's text."],
+    ["too_short", "the quotes are too short to mean much."],
+    ["not_a_key_source", "this isn't one of the answer's key sources."],
+  ])("says why nothing was looked up: %s", (reason, wording) => {
+    const { text: _text, sentence_section: _first, conclusion_section: _second, ...bare } = labelled;
+    expect(panel({ ...bare, sentence: "not_checked", conclusion: "not_checked", reason }))
+      .toContain(`[Smith 2021]: not looked up: ${wording}`);
+  });
+
+  it("names each quote when only one was looked up", () => {
+    expect(panel({ ...labelled, conclusion: "not_checked", conclusion_section: undefined, reason: "text_expired", text: "abstract" }))
+      .toContain("[Smith 2021]: the paper's sentence found (Results), its conclusion not looked up, in the paper's abstract.");
   });
 });
 
@@ -357,6 +369,13 @@ describe("the finalize_research tool", () => {
     expect(body.status).toMatch(/^ready/u);
     expect(text).not.toContain(SOURCE_LINE_CONFIRMED);
     expect(text).toContain("The sentence given for [Smith 2021] isn't in the full text AskRigor looked in.");
+  });
+
+  it("keeps the check when looking a line up fails outright", async () => {
+    const texts: SourceLineTexts = { fullText: () => { throw new Error("synthetic failure"); }, abstract: vi.fn() };
+    const { body } = await call(texts, { ...fixture(), later_inputs: { source_lines: [line()] } });
+    expect(body.status).toMatch(/^ready/u);
+    expect(body.source_lines).toMatchObject([{ sentence: "not_checked", reason: "text_unavailable" }]);
   });
 
   it("gives up on a text that doesn't come in time, and the check stands", async () => {
