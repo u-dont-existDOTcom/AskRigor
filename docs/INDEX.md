@@ -111,6 +111,9 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-04-owner-answer-241a-production-release.md`: release of #411 (owner answer 241a): the source line, HRP
+  20.6.37, lessons 52 and 53, and saved cards that wait for the quick-answer test; 35 tools unchanged, so no app refresh;
+  acceptance, a real paper through the source line, what isn't shown live yet, and the rollback.
 - `audits/2026-11-04-owner-answer-240a-production-release.md`: release of #398 (owner answer 240a): "kept for AskRigor's
   research" (migration 0024), the regression fixes, the checked figures, the YouTube-comment hold and the named forum
   failures; 35 tools and HRP 20.6.36 unchanged, so no app refresh; acceptance, the rollback, and what moved to kept.
@@ -132,6 +135,8 @@ complete XML protocol.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-04-review-queue.md`: the private queue for cards that weren't saved, why it's in the findings
+  repository, what it keeps and leaves out, and GPT Pro's review of the lanes' message.
 - `superpowers/plans/2026-11-04-what-people-want.md`: the source line, meaning judge job 5, HRP 20.6.37's draft wording
   and the reminder that names `OutputFormatting` (owner answer 237a); built on #398's branch, not yet released.
 - `superpowers/plans/2026-11-03-atlas-kept-for-research.md`: findings kept for AskRigor's research but not shown (owner

@@ -1103,7 +1103,7 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
 export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
-  notes: string[]; droppedFindingsCard: boolean;
+  notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
@@ -1120,17 +1120,19 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
   if (essential.length > 0) return { success: false, error: new z.ZodError(essential) as z.ZodError<FinalizeResearchInput>, notes, droppedFindingsCard: false };
   const normalized = normalizeFinalizeResearchInput(input) as Record<string, unknown>;
   let droppedFindingsCard = false;
+  let droppedCard: unknown;
   if (normalized.findings_card !== undefined) {
     // The card's later shape (owner answer 219b), which accepts each finding's YouTube-comments declaration.
     const card = runtime.shape.findings_card.safeParse(normalized.findings_card);
     if (!card.success) {
       notes.push(...droppedInputNotes(card.error.issues, ["findings_card"]));
+      droppedCard = normalized.findings_card;
       delete normalized.findings_card;
       droppedFindingsCard = true;
     }
   }
   const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
-  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard };
+  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}) };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -1584,6 +1586,8 @@ export interface FinalizeResearchOptions {
   meaningJudgment?: MeaningJudgment;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
+  /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
+  onCommentsRead?: (read: boolean) => void;
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -2021,6 +2025,7 @@ export function finalizeResearch(
   ]);
   // Owner answer 219b: whether this research read YouTube comments, for the findings card, by an audit or outside one.
   const commentsRead = commentVideos.size > 0 || directlyReadComments;
+  options.onCommentsRead?.(commentsRead);
   const readVideos = new Set([...audited.keys(), ...communityRead]);
   let materialVideos: string[] = [];
   let saturated = false;
@@ -3344,7 +3349,7 @@ export function finalizeResearch(
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
-        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search wouldn't already give, send no card.",
+        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search of the problem wouldn't already give, send no card.",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
           !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
             "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",

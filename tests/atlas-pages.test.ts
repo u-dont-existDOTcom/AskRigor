@@ -1238,6 +1238,8 @@ describe("findings kept for AskRigor's research only (owner answers 229a and 231
     expect(served.response.status).toBe(200);
     expect(served.body).toContain(escapeHtml(KEPT_FOR_RESEARCH_LINE));
     expect(served.body).toContain('<meta name="robots" content="noindex">');
+    // A kept finding hasn't passed the quick-answer test, so its page doesn't say it did (owner answer 240a).
+    expect(served.body).not.toContain("A separate AI found");
     expect((await text(base, "/atlas/findings")).body).not.toContain(`/atlas/findings/${shown.effect}"`);
 
     // Listed with its private reason, then shown again.

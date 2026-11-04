@@ -42,15 +42,18 @@ import {
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
   SET_ASIDE_LABEL,
+  UNSAVED_CARD_MARKER,
   cardIssueBody,
   marker,
   occurrenceComment,
   parseCardMetadata,
   parseMarker,
   parseOccurrenceMetadata,
+  parseUnsavedCardMetadata,
   type CardMetadata,
   type GitHubFindingsRefile,
   type OccurrenceMetadata,
+  type UnsavedCardMetadata,
 } from "./github-findings.js";
 import { STORED_WITHOUT } from "./contracts.js";
 import type { FindingsRecord } from "./service.js";
@@ -350,6 +353,8 @@ export interface FindingsRepositoryIssue {
   record?: FindingsRecord;
   /** A forgotten card's tombstone marker. */
   forgotten?: ForgottenMetadata;
+  /** A kept copy's marker, of a card that wasn't saved: not a card, but forget_card removes it with its thread's. */
+  unsaved?: UnsavedCardMetadata;
 }
 
 /** A comment as forget_card reads it: its id, and what its marker says. */
@@ -601,7 +606,8 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         const body = issue.body.replace(/\r\n/gu, "\n");
         const card = parseMarker(body, CARD_MARKER, parseCardMetadata);
         const forgotten = parseMarker(body, FORGOTTEN_MARKER, parseForgottenMetadata);
-        if (card === undefined && forgotten === undefined) continue;
+        const unsaved = parseMarker(body, UNSAVED_CARD_MARKER, parseUnsavedCardMetadata);
+        if (card === undefined && forgotten === undefined && unsaved === undefined) continue;
         const parsed = card === undefined ? undefined : parseFindingsRecordBody(body, "card");
         issues.push({
           number: issue.number,
@@ -614,6 +620,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
           ...(card === undefined ? {} : { card }),
           ...(parsed === undefined || parsed === "tampered" ? {} : { record: parsed.record }),
           ...(forgotten === undefined ? {} : { forgotten }),
+          ...(unsaved === undefined ? {} : { unsaved }),
         });
       }
       if (response.length < 100) break;

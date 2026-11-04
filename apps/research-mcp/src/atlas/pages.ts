@@ -504,7 +504,7 @@ function statusBlock(finding: ShownFinding): SafeHtml {
   if (status.kind === "unreviewed") {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
-<p>A separate AI found that a quick AI answer misses it. AskRigor’s owner has not reviewed it yet.</p>
+<p>${finding.kept ? "" : "A separate AI found that a quick AI answer misses it. "}AskRigor’s owner has not reviewed it yet.</p>
 </div>`;
   }
   const checked = html`AskRigor’s owner checked it on ${day(status.checkedOn)}.`;

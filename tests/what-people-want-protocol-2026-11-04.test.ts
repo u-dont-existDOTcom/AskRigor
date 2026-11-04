@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoForumReaderHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-depth.js";
+import { undoCardRuleWordingHrp, undoForumReaderHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-depth.js";
 
 const FIXTURE = "./fixtures/protocol-edits/2026-11-04-what-people-want-hrp.json";
 const PINS = {
@@ -11,13 +11,15 @@ const PINS = {
   to: { version: "20.6.37", sha256: "5daf2265750efd88d18450bde6f8e76d02f2e544382bd1a01898b28adcfaf865" },
 } as const;
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+// HRP 20.6.37 as it was released, from today's bytes.
+const layer = async () => undoCardRuleWordingHrp(await loadProtocol("hrp"));
 const RULES = ["SourceLineBesideKeyClaim", "CountsOutOf100WithEvidenceGrade", "BottomLineEvenWhenUncertain",
   "DoubtInFirstPerson", "WhenCareIsOutOfReach", "TestItYourselfEnding", "FindingsCardForAPerson",
   "ResultThatChangesWithDose", "SignIsNotADiagnosis"];
 
 describe("owner answer 237a: HRP 20.6.37", () => {
   it("adds its rules to OutputFormatting and its mode to AnswerShapeController, outside the core", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     for (const name of RULES) {
       const elements = protocolNamedElements(text, name);
       expect(elements, name).toHaveLength(1);
@@ -29,7 +31,7 @@ describe("owner answer 237a: HRP 20.6.37", () => {
   });
 
   it("names what each rule leans on, so none of it stands alone", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     for (const name of ["MedicalDistrustOrAccessBarrier", "NOf1Exclusions", "HealthFollowUpInformationGain",
       "PatientHistoryAndRecurrenceEvidenceGate"]) expect(text).toContain(name);
     expect(text).toContain("finalize_research's later_inputs.source_lines");
@@ -37,20 +39,20 @@ describe("owner answer 237a: HRP 20.6.37", () => {
   });
 
   it("keeps a person's list as branches, and aims past what they tried and past the quick answer", async () => {
-    const step = (await loadProtocol("hrp")).match(/<Step id="RO2" name="QuestionDecomposition">([\s\S]*?)<\/Step>/u)?.[1];
+    const step = (await layer()).match(/<Step id="RO2" name="QuestionDecomposition">([\s\S]*?)<\/Step>/u)?.[1];
     expect(step).toContain("Treat the symptoms, diagnoses and treatments a person lists as branches to search");
     expect(step).toContain("aim the research past that and past the quick answer");
   });
 
   // Lessons 53 and 52, under owner rule 148a.
   it("keeps a dose pattern whole, and a sign apart from a diagnosis", async () => {
-    const text = (await loadProtocol("hrp")).replace(/\s+/gu, " ");
+    const text = (await layer()).replace(/\s+/gu, " ");
     expect(text).toContain("Never lift one dose's result out of the pattern");
     expect(text).toContain("A sign such as a smell or a texture shows what may be happening, not what is proven");
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoWhatPeopleWantHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     const sections = (value: string) => protocolSections("hrp", value).filter(({ name }) => core.has(name))
@@ -61,18 +63,15 @@ describe("owner answer 237a: HRP 20.6.37", () => {
   });
 
   it("binds the current manifest and first revision to these bytes", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-11-04", sha256: PINS.to.sha256,
-    });
     expect(hash(text)).toBe(PINS.to.sha256);
     const revisions = [...text.matchAll(/<Revision version="([^"]+)"/gu)].map((match) => match[1]);
     expect(revisions.slice(0, 2)).toEqual(["20.6.37", "20.6.36"]);
   });
 
   it("records each changed passage and reverses to 20.6.36's exact bytes and SHA-256", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoWhatPeopleWantHrp(text);
     expect(XMLValidator.validate(prior)).toBe(true);
     expect(prior).toContain(`version="${PINS.from.version}" revisionDate="2026-11-01"`);
