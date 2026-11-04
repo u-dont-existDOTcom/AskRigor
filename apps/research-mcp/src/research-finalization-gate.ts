@@ -315,7 +315,7 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 // the research are checked at the end, in that turn or a later one (owner
 // question 86: a "continue" turn dropped AskRigor's final check).
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
-  "are given, in this turn or a later one.";
+  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.";
 
 // The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.

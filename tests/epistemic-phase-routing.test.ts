@@ -56,7 +56,7 @@ describe("canonical epistemic phase and heuristic-attractor routing", () => {
   it("prevents HRP precedence from erasing the Universal phase distinction", async () => {
     const hrp = await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
 
-    expect(hrp).toMatch(/version="20\.6\.36" revisionDate="2026-11-01"/u);
+    expect(hrp).toMatch(/version="20\.6\.37" revisionDate="2026-11-04"/u);
     for (const required of [
       '<Revision version="20.5.23" priority="Critical">',
       '<HeuristicAttractorCheck priority="Critical">',

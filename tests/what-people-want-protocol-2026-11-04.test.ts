@@ -8,7 +8,7 @@ import { undoForumReaderHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-d
 const FIXTURE = "./fixtures/protocol-edits/2026-11-04-what-people-want-hrp.json";
 const PINS = {
   from: { version: "20.6.36", sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa" },
-  to: { version: "20.6.37", sha256: "ebc72d1f8f48e01e499dc31b2005386287c962ef0ad8ac37dbd2c7c5e941243d" },
+  to: { version: "20.6.37", sha256: "1cbae5f9494732697e742f034833ebdd218117008741df3223b8d860ebb6aef0" },
 } as const;
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const RULES = ["SourceLineBesideKeyClaim", "CountsOutOf100WithEvidenceGrade", "BottomLineEvenWhenUncertain",
