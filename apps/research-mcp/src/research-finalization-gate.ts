@@ -48,6 +48,10 @@ import {
   toolListNoticeRule, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
+import {
+  quoteShown, sourceLineCheckSchema, sourceLineNotes,
+  type SourceLineLookup, type SourceLineRequest
+} from "./source-lines.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -311,7 +315,7 @@ export function namedTargetCaveat(label: string, studies: number, differing: rea
 // the research are checked at the end, in that turn or a later one (owner
 // question 86: a "continue" turn dropped AskRigor's final check).
 export const FINALIZE_REMINDER = "Answers that use this research are checked with finalize_research before they " +
-  "are given, in this turn or a later one.";
+  "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.";
 
 // The plain answer an active research account registers before research (owner answer 140b, 2026-10-20), and how
 // the checked answer compares with each of its claims.
@@ -1555,6 +1559,10 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   }).strict().optional()
     .describe("For the owner's dev accounts, once the check passes: whether the meaning judge read the answer, how " +
       "many findings it held as resting on YouTube comments, and how many notes it added. It never blocks."),
+  // Owner answer 237a, runtime only (owner answer 189a): each source line's quotes, looked up in the text AskRigor fetched.
+  source_lines: z.array(sourceLineCheckSchema).optional()
+    .describe("For a passing check with source_lines, in their order: whether each quote is in the text AskRigor " +
+      "fetched, and where. Only a line with both found in a paper AskRigor fetched may be marked as found."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1574,6 +1582,8 @@ export interface FinalizeResearchOptions {
    * and the findings it reads as resting on YouTube comments, which are held. It never blocks.
    */
   meaningJudgment?: MeaningJudgment;
+  /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
+  sourceLineLookups?: readonly SourceLineLookup[];
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -3334,7 +3344,7 @@ export function finalizeResearch(
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
-        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.",
+        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says. With no finding that a plain web search wouldn't already give, send no card.",
           // Owner answer 219b: once comments were read, each finding says whether it draws on them.
           !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
             "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",
@@ -3665,6 +3675,29 @@ export function finalizeResearch(
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
       "or do, in your own words, and call finalize_research again with the changed draft.");
   }
+  // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
+  // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
+  const sourceLines = input.source_lines ?? [];
+  const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => {
+    const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
+    const receipts = key === undefined ? [] : paperReceipts(sourceLinks(key.id));
+    return {
+      line,
+      keySource: key !== undefined,
+      handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
+        SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
+      pmids: [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
+        ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
+    };
+  });
+  const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
+    const line = sourceLines[index];
+    if (line === undefined) return [];
+    const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(lookup.source));
+    return [{ ...lookup, label: key?.answer_marker ?? lookup.source,
+      shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
+  }) : [];
+  for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
@@ -3684,6 +3717,12 @@ export function finalizeResearch(
         if (text === undefined) continue;
         judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
           `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
+      }
+      for (const { line, backed, why } of judgment.sourceLines) {
+        if (backed || sourceLines[line - 1] === undefined) continue;
+        judgeNotes.push(`The meaning judge doubts that the quotes of source_lines[${line - 1}] back its claim${because(why)}. ` +
+          "Bring the claim into line with what the paper says, or give the sentence that does back it, and check the " +
+          "answer again.");
       }
       const card = findingsCard.status === "checked" ? input.findings_card : undefined;
       for (const { finding, standsAlone, why } of judgment.standalone) {
@@ -3783,6 +3822,7 @@ export function finalizeResearch(
     // The account's setting removes the note only: the plain answer is still compared with the answer.
     if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
   }
+  if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
   // None of them holds back the answer.
@@ -3843,11 +3883,15 @@ export function finalizeResearch(
     output.round_token = checkRound.token;
   }
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
+    SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
+  }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
     MEANING_JUDGE_SOURCES.set(parsedOutput, {
       answer: input.answer_draft ?? draft,
       commentsRead,
+      ...(sourceLines.length === 0 ? {} : { sourceLines }),
       ...(findingsCard.status === "checked" && input.findings_card !== undefined ? { card: input.findings_card } : {}),
       // Each entry the note credits, with what the check accepted its sentence as, exactly: a declared search that found
       // nothing, or a correction the research found, which backs an entry that names no source.
@@ -3876,6 +3920,14 @@ const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSo
 /** What the meaning judge may read of this result's check: a passing check with a draft only. */
 export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {
   return MEANING_JUDGE_SOURCES.get(result);
+}
+
+// What a passing check asks to have looked up, by the result it returned (owner answer 237a).
+const SOURCE_LINE_REQUESTS = new WeakMap<FinalizeResearchOutput, SourceLineRequest[]>();
+
+/** Where this result's source lines may be looked up: a passing check whose lines haven't been yet. */
+export function sourceLineRequestsOf(result: FinalizeResearchOutput): readonly SourceLineRequest[] | undefined {
+  return SOURCE_LINE_REQUESTS.get(result);
 }
 
 // Why the meaning judge did not run, as its note says it.
@@ -4701,6 +4753,8 @@ function linkNamesDoi(link: string): boolean {
 const PAPER_TIE_KINDS: ReadonlySet<string> = new Set([
   "pubmed_record", "doi_resolution", "full_text_read", "study_audit", "review_audit"
 ]);
+// The receipts that name the handle of a text AskRigor holds (owner answer 237a).
+const SOURCE_TEXT_KINDS: ReadonlySet<string> = new Set(["full_text_read", "study_audit", "review_audit"]);
 
 /** One paper's identifiers and pages across receipts: each receipt joins the identifiers it names. */
 class PaperLinks {

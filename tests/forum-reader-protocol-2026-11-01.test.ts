@@ -3,19 +3,21 @@ import { readFile } from "node:fs/promises";
 import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoCommunitySearchAndVideoCommentMapHrp, undoForumReaderHrp, undoOwnerAnswer205Hrp } from "./helpers/undo-read-depth.js";
+import { undoCommunitySearchAndVideoCommentMapHrp, undoForumReaderHrp, undoOwnerAnswer205Hrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-depth.js";
 
 const PINS = {
   from: { version: "20.6.35", sha256: "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec" },
   to: { version: "20.6.36", sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa" },
 } as const;
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
+// HRP 20.6.37 adds the rules from what people want above this layer.
+const layer = async () => undoWhatPeopleWantHrp(await loadProtocol("hrp"));
 const SENTENCE = "Where AskRigor's search_reddit_threads and read_forum_thread are available, use them first; " +
   "a page they report as refusing access stays unread.";
 
 describe("owner answers 211a and 213b: HRP 20.6.36", () => {
   it("puts the exact forum-reader sentence in SearchSaturationAndStopping, outside the core", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const rules = [...text.matchAll(/<Rule name="SearchSaturationAndStopping"[^>]*>([\s\S]*?)<\/Rule>/gu)];
     expect(rules).toHaveLength(1);
     expect(rules[0]![1]!.replace(/\s+/gu, " ")).toContain(SENTENCE);
@@ -26,7 +28,7 @@ describe("owner answers 211a and 213b: HRP 20.6.36", () => {
   });
 
   it("leaves CoreHierarchy and every other core section byte for byte unchanged", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoForumReaderHrp(text);
     const core = new Set(coreSectionNames("hrp"));
     expect(core.has("CoreHierarchy")).toBe(true);
@@ -38,18 +40,15 @@ describe("owner answers 211a and 213b: HRP 20.6.36", () => {
   });
 
   it("binds the current manifest and first revision to the exact owner-supplied bytes", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     expect(XMLValidator.validate(text)).toBe(true);
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: "2026-11-01", sha256: PINS.to.sha256,
-    });
     expect(hash(text)).toBe(PINS.to.sha256);
     const revisions = [...text.matchAll(/<Revision version="([^"]+)"/gu)].map((match) => match[1]);
     expect(revisions.slice(0, 2)).toEqual(["20.6.36", "20.6.35"]);
   });
 
   it("records each changed passage and reverses to 20.6.35's exact bytes and SHA-256", async () => {
-    const text = await loadProtocol("hrp");
+    const text = await layer();
     const prior = await undoForumReaderHrp(text);
     expect(XMLValidator.validate(prior)).toBe(true);
     expect(prior).toContain(`version="${PINS.from.version}" revisionDate="2026-10-31"`);

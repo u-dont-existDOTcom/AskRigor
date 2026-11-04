@@ -10,6 +10,9 @@ import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
+import {
+  lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+} from "./source-lines.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -251,6 +254,7 @@ import {
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
   meaningJudgeSourceOf,
+  sourceLineRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -816,6 +820,8 @@ export interface RegisterToolsOptions {
   secondReader?: SecondReader;
   /** Replaces the configured meaning judge (owner answer 221) for deterministic tests. */
   meaningJudge?: MeaningJudge;
+  /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
+  sourceLineTexts?: SourceLineTexts;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -2452,6 +2458,17 @@ function defineResearchOperations(
       };
       let gateOptions: FinalizeResearchOptions = finalizeOptions;
       let result = finalizeResearch(input, gateOptions);
+      // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
+      // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
+      const lookups = sourceLineRequestsOf(result);
+      if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
+        const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
+          sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
+          .catch(() => late);
+        gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
+        result = finalizeResearch(input, gateOptions);
+      }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
       if (reader.enabled && checkedInput?.answer_draft !== undefined &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
@@ -2553,6 +2570,10 @@ function defineResearchOperations(
           result.caveats
             .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
+            `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
+              `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
+              "when the answer is not in English.") +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -3427,6 +3448,24 @@ async function invokeOpenFullTextMcp(
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
+// How long a passing check may wait to look its source lines up; the held texts are in memory, PubMed's are one call.
+const SOURCE_LINE_DEADLINE_MILLISECONDS = 8_000;
+const AskRigorSourceLineTexts: SourceLineTexts = {
+  fullText(handle) {
+    try {
+      const index = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle);
+      return index === undefined ? undefined : sourceLineDocument(index);
+    } catch {
+      return undefined;
+    }
+  },
+  async abstract(pmid) {
+    const result = await fetchPubmedRecord(pmid, ncbiConfig());
+    const abstract = (result.data as { abstract?: string } | undefined)?.abstract;
+    return abstract === undefined || abstract === "" ? undefined : { kind: "abstract", blocks: [{ text: abstract }] };
+  }
+};
+
 function hasFailedFullTextSource(body: unknown): boolean {
   return hasFailedFullTextAcquisition(body as Parameters<typeof hasFailedFullTextAcquisition>[0]);
 }
@@ -3492,6 +3531,8 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     doi: source.doi,
     pmid: source.pmid,
     pmcid: source.pmcid,
+    // The final check looks source lines up in this text while AskRigor still holds it (owner answer 237a).
+    handle,
     ...(kind === "full_text_read" ? { content: source.content_sha256.slice(0, 16) } : {}),
     ...(kind !== "full_text_read" && source.provider === "client_supplied" ? {
       retrieval_provider: "client_search_index",

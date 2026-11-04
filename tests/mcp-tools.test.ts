@@ -1116,7 +1116,7 @@ describe("AskRigor MCP tools", () => {
         // Owner question 86: every research result reminds the AI of the final check, in any turn.
         type: "text",
         text: "Answers that use this research are checked with finalize_research before they are given, in this " +
-          "turn or a later one."
+          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
@@ -3106,15 +3106,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.36",
-          revisionDate: "2026-11-01",
-          sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
+          version: "20.6.37",
+          revisionDate: "2026-11-04",
+          sha256: "5daf2265750efd88d18450bde6f8e76d02f2e544382bd1a01898b28adcfaf865"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
+        scope_sha256: "5daf2265750efd88d18450bde6f8e76d02f2e544382bd1a01898b28adcfaf865"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

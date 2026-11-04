@@ -16,8 +16,9 @@ import type { FindingsRecord } from "./service.js";
  * occurrence comment instead. A save repeated with the same finalization
  * receipt writes nothing new, so a retry cannot count twice, and the same
  * research thread reaching the same findings again is not another occurrence.
- * A thread's new card replaces its earlier open cards (owner decision Q9: a
- * corrected answer's findings, not the wrong ones, are what gets reviewed).
+ * A thread's new card replaces its earlier open cards on the same question
+ * (owner decision Q9: a corrected answer's findings, not the wrong ones, are
+ * what gets reviewed; owner answer 240a: another question is another card).
  * A card with a finding that rests on work a quick answer cannot do is also
  * labeled beyond-quick-answer, and so is an open card such a save joins.
  */
@@ -36,6 +37,8 @@ export interface GitHubFindingsSubmission {
   receiptSha256: string;
   /** The research thread's keyed hash (findingsThreadKey). */
   thread: string;
+  /** The card's question's hash (findingsQuestionKey): a new card replaces only a thread's cards on the same question. */
+  question: string;
   /**
    * Whether the saving account's card is published in the Atlas as soon as it is saved (decision 171, section 4B): a
    * new card's marker records it, so a card whose publishing failed can be found for the owner to retry.
@@ -69,6 +72,8 @@ export interface CardMetadata {
   receipt_sha256: string;
   saved_at: string;
   thread?: string;
+  /** The card's question's hash, on cards saved since owner answer 240a; an earlier card has none and is not replaced. */
+  question?: string;
   /** A re-filed save's: the issue number of the forgotten card it was a later save of (decision 7). */
   refiled_from?: number;
   /** Decision 171, section 4B: the saving account's card is published in the Atlas as soon as it is saved. */
@@ -161,6 +166,7 @@ export class GitHubFindingsQueue {
       receipt_sha256: metadata.receipt_sha256,
       saved_at: metadata.saved_at,
       ...(metadata.thread === undefined ? {} : { thread: metadata.thread }),
+      ...(metadata.question === undefined ? {} : { question: metadata.question }),
       refiled_from: input.refiledFrom,
     };
     const response = await this.request(this.issuesPath, {
@@ -182,7 +188,8 @@ export class GitHubFindingsQueue {
   }
 
   private async submitSerialized(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
-    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256) || !HEX_64.test(input.thread)) {
+    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256) || !HEX_64.test(input.thread) ||
+      !HEX_64.test(input.question)) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     const open = await this.openCards();
@@ -194,7 +201,8 @@ export class GitHubFindingsQueue {
       : await this.addOccurrence(same, input);
     const replacedCards: number[] = [];
     for (const earlier of open) {
-      if (earlier.metadata.thread !== input.thread || earlier.number === saved.issueNumber) continue;
+      if (earlier.metadata.thread !== input.thread || earlier.metadata.question !== input.question ||
+        earlier.number === saved.issueNumber) continue;
       try {
         await this.replace(earlier, saved.issueNumber);
         replacedCards.push(earlier.number);
@@ -332,6 +340,7 @@ export class GitHubFindingsQueue {
       receipt_sha256: input.receiptSha256,
       saved_at: input.record.stamp.saved_at,
       thread: input.thread,
+      question: input.question,
       ...(input.atlasPublish === true ? { atlas_publish: true as const } : {}),
       ...(input.paidPrivate === true ? { paid_private: true as const } : {}),
     };
@@ -577,6 +586,7 @@ export function parseCardMetadata(value: Record<string, unknown>): CardMetadata 
         receipt_sha256: value.receipt_sha256,
         saved_at: value.saved_at,
         ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
+        ...(typeof value.question === "string" && HEX_64.test(value.question) ? { question: value.question } : {}),
         ...(isPositiveInteger(value.refiled_from) ? { refiled_from: value.refiled_from } : {}),
         ...(value.atlas_publish === true ? { atlas_publish: true as const } : {}),
         ...(value.paid_private === true ? { paid_private: true as const } : {}),

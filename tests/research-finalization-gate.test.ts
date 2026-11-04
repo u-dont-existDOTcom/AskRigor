@@ -3675,6 +3675,7 @@ describe("findings card at the final gate", () => {
     expect(source).not.toHaveProperty("comparison");
     const judgment: MeaningJudgment = {
       status: "ran",
+      sourceLines: [],
       youtube: [{ finding: 1, rests: false, why: "Trials only." },
         { finding: 2, rests: true, why: "It repeats what commenters reported." }],
       comparison: [{ item: 1, backed: false, why: "There is no comparison." }],
@@ -3865,7 +3866,8 @@ describe("findings card at the final gate", () => {
       "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
       "and no personal details, and say in public_value whether they would help anyone beyond this person. A public " +
       "card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers (for an " +
-      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says. " +
+      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says. With no " +
+      "finding that a plain web search wouldn't already give, send no card. " +
       // Owner answer 219b: this research read YouTube comments, so each finding also says whether it draws on them.
       "This research read YouTube comments, so each finding also gives draws_on_youtube_comments: true when any part " +
       "of it rests on what commenters wrote, false when none does; send the card in later_inputs.findings_card. A " +

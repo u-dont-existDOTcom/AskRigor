@@ -267,6 +267,6 @@ describe("the three declarations are required with an answer draft", () => {
 
   it("states the research-result reminder as one sentence", () => {
     expect(FINALIZE_REMINDER).toBe("Answers that use this research are checked with finalize_research before they " +
-      "are given, in this turn or a later one.");
+      "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.");
   });
 });

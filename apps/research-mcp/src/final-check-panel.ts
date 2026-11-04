@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
-  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE,
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
@@ -46,10 +46,31 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // check. A figure is a number in digits of any script, as written, with its decimal or group separators, a fraction's
 // slash and a percent sign. Links, DOIs, PubMed numbers, citation markers, list numbers and the digits of a name such as
 // COVID-19, B12 or ARF-0042 are not figures.
+// Owner answer 237a (4 Nov): what was checked also lists each key claim's two quotes, looked up word for word in the text
+// AskRigor fetched, and where each was found. A quote not found says so here, where the reader can see it.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
 const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
+const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
+function sourceLineOutcome(line) {
+  const place = line.text === "abstract" ? "the paper's abstract"
+    : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
+  const where = (section) => typeof section === "string" && section !== "" ? " (" + section + ")" : "";
+  const quote = (name, outcome, section) => outcome === "found" ? name + " found" + where(section)
+    : outcome === "not_found" ? name + " NOT found" : name + " not looked up";
+  if (line.sentence === "not_checked" && line.conclusion === "not_checked") {
+    return line.reason === "text_expired" ? "not looked up: AskRigor no longer holds this paper's text."
+      : line.reason === "too_short" ? "not looked up: the quotes are too short to mean much."
+      : line.reason === "not_a_key_source" ? "not looked up: this isn't one of the answer's key sources."
+      : "not looked up: AskRigor has no text of this paper to look in.";
+  }
+  if (line.sentence === "found" && line.conclusion === "found" && line.text !== "search_copy") {
+    return "\u2713 both quotes are in " + place + where(line.sentence_section) + where(line.conclusion_section) + ".";
+  }
+  return quote("the paper's sentence", line.sentence, line.sentence_section) + ", " +
+    quote("its conclusion", line.conclusion, line.conclusion_section) + ", in " + place + ".";
+}
 function answerFigures(text) {
   const kept = text
     .replace(/\bhttps?:\/\/\S+|\bwww\.\S+|\b10\.\d{4,9}\/\S+|\bPMID:?\s*\d+/giu, " ")
@@ -113,6 +134,13 @@ function renderFinalCheck(doc, structuredContent) {
         ? "The answer AskRigor checked gives no figures, so any figure in the answer" + other + " after the check."
         : "Figures in the answer AskRigor checked: " + figures.join(" · ") + ". Any other figure in the answer" +
           other + " or changed after the check.", checked);
+    }
+    const quoted = Array.isArray(result.source_lines) ? result.source_lines.filter((line) => line && typeof line.label === "string") : [];
+    if (quoted.length > 0) {
+      appendText("p", SOURCE_LINES_LEAD, checked);
+      const list = doc.createElement("ul");
+      for (const line of quoted) appendText("li", line.label + ": " + sourceLineOutcome(line), list);
+      checked.appendChild(list);
     }
     if (limits > 0) {
       const list = doc.createElement("ul");
