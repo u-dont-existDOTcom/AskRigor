@@ -163,6 +163,11 @@ complete XML protocol.
   measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
   the judges' known cases 4 of 4 (YouTube comments), 33 of 35 (comparison backing), 13 of 14 (limits) and 5 of 5
   (findings that stand on their own); USD 16.30 in all for development; the rubric frozen for validation on #394's run.
+- `audits/2026-11-04-meaning-judge-validation.md`: the meaning judge's frozen rubric (`2026-11-02.6`) on #394's run as
+  validation: 111 calls for USD 3.20; against the judges' verdicts, read blind, comparison backing agrees on 68 of 90
+  items (21 of 35 problems caught, 8 of 55 sound items flagged; 33 of 35 in development); 12 of its 16 limit flags
+  hold, but it caught 1 of the 9 limits the judges named; the YouTube and stand-alone jobs had no labels (card saving
+  off) and were read by hand; production's judge stays off; #394's run is now development data.
 - `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
   Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
   saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
