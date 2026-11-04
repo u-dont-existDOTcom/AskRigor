@@ -304,10 +304,39 @@ describe("free InfoAccess Streamable HTTP client", () => {
         fetch: async (_url, init) => new Promise<Response>((_resolve, reject) => {
           init?.signal?.addEventListener("abort", () => reject(new Error(`Synthetic failure ${TOKEN}`)), { once: true });
         }) });
-      const pending = expect(library.fetchPdf(DOI)).rejects.toMatchObject({ code: "unavailable", message: "Owner library unavailable" });
+      const pending = expect(library.fetchPdf(DOI)).rejects.toMatchObject({ code: "timeout", message: "Owner library timeout" });
       await vi.advanceTimersByTimeAsync(120_001);
       await pending;
     } finally { vi.useRealTimers(); }
+  });
+  // #394's run: 15 acquire_open_full_text calls ran past the app's limit while InfoAccess answered busy, and the AI lost
+  // each whole result. A call's deadline now ends the library route, its waits included.
+  it("ends a request that hangs at the call's deadline, as a timeout", async () => {
+    vi.useFakeTimers();
+    let settled: unknown;
+    try {
+      const library = createInfoAccessClient({ url: "https://infoaccess.example/mcp", token: TOKEN,
+        fetch: async (_url, init) => new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error(`Synthetic failure ${TOKEN}`)), { once: true });
+        }) });
+      void library.fetchPdf(DOI, Date.now() + 15_000).catch((error: unknown) => { settled = error; });
+      await vi.advanceTimersByTimeAsync(14_990);
+      expect(settled).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(20);
+      expect(settled).toBeInstanceOf(InfoAccessError);
+      expect(settled).toMatchObject({ code: "timeout", message: "Owner library timeout" });
+    } finally {
+      await vi.advanceTimersByTimeAsync(120_001);
+      vi.useRealTimers();
+    }
+  });
+  it("sends no request when too little of the call's deadline is left for one", async () => {
+    const upstream = await pdfUpstream((pdf) => pdf);
+    try {
+      await expect(upstream.client().fetchPdf(DOI, Date.now() + 5_000)).rejects.toMatchObject({ code: "timeout" });
+      expect(upstream.requests).not.toHaveBeenCalled();
+      await expect(upstream.client().fetchPdf(DOI, Date.now() + 30_000)).resolves.toEqual(upstream.pdf);
+    } finally { await upstream.close(); }
   });
   it("applies the overall download deadline while DNS resolution is pending", async () => {
     const deadline = new AbortController();

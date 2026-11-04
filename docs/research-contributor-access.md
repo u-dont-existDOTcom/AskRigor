@@ -412,7 +412,10 @@ of 33 tools. They are flat fields with one rule set per action:
   findings drawn from YouTube comments that a saved card leaves out are held
   apart from the card for the owner's review; so are those of a card whose
   findings all rest on them, which is not saved as a card, with its question and
-  topic. They are kept until deleted (the owner's rule, 25 October: "don't
+  topic. Since owner answer 219b (2 November 2026) a finding is also held when
+  it declares that it draws on YouTube comments (`draws_on_youtube_comments`) or,
+  once the research read them, declares nothing; the finalization receipt signs
+  which. They are kept until deleted (the owner's rule, 25 October: "don't
   delete the summaries unless YT tells us to do that"): nothing deletes one by
   its age. `inspect_finding` on a card lists its held findings
   (`card.heldYoutubeFindings`) with the day each was saved, and

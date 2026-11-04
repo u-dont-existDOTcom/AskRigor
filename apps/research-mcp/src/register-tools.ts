@@ -9,6 +9,7 @@ import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -74,7 +75,7 @@ import {
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
 
-import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-client.js";
+import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
@@ -249,6 +250,8 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  meaningJudgeSourceOf,
+  type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
@@ -811,6 +814,8 @@ export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 export interface RegisterToolsOptions {
   /** Replaces the configured second reader for deterministic tests. */
   secondReader?: SecondReader;
+  /** Replaces the configured meaning judge (owner answer 221) for deterministic tests. */
+  meaningJudge?: MeaningJudge;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -1575,10 +1580,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
           result
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure();
         return youtubeToolResult(
@@ -1606,10 +1611,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
           commentSearchOutput(result)
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure(query);
         return youtubeToolResult(
@@ -2445,7 +2450,8 @@ function defineResearchOperations(
             }
           : {})
       };
-      let result = finalizeResearch(input, finalizeOptions);
+      let gateOptions: FinalizeResearchOptions = finalizeOptions;
+      let result = finalizeResearch(input, gateOptions);
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
       if (reader.enabled && checkedInput?.answer_draft !== undefined &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
@@ -2454,7 +2460,23 @@ function defineResearchOperations(
           key_terms: checkedInput.key_terms ?? [],
           scale_results: checkedInput.scale_results ?? []
         });
-        result = finalizeResearch(input, { ...finalizeOptions, secondReading });
+        gateOptions = { ...gateOptions, secondReading };
+        result = finalizeResearch(input, gateOptions);
+      }
+      // Owner answer 221: for the owner's dev accounts only, a passing check is read once by the meaning judge, a
+      // Claude API call paid from the owner's monthly credits. Its notes go to the AI, and the findings it reads as
+      // resting on YouTube comments are held, before any save below. It never blocks: whatever happens to the call,
+      // the check stays as it is, with a note when the judge did not run.
+      const judge = options.meaningJudge ?? meaningJudgeFromEnv();
+      if (judge.enabled && researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        const source = meaningJudgeSourceOf(result);
+        const bundle = source === undefined ? undefined : meaningJudgeBundle(source);
+        if (bundle !== undefined) {
+          const judgment = await judge.judge(bundle).then(({ judgment: read }) => read,
+            () => ({ status: "skipped" as const, reason: "error" as const }));
+          result = finalizeResearch(input, { ...gateOptions, meaningJudgment: judgment });
+        }
       }
       if (
         account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"
@@ -3148,6 +3170,16 @@ function researchReceipt(
     : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
 }
 
+// Owner answer 219b: comments returned outside an audit leave a receipt too, so a findings card that says nothing about
+// them is held. It signs the video and how many records came back, never what they say.
+function youtubeCommentsReadReceipt(
+  result: { primary_identifier?: string | undefined; pagination: { returned: number } }
+): string | undefined {
+  return result.primary_identifier === undefined || result.pagination.returned === 0
+    ? undefined
+    : researchReceipt("youtube_comments_read", { video: result.primary_identifier, records: result.pagination.returned });
+}
+
 // A receipt's issue time has whole seconds, so each receipt also signs `t`, a
 // millisecond time that only increases within this process. finalize_research
 // orders research by it, never by the order the caller passes receipts in.
@@ -3202,6 +3234,8 @@ function registerOpenFullTextMcpTools(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
+      // From the call's start, so its earlier routes' time counts too.
+      const libraryDeadline = Date.now() + LIBRARY_CALL_DEADLINE_MS;
       let runtime: AcquireOpenFullTextRuntime | undefined;
       const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
       if (infoAccess !== undefined && "subject" in auth) {
@@ -3211,7 +3245,7 @@ function registerOpenFullTextMcpTools(
         const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
           (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService)) !== undefined
             ? "public_only" : undefined;
-        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
+        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi, libraryDeadline) } };
       }
       return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
     }
@@ -3557,7 +3591,8 @@ function collectResearchOperations(
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
         : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
-        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+        : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
+          ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);

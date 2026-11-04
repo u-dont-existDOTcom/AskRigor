@@ -47,6 +47,7 @@ import { NEXT_STEP_KINDS, type NextStepKind } from "./next-step-kinds.js";
 import {
   toolListNoticeRule, toolListVersionDescription, toolListVersionOrUndefined, toolListVersionSchema
 } from "./tool-list-currency.js";
+import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -54,6 +55,7 @@ import {
   findingsCardDigest,
   findingsCardSchema,
   findingsSaveOffer,
+  heldByCardFields,
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
@@ -153,6 +155,10 @@ export const TOOL_LIST_REFRESH_HINT = ruleText(TOOL_LIST_REFRESH_RULE);
 const LEAD_RECEIPT_SEARCH_RULE = joinRules("A lead receipt needs the public-copy search recorded: search for the exact DOI ",
   "and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.");
 export const LEAD_RECEIPT_SEARCH = ruleText(LEAD_RECEIPT_SEARCH_RULE);
+// The same for a paper without a DOI, which acquire_open_full_text has fetched by PMCID or PMID since #394.
+const LEAD_RECEIPT_ID_SEARCH_RULE = joinRules(joinRules("A lead receipt needs the public-copy search recorded: search for the ",
+  "exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass "),
+  "those searches as public_copy_search and any public copy found as candidate_urls.");
 
 // Community evidence declared not relevant because the question has no real-world outcome: the answer says so in this
 // sentence, completed by the reason the call declares (owner question 125, from lesson #38, where a question whether
@@ -1111,7 +1117,8 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
   const normalized = normalizeFinalizeResearchInput(input) as Record<string, unknown>;
   let droppedFindingsCard = false;
   if (normalized.findings_card !== undefined) {
-    const card = finalizeResearchInputSchema.shape.findings_card.safeParse(normalized.findings_card);
+    // The card's later shape (owner answer 219b), which accepts each finding's YouTube-comments declaration.
+    const card = runtime.shape.findings_card.safeParse(normalized.findings_card);
     if (!card.success) {
       notes.push(...droppedInputNotes(card.error.issues, ["findings_card"]));
       delete normalized.findings_card;
@@ -1531,6 +1538,23 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     "those that change what the person should believe or do; an answer whose check has not passed states them all."),
   caveats: finalizeResearchRetainedOutputSchema.shape.caveats.describe(
     "Sentences the answer shows as written, in the answer's language, under every check status; missing or reworded text does not block."),
+  // Owner answers 170, 173 and 219b, runtime only (owner answer 189a): the findings held apart from a checked card.
+  findings_card: finalizeResearchRetainedOutputSchema.shape.findings_card.extend({
+    held: z.array(z.number().int().min(1).max(5)).optional()
+      .describe("For a checked card whose findings draw on YouTube comments: their places on the card (1 for the " +
+        "first), which AskRigor holds privately for its owner's review and never publishes: by a YouTube video among " +
+        "their sources, community_checked, audited comments behind them, their draws_on_youtube_comments declaration " +
+        "or, after this research read YouTube comments, the lack of one.")
+  }).strict().describe(finalizeResearchRetainedOutputSchema.shape.findings_card.description ?? ""),
+  // Owner answer 221, runtime only (owner answer 189a): whether the meaning judge read this check, for a dev account.
+  meaning_judge: z.object({
+    status: z.enum(["ran", "skipped"]),
+    reason: z.string().optional(),
+    held: z.number().int().nonnegative(),
+    notes: z.number().int().nonnegative()
+  }).strict().optional()
+    .describe("For the owner's dev accounts, once the check passes: whether the meaning judge read the answer, how " +
+      "many findings it held as resting on YouTube comments, and how many notes it added. It never blocks."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1545,6 +1569,11 @@ export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchem
 export interface FinalizeResearchOptions {
   secret: string | undefined;
   secondReading?: { status: "ran"; findings: SecondReaderFinding[] } | { status: "skipped"; reason: string };
+  /**
+   * The meaning judge's reading of this check's earlier pass (owner answer 221, dev accounts only): notes for the AI,
+   * and the findings it reads as resting on YouTube comments, which are held. It never blocks.
+   */
+  meaningJudgment?: MeaningJudgment;
   now?: () => Date;
   // Rule, module and case names from the canonical protocols, which the answer
   // must not show (the rerun's answer headed its prompt with one).
@@ -1830,13 +1859,23 @@ export function finalizeResearch(
     .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
   const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
-  const searchDepth = forumSearchReceipts.length === 0 ? "" : ` AskRigor's searches found ${forumFound.size} ${forumFound.size === 1 ? "thread" : "threads"}.` +
-    (forumSearchReceipts.length >= 2 && forumFound.size < 5
-      ? ` Only ${forumFound.size} turned up in ${forumSearchReceipts.length} searches: if other wordings find no more, say in the answer that few threads exist.` : "");
+  // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
+  // A full page without a next page, or a receipt from before, leaves it unknown, and then the threads found are a
+  // count of pages, not how many there are (#394's run: 138 of 148 searches returned exactly 7, none with a next page).
+  const searchPages = forumSearchReceipts.map(({ claims }) => text(claims.more));
+  const foundThreads = `${forumFound.size} ${forumFound.size === 1 ? "thread" : "threads"}`;
+  const searchDepth = forumSearchReceipts.length === 0 ? ""
+    : searchPages.every((more) => more === "0")
+      ? ` AskRigor's searches found ${foundThreads}.` + (forumSearchReceipts.length >= 2 && forumFound.size < 5
+        ? ` Only ${forumFound.size} turned up in ${forumSearchReceipts.length} searches: if other wordings find no more, say in the answer that few threads exist.` : "")
+      : ` AskRigor's searches listed ${foundThreads} on the result pages read${searchPages.includes("1") ? ", and more pages exist" : ""}: in the answer, give that as the threads those pages listed, not as how many there are.`;
   const forumSearches = (input.community_searches ?? []).filter(({ platform, access_boundary }) =>
     platform !== "review_site" && access_boundary !== "supplied_by_user");
   if (forumSearches.length > 0) {
-    const threads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
+    // Each thread once, by its comparable link, whether declared or read by the reader with a verified receipt: in #394's
+    // run, l49-b-label declared the 3 threads it classified of the 9 the reader read, and the note counted 3.
+    const threads = new Set([...forumSearches.flatMap(({ threads_read }) =>
+      threads_read.map(({ url }) => forumThreadDigest(url))), ...forumReadUrls]);
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
     if (threads.size === 0) {
@@ -1904,6 +1943,7 @@ export function finalizeResearch(
   const targetDigest = researchTargetDigest(input.research_target);
   const offTarget: FinalizeResearchOutput["receipts_rejected"] = [];
   const offTargetVideos = new Set<string>();
+  let directlyReadComments = false;
   for (const receipt of verified) {
     const { kind, claims } = receipt;
     if (DISCOVERY_KINDS.has(kind) && text(claims.target) !== targetDigest) {
@@ -1949,6 +1989,7 @@ export function finalizeResearch(
         Number(text(claims.shown) || text(claims.records)),
         text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
+    if (kind === "youtube_comments_read") directlyReadComments = true;
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
       // survey; each material video still needs its own video audit.
@@ -1968,6 +2009,8 @@ export function finalizeResearch(
     ...[...audited].filter(([, audit]) => audit.records > 0).map(([video]) => video),
     ...communityRead
   ]);
+  // Owner answer 219b: whether this research read YouTube comments, for the findings card, by an audit or outside one.
+  const commentsRead = commentVideos.size > 0 || directlyReadComments;
   const readVideos = new Set([...audited.keys(), ...communityRead]);
   let materialVideos: string[] = [];
   let saturated = false;
@@ -2422,26 +2465,41 @@ export function finalizeResearch(
     const source = sourceIdentifierOf(id);
     return source !== undefined && atlasSources.has(atlasSourceDigest(source));
   };
-  const keyLinks = input.key_sources.map((source) => {
-    const id = normalizeIdentifier(source.id);
+  const sourceLinks = (sourceId: string) => {
+    const id = normalizeIdentifier(sourceId);
     // A PMID's DOI (from its PubMed record receipt) also identifies the study.
     const pubmedDoi = isPmid(id) ? pubmedDois.get(id) : undefined;
     const ids = pubmedDoi === undefined || pubmedDoi === "" ? [id] : [id, pubmedDoi];
     const linkIds = [...new Set([...ids, ...ids.flatMap((candidate) => papers.identifiers(candidate))])];
     return { id, pubmedDoi, ids, linkIds, linkPages: papers.pages(linkIds) };
-  });
-  for (const [index, source] of input.key_sources.entries()) {
-    const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
-    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages);
+  };
+  // The search-result, record, full-text, audit, lead and route-failure receipts naming a source's identifiers or pages.
+  const paperReceipts = ({ linkIds, linkPages }: ReturnType<typeof sourceLinks>): VerifiedReceipt[] => {
     const receiptIds = [...new Set([...linkIds, ...linkPages.values()].map(normalizeIdentifier))];
-    const sourceReceipts = verified.filter(({ kind, claims }) =>
+    return verified.filter(({ kind, claims }) =>
       (PAPER_TIE_KINDS.has(kind) || kind === "literature_search" || kind === "full_text_lead" ||
         kind === "full_text_route_failure") &&
       [...["id", "doi", "pmid", "pmcid", "url"].map((key) => text(claims[key])), ...list(claims.ids)]
         .some((value) => value !== "" && receiptIds.includes(normalizeIdentifier(value))));
-    if (sourceReceipts.length === 0 && !checkedInAtlas(source.id)) {
+  };
+  // A forum thread read_forum_thread read: its verified forum_thread_read receipt signs the thread's comparable link,
+  // so any link to the same thread matches it (#394's run, 3 Nov: r376-forum-500 and r376-later-phase lost a round each
+  // to threads refused here although their receipts were passed and verified).
+  const threadReadHere = (sourceId: string): boolean =>
+    /^https?:\/\//iu.test(sourceId.trim()) && forumReadUrls.has(forumThreadDigest(sourceId));
+  // What the sources check accepts as a key source's provenance, so no note asks for a source it would refuse.
+  const foundHere = (sourceId: string): boolean => paperReceipts(sourceLinks(sourceId)).length > 0 ||
+    checkedInAtlas(sourceId) || threadReadHere(sourceId);
+  const keyLinks = input.key_sources.map((source) => sourceLinks(source.id));
+  for (const [index, source] of input.key_sources.entries()) {
+    const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
+    const threadRead = threadReadHere(source.id);
+    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages) ||
+      (threadRead && comparableUrl(link) === comparableUrl(source.id));
+    const sourceReceipts = paperReceipts(keyLinks[index]!);
+    if (sourceReceipts.length === 0 && !checkedInAtlas(source.id) && !threadRead) {
       // A source no AskRigor tool can look up would otherwise hold the check until its round limit (case r329, 28 Oct).
-      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead or route-failure research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
+      addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead, route-failure or forum-thread research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID, read_forum_thread reads a forum thread). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
     }
     const audited = sourceReceipts.some(({ kind }) => kind === "study_audit" || kind === "review_audit");
     const read = audited || sourceReceipts.some(({ kind }) => kind === "full_text_read");
@@ -2499,6 +2557,8 @@ export function finalizeResearch(
       validatedSources.push(source.id);
       continue;
     }
+    // A thread AskRigor's reader read is a community source, cited by its link: no full text, audit or lead applies.
+    if (threadRead) continue;
     if (ids.some((candidate) => leadIds.has(candidate))) {
       if (needsPubmedCopyAttempt(source.id, id, pubmedDoi, leadAttempts)) continue;
       leadSources.push(source.id);
@@ -2547,23 +2607,19 @@ export function finalizeResearch(
       continue;
     }
     if (isPmid(id) && pubmedDoi === undefined) {
-      addStep("research", 
-        rule`Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.`
-      );
+      addStep("research", joinRules(rule`Fetch PMID ${id} with fetch_pubmed_record and pass its research_receipt, then try `,
+        "acquire_open_full_text: with its DOI when PubMed lists one, and otherwise with the PMID and any PMCID it lists."));
       continue;
     }
     const knownDoi = isDoi(id) ? id : pubmedDoi || papers.identifiers(id).find(isDoi);
     if (knownDoi === undefined) {
-      // The tool requires a DOI even when PMC hosts an open copy. Never ask for an identifier we do not have.
-      leadSources.push(source.id);
-      if (source.other_route === "read") {
-        readThroughOtherTool(source.id, id);
-        continue;
-      }
-      addStep("declaration",
-        joinRules(rule`Cite ${keySourceName(source)} as a lead: ${isPmid(id) ? rule`PubMed lists no DOI` : rule`no DOI is known`}; `, "acquire_open_full_text requires a DOI, so its methods were not audited.")
-      );
-      unreadStudies.set(id, isPmid(id) ? "NO_DOI" : "NO_KNOWN_DOI");
+      // Since #394 acquire_open_full_text fetches a paper by PMCID or PMID, so one without a DOI is tried before it is
+      // cited as a lead, and its lead receipt then gives the real reason it stayed unread. #394's run was still told the
+      // tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI for a paper never tried
+      // (o355-scoped-list). Only identifiers the receipts give are asked for.
+      const pmcid = isPmcid(id) ? id : pmcidFor(id);
+      const by = [...isPmid(id) ? [`pmid ${id}`] : [], ...pmcid === undefined ? [] : [`pmcid ${pmcid}`]].join(" and ");
+      addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text with ${by}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_ID_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id} with ${by} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_RULE}`));
       continue;
     }
     const target = isDoi(id) ? source.id : knownDoi;
@@ -2845,10 +2901,17 @@ export function finalizeResearch(
     const source = keySourceFor(id);
     return source?.answer_marker ?? source?.id ?? id;
   };
+  // A study is asked into key_sources only when the sources check would accept it there: in #393's run and #394's
+  // n389-forum-depth this step asked for a label and a PMC page that the sources check then refused, costing a round.
   const undeclaredStudies = (at: string, studies: readonly string[]): void => {
     const missing = studies.filter((id) => keySourceFor(id) === undefined);
-    if (missing.length > 0) {
-      addStep("declaration", joinRules(rule`${at} rests on ${missing.join(", ")}, which key_sources does not list: add each to key_sources `, "with its read depth and link, so its reading is checked like any key study."));
+    const found = missing.filter(foundHere);
+    const unfound = missing.filter((id) => !foundHere(id));
+    if (found.length > 0) {
+      addStep("declaration", joinRules(rule`${at} rests on ${found.join(", ")}, which key_sources does not list: add each to key_sources `, "with its read depth and link, so its reading is checked like any key study."));
+    }
+    if (unfound.length > 0) {
+      addStep("declaration", joinRules(joinRules(joinRules(rule`${at} rests on ${unfound.join(", ")}, which no receipt passed here shows was found or looked up, so `, "key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, fetch_pubmed_record for a "), "PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass its research_receipt, then add it to key_sources "), "with its read depth and link. A source no AskRigor tool can look up, such as a page only your own search found, is not a key source: say in the answer that AskRigor did not look it up."));
     }
   };
   for (const [index, claim] of (input.safety_claims ?? []).entries()) {
@@ -3223,6 +3286,11 @@ export function finalizeResearch(
     corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
   });
   let cardBases: VerifiedBasis[][] | undefined;
+  // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
+  let heldFindings: number[] = [];
+  // The meaning judge's holds and notes (owner answer 221), added after the check's own notes.
+  const judgeHeld: number[] = [];
+  const judgeNotes: string[] = [];
   // This research's map (owner answer 143a, 2026-10-21): a map this account filed after the research began, by the
   // binding and issue order its research_map receipt signs, is this research's; one filed before it, or by another
   // account, is not. With no research receipt there is no research to have mapped.
@@ -3250,6 +3318,9 @@ export function finalizeResearch(
     : registeredPlainAnswer(verified, options.plainAnswer.account, targetDigest);
   // Each registered claim with what the research found, for the note.
   let compared: ComparedClaim[] | undefined;
+  // The comparison entries the note shows with what backs them, by their place in plain_answer_comparison, which the
+  // meaning judge reads (owner answer 221); an entry the note gives as not checked is not its question.
+  const creditedComparison = new Set<number>();
   if (draft === undefined) {
     requireDeclaration(
       rule`Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.`
@@ -3263,7 +3334,12 @@ export function finalizeResearch(
       materialVideos.length > 0;
     if (findingsOpen(options) && input.findings_card === undefined && !parsed.droppedFindingsCard && citable) {
       requireDeclaration(
-        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.")
+        joinRules(joinRules(joinRules(joinRules(joinRules((options.findings === "save" ? joinRules("Give findings_card with answer_draft: this account's research is saved to AskRigor's findings library for ", "the owner's review.") : joinRules("Give findings_card with answer_draft: the answer offers to save its findings to AskRigor's findings ", "library, and they are saved only if the user says yes.")), " Put in the answer's best findings, none the user corrected, and no personal details, and say in "), "public_value whether they would help anyone beyond this person."), " A public card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers "), "(for an effect, harm or overlooked_option) and searches (for nothing_found), as the findings description "), "says.",
+          // Owner answer 219b: once comments were read, each finding says whether it draws on them.
+          !commentsRead ? "" : joinRules(" This research read YouTube comments, so each finding also gives ",
+            "draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none does; ",
+            "send the card in later_inputs.findings_card. A finding drawing on them, or saying nothing, is held privately ",
+            "for AskRigor's owner and never published."))
       );
     }
     if (input.findings_card !== undefined && findingsOpen(options)) {
@@ -3298,10 +3374,45 @@ export function finalizeResearch(
       if (findingsCard.status === "checked") {
         const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
         cardBases = work.map(basesOf);
+        // Owner answer 219b: a finding drawn from YouTube comments is held privately for the owner's review and never
+        // published. Beside what the card itself shows (a video among its sources, community_checked, audited comments
+        // behind it), that is the AI's declaration, in any language; once this call's receipts show comments were
+        // read, a finding without one is held too, the safe direction, and a note asks for it. One declared false is
+        // saved as before; a declaration of true holds its finding whether or not comments were read here.
+        const findingsInCard = input.findings_card.findings;
+        const heldOtherwise = (index: number) => heldByCardFields(findingsInCard[index]!, cardBases![index]) ||
+          findingsInCard[index]!.draws_on_youtube_comments === true ||
+          (commentsRead && findingsInCard[index]!.draws_on_youtube_comments === undefined);
+        // Owner answer 221: a finding the meaning judge reads as resting on YouTube comments is held too, the safe
+        // direction, whatever its declaration; it judges only when comments were read.
+        const judged = options.meaningJudgment?.status === "ran" && commentsRead ? options.meaningJudgment.youtube : [];
+        for (const { finding: number, rests, why } of judged) {
+          const index = number - 1;
+          if (!rests || index < 0 || index >= findingsInCard.length || heldOtherwise(index)) continue;
+          judgeHeld.push(index);
+          judgeNotes.push(`The meaning judge reads findings_card.findings[${index}] as resting on YouTube comments${because(why)}, ` +
+            "so AskRigor holds it privately for its owner's review and never publishes it, " +
+            (findingsInCard[index]!.draws_on_youtube_comments === false
+              ? "though it declares draws_on_youtube_comments false. If it does draw on them, declare it true."
+              : "as it would a finding declared to draw on them."));
+        }
+        heldFindings = findingsInCard.flatMap((_, index) => heldOtherwise(index) || judgeHeld.includes(index) ? [index] : []);
+        const undeclared = findingsInCard.flatMap((finding, index) => commentsRead &&
+          finding.draws_on_youtube_comments === undefined && !heldByCardFields(finding, cardBases![index]) ? [index] : []);
+        if (undeclared.length > 0) {
+          const one = undeclared.length === 1;
+          notes.push(`This research read YouTube comments, and ${joinNames(undeclared.map((index) =>
+            `findings_card.findings[${index}]`))} ${one ? "does" : "do"} not say whether ${one ? "it draws" : "they draw"} ` +
+            `on them, so AskRigor holds ${one ? "it" : "them"} privately for its owner's review and never publishes ` +
+            `${one ? "it" : "them"}. Give each finding draws_on_youtube_comments: true when any part of it rests on what ` +
+            "commenters wrote, false when none does. Send the whole card, with that field in each finding, in " +
+            "later_inputs.findings_card, and check the answer again.");
+        }
         const beyond = cardBases.filter((bases) => bases.length > 0).length;
         // A checked card has declared whom its findings would help (findingsCardCheck).
         const scope = input.findings_card.public_value!.scope;
-        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope };
+        findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope,
+          ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => index + 1) }) };
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
@@ -3394,14 +3505,16 @@ export function finalizeResearch(
             if (reused !== undefined) notShown(rule`${at}.answer_quote repeats plain_answer_comparison[${reused.index}].answer_quote: one quote backs only one item.`);
             usedQuotes.push({ quote: entry.answer_quote, index });
             if (entry.answer_quote.trimEnd().endsWith(":")) notShown(rule`${at}.answer_quote ends with a colon: give the answer's sentence for this item, rather than its lead-in.`);
-            // A first-turn plain answer was never delivered: its correction is the answer's own sentence, not a
-            // retraction of something the user saw. Confirmed and qualified items name the same research basis.
-            if (!(firstTurn && entry.outcome === "corrected") && !backed) {
+            // A correction names what backs it, as a confirmation or qualification does: #394's run printed an unbacked
+            // first-turn correction as the research's (l32-negative-controls). A first-turn plain answer was never
+            // shown, so its correction is not one the corrections field declares, and the step doesn't ask for that.
+            if (!backed) {
               notShown(joinRules(joinRules(joinRules(rule`${at} is ${entry.outcome} with nothing behind it that a quick answer could not have: give `, "in sources a study audited in full text here, a video whose comments were read here or, for a claim about "), "what people report, a forum thread read here (the link community_searches threads_read gives), or quote as "), firstTurn
                 ? "answer_quote a sentence that absence_claims also declares."
                 : "answer_quote a sentence that absence_claims or corrections (with by_user false) also declare."));
             }
           }
+          if (shown) creditedComparison.add(index);
           found.set(number, !shown ? { claim: entry.claim, outcome: "not_checked" } : {
             claim: entry.claim, outcome: entry.outcome,
             ...(entry.answer_quote === undefined ? {} : { quote: entry.answer_quote }),
@@ -3552,6 +3665,36 @@ export function finalizeResearch(
       "already lists every limit beneath the answer. Keep only those that change what this person should believe " +
       "or do, in your own words, and call finalize_research again with the changed draft.");
   }
+  // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
+  const judgment = options.meaningJudgment;
+  if (judgment !== undefined && passed) {
+    if (judgment.status === "skipped") {
+      judgeNotes.push(`The meaning judge did not run (${MEANING_JUDGE_SKIP_REASONS[judgment.reason] ?? judgment.reason}); ` +
+        "this check is as it would be without it.");
+    } else {
+      // Only an entry the note credits to its work was the judge's question.
+      for (const { item, backed, why } of judgment.comparison) {
+        if (backed || !creditedComparison.has(item - 1)) continue;
+        judgeNotes.push(`The meaning judge doubts that plain_answer_comparison[${item - 1}] is backed by what it names` +
+          `${because(why)}. Name in its sources what shows this change, give the sentence that states what the research ` +
+          "found, or give it as not_checked, and check the answer again.");
+      }
+      for (const { limit, why } of judgment.limits) {
+        const text = limits[limit - 1];
+        if (text === undefined) continue;
+        judgeNotes.push(`The meaning judge reads limits[${limit - 1}] (${JSON.stringify(limitOpening(text))}) as not ` +
+          `applying to this answer${because(why)}. Leave it out of the answer's own words; the panel still lists it.`);
+      }
+      const card = findingsCard.status === "checked" ? input.findings_card : undefined;
+      for (const { finding, standsAlone, why } of judgment.standalone) {
+        if (standsAlone || card?.findings[finding - 1] === undefined) continue;
+        judgeNotes.push(`The meaning judge reads findings_card.findings[${finding - 1}] as not making sense on its own ` +
+          `to a reader of the public Atlas who never saw the question${because(why)}. Rewrite its claim to say what was found, ` +
+          "about what and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.");
+      }
+    }
+    for (const note of judgeNotes) if (!notes.includes(note)) notes.push(note);
+  }
   if (status === "stopped" && saveOfferCaveat !== undefined) {
     const at = caveats.indexOf(saveOfferCaveat);
     if (at >= 0) caveats.splice(at, 1);
@@ -3586,7 +3729,13 @@ export function finalizeResearch(
     answer_checked: draft !== undefined,
     ...(passed && input.answer_draft !== undefined ? { checked_answer: input.answer_draft } : {}),
     ...(secondReading === undefined ? {} : { second_reading: secondReading }),
-    findings_card: findingsCard
+    findings_card: findingsCard,
+    ...(judgment === undefined || !passed ? {} : { meaning_judge: {
+      status: judgment.status,
+      ...(judgment.status === "skipped" ? { reason: judgment.reason } : {}),
+      held: judgeHeld.length,
+      notes: judgeNotes.length
+    } })
   };
   output.round = { number: checkRound.round, limit: CHECK_ROUND_LIMIT };
   if (status === "ready") output.check_line = CHECK_LINE;
@@ -3667,6 +3816,8 @@ export function finalizeResearch(
         ? {
             findings: findingsCardDigest(input.findings_card),
             ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) }),
+            // Owner answer 219b: the save holds these findings apart, by their places on the card, 1 for the first.
+            ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => String(index + 1)) }),
             ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) })
           }
         : {}),
@@ -3691,7 +3842,62 @@ export function finalizeResearch(
   if (checkRound?.status === "open") {
     output.round_token = checkRound.token;
   }
-  return finalizeResearchOutputSchema.parse(output);
+  const parsedOutput = finalizeResearchOutputSchema.parse(output);
+  // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
+  if (passed && draft !== undefined) {
+    MEANING_JUDGE_SOURCES.set(parsedOutput, {
+      answer: input.answer_draft ?? draft,
+      commentsRead,
+      ...(findingsCard.status === "checked" && input.findings_card !== undefined ? { card: input.findings_card } : {}),
+      // Each entry the note credits, with what the check accepted its sentence as, exactly: a declared search that found
+      // nothing, or a correction the research found, which backs an entry that names no source.
+      ...(plainAnswer?.status === "registered" && input.plain_answer_comparison !== undefined
+        ? { comparison: input.plain_answer_comparison.flatMap((entry, place) => {
+            if (!creditedComparison.has(place)) return [];
+            const quote = entry.answer_quote;
+            const result = quote === undefined ? undefined
+              : absenceClaims.some(({ quote: claimed }, index) => acceptedAbsences.has(index) && sameQuote(quote, claimed))
+                ? "not_found" as const
+                : (input.corrections ?? []).some(({ change, by_user }) => by_user === false && sameQuote(quote, change))
+                  ? "correction" as const : undefined;
+            return [{ ...entry, number: place + 1, ...(result === undefined ? {} : { researchResult: result }) }];
+          }) } : {}),
+      keySources: input.key_sources,
+      limits: [...parsedOutput.limits]
+    });
+  }
+  return parsedOutput;
+}
+
+// What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
+// result object.
+const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
+
+/** What the meaning judge may read of this result's check: a passing check with a draft only. */
+export function meaningJudgeSourceOf(result: FinalizeResearchOutput): MeaningJudgeSource | undefined {
+  return MEANING_JUDGE_SOURCES.get(result);
+}
+
+// Why the meaning judge did not run, as its note says it.
+const MEANING_JUDGE_SKIP_REASONS: Readonly<Record<string, string>> = {
+  off: "it is off",
+  daily_budget: "its daily cap is reached",
+  error: "the call failed",
+  timeout: "it timed out",
+  refusal: "the model declined",
+  unreadable: "its reply could not be read"
+};
+
+/** The meaning judge's reason, as its note gives it: " (reason)", or nothing when it gave none. */
+function because(why: string): string {
+  const reason = why.replace(/[.\s]+$/u, "");
+  return reason === "" ? "" : ` (${reason})`;
+}
+
+/** A limit's opening words, to name it in a note: at most twelve words. */
+function limitOpening(text: string): string {
+  const words = text.replace(/\s+/gu, " ").trim().split(" ");
+  return words.length <= 12 ? words.join(" ") : `${words.slice(0, 12).join(" ")}…`;
 }
 
 /**
@@ -4228,8 +4434,10 @@ const PLAIN_ANSWER_REASONS = {
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
     `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
   after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
-    "cannot show what a quick answer would have said, and the answer ends without the note. For a later question, " +
-    "register its plain answer before researching it, and pass only receipts issued after it.",
+    "cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for this " +
+    "research target was registered before the research began, pass its research_receipt with the others: the check " +
+    "compares that one. For a later question, register its plain answer before researching it, and pass only receipts " +
+    "issued after it.",
   note_off: "This account has turned off the note comparing the answer with its plain answer, so the answer ends " +
     "without it; manage_research_access with action set_plain_answer_note turns it back on."
 } as const;
@@ -4255,10 +4463,13 @@ export function sentencesOf(text: string): (claim: string) => boolean {
   return (claim) => statesCaveat(blocks, claim);
 }
 
-/** Text in quotation marks, exactly as given, ending its sentence. */
+/**
+ * Text in quotation marks, exactly as given, ending its sentence. A sentence may end inside closing brackets, quotation
+ * marks or Markdown emphasis: a bolded quote's "**" after its full stop drew a stray period in #394's run.
+ */
 function quotation(text: string): string {
   const quoted = text.trim();
-  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"']*$/u.test(quoted) ? "" : "."}`;
+  return `\u201C${quoted}\u201D${/\p{STerm}[\p{Pe}\p{Pf}"'*_]*$/u.test(quoted) ? "" : "."}`;
 }
 
 /**
@@ -4433,14 +4644,6 @@ const UNREAD_STUDY_REASONS: Readonly<Record<string, readonly [string, string]>> 
   OTHER_TOOL: [
     "One key study, {links}, was read through another tool, not audited by AskRigor",
     "Key studies {links} were read through another tool, not audited by AskRigor"
-  ],
-  NO_DOI: [
-    "AskRigor could not fetch the full text of {links}, which PubMed lists without a DOI",
-    "AskRigor could not fetch the full texts of {links}, which PubMed lists without DOIs"
-  ],
-  NO_KNOWN_DOI: [
-    "AskRigor could not fetch the full text of {links}: its full-text tool requires a DOI and none was known",
-    "AskRigor could not fetch the full texts of {links}: its full-text tool requires a DOI and none was known"
   ],
   ABSTRACT_ONLY: ["Only the abstract of {links} was readable", "Only the abstracts of {links} were readable"],
   PARTIAL_TEXT_READABLE: ["AskRigor could read only part of {links}", "AskRigor could read only part of {links}"],
@@ -5059,6 +5262,22 @@ function boundaryCaveat(name: string, boundary: NonNullable<CommunitySearch["acc
   }
 }
 
+/**
+ * A boundary's limit for a community whose threads the reader read here: some pages stayed unread, and only their
+ * reports are left out. Undefined for a boundary that leaves out no reports (no relevant results, reports supplied).
+ */
+function pagesLeftCaveat(name: string, boundary: NonNullable<CommunitySearch["access_boundary"]>): string | undefined {
+  const starts: Partial<Record<typeof boundary, string>> = {
+    no_web_search: "Part of a community I read could not be searched from this app:",
+    login_required: "Some pages of a community I read need a login to read:",
+    blocked: "Some pages of a community I read blocked access:",
+    retrieval_failed: "Some pages of a community I read could not be retrieved:",
+    not_found: "Some pages of a community I read could not be found:"
+  };
+  const start = starts[boundary];
+  return start === undefined ? undefined : `${completedCaveat(start, name)} Reports on those pages are not included.`;
+}
+
 function forumLane(search: CommunitySearch): string {
   const read = search.review_corpora === undefined
     ? `${search.threads_read.length} thread(s) read`
@@ -5127,6 +5346,13 @@ function communityCoverage(
   if (youtubeResearched) {
     searched.set("youtube", communities.find(({ platform }) => platform === "youtube")?.name ?? "YouTube");
   }
+  // Communities with a thread the reader read here, by a verified receipt: an access boundary declared there stopped
+  // some of their pages, not their reports. In #394's run the panel said "Reports there are not included" of
+  // communities the answer used: q120-sleep-inside-outside's second turn declared a busy read as a second, blocked
+  // entry beside four threads read, and q135-low-stakes declared a thread read and retrieval_failed in one entry.
+  const readByReader = new Set((input.community_searches ?? []).filter(({ threads_read }) =>
+    threads_read.some(({ url }) => forumReadUrls.has(forumThreadDigest(url))))
+    .map(({ community, platform }) => communityKey(community, platform)));
   for (const search of input.community_searches ?? []) {
     const name = search.community;
     if (search.platform === "review_site" && search.report_identity !== undefined) {
@@ -5299,9 +5525,10 @@ function communityCoverage(
     if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary === "not_found" || search.access_boundary === "supplied_by_user") unsearched.add(key);
     if (search.access_boundary !== undefined) {
+      const pagesLeft = readByReader.has(key) ? pagesLeftCaveat(name, search.access_boundary) : undefined;
       out.requireLimit(
-        search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
-        boundaryCaveat(name, search.access_boundary)
+        pagesLeft !== undefined ? rule`Some pages of ${name}, a community read here, stopped at an access boundary (${search.access_boundary}); say so.` : search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
+        pagesLeft ?? boundaryCaveat(name, search.access_boundary)
       );
     }
     if (search.threads_read.length === 0) continue;

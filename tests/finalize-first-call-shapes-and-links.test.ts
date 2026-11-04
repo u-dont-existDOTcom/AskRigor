@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch, finalizeResearchInputSchema,
-  TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  forumThreadDigest, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
@@ -253,5 +253,45 @@ describe("key-study links written inside parentheses (the 30 Oct rerun)", () => 
       [{ id: "Tiwari2008", status: "validated" as const, read_depth: "partial_text" as const, answer_marker: "Trial" }]);
     expect(steps.join(" ")).toContain("Key study Tiwari2008 has no link in the answer; link it to the page AskRigor's tools returned.");
     expect(steps.join(" ").toLowerCase()).not.toContain("doi.org/tiwari2008");
+  });
+});
+
+// #394's run (3 Nov): r376-forum-500 and r376-later-phase listed threads read_forum_thread had read as key sources, and
+// the sources check refused each as having "no receipt showing it was found or looked up", although its verified
+// forum_thread_read receipt was passed; each run lost a round dropping them.
+describe("threads AskRigor's forum reader read, as key sources (#394's run)", () => {
+  const THREAD = "https://www.reddit.com/r/Synthetic/comments/abc123/";
+  const PAGE = "https://forum.example/threads/synthetic-fasting.42/";
+  const read = (url: string) => sign("forum_thread_read", { u: forumThreadDigest(url), n: 12, v: "reddit" });
+  const threadSources = (...urls: string[]) => [...base().key_sources, ...urls.map((url, index) => ({
+    id: url, status: "lead_only" as const, read_depth: "partial_text" as const, answer_marker: `Thread ${index + 1}`
+  }))];
+  const draft = (...links: string[]) => [`[Trial](https://doi.org/${DOI}) was read.`,
+    ...links.map((link, index) => `[Thread ${index + 1}](${link}) was read too.`)].join("\n\n");
+
+  it("accepts a thread whose forum_thread_read receipt was passed, by any link to the same thread", () => {
+    const result = check({ receipts: [audit, read(THREAD), read(PAGE)], key_sources: threadSources(THREAD, PAGE),
+      answer_draft: draft(`https://old.reddit.com/r/synthetic/comments/abc123/a_title_slug/`, `${PAGE}page-2`) });
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready_with_limits");
+    // A thread is a community source: it is not asked for a DOI, a full-text fetch or a lead's reason.
+    expect(advisoryNotes(result).join(" ")).not.toMatch(/Identify https|acquire_open_full_text for https|as a lead/u);
+    expect(result.sources).toEqual({ validated: [DOI], lead_only: [] });
+  });
+
+  it("still refuses a thread with no reader receipt, and names the receipt that would show it", () => {
+    const result = check({ receipts: [audit, read(PAGE)], key_sources: threadSources(THREAD), answer_draft: draft(THREAD) });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([`Key source ${THREAD} has no receipt showing it was found or looked up in this ` +
+      "research: pass its search-result, record, full-text, audit, lead, route-failure or forum-thread research_receipt " +
+      "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID, read_forum_thread reads a forum thread). A source no " +
+      "AskRigor tool can look up, such as a page without a DOI that only your own search found, is not a key source: " +
+      "leave it out of key_sources, and say in the answer that AskRigor did not look it up."]);
+  });
+
+  it("asks for a link to the thread itself, not to another one", () => {
+    const steps = check({ receipts: [audit, read(THREAD)], key_sources: threadSources(THREAD),
+      answer_draft: draft("https://www.reddit.com/r/Synthetic/comments/zzz999/") }).next_steps;
+    expect(steps).toEqual([`Key study ${THREAD} has no link in the answer; link it to the page AskRigor's tools returned, such as ${THREAD}.`]);
   });
 });

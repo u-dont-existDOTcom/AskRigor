@@ -139,7 +139,11 @@ Calibration remains CLOSED_BLOCKED; no further browser diagnostic is authorized.
 No new screenshot, upload, probe, generation, evaluation, rescoring,
 or alteration of historical evidence or attempt counts is authorized here.
 Reasoning Selection implementation and lesson promotion remain separate.
-Paid model API inference remains forbidden; the external spend ceiling is USD 0.
+Paid model API inference remains forbidden; the external spend ceiling is USD 0,
+except on the paths owner answer 221 (2 November 2026) names: Claude API inference
+for the meaning judge on the owner's dev accounts and for trying an AskRigor web
+app, funded by the owner's monthly Claude API credits
+(`governance/chat-work-authority-policy.json`).
 Internal supervisory routing must not require owner relay.
 
 ## Recovery references

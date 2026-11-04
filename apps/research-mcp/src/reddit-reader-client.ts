@@ -7,14 +7,48 @@ import { ErrorCode, McpError, type CallToolResult } from "@modelcontextprotocol/
 import { redditPostId } from "@askrigor/sources";
 import { z } from "zod";
 
-const DEADLINE_MS = 45_000;
+// A call ends within this, its wait for its turn included, so it answers before the strictest client limit the
+// repository records: Claude waits 60 seconds for a tool (docs/superpowers/plans/2026-09-26-instruction-optimization.md).
+const DEADLINE_MS = 50_000;
+// How long a call waits for its turn before it answers busy with a retry hint. Waiting adds no load on Reddit, and the
+// host gets one request at a time (owner answer 213b), so a second request at once is never sent. Before, a call
+// waited up to 45 seconds and then read for up to 45 more: #394's run lost seven parallel reads of q128-oral-liver,
+// all busy at once, with nothing to say when to try again.
+const START_WAIT_MS = 10_000;
+// About how long one call holds the line, for the retry hint: a 34-comment thread was read in 7 seconds on 1 Nov.
+const TYPICAL_CALL_MS = 10_000;
 const MAXIMUM_MORE_LENGTH = 1_000_000;
 const MAXIMUM_COMMENT_CHARACTERS = 100_000;
 const IDLE_MS = 5 * 60_000;
+/**
+ * The page a search asks the host for. Without a size the host returned 7 threads (#394's run: 138 of 148 searches,
+ * none with a next page), so "found" counted a page and could not tell a niche topic from a busy one. 25 is Reddit's
+ * own default page (its maximum is 100): a fuller page without asking Reddit for more than one, and 25 titles leave
+ * the AI a choice without filling its context. The host's next-page token gives the next 25.
+ */
+export const SEARCH_PAGE_SIZE = 25;
 const SORT = ["relevance", "hot", "top", "new", "comments"] as const;
 const TIME = ["hour", "day", "week", "month", "year", "all"] as const;
+// Every call this process sends the host, sessions alike, in order: the first runs and the rest wait their turn.
 let readerTurn = Promise.resolve();
-type FailureState = "not_found" | "invalid" | "unavailable" | "busy";
+const line: object[] = [];
+type FailureState = "not_found" | "invalid" | "unavailable" | "busy" | "not_available" | "blocked";
+/**
+ * The host's failure codes, taken from its browser reader's source, and the states they give. A code not listed stays
+ * unavailable. Each result names its code (host_code), so the AI's note and a run's logs say what the host answered: on
+ * 2 Nov reads and searches failed within 1.5 seconds for minutes at a time, and every one said only "unavailable".
+ */
+const HOST_FAILURES: ReadonlyMap<string, FailureState> = new Map([
+  ["THREAD_NOT_RENDERED", "not_found"], ["INVALID_INPUT", "invalid"],
+  // Only the host's operator can clear these: its Reddit sign-in has lapsed (3 Nov), Reddit wants a human check (as at
+  // the first sign-in), or its browser can't start.
+  ["LOGIN_REQUIRED", "not_available"], ["HUMAN_CHECK_REQUIRED", "not_available"], ["BROWSER_UNAVAILABLE", "not_available"],
+  // Another client holds the host's one browser: the host reads one page at a time, for every client.
+  ["BROWSER_BUSY", "busy"],
+  // Reddit refuses the read: its network-security block page, or a private community.
+  ["ACCESS_DENIED", "blocked"], ["NOT_PUBLIC", "blocked"]
+]);
+const HOST_CODE = /^[A-Z][A-Z0-9_]{1,63}$/u;
 export interface RedditReaderComment {
   id: string; parent_id: string; depth: number; person?: string; is_original_poster: boolean;
   text: string | null; removed: boolean; collapsed: boolean; score: number; created: string | number; url: string;
@@ -23,6 +57,10 @@ export interface RedditThreadResult {
   access_state: "read" | FailureState; url: string; community?: string; title?: string; created?: string | number;
   post_text?: string; comments?: RedditReaderComment[]; thread_comment_count?: number;
   comments_read?: number; comments_without_text?: number; truncated?: boolean; more?: string;
+  /** With busy: about how long the calls ahead of it should take. */
+  retry_after_seconds?: number;
+  /** With a failure the host reported: its code, never its message. */
+  host_code?: string;
 }
 export interface RedditSearchInput {
   query: string; subreddit?: string; sort?: typeof SORT[number]; time?: typeof TIME[number]; after?: string;
@@ -30,6 +68,10 @@ export interface RedditSearchInput {
 export interface RedditSearchResult {
   access_state: "searched" | FailureState;
   threads: { url: string; subreddit: string; title: string }[]; returned: number; after?: string;
+  /** With busy: about how long the calls ahead of it should take. */
+  retry_after_seconds?: number;
+  /** With a failure the host reported: its code, never its message. */
+  host_code?: string;
 }
 export interface RedditReaderClient {
   readThread(url: string, more?: string): Promise<RedditThreadResult>;
@@ -37,8 +79,13 @@ export interface RedditReaderClient {
   close(): Promise<void>;
 }
 class ReaderError extends Error {
-  constructor(readonly code: FailureState) { super(`Reddit reader ${code}`); }
+  constructor(readonly code: FailureState, readonly retryAfterSeconds?: number, readonly hostCode?: string) { super(`Reddit reader ${code}`); }
 }
+/** A failure as a result: busy carries its retry hint, and a failure the host reported its code. */
+const failure = (error: unknown) => error instanceof ReaderError
+  ? { access_state: error.code, ...(error.retryAfterSeconds === undefined ? {} : { retry_after_seconds: error.retryAfterSeconds }),
+    ...(error.hostCode === undefined ? {} : { host_code: error.hostCode }) }
+  : { access_state: "unavailable" as const };
 const timestamp = z.union([z.string(), z.number().finite()]);
 const token = z.string().min(1).max(64_000);
 const postSchema = z.object({
@@ -132,15 +179,23 @@ export function createRedditReaderClient(options: {
       catch { throw new ReaderError("unavailable"); }
     }
     if (result.isError) {
-      const failure = z.object({ error: z.object({ code: z.string(), message: z.string() }) }).safeParse(data);
-      throw new ReaderError(failure.success && failure.data.error.code === "THREAD_NOT_RENDERED" ? "not_found"
-        : failure.success && failure.data.error.code === "INVALID_INPUT" ? "invalid" : "unavailable");
+      const reported = z.object({ error: z.object({ code: z.string(), message: z.string(),
+        retry_after_seconds: z.number().finite().optional() }) }).safeParse(data);
+      const error = reported.success ? reported.data.error : undefined;
+      // Only a code's name passes on, never the host's message.
+      const code = error !== undefined && HOST_CODE.test(error.code) ? error.code : undefined;
+      const state = (code === undefined ? undefined : HOST_FAILURES.get(code)) ?? "unavailable";
+      throw new ReaderError(state, state === "busy" ? Math.min(120, Math.max(5, Math.ceil(error?.retry_after_seconds ?? 5)))
+        : undefined, code);
     }
     const parsed = schema.safeParse(data);
     if (!parsed.success) throw new ReaderError("unavailable");
     return parsed.data;
   };
   const queued = async <T>(work: (signal: AbortSignal, end: number) => Promise<T>): Promise<T> => {
+    const end = Date.now() + (options.deadlineMs ?? DEADLINE_MS);
+    const place = {};
+    line.push(place);
     const previous = readerTurn;
     let release!: () => void;
     const done = new Promise<void>((resolve) => { release = resolve; });
@@ -149,15 +204,18 @@ export function createRedditReaderClient(options: {
     let admitted = false;
     try {
       admitted = await Promise.race([previous.then(() => true), new Promise<boolean>((resolve) => {
-        waiting = setTimeout(() => resolve(false), options.busyWaitMs ?? DEADLINE_MS);
+        waiting = setTimeout(() => resolve(false), Math.min(options.busyWaitMs ?? START_WAIT_MS, end - Date.now()));
       })]);
       clearTimeout(waiting);
-      if (!admitted) throw new ReaderError("busy");
+      // Each call still ahead, the running one included, holds the line about TYPICAL_CALL_MS.
+      if (!admitted) {
+        throw new ReaderError("busy", Math.min(120, Math.max(5, Math.ceil(line.indexOf(place) * TYPICAL_CALL_MS / 1_000))));
+      }
       clearTimeout(idleTimer);
-      const duration = options.deadlineMs ?? DEADLINE_MS;
-      return await work(AbortSignal.timeout(duration), Date.now() + duration);
+      return await work(AbortSignal.timeout(Math.max(0, end - Date.now())), end);
     } finally {
       clearTimeout(waiting);
+      line.splice(line.indexOf(place), 1);
       release();
       if (admitted && connection !== undefined) idleTimer = setTimeout(() => { void close(); }, options.idleMs ?? IDLE_MS);
       idleTimer?.unref?.();
@@ -171,12 +229,12 @@ export function createRedditReaderClient(options: {
           sort: z.enum(SORT).optional(), time: z.enum(TIME).optional(), after: token.optional() }).safeParse(input);
         if (!request.success) throw new ReaderError("invalid");
         return await queued(async (signal, end): Promise<RedditSearchResult> => {
-          const result = await call("search_reddit", request.data, searchSchema, signal, end);
+          const result = await call("search_reddit", { ...request.data, limit: SEARCH_PAGE_SIZE }, searchSchema, signal, end);
           const threads = result.posts.map(({ url, subreddit, title }) => ({ url, subreddit, title }));
           return { access_state: "searched", threads, returned: threads.length, ...(result.next_page_token === null ? {} : { after: result.next_page_token }) };
         });
       } catch (error) {
-        return { access_state: error instanceof ReaderError ? error.code : "unavailable", threads: [], returned: 0 };
+        return { ...failure(error), threads: [], returned: 0 };
       }
     },
     async readThread(url, more) {
@@ -251,7 +309,7 @@ export function createRedditReaderClient(options: {
             truncated: incomplete || next !== undefined || (pending === undefined && values.length < post.comment_count),
             ...(next === undefined ? {} : { more: next }) };
         });
-      } catch (error) { return { access_state: error instanceof ReaderError ? error.code : "unavailable", url }; }
+      } catch (error) { return { ...failure(error), url }; }
     }
   };
 }

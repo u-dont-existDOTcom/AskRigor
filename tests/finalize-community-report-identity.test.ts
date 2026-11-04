@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
+  finalizeResearch, finalizeResearchInputSchema, forumThreadDigest, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
@@ -250,6 +250,32 @@ describe("communities named by the user and the visible check line", () => {
     input.principal_communities!.push({ name: "r/Nootropics", platform: "reddit", named_by_user: true },
       { name: "Facebook", platform: "facebook", named_by_user: true });
     expect(advisoryNotes(checked(input))).toEqual(expect.arrayContaining([step("r/Nootropics"), step("Facebook")]));
+  });
+  // #394's run: the panel said "Reports there are not included" of communities the answer used. q120-sleep-inside-outside's
+  // second turn declared a busy read as a second, blocked entry beside four threads read there, and q135-low-stakes
+  // declared a thread read and retrieval_failed in one entry.
+  it("gives a community the reader read here a limit for its unread pages, not one leaving out its reports", () => {
+    const read = (url: string) => sign("forum_thread_read", { u: forumThreadDigest(url), n: 1_500, v: "page" });
+    const boundaries = (input: FinalizeResearchInput): FinalizeResearchInput => {
+      const [first, second] = input.community_searches!;
+      return { ...input, community_searches: [{ ...first!, access_boundary: "retrieval_failed" }, second!,
+        { community: second!.community, platform: "forum", queries: [TARGET], threads_read: [], access_boundary: "blocked",
+          url: "https://forum1.example/" }] };
+    };
+    const plain = base();
+    const readHere = boundaries({ ...plain, receipts: [...plain.receipts,
+      ...plain.community_searches!.map(({ threads_read }) => read(threads_read[0]!.url))] });
+    const result = checked(readHere);
+    expect(result.status, advisoryNotes(result).join("\n")).toBe("ready_with_limits");
+    expect(result.limits).toContain("Some pages of a community I read could not be retrieved: Mineral Forum. Reports on " +
+      "those pages are not included.");
+    expect(result.limits).toContain("Some pages of a community I read blocked access: Longevity Forum. Reports on those " +
+      "pages are not included.");
+    expect(result.limits.join(" ")).not.toContain("Reports there are not included");
+    // A thread declared read without the reader's receipt keeps the community's own boundary limit.
+    const declared = checked(boundaries(base()));
+    expect(declared.limits).toContain("A community whose pages could not be retrieved: Mineral Forum. Reports there are not included.");
+    expect(declared.limits).toContain("A community that blocked access: Longevity Forum. Reports there are not included.");
   });
   it("records a named community that cannot be found without an address, as no discussion pool (22 Oct, book cases)", () => {
     const ghost: Search = { community: "Ghost Forum", platform: "forum", queries: ["Ghost Forum form A"], threads_read: [],

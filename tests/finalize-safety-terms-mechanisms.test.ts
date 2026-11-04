@@ -109,9 +109,21 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
       "safety_claims[0] has basis comparative_rates without measured_exposure: give what the cited evidence measured " +
         "and the key sources it rests on, or, when no source here gives a rate, declare basis not_quantified."
     ]);
-    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted"] })] })).toEqual([
+    // Looked up here, it is asked into key_sources; not looked up, it is asked for its lookup first, since the sources
+    // check would refuse it in key_sources (n389-forum-depth on #394's build: a label and a PMC page, refused there).
+    const resolved = sign("doi_resolution", { doi: "10.1000/unlisted", url: "https://journal.example/unlisted" });
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted"] })],
+      receipts: [...base().receipts, resolved] })).toEqual([
       "safety_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to key_sources with its " +
         "read depth and link, so its reading is checked like any key study."
+    ]);
+    const label = "https://labels.example/drug?setid=synthetic";
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted", label] })] })).toEqual([
+      `safety_claims[0] rests on 10.1000/unlisted, ${label}, which no receipt passed here shows was found or looked up, ` +
+        "so key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, fetch_pubmed_record " +
+        "for a PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass its research_receipt, " +
+        "then add it to key_sources with its read depth and link. A source no AskRigor tool can look up, such as a page " +
+        "only your own search found, is not a key source: say in the answer that AskRigor did not look it up."
     ]);
   });
 
@@ -216,8 +228,12 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
       mechanism_claims: [{
         quote: QUOTE, use_route: "oral", evidence_route: "oral", evidence_in: "people", studies: ["10.1000/unlisted"]
       }]
-    })).toEqual(["mechanism_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to " +
-      "key_sources with its read depth and link, so its reading is checked like any key study."]);
+    })).toEqual(["mechanism_claims[0] rests on 10.1000/unlisted, which no receipt passed here shows was found or " +
+      "looked up, so key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, " +
+      "fetch_pubmed_record for a PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass " +
+      "its research_receipt, then add it to key_sources with its read depth and link. A source no AskRigor tool can " +
+      "look up, such as a page only your own search found, is not a key source: say in the answer that AskRigor did " +
+      "not look it up."]);
     expect(finalizeResearchInputSchema.safeParse({
       ...base(), mechanism_claims: [{
         quote: QUOTE, use_route: "by mouth", evidence_route: "oral", evidence_in: "people", studies: [RAT]
