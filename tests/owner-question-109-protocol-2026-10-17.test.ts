@@ -179,7 +179,7 @@ const load = async (protocol: "hrp" | "universal") =>
 const undo109 = async (protocol: "hrp" | "universal") =>
   (protocol === "hrp" ? undoOwnerQuestion109Hrp : undoOwnerQuestion109Universal)(await loadCurrent(protocol));
 const CURRENT = {
-  hrp: { version: "20.6.37", revisionDate: "2026-11-04", sha256: "1cbae5f9494732697e742f034833ebdd218117008741df3223b8d860ebb6aef0" },
+  hrp: { version: "20.6.37", revisionDate: "2026-11-04", sha256: "b4acbe381c8a716e34deaccc9789ab611c9c2dd8c3d9a65a9c9e382522aded68" },
   universal: { version: "20.5.46", revisionDate: "2026-10-21", sha256: "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e" },
 } as const;
 interface Edits {

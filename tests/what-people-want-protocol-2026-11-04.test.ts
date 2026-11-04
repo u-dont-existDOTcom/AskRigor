@@ -8,11 +8,11 @@ import { undoForumReaderHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-d
 const FIXTURE = "./fixtures/protocol-edits/2026-11-04-what-people-want-hrp.json";
 const PINS = {
   from: { version: "20.6.36", sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa" },
-  to: { version: "20.6.37", sha256: "1cbae5f9494732697e742f034833ebdd218117008741df3223b8d860ebb6aef0" },
+  to: { version: "20.6.37", sha256: "b4acbe381c8a716e34deaccc9789ab611c9c2dd8c3d9a65a9c9e382522aded68" },
 } as const;
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const RULES = ["SourceLineBesideKeyClaim", "CountsOutOf100WithEvidenceGrade", "BottomLineEvenWhenUncertain",
-  "DoubtInFirstPerson", "WhenCareIsOutOfReach", "TestItYourselfEnding"];
+  "DoubtInFirstPerson", "WhenCareIsOutOfReach", "TestItYourselfEnding", "FindingsCardForAPerson"];
 
 describe("owner answer 237a: HRP 20.6.37", () => {
   it("adds its rules to OutputFormatting and its mode to AnswerShapeController, outside the core", async () => {
@@ -33,6 +33,12 @@ describe("owner answer 237a: HRP 20.6.37", () => {
       "PatientHistoryAndRecurrenceEvidenceGate"]) expect(text).toContain(name);
     expect(text).toContain("finalize_research's later_inputs.source_lines");
     expect(text.replace(/\s+/gu, " ")).toContain("Say who paid for each key study");
+  });
+
+  it("keeps a person's list as branches, and aims past what they tried and past the quick answer", async () => {
+    const step = (await loadProtocol("hrp")).match(/<Step id="RO2" name="QuestionDecomposition">([\s\S]*?)<\/Step>/u)?.[1];
+    expect(step).toContain("Treat the symptoms, diagnoses and treatments a person lists as branches to search");
+    expect(step).toContain("aim the research past that and past the quick answer");
   });
 
   it("leaves every core section byte for byte unchanged", async () => {
@@ -68,7 +74,7 @@ describe("owner answer 237a: HRP 20.6.37", () => {
     };
     expect(fixture.hrp.from).toEqual(PINS.from);
     expect(fixture.hrp.to).toEqual(PINS.to);
-    expect(fixture.hrp.edits).toHaveLength(5);
+    expect(fixture.hrp.edits).toHaveLength(6);
     const rebuilt = fixture.hrp.edits.reduce((value, [before, after]) => {
       expect(value.split(before), before.slice(0, 80)).toHaveLength(2);
       return value.replace(before, () => after);

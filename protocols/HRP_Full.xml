@@ -52,10 +52,12 @@
 
  <RevisionHistory>
   <Revision version="20.6.37" priority="Critical">
-   Owner answer 237a of 4 November 2026, from the report on what people want from AI answers, outside the core, which is
-   unchanged. OutputFormatting gains SourceLineBesideKeyClaim, CountsOutOf100WithEvidenceGrade,
-   BottomLineEvenWhenUncertain, DoubtInFirstPerson, WhenCareIsOutOfReach and TestItYourselfEnding; AnswerShapeController
-   gains the what_could_this_be mode; and StudyReadDepthDisclosure says who paid for each key study, or that the paper
+   Owner answer 237a of 4 November 2026, from the report on what people want from AI answers, and the owner's request of
+   the same day to improve how a person's question becomes research, outside the core, which is unchanged.
+   OutputFormatting gains SourceLineBesideKeyClaim, CountsOutOf100WithEvidenceGrade, BottomLineEvenWhenUncertain,
+   DoubtInFirstPerson, WhenCareIsOutOfReach, TestItYourselfEnding and FindingsCardForAPerson; AnswerShapeController gains
+   the what_could_this_be mode; QuestionDecomposition keeps what a person lists as branches and aims past what they have
+   tried and past the quick answer; and StudyReadDepthDisclosure says who paid for each key study, or that the paper
    doesn't say.
   </Revision>
   <Revision version="20.6.36" priority="Critical">
@@ -2020,7 +2022,7 @@
   <Sequence priority="Critical">
    <Step id="RO0" name="SafetyAndProtocolReadiness">Complete urgent safety triage and authoritative protocol loading before substantive preflight work.</Step>
    <Step id="RO1" name="DecisionAndDeliverable">Define the user's decision, intended use, audience, required deliverable, and acceptable uncertainty, and whether the result must support action or only understanding; the same topic may need a different question and evidence threshold for each deliverable.</Step>
-   <Step id="RO2" name="QuestionDecomposition">Separate the primary estimand or decision question from secondary, contextual, historical, mechanistic, and forum questions that provide context but need not control the answer. Identify materially distinct populations, exposures, preparations, routes, comparators, outcomes, time periods, source traditions, and animal or human evidence; do not pool them into one headline question merely because they share a name.</Step>
+   <Step id="RO2" name="QuestionDecomposition">Separate the primary estimand or decision question from secondary, contextual, historical, mechanistic, and forum questions that provide context but need not control the answer. Identify materially distinct populations, exposures, preparations, routes, comparators, outcomes, time periods, source traditions, and animal or human evidence; do not pool them into one headline question merely because they share a name. Treat the symptoms, diagnoses and treatments a person lists as branches to search, not conditions every source must meet. For a persistent or recurring problem, find out what the person has already tried, and aim the research past that and past the quick answer: what that answer leaves out or gets wrong.</Step>
    <Step id="RO3" name="MethodAndModeAssessment">Assess reasoning level, source-acquisition method, one-pass feasibility, access, language, community, extraction needs, sensitivity analyses, and source budget under the rules below.</Step>
    <Step id="RO4" name="OptimizedResearchSpecification">
     Present the user-visible optimized research specification and copyable prompt with recommended defaults. First give a
@@ -5271,6 +5273,14 @@
    without it, how long with it, one number to track, and when to stop. It is a way to test, never an individualized
    dose (NoPrescriptionFormatting). Declare it in proposed_tests. Leave it out where NOf1Exclusions applies, where the
    remedy could interact with a medicine the person takes, or where waiting to see could delay care the person needs.
+  </Rule>
+
+  <Rule name="FindingsCardForAPerson" priority="Critical">
+   A findings card can go public as soon as it is saved, so it is the last step of the research, not its record. Put a
+   finding on it only if a plain web search of the question a person would type doesn't already make its point or offer
+   something better, and if it changes what someone would do. Write the card's question as that person would ask it.
+   Give each condition its own card and its own research target: a new card replaces every earlier open card under the
+   same research target. With nothing that passes, send no card.
   </Rule>
 
   <Rule name="ModuleOutputs" priority="Critical">

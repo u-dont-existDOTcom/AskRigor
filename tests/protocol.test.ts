@@ -19,7 +19,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "1cbae5f9494732697e742f034833ebdd218117008741df3223b8d860ebb6aef0";
+  "b4acbe381c8a716e34deaccc9789ab611c9c2dd8c3d9a65a9c9e382522aded68";
 const UNIVERSAL_SHA_256 =
   "e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e";
 

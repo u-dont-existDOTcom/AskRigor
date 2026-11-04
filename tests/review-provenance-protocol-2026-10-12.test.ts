@@ -66,7 +66,7 @@ describe("questions 82 and 83: review provenance versus product efficacy", () =>
     expect(hash(await undoContestedEvidence(hrp))).toBe("48e0e80ab412a3bce84ed834159664975933c3446b28bfcb5fea2964075f268e");
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
       name: "HRP", version: "20.6.37", revisionDate: "2026-11-04",
-      sha256: "1cbae5f9494732697e742f034833ebdd218117008741df3223b8d860ebb6aef0",
+      sha256: "b4acbe381c8a716e34deaccc9789ab611c9c2dd8c3d9a65a9c9e382522aded68",
     });
   });
 
