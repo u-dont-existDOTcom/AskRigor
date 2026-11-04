@@ -1428,6 +1428,8 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
   "set_atlas_home_picks",
 ] as const;
+// Owner answers 229a and 231a: migration 0024's two functions for findings kept for research.
+const ATLAS_KEPT_FUNCTIONS = ["inspect_atlas_kept_publications", "keep_atlas_publications"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -2371,7 +2373,7 @@ export async function verifyAtlasPublications(context: {
   schema: string;
   checks: string[];
 }): Promise<void> {
-  const { adminUrl, reviewUrl, schema, checks } = context;
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 2 });
   const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
   let instant = Date.parse("2026-11-04T09:00:00.000Z");
@@ -2467,6 +2469,36 @@ export async function verifyAtlasPublications(context: {
       "ATLAS_PUBLICATION_WITHDRAWALS_MISMATCH",
     );
     checks.push("atlas_publications_are_withdrawn_by_replacement_unpublishing_and_set_aside_and_revived_on_the_owners_choice");
+
+    // Owner answers 229a and 231a (migration 0024): the unpublished card comes back kept for research only. The pages'
+    // lists leave it out; its own read and the lookup's keep it. A set-aside one can't be kept, and showing it again
+    // lists it.
+    const pages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    try {
+      const keptNumber = unpublished!.publicationNumber;
+      const [kept] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: true,
+        reason: "owner answer 229a", at: tick() });
+      const listed = async (includeKept: boolean) => (await pages.read((reads) => reads.listPublications({ limit: 50,
+        includeKept }))).map(({ publicationNumber, kept: isKept }) => `${publicationNumber}:${isKept}`);
+      const [reasons, without, withKept] = [await store.inspectKept(), await listed(false), await listed(true)];
+      let refused = false;
+      try {
+        await store.keep({ publicationNumbers: [setAside[0]!.publicationNumber], atlasNumbers: [], keep: true, reason: "x",
+          at: tick() });
+      } catch (error) {
+        refused = error instanceof AtlasPublicationError && error.code === "NOT_KEEPABLE";
+      }
+      const [shownAgain] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: false, reason: null,
+        at: tick() });
+      assert(kept?.state === "unreviewed" && kept.kept && reasons.map(({ publicationNumber, reason }) =>
+        `${publicationNumber}:${reason}`).join() === `${keptNumber}:owner answer 229a` &&
+        !without.some((entry) => entry.startsWith(`${keptNumber}:`)) && withKept.includes(`${keptNumber}:true`) &&
+        refused && shownAgain?.kept === false && (await listed(false)).includes(`${keptNumber}:false`),
+      `ATLAS_KEPT_FOR_RESEARCH_MISMATCH ${JSON.stringify({ kept, without, withKept, refused })}`);
+    } finally {
+      await pages.close();
+    }
+    checks.push("atlas_publications_kept_for_research_stay_off_the_lists_and_in_the_lookup");
 
     await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
       findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
@@ -2686,7 +2718,8 @@ export async function verifyAtlasPages(context: {
     assert(
       read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
-        read.listed.every((row) => columns(row) === "atlasNumber,publicationNumber,published,publishedAt,state,stateChangedAt"),
+        // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
+        read.listed.every((row) => columns(row) === "atlasNumber,kept,publicationNumber,published,publishedAt,state,stateChangedAt"),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -3864,7 +3897,7 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
+          ...ATLAS_KEPT_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();

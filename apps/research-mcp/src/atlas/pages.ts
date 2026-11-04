@@ -158,6 +158,9 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
 }
 
 export const findingPath = (publicationNumber: string) => `/atlas/findings/${publicationNumber}`;
+/** What a finding kept for AskRigor's research says at its top (owner answers 229a and 231a). */
+export const KEPT_FOR_RESEARCH_LINE = "Kept for AskRigor’s research: AskRigor draws on this finding when it researches, " +
+  "but it isn’t one of the Atlas’s picks, so no list, topic or search on the Atlas shows it.";
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
 export const MAP_PATH = "/atlas/map";
 const CANONICAL_ORIGIN = "https://askrigor.com";
@@ -182,6 +185,8 @@ export interface AtlasPageReader {
 interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
+  /** Kept out of search engines: a finding kept for AskRigor's research only (owner answers 229a and 231a). */
+  noindex?: boolean;
   title: string;
   description: string;
   current?: "home" | "changes" | "account" | "findings" | "topics" | "map" | "search";
@@ -200,6 +205,7 @@ function page(frame: PageFrame): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="${frame.description}">
 ${frame.noReferrer ? html`<meta name="referrer" content="no-referrer">` : ""}
+${frame.noindex ? html`<meta name="robots" content="noindex">` : ""}
 <title>${frame.title}</title>
 ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN}${frame.path}">
 `}<link rel="stylesheet" href="/atlas/atlas.css">
@@ -885,7 +891,8 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
 
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a>${finding.topic === null ? ""
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
-${statusBlock(finding)}
+${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
+` : ""}${statusBlock(finding)}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
@@ -916,6 +923,8 @@ ${sources}</ul>
 `}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
+    // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
+    ...(finding.kept ? { noindex: true } : {}),
     reader,
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
     description: shortened(finding.claim, 160),
