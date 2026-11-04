@@ -8,11 +8,12 @@ import { undoForumReaderHrp, undoWhatPeopleWantHrp } from "./helpers/undo-read-d
 const FIXTURE = "./fixtures/protocol-edits/2026-11-04-what-people-want-hrp.json";
 const PINS = {
   from: { version: "20.6.36", sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa" },
-  to: { version: "20.6.37", sha256: "b4acbe381c8a716e34deaccc9789ab611c9c2dd8c3d9a65a9c9e382522aded68" },
+  to: { version: "20.6.37", sha256: "5daf2265750efd88d18450bde6f8e76d02f2e544382bd1a01898b28adcfaf865" },
 } as const;
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const RULES = ["SourceLineBesideKeyClaim", "CountsOutOf100WithEvidenceGrade", "BottomLineEvenWhenUncertain",
-  "DoubtInFirstPerson", "WhenCareIsOutOfReach", "TestItYourselfEnding", "FindingsCardForAPerson"];
+  "DoubtInFirstPerson", "WhenCareIsOutOfReach", "TestItYourselfEnding", "FindingsCardForAPerson",
+  "ResultThatChangesWithDose", "SignIsNotADiagnosis"];
 
 describe("owner answer 237a: HRP 20.6.37", () => {
   it("adds its rules to OutputFormatting and its mode to AnswerShapeController, outside the core", async () => {
@@ -39,6 +40,13 @@ describe("owner answer 237a: HRP 20.6.37", () => {
     const step = (await loadProtocol("hrp")).match(/<Step id="RO2" name="QuestionDecomposition">([\s\S]*?)<\/Step>/u)?.[1];
     expect(step).toContain("Treat the symptoms, diagnoses and treatments a person lists as branches to search");
     expect(step).toContain("aim the research past that and past the quick answer");
+  });
+
+  // Lessons 53 and 52, under owner rule 148a.
+  it("keeps a dose pattern whole, and a sign apart from a diagnosis", async () => {
+    const text = (await loadProtocol("hrp")).replace(/\s+/gu, " ");
+    expect(text).toContain("Never lift one dose's result out of the pattern");
+    expect(text).toContain("A sign such as a smell or a texture shows what may be happening, not what is proven");
   });
 
   it("leaves every core section byte for byte unchanged", async () => {

@@ -1250,6 +1250,8 @@ closed as not planned, unless it also holds another thread's save or a comment,
 when it stays open for the owner. The thread key cannot be reversed without the
 server's secret, and one account's threads on different research targets do
 not match.
+Since owner answer 240a the marker also holds a SHA-256 of the card's normalized question, which is itself public on
+the card, so that a later card replaces an earlier one only on the same question.
 
 Held YouTube findings (owner answer 173, 25 October 2026; built, not yet
 released; the privacy page's paragraph is the owner's wording of 25 October).

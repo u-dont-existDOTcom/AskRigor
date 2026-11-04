@@ -1,4 +1,6 @@
-import { atlasBasisFromReceipt } from "./card.js";
+import { atlasBasisFromReceipt,
+  normalizedFindingsText
+} from "./card.js";
 import { createHash, createHmac } from "node:crypto";
 
 import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
@@ -253,6 +255,7 @@ export class FindingsSaveService {
         fingerprint: findingsCardFingerprint(input.findings_card),
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
         thread: findingsThreadKey(secret, input.contributor, target),
+        question: findingsQuestionKey(input.findings_card.question),
         ...(publisher?.accountPublishes(context.account) === true ? { atlasPublish: true } : {}),
         ...(context.account?.mode === "PAID_PRIVATE" ? { paidPrivate: true } : {}),
       });
@@ -346,6 +349,16 @@ export function findingsThreadKey(secret: string, contributor: string, targetDig
     .update("\0", "utf8")
     .update(targetDigest, "utf8")
     .digest("hex");
+}
+
+/**
+ * A card's question as a later card's is compared with it. A corrected answer replaces the wrong one (owner decision
+ * Q9), but a later pass on another question leaves the earlier card alone (owner answer 240a: a research lane keeps one
+ * target across passes, and each pass was withdrawing the last). The thread stays the person's whole research, so
+ * forget_card still finds all of it.
+ */
+export function findingsQuestionKey(question: string): string {
+  return createHash("sha256").update(normalizedFindingsText(question), "utf8").digest("hex");
 }
 
 /** The research behind the card, from the receipt's signed claims; the research target's digest stays out. */

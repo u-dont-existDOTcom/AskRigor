@@ -491,6 +491,31 @@ describe("findings library save", () => {
     ]);
   });
 
+  // Owner answer 240a: a research lane keeps one target across passes, and each pass's card was withdrawing the last.
+  it("leaves an earlier card alone when a later card on the same research target asks another question", async () => {
+    const github = new FakeGitHub();
+    const save = service(github);
+    await save.save(saveInput(), CONTEXT);
+    const knee = {
+      ...CARD,
+      question: "Does a walking program help adults with knee osteoarthritis?",
+      findings: [{ ...CARD.findings[0], claim: "Walking programs eased knee pain over three months." }],
+    };
+    await expect(save.save(saveInput({ findings_card: knee, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(knee)),
+    }) }), CONTEXT)).resolves.toEqual({
+      status: "saved", retryable: false, card_id: "ARF-0043", occurrence_count: 1,
+    });
+    expect(github.issues.map(({ number, state }) => [number, state])).toEqual([[42, "open"], [43, "open"]]);
+    // The same question, differently spaced and cased, is the same thread.
+    const reworded = { ...CARD, question: `  ${CARD.question.toUpperCase()} `,
+      findings: [{ ...CARD.findings[0], claim: "A corrected claim on the first question." }] };
+    await expect(save.save(saveInput({ findings_card: reworded, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(reworded)), receipts: 8,
+    }) }), CONTEXT)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0044", replaced_count: 1 });
+    expect(github.issues.map(({ number, state }) => [number, state])).toEqual([[42, "closed"], [43, "open"], [44, "open"]]);
+  });
+
   it("keeps an earlier card open when it also holds someone else's save", async () => {
     const github = new FakeGitHub();
     const save = service(github);

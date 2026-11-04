@@ -360,7 +360,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding is published as soon as its findings card is saved, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="recently-published">
@@ -504,7 +504,7 @@ function statusBlock(finding: ShownFinding): SafeHtml {
   if (status.kind === "unreviewed") {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
-<p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.</p>
+<p>A separate AI found that a quick AI answer misses it. AskRigor’s owner has not reviewed it yet.</p>
 </div>`;
   }
   const checked = html`AskRigor’s owner checked it on ${day(status.checkedOn)}.`;

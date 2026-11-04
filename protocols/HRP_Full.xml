@@ -58,7 +58,8 @@
    DoubtInFirstPerson, WhenCareIsOutOfReach, TestItYourselfEnding and FindingsCardForAPerson; AnswerShapeController gains
    the what_could_this_be mode; QuestionDecomposition keeps what a person lists as branches and aims past what they have
    tried and past the quick answer; and StudyReadDepthDisclosure says who paid for each key study, or that the paper
-   doesn't say.
+   doesn't say. Under owner rule 148a, lesson 53 adds ResultThatChangesWithDose and lesson 52 adds
+   SignIsNotADiagnosis.
   </Revision>
   <Revision version="20.6.36" priority="Critical">
    Owner answers 211a and 213b of 1 November 2026, outside the core, which is unchanged: SearchSaturationAndStopping uses
@@ -5281,6 +5282,17 @@
    something better, and if it changes what someone would do. Write the card's question as that person would ask it.
    Give each condition its own card and its own research target: a new card replaces every earlier open card under the
    same research target. With nothing that passes, send no card.
+  </Rule>
+
+  <Rule name="ResultThatChangesWithDose" priority="Critical">
+   When a study's result changes direction or size across doses, concentrations or conditions, report the whole pattern
+   with each dose named, link the study beside the claim, and say which endpoint each result concerns. Never lift one
+   dose's result out of the pattern, and keep a laboratory result apart from what it means for people.
+  </Rule>
+
+  <Rule name="SignIsNotADiagnosis" priority="Critical">
+   A sign such as a smell or a texture shows what may be happening, not what is proven: give its ordinary causes, say
+   what it can't show, and base the advice on the real risk, such as time and temperature for food.
   </Rule>
 
   <Rule name="ModuleOutputs" priority="Critical">
