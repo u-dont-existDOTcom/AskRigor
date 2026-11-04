@@ -57,3 +57,14 @@ leads with the answer.
 3. On release: HRP 20.6.37's manifest, plugin and connector receipts as for #394. `source_lines` is a later input, so the
    tool list doesn't change and no app needs a refresh.
 4. Run real answers through the source line on the owner's dev account: a quote found, a quote not found, an expired text.
+
+## Lesson closeout
+
+`npm run lessons:status` at 12:33 UTC on 4 Nov: 36 open, 2 needing review, 1 accepted but not incorporated, 38 incorporated
+or closed, none eligible for deletion, and no lane items unrecorded. The two needing review are about weighing an adverse
+result in a dose-response study and the safety of soaked legumes; neither bears on this build.
+
+One point of method, recorded here, so no new lesson is filed: a word search of the protocol isn't enough to say it lacks a
+rule. Two rules were missed that way, because one is a `Condition` and the other doesn't use the word searched for, and the
+owner was told of gaps that were narrower than they sounded. Read the rules that could cover a topic, and say where they
+stop.
