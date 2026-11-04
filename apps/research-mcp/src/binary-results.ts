@@ -256,7 +256,7 @@ const DIGIT = /\d/u;
  * aside too, and each digit written as its ASCII digit, so a follow-up declared as "12 weeks" is found in text that
  * writes it "١٢ weeks", as the figures are read in digits of any script (review finding 9).
  */
-function figureText(text: string): string {
+export function figureText(text: string): string {
   return withAsciiDigits(normalizedFindingsText(text))
     .replace(/[‘’ʼ]/gu, "'")
     .replace(/[“”]/gu, "\"")

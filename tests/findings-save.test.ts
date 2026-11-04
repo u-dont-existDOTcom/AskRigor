@@ -704,7 +704,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       enabled: true,
       judge: async (bundle) => {
         bundles.push(bundle);
-        return { cached: false, costUsd: 0.03, milliseconds: 5, judgment: { status: "ran", youtube: [], comparison: [],
+        return { cached: false, costUsd: 0.03, milliseconds: 5, judgment: { status: "ran", youtube: [], comparison: [], sourceLines: [],
           limits: [], standalone: [{ finding: 1, standsAlone: false, why: "It leans on this research." }] } };
       },
     };

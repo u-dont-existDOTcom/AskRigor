@@ -130,7 +130,7 @@ describe("finalize_research compares the answer with the plain answer registered
       sources: ["10.1000/never-read"] }, COMPARISON[1]!] }))!.comparison).toEqual([]);
     const judged = assertNextStepsContract(finalizeResearch(base(), {
       secret: SECRET, plainAnswer: { note: true, account: ACCOUNT },
-      meaningJudgment: { status: "ran", youtube: [], limits: [], standalone: [],
+      meaningJudgment: { status: "ran", youtube: [], limits: [], standalone: [], sourceLines: [],
         comparison: [{ item: 1, backed: false, why: "The trial studied people with low levels only." },
           { item: 2, backed: false, why: "Not credited, so not judged." }] }
     }));

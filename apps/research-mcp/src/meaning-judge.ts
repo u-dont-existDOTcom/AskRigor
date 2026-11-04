@@ -7,9 +7,10 @@ import { z } from "zod";
 /**
  * The meaning judge (owner answer 221, 2 November 2026): one Claude API call made during the final check, for the
  * owner's dev accounts only, once the check passes. The check's exact comparisons cannot judge meaning; the judge does,
- * in four jobs: whether a findings card's finding rests on YouTube comments, whether each change the plain-answer
- * comparison reports is backed by what it names, whether each limit applies to this answer, and whether each finding
- * makes sense on its own to a reader of the public Atlas. Jobs 2 to 4 return notes for the AI only; job 1 holds the
+ * in five jobs: whether a findings card's finding rests on YouTube comments, whether each change the plain-answer
+ * comparison reports is backed by what it names, whether each limit applies to this answer, whether each finding
+ * makes sense on its own to a reader of the public Atlas, and whether each source line's quotes back its claim (owner
+ * answer 237a). Jobs 2 to 5 return notes for the AI only; job 1 holds the
  * findings it flags, the safe direction, as a declared one is held (owner answer 219b). It never blocks an answer: a
  * failure, timeout, refusal or reached cap leaves the check as it was, with one note saying the judge did not run.
  *
@@ -19,12 +20,12 @@ import { z } from "zod";
  * AskRigor stores nothing it sends or receives here.
  */
 
-export const MEANING_JUDGE_RUBRIC_VERSION = "2026-11-02.6";
+export const MEANING_JUDGE_RUBRIC_VERSION = "2026-11-04.1";
 
 // Stable instructions first, so the API's prompt cache can serve them across checks; the bundle follows them.
 export const MEANING_JUDGE_RUBRIC = `You are the meaning judge of AskRigor, a health-research service. An AI researched a person's question with
 AskRigor's tools and wrote an answer. AskRigor's final check has already compared the AI's declarations with its
-signed receipts exactly, and the check passed. Exact comparisons cannot judge meaning; you do, in the four jobs below.
+signed receipts exactly, and the check passed. Exact comparisons cannot judge meaning; you do, in the five jobs below.
 Your judgments reach the AI as notes, and for job 1 they also keep a finding private. Do not judge whether the answer
 is right, do not redo the research, and judge each item only from what you are given. The answer and the declarations
 may be in any language.
@@ -44,6 +45,8 @@ You receive one JSON object:
 - key_sources: the studies the answer cites, each identifier with the label the answer shows for it.
 - limits: AskRigor's material limits for this answer, each with its number. Many are fixed sentences that a rule
   attaches whenever a declaration matches the rule, so a few may not fit this answer.
+- source_lines: each key claim's line, with its number: source, claim (as the answer states it), sentence and conclusion
+  (quotes the AI says are the paper's) and against (the strongest thing against the claim, in the AI's words).
 
 Job 1, youtube_comments. Only when comments_read is true and the card has findings; otherwise return []. For each
 finding, say whether it rests, in whole or in part, on YouTube comments: on what commenters or viewers reported,
@@ -93,6 +96,13 @@ claim with the topic and the subject, which the page shows above it: a claim tha
 them still stands, and so does a search that found nothing when it says what was searched for and in whom. A technical
 finding that names its subject and population passes.
 
+Job 5, source_lines. Return [] when there is no line. For each line, say whether the sentence and the conclusion, read
+together, back the claim as the answer states it: the same population, treatment, outcome and direction, and no firmer
+than the paper's own words. Not backed: a claim wider or surer than its quotes, a quote about a different outcome or
+group, or a conclusion that takes back what the sentence says. Read only these quotes, not what you know of the paper;
+whether the quotes are really in the paper is already checked apart from you. A claim that only restates its quotes is
+backed.
+
 Each why is one short sentence of at most 200 characters, in English, quoting at most a few words and never a
 commenter's words; only a limit that applies has an empty why, and a limit whose premise you find true applies. Number each item exactly as given. Reply with the JSON
 object the schema asks for.`;
@@ -131,6 +141,8 @@ export interface MeaningJudgeSource {
   }>;
   keySources: ReadonlyArray<{ id: string; answer_marker?: string | undefined }>;
   limits: readonly string[];
+  /** Each key claim's source line, by its 1-based place in source_lines (owner answer 237a). */
+  sourceLines?: ReadonlyArray<{ source: string; claim: string; sentence: string; conclusion: string; against: string }>;
 }
 
 /** The JSON the judge reads: each item numbered from 1 by its place in the check's own lists. */
@@ -148,6 +160,7 @@ export interface MeaningJudgeBundle {
   }>;
   key_sources: Array<{ id: string; label: string | null }>;
   limits: Array<{ number: number; text: string }>;
+  source_lines: Array<{ number: number; source: string; claim: string; sentence: string; conclusion: string; against: string }>;
 }
 
 /** The bundle one check sends, or undefined when it has nothing for any job to judge. */
@@ -173,7 +186,8 @@ export function meaningJudgeBundle(source: MeaningJudgeSource): MeaningJudgeBund
     research_result: entry.researchResult ?? null,
   }]);
   const limits = source.limits.map((text, index) => ({ number: index + 1, text }));
-  if (findings.length === 0 && comparison.length === 0 && limits.length === 0) return undefined;
+  const sourceLines = (source.sourceLines ?? []).map((line, index) => ({ number: index + 1, ...line }));
+  if (findings.length === 0 && comparison.length === 0 && limits.length === 0 && sourceLines.length === 0) return undefined;
   return {
     answer: source.answer,
     comments_read: source.commentsRead,
@@ -185,6 +199,7 @@ export function meaningJudgeBundle(source: MeaningJudgeSource): MeaningJudgeBund
     comparison,
     key_sources: source.keySources.map(({ id, answer_marker }) => ({ id, label: answer_marker ?? null })),
     limits,
+    source_lines: sourceLines,
   };
 }
 
@@ -206,8 +221,11 @@ export const MEANING_JUDGE_OUTPUT_SCHEMA = {
     standalone: { type: "array", items: { type: "object", properties: {
       finding: { type: "integer" }, stands_alone: { type: "boolean" }, why,
     }, required: ["finding", "stands_alone", "why"], additionalProperties: false } },
+    source_lines: { type: "array", items: { type: "object", properties: {
+      line: { type: "integer" }, backed: { type: "boolean" }, why,
+    }, required: ["line", "backed", "why"], additionalProperties: false } },
   },
-  required: ["youtube_comments", "comparison", "limits", "standalone"],
+  required: ["youtube_comments", "comparison", "limits", "standalone", "source_lines"],
   additionalProperties: false,
 } as const;
 
@@ -217,6 +235,7 @@ export interface MeaningJudgmentItems {
   comparison: Array<{ item: number; backed: boolean; why: string }>;
   limits: Array<{ limit: number; why: string }>;
   standalone: Array<{ finding: number; standsAlone: boolean; why: string }>;
+  sourceLines: Array<{ line: number; backed: boolean; why: string }>;
 }
 
 export type MeaningJudgeSkipReason = "off" | "daily_budget" | "error" | "timeout" | "refusal" | "unreadable";
@@ -277,6 +296,7 @@ const judgmentSchema = z.object({
   comparison: z.array(z.unknown()),
   limits: z.array(z.unknown()),
   standalone: z.array(z.unknown()),
+  source_lines: z.array(z.unknown()).default([]),
 });
 
 /**
@@ -300,6 +320,7 @@ export function judgmentItems(reply: unknown, bundle: MeaningJudgeBundle, key = 
   const findings = new Set((bundle.card?.findings ?? []).map(({ number }) => number));
   const items = new Set(bundle.comparison.map(({ number }) => number));
   const limits = new Set(bundle.limits.map(({ number }) => number));
+  const lines = new Set(bundle.source_lines.map(({ number }) => number));
   const once = <T extends Record<string, unknown>>(list: unknown[], field: string, known: ReadonlySet<number>,
     read: (entry: Record<string, unknown>, reason: string) => T | undefined): T[] => {
     const seen = new Set<number>();
@@ -325,6 +346,8 @@ export function judgmentItems(reply: unknown, bundle: MeaningJudgeBundle, key = 
       (entry, reason) => ({ limit: entry.limit as number, why: reason })),
     standalone: once(parsed.data.standalone, "finding", findings, (entry, reason) => typeof entry.stands_alone === "boolean"
       ? { finding: entry.finding as number, standsAlone: entry.stands_alone, why: reason } : undefined),
+    sourceLines: once(parsed.data.source_lines, "line", lines, (entry, reason) => typeof entry.backed === "boolean"
+      ? { line: entry.line as number, backed: entry.backed, why: reason } : undefined),
   };
 }
 

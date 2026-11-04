@@ -3675,6 +3675,7 @@ describe("findings card at the final gate", () => {
     expect(source).not.toHaveProperty("comparison");
     const judgment: MeaningJudgment = {
       status: "ran",
+      sourceLines: [],
       youtube: [{ finding: 1, rests: false, why: "Trials only." },
         { finding: 2, rests: true, why: "It repeats what commenters reported." }],
       comparison: [{ item: 1, backed: false, why: "There is no comparison." }],
