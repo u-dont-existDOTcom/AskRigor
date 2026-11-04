@@ -7,7 +7,7 @@ import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
 
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
-import { verifyResearchReceipt } from "../research-receipts.js";
+import { researchTargetDigest, verifyResearchReceipt } from "../research-receipts.js";
 import {
   findingBasesFromReceipt,
   findingsCardDigest,
@@ -17,6 +17,7 @@ import {
   heldYouTubeFindingOf,
   isSafeReportedModel,
   isYouTubeVideoId,
+  laterFindingsCardSchema,
   screenFindingsCard,
   withoutYouTubeData,
   type FindingsCard,
@@ -31,6 +32,13 @@ import {
   type StoredWithout
 } from "./contracts.js";
 import { publicFindingsCardId, type GitHubFindingsQueue } from "./github-findings.js";
+import {
+  declaredPersonalOnly,
+  UNSAVED_CARD_WHY_SENTENCES,
+  unsavedCardCopy,
+  unsavedCardProblems,
+  type UnsavedCardWhy,
+} from "./unsaved-card.js";
 
 /** Where and with what the save was made, known to the server at registration. */
 export interface FindingsSaveContext {
@@ -113,11 +121,27 @@ export interface FindingsRecord {
   stamp: FindingsStamp;
 }
 
+/** A card that wasn't saved, as finalize_research gives it. */
+export interface UnsavedCardInput {
+  /** The card as the call gave it, whatever its shape. */
+  card: unknown;
+  researchTarget: string;
+  contributor: string;
+  why: UnsavedCardWhy;
+  problems: readonly string[];
+  /** Whether this research read YouTube comments, which decides what a finding that says nothing about them rests on. */
+  commentsRead: boolean;
+}
+
+export type UnsavedCardResult = { status: "kept"; card_id: string } | { status: "not_kept"; reason: string };
+
 export interface FindingsSaveServiceOptions {
   /** The research receipt signing secret, read when a save arrives. */
   receiptSecret: () => string | undefined;
   limiter: LessonAttemptLimiter;
-  queue: Pick<GitHubFindingsQueue, "submit">;
+  /** The kept copies' own limit, so a run of refused cards never uses up the saves'. Without it none is kept. */
+  unsavedLimiter?: LessonAttemptLimiter;
+  queue: Pick<GitHubFindingsQueue, "submit"> & Partial<Pick<GitHubFindingsQueue, "keepUnsaved">>;
   protocols: () => Promise<readonly ProtocolIdentity[]>;
   version: string;
   build: string;
@@ -158,6 +182,55 @@ export class FindingsSaveService {
   /** Resolves once every hold this service started has ended, held or not; for tests. */
   async heldSettled(): Promise<void> {
     await Promise.all([...this.holds]);
+  }
+
+  /**
+   * Keeps a private copy of a card that wasn't saved, for a second look (findings/unsaved-card.ts). It never throws and
+   * never holds back the answer. A finding of a card that reads and passes the privacy screen, resting on YouTube
+   * comments, is held as a save would hold it; it never goes in the copy.
+   */
+  async keepUnsaved(input: UnsavedCardInput): Promise<UnsavedCardResult> {
+    try {
+      if (declaredPersonalOnly(input.card)) return { status: "not_kept", reason: "personal_only" };
+      const secret = this.options.receiptSecret();
+      const queue = this.options.queue.keepUnsaved?.bind(this.options.queue);
+      const limiter = this.options.unsavedLimiter;
+      if (secret === undefined || queue === undefined || limiter === undefined) {
+        return { status: "not_kept", reason: "not_available" };
+      }
+      const copy = unsavedCardCopy(input.card, input.commentsRead);
+      if (copy === undefined) return { status: "not_kept", reason: "nothing_to_keep" };
+      if (!limiter.consume().allowed) return { status: "not_kept", reason: "rate_limited" };
+      const now = this.now();
+      const checked = laterFindingsCardSchema.safeParse(input.card);
+      const cardSha256 = checked.success
+        ? findingsCardDigest(checked.data)
+        : createHash("sha256").update(JSON.stringify(input.card), "utf8").digest("hex");
+      const filed = await queue({
+        metadata: {
+          card_sha256: cardSha256,
+          thread: findingsThreadKey(secret, input.contributor, researchTargetDigest(input.researchTarget)),
+          claims: copy.claims,
+          kept_at: now.toISOString(),
+        },
+        ...(copy.question === undefined ? {} : { question: copy.question }),
+        card: copy.card,
+        why: UNSAVED_CARD_WHY_SENTENCES[input.why],
+        problems: unsavedCardProblems(input.problems, copy.sourcesLeftOut),
+        leftOut: copy.leftOut,
+        build: this.options.build,
+      });
+      if (filed.kind === "created" && checked.success && screenFindingsCard(checked.data).every(
+        ({ reasonCode }) => reasonCode === "not_a_source_identifier")) {
+        const kept = checked.data.findings.flatMap((_, index) => copy.kept.includes(index) ? [index] : []);
+        if (kept.length < checked.data.findings.length) {
+          this.holdLeftOut(undefined, cardSha256, now, checked.data, kept, undefined);
+        }
+      }
+      return { status: "kept", card_id: publicFindingsCardId(filed.issueNumber) };
+    } catch {
+      return { status: "not_kept", reason: "queue_service_unavailable" };
+    }
   }
 
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {

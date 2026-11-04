@@ -1190,6 +1190,30 @@ or API call on this path. Anything that fails is not stored, and the answer
 goes ahead; a save that has not finished within ten seconds is reported as
 unconfirmed, and the answer goes ahead while it completes.
 
+A free contributor's card that wasn't saved is kept privately for a second look,
+so that a finding isn't lost on a technicality (the owner, 4 November 2026; built,
+not yet released): a card the final check refused, a card that didn't read as one,
+a checked card whose answer hadn't passed, and a card whose save failed. It is one
+issue in the same private repository, labeled `unsaved-card` alone, so no card
+list, publisher or page reads it, and it is never published. It holds what stopped
+the card, a copy of the card's fields, and a marker with the card's SHA-256, the
+research thread's keyed hash, each claim's hash and the time. The copy passes the
+same screens as a saved card: a text that fails the privacy screen is left out,
+named only by its field and reason; a source that isn't a public paper's DOI, PMID,
+PMCID or NCT id is left out, so no forum link or video ID is stored; and a finding
+resting on YouTube comments stays out, held as a save holds it when the card reads
+and passes the screen. An open step of the answer goes by its kind, never its text,
+since a step can quote the answer, which is never stored. A paid private account's
+card, a card declared personal only and a dev account's with saving off are not
+kept. Limits: 2,000 characters a text, 40,000 a copy, and the lesson queue's rate
+limits in a bucket of their own. A card saved later from the same research closes
+each copy whose every claim it carries, compared exactly; a copy with a finding it
+dropped or reworded stays open. The notice already covers this, as structured
+research progress for AskRigor's private review, so it needs no new version. Like a
+saved card, a copy is not linked to the account: a passing answer ends by naming
+its `ARF-####` id, and `forget_card` removes it with its research thread's cards,
+or by that id.
+
 What is stored, and where: one issue in the private GitHub repository
 `u-dont-existDOTcom/AskRigor-findings` (or the repository named by
 `ASKRIGOR_FINDINGS_REPOSITORY`, under the same owner), reached through the

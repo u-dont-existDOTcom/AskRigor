@@ -91,7 +91,8 @@ export class FakeGitHub {
       const state = query.get("state");
       check(state === "open" || state === "all", "the cards are listed open, or in every state");
       const labels = query.get("labels");
-      check(labels === null || labels === "findings-card", "the findings cards are listed by label");
+      check(labels === null || labels === "findings-card" || labels === "unsaved-card",
+        "the findings cards and the kept copies are listed by label");
       const page = Number(query.get("page"));
       return json(this.issues
         .filter((issue) => (state === "all" || issue.state === "open") &&

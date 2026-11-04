@@ -109,8 +109,14 @@ import {
   saveResearchFindingsInputSchema,
   type FindingsSaveResult,
 } from "./findings/contracts.js";
-import { saveResearchFindings } from "./findings/runtime.js";
-import type { FindingsSaveAccount, FindingsSaveContext } from "./findings/service.js";
+import { keepUnsavedFindingsCard, saveResearchFindings } from "./findings/runtime.js";
+import type {
+  FindingsSaveAccount,
+  FindingsSaveContext,
+  UnsavedCardInput,
+  UnsavedCardResult,
+} from "./findings/service.js";
+import { findingsKeptLine, KEPT_FOR_REVIEW, unsavedCardNote, type UnsavedCardWhy } from "./findings/unsaved-card.js";
 import {
   protocolErrorResult,
   protocolRequestError,
@@ -841,6 +847,8 @@ export interface RegisterToolsOptions {
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  /** Keeps a private copy of a card that wasn't saved; for tests. */
+  findingsKeep?: (input: UnsavedCardInput) => Promise<UnsavedCardResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
@@ -2456,7 +2464,8 @@ function defineResearchOperations(
             }
           : {})
       };
-      let gateOptions: FinalizeResearchOptions = finalizeOptions;
+      let commentsRead = false;
+      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
@@ -2532,10 +2541,39 @@ function defineResearchOperations(
         const cardId = result.findings_card.saved.card_id;
         if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
       }
+      // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
+      // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
+      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && checkedInput !== undefined
+        ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard)
+        : undefined;
+      let keptCardId: string | undefined;
+      if (unsaved !== undefined) {
+        const kept = await withinDeadline((options.findingsKeep ?? keepUnsavedFindingsCard)({
+          card: checkedInput!.findings_card ?? parsed.droppedCard,
+          researchTarget: checkedInput!.research_target,
+          contributor: account!.accountKey,
+          why: unsaved,
+          // The answer is never stored, and an open step can quote it, so a step goes by its kind.
+          problems: result.findings_card.status === "rejected" ? result.findings_card.problems
+            : unsaved === "answer_not_ready" ? [...new Set(result.next_step_kinds ?? [])]
+            : result.findings_card.saved?.reason === undefined ? [] : [result.findings_card.saved.reason],
+          commentsRead,
+        }).catch(() => undefined), options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS, undefined);
+        if (kept?.status === "kept") {
+          keptCardId = kept.card_id;
+          result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
+          result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
+        }
+      }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.research_map?.status === "filed") {
         result.saved_line = researchMapSavedLine(result.findings_card.saved?.card_id);
+      }
+      // The privacy notice says a card's id lets its deletion be requested, and a kept copy's does too.
+      if (keptCardId !== undefined && result.finalization_receipt !== undefined) {
+        const line = findingsKeptLine(keptCardId);
+        result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
       }
       // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
       // account's next passing final check (analysis-staging.ts).
@@ -2611,6 +2649,9 @@ function defineResearchOperations(
                 ? `; ${
                   card.saved.status === "not_saved"
                     ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED
+                      : card.saved.reason === KEPT_FOR_REVIEW
+                        ? `not saved, and a private copy is kept for review${card.problems.length === 0 ? ""
+                          : `: ${card.problems.join(" ")}`}`
                       : card.saved.reason === "dev_account_saving_off" ? "not saved: this dev account's card saving is off"
                       : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
@@ -2754,6 +2795,17 @@ async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T
 }
 
 /** What finalize_research reports of a findings save: its public id, or that it was not saved. */
+// The saves' own refusals of what is meant to stay out of the library: nothing about them is a technicality.
+const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "youtube_findings_only"]);
+
+/** Why a free contributor's card wasn't saved, or undefined when it was, may yet be, or there was none to save. */
+function unsavedCardWhy(check: FinalizeResearchOutput["findings_card"], dropped: boolean): UnsavedCardWhy | undefined {
+  if (check.status === "rejected") return dropped ? "malformed" : "refused";
+  if (check.status !== "checked" || check.public_value === "personal_only") return undefined;
+  if (check.saved === undefined) return "answer_not_ready";
+  return check.saved.status === "not_saved" && !NOT_FOR_THE_LIBRARY.has(check.saved.reason ?? "") ? "save_failed" : undefined;
+}
+
 function savedFindings(result: FindingsSaveResult): NonNullable<FinalizeResearchOutput["findings_card"]["saved"]> {
   if (result.status === "saved" || result.status === "existing_card") {
     return result.card_id === undefined

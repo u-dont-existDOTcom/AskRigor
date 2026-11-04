@@ -39,6 +39,8 @@ import {
   FindingsSaveService,
   type FindingsSaveContext,
   type ProtocolIdentity,
+  type UnsavedCardInput,
+  type UnsavedCardResult,
 } from "./service.js";
 
 const CONFIGURATION_ERROR = "Findings library configuration unavailable";
@@ -70,6 +72,17 @@ export async function saveResearchFindings(raw: unknown, context: FindingsSaveCo
     return { status: "queue_unavailable", retryable: false, reason_code: "queue_not_configured" };
   }
   return await service.save(raw, context);
+}
+
+/** Keeps a private copy of a card that wasn't saved, for a second look; an unconfigured library keeps none. */
+export async function keepUnsavedFindingsCard(input: UnsavedCardInput): Promise<UnsavedCardResult> {
+  if (!findingsLibraryEnabledFromEnv()) return { status: "not_kept", reason: "library_closed" };
+  try {
+    cachedService ??= createFindingsServiceFromEnv();
+  } catch {
+    return { status: "not_kept", reason: "queue_not_configured" };
+  }
+  return await cachedService.keepUnsaved(input);
 }
 
 /**
@@ -111,6 +124,7 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       receiptSecret: () => researchReceiptSecretFromEnv(),
       // The lesson queue's limits, in a bucket of its own.
       limiter: createLessonAttemptLimiter({ now }),
+      unsavedLimiter: createLessonAttemptLimiter({ now }),
       queue: new GitHubFindingsQueue({ tokenProvider, fetch, repository }),
       protocols: protocolIdentities,
       version: SERVICE_VERSION,
