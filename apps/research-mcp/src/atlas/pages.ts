@@ -173,6 +173,9 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
 }
 
 export const findingPath = (publicationNumber: string) => `/atlas/findings/${publicationNumber}`;
+/** What a finding kept for AskRigor's research says at its top (owner answers 229a and 231a). */
+export const KEPT_FOR_RESEARCH_LINE = "Kept for AskRigor’s research: AskRigor draws on this finding when it researches, " +
+  "but it isn’t one of the Atlas’s picks, so no list, topic or search on the Atlas shows it.";
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
 export const MAP_PATH = "/atlas/map";
 /** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
@@ -210,7 +213,10 @@ export interface AtlasPageReader {
 export interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
-  /** Kept out of search engines (owner answer 224a): a page whose findings are all unreviewed, or not a content page. */
+  /**
+   * Kept out of search engines (owner answer 224a): a page whose findings are all unreviewed, or not a content page; or
+   * a finding kept for AskRigor's research only (owner answers 229a and 231a).
+   */
   noindex?: boolean;
   title: string;
   description: string;
@@ -1066,7 +1072,8 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
 
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a>${finding.topic === null ? ""
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
-${statusBlock(finding)}
+${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
+` : ""}${statusBlock(finding)}
 ${question}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
@@ -1094,7 +1101,8 @@ ${sources}</ul>
 `}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
-    noindex: finding.status.kind === "unreviewed",
+    // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
+    noindex: finding.status.kind === "unreviewed" || finding.kept,
     reader,
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
     description: shortened(finding.claim, 160),
