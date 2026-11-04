@@ -287,6 +287,35 @@ describe("keeping a card that wasn't saved", () => {
     expect(github.issue(42).body).toContain("rests on YouTube comments");
   });
 
+  it("holds every finding of a card that rests on YouTube comments, and files no copy", async () => {
+    const github = new FakeGitHub();
+    const held: unknown[] = [];
+    const keep = service(github, { held });
+    const onComments = { ...FINDING, claim: "Commenters reported an invented effect.", draws_on_youtube_comments: true };
+    expect(await keep.keepUnsaved(refused({ card: { ...CARD, findings: [onComments] } })))
+      .toEqual({ status: "not_kept", reason: "youtube_findings_only" });
+    await keep.heldSettled();
+    expect(held).toHaveLength(1);
+    expect(github.issues).toEqual([]);
+  });
+
+  it("uses none of the limit for a card it has kept", async () => {
+    const github = new FakeGitHub();
+    let used = 0;
+    const counting: LessonAttemptLimiter = {
+      consume: () => {
+        used += 1;
+        return { allowed: true };
+      },
+      lastBlockingReason: () => "hourly_limit",
+    };
+    const keep = service(github, { unsavedLimiter: counting });
+    await keep.keepUnsaved(refused());
+    await keep.keepUnsaved(refused());
+    expect(await keep.keepUnsaved(refused())).toEqual({ status: "kept", card_id: "ARF-0042" });
+    expect(used).toBe(1);
+  });
+
   it("goes with its research when a card is forgotten, and its own id can ask for that", async () => {
     const github = new FakeGitHub();
     const queue = queueOf(github);

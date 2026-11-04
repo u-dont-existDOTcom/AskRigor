@@ -135,6 +135,9 @@ export interface UnsavedCardInput {
 
 export type UnsavedCardResult = { status: "kept"; card_id: string } | { status: "not_kept"; reason: string };
 
+// The kept copies this process remembers, by card; past that the queue still finds the same card by listing.
+const KEPT_COPIES_REMEMBERED = 500;
+
 export interface FindingsSaveServiceOptions {
   /** The research receipt signing secret, read when a save arrives. */
   receiptSecret: () => string | undefined;
@@ -169,6 +172,7 @@ export class FindingsSaveService {
   /** Publications started after a save and not finished yet. */
   private readonly publishing = new Set<Promise<void>>();
   private readonly holds = new Set<Promise<void>>();
+  private readonly keptCopies = new Map<string, string>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
@@ -186,8 +190,8 @@ export class FindingsSaveService {
 
   /**
    * Keeps a private copy of a card that wasn't saved, for a second look (findings/unsaved-card.ts). It never throws and
-   * never holds back the answer. A finding of a card that reads and passes the privacy screen, resting on YouTube
-   * comments, is held as a save would hold it; it never goes in the copy.
+   * never holds back the answer. A finding resting on YouTube comments never goes in the copy: of a card that reads and
+   * passes the privacy screen, it is held as a save would hold it.
    */
   async keepUnsaved(input: UnsavedCardInput): Promise<UnsavedCardResult> {
     try {
@@ -199,13 +203,21 @@ export class FindingsSaveService {
         return { status: "not_kept", reason: "not_available" };
       }
       const copy = unsavedCardCopy(input.card, input.commentsRead);
-      if (copy === undefined) return { status: "not_kept", reason: "nothing_to_keep" };
-      if (!limiter.consume().allowed) return { status: "not_kept", reason: "rate_limited" };
-      const now = this.now();
       const checked = laterFindingsCardSchema.safeParse(input.card);
+      if (copy === undefined && !checked.success) return { status: "not_kept", reason: "nothing_to_keep" };
       const cardSha256 = checked.success
         ? findingsCardDigest(checked.data)
         : createHash("sha256").update(JSON.stringify(input.card), "utf8").digest("hex");
+      // The same card checked again, as a lane works through its answer, uses none of the limit.
+      const known = this.keptCopies.get(cardSha256);
+      if (known !== undefined) return { status: "kept", card_id: known };
+      if (!limiter.consume().allowed) return { status: "not_kept", reason: "rate_limited" };
+      const now = this.now();
+      if (checked.success && (copy?.kept.length ?? 0) < checked.data.findings.length &&
+        screenFindingsCard(checked.data).every(({ reasonCode }) => reasonCode === "not_a_source_identifier")) {
+        this.holdLeftOut(undefined, cardSha256, now, checked.data, copy?.kept ?? [], undefined);
+      }
+      if (copy === undefined) return { status: "not_kept", reason: "youtube_findings_only" };
       const filed = await queue({
         metadata: {
           card_sha256: cardSha256,
@@ -220,14 +232,10 @@ export class FindingsSaveService {
         leftOut: copy.leftOut,
         build: this.options.build,
       });
-      if (filed.kind === "created" && checked.success && screenFindingsCard(checked.data).every(
-        ({ reasonCode }) => reasonCode === "not_a_source_identifier")) {
-        const kept = checked.data.findings.flatMap((_, index) => copy.kept.includes(index) ? [index] : []);
-        if (kept.length < checked.data.findings.length) {
-          this.holdLeftOut(undefined, cardSha256, now, checked.data, kept, undefined);
-        }
-      }
-      return { status: "kept", card_id: publicFindingsCardId(filed.issueNumber) };
+      const cardId = publicFindingsCardId(filed.issueNumber);
+      this.keptCopies.set(cardSha256, cardId);
+      if (this.keptCopies.size > KEPT_COPIES_REMEMBERED) this.keptCopies.delete(this.keptCopies.keys().next().value!);
+      return { status: "kept", card_id: cardId };
     } catch {
       return { status: "not_kept", reason: "queue_service_unavailable" };
     }
