@@ -1037,7 +1037,8 @@ What the model sends, and when:
   reports it (`reported_model`, at most 80 characters). The gate checks the
   card against the answer and that call's verified sources, and that it
   declares `public_value`, with both fields when public. A rejected card is
-  reported and not saved; it never holds back the answer. A card without
+  reported and not saved, a private copy goes to the review queue ("Findings
+  library" below), and it never holds back the answer. A card without
   `public_value`, as from an app whose tool list predates it, is rejected the
   same way. A checked card's SHA-256 digest is signed into the finalization
   receipt, a personal-only one's too; for a paid-private account a checked
