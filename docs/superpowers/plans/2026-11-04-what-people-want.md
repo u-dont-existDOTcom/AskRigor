@@ -18,15 +18,21 @@ check only proved that a paper exists and was read as deeply as declared.
 2. **Meaning judge job 5** (`e6badaf8`). Whether a line's quotes back its claim, for the dev accounts where the judge is
    on. Rubric `2026-11-04.1`. It hasn't been run against real answers yet: the 15 validation runs left under owner
    answer 226b were planned for jobs 1 to 4, on #398's build.
-3. **HRP 20.6.37, draft wording** (`493654de`, `3f53cb84`), for the owner's approval before any release:
-   `SourceLineBesideKeyClaim`, `CountsOutOf100WithEvidenceGrade`, `BottomLineEvenWhenUncertain`, `DoubtInFirstPerson`,
-   `WhenCareIsOutOfReach` and `TestItYourselfEnding` in `OutputFormatting`; the `what_could_this_be` mode in
-   `AnswerShapeController`; who paid for each key study in `StudyReadDepthDisclosure`. The recorded edits are
+3. **HRP 20.6.37, draft wording**, for the owner's approval before any release: `SourceLineBesideKeyClaim`,
+   `CountsOutOf100WithEvidenceGrade`, `BottomLineEvenWhenUncertain`, `DoubtInFirstPerson`, `WhenCareIsOutOfReach`,
+   `TestItYourselfEnding` and `FindingsCardForAPerson` in `OutputFormatting`; the `what_could_this_be` mode in
+   `AnswerShapeController`; who paid for each key study in `StudyReadDepthDisclosure`; and, from the owner's request to
+   improve how a person's question becomes research, a person's list as branches in `QuestionDecomposition` (RO2). The
+   recorded edits are
    `tests/fixtures/protocol-edits/2026-11-04-what-people-want-hrp.json`.
-4. **The reminder names `OutputFormatting`** (`3f53cb84`). The core has 48 bytes free, so nothing new can go in it, and
+4. **The reminder names `OutputFormatting`.** The core has 48 bytes free, so nothing new can go in it, and
    `OutputFormatting` isn't in the core. Every research result's reminder now names that section. It reaches the AI before
    it writes, which the final check's runtime description would not: that arrives with the first check of a finished
    draft.
+
+The note that asks a research account for a findings card now says to send none when no finding passes, or it would pull
+against `FindingsCardForAPerson`. The nine ChatGPT lanes showed the need: their published cards mostly repeat a quick
+answer, and each pass's card replaced the last, because one research target is one research thread.
 
 The wording changed from what question 237 described in one place: `what_could_this_be` asks its questions with a
 one-line provisional answer, because `HealthFollowUpInformationGain` already asks for that and `ReaderFacingAnswer`
