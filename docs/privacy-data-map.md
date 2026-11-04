@@ -1707,6 +1707,12 @@ The pages (section 4C) are built, not yet released, and switched off until
   chat holds until the card is forgotten. PostgreSQL keeps erased row versions
   until vacuum and the write-ahead log recycle them, as for wording erasure.
 
+- **Kept for research only** (owner answers 229a and 231a; migration 0024; plan
+  `docs/superpowers/plans/2026-11-03-atlas-kept-for-research.md`). The owner can keep a publication for AskRigor's
+  research: it stays in the research lookup and keeps its page, which says so and is kept out of search engines, but
+  no list, topic, home page or search shows it. The row gains when it was kept and the owner's private reason, which
+  no page reads. Nothing about a person is added.
+
 ## Atlas navigation and search
 
 Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public

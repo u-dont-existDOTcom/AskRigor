@@ -78,6 +78,16 @@ describe("Atlas lookup through the existing public search tool", () => {
     expect(output.findings).toEqual([]);
     expect(JSON.stringify(output)).not.toContain("private reason");
   });
+  it("finds a finding kept for AskRigor's research by its words, where the pages' search no longer does", async () => {
+    const store = await publications();
+    await store.keep({ publicationNumbers: ["P-1002"], atlasNumbers: [], keep: true, reason: "owner answer 231a", at: now().toISOString() });
+    const shown = new InMemoryAtlasPageSource({ publications: store });
+    const output = await lookupAtlas({ query: "zentarine", research_target: TARGET }, { source: shown, reader, receipt, now });
+    expect(output.findings.map((finding) => finding.publication_number)).toContain("P-1002");
+    expect(JSON.stringify(output)).not.toContain("owner answer 231a");
+    const page = await loadAtlasSearch(shown, { search: atlasSearchQuery("zentarine").query! });
+    expect(page.results.map(({ finding }) => finding.publicationNumber)).not.toContain("P-1002");
+  });
   it("shows checked current canonical wording, source IDs, links, question and topic leads", async () => {
     const store = await publications();
     await store.decide({ cardNumber: 4242, findingNumber: 1, state: "accepted", atlasNumber: "F-1001", decidedAt: now().toISOString() });
