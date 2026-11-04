@@ -111,6 +111,9 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-04-owner-answer-241a-production-release.md`: release of #411 (owner answer 241a): the source line, HRP
+  20.6.37, lessons 52 and 53, and saved cards that wait for the quick-answer test; 35 tools unchanged, so no app refresh;
+  acceptance, a real paper through the source line, what isn't shown live yet, and the rollback.
 - `audits/2026-11-04-owner-answer-240a-production-release.md`: release of #398 (owner answer 240a): "kept for AskRigor's
   research" (migration 0024), the regression fixes, the checked figures, the YouTube-comment hold and the named forum
   failures; 35 tools and HRP 20.6.36 unchanged, so no app refresh; acceptance, the rollback, and what moved to kept.
