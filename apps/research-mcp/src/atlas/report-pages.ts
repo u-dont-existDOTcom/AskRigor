@@ -45,7 +45,7 @@ interface FieldSpec {
   required: boolean;
 }
 
-/** The form's fields in order, with the limits migration 0025 keeps. */
+/** The form's fields in order, with the limits migration 0026 keeps. */
 export const REPORT_FIELDS: readonly FieldSpec[] = [
   { field: "problem", label: "The problem", hint: "What it was for, in a few words.", long: false, required: true },
   { field: "tried", label: "What you tried", hint: "The product, food, practice or treatment, by name.", long: false,

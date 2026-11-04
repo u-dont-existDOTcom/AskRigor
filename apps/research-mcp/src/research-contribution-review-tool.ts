@@ -31,6 +31,7 @@ import {
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
+import { atlasKeptSchema } from "./atlas/kept-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
@@ -80,6 +81,11 @@ export const researchContributionReviewInputSchema = z.object({
     return;
   }
   if (isAtlasReviewAction(value.action)) {
+    // Owner answers 229a and 231a: later_inputs.items goes only with keep_for_research and show_on_pages.
+    if ((value as { items?: unknown }).items !== undefined && value.action !== "keep_for_research" &&
+      value.action !== "show_on_pages") {
+      context.addIssue({ code: "custom", message: `${value.action} does not take items` });
+    }
     // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
     const placements = (value as { placements?: unknown }).placements;
     if ((value.action === "place_items") !== (placements !== undefined)) {
@@ -259,6 +265,8 @@ const sharedAnswerSummarySchema = z.object({
 
 /** The review tool's results as the server checks them: the published fields and the shared answers' (200a). */
 export const researchContributionReviewRuntimeOutputSchema = researchContributionReviewOutputSchema.safeExtend({
+  // Owner answers 229a and 231a: keep_for_research, show_on_pages and list_kept, runtime-only (owner answer 189a).
+  kept: atlasKeptSchema.optional(),
   // Owner answer 229a: place_items and list_unplaced, runtime-only (owner answer 189a).
   placements: atlasPlacementsSchema.optional(),
   // Owner answer 229a: list_reports, check_report and decide_report, runtime-only (owner answer 189a).
@@ -575,6 +583,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     ...(result.publications === undefined ? {} : { publications: result.publications }),
     ...(result.participation === undefined ? {} : { participation: result.participation }),
+    ...(result.kept === undefined ? {} : { kept: result.kept }),
     ...(result.placements === undefined ? {} : { placements: result.placements }),
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),

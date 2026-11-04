@@ -42,7 +42,7 @@ describe("later_inputs (owner answer 189a)", () => {
           : operation.name === "validate_study_method_audit" ? ["audit"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber"]
-              : operation.name === "review_research_contribution" ? ["sharedAnswerId", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState"] : [];
+              : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState"] : [];
       expect(laterInputNames(operation.name)).toEqual(expected);
       // An MCP call always carries its request context; an empty one stands in for it here.
       const result = await operation.execute({ later_inputs: { synthetic_future_input: 1 } }, {} as never);

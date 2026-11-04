@@ -4,7 +4,7 @@ import { assertSafeAtlasSchema, atlasPool, type PostgresAtlasStoreOptions } from
 import type { InMemoryAtlasPlacements } from "./atlas-placements.js";
 
 // Owner answer 229a (plan docs/superpowers/plans/2026-11-03-atlas-reports-health-tree.md, sections 2 and 3): people's
-// own reports of what they tried and what happened, as migration 0025 stores them. A report is known by its participant
+// own reports of what they tried and what happened, as migration 0026 stores them. A report is known by its participant
 // key only, published under the name its author chose for it or none, and moved once by the review's check: published
 // (with an AI warning when the check wrote one), held for the owner, or refused (its text deleted). Its author can take
 // it down at any time. "It worked for me too" and "it didn't" are one answer per signed-in person, shown as totals.
@@ -22,7 +22,7 @@ export type AtlasReportRefuseReason = typeof ATLAS_REPORT_REFUSE_REASONS[number]
 export const ATLAS_REPORT_ANSWERS = ["worked", "did_not"] as const;
 export type AtlasReportAnswer = typeof ATLAS_REPORT_ANSWERS[number];
 
-/** Each text field's longest length, as migration 0025's constraints have them; null fields may be left out. */
+/** Each text field's longest length, as migration 0026's constraints have them; null fields may be left out. */
 export const ATLAS_REPORT_FIELD_LIMITS = {
   displayName: 40, problem: 300, tried: 300, dose: 300, howUsed: 1_000, howLong: 300, whatHappened: 3_000,
   howLongLasted: 300, sideEffects: 2_000, otherChanges: 2_000,
@@ -207,7 +207,7 @@ interface ReportRow {
   stateChangedAt: string;
 }
 
-/** Reports and answers in memory, with migration 0025's semantics, for tests and the hermetic scenarios. */
+/** Reports and answers in memory, with migration 0026's semantics, for tests and the hermetic scenarios. */
 export class InMemoryAtlasReports implements AtlasReportStore, AtlasReportReviewStore {
   private readonly rows = new Map<number, ReportRow>();
   private readonly answers = new Map<number, Map<string, { answer: AtlasReportAnswer; at: string }>>();

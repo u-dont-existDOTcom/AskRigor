@@ -6,6 +6,7 @@ import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
+import { keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
@@ -47,6 +48,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
       .describe("With read_shared_answer or delete_shared_answer: the ID list_shared_answers gave."),
+    // Owner answers 229a and 231a: findings kept for AskRigor's research only.
+    items: keepItemsInputSchema.optional()
+      .describe("With keep_for_research or show_on_pages: P and F numbers, up to 100."),
     // Owner answer 229a: where items sit under Health.
     placements: placementsInputSchema.optional()
       .describe("With place_items: [{item, subcategory}], 1 to 200 entries; subcategory a key list_unplaced lists, or null."),

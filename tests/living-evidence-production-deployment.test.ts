@@ -22,13 +22,15 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "moderate_atlas_comment", "set_atlas_commenter_stopped", "set_atlas_home_picks",
   "inspect_atlas_home_picks",
 ];
-// Owner answer 229a: migration 0024's two placement functions, for the review role.
+// Owner answers 229a and 231a: migration 0024's two functions for findings kept for research, for the review role.
+const ATLAS_KEPT_FUNCTIONS = ["keep_atlas_publications", "inspect_atlas_kept_publications"];
+// Owner answer 229a: migration 0025's two placement functions, for the review role.
 const ATLAS_PLACEMENT_FUNCTIONS = ["set_atlas_placements", "inspect_atlas_placements"];
-// Owner answer 229a: migration 0025's report functions, four for the access role and two for the review role.
+// Owner answer 229a: migration 0026's report functions, four for the access role and two for the review role.
 const ATLAS_REPORT_ACCESS_FUNCTIONS = ["submit_atlas_report", "take_down_atlas_report", "set_atlas_report_answer",
   "forget_atlas_reports"];
 const ATLAS_REPORT_REVIEW_FUNCTIONS = ["inspect_atlas_reports", "decide_atlas_report"];
-// The owner, 3 Nov: migration 0026's three functions for a problem's rows at a glance, for the review role.
+// The owner, 3 Nov: migration 0027's three functions for a problem's rows at a glance, for the review role.
 const ATLAS_GLANCE_FUNCTIONS = ["propose_atlas_glance_row", "set_atlas_glance_row_state", "inspect_atlas_glance_rows"];
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "inspect_atlas_participant", "set_atlas_display_name", "set_atlas_vote", "post_atlas_comment", "delete_atlas_comment",
@@ -36,8 +38,31 @@ const ATLAS_PARTICIPATION_FUNCTIONS = [
 ];
 
 describe("production living-evidence deployment", () => {
+  it("ships migration 0024, the findings kept for research, granted to the review role alone (owner answers 229a and 231a)", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0024_atlas_kept_for_research.sql");
+    const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
+    const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
+    const signature = (text: string, prefix: string) => {
+      const start = text.indexOf(prefix) + prefix.length;
+      return text.slice(start, text.indexOf(")", start)).replace(/\s+/gu, " ").trim();
+    };
+    // Two columns on the publications and two new functions; no existing function changes its shape.
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS kept_for_research_at timestamptz");
+    expect(migration).not.toMatch(/DROP FUNCTION|inspect_atlas_publications\(/u);
+    const functions = migration.split("CREATE OR REPLACE FUNCTION ").slice(1).map((chunk) => ({
+      name: chunk.slice(0, chunk.indexOf("(")), header: chunk.slice(0, chunk.indexOf("AS $")) }));
+    expect(functions.map(({ name }) => name)).toEqual(ATLAS_KEPT_FUNCTIONS);
+    for (const { name, header } of functions) {
+      expect(header).toContain("SECURITY DEFINER");
+      expect(header).toContain("SET search_path = __SCHEMA__, pg_catalog, pg_temp");
+      expect(migration).toMatch(new RegExp(`REVOKE ALL ON FUNCTION ${name}\\([^;]*\\) FROM PUBLIC;`, "u"));
+      expect(signature(review, `GRANT EXECUTE ON FUNCTION living_evidence.${name}(`), name)
+        .toBe(signature(migration, `REVOKE ALL ON FUNCTION ${name}(`));
+      expect(access).not.toContain(`living_evidence.${name}(`);
+    }
+  });
 
-  it("ships migrations 0024 and 0025, the placements and people's reports, granted function by function (owner answer 229a)", async () => {
+  it("ships migrations 0025, 0026 and 0027, the placements, people's reports and the rows at a glance, granted function by function (owner answer 229a)", async () => {
     const access = await read("infra/living-evidence-production/provision-research-access-role.sh");
     const review = await read("infra/living-evidence-production/provision-research-review-role.sh");
     const signature = (text: string, prefix: string) => {
@@ -45,9 +70,9 @@ describe("production living-evidence deployment", () => {
       return text.slice(start, text.indexOf(")", start)).replace(/\s+/gu, " ").trim();
     };
     for (const [file, roles] of [
-      ["0024_atlas_placements", [[ATLAS_PLACEMENT_FUNCTIONS, review, access]]],
-      ["0025_atlas_reports", [[ATLAS_REPORT_ACCESS_FUNCTIONS, access, review], [ATLAS_REPORT_REVIEW_FUNCTIONS, review, access]]],
-      ["0026_atlas_glance_rows", [[ATLAS_GLANCE_FUNCTIONS, review, access]]],
+      ["0025_atlas_placements", [[ATLAS_PLACEMENT_FUNCTIONS, review, access]]],
+      ["0026_atlas_reports", [[ATLAS_REPORT_ACCESS_FUNCTIONS, access, review], [ATLAS_REPORT_REVIEW_FUNCTIONS, review, access]]],
+      ["0027_atlas_glance_rows", [[ATLAS_GLANCE_FUNCTIONS, review, access]]],
     ] as const) {
       const migration = await read(`packages/evidence-repository/migrations/${file}.sql`);
       // Nothing about a person but the derived participant key: no address, subject or account key.
@@ -190,7 +215,7 @@ describe("production living-evidence deployment", () => {
     // The three contribution functions, then migration 0017's five Atlas functions (Atlas phase 2), migration 0019's
     // six held YouTube findings functions (owner answer 173), migration 0021's six publication functions and migration
     // 0022's five moderation functions (decision 171).
-    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(32);
+    expect(provision.match(/GRANT EXECUTE ON FUNCTION/gu)).toHaveLength(34);
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failure_code text");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS failed_at timestamptz");
     expect(migration).toContain("(status = 'FAILED' AND completed_at IS NULL");
@@ -357,12 +382,13 @@ describe("production living-evidence deployment", () => {
 
     // Atlas migrations follow 0016; 0019 holds the findings drawn from YouTube comments (owner answer 173), 0020
     // widens the notice constraint for v4, 0021 adds the publications, 0022 the votes and comments, 0023 the
-    // findings save switch (decision 171), and 0024 the placements under Health (owner answer 229a).
+    // findings save switch (decision 171), 0024 the findings kept for research (owner answers 229a and 231a), 0025 the
+    // placements under Health, 0026 people's reports (owner answer 229a) and 0027 a problem's rows at a glance.
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
       '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      ' +
-      '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n      "0024_atlas_placements",\n      ' +
-      '"0025_atlas_reports",\n      "0026_atlas_glance_rows",\n    ]');
+      '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n      "0024_atlas_kept_for_research",\n      ' +
+      '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -423,9 +449,9 @@ describe("production living-evidence deployment", () => {
     const granted = [...provision.matchAll(/GRANT EXECUTE ON FUNCTION living_evidence\.([a-z_]+)\(/gu)].map(([, name]) => name);
     expect(granted.filter((name) => name!.includes("atlas")))
       .toEqual([...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-        ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS]);
+        ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS]);
     // With the three contribution functions and migration 0019's six (owner answer 173).
-    expect(granted).toHaveLength(32);
+    expect(granted).toHaveLength(34);
     // Each grant names the function's exact signature, as the migration's REVOKE does.
     const signature = (text: string, prefix: string) => {
       const start = text.indexOf(prefix) + prefix.length;
@@ -713,9 +739,11 @@ describe("production living-evidence deployment", () => {
     const order = [...migrate.matchAll(/"(\d{4}_[a-z0-9_]+)"/gu)].map(([, id]) => id!);
     expect(order.indexOf("0021_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
     // Decision 171: 0022, the votes and comments, comes right after it, then 0023, the findings save switch, then
-    // 0024, the placements under Health, and 0025, people's reports (owner answer 229a).
-    expect(order.slice(-6)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
-      "0023_research_findings_save_switch", "0024_atlas_placements", "0025_atlas_reports", "0026_atlas_glance_rows"]);
+    // 0024, the findings kept for research (owner answers 229a and 231a), then 0025, the placements under Health, 0026,
+    // people's reports (owner answer 229a), and 0027, a problem's rows at a glance.
+    expect(order.slice(-7)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+      "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
+      "0027_atlas_glance_rows"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");

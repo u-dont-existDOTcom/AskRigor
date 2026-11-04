@@ -9,7 +9,7 @@ import {
   type AtlasReportDecision,
 } from "@askrigor/evidence-repository";
 
-// Owner answer 229a: people's reports in memory, with migration 0025's semantics (the PostgreSQL functions themselves
+// Owner answer 229a: people's reports in memory, with migration 0026's semantics (the PostgreSQL functions themselves
 // run in scripts/research-contributor-access-postgres-acceptance.mts against a real database).
 
 const AUTHOR = "a".repeat(64);

@@ -1707,6 +1707,12 @@ The pages (section 4C) are built, not yet released, and switched off until
   chat holds until the card is forgotten. PostgreSQL keeps erased row versions
   until vacuum and the write-ahead log recycle them, as for wording erasure.
 
+- **Kept for research only** (owner answers 229a and 231a; migration 0024; plan
+  `docs/superpowers/plans/2026-11-03-atlas-kept-for-research.md`). The owner can keep a publication for AskRigor's
+  research: it stays in the research lookup and keeps its page, which says so and is kept out of search engines, but
+  no list, topic, home page or search shows it. The row gains when it was kept and the owner's private reason, which
+  no page reads. Nothing about a person is added.
+
 ## Atlas navigation and search
 
 Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public
@@ -1922,7 +1928,7 @@ Owner answer 229a (3 November 2026; plan `docs/superpowers/plans/2026-11-03-atla
 not yet released, and offered only while votes and comments are switched on (`ASKRIGOR_ATLAS_PARTICIPATION=enabled`):
 people's own reports of what they tried for a health problem and what happened, published once an AI check passes.
 
-- **What a report holds** (migration 0025, `atlas_reports`): the author's participant key (as for comments: an HMAC of
+- **What a report holds** (migration 0026, `atlas_reports`): the author's participant key (as for comments: an HMAC of
   the account key, never an email address, OAuth subject or account key); the door it came by (the Atlas form, or the
   person's own AI app); the name it is published under, or none; the problem; what was tried, how much, how it was
   used and for how long; what happened and how long it lasted; side effects; anything else that changed; the research
@@ -1942,9 +1948,9 @@ people's own reports of what they tried for a health problem and what happened, 
 - **The check.** An AI working for AskRigor (a Claude session on the owner's plan; no API) reads each received report
   through the owner-only review tool and records one verdict: publish, publish with an AI warning, hold for the owner,
   or refuse. The model judges meaning; the server checks the verdict's shape exactly.
-- **Where items sit** (migration 0024, `atlas_placements`): one subcategory under Health per publication, accepted
+- **Where items sit** (migration 0025, `atlas_placements`): one subcategory under Health per publication, accepted
   finding or report, by item number. Nothing about a person.
-- **Rows at a glance** (migration 0026, `atlas_glance_rows`; the owner, 3 Nov, on GPT's practitioner scorecard): a
+- **Rows at a glance** (migration 0027, `atlas_glance_rows`; the owner, 3 Nov, on GPT's practitioner scorecard): a
   problem's curated rows (a controlled result, a named practitioner's published outcome series, a programme's
   outcomes, a historical lead, or what failed or harmed), each with its result, comparison, follow-up, limits and
   sources. A row is proposed privately and shown only on the owner's yes for it. A row naming a person holds that

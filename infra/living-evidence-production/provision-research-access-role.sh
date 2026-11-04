@@ -84,7 +84,7 @@ GRANT EXECUTE ON FUNCTION living_evidence.atlas_session_current(text, timestampt
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.forget_atlas_participant(text, timestamptz)
   TO askrigor_research_access;
--- Owner answer 229a (migration 0025): people's reports and the answers on them.
+-- Owner answer 229a (migration 0026): people's reports and the answers on them.
 GRANT EXECUTE ON FUNCTION living_evidence.submit_atlas_report(text, text, jsonb, timestamptz)
   TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.take_down_atlas_report(text, text)

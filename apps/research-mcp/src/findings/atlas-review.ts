@@ -91,6 +91,13 @@ import {
   type AtlasParticipationAction,
 } from "../atlas/participation-review.js";
 import {
+  ATLAS_KEEP_ACTIONS,
+  ATLAS_KEEP_OUTCOMES,
+  AtlasKeptReview,
+  type AtlasKeepAction,
+  type AtlasKept,
+} from "../atlas/kept-review.js";
+import {
   ATLAS_PLACEMENT_ACTIONS,
   ATLAS_PLACEMENT_OUTCOMES,
   AtlasPlacementReview,
@@ -201,6 +208,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_PUBLICATION_ACTIONS,
   // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
   ...ATLAS_PARTICIPATION_ACTIONS,
+  // Owner answers 229a and 231a: findings kept for AskRigor's research only.
+  ...ATLAS_KEEP_ACTIONS,
   // Owner answer 229a: where items sit under Health, and people's reports.
   ...ATLAS_PLACEMENT_ACTIONS,
   ...ATLAS_REPORT_ACTIONS,
@@ -233,6 +242,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "youtube_findings_deleted",
   ...ATLAS_PUBLICATION_OUTCOMES,
   ...ATLAS_PARTICIPATION_OUTCOMES,
+  ...ATLAS_KEEP_OUTCOMES,
   ...ATLAS_PLACEMENT_OUTCOMES,
   ...ATLAS_REPORT_OUTCOMES,
   ...ATLAS_GLANCE_OUTCOMES,
@@ -430,6 +440,8 @@ export interface AtlasReviewRequest {
   comment?: string;
   commenter?: string;
   picks?: Array<{ publication: string; reason: string }>;
+  /** keep_for_research and show_on_pages (owner answers 229a and 231a), from later_inputs.items. */
+  items?: string[];
   /** place_items (owner answer 229a), from later_inputs.placements. */
   placements?: import("zod").infer<typeof placementsInputSchema>;
   /** People's reports (owner answer 229a), from later_inputs.reportState, later_inputs.report and later_inputs.verdict. */
@@ -485,6 +497,10 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   stop_commenter: ["commenter"],
   restore_commenter: ["commenter"],
   set_picks: ["picks"],
+  // Owner answers 229a and 231a; more numbers come in later_inputs.items.
+  keep_for_research: ["publication", "atlasNumber", "reason"],
+  show_on_pages: ["publication", "atlasNumber"],
+  list_kept: [],
   // Owner answer 229a: the placements come in later_inputs.placements.
   place_items: [],
   list_unplaced: ["cursor"],
@@ -969,6 +985,8 @@ export interface AtlasReviewResult {
   publications?: AtlasPublications;
   /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
   participation?: AtlasParticipation;
+  /** Owner answers 229a and 231a: the publications kept for research, or shown again. */
+  kept?: AtlasKept;
   /** Owner answer 229a: the placements set, or the publications that sit in no subcategory. */
   placements?: AtlasPlacements;
   /** Owner answer 229a: the reports listed, or the one checked or decided. */
@@ -1158,6 +1176,10 @@ export class AtlasReview {
         case "restore_commenter":
         case "set_picks":
           return await this.participationAction(request.action, request);
+        case "keep_for_research":
+        case "show_on_pages":
+        case "list_kept":
+          return await this.keepAction(request.action, request);
         case "place_items":
         case "list_unplaced":
           return await this.placementAction(request.action, request);
@@ -1214,6 +1236,28 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async keepAction(action: AtlasKeepAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasKeptReview({ publications, now: this.now }).run({
+      action,
+      ...(request.publication === undefined ? {} : { publication: request.publication }),
+      ...(request.atlasNumber === undefined ? {} : { atlasNumber: request.atlasNumber }),
+      ...(request.items === undefined ? {} : { items: request.items }),
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.kept === undefined ? {} : { kept: result.kept }),
+    };
+  }
 
   private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const glance = this.deps.glance;

@@ -121,6 +121,8 @@ export class AtlasPlacementReview {
     const placed = new Set((await this.deps.placements.listPlacements())
       .filter(({ categoryKey, subcategoryKey }) => categoryKey === HEALTH.key && SUBCATEGORY_KEYS.includes(subcategoryKey))
       .map(({ itemNumber }) => itemNumber));
+    // A publication kept for AskRigor's research shows on no list, so it needs no place (owner answers 229a and 231a).
+    const kept = new Set((await this.deps.publications.inspectKept()).map(({ publicationNumber }) => publicationNumber));
     const unplaced: AtlasPlacements["unplaced"] = [];
     let below = before === undefined ? undefined : Number(before);
     let nextCursor: string | null = null;
@@ -128,7 +130,7 @@ export class AtlasPlacementReview {
       const page = await this.deps.publications.inspect({ states: ["unreviewed", "accepted", "edited"],
         limit: INSPECT_PAGE, ...(below === undefined ? {} : { before: below }) });
       for (const view of page) {
-        if (view.state === "unreviewed" && view.published === null) continue;
+        if ((view.state === "unreviewed" && view.published === null) || kept.has(view.publicationNumber)) continue;
         if (placed.has(view.publicationNumber) || (view.atlasNumber !== null && placed.has(view.atlasNumber))) continue;
         if (unplaced.length === UNPLACED_PER_PAGE) {
           nextCursor = `u${unplaced.at(-1)!.publication.slice(2)}`;

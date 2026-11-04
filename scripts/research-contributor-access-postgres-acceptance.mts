@@ -1429,14 +1429,16 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
   "set_atlas_home_picks",
 ] as const;
-// Owner answer 229a: migration 0024's two placement functions, for the review role.
+// Owner answers 229a and 231a: migration 0024's two functions for findings kept for research.
+const ATLAS_KEPT_FUNCTIONS = ["inspect_atlas_kept_publications", "keep_atlas_publications"] as const;
+// Owner answer 229a: migration 0025's two placement functions, for the review role.
 const ATLAS_PLACEMENT_FUNCTIONS = ["inspect_atlas_placements", "set_atlas_placements"] as const;
-// Owner answer 229a: migration 0025's report functions, four for the access role and two for the review role.
+// Owner answer 229a: migration 0026's report functions, four for the access role and two for the review role.
 const ATLAS_REPORT_ACCESS_FUNCTIONS = [
   "forget_atlas_reports", "set_atlas_report_answer", "submit_atlas_report", "take_down_atlas_report",
 ] as const;
 const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_reports"] as const;
-// The owner, 3 Nov: migration 0026's three functions for a problem's rows at a glance.
+// The owner, 3 Nov: migration 0027's three functions for a problem's rows at a glance.
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
@@ -2381,7 +2383,7 @@ export async function verifyAtlasPublications(context: {
   schema: string;
   checks: string[];
 }): Promise<void> {
-  const { adminUrl, reviewUrl, schema, checks } = context;
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 2 });
   const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
   let instant = Date.parse("2026-11-04T09:00:00.000Z");
@@ -2477,6 +2479,36 @@ export async function verifyAtlasPublications(context: {
       "ATLAS_PUBLICATION_WITHDRAWALS_MISMATCH",
     );
     checks.push("atlas_publications_are_withdrawn_by_replacement_unpublishing_and_set_aside_and_revived_on_the_owners_choice");
+
+    // Owner answers 229a and 231a (migration 0024): the unpublished card comes back kept for research only. The pages'
+    // lists leave it out; its own read and the lookup's keep it. A set-aside one can't be kept, and showing it again
+    // lists it.
+    const pages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    try {
+      const keptNumber = unpublished!.publicationNumber;
+      const [kept] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: true,
+        reason: "owner answer 229a", at: tick() });
+      const listed = async (includeKept: boolean) => (await pages.read((reads) => reads.listPublications({ limit: 50,
+        includeKept }))).map(({ publicationNumber, kept: isKept }) => `${publicationNumber}:${isKept}`);
+      const [reasons, without, withKept] = [await store.inspectKept(), await listed(false), await listed(true)];
+      let refused = false;
+      try {
+        await store.keep({ publicationNumbers: [setAside[0]!.publicationNumber], atlasNumbers: [], keep: true, reason: "x",
+          at: tick() });
+      } catch (error) {
+        refused = error instanceof AtlasPublicationError && error.code === "NOT_KEEPABLE";
+      }
+      const [shownAgain] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: false, reason: null,
+        at: tick() });
+      assert(kept?.state === "unreviewed" && kept.kept && reasons.map(({ publicationNumber, reason }) =>
+        `${publicationNumber}:${reason}`).join() === `${keptNumber}:owner answer 229a` &&
+        !without.some((entry) => entry.startsWith(`${keptNumber}:`)) && withKept.includes(`${keptNumber}:true`) &&
+        refused && shownAgain?.kept === false && (await listed(false)).includes(`${keptNumber}:false`),
+      `ATLAS_KEPT_FOR_RESEARCH_MISMATCH ${JSON.stringify({ kept, without, withKept, refused })}`);
+    } finally {
+      await pages.close();
+    }
+    checks.push("atlas_publications_kept_for_research_stay_off_the_lists_and_in_the_lookup");
 
     await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
       findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
@@ -2710,7 +2742,8 @@ export async function verifyAtlasPages(context: {
     assert(
       read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
-        read.listed.every((row) => columns(row) === "atlasNumber,publicationNumber,published,publishedAt,state,stateChangedAt"),
+        // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
+        read.listed.every((row) => columns(row) === "atlasNumber,kept,publicationNumber,published,publishedAt,state,stateChangedAt"),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -3903,8 +3936,8 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
-          ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS, ...CONTRIBUTION_REVIEW_FUNCTIONS,
-          ...HELD_REVIEW_FUNCTIONS].sort().join(),
+          ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
+          ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
     const now = tick();
@@ -3918,7 +3951,7 @@ export async function verifyAtlasStorage(context: {
       );
       await client.query("SELECT * FROM forget_atlas_cards(ARRAY[9010], $1::timestamptz)", [now]);
     });
-    // Owner answer 229a (migration 0024): the review role sets, moves and removes placements and lists them; a
+    // Owner answer 229a (migration 0025): the review role sets, moves and removes placements and lists them; a
     // malformed entry changes nothing; the reader reads the table for the pages.
     await asRole("askrigor_research_review", async (client) => {
       const set = await client.query<{ changed: number }>(
@@ -3939,7 +3972,7 @@ export async function verifyAtlasStorage(context: {
     )), "ATLAS_PLACEMENT_INPUT_INVALID");
     checks.push("atlas_placements_set_by_the_review_role_and_read_by_the_reader");
 
-    // Owner answer 229a (migration 0025): a report through the access role, the check's verdict through the review
+    // Owner answer 229a (migration 0026): a report through the access role, the check's verdict through the review
     // role, an answer from someone else and never from its author, its take-down; a refused report keeps no text.
     await asRole("askrigor_research_access", async (client) => {
       const author = "a".repeat(64);
@@ -3984,7 +4017,7 @@ export async function verifyAtlasStorage(context: {
     });
     checks.push("atlas_reports_submitted_checked_answered_and_taken_down_through_their_roles");
 
-    // The owner, 3 Nov (migration 0026): a row at a glance is proposed privately, shown on the owner's yes, read by
+    // The owner, 3 Nov (migration 0027): a row at a glance is proposed privately, shown on the owner's yes, read by
     // the reader only once shown, and withdrawn for good.
     await asRole("askrigor_research_review", async (client) => {
       const row = JSON.stringify({ category: "health", subcategory: "gut-health", rowClass: "lead",

@@ -185,3 +185,7 @@ then what failed or harmed. People's reports for the problem are counted beside 
 - Still to build: the line offering door 2 in the final check's result (after #398); placing today's
   findings with `place_items` after release; and, before release, taking in main (#410's migration first, so this
   stack's become 0025 and 0026), with the search index, map, sitemap and Health pages leaving kept publications out.
+- 4 Nov: main took #410, so its 0024 (findings kept for research) comes first and this stack's migrations are now 0025
+  (placements), 0026 (reports) and 0027 (rows at a glance); the log above keeps the numbers they had then. The pages'
+  search, the map, Health and its at-a-glance rows, a card's other findings and `list_unplaced` all leave kept
+  publications out, and the research lookup reads them through the new search.

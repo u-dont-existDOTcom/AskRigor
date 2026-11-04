@@ -4,7 +4,7 @@ import { assertSafeAtlasSchema, atlasPool, type PostgresAtlasStoreOptions } from
 
 // The owner, 3 Nov 2026, on GPT's practitioner scorecard: "make that prominent" (plan
 // docs/superpowers/plans/2026-11-03-atlas-reports-health-tree.md, section 4). A problem's rows at a glance beside the
-// ones computed from findings, as migration 0026 stores them: proposed privately, shown only on the owner's yes for
+// ones computed from findings, as migration 0027 stores them: proposed privately, shown only on the owner's yes for
 // each, withdrawn for good. A row naming a person holds published outcomes only.
 
 export const ATLAS_GLANCE_CLASSES = ["controlled", "practitioner", "programme", "lead", "failed"] as const;
@@ -69,7 +69,7 @@ function checkRow(row: AtlasGlanceRowInput, at: string): void {
 
 const glanceId = (number: number) => `G-${number}`;
 
-/** Glance rows in memory, with migration 0026's semantics. */
+/** Glance rows in memory, with migration 0027's semantics. */
 export class InMemoryAtlasGlanceRows implements AtlasGlanceStore {
   private readonly rows = new Map<number, AtlasGlanceRow>();
   private next = 1001;
