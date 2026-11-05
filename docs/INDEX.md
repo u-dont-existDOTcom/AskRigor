@@ -156,6 +156,10 @@ complete XML protocol.
   answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
   AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
   practitioner scorecard.
+- `superpowers/plans/2026-11-05-atlas-research-behind.md`: "The research behind it" and "What people report" on each
+  finding page (owner answer 252a): the papers' own sentences found word for word, how each source was read, the
+  strongest thing against it, which study each figure comes from, and the forum signal with its counts, report quality,
+  mechanism and relationship to studies; the card's later shape, signed lookups, publication v3, no canonical migration.
 - `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
   research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
   "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
