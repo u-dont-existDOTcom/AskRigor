@@ -1802,8 +1802,8 @@ The pages (section 4C) are built, not yet released, and switched off until
   link or video ID, a thread's title or slug, a username or anything a person
   wrote. A quote found word for word is one or more whole sentences of a
   paragraph, by Unicode's sentence rules, with only marks and citations at its
-  ends; what that matching can't see is published with it, so these are its
-  limits. It can let a part of a sentence through as a whole one: a whole
+  ends, and a quote the matching accepts can be published, so its limits are
+  these. It can let a part of a sentence through as a whole one: a whole
   sentence quoted out of its paragraph's context; an abbreviation with no full
   stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") before a
   capital letter, which ends a sentence as a sentence's own last word does; a
