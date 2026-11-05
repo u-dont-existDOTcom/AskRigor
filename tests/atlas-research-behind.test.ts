@@ -52,7 +52,8 @@ import {
   type ResearchBehindContext,
 } from "../apps/research-mcp/src/findings/research-behind.js";
 import {
-  forumLinkDigest, forumPublishedLink, publishedThreadOf, registrableHost, sameThreadAtSite, shownCommunity, signedSubreddit,
+  forumLinkDigest, forumPublishedLink, forumReadLink, publishedThreadOf, registrableHost, sameThreadAtSite, shownCommunity,
+  signedSubreddit,
 } from "../apps/research-mcp/src/forum-thread-links.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import { unsavedCardCopy } from "../apps/research-mcp/src/findings/unsaved-card.js";
@@ -648,6 +649,21 @@ describe("thread links and communities, from the verified read", () => {
 
   // The recheck of #417: a forum page's link is published only as its reader read it, by the read's `l` and the final
   // check's `fl`, never the AI's own http:// or host.
+  it("publishes no rewrite the reader didn't fetch: a page read at another link is named and counted, not linked", () => {
+    expect(forumReadLink("https://example.org/t/2024")).toBe("https://example.org/t/2024");
+    expect(forumReadLink("https://example.org/t/events/2024")).toBeUndefined();
+    expect(forumReadLink("https://www.example.org/threads/my-story.12/page-3")).toBeUndefined();
+    expect(forumReadLink("https://www.example.org/threads/12/")).toBe("https://www.example.org/threads/12/");
+    expect(forumReadLink("https://example.org/viewtopic.php?t=12&start=25")).toBeUndefined();
+    expect(forumReadLink(THREAD)).toBeUndefined();
+    // Read at /t/events/2024, which signs no link: the card's page is named and counted, and no fl is signed for it.
+    const given = laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({
+      threads: [THREAD, "https://example.org/t/events/2024"] }) } }));
+    expect(signedThreadLinks(given, () => new Set())).toEqual([]);
+    expect(stored(["https://example.org/t/events/2024"], undefined, false))
+      .toEqual(expect.objectContaining({ communities: ["example.org"], threads_read: 1 }));
+  });
+
   it("links a forum page only as its reader read it, and names and counts it either way", () => {
     const given = laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads: [
       "https://www.example.org/viewtopic.php?t=12&highlight=x", "http://www.example.org/viewtopic.php?t=13",

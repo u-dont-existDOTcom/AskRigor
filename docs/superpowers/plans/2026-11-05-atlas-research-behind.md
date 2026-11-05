@@ -331,7 +331,8 @@ coordinator decided each; the fixes are on `claude/atlas-review-fixes-20261105`,
 
 **A. The quote matcher's mechanism.**
 
-1. *HTML laid out as a browser lays it out.* `extractHtmlText` broke a line at `<b>` and `<strong>`, so "Pain scores
+1. *HTML laid out as a browser lays it out* (withdrawn for the stored text by the review below, which keeps the old
+   layout and has the lookup run its lines on). `extractHtmlText` broke a line at `<b>` and `<strong>`, so "Pain scores
    did <b>not</b> decrease significantly after 12 weeks." became three lines and "decrease significantly after 12
    weeks." a whole line of its own. Inline elements (b, strong, i, em, span, a, sup, sub and the like) now stay inline
    and the source's own line breaks collapse to spaces; only block elements and `<br>` break a line, and `<pre>` keeps
@@ -396,6 +397,46 @@ coordinator decided each; the fixes are on `claude/atlas-review-fixes-20261105`,
 
 Kept as sound: the 20 characters a person on a forum page; Reddit counted once; the naming rules; ports counted
 only; `true` never published; the unsaved copy; the punycode display apart from item 7.
+
+## The review of the recheck's fixes (head `d7f75505`), 5 November
+
+Part B and the fragments, citations and abstract sections of Part A held. A1 didn't: one HTML extraction feeds three
+consumers, full-text admission, the paywall labels and the quote lookup, and the browser-like layout made for the lookup
+changed the other two. A paywalled landing page (a section menu in `<option>`s, a teaser and
+`<p><strong>Subscription required</strong> to read the full article.</p>`) went from abstract-only and paywalled to
+`PARTIAL_TEXT_READABLE`, which `open-full-text.ts` takes as a public basis for the owner's library copy under
+`public_only`, a policy boundary; a table naming sections in `<td>` cells went from partial to full; and a full text
+with run-in bold headings (`<p><b>Methods</b> …`) went from full to partial. So the consumers are decoupled:
+
+- **(a) The stored text keeps its old line layout**, as at `06b96b14`: block tags, and `strong` and `b`, break lines,
+  the source's own line breaks stay, and any other tag reads as a space. Kept from the fixes: the CodeQL-safe
+  stripping (removal until nothing changes, then a `<` that opens a tag dropped) and a superscript's digits in Unicode's
+  superscripts, which changes no line. A tag now needs a tag's start (`<` and a letter, `</` and a letter, `<!` or `<?`),
+  so "(p<0.05) and function rose (q>0.1)" keeps its words, in the text and the title.
+- **(b) The lookup runs an HTML page's or a plain text's lines on within a section**, as it runs a PDF's pages on, so
+  the layout's line breaks are never sentence ends: `<p>Pain scores did <b>not</b> decrease …</p>` and a `<br>` in a
+  sentence refuse the fragment. A heading the index takes into the section path starts its section afresh, so
+  `<p><strong>Conclusions:</strong> Vitamin D reduced falls …</p>` finds the sentence alone. A JATS paper's blocks stay
+  their own paragraphs.
+- **(c) A section's label at a line's start** ("Conclusions: Vitamin D …", one line in a PDF or a plain text) starts a
+  sentence after its colon, when the label is one `sectionKind` knows (the list admission reads headings by) and the
+  label starts a sentence: "We could not confirm the earlier report: vitamin D …" has no label, and a label a line break
+  cut out of a sentence ("…the earlier\nresults: …") is none.
+- **(d) Abbreviations before a capital.** After Unicode's segmentation, a sentence runs on into the next when its last
+  word ends in "." and has a full stop inside it (e.g., i.e., z.B., U.S., т.е.) or is one to three small letters (al.,
+  wk., yr., vs., cf., ca.), so "No probiotic tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea in children."
+  refuses the part from "Lactobacillus". Structural, by the word's form, and the safe direction: it can only make a
+  quote longer or refuse it. Its cost: a sentence after one that truly ends in a short word ("twice a day.") is found
+  only with it.
+- **(e) Forum-page links.** A read signs a link to publish (`l`) only when the link it read is already in an id-only
+  form, so the published link is the one fetched: a page read at `/t/events/2024` is named and counted, never published
+  as `/t/2024`. Reddit is as it was.
+- **(f) Limits**, in the code and the documents, each refusing a part: Thai, Lao and Tibetan have no sentence marks
+  Unicode's rules end at; a Greek question mark is the semicolon once a text is in NFC (U+037E is U+003B), where they end
+  none.
+
+The reviewer's three pages are admission tests, each with the state the old layout gave it; they pass against
+`06b96b14`'s extractor and fail against `d7f75505`'s.
 
 ## Merging the stack into main
 

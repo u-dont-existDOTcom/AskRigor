@@ -5,6 +5,7 @@ import { createOpenFullTextExecutor } from "../apps/research-mcp/src/actions/ope
 import { acquireOpenFullText, acquireUnpaywallFullText, type AcquisitionState, type FrozenArticleIdentity, type AcquireOpenFullTextRuntime } from "../packages/sources/src/index.js";
 import { admitFullText, classifySource, publicCopySearchSchema, sourceClassification, verifyArticleIdentity } from "../packages/sources/src/full-text-admission.js";
 import { DiscoveredDocumentError, fetchCandidateDocument, UpstreamHttpError } from "../packages/sources/src/http.js";
+import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
 import { planAcceptanceIdentities } from "./helpers/full-text-acceptance-identities.js";
 import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
 
@@ -340,6 +341,57 @@ describe("Phase 1 full-text route recovery", () => {
     const blocks = [methods, results, discussion].map((heading) => ({ kind: "paragraph" as const, section_path: [heading], text: syntheticBody("content") }));
     expect(admitFullText(blocks).state).toBe("FULL_TEXT_READABLE");
     expect(admitFullText([{ kind: "paragraph", section_path: [], text: `This prose mentions ${methods}, ${results}, and ${discussion}.` }]).state).toBe("ABSTRACT_ONLY");
+  });
+});
+
+// The recheck of #417: one HTML extraction feeds full-text admission, the paywall labels and the quote lookup, and a
+// layout made for the lookup (inline elements inline, option and table cells on lines of their own) changed the other
+// two. The stored text keeps the line layout they were built on, as at 06b96b14: each page below is one the review
+// tried, with the state that layout gives it, which the browser-like layout of 57e8f750 changed.
+describe("the stored text's line layout, as full-text admission and the paywall labels read it", () => {
+  const front = `<h1>${IDENTITY.title}</h1><p>${IDENTITY.first_author} ${IDENTITY.year} DOI ${IDENTITY.doi}</p>`;
+  const teaser = "Synthetic teaser sentence about the fixture participants and their generated measurements. ".repeat(4);
+  // A paywalled landing page: a menu that jumps to its sections, a teaser and the paywall's label.
+  const paywall = `<html><body>${front}<label>Jump to</label><select><option>Methods</option><option>Results</option>` +
+    `<option>Discussion</option></select><p>${teaser}</p>` +
+    "<p><strong>Subscription required</strong> to read the full article.</p></body></html>";
+  // A full text whose sections start with a run-in bold heading.
+  const runIn = `<html><body>${front}<h2>Abstract</h2><p>Synthetic summary.</p>` + ["Methods", "Results", "Discussion"]
+    .map((section) => `<p><b>${section}</b> ${syntheticBody(section.toLowerCase()).replaceAll("\n", " ")}</p>`).join("") +
+    "</body></html>";
+  // A page whose table names its sections in cells, each row's text beside them.
+  const table = `<html><body>${front}<table>` + ["Methods", "Results", "Discussion"].map((section) =>
+    `<tr><td>${section}</td><td>${syntheticBody(section.toLowerCase()).replaceAll("\n", " ")}</td></tr>`).join("") +
+    "</table></body></html>";
+
+  it("keeps a paywalled landing page with a section menu abstract-only and paywalled, so it is no public basis", async () => {
+    const output = await acquire(paywall);
+    expect(output.candidates).toEqual([expect.objectContaining({ state: "PAYWALL_OR_LOGIN_REQUIRED",
+      completeness: "abstract_only", identity_verification: "doi_exact", sections_observed: [] })]);
+    expect(output).not.toHaveProperty("coverage_receipt");
+    // A public-only account's library copy needs a public page of the paper's text: this one is none.
+    const fetchPdf = vi.fn();
+    const rt = runtime(paywall);
+    rt.ownerLibrary = { access: "public_only", fetchPdf };
+    await acquireOpenFullText({ doi: IDENTITY.doi, candidate_urls: [{ url: URL }] }, CONFIG, rt);
+    expect(fetchPdf).not.toHaveBeenCalled();
+  });
+
+  it("admits a full text whose sections start with run-in bold headings", async () => {
+    expect((await acquire(runIn)).candidates).toEqual([expect.objectContaining({ state: "FULL_TEXT_READABLE",
+      sections_observed: ["methods", "results", "discussion"] })]);
+  });
+
+  it("reads a table's section names in its cells as part of each row's text, never as headings", async () => {
+    expect((await acquire(table)).candidates).toEqual([expect.objectContaining({ state: "PARTIAL_TEXT_READABLE",
+      sections_observed: [] })]);
+  });
+
+  it("lays the text out on the lines admission reads, a superscript's digits in Unicode's, a bare < as text", () => {
+    expect(extractHtmlText("<p>Pain scores did <b>not</b>\ndecrease after 12 weeks.</p><p><strong>Results</strong> " +
+      "Pain fell<sup>4,5&ndash;7</sup> in <i>E</i><sub>2</sub> users (p<0.05) and function rose (q>0.1).</p>").text)
+      .toBe("Pain scores did\nnot\ndecrease after 12 weeks.\nResults\nPain fell⁴,⁵⁻⁷ in E 2 users (p<0.05) and function rose (q>0.1).");
+    expect(extractHtmlText("<h1>Fall risk (p<0.05) in <i>older</i> adults</h1>").title).toBe("Fall risk (p<0.05) in older adults");
   });
 });
 

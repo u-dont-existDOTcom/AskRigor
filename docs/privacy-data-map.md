@@ -494,7 +494,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Open publication full text and audit index | Requested DOI/optional PMCID; Europe PMC or Unpaywall discovery attempts (optional `http_status` and `retryable` for Europe PMC full-text failures: public provider status and retryability, no user data); public source URL, title, manuscript version and format; exact document and block SHA-256 values; extracted public JATS or PDF text with section/page location; opaque document handle and cursor; source-linked study or review audit submissions and bounded validation receipts | Attempts a lawful, identity-checked full-text method audit. Retrieval, open availability, randomization, peer review, journal status, or guideline status is not treated as proof of reliability. If no complete copy passes access and identity checks, only a possibly useful lead is returned and unseen contents are not evidence. |
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
-| `read_forum_thread` | Only the public page or thread link goes out, with an opaque continuation when supplied; no question, research account, or personal health detail. Public pages receive the AskRigor user agent and a robots.txt request. Reddit returns post text, comments, dates, counts and continuation state; other forums return visible page text and a same-host next-page link. | Request-local reading, nothing stored. Reddit usernames and provider author/name fields are dropped before the result; an eight-hex SHA-256 key of thread ID and author lets the AI count one person once within a thread. A signed receipt holds only a comparable-URL digest, read count and reader kind, and for Reddit the subreddit the reader returned, lower case (`c`), or `u_` alone for a post on a person's profile, never the user's name; a 16-hex SHA-256 of a continuation's token for a Reddit read with `more` (`m`) or, for a forum page, of its thread's comparable link and the page that link picks (`w`), so each part counts once, by any of its links; for a forum page whose link has one of the id-only forms below, a 16-hex SHA-256 of that form as the reader read it (`l`), the only link the Atlas may publish for it; and, when the reader was sent on from the link it was given to the same thread at the same registrable host, that link's digest (`ur`), which then counts as that one thread. Refused, challenged, short or unavailable pages return no text or read receipt. A failure the Reddit reader's host reports is passed on as its code's name, never its message. |
+| `read_forum_thread` | Only the public page or thread link goes out, with an opaque continuation when supplied; no question, research account, or personal health detail. Public pages receive the AskRigor user agent and a robots.txt request. Reddit returns post text, comments, dates, counts and continuation state; other forums return visible page text and a same-host next-page link. | Request-local reading, nothing stored. Reddit usernames and provider author/name fields are dropped before the result; an eight-hex SHA-256 key of thread ID and author lets the AI count one person once within a thread. A signed receipt holds only a comparable-URL digest, read count and reader kind, and for Reddit the subreddit the reader returned, lower case (`c`), or `u_` alone for a post on a person's profile, never the user's name; a 16-hex SHA-256 of a continuation's token for a Reddit read with `more` (`m`) or, for a forum page, of its thread's comparable link and the page that link picks (`w`), so each part counts once, by any of its links; for a forum page the reader read at a link already in one of the id-only forms below, that link's 16-hex SHA-256 (`l`), the only link the Atlas may publish for it, so a published link is always one the reader fetched; and, when the reader was sent on from the link it was given to the same thread at the same registrable host, that link's digest (`ur`), which then counts as that one thread. Refused, challenged, short or unavailable pages return no text or read receipt. A failure the Reddit reader's host reports is passed on as its code's name, never its message. |
 | `search_reddit_threads` | Deidentified search words, an optional subreddit, sorting/time choices, a page size of 25 and an opaque page token go to the reader; no question, research account, or personal health detail. Returns public thread links, subreddits, titles, counts and a next token. | Request-local discovery, nothing stored. No usernames reach the result. A successful search signs only a query digest, up to 25 comparable-thread-URL digests and, when known, whether more pages exist; a refusal or failure earns no receipt, and a failure the host reports is named by its code alone. Personal search wording is screened before it leaves AskRigor and refused with its matched wording quoted to the caller. |
 | Public YouTube comment data | comment/reply IDs, parent/top-level IDs, public YouTube author/channel IDs, optional public display names, public comment text, likes, and publication/update timestamps; for empty text, found/read/verified markers, unknown modality and audio availability, and an unread-transcript marker | Requested API-visible comment and reply retrieval with completeness accounting. An empty-text record is found but its content is unread; it remains in retrieval counts, is excluded from analysis/evidence counts and source material, and is never evidence for its words. No audio or transcript is fetched for it. |
 | Public YouTube transcript data | public caption text, segment start/duration, selected and available caption languages, provider-reported automatic-caption status, public video/channel metadata, and canonical timestamp links | Custom GPT-only best-effort verification of what a video's selected public caption track says; not an efficacy, accuracy, or causality determination. |
@@ -1161,11 +1161,20 @@ What the model sends, and when:
   or more whole sentences of a paragraph, by Unicode's sentence rules (UAX
   #29), with only white space, quotation marks, brackets and citation markers
   at its ends: a part of a sentence, which may have lost its negation, is not
-  found, and a colon or a semicolon never ends a sentence. A whole sentence
-  can still be quoted out of its paragraph's context; a text with no sentence
-  marks (Thai, say) is found only as a whole block; and a full stop before a
-  capital letter ends a sentence by those rules, an abbreviation's included
-  ("vs. Group B"). A public card citing a study with no backing line,
+  found, and a colon or a semicolon never ends a sentence. A paragraph is a
+  block of a JATS paper, a PDF's pages run on, or an HTML page's or a plain
+  text's lines run on within a section, so a line the page broke at a bold
+  word or a `<br>` ends no sentence. A full stop after an abbreviation (a word
+  with a full stop inside it, or of one to three small letters) ends no
+  sentence even before a capital letter, and a section's label at a line's
+  start, one the section-name list of full-text admission knows
+  ("Conclusions:"), starts one. A whole sentence can still be quoted out of its
+  paragraph's context. In the safe direction, a part is refused where those
+  rules end no sentence: a text with no sentence marks (Thai, Lao, Tibetan) is
+  found only as a whole paragraph, a Greek question mark is the semicolon once
+  a text is in NFC, a heading a page runs into its paragraph is part of its
+  first sentence, and a sentence after one that truly ends in a short word
+  ("twice a day.") is found only with it. A public card citing a study with no backing line,
   or a research that read forum threads with no finding giving a forum signal,
   gets one note naming the fields.
 - In `save_research_findings`, only after a paid-private user says yes to that
@@ -1324,9 +1333,12 @@ structural, id-only form at the root of its registrable host or of `www.` and it
 phpBB's `viewtopic.php?t=<id>`, vBulletin's `showthread.php?t=<id>`, XenForo's
 `/threads/<id>/` or Discourse's `/t/<id>`, with no other port; its community is
 then that host (`example.org`), never a title, slug or query value, and its link
-that form only as the reader read it, scheme and host exactly (the read's `l`,
-signed again for the card's thread as `fl`): a link the AI wrote another way,
-`http://` or with or without `www.`, is counted and named but not linked. That
+that form only when the reader read the page at that very link, scheme and host
+exactly (the read's `l`, signed again for the card's thread as `fl`), so a link
+published is always one the reader fetched: a page read at another link
+(`/t/events/2024`, which no rule here can tell from a Discourse topic), or a link
+the AI wrote another way (`http://`, or with or without `www.`), is counted and
+named but not linked. That
 is a rule on the link's form, not on who runs the site: a site at the root of
 such a form is named by its domain, which is the forum's name, so a person's own
 domain serving forum software there (`https://janedoe.com/threads/12/`) is named

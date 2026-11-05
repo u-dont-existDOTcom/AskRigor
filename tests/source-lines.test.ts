@@ -1,4 +1,5 @@
 import { runInNewContext } from "node:vm";
+import { errorEnvelope, okEnvelope } from "@askrigor/contracts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,8 @@ import {
   sourceLineNotes, type SourceLine, type SourceLineDocument, type SourceLineRequest, type SourceLineTexts,
 } from "../apps/research-mcp/src/source-lines.js";
 import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
+import { acquireOpenFullText, type AcquireOpenFullTextRuntime } from "../packages/sources/src/index.js";
+import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
 
 const SECRET = "source-lines-test-secret-0123456789012345678901";
 const SENTENCE = "Pain fell by 12 points in the exercise group at 6 months, against 3 points with usual care.";
@@ -39,6 +42,35 @@ const held = (document: SourceLineDocument | undefined = PAPER, abstract: Source
   ({ fullText: () => document, abstract });
 const lookUp = async (given: SourceLine, texts = held(), wanted = request()) =>
   (await lookUpSourceLines([given], [wanted], texts))[0]!;
+
+// A paper AskRigor fetched, as the source line reads its index: a candidate page or PDF, identity-checked and admitted,
+// laid out and cut into blocks as the stored text is, its headings taken into the section path.
+const FETCHED = { doi: "10.1234/synthetic.source-lines", pmid: "99902", title: "Synthetic source line target article",
+  first_author: "Fixtureauthor B", year: "2002", journal: "Synthetic Journal" };
+const FETCHED_FRONT = `${FETCHED.title}\n${FETCHED.first_author} ${FETCHED.year}\nDOI ${FETCHED.doi}`;
+async function fetchedPaper(content: string | Uint8Array, type = "text/html"): Promise<SourceLineDocument> {
+  const runtime: AcquireOpenFullTextRuntime = {
+    searchEuropePmc: async () => okEnvelope({ provider: "europe_pmc", recordType: "europe_pmc_search_result",
+      accessStatus: "complete", pagination: { exhausted: true }, returned: 1, data: [{ source: "MED", id: FETCHED.pmid,
+        doi: FETCHED.doi, pmid: FETCHED.pmid, title: FETCHED.title, authors: [FETCHED.first_author], year: FETCHED.year,
+        journal: FETCHED.journal }] }),
+    unpaywallRuntime: { resolve: async () => errorEnvelope({ provider: "unpaywall", recordType: "open_access_location_resolution",
+      accessStatus: "error", primaryIdentifier: FETCHED.doi, pagination: { exhausted: true }, returned: 0,
+      code: "synthetic_provider_failure", message: "Synthetic response", retryable: true, data: {} }) },
+    candidateRuntime: { documentFetchRuntime: { resolveAddresses: async () => ["93.184.216.34"],
+      requestDocument: async () => ({ status: 200, headers: new Headers({ "content-type": type }),
+        bytes: typeof content === "string" ? new TextEncoder().encode(content) : content }) },
+    now: () => new Date("2026-11-05T00:00:00Z") },
+  };
+  const result = await acquireOpenFullText({ doi: FETCHED.doi,
+    candidate_urls: [{ url: "https://www.academia.edu/synthetic-source-lines" }] }, { email: "research@example.test" }, runtime);
+  expect(result.data.acquisition_state).toBe("FULL_TEXT_READABLE");
+  return sourceLineDocument(result.data.document_index!);
+}
+const fetchedHtml = (results: string, discussion: string) => `<html><body><h1>${FETCHED.title}</h1><p>` +
+  `${FETCHED.first_author} ${FETCHED.year} DOI ${FETCHED.doi}</p><h2>Abstract</h2><p>Synthetic summary.</p><h2>Methods</h2>` +
+  `<p>${syntheticBody("methods")}</p><h2>Results</h2>${results}<p>${syntheticBody("results")}</p><h2>Discussion</h2>` +
+  `${discussion}<p>${syntheticBody("discussion")}</p></body></html>`;
 
 describe("looking a source line's quotes up", () => {
   it("finds both quotes and says where", async () => {
@@ -84,8 +116,8 @@ describe("looking a source line's quotes up", () => {
     // A PDF's page text: its line breaks and its pages wrap the sentences.
     const paper: SourceLineDocument = { kind: "full_text", blocks: [
       { text: "Participants in the inter-\nvention arm reported side effects. Most were well-\nknown ones, such as\nsoreness. " +
-        "Pre- and post-treatment scores were", section: "Results", wraps: true },
-      { text: "compared with those of the control arm at twelve weeks.", section: "Results", wraps: true },
+        "Pre- and post-treatment scores were", section: "Results" },
+      { text: "compared with those of the control arm at twelve weeks.", section: "Results", runsOn: true },
     ] };
     expect(await lookUp(line({ sentence: "Participants in the intervention arm reported side effects.",
       conclusion: "Pre- and post-treatment scores were compared with those of the control arm at twelve weeks." }), held(paper)))
@@ -102,9 +134,11 @@ describe("looking a source line's quotes up", () => {
   describe("only whole sentences", () => {
     const found = async (text: string, sentence: string, block: Partial<SourceLineDocument["blocks"][number]> = {}) =>
       (await lookUp(line({ sentence }), held({ kind: "full_text", blocks: [{ text, ...block }, { text: CONCLUSION }] }))).sentence;
-    // An HTML page as its index holds it: a block for each line the extractor lays out.
-    const fromHtml = (html: string): SourceLineDocument =>
-      ({ kind: "full_text", blocks: [...extractHtmlText(html).text.split("\n").map((text) => ({ text })), { text: CONCLUSION }] });
+    // An HTML page's lines as its index holds them, one a block, running on within one section.
+    const fromHtml = (html: string): SourceLineDocument => ({ kind: "full_text", blocks: [
+      ...extractHtmlText(html).text.split("\n").map((text, place) => ({ text, ...(place === 0 ? {} : { runsOn: true }) })),
+      { text: CONCLUSION },
+    ] });
 
     it("doesn't find a part of a sentence that leaves its negation out", async () => {
       expect(await found("Pain scores did not decrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
@@ -113,17 +147,40 @@ describe("looking a source line's quotes up", () => {
         "Pain scores did not decrease significantly after 12 weeks.")).toBe("found");
     });
 
-    it("reads an HTML page's inline elements inline, so a bold negation stays in its sentence", async () => {
-      const html = "<p>Pain scores did <b>not</b>\ndecrease significantly after 12 weeks.</p><p>Function improved.</p>";
-      expect(extractHtmlText(html).text).toBe("Pain scores did not decrease significantly after 12 weeks.\nFunction improved.");
-      expect((await lookUp(line({ sentence: "decrease significantly after 12 weeks" }), held(fromHtml(html)))).sentence)
+    // The recheck of #417: an HTML page's stored lines are laid out for full-text admission and the paywall labels, a
+    // <b> or a <br> on a line of its own, so the lookup runs them on within a section; a heading starts one afresh.
+    it("runs an HTML page's lines on within a section, so a bold negation or a <br> stays in its sentence", async () => {
+      const paper = await fetchedPaper(fetchedHtml(
+        "<p>Pain scores did <b>not</b> decrease significantly after 12 weeks.</p>" +
+        "<p>We found no evidence that<br>Vitamin D reduces fracture risk in older adults.</p>",
+        "<p><strong>Conclusions:</strong> Vitamin D reduced falls in older adults living alone.</p>"));
+      const look = async (sentence: string) => (await lookUp(line({ sentence }), held(paper))).sentence;
+      expect(await look("decrease significantly after 12 weeks")).toBe("not_found");
+      expect(await look("Vitamin D reduces fracture risk in older adults.")).toBe("not_found");
+      expect(await lookUp(line({ sentence: "Pain scores did not decrease significantly after 12 weeks." }), held(paper)))
+        .toMatchObject({ sentence: "found", sentence_section: "Results" });
+      expect(await look("We found no evidence that Vitamin D reduces fracture risk in older adults.")).toBe("found");
+      // A heading, set in strong as a run-in label, starts its section afresh.
+      expect(await lookUp(line({ sentence: "Vitamin D reduced falls in older adults living alone." }), held(paper)))
+        .toMatchObject({ sentence: "found", sentence_section: "Conclusions:" });
+    });
+
+    it("finds a sentence after a section's label at a line's start in a PDF, and never after any other colon", async () => {
+      const pdf = syntheticPdf(`${syntheticArticleText(FETCHED_FRONT)}\nConclusions: Vitamin D reduced falls in older ` +
+        "adults living alone.\nWe could not confirm the earlier report: vitamin D reduces fracture risk in older adults.");
+      const paper = await fetchedPaper(pdf, "application/pdf");
+      const look = async (sentence: string) => (await lookUp(line({ sentence }), held(paper))).sentence;
+      expect(await look("Vitamin D reduced falls in older adults living alone.")).toBe("found");
+      expect(await look("Conclusions: Vitamin D reduced falls in older adults living alone.")).toBe("found");
+      expect(await look("vitamin D reduces fracture risk in older adults")).toBe("not_found");
+      // A label in a sentence a line break cut is no label.
+      const page = (text: string): SourceLineDocument => ({ kind: "full_text", blocks: [{ text, section: "Page 2" }] });
+      expect((await lookUp(line({ sentence: "vitamin D reduced fractures in older adults." }), held(page(
+        "Our trial did not reproduce the earlier\nresults: vitamin D reduced fractures in older adults.")))).sentence)
         .toBe("not_found");
-      expect((await lookUp(line({ sentence: "Pain scores did not decrease significantly after 12 weeks." }), held(fromHtml(html))))
-        .sentence).toBe("found");
-      // <strong>, <i>, <span>, <a> and <sub> stay inline too; a block element and <br> break the line.
-      expect(extractHtmlText("<div>The <strong>dose</strong> of <i>E</i><sub>2</sub> was <span>not</span> " +
-        "<a href=\"#t1\">changed</a>.<br>It held.</div><ul><li>One</li><li>Two</li></ul>").text)
-        .toBe("The dose of E2 was not changed.\nIt held.\nOne\nTwo");
+      // Nor is a word the section-name list doesn't know.
+      expect((await lookUp(line({ sentence: "Vitamin D reduced falls in older adults living alone." }), held(page(
+        "Interpretation: Vitamin D reduced falls in older adults living alone.")))).sentence).toBe("not_found");
     });
 
     it("prints an HTML superscript of digits as Unicode's, so a citation can be left out and a unit still matches", async () => {
@@ -135,12 +192,19 @@ describe("looking a source line's quotes up", () => {
         .toBe("found");
       expect((await lookUp(line({ sentence: "Mean body mass index was 31 kg/m² in both groups." }), held(fromHtml(html)))).sentence)
         .toBe("found");
-      // A superscript that isn't digits stays as it is, inline.
-      expect(extractHtmlText("<p>The 1<sup>st</sup> visit</p>").text).toBe("The 1st visit");
+      // A superscript that isn't digits reads as the rest of the text does.
+      expect(extractHtmlText("<p>The 1<sup>st</sup> visit</p>").text).toBe("The 1 st visit");
       // CodeQL's incomplete multi-character sanitization (#417): split markup can't reassemble a tag, and an unclosed tag
       // at the end goes, as a browser drops it, so the text never holds the start of a tag.
       expect(extractHtmlText("<p>a <scr<b>ipt>b</p><p>c <script</p>").text).not.toMatch(/<[A-Za-z!/?]/u);
-      expect(extractHtmlText("<p>p &lt; 0.05 and a<b>b</b> &lt;i&gt;</p>").text).toBe("p < 0.05 and ab <i>");
+      expect(extractHtmlText("<p>p &lt; 0.05 and a<b>b</b> &lt;i&gt;</p>").text).toBe("p < 0.05 and a\nb\n<i>");
+      // A "<" that starts no tag is text (the recheck of #417, item 7), in the text and the title alike.
+      const bare = "<h1>Falls (p<0.05) and function (q>0.1)</h1><p>Pain fell (p<0.05) and function rose (q>0.1).</p>";
+      expect(extractHtmlText(bare)).toMatchObject({ text: "Falls (p<0.05) and function (q>0.1)\nPain fell (p<0.05) and " +
+        "function rose (q>0.1).", title: "Falls (p<0.05) and function (q>0.1)" });
+      const paragraphs = "<p>We enrolled 64 adults with knee pain.</p><p>Pain fell (p<0.05) and function rose (q>0.1).</p>";
+      expect((await lookUp(line({ sentence: "Pain fell (p<0.05) and function rose (q>0.1)." }), held(fromHtml(paragraphs))))
+        .sentence).toBe("found");
     });
 
     it("doesn't end a sentence at an abbreviation before a small letter", async () => {
@@ -159,6 +223,31 @@ describe("looking a source line's quotes up", () => {
         "found no reduction in pain after 12 weeks of treatment")).toBe("not_found");
       expect(await found("Smith et al. found no reduction in pain after 12 weeks of treatment.",
         "Smith et al. found no reduction in pain after 12 weeks of treatment.")).toBe("found");
+    });
+
+    // The recheck of #417 (item 4a): Unicode's rules end a sentence at an abbreviation's full stop before a capital
+    // letter; a sentence whose last word is one runs on into the next, by the word's form alone.
+    it("runs a sentence on past an abbreviation before a capital letter, and past a short last word too", async () => {
+      const probiotic = "No probiotic tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea in children.";
+      expect(await found(probiotic, "Lactobacillus rhamnosus GG reduced diarrhoea in children.")).toBe("not_found");
+      expect(await found(probiotic, probiotic)).toBe("found");
+      for (const [text, part] of [
+        ["Pain fell in Group A vs. Group B showed no change at all.", "Group B showed no change at all."],
+        ["We read Smith et al. Reported harms were rare in the trial.", "Reported harms were rare in the trial."],
+        ["Trials ran in the U.S. Pain fell in all of them by a third.", "Pain fell in all of them by a third."],
+        ["Die Dosis, z.B. Zink in Lutschtabletten, half nicht bei Kindern.", "Zink in Lutschtabletten, half nicht bei Kindern."],
+        ["Это не помогло, т.е. Симптомы держались у всех детей.", "Симптомы держались у всех детей."],
+      ]) {
+        expect(await found(text!, part!), text).toBe("not_found");
+      }
+      // A full stop after a longer word or a capitalized one ends a sentence as before.
+      expect(await found("Pain fell in the exercise group. Function did not change in either arm.",
+        "Function did not change in either arm.")).toBe("found");
+      expect(await found("Results were similar across arms (Fig. 2). Function did not change in either arm.",
+        "Function did not change in either arm.")).toBe("found");
+      // The cost, in the safe direction: a sentence after one that truly ends in a short word is found only with it.
+      expect(await found("Take the dose twice a day. Pain fell by 12 points in the exercise group.",
+        "Pain fell by 12 points in the exercise group.")).toBe("not_found");
     });
 
     it("never takes a colon or a semicolon as a sentence's end, in any script", async () => {
@@ -194,6 +283,19 @@ describe("looking a source line's quotes up", () => {
         .toBe("not_found");
       expect(await found("Ο πόνος στο γόνατο μειώθηκε σημαντικά μετά από 12 εβδομάδες. Η λειτουργία βελτιώθηκε.",
         "Ο πόνος στο γόνατο μειώθηκε σημαντικά μετά από 12 εβδομάδες.")).toBe("found");
+    });
+
+    // The recheck of #417 (item f): scripts and marks Unicode's rules end no sentence at refuse a part, as Thai does.
+    it("refuses a part of a Greek sentence that ends with a question mark, and of Tibetan or Lao text", async () => {
+      // A Greek question mark (U+037E) is the semicolon itself once a text is in NFC, and ends no sentence there.
+      const greek = "Μειώθηκε ο πόνος μετά από 12 εβδομάδες\u037E Ναι, σε όλους τους ασθενείς της μελέτης.";
+      expect(greek.normalize("NFC")).toContain(";");
+      expect(await found(greek.normalize("NFC"), "Ναι, σε όλους τους ασθενείς της μελέτης.")).toBe("not_found");
+      const second = "ནད་པ་རྣམས་ཀྱི་ལས་ཀ་ཡག་ཏུ་ཕྱིན་པ་རེད་ཅེས་སྨན་པ་རྣམས་ཀྱིས་བཤད།";
+      expect(await found(`ནད་པ་རྣམས་ཀྱི་ན་ཟུག་ཆུང་དུ་ཕྱིན། ${second}`, second)).toBe("not_found");
+      const lao = "ຄວາມເຈັບປວດຫຼຸດລົງຫຼັງຈາກ 12 ອາທິດ ການເຮັດວຽກດີຂຶ້ນສຳລັບຄົນເຈັບທັງໝົດ";
+      expect(await found(lao, "ການເຮັດວຽກດີຂຶ້ນສຳລັບຄົນເຈັບທັງໝົດ")).toBe("not_found");
+      expect(await found(lao, lao)).toBe("found");
     });
 
     it("finds only a whole block in a script with no sentence marks", async () => {
@@ -260,7 +362,7 @@ describe("looking a source line's quotes up", () => {
       expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
         .toBe("not_found");
       expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks",
-        { wraps: true })).toBe("not_found");
+        { runsOn: true })).toBe("not_found");
       expect(await found("Primary outcome\nPain fell by 12 points in the exercise group\nSecondary outcomes",
         "Pain fell by 12 points in the exercise group")).toBe("not_found");
       // Its own block is a paragraph of its own.
@@ -273,7 +375,7 @@ describe("looking a source line's quotes up", () => {
 
     it("runs a PDF's heading into its first sentence, so that sentence alone isn't found", async () => {
       const page = { text: "Results\nPain fell by 12 points in the exercise group at six months.\nFunction did not change in " +
-        "either arm of the trial.", section: "Page 4", wraps: true };
+        "either arm of the trial.", section: "Page 4" };
       const paper: SourceLineDocument = { kind: "full_text", blocks: [page] };
       expect(await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group at six months." }), held(paper)))
         .toMatchObject({ sentence: "not_found" });
@@ -285,26 +387,27 @@ describe("looking a source line's quotes up", () => {
 
     it("says on which page a sentence that crosses pages starts", async () => {
       const paper: SourceLineDocument = { kind: "full_text", blocks: [
-        { text: "We enrolled 64 adults with knee pain. Pain fell by 12 points in the", section: "Page 3", wraps: true },
-        { text: "exercise group at six months. Function did not change in either arm.", section: "Page 4", wraps: true },
+        { text: "We enrolled 64 adults with knee pain. Pain fell by 12 points in the", section: "Page 3" },
+        { text: "exercise group at six months. Function did not change in either arm.", section: "Page 4", runsOn: true },
       ] };
       expect(await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group at six months.",
         conclusion: "Function did not change in either arm." }), held(paper)))
         .toMatchObject({ sentence: "found", sentence_section: "Page 3", conclusion: "found", conclusion_section: "Page 4" });
     });
 
-    it("reads a PDF's page text and a plain text's lines as wrapped, and every other text's blocks as its own", () => {
-      const index = { source: { provider: "unpaywall_open_location", format: "pdf_text" }, blocks: [
+    it("runs a PDF's pages on, an HTML page's or a plain text's lines within a section, and a JATS paper's blocks never", () => {
+      const runsOn = (format: string, kind: string, paths: string[][]) => sourceLineDocument({
+        source: { provider: "direct_candidate", format },
+        blocks: paths.map((path, place) => ({ text: `line ${place}`, section_path: path, kind })),
+      } as never).blocks.map((block) => block.runsOn === true);
+      expect(runsOn("pdf_text", "page_text", [["Page 1"], ["Page 2"], ["Page 3"]])).toEqual([false, true, true]);
+      expect(runsOn("html_text", "paragraph", [[], [], ["Results"], ["Results"], ["Discussion"]]))
+        .toEqual([false, true, false, true, false]);
+      expect(runsOn("plain_text", "paragraph", [["Methods"], ["Methods"], ["Results"]])).toEqual([false, true, false]);
+      expect(runsOn("jats_xml", "paragraph", [["Results"], ["Results"]])).toEqual([false, false]);
+      expect(sourceLineDocument({ source: { provider: "unpaywall_open_location", format: "pdf_text" }, blocks: [
         { text: "a page", section_path: ["Page 1"], kind: "page_text" },
-        { text: "a paragraph", section_path: ["Results"], kind: "paragraph" },
-      ] };
-      expect(sourceLineDocument(index as never).blocks).toEqual([
-        { text: "a page", section: "Page 1", wraps: true }, { text: "a paragraph", section: "Results" },
-      ]);
-      const plain = { source: { provider: "direct_candidate", format: "plain_text" }, blocks: [
-        { text: "a line", section_path: ["Results"], kind: "paragraph" },
-      ] };
-      expect(sourceLineDocument(plain as never).blocks).toEqual([{ text: "a line", section: "Results", wraps: true }]);
+      ] } as never).blocks).toEqual([{ text: "a page", section: "Page 1" }]);
     });
 
     it("looks a structured abstract up section by section, as its labels are no part of a sentence", async () => {
@@ -315,8 +418,11 @@ describe("looking a source line's quotes up", () => {
       ] });
       expect(await lookUp(line(), held(abstract))).toMatchObject({ sentence: "found", sentence_section: "RESULTS",
         conclusion: "found", conclusion_section: "CONCLUSIONS" });
-      // Without its sections, a label runs into its section's first sentence.
+      // Without its sections, a label the section-name list knows still starts a sentence at its line's start; any other
+      // label runs into its section's first sentence.
       expect(await lookUp(line(), held(abstractDocument(`RESULTS: ${SENTENCE}\nCONCLUSIONS: ${CONCLUSION}`))))
+        .toMatchObject({ sentence: "found", conclusion: "found" });
+      expect(await lookUp(line(), held(abstractDocument(`FINDINGS: ${SENTENCE}\nINTERPRETATION: ${CONCLUSION}`))))
         .toMatchObject({ sentence: "not_found", conclusion: "not_found" });
     });
   });

@@ -136,7 +136,11 @@ form, curly quotation marks, dashes and emphasis are set aside and nothing else,
 not found, in any language, with no model. A quote is found only as one or more whole sentences of one paragraph, by
 Unicode's sentence rules (UAX #29), with only white space, quotation marks, brackets and citation markers at its ends,
 so a part of a sentence that left out its negation is not found; a colon or a semicolon never ends a sentence, and a
-structured abstract is read section by section, its labels apart. The result's runtime `source_lines` and the panel say which quotes were
+structured abstract is read section by section, its labels apart. An HTML page's or a plain text's lines, as the stored
+text lays them out for full-text admission and the paywall labels, run on within a section, as a PDF's pages do, so a
+bold word or a `<br>` on a line of its own ends no sentence; a full stop after an abbreviation (a word with a full stop
+inside it, or of one to three small letters) ends none either, even before a capital letter; and a section's label at a
+line's start that full-text admission's section-name list knows ("Conclusions:") starts one. The result's runtime `source_lines` and the panel say which quotes were
 found and in which section. Only a line with both found in a paper AskRigor fetched may carry "✓ AskRigor found both
 in the paper"; a copy the AI supplied is named as one and gets no tick. A quote not found is a note and a line in the
 panel, not a step, since the six blocking checks don't name it. Finding a quote shows the words exist, not that they
@@ -144,9 +148,11 @@ are fair, which is why the conclusion and the strongest thing against the claim 
 claim is meaning, and the meaning judge reads it where it is on (its job 5). Limits: AskRigor holds a full text for an
 hour after its last read, so a later check leaves those quotes unchecked and says so; a source with no full text held
 and no PMID has nothing to look in; the check can't say what the answer shows after it; a whole sentence can still be
-quoted out of its paragraph's context; a text with no sentence marks (Thai, say) is found only as a whole block, and a
-heading that runs into its paragraph, as a PDF's do, as part of its first sentence; and a full stop before a capital
-letter ends a sentence by Unicode's rules, an abbreviation's included ("vs. Group B").
+quoted out of its paragraph's context; and, each refusing a part rather than finding it, a text with no sentence marks
+(Thai, Lao, Tibetan) is found only as a whole paragraph, a Greek question mark is the semicolon once a text is in NFC,
+where Unicode's rules end no sentence, a heading that runs into its paragraph (a PDF's, or an HTML page's the
+section-name list doesn't know) is part of its first sentence, and a sentence after one that truly ends in a short word
+("twice a day.") is found only with it.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

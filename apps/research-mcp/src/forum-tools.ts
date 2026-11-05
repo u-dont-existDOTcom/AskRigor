@@ -9,7 +9,7 @@ import { z } from "zod";
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { redditReaderFromEnv, SEARCH_PAGE_SIZE } from "./reddit-reader-client.js";
 import {
-  forumLinkDigest, forumPageDigest, forumPublishedLink, forumThreadDigest, sameThreadAtSite, signedSubreddit
+  forumLinkDigest, forumPageDigest, forumReadLink, forumThreadDigest, sameThreadAtSite, signedSubreddit
 } from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
@@ -145,11 +145,12 @@ export function registerForumTools(
       // more signs which part it continues (`m`), and a forum page's read the page it read (`w`: its thread's comparable
       // link and the page it picks), so reading a part or a page again, by any of its links, adds nothing. A link the
       // reader was sent on from to the same thread at the same site (a bare host to a forum's subdomain, say) is signed
-      // too (`ur`), as that one thread; a forum page's id-only link as read (`l`) is the only link the Atlas publishes.
+      // too (`ur`), as that one thread. A forum page read at a link already in an id-only form signs it (`l`), the only
+      // link the Atlas may publish for it, so a published link is always one the reader fetched.
       const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
       const readThread = forumThreadDigest(data.url);
       const requestedThread = forumThreadDigest(url);
-      const readLink = reddit ? undefined : forumPublishedLink(data.url);
+      const readLink = reddit ? undefined : forumReadLink(data.url);
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
         u: readThread, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
         v: reddit ? "reddit" : "page",
