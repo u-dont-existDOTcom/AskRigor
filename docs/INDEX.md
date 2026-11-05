@@ -152,6 +152,9 @@ complete XML protocol.
   pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
   from 43% to none; answers still changed after a passing check; three regression cards published when the account's
   saving was switched on from outside the run (owner questions 218 and 219).
+- `audits/2026-11-05-owner-regressions-412-judgment.md`: the owner regressions on #412's build `bf3581aa`: the 41
+  runs NCBI's PubMed outage spared (19 pass, 22 in part, none fails; 4 better and 1 worse than on #394's build),
+  the two sleep apnea cases, and the forum reader's two faults, fixed in #413; the 61 outage runs wait for a rerun.
 - `audits/2026-11-03-owner-regressions-394-judgment.md`: the owner regressions on #394's build `b9e658e2` against
   question 193's signals (85 cases: 40 pass, 44 in part, 1 fails; against #393's build 7 better, 12 worse, eight of
   them for the plain-answer note dropped after the check; the low-calorie runs 4, 6 and none fails, 1 not judged):
