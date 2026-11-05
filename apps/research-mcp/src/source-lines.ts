@@ -62,11 +62,9 @@ export type SourceLineCheck = z.output<typeof sourceLineCheckSchema>;
 export type SourceLineLookup = Omit<SourceLineCheck, "shown" | "label">;
 
 /** Where one line's text may be: the handles and PMIDs its key source's verified receipts name. */
-export interface SourceLineRequest {
+export interface SourceLineRequest extends QuoteSource {
   line: number;
   keySource: boolean;
-  handles: readonly string[];
-  pmids: readonly string[];
 }
 
 export interface SourceLineDocument {
@@ -136,14 +134,94 @@ function finder(document: SourceLineDocument): Finder {
 
 const longEnough = (quote: string): boolean => quoteForm(quote).replace(/[^\p{L}\p{N}]/gu, "").length >= SHORTEST_QUOTE;
 
+/** What one check has read so far, so each text is read once: a PubMed abstract, and each text's finder. */
+export interface QuoteCache {
+  readonly abstracts: Map<string, Promise<SourceLineDocument | undefined | null>>;
+  readonly finders: Map<string, Finder>;
+}
+
+/** An empty cache, for one check's lookups. */
+export function quoteCache(): QuoteCache {
+  return { abstracts: new Map(), finders: new Map() };
+}
+
+/** Where a source's text may be: the handles and PMIDs its verified receipts name. */
+export interface QuoteSource {
+  handles: readonly string[];
+  pmids: readonly string[];
+}
+
+/** What looking quotes up in one source's text found. */
+export interface QuotesLookup {
+  /** The text the quotes were looked up in; undefined when there was none to read. */
+  document?: SourceLineDocument;
+  /**
+   * Why a quote may not have been called found or missing: there was no text, the full text is no longer held (so
+   * only its abstract, if any, was read), or the abstract couldn't be read.
+   */
+  reason?: "no_text" | "text_expired" | "text_unavailable";
+  /** Each quote, in the order given: found, with its section; not found; or not checked. */
+  quotes: Array<{ outcome: Outcome; section?: string | undefined }>;
+}
+
+/**
+ * Looks quotes up in one source's text: the full text a handle holds, else the PubMed abstract. A quote too short to
+ * mean much isn't looked up, and one missing from the abstract of a paper read in full isn't called missing.
+ */
+export async function lookUpQuotes(
+  source: QuoteSource,
+  quotes: readonly string[],
+  texts: SourceLineTexts,
+  cache: QuoteCache = quoteCache()
+): Promise<QuotesLookup> {
+  const { handles, pmids } = source;
+  let document: SourceLineDocument | undefined;
+  for (const handle of handles) {
+    document = texts.fullText(handle);
+    if (document !== undefined) break;
+  }
+  const expired = handles.length > 0 && document === undefined;
+  let unreadable = false;
+  if (document === undefined) {
+    for (const pmid of pmids) {
+      const read = cache.abstracts.get(pmid) ?? texts.abstract(pmid).catch(() => null);
+      cache.abstracts.set(pmid, read);
+      const abstract = await read;
+      if (abstract === null) unreadable = true;
+      if (abstract !== undefined && abstract !== null) {
+        document = abstract;
+        break;
+      }
+    }
+  }
+  if (document === undefined) {
+    return {
+      reason: expired ? "text_expired" : unreadable ? "text_unavailable" : "no_text",
+      quotes: quotes.map(() => ({ outcome: "not_checked" }))
+    };
+  }
+  const key = handles.join(" ") + "|" + pmids.join(" ");
+  const find = cache.finders.get(key) ?? finder(document);
+  cache.finders.set(key, find);
+  return {
+    document,
+    ...(expired ? { reason: "text_expired" as const } : {}),
+    quotes: quotes.map((quote) => {
+      if (!longEnough(quote)) return { outcome: "not_checked" as const };
+      const { found, section } = find(quote);
+      // Only the abstract of a paper read in full can't show that a quote isn't in the paper.
+      return found ? { outcome: "found" as const, section } : { outcome: expired ? "not_checked" as const : "not_found" as const };
+    })
+  };
+}
+
 /** Looks each line's two quotes up in the text its key source's receipts name. A failed read leaves a line unchecked. */
 export async function lookUpSourceLines(
   lines: readonly SourceLine[],
   requests: readonly SourceLineRequest[],
-  texts: SourceLineTexts
+  texts: SourceLineTexts,
+  cache: QuoteCache = quoteCache()
 ): Promise<SourceLineLookup[]> {
-  const held = new Map<string, Finder | undefined>();
-  const abstracts = new Map<string, Promise<SourceLineDocument | undefined | null>>();
   const lookups: SourceLineLookup[] = [];
   for (const { line, keySource, handles, pmids } of requests) {
     const { source, sentence, conclusion } = lines[line]!;
@@ -157,42 +235,17 @@ export async function lookUpSourceLines(
       lookups.push(unchecked("too_short"));
       continue;
     }
-    let document: SourceLineDocument | undefined;
-    for (const handle of handles) {
-      document = texts.fullText(handle);
-      if (document !== undefined) break;
-    }
-    const expired = handles.length > 0 && document === undefined;
-    let unreadable = false;
-    if (document === undefined) {
-      for (const pmid of pmids) {
-        const read = abstracts.get(pmid) ?? texts.abstract(pmid).catch(() => null);
-        abstracts.set(pmid, read);
-        const abstract = await read;
-        if (abstract === null) unreadable = true;
-        if (abstract !== undefined && abstract !== null) {
-          document = abstract;
-          break;
-        }
-      }
-    }
-    if (document === undefined) {
-      lookups.push(unchecked(expired ? "text_expired" : unreadable ? "text_unavailable" : "no_text"));
-      continue;
-    }
-    const key = handles.join(" ") + "|" + pmids.join(" ");
-    const find = held.get(key) ?? finder(document);
-    held.set(key, find);
-    const read = (quote: string): { outcome: Outcome; section?: string | undefined } => {
-      if (!longEnough(quote)) return { outcome: "not_checked" };
-      const { found, section } = find(quote);
-      // Only the abstract of a paper read in full can't show that a quote isn't in the paper.
-      return found ? { outcome: "found", section } : { outcome: expired ? "not_checked" : "not_found" };
-    };
     // One passage given as both quotes is one passage found, never both (#412's run: 9 of 15 lines in one part, and
     // the answers still showed that both were found).
     const same = quoteForm(sentence) === quoteForm(conclusion);
-    const [first, second] = [read(sentence), same ? { outcome: "not_checked" as const, section: undefined } : read(conclusion)];
+    const { document, reason, quotes } =
+      await lookUpQuotes({ handles, pmids }, same ? [sentence] : [sentence, conclusion], texts, cache);
+    if (document === undefined) {
+      lookups.push(unchecked(reason ?? "no_text"));
+      continue;
+    }
+    const expired = reason === "text_expired";
+    const [first, second] = [quotes[0]!, same ? { outcome: "not_checked" as const, section: undefined } : quotes[1]!];
     const unfound = first.outcome === "not_checked" || second.outcome === "not_checked";
     lookups.push({
       source,
