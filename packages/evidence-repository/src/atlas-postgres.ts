@@ -315,6 +315,7 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
     subject_type: NonNullable<AtlasVersionContent["subjectType"]> | null;
     direction: NonNullable<AtlasVersionContent["direction"]> | "unclear";
     search_scope: NonNullable<AtlasVersionContent["searchScope"]> | null;
+    research: NonNullable<AtlasVersionContent["research"]> | null;
     research_checked_on: string;
     made_with: AtlasMadeWith;
     card_wording_key: string | null;
@@ -326,7 +327,7 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
             claimed.normalized_assertion, claimed.population, version.certainty, version.usual_answer,
             version.why_not_usual, version.what_would_change_it, version.who_else, version.what_it_changes,
             version.tags, version.verified_bases, version.numbers, version.kind, claimed.program_or_exposure,
-            version.subject_type, claimed.direction, version.search_scope,
+            version.subject_type, claimed.direction, version.search_scope, version.research,
             to_char(version.research_checked_on, 'YYYY-MM-DD') AS research_checked_on, version.made_with,
             version.card_wording_key::text, version.accepted_wording_key::text, version.edited_at_acceptance,
             EXISTS (
@@ -388,6 +389,8 @@ async function readFindings(client: PoolClient, findingIds: string[]): Promise<A
           ...(version.subject_type === null ? {} : { subjectType: version.subject_type }),
           ...(version.direction === "unclear" ? {} : { direction: version.direction }),
           ...(version.search_scope === null ? {} : { searchScope: version.search_scope }),
+          // Owner answer 255a: the research behind it, migration 0029's column; none before it, or once erased.
+          ...(version.research === null ? {} : { research: version.research }),
         },
         researchCheckedOn: version.research_checked_on,
         madeWith: version.made_with,
@@ -499,14 +502,15 @@ async function executeAtlasPlan(client: PoolClient, plan: AtlasWritePlan, applie
         version.supersedesClaimVersionId, version.content.subject ?? null, version.content.direction ?? "unclear",
       ],
     );
-    // And the kind, the subject type and the searches that found nothing, in migration 0018's columns.
+    // And the kind, the subject type and the searches that found nothing, in migration 0018's columns, and the research
+    // behind it in migration 0029's (owner answer 255a).
     await client.query(
       `INSERT INTO atlas_finding_versions
          (claim_version_id, finding_id, version_number, certainty, usual_answer, why_not_usual, what_would_change_it,
           who_else, what_it_changes, tags, verified_bases, numbers, research_checked_on, made_with, card_wording_key,
-          accepted_wording_key, edited_at_acceptance, kind, subject_type, search_scope)
+          accepted_wording_key, edited_at_acceptance, kind, subject_type, search_scope, research)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14::jsonb, $15, $16, $17,
-               $18, $19, $20::jsonb)`,
+               $18, $19, $20::jsonb, $21::jsonb)`,
       [
         version.claimVersionId, version.findingId, version.versionNumber, version.content.certainty,
         version.content.usualAnswer, version.content.whyNotUsual, version.content.whatWouldChangeIt,
@@ -516,6 +520,7 @@ async function executeAtlasPlan(client: PoolClient, plan: AtlasWritePlan, applie
         version.acceptedWordingKey, version.editedAtAcceptance, version.content.kind ?? null,
         version.content.subjectType ?? null,
         version.content.searchScope === undefined ? null : JSON.stringify(version.content.searchScope),
+        version.content.research === undefined ? null : JSON.stringify(version.content.research),
       ],
     );
   }

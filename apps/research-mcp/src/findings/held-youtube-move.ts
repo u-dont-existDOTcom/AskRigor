@@ -89,8 +89,11 @@ export function recordWithoutYouTubeFindings(
   stored: ReturnType<typeof storedCardWithoutYouTubeFindings>,
 ): FindingsRecord {
   const linksReplaced = stored.omitted || JSON.stringify(stored.card).includes(YOUTUBE_PLACEHOLDER);
+  // What the record already left out of the checked card besides YouTube data stays named (owner answers 219b and 252a).
   const without = STORED_WITHOUT.filter((item) =>
-    item === "youtube_comment_findings" || (item === "youtube_video_ids_and_links" && linksReplaced));
+    item === "youtube_comment_findings" || (item === "youtube_video_ids_and_links" && linksReplaced) ||
+    ((item === "youtube_comment_declarations" || item === "backing_quotes_not_kept" || item === "forum_thread_links") &&
+      (record.stored_without ?? []).includes(item)));
   return {
     schema: record.schema,
     card: stored.card,

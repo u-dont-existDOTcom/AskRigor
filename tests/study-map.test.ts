@@ -670,6 +670,23 @@ describe("registry numbers", () => {
     expect(result.study_map?.claims[0]?.passages[2]).toEqual({ place: 2, outcome: "found" });
   });
 
+  // Owner answer 252a made a copy from the owner's library a kind of its own, for the Atlas, which never quotes one. It
+  // is still a full text, so it can show a number isn't there.
+  it("reads a copy from the owner's library as a full text, which can show a number isn't there", async () => {
+    const library = (handle: string): SourceLineDocument | undefined => {
+      const document = DOCUMENTS[handle];
+      return handle === C.handle && document !== undefined ? { ...document, kind: "library_copy" } : document;
+    };
+    const map: StudyMap = { ...THREE, studies: [TRIAL_A, TRIAL_B, { ...TRIAL_C, registry: ["NCT09000003", "ISRCTN00000001"] }] };
+    const { result, notes } = await check(fixture({ study_map: map }), texts({ fullText: library }));
+    expect(result.study_map?.studies[2]).toMatchObject({ text: "library_copy", registry: [
+      { place: 0, number: "NCT09000003", tie: "in_text", registered: "by_start" },
+      { place: 1, number: "ISRCTN00000001", tie: "not_found" },
+    ] });
+    expect(notes).toEqual(["study_map: study C gives the registry number ISRCTN00000001, but the copy from the owner's " +
+      "library AskRigor looked in doesn't name it: check the number, or take it out of the map."]);
+  });
+
   it("ties a number its text doesn't name when its record lists the study's paper, and notes a number with no record", async () => {
     const quiet: SourceLineDocument = { kind: "full_text", blocks: [{ text: A_RESULT, section: "Results" }] };
     const map: StudyMap = { ...THREE, studies: [TRIAL_A, { ...TRIAL_B, registry: ["NCT09000002", "NCT09000008"] }, TRIAL_C] };

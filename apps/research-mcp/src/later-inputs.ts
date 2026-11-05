@@ -11,6 +11,10 @@ import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
+import { placementsInputSchema } from "./atlas/placement-review.js";
+import { reportVerdictSchema } from "./atlas/report-review.js";
+import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
+import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -32,7 +36,11 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_card: laterFindingsCardSchema.optional()
       .describe("The findings card, as published, with each finding's draws_on_youtube_comments: true when any part " +
         "of it rests on YouTube comments read in this research, false otherwise. A finding drawing on them is held " +
-        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared."),
+        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared. " +
+        "For the Atlas's research behind each finding (owner answer 252a), each finding may also give backing (the " +
+        "paper's sentence and conclusion, copied exactly, and the strongest thing against it), each figure's source, " +
+        "and forum_signal (what people report in the forum threads read here); one resting on its forum_signal alone " +
+        "may have no sources."),
     // Owner answer 237a: the one optional field the source line adds.
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +
@@ -75,6 +83,10 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("With share_answer: the de-identified copy the person saw and confirmed."),
     shareCode: shareCodeSchema.optional()
       .describe("With delete_shared_answer: the code share_answer returned."),
+    // Owner answer 229a: a person's report to the Atlas, and its take-down.
+    atlasReport: atlasReportShareSchema.optional()
+      .describe("With share_report: the report exactly as the person saw and confirmed it, with its research."),
+    reportNumber: reportNumberSchema.optional(),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()
@@ -82,6 +94,22 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // Owner answers 229a and 231a: findings kept for AskRigor's research only.
     items: keepItemsInputSchema.optional()
       .describe("With keep_for_research or show_on_pages: P and F numbers, up to 100."),
+    // Owner answer 229a: where items sit under Health.
+    placements: placementsInputSchema.optional()
+      .describe("With place_items: [{item, subcategory}], 1 to 200 entries; subcategory a key list_unplaced lists, or null."),
+    // Owner answer 229a: people's reports.
+    reportState: z.enum(["received", "published", "held", "refused"]).optional()
+      .describe("With list_reports: the state to list; received (the check's queue) by default."),
+    report: z.string().trim().regex(/^[Rr]-[1-9][0-9]{3,}$/u).optional()
+      .describe("With check_report or decide_report: the report, such as R-1001."),
+    verdict: reportVerdictSchema.optional()
+      .describe("With check_report or decide_report: {verdict, aiWarning?, reason?, subcategory?, research?}."),
+    // The owner, 3 Nov: a problem's rows at a glance.
+    glanceRow: glanceRowInputSchema.optional()
+      .describe("With propose_glance_row: {subcategory, rowClass, what, result, comparison, followUp, limits, sources, namesAPerson}."),
+    glanceRowId: glanceRowIdSchema.optional().describe("With show_glance_row or withdraw_glance_row: the row, such as G-1001."),
+    glanceState: z.enum(["proposed", "shown", "withdrawn"]).optional()
+      .describe("With list_glance_rows: the state to list; proposed by default."),
   },
 } satisfies Record<string, z.ZodRawShape>);
 

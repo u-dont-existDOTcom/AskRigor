@@ -490,9 +490,10 @@ export async function lookUpStudyMap(
       const document = lookup?.document;
       const whole = document === undefined || declared.length === 0 ? ""
         : figureText(document.blocks.map(({ text }) => text).join("\n"));
-      // Only a full text still held can show a number isn't there: an abstract often leaves it out. A Netherlands Trial
-      // Register number is never looked for.
-      const complete = document?.kind === "full_text" && lookup?.reason !== "text_expired";
+      // Only a full text still held can show a number isn't there: an abstract often leaves it out. A copy from the
+      // owner's library is a full text too. A Netherlands Trial Register number is never looked for.
+      const complete = (document?.kind === "full_text" || document?.kind === "library_copy") &&
+        lookup?.reason !== "text_expired";
       return {
         ...(document === undefined ? {} : { text: document.kind }),
         ...(lookup?.reason === undefined ? {} : { reason: lookup.reason }),
@@ -580,7 +581,8 @@ export interface StudyMapContext {
 const TEXT_NAMES: Readonly<Record<TextKind, string>> = {
   full_text: "the full text",
   abstract: "the abstract",
-  search_copy: "the copy the AI supplied"
+  search_copy: "the copy the AI supplied",
+  library_copy: "the copy from the owner's library"
 };
 
 // Days since 1970 that a registry date can mean: one day, a whole month or a whole year.

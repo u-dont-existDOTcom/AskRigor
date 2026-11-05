@@ -108,6 +108,19 @@ describe("the copy of a card that wasn't saved", () => {
     expect(JSON.stringify(copy.card)).not.toContain("reddit");
   });
 
+  // Owner answer 252a: a forum signal's counts and words are copied; its thread links stay out, as a saved card leaves
+  // them out (the free notice's community summary holds no links).
+  it("copies a forum signal's counts and words, never its thread links", () => {
+    const signal = { threads: ["https://www.reddit.com/r/invented/comments/abc123/a_title/"],
+      people: { better: 3, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 0, bare: 1 },
+      mechanism: "It may relax the muscle.", studies: "support_not_located" };
+    const copy = unsavedCardCopy({ ...CARD, findings: [{ ...FINDING, sources: [], forum_signal: signal }] }, false)!;
+    const { threads: _threads, ...kept } = signal;
+    expect(copy.card.findings).toEqual([expect.objectContaining({ forum_signal: kept })]);
+    expect(copy.leftOut).toEqual(["findings[0].forum_signal.threads: forum thread links, which stay out of this copy"]);
+    expect(JSON.stringify(copy.card)).not.toContain("reddit");
+  });
+
   it("leaves out a finding that rests on YouTube comments, by what it shows, its declaration or the lack of one", () => {
     const shows = { ...FINDING, claim: "Shown by its video.", sources: ["dQw4w9WgXcQ"] };
     const tagged = { ...FINDING, claim: "Tagged.", tags: ["community_checked"] };

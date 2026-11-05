@@ -88,8 +88,10 @@ import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
+  ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
@@ -215,6 +217,7 @@ import {
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
+import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
   buildStagedAnalysis,
@@ -267,6 +270,7 @@ import {
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
   studyMapRequestsOf,
+  backingRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -1017,6 +1021,8 @@ function defineResearchOperations(
   // account tool nor the final check's offer), when the server keeps them.
   const sharing = options.mcpSurface === "/mcp/gemini" ? undefined
     : options.sharedAnswers !== undefined ? options.sharedAnswers ?? undefined : sharedAnswersFromEnv();
+  // Owner answer 229a: people's reports to the Atlas, the MCP connector's like sharing.
+  const atlasReports = options.mcpSurface === "/mcp/gemini" ? undefined : atlasReportDoorFromEnv();
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -1986,6 +1992,7 @@ function defineResearchOperations(
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
       devAccountKeys: () => devAccountKeysFromEnv(),
+      ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
         options.runningVersions ?? await versionPayload().then(runningVersionsOf, () => ({})) } }),
@@ -2512,36 +2519,47 @@ function defineResearchOperations(
       let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
-      // no model. Owner answer 249a: so is its study map, with its studies' ClinicalTrials.gov records, within the same
-      // deadline; the map's PubMed reads come after the source lines', so they never delay them, and what the map read
-      // in time is kept. Whatever happens, the check stands: what couldn't be looked up says so in a note.
-      const lookups = sourceLineRequestsOf(result);
+      // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
+      // texts, and what came of them is signed into the finalization receipt. Owner answer 249a: so is its study map,
+      // with its studies' ClinicalTrials.gov records, within the same deadline; the map's PubMed reads come after the
+      // lines', so they never delay them, and what the map read in time is kept. Whatever happens, the check stands:
+      // what couldn't be looked up says so in a note.
+      const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
+      const backing = backingRequestsOf(result);
       const mapRequests = studyMapRequestsOf(result);
-      const sourceLines = lookups === undefined ? undefined : checkedInput?.source_lines;
-      if (sourceLines !== undefined || mapRequests !== undefined) {
+      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined) {
         const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
         const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
         // One paper's text is read once when both look in the same texts.
         const lineCache = quoteCache();
         const mapCache = mapTexts.fullText === lineTexts.fullText && mapTexts.abstract === lineTexts.abstract
           ? lineCache : quoteCache();
-        const late = (lookups ?? []).map(({ line }) => ({ source: sourceLines?.[line]?.source ?? "",
+        const given = lookups === undefined ? [] : checkedInput!.source_lines!;
+        const lines = [...given, ...(backing?.lines ?? [])];
+        const requests = [...(lookups ?? []),
+          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
+        const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
-        const lines = sourceLines === undefined || lookups === undefined ? undefined : withinDeadline(
-          lookUpSourceLines(sourceLines, lookups, lineTexts, lineCache).catch(() => late),
+        const looking = requests.length === 0 ? undefined : withinDeadline(
+          lookUpSourceLines(lines, requests, lineTexts, lineCache).catch(() => late),
           SOURCE_LINE_DEADLINE_MILLISECONDS, late);
-        const [sourceLineLookups, studyMapLookup] = await Promise.all([
-          lines,
+        const [looked, studyMapLookup] = await Promise.all([
+          looking,
           // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
             lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts,
-              { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(lines === undefined ? {} : { after: lines }) })
+              { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(looking === undefined ? {} : { after: looking }) })
               .catch(() => lateStudyMapLookup(mapRequests.map)),
             SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
         ]);
+        const fromLines = lookups?.length ?? 0;
         gateOptions = {
           ...gateOptions,
-          ...(sourceLineLookups === undefined ? {} : { sourceLineLookups }),
+          ...(lookups === undefined ? {} : { sourceLineLookups: (looked ?? late).slice(0, fromLines) }),
+          ...(backing === undefined ? {} : {
+            backingLookups: backing.lines.map(({ finding, line }, place) =>
+              ({ finding, line, lookup: looked?.[fromLines + place] ?? late[fromLines + place]! }))
+          }),
           ...(studyMapLookup === undefined ? {} : { studyMapLookup })
         };
         result = finalizeResearch(input, gateOptions);
@@ -3876,17 +3894,11 @@ async function verifyIntegrity(
 }
 
 function ncbiConfig() {
-  return {
-    tool: process.env.NCBI_TOOL ?? "askrigor",
-    email: process.env.NCBI_EMAIL ?? "",
-    ...(process.env.NCBI_API_KEY === undefined
-      ? {}
-      : { apiKey: process.env.NCBI_API_KEY })
-  };
+  return ncbiConfigFromEnv();
 }
 
 function crossrefConfig() {
-  return { mailto: process.env.CROSSREF_MAILTO ?? "" };
+  return crossrefConfigFromEnv();
 }
 
 function youtubeConfig() {

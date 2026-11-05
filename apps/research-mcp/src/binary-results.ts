@@ -1,7 +1,10 @@
 import type { AtlasNumberEntry } from "@askrigor/evidence-repository";
 
 import { normalizedFindingsText } from "./findings/card.js";
+import { differenceRange } from "./difference-range.js";
 import { includesAbsoluteNumber, numberReadings, withAsciiDigits } from "./unicode-numbers.js";
+
+export { differenceRange };
 
 /**
  * Yes-or-no results for two groups: finalize_research's binary_results for an answer (AskRigor#356), and the numbers
@@ -69,6 +72,7 @@ export function withoutEndPunctuation(text: string): string {
 export const ATLAS_NUMBERS_PROBLEM_CODES = [
   "events_exceed_total",
   "same_rates",
+  "difference_not_clear",
   "nnt_and_nnh",
   "wrong_direction",
   "not_reciprocal_rounded_up",
@@ -125,10 +129,20 @@ export function atlasNumbersProblems(
     const stated = (["nnt", "nnh"] as const).filter((field) => entry[field] !== undefined);
     // The number the counts support: an nnt when the option did better, an nnh when it did worse.
     let supported: "nnt" | "nnh" | undefined;
+    let unclear = false;
     const contrast = overCounted.length > 0 ? undefined : binaryContrast(entry);
     if (overCounted.length === 0 && stated.length > 0 && contrast === undefined) {
       add(at, "same_rates", `${at}'s counts give the same rate in both groups, so there is no number needed to treat ` +
         `or harm: leave ${stated.join(" and ")} out.`);
+    } else if (contrast !== undefined && stated.length > 0 && !differenceRange(entry).clear) {
+      // Owner answer 225a: a number needed to treat or harm only when the difference is clear. Its other checks wait
+      // until it is left out.
+      unclear = true;
+      const range = differenceRange(entry);
+      const points = (value: number) => Number((value * 100).toFixed(1));
+      add(at, "difference_not_clear", `${at} gives ${stated.join(" and ")}, but the difference between the groups is ` +
+        `not clear: its 95% range runs from ${points(range.lower)} to ${points(range.upper)} percentage points, which ` +
+        `includes no difference. Leave ${stated.join(" and ")} out and say there was no clear difference.`);
     } else if (contrast !== undefined && stated.length > 0) {
       // The option did better when a larger share had an outcome more people should have, or a smaller share one
       // fewer should.
@@ -162,11 +176,11 @@ export function atlasNumbersProblems(
       add(at, "group_figure_not_shown", `${at} gives a figure the ${named} does not show for ${name}: the ${named} ` +
         `contains neither its events and total (${events} and ${total}) nor its rate (${Number(rate.toFixed(1))}%).`);
     }
-    for (const field of shown.numbersNeededNotShown) {
+    for (const field of unclear ? [] : shown.numbersNeededNotShown) {
       add(at, "number_needed_not_shown", `${at} gives a number needed to ${field === "nnt" ? "treat" : "harm"} ` +
         `the ${named} does not show: the ${named} does not contain ${entry[field]}.`);
     }
-    if (stated.length > 0 && !shown.followUpShown) {
+    if (stated.length > 0 && !unclear && !shown.followUpShown) {
       add(at, "follow_up_not_shown", `${at} gives a number needed to treat or harm without its follow-up: the ` +
         `${named} does not contain the declared follow-up.`);
     }
@@ -174,7 +188,9 @@ export function atlasNumbersProblems(
     // whose counts make its number one needed to harm, or leave none, is not asked for them: its own problem changes
     // the number first.
     const followUp = followUpText(entry.follow_up);
-    if (entry.nnt === undefined) {
+    if (unclear) {
+      // Nothing more until its number needed is left out.
+    } else if (entry.nnt === undefined) {
       if (entry.harms_none_found === true) {
         add(at, "harms_none_found_without_nnt", `${at} gives harms_none_found without nnt: it goes only beside a ` +
           "number needed to treat. Leave it out here.");

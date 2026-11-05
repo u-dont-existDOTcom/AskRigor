@@ -34,6 +34,11 @@ askrigor.com {
 		file_server
 	}
 
+	# Owner answer 224a: what crawlers may read, and where the sitemap of reviewed findings is.
+	handle /robots.txt {
+		file_server
+	}
+
 	@assets path /assets/*
 	handle @assets {
 		file_server
