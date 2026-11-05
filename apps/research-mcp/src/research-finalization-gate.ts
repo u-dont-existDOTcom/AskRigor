@@ -85,14 +85,19 @@ import {
   type VerifiedWork
 } from "./findings/card.js";
 import {
+  FORUM_PAGE_CHARACTERS_PER_PERSON,
   researchBehindProblems,
   signedBackingClaims,
   signedReadingClaims,
+  signedThreadCommunities,
+  signedThreadLinks,
   type BackingLookup,
   type ResearchBehindContext,
   type SourceFigures,
   type SourceReading
 } from "./findings/research-behind.js";
+// How two links to one thread compare, and the digest a forum_thread_read receipt signs: kept apart, so the save reads them too.
+import { comparableUrl, forumThreadDigest, isSignedSubreddit, NON_THREAD_PARAMETER } from "./forum-thread-links.js";
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
@@ -2017,25 +2022,56 @@ export function finalizeResearch(
 
   // Count declared forum reads only; review corpora and unread communities add no threads or communities.
   // Reports the user pasted are not a search of the community, so nothing there is left to read.
-  // Each read signs the link the reader landed on (u) and, when the site sent it to another, the link as asked (a):
-  // either form matches, and both stand for one thread (5 Nov 2026: l34 on #412's build declared LongeCity's
-  // /forum/topic/63977-…/page-2, which the reader read as viewtopic.php?t=1063977&start=30).
-  const landedRead = new Map<string, string>();
-  // Whether AskRigor's reader read each thread to its end, by either link's digest: a read with nothing after it and
+  // A read signs the thread it read (`u`) and, when the reader was sent on from the link it was given to the same thread
+  // at the same site, that link (`ur`): one thread, which either link finds and which counts once (the recheck of #417).
+  const forumThreads = new Set<string>();
+  const forumThreadAliases = new Map<string, string>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
+    forumThreads.add(claims.u);
+    if (typeof claims.ur === "string") forumThreadAliases.set(claims.ur, claims.u);
+  }
+  /** The thread a link was read as: its own when it was read, or the one the reader was sent on to from it. */
+  const readThreadOf = (url: string): string | undefined => {
+    const digest = forumThreadDigest(url);
+    return forumThreads.has(digest) ? digest : forumThreadAliases.get(digest);
+  };
+  const forumReadUrls = new Set([...forumThreads, ...forumThreadAliases.keys()]);
+  // What each thread's reads signed (the reviews of 5 November), by the thread's digest: whether Reddit's reader read it,
+  // the subreddit it returned (u_ for a person's profile), what it read, each part once: on Reddit the largest first read
+  // and each continuation (`m`) once; on a forum, each page (`w`) once; and a forum page's id-only link as read (`l`).
+  // Reading again adds nothing.
+  const forumReads = new Map<string, ForumThreadReads>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
+    const reader = text(claims.v) === "reddit" ? "reddit" as const : text(claims.v) === "page" ? "page" as const : undefined;
+    const subreddit = reader === "reddit" && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
+    const read = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
+    const known = forumReads.get(claims.u) ??
+      { reader, subreddit: undefined, first: 0, parts: new Map<string, number>(), links: new Set<string>() };
+    if (known.reader !== reader) known.reader = undefined;
+    known.subreddit ??= subreddit;
+    if (reader === "page" && text(claims.l) !== "") known.links.add(text(claims.l));
+    // A Reddit continuation, or a forum's page, by what it continues or which page it is; a Reddit first read alone.
+    const part = reader === "reddit" ? text(claims.m) : reader === "page" ? `page:${text(claims.w)}` : "";
+    if (part === "") known.first = Math.max(known.first, read);
+    else known.parts.set(part, Math.max(known.parts.get(part) ?? 0, read));
+    forumReads.set(claims.u, known);
+  }
+  const readsOf = (url: string): ForumThreadReads | undefined => {
+    const thread = readThreadOf(url);
+    return thread === undefined ? undefined : forumReads.get(thread);
+  };
+  // Whether AskRigor's reader read each thread to its end, by the thread's digest: a read with nothing after it and
   // nothing cut (e 1; the third check of 5 Nov 2026). A receipt from before the reader said counts as part-way, the
   // under-claim, for the day such receipts live (its fourth check).
   const threadReadToEnd = new Map<string, boolean>();
-  for (const { claims } of verified.filter(({ kind }) => kind === "forum_thread_read")) {
-    if (typeof claims.u !== "string") continue;
-    landedRead.set(claims.u, claims.u);
-    if (typeof claims.a === "string" && !landedRead.has(claims.a)) landedRead.set(claims.a, claims.u);
-    for (const link of [claims.u, claims.a]) {
-      if (typeof link === "string") threadReadToEnd.set(link, threadReadToEnd.get(link) === true || claims.e === "1");
-    }
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
+    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || claims.e === "1");
   }
-  const forumReadUrls: ReadonlySet<string> = new Set(landedRead.keys());
   // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
-  // a search of its subreddit, below.
+  // a search AskRigor couldn't make there, below.
   const forumSearchReceipts = verified.filter(({ kind, claims }) => kind === "forum_search" && claims.h === undefined);
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
   // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
@@ -2054,8 +2090,7 @@ export function finalizeResearch(
     // Each thread once, by its comparable link, whether declared or read by the reader with a verified receipt: in #394's
     // run, l49-b-label declared the 3 threads it classified of the 9 the reader read, and the note counted 3.
     const threads = new Set([...forumSearches.flatMap(({ threads_read }) =>
-      threads_read.map(({ url }) => landedRead.get(forumThreadDigest(url)) ?? forumThreadDigest(url))),
-      ...landedRead.values()]);
+      threads_read.map(({ url }) => readThreadOf(url) ?? forumThreadDigest(url))), ...forumThreads]);
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
     if (threads.size === 0) {
@@ -2577,12 +2612,12 @@ export function finalizeResearch(
   // query and the records it returned; a sentence, by the draft (with the other declared quotes, below). Which reports
   // raise a lead, and what the studies showed, stay the model's judgment. Every finding is a note; the leads AskRigor
   // saw no study search for are one limit.
-  // Each thread once: those the reader read, by the link it landed on, and those the call declares from its own web
+  // Each thread once: those the reader read, by the thread it read, and those the call declares from its own web
   // search that the reader didn't read (community_searches outside review sites and reports the user pasted, as the
   // forum note counts them). Each video whose comments the model received.
-  const readerThreads = new Set(landedRead.values());
+  const readerThreads: ReadonlySet<string> = forumThreads;
   const ownSearchThreads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) =>
-    landedRead.get(forumThreadDigest(url)) ?? forumThreadDigest(url))).filter((thread) => !readerThreads.has(thread)));
+    readThreadOf(url) ?? forumThreadDigest(url))).filter((thread) => !readerThreads.has(thread)));
   const leadVideos = new Set([...commentVideos, ...directlyReadVideos]);
   // A lead's source is a video whose comments the model received, a thread the reader read, or any link a
   // community_searches entry declares in threads_read. A declaration only ties the lead to a read the call reports; the
@@ -2880,7 +2915,8 @@ export function finalizeResearch(
     // A forum thread AskRigor's reader read is read as its receipt signs: to its end, the plain full reading, and
     // otherwise part of it; a thread is never method-audited nor read as an abstract (the third check of 5 Nov 2026).
     const threadReading: AnswerReading | undefined = !threadRead ? undefined
-      : threadReadToEnd.get(forumThreadDigest(source.id)) === true ? "full_text_read" : "partial_text";
+      : threadReadToEnd.get(readThreadOf(source.id) ?? forumThreadDigest(source.id)) === true ? "full_text_read"
+        : "partial_text";
     const read = audited || fullReads.length > 0 || threadReading === "full_text_read";
     // The review of 5 Nov 2026: every full reading was of a copy the AI found, which reads so, as an audit's does.
     const readSearchCopy = fullReads.length > 0 &&
@@ -3815,8 +3851,8 @@ export function finalizeResearch(
   // why_not_usual, for the owner's review.
   const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
   // Owner answer 254a: the forum threads a finding's forum signal names that AskRigor's reader read here, each by its
-  // verified forum_thread_read receipt, count as studies AskRigor read do. Each counts once, by the link the reader
-  // landed on, whether the signal gives that link or the one asked for.
+  // verified forum_thread_read receipt, count as studies AskRigor read do. Each counts once, by the thread the reader
+  // read, whether the signal gives that link or the one it was sent on from (`ur`).
   const verifiedWork = (sources: readonly string[], quote: string | undefined, threads: readonly string[] = []) => ({
     studies: new Set(sources.filter(auditedStudy).map(paperKey)),
     videos: new Set(sources.filter((source) => commentVideos.has(source))),
@@ -3825,8 +3861,8 @@ export function finalizeResearch(
     corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
       by_user === false && sameQuote(quote, change) ? [index] : [])),
     threads: new Set(threads.flatMap((thread) => {
-      const landed = landedRead.get(forumThreadDigest(thread));
-      return landed === undefined ? [] : [landed];
+      const read = readThreadOf(thread);
+      return read === undefined ? [] : [read];
     }))
   });
   type Work = ReturnType<typeof verifiedWork>;
@@ -3867,8 +3903,7 @@ export function finalizeResearch(
     videos: commentVideos.size,
     absences: acceptedAbsences.size,
     corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length,
-    // Each thread the reader read once, by the link it landed on (forumReadUrls also holds the links as asked).
-    threads: readerThreads.size
+    threads: forumThreads.size
   };
   // Owner answer 140b (2026-10-20): an active research account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
@@ -3936,14 +3971,12 @@ export function finalizeResearch(
         researchBehind: {
           sameSource: (left, right) => normalizeIdentifier(left) === normalizeIdentifier(right),
           keySource: (source) => input.key_sources.some(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source)),
-          threadRead: (url) => forumReadUrls.has(forumThreadDigest(url)),
-          // A thread the reader read is one thread by either link its receipt signs, the one asked for or the one it
-          // landed on; any other thread is compared by its comparable link's digest.
-          comparableThread: (url) => {
-            const digest = forumThreadDigest(url);
-            return landedRead.get(digest) ?? digest;
-          },
-          literatureSearched: verified.some(({ kind }) => kind === "literature_search")
+          threadRead: (url) => readThreadOf(url) !== undefined,
+          // A link the reader was sent on from is the thread it read, so the two links count as one thread.
+          comparableThread: (url) => readThreadOf(url) ?? comparableUrl(url),
+          threadCapacity: (url) => threadCapacity(readsOf(url)),
+          literatureSearched: (query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
+            text(claims.q) === discoveryQueryDigest([query]))
         }
       });
       if (findingsCard.status === "checked") {
@@ -3994,7 +4027,7 @@ export function finalizeResearch(
         // gives a forum signal. A note only; nothing here holds the card or the answer back.
         const studyWithoutBacking = findingsInCard.some((finding) => finding.backing === undefined &&
           finding.sources.some((source) => !isYouTubeVideoId(source)));
-        const signalMissing = forumReadUrls.size > 0 && findingsInCard.every(({ forum_signal: signal }) => signal === undefined);
+        const signalMissing = forumThreads.size > 0 && findingsInCard.every(({ forum_signal: signal }) => signal === undefined);
         if (scope === "public" && (studyWithoutBacking || signalMissing)) notes.push(RESEARCH_BEHIND_NOTE);
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
@@ -4507,6 +4540,17 @@ export function finalizeResearch(
     ? signedReadingClaims(input.findings_card, sourceReadingOf) : [];
   const backingClaims = findingsCard.status === "checked" && options.backingLookups !== undefined
     ? signedBackingClaims(options.backingLookups) : undefined;
+  // The review of 5 November, finding 1: each Reddit thread's subreddit, as its reader's receipt signed it, which the save
+  // alone takes a Reddit thread's community and link from.
+  const threadCommunities = findingsCard.status === "checked" && input.findings_card !== undefined
+    ? signedThreadCommunities(input.findings_card, (url) => {
+      const read = readsOf(url);
+      return read?.reader === "reddit" ? read.subreddit : undefined;
+    }) : [];
+  // The recheck of #417: each forum thread whose id-only link, as the card gives it, is the link its reader read, as the
+  // read's receipt signed it (`l`): the save publishes no other page's link.
+  const threadLinks = findingsCard.status === "checked" && input.findings_card !== undefined
+    ? signedThreadLinks(input.findings_card, (url) => readsOf(url)?.links) : [];
   if (passed) {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
@@ -4536,7 +4580,9 @@ export function finalizeResearch(
             // Owner answer 252a: how each source was read, and what the backing lines' lookups found and where.
             ...(cardReadings.length === 0 ? {} : { rd: cardReadings }),
             ...(backingClaims === undefined || backingClaims.bl.length === 0 ? {} : { bl: backingClaims.bl }),
-            ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs })
+            ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs }),
+            ...(threadCommunities.length === 0 ? {} : { ft: threadCommunities }),
+            ...(threadLinks.length === 0 ? {} : { fl: threadLinks })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -5572,36 +5618,38 @@ function listOf(items: readonly string[], conjunction: "and" | "or"): string {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} ${conjunction} ${items.at(-1)}`;
 }
 
+export { comparableUrl, forumThreadDigest };
+
+/** What a thread's verified reads signed, each part once (finalizeResearch's forumReads). */
+interface ForumThreadReads {
+  /** Which reader read it: Reddit's, a forum page's, or, for a read whose receipt says neither, none known. */
+  reader: "reddit" | "page" | undefined;
+  subreddit: string | undefined;
+  /** The largest first read of a Reddit thread: its comments read. */
+  first: number;
+  /** Each Reddit continuation's comments, or each forum page's characters, by the part or the page, its largest read. */
+  parts: Map<string, number>;
+  /** A forum page's id-only links as its reader read them, by their digests (forumLinkDigest). */
+  links: Set<string>;
+}
+
+/**
+ * How many people a thread read here can hold (the reviews of 5 November, finding 7 and #417's finding 3): on Reddit,
+ * its comments read, each part once, and its poster; on a forum page, whose reader counts no posts, one person for each
+ * FORUM_PAGE_CHARACTERS_PER_PERSON characters of each page read, at most 3,000 a page at the reader's limit of 60,000.
+ * Undefined for a thread not read here, or read by a receipt that doesn't say which reader.
+ */
+function threadCapacity(reads: ForumThreadReads | undefined): number | undefined {
+  if (reads === undefined || reads.reader === undefined) return undefined;
+  const parts = [...reads.parts.values()];
+  return reads.reader === "reddit" ? reads.first + parts.reduce((sum, read) => sum + read, 0) + 1
+    : parts.reduce((sum, read) => sum + Math.floor(read / FORUM_PAGE_CHARACTERS_PER_PERSON), 0);
+}
+
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 // A thread, not a subreddit's front page, wiki, search or share link:
 // /r/<name>/comments/<post id>, a comment permalink within it included.
 const REDDIT_THREAD_PATH = /^\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]+)(?:\/|$)/iu;
-// A Reddit post by its id alone, as reddit.com/comments/<id> or redd.it/<id> link it.
-const REDDIT_POST_PATH = /^\/(?:r\/[A-Za-z0-9_]{2,21}\/)?comments\/([a-z0-9]+)(?:\/|$)/iu;
-const REDD_IT_POST_PATH = /^\/([a-z0-9]+)\/?$/iu;
-// Query parameters that track a click or share, or pick a page, a sort order
-// or a session of a discussion (phpBB's start, sid and sort keys; vBulletin's
-// page and s), rather than name the discussion itself.
-const NON_THREAD_PARAMETER = new RegExp("^(?:utm_\\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|" +
-  "share_id|si|_ga|start|page|pg|offset|sid|s|phpsessid|sessionid|jsessionid|sort|order|sk|sd|st|highlight|hilit)$", "iu");
-// With a thread id (phpBB's and vBulletin's t, a topic or Discuz tid), a post
-// id or the forum id only locates a post in the thread or repeats where it is.
-const THREAD_ID_PARAMETER = /^(?:t|topic|topicid|threadid|tid)$/iu;
-const WITHIN_THREAD_PARAMETER = /^(?:p|pid|post|postid|f|fid|forum|forumid)$/iu;
-// A page or post within a thread, at the end of its path: XenForo's /page-2
-// and /post-123, vBulletin's /page2, a blog's /page/2.
-const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
-// A post number after a Discourse topic: /t/<slug>/<topic id>/<post number>.
-const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
-
-/**
- * A URL as two links to one thread compare: no scheme, subdomain prefix,
- * fragment, session, trailing slash or trailing punctuation, and no parameter
- * or path suffix that only tracks a click or picks a page, post or sort order.
- * A Reddit post is its id, which Reddit never reuses, whatever its subreddit,
- * title slug or comment permalink. Other query parameters stay: they may be
- * what names a forum's thread.
- */
 /**
  * A link without the sentence's punctuation after it or a closing parenthesis it does not open, so a link written
  * inside parentheses keeps only its own; a DOI's balanced parentheses stay (the 30 Oct rerun's o354-work-left,
@@ -5615,33 +5663,6 @@ function trimLinkEnd(link: string): string {
     if (end.endsWith(")") && (end.match(/\)/gu) ?? []).length > (end.match(/\(/gu) ?? []).length) end = end.slice(0, -1);
   }
   return end;
-}
-
-export function forumThreadDigest(url: string): string {
-  return createHash("sha256").update(comparableUrl(url)).digest("hex").slice(0, 16);
-}
-
-export function comparableUrl(url: string): string {
-  const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
-  try {
-    const link = new globalThis.URL(trimmed);
-    const host = link.hostname.toLowerCase().replace(/^(?:www|old|new|m|np|amp)\./u, "");
-    const post = host === "redd.it"
-      ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
-      : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
-    if (post !== undefined) return `reddit.com/comments/${post.toLowerCase()}`;
-    const threadId = [...link.searchParams.keys()].some((key) => THREAD_ID_PARAMETER.test(key));
-    const query = [...link.searchParams]
-      .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => `${key}=${value}`)
-      .join("&");
-    const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
-      .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
-    return `${host}${path}${query === "" ? "" : `?${query}`}`;
-  } catch {
-    return trimmed.toLowerCase().replace(/^https?:\/\//u, "").replace(/#.*$/u, "").replace(/\/+$/u, "");
-  }
 }
 
 // What the answer does with a community lane; must_report ends with it.

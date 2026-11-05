@@ -331,9 +331,10 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research community_le
       expect(await noted([{ ...seaBuckthorn, from: [
         "https://old.reddit.com/r/DryEyes/comments/dq7k2m/what_finally_helped/abc12de/?context=3", `video:${VIDEO}`
       ] }])).toEqual([]);
-      const asked = "https://forum.example.org/forum/topic/4812-dry-eye-routine/page-2";
-      const landed = "https://forum.example.org/forum/viewtopic.php?t=4812&start=30";
-      const redirected = sign("forum_thread_read", { u: forumThreadDigest(landed), a: forumThreadDigest(asked), n: 900, v: "page" });
+      // Sent on to the same thread at the site's other host: the read signs the link it was given (`ur`, #417's rule).
+      const asked = "https://forum.example.org/viewtopic.php?t=4812";
+      const landed = "https://talk.forum.example.org/viewtopic.php?t=4812";
+      const redirected = sign("forum_thread_read", { u: forumThreadDigest(landed), ur: forumThreadDigest(asked), n: 900, v: "page" });
       for (const link of [asked, landed]) {
         expect(await noted([{ ...seaBuckthorn, from: [link] }], { receipts: [redirected, audit, search()] }), link)
           .toEqual([]);

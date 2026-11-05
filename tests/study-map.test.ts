@@ -769,7 +769,9 @@ describe("one deadline, and what was read in time kept", () => {
   });
 
   it("starts the map's PubMed reads only after the source lines' lookups, and shares what they read", async () => {
-    const abstract = vi.fn<SourceLineTexts["abstract"]>(async (pmid) => ({ kind: "abstract", blocks: [{ text: `${pmid}: ${C_RESULT}` }] }));
+    // The abstract's result stands as a whole sentence after its label, as #417's matcher reads one ("RESULTS:" is no
+    // part of a sentence; a PMID before it would be).
+    const abstract = vi.fn<SourceLineTexts["abstract"]>(async () => ({ kind: "abstract", blocks: [{ text: `Results: ${C_RESULT}` }] }));
     const cache = quoteCache();
     let finish!: () => void;
     const lines = new Promise<void>((resolve) => { finish = resolve; });

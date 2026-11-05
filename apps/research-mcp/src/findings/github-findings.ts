@@ -7,6 +7,7 @@ import {
   type GitHubRepository,
   type GitHubTokenProvider,
 } from "../lessons/github-app.js";
+import { shownCommunity } from "../forum-thread-links.js";
 import type { FindingsRecord } from "./service.js";
 import { unsavedClaimKey } from "./unsaved-card.js";
 
@@ -632,7 +633,9 @@ function researchBehindLines(finding: FindingsRecord["card"]["findings"][number]
         `${escapeMarkdown(signal.studies)}${signal.studies_measured === undefined ? ""
           : `, measured instead: ${escapeMarkdown(signal.studies_measured)}`}` +
         `${signal.mechanism === undefined ? "" : `; a way it could work: ${escapeMarkdown(signal.mechanism)}`}`,
-      `- Forum threads read: ${signal.threads_read}, in ${signal.communities.map(escapeMarkdown).join(", ")}` +
+      `- Forum threads read: ${signal.threads_read}` +
+        `${signal.communities.length === 0 ? "" : `, in ${signal.communities.map((community) =>
+          escapeMarkdown(shownCommunity(community))).join(", ")}`}` +
         `${signal.threads === undefined ? "" : `: ${signal.threads.map(escapeMarkdown).join(", ")}`}`,
     ]),
   ];

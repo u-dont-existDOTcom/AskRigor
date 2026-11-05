@@ -106,6 +106,21 @@ export interface PubmedRecordDate {
   value: string;
 }
 
+/** One section of a record's abstract: PubMed's label for it, when the abstract is structured, and its text. */
+export interface PubmedAbstractSection {
+  label?: string;
+  text: string;
+}
+
+// A record's abstract by its sections, kept beside the record and never in it, so the tool's output stays as it is: a
+// source line looks a quote up in each section's own text, as a label such as "RESULTS:" is no part of the paper's
+// sentence (the recheck of #417, 5 November 2026).
+const ABSTRACT_SECTIONS = new WeakMap<PubmedRecord, readonly PubmedAbstractSection[]>();
+
+/** The sections of a record's abstract as PubMed gave them, for a record this module read. */
+export const pubmedAbstractSections = (record: PubmedRecord): readonly PubmedAbstractSection[] | undefined =>
+  ABSTRACT_SECTIONS.get(record);
+
 export interface PubmedRecord {
   pmid?: string;
   title?: string;
@@ -564,7 +579,8 @@ const parseArticleRecord = (article: XmlElement): PubmedRecord => {
   const pmid = textAt(elementAt(citation, "PMID"));
   const title = textAt(elementAt(articleData, "ArticleTitle"));
   const journal = textAt(elementAt(elementAt(articleData, "Journal"), "Title"));
-  const abstract = parseAbstract(elementAt(articleData, "Abstract"));
+  const sections = parseAbstractSections(elementAt(articleData, "Abstract"));
+  const abstract = joinedAbstract(sections);
   const authors = parseAuthors(elementAt(articleData, "AuthorList"));
   const publicationTypes = valuesAt(
     elementAt(articleData, "PublicationTypeList"),
@@ -577,7 +593,7 @@ const parseArticleRecord = (article: XmlElement): PubmedRecord => {
   const pmcid = parsePmcid(articleIdsAt(pubmedData));
   const dates = parseArticleDates(citation, articleData, pubmedData);
 
-  return recordFromFields({
+  return withAbstractSections(recordFromFields({
     pmid,
     title,
     abstract,
@@ -587,7 +603,7 @@ const parseArticleRecord = (article: XmlElement): PubmedRecord => {
     doi,
     pmcid,
     publicationTypes
-  });
+  }), sections);
 };
 
 const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
@@ -602,7 +618,8 @@ const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
   const pubmedData = elementAt(bookArticle, "PubmedBookData");
   const pmid = textAt(elementAt(document, "PMID"));
   const title = textAt(elementAt(document, "ArticleTitle"));
-  const abstract = parseAbstract(elementAt(document, "Abstract"));
+  const sections = parseAbstractSections(elementAt(document, "Abstract"));
+  const abstract = joinedAbstract(sections);
   const authors = parseAuthors(elementAt(document, "AuthorList"));
   const publicationTypes = valuesAt(document, "PublicationType");
   const doi = parseDoi([
@@ -613,7 +630,7 @@ const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
   const pmcid = parsePmcid([...articleIdsAt(document), ...articleIdsAt(pubmedData)]);
   const dates = parseBookDates(document, book, pubmedData);
 
-  return recordFromFields({
+  return withAbstractSections(recordFromFields({
     pmid,
     title,
     abstract,
@@ -622,7 +639,7 @@ const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
     doi,
     pmcid,
     publicationTypes
-  });
+  }), sections);
 };
 
 interface RecordFields {
@@ -659,16 +676,24 @@ const recordFromFields = ({
   ...(publicationTypes.length === 0 ? {} : { publication_types: publicationTypes })
 });
 
-const parseAbstract = (abstract: XmlElement | undefined): string | undefined => {
-  const sections = elementsAt(abstract, "AbstractText").flatMap((section) => {
+const parseAbstractSections = (abstract: XmlElement | undefined): PubmedAbstractSection[] =>
+  elementsAt(abstract, "AbstractText").flatMap((section) => {
     const text = textAt(section);
     if (text === undefined) {
       return [];
     }
     const label = attributeAt(section, "@Label");
-    return [label === undefined ? text : `${label}: ${text}`];
+    return [label === undefined ? { text } : { label, text }];
   });
-  return sections.length === 0 ? undefined : sections.join("\n");
+
+/** The abstract as the record gives it: each section on its own line, after its label. */
+const joinedAbstract = (sections: readonly PubmedAbstractSection[]): string | undefined =>
+  sections.length === 0 ? undefined : sections
+    .map(({ label, text }) => label === undefined ? text : `${label}: ${text}`).join("\n");
+
+const withAbstractSections = (record: PubmedRecord, sections: readonly PubmedAbstractSection[]): PubmedRecord => {
+  if (sections.length > 0) ABSTRACT_SECTIONS.set(record, sections);
+  return record;
 };
 
 const parseAuthors = (authorList: XmlElement | undefined): string[] =>

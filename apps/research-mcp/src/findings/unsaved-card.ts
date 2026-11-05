@@ -116,6 +116,11 @@ class CopyWalk {
         if (Array.isArray(field) && field.length > 0) this.leftOut.push(`${at}: forum thread links, which stay out of this copy`);
         continue;
       }
+      // The literature search's query that found no study is checked, never kept (the review of #417, finding 7).
+      if (name === "search_query" && path.endsWith(".forum_signal")) {
+        if (typeof field === "string") this.leftOut.push(`${at}: the literature search's query, which is checked, never kept`);
+        continue;
+      }
       const copied = name === "sources" ? this.sources(field, at) : this.value(field, at, depth + 1);
       if (copied !== undefined) copy[name] = copied;
     }

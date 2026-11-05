@@ -513,6 +513,11 @@ export function isSafeReportedModel(value: string): boolean {
 export type StoredFinding = Omit<FindingsCard["findings"][number],
   "sources" | "draws_on_youtube_comments" | "backing" | "forum_signal"> & {
   sources: string[];
+  /**
+   * A finding's declaration of whether it draws on YouTube comments, which a card saved after #398 and before its record
+   * named them may still hold (the review of #417, finding 6); a save today stores none. True reads as drawn from them.
+   */
+  draws_on_youtube_comments?: boolean;
   /** Videos whose audited comments back this finding; their IDs are not stored. */
   youtube_videos?: number;
   /** The work a quick answer cannot do that this finding rests on, as the finalization receipt signed it. */
@@ -580,7 +585,13 @@ export function holdsYouTubeReference(value: string): boolean {
  * findings are held with its question and topic.
  */
 export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set(),
-  options: { threadLinks?: boolean } = {}): {
+  options: {
+    threadLinks?: boolean;
+    /** The subreddits the final check's receipt signed for the card's Reddit threads (threadCommunitiesFromReceipt). */
+    threadCommunities?: ReadonlyMap<number, ReadonlyMap<number, string>>;
+    /** The forum pages whose links the final check's receipt signed as read (threadLinksFromReceipt). */
+    threadLinksRead?: ReadonlyMap<number, ReadonlySet<number>>;
+  } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   let omitted = false;
@@ -591,16 +602,21 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
   };
   const kept = card.findings.flatMap((finding, index) =>
     heldByCardFields(finding) || drawnFromComments.has(index) ? [] : [index]);
-  const findings = kept.map((index) => card.findings[index]!).map(({
+  const findings = kept.map((index): StoredFinding => {
     // The backing lines are stored as the receipt signed their lookups, which the save adds (owner answer 252a).
-    sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding
-  }): StoredFinding => {
+    const { sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding } =
+      card.findings[index]!;
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
     // Owner answer 252a: stored with its communities and how many threads were read, and, owner answer 253a, the
     // threads' links when the saving account's notice covers them; a thread link to YouTube is never a forum thread (the
-    // final check refuses one), and a signal left with no forum is not kept.
-    const stored = signal === undefined ? undefined : storedForumSignalOf(signal, text, options.threadLinks === true);
+    // final check refuses one), and a signal left with no thread is not kept. Each thread is rebuilt from its verified
+    // parts, a Reddit post's community from its signed subreddit (the review of 5 November, findings 1 and 2).
+    const subreddits = options.threadCommunities?.get(index);
+    const linksRead = options.threadLinksRead?.get(index);
+    const stored = signal === undefined ? undefined
+      : storedForumSignalOf(signal, text, options.threadLinks === true, (place) => subreddits?.get(place),
+        (place) => linksRead?.has(place) === true);
     return {
       ...finding,
       claim: text(finding.claim),
@@ -663,7 +679,8 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   const drawnFromComments = new Set(card.findings.flatMap((finding, index) =>
-    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ? [index] : []));
+    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ||
+      finding.draws_on_youtube_comments === true ? [index] : []));
   // withoutYouTubeData reads a checked card: a stored finding's sources hold no video ID, and its tags come with it.
   const checked = {
     ...card,

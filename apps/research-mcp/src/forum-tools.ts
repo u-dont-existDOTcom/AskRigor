@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { okEnvelope } from "@askrigor/contracts";
@@ -7,7 +9,9 @@ import { z } from "zod";
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { redditReaderFromEnv } from "./reddit-reader-client.js";
-import { forumThreadDigest } from "./research-finalization-gate.js";
+import {
+  forumLinkDigest, forumPageDigest, forumReadLink, forumThreadDigest, sameThreadAtSite, signedSubreddit
+} from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
 import type { RegisterToolsOptions } from "./register-tools.js";
@@ -19,17 +23,6 @@ const SEARCH_GUIDANCE = "Each search returns the threads Reddit's search page sh
   "wordings, another sort (top, new) or time, and in the subreddits these turned up, and read each relevant thread in " +
   "full with read_forum_thread, one after another: the reader takes one request at a time. In the answer, say how " +
   "many threads your searches listed and how many you read, and why you stopped.";
-/** Whether a reader that asked for asked and landed on landed stayed on that site, short of its front page. */
-function sameSitePage(asked: string, landed: string): boolean {
-  try {
-    const host = (link: URL): string => link.hostname.toLowerCase().replace(/^www\./u, "");
-    const from = new URL(asked);
-    const to = new URL(landed);
-    return host(from) === host(to) && (to.pathname.replace(/\/+$/u, "") !== "" || to.search !== "");
-  } catch {
-    return false;
-  }
-}
 // A forum query may quote a first-person phrase others write, or a term such as copper(I) (5 Nov 2026).
 const FORUM_QUERY_SCREEN = Object.freeze({ quotedFirstPerson: true });
 const QUOTED_PHRASE_GUIDANCE = "A first-person word may stand only inside double quotes, as a phrase others write " +
@@ -161,19 +154,31 @@ export function registerForumTools(
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       const data = readData.parse({ ...base, ...read.fields });
-      // The link as asked too, when the site sent the reader to another page of its own, so the final check matches
-      // either form (5 Nov 2026: LongeCity's /forum/topic/63977-…/page-2 landed on viewtopic.php?t=1063977&start=30).
-      // A redirect to another site, or to the site's front page (as a removed thread may give), vouches for nothing
-      // but the page it landed on.
-      const landed = forumThreadDigest(data.url);
-      const asked = sameSitePage(url, data.url) ? forumThreadDigest(url) : landed;
-      // Whether this read reached the thread's end (e): no more comments or pages after it, and nothing cut, so the
-      // final check reads a thread read to its end as fully read, and one left part-way as part read (the third check
-      // of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is part-way, as
-      // the result's own partial access status says (its fourth check).
+      // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
+      // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
+      const subreddit = reddit ? signedSubreddit(data.community) : undefined;
+      // So the final check counts each thread once (the review of #417, finding 3, and its recheck): a Reddit read with
+      // more signs which part it continues (`m`), and a forum page's read the page it read (`w`: its thread's comparable
+      // link and the page it picks), so reading a part or a page again, by any of its links, adds nothing. A link the
+      // reader was sent on from to the same thread at the same site (a bare host to a forum's subdomain, say) is signed
+      // too (`ur`), as that one thread. A forum page read at a link already in an id-only form signs it (`l`), the only
+      // link the Atlas may publish for it, so a published link is always one the reader fetched.
+      const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
+      const readThread = forumThreadDigest(data.url);
+      const requestedThread = forumThreadDigest(url);
+      const readLink = reddit ? undefined : forumReadLink(data.url);
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
-        u: landed, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
-        v: reddit ? "reddit" : "page", ...(asked === landed ? {} : { a: asked }),
+        u: readThread, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
+        v: reddit ? "reddit" : "page",
+        ...(subreddit === undefined ? {} : { c: subreddit }),
+        ...(reddit && more !== undefined ? { m: digest(more) } : {}),
+        ...(reddit ? {} : { w: forumPageDigest(data.url) }),
+        ...(readLink === undefined ? {} : { l: forumLinkDigest(readLink) }),
+        ...(requestedThread !== readThread && sameThreadAtSite(url, data.url) ? { ur: requestedThread } : {}),
+        // Whether this read reached the thread's end (e): no more comments or pages after it, and nothing cut, so the
+        // final check reads a thread read to its end as fully read, and one left part-way as part read (the third
+        // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is
+        // part-way, as the result's own partial access status says (its fourth check).
         e: data.more || data.next_page || data.truncated ? "0" : "1"
       }) : undefined;
       // 5 Nov 2026: the loop from people's reports to studies is asked for where reports were read (community-leads.ts),
