@@ -2145,6 +2145,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "same_as",
   "same_finding",
   "same_query",
+  "same_quote",
   "same_rates",
   "sandbox_locator",
   "saturated",

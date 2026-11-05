@@ -65,6 +65,10 @@ function sourceLineOutcome(line) {
       : line.reason === "not_a_key_source" ? "not looked up: this isn't one of the answer's key sources."
       : "not looked up: AskRigor has no text of this paper to look in.";
   }
+  if (line.reason === "same_quote") {
+    return quote("the paper's sentence", line.sentence, line.sentence_section) +
+      ", given again as its conclusion, so only one passage was looked up, in " + place + ".";
+  }
   if (line.sentence === "found" && line.conclusion === "found" && line.text !== "search_copy") {
     return "\u2713 both quotes are in " + place + where(line.sentence_section) + where(line.conclusion_section) + ".";
   }

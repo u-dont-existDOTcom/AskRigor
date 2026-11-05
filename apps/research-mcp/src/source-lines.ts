@@ -38,7 +38,7 @@ export type SourceLine = z.output<typeof sourceLineSchema>;
 export const SOURCE_LINE_OUTCOMES = ["found", "not_found", "not_checked"] as const;
 export const SOURCE_LINE_TEXTS = ["full_text", "abstract", "search_copy"] as const;
 export const SOURCE_LINE_REASONS = [
-  "not_a_key_source", "no_text", "text_expired", "text_unavailable", "too_short"
+  "not_a_key_source", "no_text", "text_expired", "text_unavailable", "too_short", "same_quote"
 ] as const;
 type Outcome = typeof SOURCE_LINE_OUTCOMES[number];
 type TextKind = typeof SOURCE_LINE_TEXTS[number];
@@ -189,7 +189,10 @@ export async function lookUpSourceLines(
       // Only the abstract of a paper read in full can't show that a quote isn't in the paper.
       return found ? { outcome: "found", section } : { outcome: expired ? "not_checked" : "not_found" };
     };
-    const [first, second] = [read(sentence), read(conclusion)];
+    // One passage given as both quotes is one passage found, never both (#412's run: 9 of 15 lines in one part, and
+    // the answers still showed that both were found).
+    const same = quoteForm(sentence) === quoteForm(conclusion);
+    const [first, second] = [read(sentence), same ? { outcome: "not_checked" as const, section: undefined } : read(conclusion)];
     const unfound = first.outcome === "not_checked" || second.outcome === "not_checked";
     lookups.push({
       source,
@@ -198,7 +201,8 @@ export async function lookUpSourceLines(
       conclusion: second.outcome,
       ...(second.section === undefined ? {} : { conclusion_section: second.section }),
       text: document.kind,
-      ...(unfound ? { reason: expired ? "text_expired" as const : "too_short" as const } : {})
+      ...(same ? { reason: "same_quote" as const }
+        : unfound ? { reason: expired ? "text_expired" as const : "too_short" as const } : {})
     });
   }
   return lookups;
@@ -233,6 +237,10 @@ export function sourceLineNotes(check: SourceLineCheck): string[] {
       "research_receipt lets them be looked up.");
   } else if (reason === "too_short") {
     notes.push(`A quote given for ${label} is too short to mean much: give the whole sentence.`);
+  } else if (reason === "same_quote") {
+    notes.push(`The sentence and the conclusion given for ${label} are the same text, so only one passage was looked up ` +
+      "and the answer can't say AskRigor found both: give the paper's own conclusion, from its abstract or its " +
+      "conclusions, as the second quote.");
   }
   const missing = [
     ...(check.sentence === "not_found" ? ["sentence"] : []),

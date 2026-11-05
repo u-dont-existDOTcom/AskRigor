@@ -80,6 +80,12 @@ owner's; the release needs the owner's explicit yes, as always.
    next page is "whether more exist is unknown", the receipt signs nothing about more, and the guidance asks for
    other wordings, sorts and subreddits.
 
+10. **One passage given as both quotes of a source line is one passage (built).** In the run on #412's build, 9 of 15
+    lines in one part and 5 of 6 in another gave the same sentence as the claim's sentence and as the paper's
+    conclusion, and the answers still showed "✓ AskRigor found both in the paper." Such a line is now looked up once
+    (reason `same_quote`): it can't be marked as both found, the panel says so, and a note asks for the paper's own
+    conclusion as the second quote. Exact text comparison, in any language.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy
