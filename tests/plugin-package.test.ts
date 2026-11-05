@@ -78,8 +78,9 @@ describe("AskRigor plugin package", () => {
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
     // 1,100 until the findings card and its paid-private save (owner decisions Q9 to Q11, 2026-09-30); 1,125 until
-    // "check this video" (owner decision 2026-09-27, AskRigor#248).
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_200);
+    // "check this video" (owner decision 2026-09-27, AskRigor#248); 1,200 until how each study was read (the owner,
+    // 5 Nov 2026).
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_250);
   });
 
   it("gives the final gate a findings card and saves an offered card only after the user says yes", async () => {
@@ -93,6 +94,20 @@ describe("AskRigor plugin package", () => {
       "a `findings_card` of the answer's best findings",
       "copy its `caveats`",
       "If they offer a save, call `save_research_findings` only after the user says yes.",
+    ]);
+  });
+
+  // The owner, 5 Nov 2026: the answer says beside each study how it was read, and the final check holds it to that, so
+  // the skill says so before the first check rather than leaving it to a blocked round.
+  it("says beside each cited study how it was read, its words given in source_reading", async () => {
+    const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
+    const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
+
+    expectFragmentsInOrder(gate, [
+      "call `finalize_research`",
+      "Beside each study it cites, the answer says how it was read (such as \"abstract only\" or \"full text read\")",
+      "`later_inputs.source_reading` gives those words.",
+      "On `not_ready`, do its next steps",
     ]);
   });
 

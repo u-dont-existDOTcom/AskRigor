@@ -14,7 +14,7 @@ import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./me
 import {
   lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
-import { sourceReadingGuidance } from "./source-reading.js";
+import { READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance } from "./source-reading.js";
 import {
   lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
@@ -1347,14 +1347,18 @@ function defineResearchOperations(
         // The receipt records whether PubMed lists a DOI or a PMC copy, which
         // decides whether finalize_research may accept this PMID as a lead
         // without acquisition.
-        const record = result.data as { pmid?: string; doi?: string; pmcid?: string } | undefined;
+        const record = result.data as { pmid?: string; doi?: string; pmcid?: string; abstract?: string } | undefined;
         const retrieved = result.access_status === "api_visible_complete" || result.access_status === "complete";
-        return withResearchReceipt(pubmedToolResult(
-          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
-          result
-        ), retrieved && record?.pmid === pmid
+        const receipt = retrieved && record?.pmid === pmid
           ? researchReceipt("pubmed_record", { pmid, doi: record.doi, pmcid: record.pmcid })
-          : undefined);
+          : undefined;
+        // The owner, 5 Nov 2026: a signed record names how the study was read from it (source-reading.ts).
+        const reading = receipt === undefined ? "" : ` ${readingResultNote(READING_RESULT_WHEN.record,
+          (record?.abstract ?? "").trim() === "" ? "metadata_only" : "abstract_only")}`;
+        return withResearchReceipt(pubmedToolResult(
+          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}`,
+          result
+        ), receipt);
       } catch (error) {
         return pubmedToolResult(
           `PubMed record ${pmid} retrieval failed; access status error.`,
@@ -3624,10 +3628,19 @@ async function invokeOpenFullTextMcp(
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "")
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt)
     }],
     structuredContent: result.body as Record<string, unknown>
   }, receipt);
+}
+
+/**
+ * The owner, 5 Nov 2026: a result whose receipt shows how a paper was read names the words for it, so the answer says
+ * them before its first final check (source-reading.ts).
+ */
+function openFullTextReadingNote(receipt: string | undefined): string {
+  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv());
+  return note === "" ? "" : ` ${note}`;
 }
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();

@@ -13,8 +13,8 @@ import {
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  ANSWER_READINGS, ANSWER_READING_LABELS, identifierShown, sourceReadingGuidance, verifiedAnswerReading,
-  type AnswerReading
+  ANSWER_READINGS, ANSWER_READING_LABELS, READING_RESULT_WHEN, identifierShown, readingResultNote, receiptReadingNote,
+  sourceReadingGuidance, verifiedAnswerReading, type AnswerReading
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -310,6 +310,42 @@ describe("the check: a cited key source says how it was read", () => {
         "AskRigor): say so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, " +
         "with source … and quote those words copied from answer_draft."
     ]);
+  });
+});
+
+// 5 Nov 2026: the results of the tools that establish how a paper was read name its words, so the answer says them
+// before its first final check instead of after a blocked round. fetch_pubmed_record, the full-text reading and the
+// audits carry these sentences in their result text (tests/mcp-full-text-read-receipt.test.ts,
+// tests/analysis-staging.test.ts and tests/mcp-tools.test.ts check them there).
+describe("the tools that read a paper name its words before the first final check", () => {
+  const say = (when: string, label: string) => `${when}, say "${label}" beside it in the answer, in the answer's ` +
+    "language, and give those words in finalize_research's later_inputs.source_reading.";
+
+  it("words each reading tool's sentence", () => {
+    expect(readingResultNote(READING_RESULT_WHEN.record, "abstract_only")).toBe(say("If the answer cites this study " +
+      "from this record alone", "abstract only"));
+    expect(readingResultNote(READING_RESULT_WHEN.record, "metadata_only")).toBe(say("If the answer cites this study " +
+      "from this record alone", "only its title and record read"));
+    expect(readingResultNote(READING_RESULT_WHEN.fullText, "full_text_read"))
+      .toBe(say("With this study's full text read to its end", "full text read"));
+    expect(readingResultNote(READING_RESULT_WHEN.audit, "full_text_audited"))
+      .toBe(say("With this study's methods audited", AUDITED));
+  });
+
+  it("reads the receipt a full-text or audit result just signed, and adds nothing for another", () => {
+    const full = say("With this study's full text read to its end", "full text read");
+    const audited = say("With this study's methods audited", AUDITED);
+    expect(receiptReadingNote(sign("full_text_read", { doi: DOI, content: "b".repeat(16) }), SECRET)).toBe(full);
+    expect(receiptReadingNote(audit, SECRET)).toBe(audited);
+    expect(receiptReadingNote(sign("review_audit", { doi: DOI, status: "validated" }), SECRET)).toBe(audited);
+    expect(receiptReadingNote(sign("study_audit", { doi: DOI, retrieval_provider: "client_search_index",
+      host: "copies.example.org" }), SECRET)).toBe(say("With this study's methods audited",
+      "full text read from a copy the AI found, methods audited by AskRigor"));
+    expect(receiptReadingNote(PUBMED, SECRET)).toBe("");
+    expect(receiptReadingNote(LEAD, SECRET)).toBe("");
+    expect(receiptReadingNote(undefined, SECRET)).toBe("");
+    expect(receiptReadingNote(audit, undefined)).toBe("");
+    expect(receiptReadingNote(audit, `${SECRET}-other`)).toBe("");
   });
 });
 

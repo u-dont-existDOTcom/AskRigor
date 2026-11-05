@@ -535,6 +535,13 @@ describe("the server sends a free contributor's validated analyses when the fina
     // The check's own result is unchanged, and nothing is filed before the final check.
     expect(validated.structuredContent).toMatchObject({ status: "source_linked_study_audit_validated" });
     expect(store.inserted).toHaveLength(0);
+    // 5 Nov 2026: each result names how the study is now read, for the answer and source_reading, before the final check.
+    const named = (result: CallToolResult) => (result.content as Array<{ text?: string }>).map(({ text }) => text).join("\n");
+    expect(named(acquired)).toContain("With this study's full text read to its end, say \"full text read\" beside it " +
+      "in the answer, in the answer's language, and give those words in finalize_research's later_inputs.source_reading.");
+    expect(named(validated)).toContain("With this study's methods audited, say \"full text read, methods audited by " +
+      "AskRigor\" beside it in the answer, in the answer's language, and give those words in finalize_research's " +
+      "later_inputs.source_reading.");
 
     // The checked answer says how its study was read (the owner, 5 Nov 2026), in the shared helper's words.
     const finalize = (receipts: string[]) => call("finalize_research", withSourceReading(finalizeResearchInputSchema.parse({

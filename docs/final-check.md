@@ -225,7 +225,12 @@ give), and its step asks for a `read_depth` the receipts support. On any check w
 the result names each one's reading up front ("Say beside each study how it was read: …"), from the runtime
 `source_reading` (each key source's id, its name as a limit gives it and its reading), so the answer can say it before a
 check blocks; under a passing check the panel lists the same, "What AskRigor read: "Trial" (10.1000/…), full text read,
-methods audited by AskRigor; …", so the reader sees it even when the answer is reworded. "Full text and figures
+methods audited by AskRigor; …", so the reader sees it even when the answer is reworded. Before any check, the tools
+that establish a reading name its words in their results, with where to give them: a signed `fetch_pubmed_record`
+("abstract only", or "only its title and record read" for a record without an abstract, for a study cited from the
+record alone), `acquire_open_full_text` or `continue_open_full_text` once the text is read to its end ("full text
+read"), and `validate_study_method_audit` and `validate_review_method_audit` once an audit validates; the AskRigor
+skill says the same in one sentence, so an answer need not lose a round to learn it. "Full text and figures
 analyzed", the owner's third example, waits for AskRigor's figure reading (the next build's item 2), which isn't built:
 no receipt yet shows that a figure was read. Limits: the words are the AI's, so an entry can quote a sentence that
 doesn't say how the source was read; where they sit is not checked; and a key source with no `read_depth` and no

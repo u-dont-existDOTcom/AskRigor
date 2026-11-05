@@ -199,6 +199,12 @@ owner's; the release needs the owner's explicit yes, as always.
       the answer can say it before a check blocks; under a passing check the panel lists "What AskRigor read: …", so
       the reader sees it even when the answer is reworded. The runtime tool description says the read-depth check now
       covers the answer's words.
+    - **Named before the first check, so no round is lost:** the results of a signed `fetch_pubmed_record` ("abstract
+      only", or "only its title and record read" without an abstract), of `acquire_open_full_text` and
+      `continue_open_full_text` once the text is read to its end ("full text read"), and of the two method audits once
+      validated, name the reading's words, to say beside the study and give in `later_inputs.source_reading`
+      (runtime result text; the frozen tool lists don't change). The AskRigor skill says the same in one sentence, so
+      the plugin package changes and the release reinstalls it.
     - **Merged with #416's Atlas (5 Nov):** the Atlas's own reading of a card's sources (`ATLAS_SOURCE_READINGS`,
       signed into the finalization receipt) stays as it is; this module's names were changed (`ANSWER_READINGS`,
       `AnswerReading`) so the two no longer share `SourceReading` and `SOURCE_READINGS`. A library copy reads as any

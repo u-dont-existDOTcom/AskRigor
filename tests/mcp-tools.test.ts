@@ -2571,6 +2571,11 @@ describe("AskRigor MCP tools", () => {
         kind: "pubmed_record",
         claims: { pmid: "40123456", doi: "10.1234/recorded.example" }
       });
+      // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
+      expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
+        "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
+        "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
+        "finalize_research's later_inputs.source_reading.");
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);

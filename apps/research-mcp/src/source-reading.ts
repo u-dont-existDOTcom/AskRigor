@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { rule, type CheckRule } from "./check-rules.js";
+import { verifyResearchReceipt } from "./research-receipts.js";
 
 /**
  * How each key study was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing that the AI
@@ -91,6 +92,36 @@ export function verifiedAnswerReading(
 /** A reading's words, as a rule nested in a step. */
 export function answerReadingRule(reading: AnswerReading): CheckRule {
   return ANSWER_READING_RULES[reading];
+}
+
+/**
+ * When each reading tool's sentence applies: a PubMed record, a full text read to its end, a method audit. Their
+ * results add it (readingResultNote), so the answer says how the study was read before its first final check.
+ */
+export const READING_RESULT_WHEN = {
+  record: "If the answer cites this study from this record alone",
+  fullText: "With this study's full text read to its end",
+  audit: "With this study's methods audited"
+} as const;
+
+/** A reading tool's sentence: the reading's words, said beside the study and given in source_reading. Runtime text. */
+export function readingResultNote(when: string, reading: AnswerReading): string {
+  return `${when}, say "${ANSWER_READING_LABELS[reading]}" beside it in the answer, in the answer's language, and give ` +
+    "those words in finalize_research's later_inputs.source_reading.";
+}
+
+/**
+ * The sentence a full-text or method-audit result adds, from the receipt it just signed: a full text read to its end, or
+ * an audit, of a copy the AI found or not. Reading the receipt back gives its kind and provenance exactly; another kind,
+ * or no receipt, adds nothing.
+ */
+export function receiptReadingNote(receipt: string | undefined, secret: string | undefined): string {
+  const verified = receipt === undefined || secret === undefined ? undefined : verifyResearchReceipt(receipt, { secret });
+  if (verified?.ok !== true) return "";
+  if (verified.kind === "full_text_read") return readingResultNote(READING_RESULT_WHEN.fullText, "full_text_read");
+  if (verified.kind !== "study_audit" && verified.kind !== "review_audit") return "";
+  return readingResultNote(READING_RESULT_WHEN.audit,
+    verified.claims.retrieval_provider === "client_search_index" ? "search_copy_audited" : "full_text_audited");
 }
 
 /** The result's line naming each key source's reading up front, so the answer can say it before a check blocks. */
