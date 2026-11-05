@@ -18,6 +18,17 @@ const SEARCH_GUIDANCE = "Each search returns the threads Reddit's search page sh
   "wordings, another sort (top, new) or time, and in the subreddits these turned up, and read each relevant thread in " +
   "full with read_forum_thread, one after another: the reader takes one request at a time. In the answer, say how " +
   "many threads your searches listed and how many you read, and why you stopped.";
+/** Whether a reader that asked for asked and landed on landed stayed on that site, short of its front page. */
+function sameSitePage(asked: string, landed: string): boolean {
+  try {
+    const host = (link: URL): string => link.hostname.toLowerCase().replace(/^www\./u, "");
+    const from = new URL(asked);
+    const to = new URL(landed);
+    return host(from) === host(to) && (to.pathname.replace(/\/+$/u, "") !== "" || to.search !== "");
+  } catch {
+    return false;
+  }
+}
 // A forum query may quote a first-person phrase others write, or a term such as copper(I) (5 Nov 2026).
 const FORUM_QUERY_SCREEN = Object.freeze({ quotedFirstPerson: true });
 const QUOTED_PHRASE_GUIDANCE = "A first-person word may stand only inside double quotes, as a phrase others write " +
@@ -149,10 +160,12 @@ export function registerForumTools(
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       const data = readData.parse({ ...base, ...read.fields });
-      // The link as asked too, when the site sent the reader to another, so the final check matches either form
-      // (5 Nov 2026: LongeCity's /forum/topic/63977-…/page-2 landed on viewtopic.php?t=1063977&start=30).
+      // The link as asked too, when the site sent the reader to another page of its own, so the final check matches
+      // either form (5 Nov 2026: LongeCity's /forum/topic/63977-…/page-2 landed on viewtopic.php?t=1063977&start=30).
+      // A redirect to another site, or to the site's front page (as a removed thread may give), vouches for nothing
+      // but the page it landed on.
       const landed = forumThreadDigest(data.url);
-      const asked = forumThreadDigest(url);
+      const asked = sameSitePage(url, data.url) ? forumThreadDigest(url) : landed;
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
         u: landed, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
         v: reddit ? "reddit" : "page", ...(asked === landed ? {} : { a: asked })

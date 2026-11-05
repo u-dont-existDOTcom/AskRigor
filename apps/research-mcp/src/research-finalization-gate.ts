@@ -1276,9 +1276,17 @@ function earlierObservations(carried: CarriedState | undefined, turn: string): C
 /** The line that stands for the notes an earlier check of this turn gave, which this check does not repeat. */
 export function repeatedNotesLine(count: number): string {
   return `${count === 1 ? "One note" : `${count} notes`} an earlier check of this turn gave ${count === 1 ? "is" : "are"} ` +
-    "not repeated. A note asks nothing more when the draft already meets it in its own words; never remove a source " +
-    "or claim only to quiet one.";
+    `not repeated. ${count === 1 ? "It still stands" : "Each still stands"} unless the draft or this call's declarations ` +
+    "already meet it, in your own words; none asks you to remove a source or claim.";
 }
+
+/**
+ * Kinds of note that describe the call's own input or the conversation's continuity, which come back at every check
+ * while they stand: their wording can stay the same while the entry they name changes (review of 5 Nov, a withdrawn
+ * name given wrongly in two ways).
+ */
+const ALWAYS_REPEATED_NOTE_KINDS: ReadonlySet<NextStepKind> = new Set(["input_invalid", "receipt_rejected", "carried_state",
+  "tool_list"]);
 
 /** A short digest of a note, so a carried state can say which notes its turn has given. */
 function noteDigest(note: string): string {
@@ -1372,13 +1380,17 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     .map((text) => text.slice(0, 200));
   // Keep the latest occurrence of each statement, then the latest twelve statements.
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
-  const declared = input.user_observations ?? [];
-  const kept = new Set(declared.map(({ observation }) => observation));
+  const given = input.user_observations;
+  const kept = new Set((given ?? []).map(({ observation }) => observation));
   const earlier = earlierObservations(carried, check.turn);
-  const observations = [...declared, ...earlier.filter(({ observation }) => !kept.has(observation))]
-    .slice(0, MAX_CARRIED_OBSERVATIONS);
+  // A call that leaves user_observations out declares nothing new, so the state's observations carry as they were,
+  // this turn's drafts with their places (review of 5 Nov: leaving it out, or a later_inputs problem dropping it, erased
+  // them). Given, this turn's latest list replaces its drafts, and earlier turns' entries stay.
+  const observations = given === undefined ? carried?.observations ?? []
+    : [...given, ...earlier.filter(({ observation }) => !kept.has(observation))].slice(0, MAX_CARRIED_OBSERVATIONS);
   const earlierTexts = new Set(earlier.map(({ observation }) => observation));
-  const turnObservations = observations.flatMap(({ observation }, index) => earlierTexts.has(observation) ? [] : [index]);
+  const turnObservations = given === undefined ? carried?.turn === check.turn ? carried.turn_observations ?? [] : []
+    : observations.flatMap(({ observation }, index) => earlierTexts.has(observation) ? [] : [index]);
   const turnNotes = [...new Set([...(carried?.turn === check.turn ? carried.turn_notes ?? [] : []),
     ...check.notes.map(noteDigest)])].slice(-TURN_NOTES_KEPT);
   const rejectedKeys = new Set<string>();
@@ -1788,6 +1800,8 @@ export function finalizeResearch(
   const stepKinds: NextStepKind[] = [];
   const checkSteps: CheckStep[] = [];
   const notes = [...new Set(parsed.notes)];
+  // Notes on the call's own input or continuity, which repeat at every check (see ALWAYS_REPEATED_NOTE_KINDS).
+  const repeatedNotes = new Set(notes);
   let researchAdvised = false;
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (step.deferUntilNextTurn === true) {
@@ -1797,6 +1811,7 @@ export function finalizeResearch(
     if (blockingRule === undefined || !FINAL_CHECK_BLOCKING_RULES.includes(blockingRule)) {
       if (step.kind === "research") researchAdvised = true;
       if (!notes.includes(step.text)) notes.push(step.text);
+      if (ALWAYS_REPEATED_NOTE_KINDS.has(step.kind)) repeatedNotes.add(step.text);
       return;
     }
     nextSteps.push(step.text);
@@ -1879,6 +1894,7 @@ export function finalizeResearch(
     if (test.repeats !== undefined) {
       const observation = input.user_observations?.[test.repeats]?.observation;
       if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (input.user_observations?.[test.repeats]?.response === "not_tried") addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], a report whose writer never tried it: leave repeats out.`);
       else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
     // proposed_tests includes clinician-run checks and reading logs as well as self-measurements.
@@ -3848,9 +3864,9 @@ export function finalizeResearch(
   // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
   // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
   // from an earlier turn, repeats nothing.
-  const givenNotes = [...notes];
+  const givenNotes = notes.filter((note) => !repeatedNotes.has(note));
   const givenThisTurn = new Set(carried?.turn === callRound.turn ? carried.turn_notes ?? [] : []);
-  const newNotes = notes.filter((note) => !givenThisTurn.has(noteDigest(note)));
+  const newNotes = notes.filter((note) => repeatedNotes.has(note) || !givenThisTurn.has(noteDigest(note)));
   if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length));
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,

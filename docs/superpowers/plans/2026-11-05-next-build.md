@@ -90,22 +90,30 @@ owner's; the release needs the owner's explicit yes, as always.
     - **Notes repeat at every check, with a cost** (runs removed a study to quiet "Cite X as read through another
       tool", which their drafts met in their own words). Once now means once per turn: the carried state keeps a
       12-character digest of each note its turn's checks gave, and a later check of that turn leaves those out, with
-      one line saying how many and that a note asks nothing more when the draft meets it in its own words. A note
-      whose words changed is new; the next turn gives notes again. Source-line and study-map notes, added after the
-      check, still repeat.
+      one line saying how many and that each still stands unless the draft or the call's declarations meet it. A note
+      whose words changed is new; the next turn gives notes again. Notes on the call's own input or continuity (input
+      problems, receipts, carried state, the tool-list hint) always repeat, since their wording can stay the same
+      while the entry they name changes (review of 5 Nov). Source-line and study-map notes, added after the check,
+      still repeat.
     - **The de-identification screen** refused "copper(I)" and "makes me sleepy" in forum searches, each in quotes,
       in every run since #389's: a word list judging whether words are the person's. For a forum query, a first-person
       word now passes inside a closed pair of double quotes, the model's declared phrase others write or term; every
-      other part of the screen reads quoted text too, and scout targets and leads are unchanged.
+      other part of the screen reads quoted text too, and scout targets and leads are unchanged. Straight quotes count
+      only in pairs opening and closing at word edges (inch marks and a stray quote hide nothing), curly quotes and
+      guillemets only when all are closed (review of 5 Nov).
     - **`user_observations`:** a check may now reword or drop what an earlier check of its own turn declared (the
       carried state marks those places), so a reworded entry is no longer called left out and declared twice; an
-      earlier turn's entry is still asked for, in its exact words, as the note now says. Its newer form in
-      `later_inputs` adds `not_tried`, with the limit "A report from someone who never tried it".
+      earlier turn's entry is still asked for, in its exact words, as the note now says. A call that leaves the list
+      out declares nothing new and carries the state as it was (review of 5 Nov: leaving it out, or a `later_inputs`
+      problem dropping it, erased the turn's entries). Its newer form in `later_inputs` adds `not_tried`, with the
+      limit "A report from someone who never tried it", and `proposed_tests.repeats` can't name such a report. Limit:
+      the turn is the round token's, so a model passing an earlier turn's token back could reword that turn's entries.
 
     - **A page the reader read drew the web-search limit** (l34): the declared link was the one asked for
       (LongeCity's `/forum/topic/63977-…/page-2`) and the reader landed on another (`viewtopic.php?t=1063977&start=30`),
       a site's own mapping no link rule can know. The read receipt now also signs the asked link when it differs, the
-      check matches either, and the forum note counts the read once.
+      check matches either, and the forum note counts the read once; a redirect to another site or to the site's front
+      page (a removed thread) signs only where it landed (review of 5 Nov).
 
     - **A zero-hit Reddit search came back as a host failure** ("WEBSITE_FORMAT_CHANGED"; all six in the run were
       searches for made-up names, and one run then called the community's pages unretrievable). The host doesn't say

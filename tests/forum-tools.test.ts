@@ -110,6 +110,15 @@ describe("forum tools", () => {
       { claims: Record<string, unknown> }).claims;
     expect(claims.u).toBe(forumThreadDigest(landed));
     expect(claims).not.toHaveProperty("a");
+    // Review of 5 Nov: a redirect to another site, or to the site's front page, vouches only for where it landed.
+    for (const elsewhere of ["https://other.example/forum/viewtopic.php?t=1", "https://forum.example/", "https://www.forum.example"]) {
+      page.mockResolvedValue({ url: elsewhere, access_state: "read", page_text: "a".repeat(1_500), truncated: false });
+      const away = await caller.callTool({ name: "read_forum_thread", arguments: { url: asked } });
+      const signed = (verifyResearchReceipt(away.structuredContent!.research_receipt as string, { secret: SECRET }) as
+        { claims: Record<string, unknown> }).claims;
+      expect(signed.u, elsewhere).toBe(forumThreadDigest(elsewhere));
+      expect(signed, elsewhere).not.toHaveProperty("a");
+    }
   });
   it("returns a long thread only in structured content, with a summary and guidance in text", async () => {
     const post = "SYNTHETIC_LONG_PUBLIC_THREAD_".repeat(3_000);
@@ -263,6 +272,8 @@ describe("forum tools", () => {
     ['"copper(I)"', "a term in quotes (l30 on #412's build)"],
     ['magnesium "makes me sleepy"', "a phrase others write"],
     ['\u201Cworked for me\u201D tinnitus', "curly quotes"],
+    ['\u00ABworked for me\u00BB tinnitus', "guillemets"],
+    ['"a" my "b"'.replace(" my ", ' "works for me" '), "several phrases"],
   ])("searches %s: a first-person word inside double quotes is %s", async (query) => {
     search.mockResolvedValue({ access_state: "searched", threads: [], returned: 0 });
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query } });
@@ -273,6 +284,11 @@ describe("forum tools", () => {
     ["copper(I) forms", "I"],
     ['"copper" for my hip', "my"],
     ['"worked for me tinnitus', "me"],
+    // Review of 5 Nov: an odd number of straight quotes pairs nothing, and inch marks are not quotes.
+    ['"magnesium glycinate my wife\'s insomnia "sleep"', "my"],
+    ['zinc 5" tube for my 6" rash', "my"],
+    ['"a" my "b"', "my"],
+    ['\u201Cworked\u201D for me \u201Cnow', "me"],
   ])("refuses %s: a first-person word outside a closed pair of quotes", async (query, matched) => {
     const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query } });
     expect(result.structuredContent).toMatchObject({ data: { access_state: "refused" } });

@@ -953,9 +953,21 @@ export function isDeidentifiedResearchTarget(value: string, options: Deidentific
   return deidentificationFailure(value, undefined, options) === undefined;
 }
 
-/** value with each double-quoted phrase, straight or curly and on one line, replaced by a space. */
+/**
+ * value with each double-quoted phrase replaced by a space: straight quotes, only when they come in pairs and each
+ * opens at the start, after a space or bracket, and closes before a space, punctuation or the end, so inch marks
+ * ("a 5" tube") and a stray quote never hide words; curly quotes and guillemets, only when every opening one is
+ * closed. Anything else is read whole (review of 5 Nov).
+ */
 function withoutQuotedPhrases(value: string): string {
-  return value.replace(/"[^"\n]*"|\u201C[^\u201C\u201D\n]*\u201D/gu, " ");
+  const count = (pattern: RegExp): number => value.match(pattern)?.length ?? 0;
+  let text = value;
+  if (count(/"/gu) % 2 === 0) {
+    text = text.replace(/(?<=^|[\s([{])"[^"\s][^"\n]*?(?<=\S)"(?=$|[\s.,;:!?)\]}])|(?<=^|[\s([{])"[^"\s]"(?=$|[\s.,;:!?)\]}])/gu, " ");
+  }
+  if (count(/\u201C/gu) === count(/\u201D/gu)) text = text.replace(/\u201C[^\u201C\u201D\n]*\u201D/gu, " ");
+  if (count(/\u00AB/gu) === count(/\u00BB/gu)) text = text.replace(/\u00AB[^\u00AB\u00BB\n]*\u00BB/gu, " ");
+  return text;
 }
 
 /** The first part of the de-identification screen value fails, or undefined when it passes. */
