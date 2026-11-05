@@ -143,6 +143,27 @@ complete XML protocol.
   answers 229a and 231a): in the research lookup and at their own pages, on no list, topic, search or home page.
 - `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
   with a test of how many threads open to a plain request; waits for owner question 213.
+- `superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`: Atlas search over each finding's whole page
+  text, in any language, the wording's matches first; and `/atlas/map`, the findings as circles by topic with a stated
+  size rule that is not a treatment ranking.
+- `superpowers/plans/2026-11-02-atlas-foundation-223-225.md`: the Atlas foundation the owner chose (223a, 224a, 225a):
+  unreviewed findings kept out of search engines and labelled, risky ones held for review, numbers "out of 100" with a
+  range, question pages with a bottom-line box, and "report a problem" in place of votes.
+- `atlas-report-check.md`: how the AI check of people's reports runs (owner answer 229a): a Claude session on the
+  owner's plan lists the received reports, judges each as untrusted text, researches the form's, and records publish,
+  publish with an AI warning, hold for the owner, or refuse.
+- `superpowers/plans/2026-11-03-atlas-reports-health-tree.md`: people's own reports of what worked for them (owner
+  answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
+  AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
+  practitioner scorecard.
+- `superpowers/plans/2026-11-05-atlas-research-behind.md`: "The research behind it" and "What people report" on each
+  finding page (owner answer 252a): the papers' own sentences found word for word, how each source was read, the
+  strongest thing against it, which study each figure comes from, and the forum signal with its counts, report quality,
+  mechanism and relationship to studies; the card's later shape, signed lookups, publication v3; then 253a (notice v5:
+  forum thread links), 254a (forum reading a verified basis) and 255a (the research kept with accepted versions).
+- `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
+  research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
+  "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
 - `audits/2026-11-02-owner-regressions-393-judgment.md`: the owner regressions on #393's build `61215c0b` against
   question 193's signals (86 cases: 45 pass, 39 in part, 1 fails, 1 not judged; against #389's build 8 better, 6 worse;
   the low-calorie runs 6, 4 and 1 fails, 4 better; the new turmeric case of owner answer 216a in part): 111 of 113 checks

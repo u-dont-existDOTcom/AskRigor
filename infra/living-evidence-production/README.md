@@ -286,6 +286,33 @@ the account fields already held, and only the migrator can read it.
 with real PostgreSQL in Docker, including v1, v2 and v3 accounts, changed
 accounts, settings and every other table. It is not part of the hermetic gate.
 
+Owner answer 253a (2026-11-05; built, not yet released): the free contributor
+notice's fifth version, `free-contributor-v5-2026-11-05`, says a findings card's
+summary of what communities reported holds the communities, counts of what
+people reported and links to the forum threads AskRigor read, never their posts
+or names, YouTube comments or video IDs. Migration `0028_research_use_notice_v5`
+admits v1 to v5 under the same `research_use_accounts_free_notice_check`,
+without new columns or grants, and is safe to run again; renumber it when the
+Atlas stack next takes in main. Run the one-shot admin `migrate` before an image
+offering v5 serves. Earlier accounts, v4's included, accept v5 before free
+research, and a card saved for an account still on v4 stores no thread link.
+For an image rollback below v5, follow the v4 order above with
+`research-use-notice-v5-hold.sql` and `research-use-notice-v5-restore.sql`
+(`research_use_notice_v5_hold`; held accounts may accept v4 on the earlier
+image). Undo no migration: 0028 stays and widens only the notice check.
+`npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
+real PostgreSQL in Docker, including v1 to v4 accounts.
+
+Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
+`0029_atlas_research_behind` admits `forum_read` among the verified bases of
+`atlas_finding_versions` and `held_youtube_findings`, adds the nullable
+`atlas_finding_versions.research` jsonb column (the research behind an accepted
+finding), and redefines `atlas_redaction_permits()` and `erase_atlas_wording()`
+so that an erasure removes that column whole. No role, grant or table is added,
+and no row is changed; an earlier image ignores the column. Renumber it when the
+Atlas stack next takes in main.
+
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
 accepts findings from saved findings cards into this database. Migration
@@ -632,21 +659,57 @@ install the public-site packet with the upstream, after which
 `https://askrigor.com/atlas` answers the same.
 
 Navigation (owner answer 183b) adds no migration or grant. Check GET and HEAD for
-`/atlas/findings`, `/atlas/topics` and `/atlas/search?q=…`: every page header must
-offer All findings, Topics, What changed and a labelled GET search form, with
+`/atlas/findings`, `/atlas/topics`, `/atlas/map` and `/atlas/search?q=…`: every page header must
+offer All findings, Topics, Findings map, What changed and a labelled GET search form, with
 the existing sign-in/account entry when enabled. All findings must page newest
 first using `before=P-…`, preserving its all/checked/unreviewed/contested filter;
 the contested set uses the home lane's definition. Topics must list every
 populated topic by label, its count and the no-topic count/link. Search must
 match all words with Unicode normalization, case and accent folding (try Latin
-accents, Greek/Cyrillic and Japanese), page results and handle blank, overlong
-and markup-containing input as escaped normal pages. Search responses must be
+accents, Greek/Cyrillic and Japanese), anywhere in a finding's page text (try a
+word that only its "What would change it" holds) and inside longer words (a
+word of a Chinese or Japanese wording, and, as an example, `vitamin` for
+`vitamins`), list the findings whose wording holds the words first, page results
+by number with the total shown (past 2,000 matches it says only the first 2,000
+are listed), keep a number from matching inside a longer one (try `12 weeks`
+against a PMID holding 12), and handle blank, overlong and markup-containing
+input as escaped normal pages. Searches match against a 60-second in-memory copy
+of the shown findings' public text, dropped on every change; no query is kept. The findings map (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`)
+must show its rule, its key with "Not checked by supervisors yet", one cluster per
+topic whose circles open their findings, and the same findings in the list below;
+look at it at phone width and in dark mode. Search responses must be
 `private, no-store`, with `Referrer-Policy: no-referrer` and the same HTML meta
 policy, no cookies, no account name or form tokens even with a session cookie;
 query strings must never enter application, proxy/access/error or analytics
 logs. Keep request-URL logging disabled/redacted on both public proxy paths.
 Search is excluded from the in-process page cache; list caches retain the
 existing bounds, with separate normalized filter/cursor keys.
+
+Search engines (owner answer 224a; plan `../../docs/superpowers/plans/2026-11-02-atlas-foundation-223-225.md`): check
+that an unreviewed finding's page, `/atlas/findings?filter=unreviewed` and any search carry
+`<meta name="robots" content="noindex">` and the label "Written by an AI, not yet reviewed by a person", that a
+reviewed finding's page does not, that `/atlas/sitemap.xml` answers `application/xml` with the topics index and only
+reviewed findings and the pages that hold them, and, after the site packet is installed, that
+`https://askrigor.com/robots.txt` names that sitemap.
+
+Finding pages in context (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`) add no
+migration or grant: new publications carry their card's question, usual answer and
+sources' titles (`askrigor.atlas-publication.v2`), and the pages read a finding's card
+siblings by P number only. After the deploy, run `publish_cards` over the cards that have
+unreviewed publications (`list_publications` names them, at most 20 cards a call): each
+older publication gets its card's context under the same P number, and the reply names
+any whose context would be held. Then check `/atlas/findings/P-1020`: the question above
+the finding, "The usual answer", "What this research found" with the card's other
+findings linked and labelled, the label "Not checked by supervisors yet" unchanged, and
+each source by its title and year where its public record has one; and that every list
+(home, All findings, a topic, a search, the map's list) shows the question above each
+finding, or "Published without its question". Before rolling back to a build that reads
+only version 1, run as the migrator, in the living-evidence schema:
+`UPDATE atlas_publications SET published_json = (published_json - 'question' - 'usual_answer' - 'source_details') || '{"schema":"askrigor.atlas-publication.v1"}'::jsonb WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v2';`
+(an older build's publication store refuses a row it cannot read, and its pages leave
+such a row out).
 
 Check a topic with a single finding and one with many: inline SVG panels place
 findings by certainty, keep unreviewed findings and leads apart, and draw named

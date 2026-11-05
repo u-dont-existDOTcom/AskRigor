@@ -110,6 +110,23 @@ GRANT EXECUTE ON FUNCTION living_evidence.keep_atlas_publications(text[], text[]
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_kept_publications()
   TO askrigor_research_review;
+-- Owner answer 229a (migration 0025): where items sit under Health.
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_placements(jsonb, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_placements()
+  TO askrigor_research_review;
+-- Owner answer 229a (migration 0026): the check's queue and its verdicts on people's reports.
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_reports(text, bigint, integer)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.decide_atlas_report(text, text, text, text, jsonb, text, text, timestamptz)
+  TO askrigor_research_review;
+-- The owner, 3 Nov (migration 0027): a problem's rows at a glance, each shown on the owner's yes.
+GRANT EXECUTE ON FUNCTION living_evidence.propose_atlas_glance_row(jsonb, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_glance_row_state(text, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_glance_rows(text, bigint, integer)
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

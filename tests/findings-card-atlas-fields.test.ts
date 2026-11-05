@@ -36,35 +36,35 @@ import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.
 const SECRET = "atlas-card-fields-test-secret-0123456789abcdef";
 const DOI = "10.0000/synthetic-velmor-a";
 const QUERY = "zentarine children";
-const TREMOR_SENTENCE = "In one invented trial of 240 adults, zentarine 20 mg halved the tremor score in 30 of 120 " +
-  "against 18 of 120 on placebo over 12 weeks, a number needed to treat of 10.";
-const NAUSEA_SENTENCE = "Over the same 12 weeks, nausea affected 12 of 120 on zentarine against 6 of 120 on placebo, " +
+const TREMOR_SENTENCE = "In one invented trial of 480 adults, zentarine 20 mg halved the tremor score in 60 of 240 " +
+  "against 36 of 240 on placebo over 12 weeks, a number needed to treat of 10.";
+const NAUSEA_SENTENCE = "Over the same 12 weeks, nausea affected 24 of 240 on zentarine against 12 of 240 on placebo, " +
   "a number needed to harm of 20.";
 const ABSENT_SENTENCE = "No trial of zentarine in people under 18 was found in PubMed.";
 
 type BinaryResult = NonNullable<FinalizeResearchInput["binary_results"]>[number];
 const TREMOR_RESULT: BinaryResult = {
   quote: TREMOR_SENTENCE, outcome: "tremor score halved", better: "more", option: "zentarine 20 mg",
-  option_events: 30, option_total: 120, comparator: "placebo", comparator_events: 18, comparator_total: 120,
+  option_events: 60, option_total: 240, comparator: "placebo", comparator_events: 36, comparator_total: 240,
   follow_up: "12 weeks", nnt: 10, harms_quote: NAUSEA_SENTENCE,
 };
 const NAUSEA_RESULT: BinaryResult = {
-  quote: NAUSEA_SENTENCE, outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12,
-  option_total: 120, comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+  quote: NAUSEA_SENTENCE, outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24,
+  option_total: 240, comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20,
 };
 const TREMOR = {
-  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-  comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+  comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 } as const;
 const NAUSEA = {
-  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12, option_total: 120,
-  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24, option_total: 240,
+  comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20,
 } as const;
 
 const EFFECT = {
-  claim: "In one invented trial of 240 adults with Velmor syndrome, zentarine 20 mg halved the tremor score in 30 of " +
-    "120 against 18 of 120 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 12 of 120 " +
-    "against 6 of 120, a number needed to harm of 20.",
+  claim: "In one invented trial of 480 adults with Velmor syndrome, zentarine 20 mg halved the tremor score in 60 of " +
+    "240 against 36 of 240 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 24 of 240 " +
+    "against 12 of 240, a number needed to harm of 20.",
   certainty: "low",
   applies_to: "Adults with Velmor syndrome",
   answer_quote: TREMOR_SENTENCE,
@@ -227,7 +227,7 @@ describe("the numbers block against the claim and the answer (owner answers 149a
     problemsOf(withFinding(0, overrides), extra).problems;
 
   it("refuses counts above their group's size", () => {
-    expect(numbersProblems({ numbers: [{ ...TREMOR, option_events: 130 }, NAUSEA] })).toContain(
+    expect(numbersProblems({ numbers: [{ ...TREMOR, option_events: 250 }, NAUSEA] })).toContain(
       "findings_card.findings[0].numbers[0] gives more events than people for zentarine 20 mg: option_events counts " +
       "the people in that group with the outcome, so it cannot exceed option_total.");
   });
@@ -247,13 +247,13 @@ describe("the numbers block against the claim and the answer (owner answers 149a
 
   it("finds each group's figure, the number needed and the follow-up in the claim, in digits of any script", () => {
     // Arabic-Indic and Devanagari digits read as the same numbers.
-    const arabic = "Zentarine 20 mg halved the tremor score in ٣٠ of ١٢٠ against ١٨ of ١٢٠ on placebo over 12 weeks, " +
-      "a number needed to treat of ١٠; nausea affected ١٢ of ١٢٠ against ٦ of ١٢٠, a number needed to harm of २०.";
+    const arabic = "Zentarine 20 mg halved the tremor score in ٦٠ of ٢٤٠ against ٣٦ of ٢٤٠ on placebo over 12 weeks, " +
+      "a number needed to treat of ١٠; nausea affected ٢٤ of ٢٤٠ against ١٢ of ٢٤٠, a number needed to harm of २०.";
     expect(numbersProblems({ claim: arabic })).toEqual([]);
     // A claim in another language, with its labels in that language, against the answer's own figures in English.
     const french = "Dans un essai inventé de 240 adultes, le zentarine 20 mg a réduit de moitié le score de tremblement " +
-      "chez 30 sur 120 contre 18 sur 120 sous placebo en 12 semaines, un nombre de sujets à traiter de 10 ; nausées " +
-      "chez 12 sur 120 contre 6 sur 120, un nombre de sujets pour nuire de 20.";
+      "chez 60 sur 240 contre 36 sur 240 sous placebo en 12 semaines, un nombre de sujets à traiter de 10 ; nausées " +
+      "chez 24 sur 240 contre 12 sur 240, un nombre de sujets pour nuire de 20.";
     const inFrench = (entry: typeof TREMOR | typeof NAUSEA, outcome: string) =>
       ({ ...entry, outcome, option: "zentarine 20 mg", comparator: "placebo", follow_up: "12 semaines" });
     expect(numbersProblems({ claim: french, numbers: [inFrench(TREMOR, "score de tremblement réduit de moitié"),
@@ -264,7 +264,7 @@ describe("the numbers block against the claim and the answer (owner answers 149a
     expect(numbersProblems({ claim: rates })).toEqual([]);
     const unshown = numbersProblems({ claim: rates.replace("15%", "16%") });
     expect(unshown).toEqual(["findings_card.findings[0].numbers[0] gives a figure the claim does not show for placebo: " +
-      "the claim contains neither its events and total (18 and 120) nor its rate (15%)."]);
+      "the claim contains neither its events and total (36 and 240) nor its rate (15%)."]);
     expect(numbersProblems({ claim: EFFECT.claim.replace("of 10;", "of ten;") })).toEqual([
       "findings_card.findings[0].numbers[0] gives a number needed to treat the claim does not show: the claim does not " +
         "contain 10."]);
@@ -282,8 +282,8 @@ describe("the numbers block against the claim and the answer (owner answers 149a
 
   it("takes only figures the answer reported, as binary_results gives them", () => {
     expect(numbersProblems({}, { binary_results: [TREMOR_RESULT] })).toEqual([
-      "findings_card.findings[0].numbers[1] gives a figure no binary_results entry of this call gives (12 of 120 " +
-        "against 6 of 120, better fewer): each figure on the card is one the answer reports, so give it as " +
+      "findings_card.findings[0].numbers[1] gives a figure no binary_results entry of this call gives (24 of 240 " +
+        "against 12 of 240, better fewer): each figure on the card is one the answer reports, so give it as " +
         "binary_results declares it, or leave it out."]);
     // The counts and which way is better must be the answer's, in the answer's order.
     const swapped = { ...NAUSEA, option: "placebo", comparator: "zentarine 20 mg", option_events: 6, comparator_events: 12,
@@ -492,9 +492,9 @@ describe("the new texts' privacy and storage", () => {
     const body = github.issue(70).body;
     expect(body).toContain("## Topic, as the AI declared it\n\nVelmor syndrome \\(velmor\\-syndrome\\)");
     expect(body).toContain("- Kind: effect\n- Subject: Zentarine \\(supplement\\)\n- Direction: benefit\n- Numbers: " +
-      "tremor score halved at 12 weeks: 30 of 120 with zentarine 20 mg \\(25%\\) against 18 of 120 with placebo " +
-      "\\(15%\\), more is better, NNT 10; nausea at 12 weeks: 12 of 120 with zentarine 20 mg \\(10%\\) against 6 of " +
-      "120 with placebo \\(5%\\), fewer is better, NNH 20");
+      "tremor score halved at 12 weeks: 60 of 240 with zentarine 20 mg \\(25%\\) against 36 of 240 with placebo " +
+      "\\(15%\\), more is better, NNT 10; nausea at 12 weeks: 24 of 240 with zentarine 20 mg \\(10%\\) against 12 of " +
+      "240 with placebo \\(5%\\), fewer is better, NNH 20");
     expect(body).toContain("- Searches that found nothing: pubmed: zentarine children");
     expect(github.issue(71).body).not.toMatch(/Kind:|Topic, as the AI|Numbers:/u);
     // An effect's empty list of searches is no searches: the readable copy shows no line for it (review finding 7).

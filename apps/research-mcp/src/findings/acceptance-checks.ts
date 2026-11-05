@@ -93,7 +93,7 @@ export function atlasBasesOf(
   return { from: "card", record: card, finding: own, bases: [], entryKind: "lead" };
 }
 
-export const ATLAS_COMMUNITY_STATES = ["none", "mixed", "community_only"] as const;
+export const ATLAS_COMMUNITY_STATES = ["none", "mixed", "community_only", "forum_only"] as const;
 export type AtlasCommunityState = typeof ATLAS_COMMUNITY_STATES[number];
 
 export interface AtlasCommunityCheck {
@@ -107,14 +107,19 @@ export interface AtlasCommunityCheck {
 /**
  * Community evidence under owner decision 4a: audited comments, the community_checked tag and YouTube videos are never
  * stored in the Atlas, so a finding with no DOI, PMID, PMCID or NCT source is refused (community_only), and one that
- * also rested on audited comments needs the owner's confirm (mixed), since only its study sources are stored. Pass the
- * sources the accept would keep when the owner keeps fewer than the finding's own.
+ * also rested on audited comments needs the owner's confirm (mixed), since only its study sources are stored. A finding
+ * resting on its forum signal alone, the threads AskRigor's own reader read, is accepted as any other (forum_only; owner
+ * answers 252a and 254a). Pass the sources the accept would keep when the owner keeps fewer than the finding's own.
  */
 export function communityState(
-  finding: Pick<StoredFinding, "sources" | "tags" | "verified_bases" | "youtube_videos">
+  finding: Pick<StoredFinding, "sources" | "tags" | "verified_bases" | "youtube_videos" | "forum_signal">
 ): AtlasCommunityCheck {
   if (!finding.sources.some((source) => parseAtlasSource(source) !== undefined)) {
-    return { state: "community_only", refused: true, needsConfirmation: false };
+    const forumOnly = finding.forum_signal !== undefined && (finding.verified_bases ?? []).includes("forum_read") &&
+      (finding.youtube_videos ?? 0) === 0 && !finding.tags.includes("community_checked") &&
+      !(finding.verified_bases ?? []).includes("comment_audit");
+    return forumOnly ? { state: "forum_only", refused: false, needsConfirmation: false }
+      : { state: "community_only", refused: true, needsConfirmation: false };
   }
   const community = (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ||
     finding.tags.includes("community_checked");

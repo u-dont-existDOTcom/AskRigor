@@ -1,11 +1,14 @@
 import {
   ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   ATLAS_PUBLICATION_HOLD_REASONS,
+  ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_STATES,
   ATLAS_PUBLICATION_WITHDRAWN_REASONS,
   atlasPublicationOrder,
   type AtlasDecisionView,
   type AtlasIntentView,
+  type AtlasPublicationDraft,
+  type AtlasPublicationHoldReason,
   type AtlasPublicationState,
   type AtlasPublicationStore,
   type AtlasPublicationView,
@@ -20,11 +23,16 @@ import {
   type FindingsCardInbox,
 } from "../findings/github-findings-review.js";
 import { publicFindingsCardId } from "../findings/github-findings.js";
+import type { FindingsRecord } from "../findings/service.js";
+import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/source-checks.js";
 import {
   CARD_PUBLICATION_PROBLEMS,
   FINDING_LEFT_OUT_REASONS,
+  cardSourceTitles,
   decidedPublicationState,
   planCardPublication,
+  publicationHoldReasons,
+  withCardContext,
   type CardPublicationProblem,
   type DecidedPublicationState,
 } from "./publication.js";
@@ -129,7 +137,15 @@ export interface AtlasPublicationReviewDependencies {
   reader: AtlasStateReader;
   inbox: Pick<FindingsCardInbox, "readCard" | "openCards" | "repositoryIssues" | "setAside">;
   now: () => Date;
+  /** The sources' titles and years publish_cards adds; without it, a page shows each source's identifier alone. */
+  sourceTitles?: AtlasSourceTitleLookup;
 }
+
+/**
+ * The owner's reason publish_cards records when it takes an older publication down for a moment to publish it again,
+ * under its own number, with its card's context; a later call finds by it one whose publishing again did not complete.
+ */
+export const CONTEXT_REASON = "to add its card's question, usual answer and source titles";
 
 const STATE_WORDS: Record<AtlasPublicationState, string> = {
   unreviewed: "published, not checked by supervisors yet",
@@ -297,12 +313,14 @@ export class AtlasPublicationReview {
       }
       const card = lookup.card;
       const decided = await this.decidedStates(number);
+      const titles = await cardSourceTitles(card.record, this.deps.sourceTitles);
       const plan = planCardPublication({
         record: card.record,
         setAside: isSetAside(card.labels),
         route: { route: "owner", paidPrivate: card.marks.paidPrivate },
         decided,
         ...(ownerTopic === undefined ? {} : { ownerTopic }),
+        sourceTitles: titles,
       });
       const leftOut = plan.leftOut.map(({ findingNumber, reason }) => ({ finding: findingNumber, reason }));
       if (plan.problems.length > 0 || plan.drafts.length === 0) {
@@ -312,6 +330,7 @@ export class AtlasPublicationReview {
           : `every finding is left out (${leftOutWords(leftOut)})`}.`);
         continue;
       }
+      const refiled = new Set<string>();
       if (ownerTopic !== undefined && card.record.card.topic === undefined) {
         const live = (await this.deps.publications.inspect({ cardNumbers: [number], limit: 500 })).filter((row) =>
           row.cardSha256 === card.record.card_sha256 && row.published?.topic === null &&
@@ -326,15 +345,27 @@ export class AtlasPublicationReview {
           });
           lines.push(`${id}: ${withdrawn.map(({ publicationNumber }) => publicationNumber).join(", ")} withdrawn as ` +
             "owner_unpublished to file under the topic; publishing again follows.");
+          for (const { publicationNumber } of withdrawn) refiled.add(publicationNumber);
         }
       }
+      const drafts = [...plan.drafts];
+      const context = await this.addContext(number, card.record, drafts, titles, refiled);
       const rows = await this.deps.publications.publish({
         cardNumber: number,
         cardSha256: card.record.card_sha256,
-        findings: plan.drafts,
+        findings: drafts,
         publishedAt: this.deps.now().toISOString(),
         revive: true,
       });
+      if (context.added.length > 0) {
+        lines.push(`${id}: ${listed(context.added)} now ${context.added.length === 1 ? "shows its" : "show their"} card's ` +
+          "question and usual answer, with its sources' titles where their public records give them, under the same " +
+          `${context.added.length === 1 ? "number" : "numbers"}.`);
+      }
+      for (const { publicationNumber, holds } of context.kept) {
+        lines.push(`${id}: ${publicationNumber} keeps its published fields: its card's question or usual answer holds ` +
+          `${listed(holds.map((reason) => HELD_WORDS[reason]))}, which the pages never show.`);
+      }
       const fresh = rows.filter(({ outcome }) => outcome !== "existing");
       cards.push({
         card: id,
@@ -363,6 +394,56 @@ export class AtlasPublicationReview {
       publications: { items, cards, nextCursor: null, waitingToPublish: null },
       text: lines.join("\n"),
     };
+  }
+
+  /**
+   * The card's unreviewed publications published before their card's context (version 1 fields; plan
+   * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md): each draft for one takes its stored fields with
+   * the card's question, usual answer and source titles, and the publication is withdrawn here so that publishing
+   * revives it with them under its own number, the path owner answer 191b's topics take. A stored topic and every other
+   * field stay as they are. One whose context would hold it keeps its fields; so does one the topic step just withdrew
+   * (its draft already has the context). A publication withdrawn for this by a call whose publishing did not complete is
+   * picked up again.
+   */
+  private async addContext(cardNumber: number, record: FindingsRecord, drafts: AtlasPublicationDraft[],
+    titles: AtlasSourceTitles, skip: ReadonlySet<string>):
+    Promise<{ added: string[]; kept: Array<{ publicationNumber: string; holds: AtlasPublicationHoldReason[] }> }> {
+    const rows = (await this.deps.publications.inspect({ cardNumbers: [cardNumber], limit: 500 })).filter((row) =>
+      row.cardSha256 === record.card_sha256 && row.published !== null && row.published.schema === ATLAS_PUBLICATION_SCHEMA &&
+      !skip.has(row.publicationNumber) && (row.state === "unreviewed" ||
+        (row.state === "withdrawn" && row.withdrawnBecause === "owner_unpublished" && row.ownerReason === CONTEXT_REASON)));
+    const added: string[] = [];
+    const withdraw: string[] = [];
+    const kept: Array<{ publicationNumber: string; holds: AtlasPublicationHoldReason[] }> = [];
+    for (const row of rows) {
+      const at = drafts.findIndex(({ findingNumber }) => findingNumber === row.findingNumber);
+      if (at === -1 || (drafts[at]!.state !== "unreviewed" && drafts[at]!.state !== "held")) continue;
+      // In its card's context, with the research behind it when its stored finding carries it (owner answer 252a).
+      const shown = withCardContext(row.published!, record, titles, row.findingNumber);
+      if (shown.schema === ATLAS_PUBLICATION_SCHEMA) continue;
+      const holds = publicationHoldReasons(shown);
+      if (holds.length > 0) {
+        kept.push({ publicationNumber: row.publicationNumber, holds });
+        // A publication this path withdrew comes back as it was.
+        if (row.state === "withdrawn") {
+          drafts[at] = { findingNumber: row.findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null,
+            published: row.published! };
+        }
+        continue;
+      }
+      drafts[at] = { findingNumber: row.findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: shown };
+      added.push(row.publicationNumber);
+      if (row.state === "unreviewed") withdraw.push(row.publicationNumber);
+    }
+    if (withdraw.length > 0) {
+      await this.deps.publications.withdraw({
+        reason: "owner_unpublished",
+        publicationNumbers: withdraw.sort((left, right) => atlasPublicationOrder(left) - atlasPublicationOrder(right)),
+        ownerReason: CONTEXT_REASON,
+        withdrawnAt: this.deps.now().toISOString(),
+      });
+    }
+    return { added: added.sort((left, right) => atlasPublicationOrder(left) - atlasPublicationOrder(right)), kept };
   }
 
   /** The publication state each decided finding of a card takes, from its decision and its F number's intents. */

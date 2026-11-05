@@ -136,7 +136,9 @@ describe("finalize_research published schemas and handler validation", () => {
   });
 
   it.each([
-    [{ findings_card: { findings: [{ claim: "Example", certainty: "moderate", applies_to: "Example", answer_quote: "Example", sources: [], why_not_usual: "Example", what_would_change_it: "Example" }] } }, "findings_card.findings[0].sources", "at least 1 item."],
+    // The card's later shape takes a finding with no source, for one resting on its forum signal alone (owner answer
+    // 252a), so an empty source is the malformed part here.
+    [{ findings_card: { findings: [{ claim: "Example", certainty: "moderate", applies_to: "Example", answer_quote: "Example", sources: [""], why_not_usual: "Example", what_would_change_it: "Example" }] } }, "findings_card.findings[0].sources[0]", "at least 1 character"],
     [{ intervention_identity: { status: "checked", interventions: [{ study_ids: ["10.1000/example"], label: "Example", status: "resolved", identity: { sponsor_or_maker: "Example", current_product: "Example" } }] } }, "intervention_identity.interventions[0].identity.registry_code", "expected text"],
     [{ community_searches: [{ ...community, review_corpora: [{ ...corpus, selection: "newest reviews" }] }] }, "community_searches[0].review_corpora[0].selection", "not a supported value"],
     [{ community_searches: [{ ...community, report_identity: [{ ...report, exact_firsthand: 1 }] }] }, "exact_firsthand", "unknown field"],

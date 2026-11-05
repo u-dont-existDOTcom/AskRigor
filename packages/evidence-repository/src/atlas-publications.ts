@@ -15,6 +15,7 @@ import {
   atlasPool,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
+import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
@@ -89,6 +90,8 @@ export const atlasPublishedNumberSchema = z.object({
   comparator_total: z.number().int().min(1),
   follow_up: publishedText(120),
   harms_none_found: z.boolean().optional(),
+  /** Version 3 (owner answer 252a): which of the published sources the figure comes from. */
+  source: publishedText(300).optional(),
 }).strict().superRefine((entry, context) => {
   if (entry.option_events > entry.option_total) {
     context.addIssue({ code: "custom", path: ["option_events"], message: "events above the group's total" });
@@ -100,15 +103,60 @@ export const atlasPublishedNumberSchema = z.object({
 export type AtlasPublishedNumber = z.infer<typeof atlasPublishedNumberSchema>;
 
 /**
+ * Published fields with their card's context (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md):
+ * v1's, and the card's question and usual answer, with its sources' titles and years from their public records.
+ */
+export const ATLAS_PUBLICATION_SCHEMA_V2 = "askrigor.atlas-publication.v2";
+/** The longest card question and usual answer a publication takes: the card's own bounds. */
+export const ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS = 300;
+export const ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS = 400;
+
+/**
+ * The research behind each finding, and what people report (owner answer 252a, 5 November 2026; plan
+ * docs/superpowers/plans/2026-11-05-atlas-research-behind.md): version 2's fields, and for each source the paper's own
+ * sentence and conclusion found word for word in a text AskRigor fetched itself, with the strongest thing against it in
+ * AskRigor's words; how each source was read; which source each figure comes from; each source's retraction status; and
+ * the forum signal: the communities and the threads read, people's outcomes counted, how good their reports are, a way it
+ * could work and how studies relate to the reports. A version 3 finding may rest on its forum signal alone.
+ */
+export const ATLAS_PUBLICATION_SCHEMA_V3 = "askrigor.atlas-publication.v3";
+/** A source's retraction status as published: one a provider read (a status none could read is left out). */
+export const ATLAS_PUBLISHED_RETRACTIONS = [
+  "none_found", "corrected_or_updated", "expression_of_concern", "retracted", "not_applicable",
+] as const;
+export type AtlasPublishedRetraction = typeof ATLAS_PUBLISHED_RETRACTIONS[number];
+
+/** A source's title and year from its public record (Crossref, PubMed, Europe PMC or ClinicalTrials.gov). */
+export const atlasPublishedSourceDetailSchema = z.object({
+  /** The source as the publication's sources give it. */
+  source: publishedText(300),
+  title: publishedText(500),
+  year: z.number().int().min(1500).max(2200).nullable(),
+  /** Version 3: its retraction status, as the title lookup read it from Crossref's update markers and PubMed. */
+  retraction: z.enum(ATLAS_PUBLISHED_RETRACTIONS).optional(),
+}).strict();
+export type AtlasPublishedSourceDetail = z.infer<typeof atlasPublishedSourceDetailSchema>;
+
+// The research behind a finding as a publication holds it (atlas-research.ts), under the publication's text check.
+const publishedResearch = atlasResearchSchemas(publishedText);
+/** One backing line as published: at least one quote, each with the section it was found in when known. */
+export const atlasPublishedBackingSchema = publishedResearch.backing;
+export type AtlasPublishedBacking = z.infer<typeof atlasPublishedBackingSchema>;
+/** What people report, as published: AskRigor's counts and words and the threads' links, never a forum text or name. */
+export const atlasPublishedForumSignalSchema = publishedResearch.forumSignal;
+export type AtlasPublishedForumSignal = z.infer<typeof atlasPublishedForumSignalSchema>;
+
+/**
  * What the Atlas publishes of one finding, projected from the stored card: the card's topic; the finding's claim,
  * certainty, whom it applies to, kind, subject and its type, direction, numbers block (null when the card declares
  * none), searches for a search that found nothing (null when the card declares none), source identifiers, why it is not
  * the usual answer and what would change it; its verified bases; the day the card was saved; and the AskRigor version
- * from the card's stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface
- * or the reported model: the schema is strict and has no field for them.
+ * from the card's stamp. Version 2 adds the card's question and usual answer, and its sources' titles and years where a
+ * public record gave them. Never the ARF number, the account or contributor, the thread key, the answer quote, the
+ * surface or the reported model: the schema is strict and has no field for them.
  */
 export const atlasPublishedFindingSchema = z.object({
-  schema: z.literal(ATLAS_PUBLICATION_SCHEMA),
+  schema: z.enum([ATLAS_PUBLICATION_SCHEMA, ATLAS_PUBLICATION_SCHEMA_V2, ATLAS_PUBLICATION_SCHEMA_V3]),
   topic: z.object({
     key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
     label: publishedText(200),
@@ -129,14 +177,65 @@ export const atlasPublishedFindingSchema = z.object({
       end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
     }).strict().optional(),
   }).strict()).max(ATLAS_SEARCHES_PER_FINDING).nullable(),
-  sources: z.array(publishedText(300)).min(1).max(10),
+  // At least one, except a version 3 finding resting on its forum signal alone (checked below).
+  sources: z.array(publishedText(300)).max(10),
   why_not_usual: publishedText(300),
   what_would_change_it: publishedText(300),
   verified_bases: z.array(z.enum(ATLAS_VERIFIED_BASES)).max(ATLAS_VERIFIED_BASES.length)
     .refine((bases) => new Set(bases).size === bases.length, { message: "each basis once" }),
   saved_on: isoDateSchema,
   askrigor_version: z.string().regex(/^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u),
-}).strict();
+  question: publishedText(ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS).optional(),
+  usual_answer: publishedText(ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS).optional(),
+  source_details: z.array(atlasPublishedSourceDetailSchema).max(10).optional(),
+  // Version 3 (owner answer 252a).
+  backing: z.array(atlasPublishedBackingSchema).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
+  source_reading: z.array(publishedResearch.reading).min(1).max(10).optional(),
+  forum_signal: atlasPublishedForumSignalSchema.optional(),
+}).strict().superRefine((published, context) => {
+  // Versions 2 and 3 always have the card's question and usual answer; version 1 has none of version 2's fields, and
+  // versions 1 and 2 none of version 3's.
+  const v3 = published.schema === ATLAS_PUBLICATION_SCHEMA_V3;
+  const v2 = published.schema === ATLAS_PUBLICATION_SCHEMA_V2 || v3;
+  for (const key of ["question", "usual_answer"] as const) {
+    if (v2 !== (published[key] !== undefined)) {
+      context.addIssue({ code: "custom", path: [key], message: v2 ? "version 2 has it" : "version 1 has no such field" });
+    }
+  }
+  if (!v2 && published.source_details !== undefined) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "version 1 has no such field" });
+  }
+  const versionThree = [
+    ...(published.backing === undefined ? [] : ["backing"]),
+    ...(published.source_reading === undefined ? [] : ["source_reading"]),
+    ...(published.forum_signal === undefined ? [] : ["forum_signal"]),
+    ...((published.numbers ?? []).some(({ source }) => source !== undefined) ? ["numbers"] : []),
+    ...((published.source_details ?? []).some(({ retraction }) => retraction !== undefined) ? ["source_details"] : []),
+  ];
+  if (!v3 && versionThree.length > 0) {
+    for (const key of versionThree) context.addIssue({ code: "custom", path: [key], message: "only version 3 has it" });
+  }
+  if (published.sources.length === 0 && !(v3 && published.forum_signal !== undefined)) {
+    context.addIssue({ code: "custom", path: ["sources"], message: "a source, unless it rests on its forum signal alone" });
+  }
+  const named = (published.source_details ?? []).map(({ source }) => source);
+  if (named.some((source) => !published.sources.includes(source)) || new Set(named).size !== named.length) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "each detail names one published source, once" });
+  }
+  // Every source a version 3 field names is a published source, and a source is read once.
+  const named3 = [
+    ...(published.backing ?? []).map(({ source }) => source),
+    ...(published.source_reading ?? []).map(({ source }) => source),
+    ...(published.numbers ?? []).flatMap(({ source }) => source === undefined ? [] : [source]),
+  ];
+  if (named3.some((source) => !published.sources.includes(source))) {
+    context.addIssue({ code: "custom", path: ["backing"], message: "each line, reading and figure names a published source" });
+  }
+  const read = (published.source_reading ?? []).map(({ source }) => source);
+  if (new Set(read).size !== read.length) {
+    context.addIssue({ code: "custom", path: ["source_reading"], message: "each source read once" });
+  }
+});
 export type AtlasPublishedFinding = z.infer<typeof atlasPublishedFindingSchema>;
 
 // The store ---------------------------------------------------------------------------------------------------------
