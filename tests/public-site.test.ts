@@ -20,13 +20,13 @@ describe("AskRigor public site", () => {
   it("ships exactly four complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(4);
+    expect(result.pages).toBe(5);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    expect(result.internalLinks).toBe(35);
+    expect(result.internalLinks).toBe(43);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {

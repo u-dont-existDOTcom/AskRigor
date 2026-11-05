@@ -1,0 +1,205 @@
+/* The free ChatGPT comparison page (5 Nov 2026). Builds on site.css and its colour tokens. */
+:root {
+  --circle: #c2410c;
+  --circle-soft: rgb(194 65 12 / 0.1);
+  --gain: #0f766e;
+  --gain-soft: rgb(15 118 110 / 0.09);
+  --bar: #145a8d;
+  --bar-drug: #8a94a0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --circle: #fb923c;
+    --circle-soft: rgb(251 146 60 / 0.15);
+    --gain: #5eead4;
+    --gain-soft: rgb(94 234 212 / 0.1);
+    --bar: #72c2ed;
+    --bar-drug: #8b9aa6;
+  }
+}
+
+.wide { width: min(100% - 2rem, 78rem); margin-inline: auto; }
+.wide p, .wide li { max-width: none; }
+.hero { padding-top: 0.5rem; }
+.hero h1 { max-width: 20ch; }
+.hero .lede { max-width: 62ch; }
+
+.ask { display: flex; justify-content: flex-end; margin: 1.75rem 0 1.25rem; }
+.ask p {
+  margin: 0;
+  max-width: 34rem;
+  padding: 0.85rem 1.15rem;
+  background: var(--text);
+  color: var(--page);
+  border-radius: 1.4rem 1.4rem 0.35rem 1.4rem;
+}
+.ask small { display: block; margin-bottom: 0.2rem; color: color-mix(in srgb, var(--page) 70%, transparent); font-weight: 700; }
+
+.timing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.timing .card { margin: 0; }
+.timing .label { margin: 0; color: var(--muted); font-weight: 700; }
+.timing .time { margin: 0.2rem 0; font-size: clamp(1.8rem, 5vw, 2.7rem); font-weight: 850; line-height: 1.1; }
+.timing .with { border-color: var(--gain); background: linear-gradient(var(--gain-soft), var(--gain-soft)), var(--surface); }
+.timing .with .time { color: var(--gain); }
+
+.gains {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gain {
+  position: relative;
+  padding: 1.15rem 1.15rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+}
+.gain h3 { margin: 0.6rem 0 0.4rem; font-size: 1.08rem; }
+.gain p { margin: 0.35rem 0; font-size: 0.95rem; }
+.gain .figure { margin: 0.2rem 0 0; font-size: 1.9rem; font-weight: 850; line-height: 1.2; }
+.gain .figure.long { font-size: 1.3rem; }
+.gain .them { color: var(--muted); }
+.gain .them b { color: var(--text); }
+.gain .checked { margin-top: 0.6rem; font-size: 0.8rem; color: var(--gain); font-weight: 700; }
+.fair { margin-top: 1.25rem; padding: 0.9rem 1.1rem; border-left: 0.3rem solid var(--line); color: var(--muted); }
+
+/* A hand-drawn-looking circle around what the research added, numbered to match the list above. */
+.circled {
+  position: relative;
+  display: inline-block;
+  padding: 0.02em 0.45em;
+  border: 0.14em solid var(--circle);
+  border-radius: 50% / 45%;
+  background: var(--circle-soft);
+  transform: rotate(-1.5deg);
+}
+.circled.block { display: block; padding: 0.35rem 0.6rem; border-radius: 1.2rem / 1rem; transform: rotate(-0.4deg); }
+.circled[data-n]::after,
+.compare-note[data-n]::after {
+  content: attr(data-n);
+  position: absolute;
+  top: -0.85rem;
+  right: -0.65rem;
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: var(--circle);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  transform: rotate(1.5deg);
+}
+.gain > .num {
+  position: absolute;
+  top: -0.7rem;
+  left: 1rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--circle);
+  color: #fff;
+  font-weight: 850;
+}
+/* The instant answer's matching, vaguer line: underlined, not circled. */
+.compare-note {
+  position: relative;
+  text-decoration: underline wavy color-mix(in srgb, var(--muted) 70%, transparent);
+  text-underline-offset: 0.25em;
+}
+.compare-note[data-n]::after { top: -1rem; right: -0.9rem; width: 1.3rem; height: 1.3rem; background: var(--bar-drug); font-size: 0.72rem; }
+
+.answers { display: grid; gap: 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; margin-top: 1.25rem; }
+.answer { background: var(--surface); border: 1px solid var(--line); border-radius: 0.85rem; box-shadow: var(--shadow); overflow: hidden; }
+.answer > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--line);
+}
+.answer > header h3 { margin: 0; font-size: 1.05rem; }
+.answer > header span { color: var(--muted); font-size: 0.9rem; font-weight: 700; }
+.answer.with { border-color: var(--gain); }
+.answer.with > header { background: var(--gain-soft); }
+.answer.with > header span { color: var(--gain); }
+.answer .body { padding: 0.35rem 1.15rem 1.2rem; font-size: 0.94rem; line-height: 1.55; }
+.answer .body h4 { margin: 1.4rem 0 0.4rem; font-size: 1.15rem; line-height: 1.25; }
+.answer .body h5 { margin: 1.2rem 0 0.35rem; font-size: 1rem; }
+.answer .body h4:first-child { margin-top: 0.9rem; }
+.answer .body ul { padding-left: 1.2rem; }
+.answer .body li { margin: 0.25rem 0; }
+.answer .sub { color: var(--muted); font-size: 0.88rem; }
+.omitted { margin: 0.6rem 0; padding: 0.55rem 0.75rem; border: 1px dashed var(--line); border-radius: 0.5rem; color: var(--muted); font-size: 0.82rem; }
+
+.table-wrap { overflow-x: auto; margin: 0.6rem 0; }
+.answer table { width: 100%; border-collapse: collapse; font-size: 0.84rem; line-height: 1.4; }
+.answer th, .answer td { padding: 0.45rem 0.45rem 0.45rem 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.answer th { font-weight: 750; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin: 0.7rem 0; }
+.stat { padding: 0.65rem 0.8rem; border: 1px solid var(--line); border-radius: 0.6rem; }
+.stat .k { display: block; color: var(--muted); font-size: 0.78rem; }
+.stat .v { display: block; font-size: 1.55rem; font-weight: 800; line-height: 1.2; }
+.stat .u { display: block; color: var(--muted); font-size: 0.8rem; }
+.stat-plain { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; margin: 0.8rem 0 0; font-weight: 750; }
+.stat-plain + .sub { margin-top: 0.1rem; }
+
+.src {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
+.chart { margin: 0.8rem 0; padding: 0.8rem 0.9rem; border: 1px solid var(--line); border-radius: 0.6rem; }
+.chart h5 { margin: 0 0 0.15rem; }
+.bars { display: grid; gap: 0.45rem; margin: 0.7rem 0 0.2rem; padding: 0; list-style: none; }
+.bars li { display: grid; grid-template-columns: 8.5rem 1fr 3.2rem; align-items: center; gap: 0.5rem; margin: 0; font-size: 0.82rem; }
+.bars .track { height: 0.85rem; background: color-mix(in srgb, var(--line) 50%, transparent); border-radius: 0.3rem; overflow: hidden; }
+.bars .fill { display: block; height: 100%; background: var(--bar); border-radius: 0.3rem; }
+.bars .drug .fill { background: var(--bar-drug); }
+/* The study's Table 1 values (curative test), as classes: the site's policy allows no inline styles. */
+.bars .w68 { width: 68.31%; }
+.bars .w77 { width: 76.53%; }
+.bars .w84 { width: 83.65%; }
+.bars .w89 { width: 89.09%; }
+.bars .w91 { width: 91.13%; }
+.bars .val { font-variant-numeric: tabular-nums; text-align: right; font-weight: 700; }
+.redrawn { color: var(--muted); font-size: 0.76rem; }
+
+.try { margin-top: 2.5rem; padding: 1.5rem; border: 1px solid var(--gain); border-radius: 0.85rem; background: linear-gradient(var(--gain-soft), var(--gain-soft)), var(--surface); }
+.try h2 { margin-top: 0; }
+.try ol { padding-left: 1.3rem; }
+
+@media (max-width: 64rem) {
+  .gains { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 52rem) {
+  .answers, .gains, .timing { grid-template-columns: 1fr; }
+  .bars li { grid-template-columns: 6.8rem 1fr 3rem; }
+}
+@media (max-width: 30rem) {
+  .stats { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .circled, .circled[data-n]::after { transform: none; }
+}

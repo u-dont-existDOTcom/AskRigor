@@ -34,6 +34,11 @@ askrigor.com {
 		file_server
 	}
 
+	handle /free-chatgpt {
+		rewrite * /free-chatgpt/index.html
+		file_server
+	}
+
 	@assets path /assets/*
 	handle @assets {
 		file_server
