@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult, ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { okEnvelope } from "@askrigor/contracts";
@@ -6,7 +8,9 @@ import { z } from "zod";
 
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { redditReaderFromEnv } from "./reddit-reader-client.js";
-import { forumThreadDigest } from "./research-finalization-gate.js";
+import {
+  forumLinkDigest, forumPageDigest, forumReadLink, forumThreadDigest, sameThreadAtSite, signedSubreddit
+} from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
 import type { RegisterToolsOptions } from "./register-tools.js";
@@ -139,9 +143,27 @@ export function registerForumTools(
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       const data = readData.parse({ ...base, ...read.fields });
+      // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
+      // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
+      const subreddit = reddit ? signedSubreddit(data.community) : undefined;
+      // So the final check counts each thread once (the review of #417, finding 3, and its recheck): a Reddit read with
+      // more signs which part it continues (`m`), and a forum page's read the page it read (`w`: its thread's comparable
+      // link and the page it picks), so reading a part or a page again, by any of its links, adds nothing. A link the
+      // reader was sent on from to the same thread at the same site (a bare host to a forum's subdomain, say) is signed
+      // too (`ur`), as that one thread. A forum page read at a link already in an id-only form signs it (`l`), the only
+      // link the Atlas may publish for it, so a published link is always one the reader fetched.
+      const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
+      const readThread = forumThreadDigest(data.url);
+      const requestedThread = forumThreadDigest(url);
+      const readLink = reddit ? undefined : forumReadLink(data.url);
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
-        u: forumThreadDigest(data.url), n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
-        v: reddit ? "reddit" : "page"
+        u: readThread, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
+        v: reddit ? "reddit" : "page",
+        ...(subreddit === undefined ? {} : { c: subreddit }),
+        ...(reddit && more !== undefined ? { m: digest(more) } : {}),
+        ...(reddit ? {} : { w: forumPageDigest(data.url) }),
+        ...(readLink === undefined ? {} : { l: forumLinkDigest(readLink) }),
+        ...(requestedThread !== readThread && sameThreadAtSite(url, data.url) ? { ur: requestedThread } : {})
       }) : undefined;
       return result("forum_thread", data, READ_GUIDANCE + (data.more || data.next_page ? UNFINISHED_GUIDANCE : ""), read.note, signed);
     } catch {

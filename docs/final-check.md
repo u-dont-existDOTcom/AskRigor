@@ -133,14 +133,31 @@ conclusion, each copied whole and exactly, and the strongest thing against the c
 looks both quotes up word for word in the text it fetched: the full text it still holds, through the handle the
 source's verified `full_text_read` or audit receipt signs, or otherwise the PubMed abstract. Spacing, case, Unicode
 form, curly quotation marks, dashes and emphasis are set aside and nothing else, so a changed word, number or sign is
-not found, in any language, with no model. The result's runtime `source_lines` and the panel say which quotes were
+not found, in any language, with no model. A quote is found only as one or more whole sentences of one paragraph, by
+Unicode's sentence rules (UAX #29), with only white space, quotation marks, brackets and citation markers at its ends,
+so a part of a sentence that left out its negation is not found; a colon or a semicolon never ends a sentence, and a
+structured abstract is read section by section, its labels apart. An HTML page's or a plain text's lines, as the stored
+text lays them out for full-text admission and the paywall labels, run on within a section, as a PDF's pages do, so a
+bold word or a `<br>` on a line of its own ends no sentence; a full stop after an abbreviation with a full stop inside
+it (e.g., i.e., z.B., U.S.) ends none either, even before a capital letter; and a section's label at a line's start that
+full-text admission's section-name list knows ("Conclusions:") starts one. A citation may be left out where it sits
+before the sentence's end, linked or not ("( Smith et al., 2020 )", "[ 12 ]"). The result's runtime `source_lines` and the panel say which quotes were
 found and in which section. Only a line with both found in a paper AskRigor fetched may carry "✓ AskRigor found both
 in the paper"; a copy the AI supplied is named as one and gets no tick. A quote not found is a note and a line in the
 panel, not a step, since the six blocking checks don't name it. Finding a quote shows the words exist, not that they
 are fair, which is why the conclusion and the strongest thing against the claim sit beside it; whether they back the
 claim is meaning, and the meaning judge reads it where it is on (its job 5). Limits: AskRigor holds a full text for an
 hour after its last read, so a later check leaves those quotes unchecked and says so; a source with no full text held
-and no PMID has nothing to look in; and the check can't say what the answer shows after it.
+and no PMID has nothing to look in; and the check can't say what the answer shows after it. Where the matcher can let
+a part of a sentence through as a whole one: a whole sentence can still be quoted out of its paragraph's context; an
+abbreviation with no full stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") before a capital letter
+ends a sentence, as a sentence's own last word does; a JATS list after a lead-in that ends with a colon ("The drug did
+not:") is matched item by item; and a word in a sentence that sits on a line of its own and is a section's name (a
+bold "results") starts a new section. Where it refuses a quote it could have found: a text with no sentence marks
+(Thai, Lao, Tibetan) is found only as a whole paragraph; a Greek question mark is the semicolon once a text is in NFC,
+where Unicode's rules end no sentence; an unknown subheading (a PDF's, or an HTML page's the section-name list doesn't
+know) runs into the next sentence, and so does a table's or a list's item without a full stop, so those sentences are
+refused; and JATS superscript citations read as bare digits, so a quote that leaves one out is refused.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

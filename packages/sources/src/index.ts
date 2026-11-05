@@ -12,7 +12,9 @@ export { FORUM_READER_USER_AGENT, readForumPage, type ForumPage, type ForumPageR
 export { parseRobotsTxt, robotsTxtAllows, robotsResponseAllows, type RobotsGroup, type RobotsRule } from "./robots-txt.js";
 export {
   fetchPubmedRecord,
+  pubmedAbstractSections,
   searchPubmed,
+  type PubmedAbstractSection,
   type PubmedConfig,
   type PubmedDateRange,
   type PubmedRecord,
@@ -295,5 +297,5 @@ export {
   type YoutubeTranscriptRuntime
 } from "./youtube-transcript.js";
 
-export { publicBasisSchema, type PublicBasis, acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, failedPrimaryRoutes, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
+export { publicBasisSchema, type PublicBasis, acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, failedPrimaryRoutes, admitFullText, sectionKind, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
 export * from "./product-identity.js";

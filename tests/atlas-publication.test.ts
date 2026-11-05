@@ -244,7 +244,7 @@ describe("which findings and cards are published", () => {
       .toEqual({ problems: ["set_aside"], drafts: [], leftOut: [] });
   });
 
-  it("publishes an unreviewed finding with its card's question, usual answer and source titles, a decided one without", () => {
+  it("publishes an unreviewed finding with its card's question, usual answer and source titles, a decided one too", () => {
     const record = recordOf(VELMOR_CARD);
     const [first, second] = VELMOR_CARD.findings.map(({ sources }) => sources[0]!);
     const titles = new Map([
@@ -262,12 +262,13 @@ describe("which findings and cards are published", () => {
     // Without a lookup, the context alone.
     expect(planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } }).drafts[0]!.published)
       .toEqual(withCardContext(publishedFindingOf(record, 1)!, record));
-    // A decided finding's page shows its F number's version: its publication keeps version 1's fields.
+    // A decided finding's page shows its F number's version, but its publication goes the same way (the review of 5
+    // November, finding 3), so one resting on its forum signal alone, which makes no version 1, gets its page too.
     const decided = planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false },
       decided: new Map([[1, { state: "accepted" as const, atlasNumber: "F-1001" }]]), sourceTitles: titles });
-    expect(decided.drafts.map(({ published }) => published.schema))
-      .toEqual(["askrigor.atlas-publication.v1", "askrigor.atlas-publication.v2"]);
-    expect(decided.drafts[0]!.published).toEqual(publishedFindingOf(record, 1));
+    expect(decided.drafts.map(({ state, published }) => [state, published.schema]))
+      .toEqual([["accepted", "askrigor.atlas-publication.v2"], ["unreviewed", "askrigor.atlas-publication.v2"]]);
+    expect(decided.drafts[0]!.published).toEqual(plan.drafts[0]!.published);
   });
 
   it("holds the card's findings when its question or usual answer holds what the pages never show", () => {

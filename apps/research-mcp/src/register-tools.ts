@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import {
-  lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+  abstractDocument, lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -47,6 +47,8 @@ import {
   failedPrimaryRoutes,
   fetchClinicalTrial,
   fetchPubmedRecord,
+  pubmedAbstractSections,
+  type PubmedRecord,
   checkRetractionStatus,
   resolveDoi,
   searchClinicalTrials,
@@ -279,6 +281,7 @@ import {
   issueResearchReceipt,
   pageKey,
   plainAnswerAccountBinding,
+  receiptText,
   researchMapAccountBinding,
   researchReceiptSecretFromEnv,
   researchTargetDigest,
@@ -2491,15 +2494,27 @@ function defineResearchOperations(
         const looked = await withinDeadline(lookUpSourceLines(lines, requests, options.sourceLineTexts ?? AskRigorSourceLineTexts)
           .catch(() => late), SOURCE_LINE_DEADLINE_MILLISECONDS, late);
         const fromLines = lookups?.length ?? 0;
-        gateOptions = {
+        const withLines: FinalizeResearchOptions = {
           ...gateOptions,
-          ...(lookups === undefined ? {} : { sourceLineLookups: looked.slice(0, fromLines) }),
-          ...(backing === undefined ? {} : {
-            backingLookups: backing.lines.map(({ finding, line }, place) =>
-              ({ finding, line, lookup: looked[fromLines + place] ?? late[fromLines + place]! }))
-          })
+          ...(lookups === undefined ? {} : { sourceLineLookups: looked.slice(0, fromLines) })
         };
-        result = finalizeResearch(input, gateOptions);
+        const withBacking: FinalizeResearchOptions = backing === undefined ? withLines : {
+          ...withLines,
+          backingLookups: backing.lines.map(({ finding, line }, place) =>
+            ({ finding, line, lookup: looked[fromLines + place] ?? late[fromLines + place]! }))
+        };
+        // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
+        // long, say) never stops the call: the check is made again without the backing lines' lookups, and otherwise
+        // stands as the first pass made it.
+        for (const attempt of withBacking === withLines ? [withLines] : [withBacking, withLines]) {
+          try {
+            result = finalizeResearch(input, attempt);
+            gateOptions = attempt;
+            break;
+          } catch {
+            continue;
+          }
+        }
       }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
       if (reader.enabled && checkedInput?.answer_draft !== undefined &&
@@ -3569,8 +3584,10 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
   },
   async abstract(pmid) {
     const result = await fetchPubmedRecord(pmid, ncbiConfig());
-    const abstract = (result.data as { abstract?: string } | undefined)?.abstract;
-    return abstract === undefined || abstract === "" ? undefined : { kind: "abstract", blocks: [{ text: abstract }] };
+    const record = result.data as PubmedRecord | undefined;
+    const abstract = record?.abstract;
+    return record === undefined || abstract === undefined || abstract === "" ? undefined
+      : abstractDocument(abstract, pubmedAbstractSections(record));
   }
 };
 
@@ -3676,7 +3693,7 @@ function studyFigureClaims(check: ReportedFiguresCheck | undefined): ResearchRec
     fig: check.status,
     ...(check.values.length === 0 ? {} : { figv: check.values.slice(0, 20).map(String) }),
     ...(check.impossible_as_printed.length === 0 ? {} : {
-      imp: check.impossible_as_printed.slice(0, 3).map((value) => value.slice(0, 40))
+      imp: check.impossible_as_printed.slice(0, 3).map((value) => receiptText(value, 40))
     })
   };
 }

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   decodeCursor,
   fetchPubmedRecord,
+  pubmedAbstractSections,
   searchPubmed
 } from "../packages/sources/src/index.js";
 import { waitForNcbiRequestSlot } from "../packages/sources/src/ncbi-pacing.js";
@@ -673,6 +674,22 @@ describe("PubMed EFetch", () => {
       api_key: "ncbi-secret-value"
     });
     expect(JSON.stringify(result)).not.toContain("ncbi-secret-value");
+  });
+
+  // The recheck of #417: a source line looks a quote up in each section's own text, so the sections are kept beside the
+  // record, and the tool's output stays as it was.
+  it("keeps a structured abstract's sections beside the record, never in it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(await fixture("efetch-record.xml"), { status: 200 })));
+
+    const result = await fetchPubmedRecord("40123456", NCBI);
+
+    expect(pubmedAbstractSections(result.data)).toEqual([
+      { label: "BACKGROUND", text: "A recorded background statement." },
+      { label: "RESULTS", text: "A recorded result statement." }
+    ]);
+    expect(result.data.abstract).toBe("BACKGROUND: A recorded background statement.\nRESULTS: A recorded result statement.");
+    expect(Object.keys(result.data)).not.toContain("sections");
+    expect(pubmedAbstractSections({ ...result.data })).toBeUndefined();
   });
 
   it("normalizes a current-DTD PubmedBookArticle without fabricating journal metadata", async () => {
