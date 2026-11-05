@@ -1164,17 +1164,11 @@ What the model sends, and when:
   found, and a colon or a semicolon never ends a sentence. A paragraph is a
   block of a JATS paper, a PDF's pages run on, or an HTML page's or a plain
   text's lines run on within a section, so a line the page broke at a bold
-  word or a `<br>` ends no sentence. A full stop after an abbreviation (a word
-  with a full stop inside it, or of one to three small letters) ends no
-  sentence even before a capital letter, and a section's label at a line's
-  start, one the section-name list of full-text admission knows
-  ("Conclusions:"), starts one. A whole sentence can still be quoted out of its
-  paragraph's context. In the safe direction, a part is refused where those
-  rules end no sentence: a text with no sentence marks (Thai, Lao, Tibetan) is
-  found only as a whole paragraph, a Greek question mark is the semicolon once
-  a text is in NFC, a heading a page runs into its paragraph is part of its
-  first sentence, and a sentence after one that truly ends in a short word
-  ("twice a day.") is found only with it. A public card citing a study with no backing line,
+  word or a `<br>` ends no sentence. A full stop after an abbreviation with a
+  full stop inside it (e.g., i.e., z.B., U.S.) ends no sentence even before a
+  capital letter, and a section's label at a line's start, one the
+  section-name list of full-text admission knows ("Conclusions:"), starts one.
+  The limits are listed with the Atlas's pages below. A public card citing a study with no backing line,
   or a research that read forum threads with no finding giving a forum signal,
   gets one note naming the fields.
 - In `save_research_findings`, only after a paid-private user says yes to that
@@ -1806,7 +1800,21 @@ The pages (section 4C) are built, not yet released, and switched off until
   communities only as `r/<subreddit>`, a forum's registrable host (shown in
   Unicode only when its letters are in one script) or "another website". Never a YouTube
   link or video ID, a thread's title or slug, a username or anything a person
-  wrote. Quotes, sections,
+  wrote. A quote found word for word is one or more whole sentences of a
+  paragraph, by Unicode's sentence rules, with only marks and citations at its
+  ends; what that matching can't see is published with it, so these are its
+  limits. It can let a part of a sentence through as a whole one: a whole
+  sentence quoted out of its paragraph's context; an abbreviation with no full
+  stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") before a
+  capital letter, which ends a sentence as a sentence's own last word does; a
+  JATS list after a lead-in that ends with a colon ("The drug did not:"),
+  matched item by item; and a word in a sentence that sits on a line of its own
+  and is a section's name (a bold "results"), which starts a new section. It
+  refuses, rather than finds, a part of a text with no sentence marks (Thai,
+  Lao, Tibetan), of a Greek sentence ending in a question mark (the semicolon
+  once a text is in NFC), a sentence an unknown subheading or a table's or a
+  list's item without a full stop runs into, and a quote that leaves out a JATS
+  superscript citation, which reads as bare digits. Quotes, sections,
   communities and links are provider text: one the hold check
   flags is left out rather than holding the finding; the AI's words go through
   the hold check as every other published text. A finding resting on its forum

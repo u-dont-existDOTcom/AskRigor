@@ -198,6 +198,12 @@ describe("looking a source line's quotes up", () => {
       // at the end goes, as a browser drops it, so the text never holds the start of a tag.
       expect(extractHtmlText("<p>a <scr<b>ipt>b</p><p>c <script</p>").text).not.toMatch(/<[A-Za-z!/?]/u);
       expect(extractHtmlText("<p>p &lt; 0.05 and a<b>b</b> &lt;i&gt;</p>").text).toBe("p < 0.05 and a\nb\n<i>");
+      // A citation linked in HTML reads with a space inside its brackets, and is passed over as an unlinked one is.
+      const linked = "<p>We enrolled 64 adults with knee pain.</p><p>Pain fell by 12 points in the exercise group " +
+        "(<a href=\"#b1\">Smith et al., 2020</a>). Function did not change.</p>";
+      expect(extractHtmlText(linked).text).toContain("( Smith et al., 2020 ).");
+      expect((await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group" }), held(fromHtml(linked)))).sentence)
+        .toBe("found");
       // A "<" that starts no tag is text (the recheck of #417, item 7), in the text and the title alike.
       const bare = "<h1>Falls (p<0.05) and function (q>0.1)</h1><p>Pain fell (p<0.05) and function rose (q>0.1).</p>";
       expect(extractHtmlText(bare)).toMatchObject({ text: "Falls (p<0.05) and function (q>0.1)\nPain fell (p<0.05) and " +
@@ -227,27 +233,34 @@ describe("looking a source line's quotes up", () => {
 
     // The recheck of #417 (item 4a): Unicode's rules end a sentence at an abbreviation's full stop before a capital
     // letter; a sentence whose last word is one runs on into the next, by the word's form alone.
-    it("runs a sentence on past an abbreviation before a capital letter, and past a short last word too", async () => {
+    it("runs a sentence on past an abbreviation with a full stop inside it, before a capital letter too", async () => {
       const probiotic = "No probiotic tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea in children.";
       expect(await found(probiotic, "Lactobacillus rhamnosus GG reduced diarrhoea in children.")).toBe("not_found");
       expect(await found(probiotic, probiotic)).toBe("found");
       for (const [text, part] of [
-        ["Pain fell in Group A vs. Group B showed no change at all.", "Group B showed no change at all."],
-        ["We read Smith et al. Reported harms were rare in the trial.", "Reported harms were rare in the trial."],
         ["Trials ran in the U.S. Pain fell in all of them by a third.", "Pain fell in all of them by a third."],
+        ["Some adults, i.e. Those over 60, saw no benefit from the drug.", "Those over 60, saw no benefit from the drug."],
         ["Die Dosis, z.B. Zink in Lutschtabletten, half nicht bei Kindern.", "Zink in Lutschtabletten, half nicht bei Kindern."],
         ["Это не помогло, т.е. Симптомы держались у всех детей.", "Симптомы держались у всех детей."],
       ]) {
         expect(await found(text!, part!), text).toBe("not_found");
       }
-      // A full stop after a longer word or a capitalized one ends a sentence as before.
-      expect(await found("Pain fell in the exercise group. Function did not change in either arm.",
-        "Function did not change in either arm.")).toBe("found");
+      // A sentence that ends in a short word ends there, as Unicode's rules end it: the next one is found alone.
+      for (const ending of ["Take the dose twice a day.", "The effect was seen only in men.", "Nine of ten improved in all.",
+        "The dose was 10 mg."]) {
+        expect(await found(`${ending} Pain fell by 12 points in the exercise group.`,
+          "Pain fell by 12 points in the exercise group."), ending).toBe("found");
+      }
       expect(await found("Results were similar across arms (Fig. 2). Function did not change in either arm.",
         "Function did not change in either arm.")).toBe("found");
-      // The cost, in the safe direction: a sentence after one that truly ends in a short word is found only with it.
-      expect(await found("Take the dose twice a day. Pain fell by 12 points in the exercise group.",
-        "Pain fell by 12 points in the exercise group.")).toBe("not_found");
+      // A known limit: an abbreviation with no full stop inside it, before a capital letter, ends a sentence.
+      for (const [text, part] of [
+        ["Pain fell in Group A vs. Group B showed no change at all.", "Group B showed no change at all."],
+        ["We read Smith et al. Reported harms were rare in the trial.", "Reported harms were rare in the trial."],
+        ["Patients were seen by Dr. Smith in the clinic every week.", "Smith in the clinic every week."],
+      ]) {
+        expect(await found(text!, part!), text).toBe("found");
+      }
     });
 
     it("never takes a colon or a semicolon as a sentence's end, in any script", async () => {
@@ -316,6 +329,10 @@ describe("looking a source line's quotes up", () => {
         "Pain fell by 12 points in the exercise group (Smith et al. 2020; Lee, 2021). Function did not change.",
         "Pain fell by 12 points in the exercise group (Smith et al. 2020). Function did not change.",
         "Pain fell by 12 points in the exercise group (Smith & Jones, 2019). Function did not change.",
+        // Linked in HTML or a JATS xref: white space just inside the brackets and before a semicolon.
+        "Pain fell by 12 points in the exercise group ( Smith et al., 2020 ). Function did not change.",
+        "Pain fell by 12 points in the exercise group ( Smith, 2020 ; Lee et al. 2021 ). Function did not change.",
+        "Pain fell by 12 points in the exercise group [ 12 , 14 ]. Function did not change.",
         "“Pain fell by 12 points in the exercise group.” Then he left.",
         "(Pain fell by 12 points in the exercise group.) Then it rose.",
       ]) {

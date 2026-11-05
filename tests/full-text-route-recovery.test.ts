@@ -377,6 +377,20 @@ describe("the stored text's line layout, as full-text admission and the paywall 
     expect(fetchPdf).not.toHaveBeenCalled();
   });
 
+  // As HTML's tokenizer reads it, "</" and anything but a letter starts a bogus comment up to ">": a sloppy end tag
+  // ("</ p>") goes, so the label stays a line of its own.
+  it("reads a sloppy end tag as HTML's tokenizer does, so a paywall's label keeps its line", async () => {
+    const sloppy = paywall.replace("<p><strong>Subscription required</strong> to read the full article.</p>",
+      "<p>Subscription required</ p>");
+    expect(sloppy).not.toBe(paywall);
+    expect((await acquire(sloppy)).candidates).toEqual([expect.objectContaining({ state: "PAYWALL_OR_LOGIN_REQUIRED",
+      completeness: "abstract_only" })]);
+    expect(extractHtmlText("<p>One line</ br>two</p><p>an end</ >tag, a bare </>one</p>").text)
+      .toBe("One line two\nan end tag, a bare one");
+    expect(extractHtmlText("<p>Pain fell (p<0.05) while a < b held, and function rose (q>0.1).</p>").text)
+      .toBe("Pain fell (p<0.05) while a < b held, and function rose (q>0.1).");
+  });
+
   it("admits a full text whose sections start with run-in bold headings", async () => {
     expect((await acquire(runIn)).candidates).toEqual([expect.objectContaining({ state: "FULL_TEXT_READABLE",
       sections_observed: ["methods", "results", "discussion"] })]);

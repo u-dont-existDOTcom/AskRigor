@@ -141,18 +141,23 @@ type Finder = (quote: string) => { found: boolean; section?: string | undefined 
  * scores did not decrease significantly after 12 weeks.", nor "vitamin D reduces fracture risk in older adults" after
  * "We could not confirm the earlier report:". The sentences are Unicode's (UAX #29, by Intl.Segmenter), the same in any
  * script and with no word list: a full stop between digits ("12.5") or before a small letter ("6 wk. but", "e.g. zinc")
- * ends none, and a colon or a semicolon never does. Two structural additions: a full stop after an abbreviation ends
- * no sentence even before a capital letter ("e.g. Lactobacillus", ABBREVIATION_END), and a section's label at a
- * line's start ("Conclusions:", one the section-name list full-text admission uses knows) ends one (LABEL_LINE). A
+ * ends none, and a colon or a semicolon never does. Two structural additions: a full stop after an abbreviation with
+ * a full stop inside it ends no sentence even before a capital letter ("e.g. Lactobacillus", ABBREVIATION_END), and a
+ * section's label at a line's start ("Conclusions:", one the section-name list full-text admission uses knows) ends one
+ * (LABEL_LINE). A
  * paragraph is a block, or a run of blocks that run on (a PDF's pages, an HTML page's or a plain text's lines within a
  * section); its line breaks read as spaces. At the quote's ends may sit only white space, quotation marks and brackets,
  * a list's mark and, before its sentence's end, a citation marker: numbers in brackets or in superscript, or authors
  * and a year in parentheses. What this can't see, each refusing a quote rather than finding a part: a text with no
  * sentence marks (Thai, Lao, Tibetan) is one sentence a paragraph, so only a whole paragraph is found; a Greek question
  * mark is the semicolon itself once a text is in NFC (U+037E is U+003B), where Unicode's rules end no sentence; a
- * heading that runs into its paragraph, as a PDF's and an HTML page's unknown ones do, is part of its first sentence;
- * and a sentence that truly ends with a short word ("twice a day.") runs on into the next. And what it lets through: a
- * whole sentence can still be quoted out of its paragraph's context.
+ * heading that runs into its paragraph (a PDF's, or an HTML page's subheading the section-name list doesn't know), and
+ * a table's or a list's item without a full stop, are part of the next sentence. And what it lets through, each a part
+ * of a sentence found as a whole one: a whole sentence quoted out of its paragraph's context; an abbreviation with no
+ * full stop inside it before a capital letter ("vs. Group B", "Dr. Smith"); a JATS list after a lead-in that ends with
+ * a colon ("The drug did not:"), whose items are matched one by one; and a word in a sentence that sits on a line of its
+ * own and is a section's name (a bold "results"), which starts a new section. JATS superscript citations read as bare
+ * digits, so a quote must keep them.
  */
 // Unicode's rules in one fixed locale, so every server finds the same sentences; no tailoring is asked for.
 const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
@@ -167,19 +172,22 @@ const bracketedSuperscripts = (text: string): string => text.replace(SUPERSCRIPT
 const NUMBERS = String.raw`\d{1,4}(?: ?[,-] ?\d{1,4}){0,20}`;
 const NAME = String.raw`\p{L}[\p{L}\p{M}'-]*`;
 const AUTHORS = String.raw`${NAME}(?: et al\.?,?| & ${NAME},?|,) \d{4}[a-z]?`;
-const CITATION = String.raw`\[ ?${NUMBERS} ?\]|\( ?${NUMBERS} ?\)|\(${AUTHORS}(?:; ?${AUTHORS})*\)`;
+// White space may sit just inside a bracket and before a semicolon, as a citation linked in HTML or a JATS xref reads
+// ("( smith et al., 2020 )", "[ 12 ]").
+const CITATION = String.raw`\[ ?${NUMBERS} ?\]|\( ?${NUMBERS} ?\)|\( ?${AUTHORS}(?: ?; ?${AUTHORS})* ?\)`;
 // Between a sentence's start and the quote: white space, quotation marks and brackets, a list's mark (a bullet, or a dash
 // before a space, never a minus sign) and a citation marker the sentence before left.
 const LEADING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Ps}\p{Pe}\u2022\u2023\u2043\u2219\u25e6\u00b7]|-(?=\s)|${CITATION})*$`, "u");
 // Between the quote and its sentence's end: white space, closing marks, the sentence's own end and a citation marker.
 const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${CITATION})*$`, "u");
 
-// A sentence's last word that is an abbreviation (the recheck of #417): one with a full stop inside it (e.g., i.e., z.B.,
-// U.S., т.е.) or of one to three small letters (al., wk., yr., vs., cf., ca.). Unicode's rules end a sentence at its full
-// stop before a capital letter ("No probiotic tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea"), so such a
-// sentence runs on into the next: joining two sentences can only make a quote longer or refuse it, never let a part of
-// one through. Structural, by the word's form; a short last word that is no abbreviation ("a day.") runs on too.
-const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$|(?:^|[^\p{L}\p{M}.])\p{Ll}{1,3}\.$/u;
+// A sentence's last word that is an abbreviation by its form (the recheck of #417): one with a full stop inside it (e.g.,
+// i.e., z.B., U.S., т.е.). Unicode's rules end a sentence at its full stop before a capital letter ("No probiotic
+// tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea"), so such a sentence runs on into the next: joining two
+// sentences can only make a quote longer or refuse it, never let a part of one through. An abbreviation with no full
+// stop inside it ("vs.", "incl.", "approx.", "St.", "Dr.", "et al.") isn't told from a sentence's last word ("twice a
+// day.", "in all.", "10 mg."), so before a capital letter it still ends a sentence: a known limit.
+const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$/u;
 // A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
 // structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
 const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
