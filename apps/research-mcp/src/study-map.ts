@@ -18,12 +18,14 @@ import {
  * groups of people it counts. What is exact is checked here: a study is tied to a research receipt; each passage is in
  * its own study's text, compared as a source line's quotes are, in any language; each claim is in the answer with a
  * passage from each study it rests on; a registry number is in its study's full text, or its ClinicalTrials.gov record
- * lists the study's paper; studies AskRigor can tell are one group of people (a declared link of shared people, the
- * same group, the same single registration, identical figures) are counted once; and a ClinicalTrials.gov record first
- * submitted after its trial started is said to be. A study that holds several groups of people (a review citing
- * trials, or one naming two or more registrations) joins no group, and a claim resting on one is not counted, as it may
- * bring trials the map doesn't list. Whether two groups overlap otherwise, and whether a passage supports a claim, stay
- * the AI's judgment. Only over-counting is flagged.
+ * lists the study's paper; and a ClinicalTrials.gov record first submitted after its trial started is said to be.
+ *
+ * Groups of people come only from what the map declares: a link of shared people to one study, or the same group. A
+ * claim counting more groups than its own declarations allow gets a note. Whether two studies share people is meaning,
+ * so what AskRigor finds (the same registration given twice, a registry number in an abstract, a registration listing
+ * another study's paper, identical figures) joins nothing: each is a hint, worded as a question for the AI. A study
+ * holding several groups (a review citing trials, or a reanalysis or extension of two or more studies) joins none, and
+ * a claim resting on one isn't counted, as it may bring trials the map doesn't list.
  *
  * Every finding is a note after a passing check and consumes no round, as the six blocking checks (owner answers 193a,
  * 195a and 217b) don't name it. Nothing here is stored. The outcome comparison (registered against reported outcomes)
@@ -97,52 +99,52 @@ export interface RegistryNumber {
   key: string;
 }
 
-// The formats of the trial registries AskRigor knows, in figureText's form (lower case, ASCII digits, dashes as "-").
-// A number is its core alone: a registry's name or a label around it is set aside, so "EudraCT number: 2010-012345-12",
-// "EudraCT 2010-012345-12" and a ClinicalTrials.gov secondary ID "2010-012345-12" are one number.
+// The formats of the trial registries AskRigor knows: strict, fixed-digit forms, each with its prefix (an EudraCT or EU
+// CT number with its label), in figureText's form (lower case, ASCII digits, dashes as "-"). A number is its core: a
+// registry's name or a label around it is set aside, so "EudraCT 2010-012345-12" and "EudraCT number: 2010-012345-12"
+// are one number.
 const START = String.raw`(?<![\p{L}\p{N}])`;
 const END = String.raw`(?![\p{L}\p{N}])`;
 type Format = readonly [registry: string, pattern: string, core: (parts: string[]) => string];
-const FORMATS: readonly Format[] = [
+const SEARCHED_FORMATS: readonly Format[] = [
   ["NCT", String.raw`nct[\s-]?(\d{8})`, ([digits]) => `NCT${digits}`],
   ["ISRCTN", String.raw`isrctn[\s-]?(\d{8})`, ([digits]) => `ISRCTN${digits}`],
-  // An EU CT number (CTIS), before EudraCT, whose numbers it extends.
-  ["EU CT", String.raw`((?:19|20)\d{2})-(\d{6})-(\d{2})-(\d{2})`, (parts) => parts.join("-")],
-  ["EudraCT", String.raw`euctr[\s-]?((?:19|20)\d{2})-(\d{6})-(\d{2})(?:-[a-z]{2,3})?`, (parts) => parts.join("-")],
-  ["EudraCT", String.raw`(?<!-)((?:19|20)\d{2})-(\d{6})-(\d{2})(?!-\d)`, (parts) => parts.join("-")],
-  ["ACTRN", String.raw`(?:anzctr[\s:]*)?actrn[\s-]?(\d{14})`, ([digits]) => `ACTRN${digits}`],
-  ["ChiCTR", String.raw`chictr[\s-]?(\d{10})`, ([digits]) => `ChiCTR${digits}`],
+  ["EudraCT", String.raw`(?:eudract|ctis|eu[\s-]?ct|euctr)(?:[\s-]*(?:number|no\.?|nr\.?|id))?[\s:#-]*(\d{4}-\d{6}-\d{2})`,
+    ([digits]) => digits!],
+  ["ACTRN", String.raw`actrn[\s-]?(\d{14})`, ([digits]) => `ACTRN${digits}`],
+  ["ChiCTR", String.raw`chictr-?(\d{10})`, ([digits]) => `ChiCTR${digits}`],
   ["ChiCTR", String.raw`chictr-([a-z]{3})-(\d{8})`, ([kind, digits]) => `ChiCTR-${kind!.toUpperCase()}-${digits}`],
   ["DRKS", String.raw`drks[\s-]?(\d{8})`, ([digits]) => `DRKS${digits}`],
-  ["CTRI", String.raw`ctri[\s/-]?(\d{4})[\s/-](\d{2,3})[\s/-](\d{6})`, (parts) => `CTRI/${parts.join("/")}`],
-  ["jRCT", String.raw`(?:jprn-)?jrct([a-z]?)(\d{9,10})`, ([letter, digits]) => `jRCT${letter}${digits}`],
-  ["UMIN", String.raw`(?:jprn-)?umin[\s-]?(\d{9})`, ([digits]) => `UMIN${digits}`],
-  ["JapicCTI", String.raw`japiccti-?(\d{6})`, ([digits]) => `JapicCTI-${digits}`],
-  ["IRCT", String.raw`irct(\d{10,14})n(\d{1,3})`, ([first, second]) => `IRCT${first}N${second}`],
+  ["CTRI", String.raw`ctri/(\d{4})/(\d{2,3})/(\d{6})`, (parts) => `CTRI/${parts.join("/")}`],
+  ["jRCT", String.raw`jrct(\d{10})`, ([digits]) => `jRCT${digits}`],
+  ["UMIN", String.raw`umin[\s-]?(\d{9})`, ([digits]) => `UMIN${digits}`],
   ["PACTR", String.raw`pactr(\d{15})`, ([digits]) => `PACTR${digits}`],
   ["KCT", String.raw`kct(\d{7})`, ([digits]) => `KCT${digits}`],
-  ["NL-OMON", String.raw`nl-omon(\d{1,6})`, ([digits]) => `NL-OMON${digits}`],
-  ["NTR", String.raw`ntr[\s-]?(\d{1,5})`, ([digits]) => `NTR${digits}`],
-  ["NL", String.raw`nl[\s-]?(\d{4,5})`, ([digits]) => `NL${digits}`],
   ["TCTR", String.raw`tctr(\d{11})`, ([digits]) => `TCTR${digits}`],
-  ["RBR", String.raw`rbr-([0-9a-z]{6,8})`, ([code]) => `RBR-${code}`],
-  ["SLCTR", String.raw`slctr[\s/-]?(\d{4})[\s/-](\d{3})`, (parts) => `SLCTR/${parts.join("/")}`],
-  ["LBCTR", String.raw`lbctr(\d{10})`, ([digits]) => `LBCTR${digits}`],
-  ["RPCEC", String.raw`rpcec(\d{8})`, ([digits]) => `RPCEC${digits}`],
-  ["PER", String.raw`per-(\d{3})-(\d{2})`, (parts) => `PER-${parts.join("-")}`],
-  ["ITMCTR", String.raw`itmctr(\d{10,13})`, ([digits]) => `ITMCTR${digits}`],
-  ["PROSPERO", String.raw`(?:prospero[\s:]*)?crd[\s-]?(\d{11})`, ([digits]) => `CRD${digits}`]
+  ["RBR", String.raw`rbr-([0-9a-z]{6,8})`, ([code]) => `RBR-${code}`]
 ];
-const REGISTRY_FORMATS = FORMATS.map(([registry, pattern, core]) =>
+// Netherlands Trial Register numbers are accepted as the map declares them, and never looked for in a text: their
+// short forms are also gene and product names (NTR1, a neurotensin receptor).
+const DECLARED_ONLY_FORMATS: readonly Format[] = [
+  ["NTR", String.raw`ntr[\s-]?(\d{4,})`, ([digits]) => `NTR${digits}`],
+  ["NL", String.raw`nl[\s-]?(\d{4,})`, ([digits]) => `NL${digits}`]
+];
+const compiled = (formats: readonly Format[]) => formats.map(([registry, pattern, core]) =>
   ({ registry, pattern: new RegExp(`${START}${pattern}${END}`, "gu"), core }));
+const SEARCHED = compiled(SEARCHED_FORMATS);
+const DECLARED = [...SEARCHED, ...compiled(DECLARED_ONLY_FORMATS)];
+const NEVER_SEARCHED: ReadonlySet<string> = new Set(DECLARED_ONLY_FORMATS.map(([registry]) => registry));
 
-/** The registry numbers a text names, in any known registry's format, in the order it names them, each once. */
-export function registryNumbers(text: string): RegistryNumber[] {
+/**
+ * The registry numbers a text names, in the order it names them, each once. A declared value may also be a Netherlands
+ * Trial Register number; a text is never read for one.
+ */
+export function registryNumbers(text: string, declared = false): RegistryNumber[] {
   const form = figureText(text);
-  const found = REGISTRY_FORMATS.flatMap(({ registry, pattern, core }) =>
+  const found = (declared ? DECLARED : SEARCHED).flatMap(({ registry, pattern, core }) =>
     [...form.matchAll(pattern)].map((match) => {
       const number = core(match.slice(1).map((part) => part ?? ""));
-      return { at: match.index, registry, core: number, key: `${registry === "EU CT" ? "EUCT" : registry}:${number.replace(/[\s\-/]/gu, "").toUpperCase()}` };
+      return { at: match.index, registry, core: number, key: `${registry}:${number.replace(/[\s\-/]/gu, "").toUpperCase()}` };
     }));
   const seen = new Set<string>();
   return found.sort((left, right) => left.at - right.at).flatMap(({ registry, core, key }) => {
@@ -150,6 +152,15 @@ export function registryNumbers(text: string): RegistryNumber[] {
     seen.add(key);
     return [{ registry, core, key }];
   });
+}
+
+/** Whether a text, in figureText's form, names this number: its core, with or without spaces, dashes or slashes inside. */
+function namesNumber(text: string, number: RegistryNumber): boolean {
+  const runs = number.core.toLowerCase().match(/\p{L}+|\p{N}+/gu) ?? [];
+  const body = runs.map((run) => run.replace(/[\\^$.*+?()[\]{}|]/gu, "\\$&")).join(String.raw`[\s\-/.:]?`);
+  const first = /^\p{N}/u.test(number.core) ? String.raw`(?<!\p{N})` : START;
+  const last = /\p{N}$/u.test(number.core) ? String.raw`(?!\p{N})` : END;
+  return new RegExp(`${first}${body}${last}`, "u").test(text);
 }
 
 /** One study of the map as it is checked: its place as given, and its registry entries read. */
@@ -230,10 +241,11 @@ export function readStudyMap(raw: unknown): { map?: CheckedStudyMap; given?: Stu
         notes.push(`${entryAt}: dropped: needs at most ${STUDY_MAP_LIMITS.registryNumber} characters.`);
         return undefined;
       }
-      const numbers = registryNumbers(given);
+      const numbers = registryNumbers(given, true);
       if (numbers.length === 0) {
         notes.push(`${entryAt} (${JSON.stringify(given)}) isn't a registry number, so it was left out: give trial ` +
-          "registry numbers only, such as NCT01234567, or leave registry out.");
+          "registry numbers only, each with its registry's prefix, such as NCT01234567 or EudraCT 2010-012345-12, or " +
+          "leave registry out.");
         return undefined;
       }
       return { place: entryPlace, given, numbers };
@@ -407,18 +419,17 @@ async function readRecord(nct: string, texts: StudyMapTexts, clock: Deadline): P
   return Promise.race([read, clock.expired.then((): RecordLookup => ({ nct, status: "late" }))]);
 }
 
-/** A study's text as one string in figureText's form, and the registry numbers it names. */
-function namedNumbers(document: SourceLineDocument, abstractOnly: boolean): RegistryNumber[] {
-  const blocks = abstractOnly && document.kind !== "abstract"
-    ? document.blocks.filter(({ abstract }) => abstract === true) : document.blocks;
+/** The registry numbers a study's abstract names: the whole of a PubMed abstract, or a full text's abstract blocks. */
+function abstractNumbers(document: SourceLineDocument): RegistryNumber[] {
+  const blocks = document.kind === "abstract" ? document.blocks : document.blocks.filter(({ abstract }) => abstract === true);
   return registryNumbers(blocks.map(({ text }) => text).join("\n"));
 }
 
 /**
  * Looks the map up within one deadline: each study's passages in its own text (a link's in either study's), its
- * registry numbers in its text, the registry numbers its abstract names, and the ClinicalTrials.gov records of the NCT
- * numbers among them. Records of declared numbers are read at once; PubMed abstracts wait for `after` (the source
- * lines' lookup, which comes first) and share its cache. What isn't read in time is late, and what was read is kept.
+ * registry numbers in its text, the registry numbers its abstract names, and the ClinicalTrials.gov records of its
+ * declared NCT numbers. The records are read at once; PubMed abstracts wait for `after` (the source lines' lookup,
+ * which comes first) and share its cache. What isn't read in time is late, and what was read is kept.
  */
 export async function lookUpStudyMap(
   map: CheckedStudyMap,
@@ -477,21 +488,19 @@ export async function lookUpStudyMap(
       const declared = declaredNumbers(study);
       if (lookup === LATE) return { reason: "late", registry: declared.map(() => "not_checked"), abstractNumbers: [] };
       const document = lookup?.document;
-      const named = document === undefined || declared.length === 0 ? new Set<string>()
-        : new Set(namedNumbers(document, false).map(({ key }) => key));
-      // Only a full text still held can show a number isn't there: an abstract often leaves it out.
-      const whole = document?.kind === "full_text" && lookup?.reason !== "text_expired";
+      const whole = document === undefined || declared.length === 0 ? ""
+        : figureText(document.blocks.map(({ text }) => text).join("\n"));
+      // Only a full text still held can show a number isn't there: an abstract often leaves it out. A Netherlands Trial
+      // Register number is never looked for.
+      const complete = document?.kind === "full_text" && lookup?.reason !== "text_expired";
       return {
         ...(document === undefined ? {} : { text: document.kind }),
         ...(lookup?.reason === undefined ? {} : { reason: lookup.reason }),
-        registry: declared.map(({ number }): Outcome => document === undefined ? "not_checked"
-          : named.has(number.key) ? "found" : whole ? "not_found" : "not_checked"),
-        abstractNumbers: document === undefined ? [] : namedNumbers(document, true)
+        registry: declared.map(({ number }): Outcome => document === undefined || NEVER_SEARCHED.has(number.registry)
+          ? "not_checked" : namesNumber(whole, number) ? "found" : complete ? "not_found" : "not_checked"),
+        abstractNumbers: document === undefined ? [] : abstractNumbers(document)
       };
     });
-    for (const { abstractNumbers: named } of studies) {
-      for (const number of named) if (number.registry === "NCT") read(number.core);
-    }
     return {
       done: true,
       studies,
@@ -532,7 +541,8 @@ export const studyMapCheckSchema = z.object({
     text: z.enum(SOURCE_LINE_TEXTS).optional().describe("The text its passages were looked up in."),
     group: z.number().int().positive().optional().describe("Its group of people, 1 for the first."),
     several_groups: z.boolean().optional()
-      .describe("A study holding several groups of people: a review citing trials, or one naming two or more registrations."),
+      .describe("A study holding several groups of people: a review citing trials, or a reanalysis or extension of two " +
+        "or more studies."),
     registry: z.array(z.object({
       place: placeField,
       number: z.string(),
@@ -751,31 +761,15 @@ export function checkStudyMap(
       "passage.");
   }
 
-  // Registrations: numbers that are one trial's, the same number or one a record read here lists among its secondary IDs.
-  const registrations = new Joins<string>();
-  for (const record of lookup.records) {
-    if (record.status !== "found") continue;
-    for (const id of record.record.secondaryIds) {
-      for (const { key } of registryNumbers(id)) registrations.join(`NCT:${record.nct}`, key);
-    }
-  }
-
-  // 4: a registry number is in its study's full text, or a ClinicalTrials.gov record ties it to the study: its own
-  // record lists the study's paper, or another of the study's numbers is tied and its registration is the same trial's.
-  const direct = map.studies.map((study, index) => declared[index]!.map(({ number }, place): RegistryTie => {
+  // 4: a registry number is in its study's full text, or its ClinicalTrials.gov record lists the study's paper among
+  // its results.
+  const registry = map.studies.map((study, index) => declared[index]!.map(({ entry, number }, place) => {
     const inText = lookup.studies[index]?.registry[place];
     const record = number.registry === "NCT" ? records.get(number.core) : undefined;
-    if (inText === "found") return "in_text";
-    if (record?.status === "found" && requests[index]!.pmids.some((pmid) => record.record.pmids.includes(pmid))) return "in_record";
-    if (record?.status === "not_found") return "not_found";
-    return inText === "not_found" && (record === undefined || record.status === "found") ? "not_found" : "not_checked";
-  }));
-  const registry = map.studies.map((study, index) => declared[index]!.map(({ entry, number }, place) => {
-    const sameTrial = direct[index]!.some((tie, other) => other !== place && (tie === "in_text" || tie === "in_record") &&
-      registrations.root(declared[index]![other]!.number.key) === registrations.root(number.key));
-    const record = number.registry === "NCT" ? records.get(number.core) : undefined;
-    const tie: RegistryTie = direct[index]![place] === "not_found" && record?.status !== "not_found" && sameTrial
-      ? "in_record" : direct[index]![place]!;
+    const tie: RegistryTie = inText === "found" ? "in_text"
+      : record?.status === "found" && requests[index]!.pmids.some((pmid) => record.record.pmids.includes(pmid)) ? "in_record"
+        : record?.status === "not_found" ? "not_found"
+          : inText === "not_found" && (record === undefined || record.status === "found") ? "not_found" : "not_checked";
     const given = study.registry.find(({ place: entryPlace }) => entryPlace === entry)?.given ?? number.core;
     if (record?.status === "not_found") {
       notes.push(`study_map: ClinicalTrials.gov has no record of ${number.core}, which study ${study.id} gives as its ` +
@@ -815,52 +809,19 @@ export function checkStudyMap(
       `so ${names(capped)} ${capped.length === 1 ? "wasn't" : "weren't"} read.`);
   }
 
-  // 5: groups of people counted once. A study holding several groups (a review citing trials, or one naming two or more
-  // registrations) joins none, as it can't tell whose people a trial shares; the others are one group by a declared link
-  // of shared people, the same group, the same single registration, or identical figures.
-  const numbers = map.studies.map((_, index) => [
-    ...declared[index]!.map(({ number }) => ({ number, inAbstract: false })),
-    ...(looked ? lookup.studies[index]?.abstractNumbers ?? [] : [])
-      .filter(({ key }) => !declared[index]!.some(({ number }) => number.key === key))
-      .map((number) => ({ number, inAbstract: true }))
-  ]);
-  const roots = (named: ReadonlyArray<{ number: RegistryNumber }>) =>
-    new Set(named.map(({ number }) => registrations.root(number.key)));
-  const held = numbers.map(roots);
-  const several = map.studies.map(({ id }, index) => held[index]!.size >= 2 ||
-    map.links.some(({ from, kind }) => from === id && kind === "cites_as_evidence"));
-  // Two studies read in one paper's text share its abstract, which says nothing of whether they share people: one paper
-  // can report separate cohorts, so only what the map declares joins them.
-  const sameText = (a: number, b: number): boolean =>
-    requests[a]!.handles.some((handle) => requests[b]!.handles.includes(handle)) ||
-    requests[a]!.pmids.some((pmid) => requests[b]!.pmids.includes(pmid));
-  const groups = new Joins<number>();
+  // 5: groups of people, from the map's own declarations only: a link of shared people to one study, or the same group.
+  // Whether two studies share people is meaning, so nothing AskRigor finds in a text or a record joins them; each such
+  // finding is a hint below, for the AI to judge. A study holding several groups (a review citing trials, or a
+  // reanalysis or extension of two or more studies) joins none, and a claim resting on one isn't counted.
+  const several = map.studies.map(({ id }) => map.links.some(({ from, kind }) => from === id && kind === "cites_as_evidence") ||
+    new Set(map.links.filter(({ from, kind }) => from === id && (kind === "reanalysis_of" || kind === "extension_of"))
+      .map(({ to }) => to)).size >= 2);
   const single = (index: number): boolean => !several[index];
+  const groups = new Joins<number>();
   for (const { from, kind, to, place } of map.links) {
     const [a, b] = [at.get(from)!, at.get(to)!];
     if (SHARED_PEOPLE_LINKS.has(kind) && single(a) && single(b)) {
       groups.join(a, b, `the map links ${from} to ${to} (study_map.links[${place}], ${kind})`);
-    }
-  }
-  for (const a of map.studies.keys()) {
-    for (const b of map.studies.keys()) {
-      if (b <= a || !single(a) || !single(b)) continue;
-      const [mine, theirs] = sameText(a, b)
-        ? [numbers[a]!.filter(({ inAbstract }) => !inAbstract), numbers[b]!.filter(({ inAbstract }) => !inAbstract)]
-        : [numbers[a]!, numbers[b]!];
-      const [one, other] = [roots(mine), roots(theirs)];
-      if (one.size !== 1 || other.size !== 1 || !other.has([...one][0]!)) continue;
-      const shared = mine.find(({ number }) => theirs.some((their) => their.number.key === number.key));
-      if (shared === undefined) {
-        groups.join(a, b, `${ids[a]}'s ${mine[0]!.number.core} and ${ids[b]}'s ${theirs[0]!.number.core} are one ` +
-          "trial's registrations (its ClinicalTrials.gov record lists both)");
-        continue;
-      }
-      const found = [[a, shared.inAbstract], [b, theirs.find(({ number }) => number.key === shared.number.key)!.inAbstract]]
-        .flatMap(([study, inAbstract]) => inAbstract ? [ids[study as number]!] : []);
-      const where = found.length === 0 ? "" : found.length === 1 ? ` (in ${found[0]}'s abstract)`
-        : ` (in the abstracts of ${names(found)})`;
-      groups.join(a, b, `${ids[a]} and ${ids[b]} name the same registry number, ${shared.number.core}${where}`);
     }
   }
   const labels = map.studies.map(({ group }) => figureText(group));
@@ -868,12 +829,51 @@ export function checkStudyMap(
     const b = labels.findIndex((theirs, index) => index > a && single(index) && theirs === mine);
     if (b > a && single(a)) groups.join(a, b, `${ids[a]} and ${ids[b]} name the same group of people, "${map.studies[a]!.group}"`);
   }
+  const together = (a: number, b: number): boolean => single(a) && single(b) && groups.root(a) === groups.root(b);
+  const linked = (a: number, b: number): boolean => map.links.some(({ from, to }) =>
+    (from === ids[a] && to === ids[b]) || (from === ids[b] && to === ids[a]));
+
+  // Hints, each a question for the AI: what AskRigor found that may mean two studies share people.
+  const asked = new Set<string>();
+  for (const claim of map.claims) {
+    const studies = claim.studies.map((id) => at.get(id)!);
+    for (const [index, a] of studies.entries()) {
+      for (const b of studies.slice(index + 1)) {
+        const shared = declared[a]!.find(({ number }) => declared[b]!.some((other) => other.number.key === number.key));
+        const pair = [a, b].sort((left, right) => left - right).join(" ");
+        if (shared === undefined || together(a, b) || linked(a, b) || asked.has(pair)) continue;
+        asked.add(pair);
+        notes.push(`study_map: ${ids[a]} and ${ids[b]} give the same registration, ${shared.number.core}: if they report ` +
+          "the same people, give them one group or link them; if not, say how they differ.");
+      }
+    }
+  }
+  for (const [index, study] of map.studies.entries()) {
+    const named = (looked ? lookup.studies[index]?.abstractNumbers ?? [] : [])
+      .filter(({ key }) => !declared[index]!.some(({ number }) => number.key === key));
+    if (named.length === 0) continue;
+    notes.push(`study_map: ${study.id}'s abstract names ${names(named.map(({ core }) => core))}, which the map doesn't ` +
+      `give for ${study.id}: if ${named.length === 1 ? "it" : "one"} is ${study.id}'s registration, add it.`);
+  }
+  for (const record of lookup.records) {
+    if (record.status !== "found") continue;
+    const giving = map.studies.flatMap((_, index) =>
+      declared[index]!.some(({ number }) => number.registry === "NCT" && number.core === record.nct) ? [index] : []);
+    for (const [index, study] of map.studies.entries()) {
+      if (giving.includes(index) || !requests[index]!.pmids.some((pmid) => record.record.pmids.includes(pmid))) continue;
+      if (giving.some((other) => together(other, index) || linked(other, index))) continue;
+      notes.push(`study_map: the record of ${record.nct} lists ${study.id} among its results: if ${study.id} reports the ` +
+        `same trial, give it the same group as ${names(giving.map((other) => ids[other]!))} or link them.`);
+    }
+  }
   for (const [a, mine] of context.figures.entries()) {
     for (const [b, theirs] of context.figures.entries()) {
-      if (b <= a || a >= ids.length || b >= ids.length || !single(a) || !single(b)) continue;
-      if (new Set(mine.filter((value) => theirs.includes(value))).size >= 2) {
-        groups.join(a, b, `${ids[a]} and ${ids[b]} report identical results`);
-      }
+      if (b <= a || a >= ids.length || b >= ids.length || together(a, b)) continue;
+      const shared = [...new Set(mine.filter((value) => theirs.includes(value)))];
+      if (shared.length < 2) continue;
+      notes.push(`study_map: ${ids[a]} and ${ids[b]} report identical figures (${shared.join(", ")}): HRP ` +
+        "IdenticalResultsAcrossPublications treats them as possibly one dataset; count them once unless they're shown " +
+        "to differ.");
     }
   }
   const claims = map.claims.map((claim, index) => {

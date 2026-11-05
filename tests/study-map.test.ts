@@ -174,7 +174,7 @@ describe("the study map's shape", () => {
       "study_map.studies[0]: dropped as a whole, since its required source and group could not be used: send it again " +
         "with those fields usable, or leave it out.",
       "study_map.studies[2].registry[0] (\"none\") isn't a registry number, so it was left out: give trial registry " +
-        "numbers only, such as NCT01234567, or leave registry out.",
+        "numbers only, each with its registry's prefix, such as NCT01234567 or EudraCT 2010-012345-12, or leave registry out.",
       "study_map.links[0]: dropped as a whole, since its required kind could not be used: send it again with that field " +
         "usable, or leave it out.",
       "The passage given in study_map.links[1] isn't in the text of either study AskRigor looked in. Copy each whole and " +
@@ -241,7 +241,8 @@ describe("groups of people counted once", () => {
     expect(finalizeResearchOutputSchema.safeParse(result).success).toBe(true);
   });
 
-  it("counts two primary reports of one group of people once, by the registry number in an abstract", async () => {
+  // Whether two studies share people is meaning: only the map's declarations join them, and what AskRigor finds is a hint.
+  it("asks whether two reports share people when one's abstract names the other's registration, joining nothing", async () => {
     const quote = "Two trials, one report each, found that walking eased knee pain.";
     const map: StudyMap = {
       studies: [TRIAL_A, study("A2", A2, "Adults with knee pain followed for two years")],
@@ -250,32 +251,34 @@ describe("groups of people counted once", () => {
     };
     const { result, notes } = await check({ ...quoted(quote), study_map: map });
     expect(result.status).toMatch(/^ready/u);
-    expect(notes).toEqual(["study_map.claims[0] counts 2 independent groups of people, but A and A2 name the same " +
-      `registry number, NCT01234567 (in A2's abstract), so AskRigor counts 1: ${TAIL}`]);
-    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 1 });
-    expect(result.study_map?.studies.map(({ group }) => group)).toEqual([1, 1]);
+    expect(notes).toEqual(["study_map: A2's abstract names NCT01234567, which the map doesn't give for A2: if it is " +
+      "A2's registration, add it."]);
+    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
+    expect(result.study_map?.studies.map(({ group }) => group)).toEqual([1, 2]);
+    // Given the same registration and no link, they're asked about; linked as one cohort and still counted as two,
+    // the count contradicts the map.
+    const given: StudyMap = { ...map, studies: [TRIAL_A, study("A2", A2, "Adults with knee pain followed for two years", ["NCT01234567"])] };
+    expect((await check({ ...quoted(quote), study_map: given })).notes).toEqual(["study_map: A and A2 give the same " +
+      "registration, NCT01234567: if they report the same people, give them one group or link them; if not, say how they differ."]);
+    const linked = await check({ ...quoted(quote), study_map: { ...given,
+      links: [{ from: "A2", kind: "same_cohort", to: "A", passage: "This is the two-year follow-up of a randomised trial of walking (NCT01234567)." }] } });
+    expect(linked.notes).toEqual(["study_map.claims[0] counts 2 independent groups of people, but the map links A2 to A " +
+      `(study_map.links[0], same_cohort), so AskRigor counts 1: ${TAIL}`]);
+    expect(linked.result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 1 });
   });
 
-  it("counts two reports once when a registration lists the other's registry number", async () => {
-    const quote = "Two trials, one report each, found that walking eased knee pain.";
-    const records = { ...RECORDS, NCT01234567: { ...RECORDS.NCT01234567!, secondaryIds: ["2010-012345-12", "RRI-EX-001"] } };
-    const followUp: SourceLineDocument = { kind: "full_text", blocks: [
-      { text: "EudraCT number: 2010-012345-12.", abstract: true }, { text: A2_RESULT, section: "Results" }] };
-    const map: StudyMap = {
-      studies: [TRIAL_A, study("A2", A2, "Adults with knee pain followed for two years", ["EudraCT 2010-012345-12"])],
-      claims: [{ quote, studies: ["A", "A2"], groups: 2,
-        passages: [{ study: "A", passage: A_RESULT }, { study: "A2", passage: A2_RESULT }] }],
-    };
-    const { result, notes } = await check({ ...quoted(quote), study_map: map }, texts({
-      fullText: (handle) => handle === A2.handle ? followUp : DOCUMENTS[handle],
-      registry: async (nct) => records[nct as keyof typeof records],
-    }));
-    expect(notes).toEqual([`study_map.claims[0] counts 2 independent groups of people, but A's NCT01234567 and A2's ` +
-      `2010-012345-12 are one trial's registrations (its ClinicalTrials.gov record lists both), so AskRigor counts 1: ${TAIL}`]);
-    expect(result.study_map?.studies[1]?.registry).toEqual([{ place: 0, number: "2010-012345-12", tie: "in_text" }]);
+  it("doesn't join two trials whose registrations list one master protocol's number", async () => {
+    const records = { ...RECORDS, NCT01234567: { ...RECORDS.NCT01234567!, secondaryIds: ["2019-001234-56"] },
+      NCT09000002: { ...RECORDS.NCT09000002!, secondaryIds: ["2019-001234-56"] } };
+    const map: StudyMap = { studies: [TRIAL_A, TRIAL_B], claims: [{ quote: twoTrials, studies: ["A", "B"], groups: 2,
+      passages: [{ study: "A", passage: A_RESULT }, { study: "B", passage: B_RESULT }] }] };
+    const { result, notes } = await check({ ...quoted(twoTrials), study_map: map },
+      texts({ registry: async (nct) => records[nct as keyof typeof records] }));
+    expect(notes).toEqual([]);
+    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
   });
 
-  it("doesn't join two reports only because one registration lists both papers", async () => {
+  it("asks whether a study a registration lists among its results reports that trial, joining nothing", async () => {
     const quote = "Two reports of the trial found that walking eased knee pain.";
     const records = { ...RECORDS, NCT01234567: { ...RECORDS.NCT01234567!, pmids: [A.pmid, A2.pmid] } };
     const followUp: SourceLineDocument = { kind: "full_text", blocks: [{ text: A2_RESULT, section: "Results" }] };
@@ -284,11 +287,13 @@ describe("groups of people counted once", () => {
       claims: [{ quote, studies: ["A", "A2"], groups: 2,
         passages: [{ study: "A", passage: A_RESULT }, { study: "A2", passage: A2_RESULT }] }],
     };
-    const { notes } = await check({ ...quoted(quote), study_map: map }, texts({
+    const { result, notes } = await check({ ...quoted(quote), study_map: map }, texts({
       fullText: (handle) => handle === A2.handle ? followUp : DOCUMENTS[handle],
       registry: async (nct) => records[nct as keyof typeof records],
     }));
-    expect(notes).toEqual([]);
+    expect(notes).toEqual(["study_map: the record of NCT01234567 lists A2 among its results: if A2 reports the same " +
+      "trial, give it the same group as A or link them."]);
+    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
   });
 
   // A review, or a pooled study, holds several groups of people: it joins none, and a claim resting on it isn't counted.
@@ -334,16 +339,19 @@ describe("groups of people counted once", () => {
     };
     const { result, notes } = await check({ ...quoted(twoTrials), study_map: map },
       texts({ fullText: (handle) => handle === R.handle ? pooled : DOCUMENTS[handle] }));
-    expect(notes).toEqual([]);
-    expect(result.study_map?.studies[2]).toMatchObject({ id: "R", several_groups: true });
+    expect(notes).toEqual(["study_map: R's abstract names NCT01234567 and NCT09000002, which the map doesn't give for " +
+      "R: if one is R's registration, add it."]);
+    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
+    expect(result.study_map?.studies[2]).toMatchObject({ id: "R", group: 3 });
   });
 
-  it("doesn't merge two trials through a pooled study declaring both registrations", async () => {
+  it("doesn't merge two trials through a pooled reanalysis of both", async () => {
     const quote = "A pooled analysis and the two trials in it found that walking eased knee pain.";
     const pooled: SourceLineDocument = { kind: "full_text", blocks: [{ text: R_CITES, section: "Results" }] };
     const map: StudyMap = {
       studies: [TRIAL_A, TRIAL_B, study("P", R, "Both trials' people, pooled", ["NCT01234567", "NCT09000002"])],
-      links: [{ from: "P", kind: "reanalysis_of", to: "A", passage: R_CITES }],
+      links: [{ from: "P", kind: "reanalysis_of", to: "A", passage: R_CITES },
+        { from: "P", kind: "reanalysis_of", to: "B", passage: R_CITES }],
       claims: [{ quote: twoTrials, studies: ["A", "B"], groups: 2,
         passages: [{ study: "A", passage: A_RESULT }, { study: "B", passage: B_RESULT }] },
       { quote, studies: ["P", "A", "B"], groups: 3, passages: [{ study: "P", passage: R_CITES },
@@ -354,6 +362,7 @@ describe("groups of people counted once", () => {
     // Its registry numbers aren't in its text, which is said; but it joins no group, and its claim isn't counted.
     expect(notes.filter((note) => !note.includes("doesn't name it"))).toEqual([]);
     expect(result.study_map?.claims.map(({ counted }) => counted)).toEqual([2, undefined]);
+    expect(result.study_map?.studies[2]).toMatchObject({ id: "P", several_groups: true });
   });
 
   it("doesn't merge two cohorts one paper reports, however its abstract reads", async () => {
@@ -364,8 +373,17 @@ describe("groups of people counted once", () => {
         { study: "A2", passage: "Adults with knee pain were randomised to walking or usual care." }] }],
     };
     const { result, notes } = await check({ ...quoted(quote), study_map: map });
-    expect(notes).toEqual([]);
+    expect(notes).toEqual(["A1", "A2"].map((id) => `study_map: ${id}'s abstract names NCT01234567, which the map ` +
+      `doesn't give for ${id}: if it is ${id}'s registration, add it.`));
     expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
+    // A third paper giving that registration doesn't join them either: its record listing their paper is a question.
+    const third = await check({ ...quoted(quote), study_map: { ...map,
+      studies: [...map.studies, study("T", A2, "Adults with knee pain followed for two years", ["NCT01234567"])] } },
+    texts({ registry: async (nct) => nct === "NCT01234567" ? { ...RECORDS.NCT01234567!, pmids: [A.pmid] } : RECORDS[nct] }));
+    expect(third.notes).toEqual(expect.arrayContaining(["A1", "A2"].map((id) => `study_map: the record of NCT01234567 ` +
+      `lists ${id} among its results: if ${id} reports the same trial, give it the same group as T or link them.`)));
+    expect(third.notes.filter((note) => note.includes("counts"))).toEqual([]);
+    expect(third.result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
   });
 
   it("adds no note for a genuinely independent replication", async () => {
@@ -376,13 +394,14 @@ describe("groups of people counted once", () => {
     expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
   });
 
-  it("counts studies with identical audited figures, or the same group, once", async () => {
+  it("asks about identical audited figures, and counts studies of the same group once", async () => {
     const map: StudyMap = { studies: [TRIAL_A, TRIAL_B], claims: [{ quote: twoTrials, studies: ["A", "B"], groups: 2,
       passages: [{ study: "A", passage: A_RESULT }, { study: "B", passage: B_RESULT }] }] };
     const receipts = [audit(A, { fig: "consistent", figv: ["9", "2", "120"] }), audit(B, { fig: "consistent", figv: ["9", "2"] }), audit(C)];
     const figures = await check({ ...quoted(twoTrials), study_map: map, receipts });
-    expect(figures.notes).toEqual([`study_map.claims[0] counts 2 independent groups of people, but A and B report ` +
-      `identical results, so AskRigor counts 1: ${TAIL}`]);
+    expect(figures.notes).toEqual(["study_map: A and B report identical figures (9, 2): HRP " +
+      "IdenticalResultsAcrossPublications treats them as possibly one dataset; count them once unless they're shown to differ."]);
+    expect(figures.result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
     const labelled = await check({ ...quoted(twoTrials),
       study_map: { ...map, studies: [TRIAL_A, { ...TRIAL_B, group: " adults with knee pain,  EXAMPLETON, 2025" }] } });
     expect(labelled.notes).toEqual([expect.stringContaining('but A and B name the same group of people, ' +
@@ -396,9 +415,13 @@ describe("groups of people counted once", () => {
     const { result, notes } = await check({ ...quoted(twoTrials), study_map: map });
     expect(notes).toEqual([
       "study_map.studies[0].registry[0] (\"none\") isn't a registry number, so it was left out: give trial registry " +
-        "numbers only, such as NCT01234567, or leave registry out.",
+        "numbers only, each with its registry's prefix, such as NCT01234567 or EudraCT 2010-012345-12, or leave registry out.",
       "study_map.studies[1].registry[0] (\"not registered\") isn't a registry number, so it was left out: give trial " +
-        "registry numbers only, such as NCT01234567, or leave registry out.",
+        "registry numbers only, each with its registry's prefix, such as NCT01234567 or EudraCT 2010-012345-12, or " +
+        "leave registry out.",
+      // Their abstracts do name registrations, which the AI is asked about.
+      "study_map: A's abstract names NCT01234567, which the map doesn't give for A: if it is A's registration, add it.",
+      "study_map: B's abstract names NCT09000002, which the map doesn't give for B: if it is B's registration, add it.",
     ]);
     expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
     expect(result.study_map?.studies[0]).not.toHaveProperty("registry");
@@ -491,16 +514,35 @@ describe("passages looked up in their own study's text", () => {
 });
 
 describe("registry numbers", () => {
-  it("reads a number in any known registry's format, with its registry's name or a label set aside", () => {
+  it("reads only strict registry formats, each with its prefix, a registry's name or a label set aside", () => {
     expect(registryNumbers("EudraCT number: 2010-012345-12").map(({ core }) => core)).toEqual(["2010-012345-12"]);
-    expect(registryNumbers("EudraCT 2010-012345-12")[0]?.key).toBe(registryNumbers("2010-012345-12")[0]?.key);
-    expect(registryNumbers("EUCTR2010-012345-12-GB")[0]?.key).toBe(registryNumbers("2010-012345-12")[0]?.key);
+    expect(registryNumbers("EudraCT 2010-012345-12")[0]?.key).toBe(registryNumbers("EudraCT number: 2010-012345-12")[0]?.key);
+    expect(registryNumbers("EUCTR2010-012345-12-GB")[0]?.key).toBe(registryNumbers("CTIS 2010-012345-12")[0]?.key);
     expect(registryNumbers("ClinicalTrials.gov NCT 01234567; ISRCTN00000001; ACTRN12600000000001; ChiCTR-IOR-17000001; " +
-      "DRKS00000001; CTRI/2020/01/000001; jRCTs031180001; JPRN-UMIN000000001; IRCT20180101000001N1; PACTR201900000000001; " +
-      "KCT0000001; NTR1001; NL-OMON10001; TCTR20200101001; RBR-0abc12; SLCTR/2019/001; 2022-500001-01-00; CRD42020000001")
-      .map(({ registry }) => registry)).toEqual(["NCT", "ISRCTN", "ACTRN", "ChiCTR", "DRKS", "CTRI", "jRCT", "UMIN", "IRCT",
-      "PACTR", "KCT", "NTR", "NL-OMON", "TCTR", "RBR", "SLCTR", "EU CT", "PROSPERO"]);
-    for (const value of ["none", "unknown", "not registered", "N/A", "12345"]) expect(registryNumbers(value)).toEqual([]);
+      "ChiCTR2000000001; DRKS00000001; CTRI/2020/01/000001; jRCT1031200001; JPRN-UMIN000000001; PACTR201900000000001; " +
+      "KCT0000001; TCTR20200101001; RBR-0abc12; EudraCT 2011-000001-01")
+      .map(({ registry }) => registry)).toEqual(["NCT", "ISRCTN", "ACTRN", "ChiCTR", "ChiCTR", "DRKS", "CTRI", "jRCT", "UMIN",
+      "PACTR", "KCT", "TCTR", "RBR", "EudraCT"]);
+    // Loose forms are never read: a bare hyphenated number, a gene name, a Netherlands Trial Register number in a text.
+    for (const value of ["none", "unknown", "not registered", "N/A", "12345", "2010-012345-12", "NTR1 expression",
+      "NTR1234", "NL12345", "IRCT20180101000001N1", "CRD42020000001"]) expect(registryNumbers(value)).toEqual([]);
+    // A Netherlands Trial Register number is accepted as the map declares it.
+    expect(registryNumbers("NTR1234", true).map(({ core }) => core)).toEqual(["NTR1234"]);
+    expect(registryNumbers("NTR1", true)).toEqual([]);
+  });
+
+  it("never reads a gene name as a registry number, and accepts a declared Dutch number without looking for it", async () => {
+    const quote = twoTrials;
+    const gene: Record<string, SourceLineDocument> = { ...DOCUMENTS,
+      [A.handle]: { kind: "full_text", blocks: [{ text: "We measured NTR1 expression in adults with knee pain.", abstract: true }, { text: A_RESULT }] },
+      [B.handle]: { kind: "full_text", blocks: [{ text: "Serum NTR1 levels were measured before walking.", abstract: true }, { text: B_RESULT }] } };
+    const map: StudyMap = { studies: [study("A", A, "Adults, Exampleton", ["NTR1234"]), study("B", B, "Adults, Sampleville")],
+      claims: [{ quote, studies: ["A", "B"], groups: 2,
+        passages: [{ study: "A", passage: A_RESULT }, { study: "B", passage: B_RESULT }] }] };
+    const { result, notes } = await check({ ...quoted(quote), study_map: map }, texts({ fullText: (handle) => gene[handle] }));
+    expect(notes).toEqual([]);
+    expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
+    expect(result.study_map?.studies[0]?.registry).toEqual([{ place: 0, number: "NTR1234", tie: "not_checked" }]);
   });
 
   it("finds a number its text gives with another label than the map's", async () => {
@@ -514,13 +556,45 @@ describe("registry numbers", () => {
     expect(result.study_map?.studies[1]?.registry).toEqual([{ place: 0, number: "2010-012345-12", tie: "in_text" }]);
   });
 
-  it("ties a number its text doesn't name to a study whose registration lists it among its secondary IDs", async () => {
-    const records = { ...RECORDS, NCT09000002: { ...RECORDS.NCT09000002!, secondaryIds: ["2010-012345-12"] } };
-    const map: StudyMap = { ...THREE, studies: [TRIAL_A, { ...TRIAL_B, registry: ["NCT09000002", "EudraCT 2010-012345-12"] }, TRIAL_C] };
-    const { result, notes } = await check(fixture({ study_map: map }), texts({ registry: async (nct) => records[nct as keyof typeof records] }));
-    expect(notes).toEqual([]);
-    expect(result.study_map?.studies[1]).toMatchObject({ group: 2,
-      registry: [{ place: 0, number: "NCT09000002", tie: "in_text" }, { place: 1, number: "2010-012345-12", tie: "in_record" }] });
+  it("keeps a trial giving two registrations one group, and asks about a report giving one of them", async () => {
+    const quote = "Two trials, one report each, found that walking eased knee pain.";
+    const dual = study("A", A, "Adults with knee pain, Exampleton, 2025", ["NCT01234567", "EudraCT 2010-012345-12"]);
+    const dualText: SourceLineDocument = { kind: "full_text", blocks: [
+      { text: "Trial registration: ClinicalTrials.gov NCT01234567; EudraCT 2010-012345-12.", abstract: true },
+      { text: A_RESULT, section: "Results" }] };
+    const map: StudyMap = {
+      studies: [dual, study("A2", A2, "Adults with knee pain followed for two years", ["NCT01234567"])],
+      claims: [{ quote, studies: ["A", "A2"], groups: 2,
+        passages: [{ study: "A", passage: A_RESULT }, { study: "A2", passage: A2_RESULT }] }],
+    };
+    for (const registry of [async (nct: string) => RECORDS[nct], async () => null]) {
+      const { result, notes } = await check({ ...quoted(quote), study_map: map },
+        texts({ fullText: (handle) => handle === A.handle ? dualText : DOCUMENTS[handle], registry }));
+      expect(notes).toContain("study_map: A and A2 give the same registration, NCT01234567: if they report the same " +
+        "people, give them one group or link them; if not, say how they differ.");
+      expect(notes.filter((note) => note.includes("counts"))).toEqual([]);
+      expect(result.study_map?.studies[0]).toMatchObject({ id: "A", group: 1,
+        registry: [{ number: "NCT01234567", tie: "in_text" }, { number: "2010-012345-12", tie: "in_text" }] });
+      expect(result.study_map?.claims[0]).toMatchObject({ groups: 2, counted: 2 });
+    }
+  });
+
+  it("asks about a pilot's registration an abstract names, and joins nothing by it", async () => {
+    const quote = "Two trials, one report each, found that walking eased knee pain.";
+    const piloted: SourceLineDocument = { kind: "full_text", blocks: [
+      { text: "Registered as NCT01234567; it follows the pilot trial NCT09000006.", abstract: true },
+      { text: A_RESULT, section: "Results" }] };
+    const map: StudyMap = { studies: [TRIAL_A, study("A2", A2, "Adults with knee pain followed for two years", ["NCT01234567"])],
+      claims: [{ quote, studies: ["A", "A2"], groups: 2,
+        passages: [{ study: "A", passage: A_RESULT }, { study: "A2", passage: A2_RESULT }] }] };
+    const { result, notes } = await check({ ...quoted(quote), study_map: map },
+      texts({ fullText: (handle) => handle === A.handle ? piloted : DOCUMENTS[handle] }));
+    expect(notes).toEqual([
+      "study_map: A and A2 give the same registration, NCT01234567: if they report the same people, give them one " +
+        "group or link them; if not, say how they differ.",
+      "study_map: A's abstract names NCT09000006, which the map doesn't give for A: if it is A's registration, add it.",
+    ]);
+    expect(result.study_map?.studies[0]).toMatchObject({ id: "A", group: 1 });
   });
 
   it("notes a registry number its study's full text doesn't name and its record doesn't tie", async () => {
