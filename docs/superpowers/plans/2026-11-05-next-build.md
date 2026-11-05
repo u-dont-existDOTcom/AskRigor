@@ -86,6 +86,21 @@ owner's; the release needs the owner's explicit yes, as always.
     (reason `same_quote`): it can't be marked as both found, the panel says so, and a note asks for the paper's own
     conclusion as the second quote. Exact text comparison, in any language.
 
+11. **Still to design, from the judging of #412's run (recurring classes, not local fixes):**
+    - **Notes repeat at every check, with a cost.** A note like "Cite X as read through another tool, not audited by
+      AskRigor" comes back on every call while the declaration stands, although the limit already says it and the
+      drafts said it in their own words; runs removed the study from the answer to quiet it. `docs/final-check.md`
+      says other diagnostics "return once in notes". Decide what once means: a note given in this turn and unchanged
+      could come back as a one-line reminder, with the round token's carried step counts telling which.
+    - **The de-identification screen** refuses research text for "I" and "me" ("copper(I)", a quoted "makes me
+      sleepy"), in every run since #389's. It is a word list judging meaning; the fix is a different mechanism, not
+      another exception.
+    - **Nothing checks the delivered answer:** post-check rewording replaced the plain-answer note in 5 of 48 turns.
+    - **`user_observations`** has no value for a report whose writer never tried the method.
+    - **Misfit limits and holds:** the self-test limit for any unblinded test; the harm-screen hold for distress
+      reported from a writing exercise; the web-search limit for a page the reader read under another link form;
+      a zero-hit Reddit search reported as a host failure ("WEBSITE_FORMAT_CHANGED").
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy
