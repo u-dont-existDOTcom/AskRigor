@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.38" revisionDate="2026-11-04" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.39" revisionDate="2026-11-05" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,12 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.39" priority="High">
+   Owner answer 244a of 5 November 2026, from the owner's reading of the didgeridoo trial (some people improved much,
+   others little), outside the core, which is unchanged: SpreadOfIndividualResults, in
+   StatisticalAndClinicalInterpretation, compares how much individual results varied in each arm and says when a split
+   shows only in a figure the research could not read.
+  </Revision>
   <Revision version="20.6.38" priority="Critical">
    The owner's review of 4 November 2026, outside the core, which is unchanged: FindingsCardForAPerson's test is a plain
    search of the problem by someone who has never heard of the option, a mention doesn't fail a finding, a new card
@@ -4035,6 +4041,15 @@
   <Rule name="Heterogeneity" priority="High">
    When heterogeneity is substantial, inspect population, burden, dose, formulation, endpoint definition, study quality,
    surveillance, model choice, and prediction intervals before pooling.
+  </Rule>
+
+  <Rule name="SpreadOfIndividualResults" priority="High">
+   When a trial reports how much individual results varied in each arm, such as the standard deviation of each arm's
+   change or individual results in a table, compare the arms. A clearly wider spread in the treated arm suggests people
+   respond differently, some much and some little or not at all; a similar spread suggests the average fits most people.
+   Say which, with the arms' sizes, and that chance and ordinary variation, which the control arm also shows, can make a
+   small trial look split. When individual results appear only in a figure the research could not read, say so rather
+   than infer a split.
   </Rule>
 
   <Rule name="MetaAnalysisInputQuality" priority="Critical">

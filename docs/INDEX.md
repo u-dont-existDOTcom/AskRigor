@@ -168,6 +168,9 @@ complete XML protocol.
   items (21 of 35 problems caught, 8 of 55 sound items flagged; 33 of 35 in development); 12 of its 16 limit flags
   hold, but it caught 1 of the 9 limits the judges named; the YouTube and stand-alone jobs had no labels (card saving
   off) and were read by hand; production's judge stays off; #394's run is now development data.
+- `superpowers/plans/2026-11-05-next-build.md`: the build after #412: HRP 20.6.39 (owner answer 244a, the spread of
+  individual results in a trial); then the YouTube scout's budget and failures, figures as images, the features on the
+  account page, two final-check faults from the CPAP test, and the meaning judge's revision.
 - `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
   Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
   saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
