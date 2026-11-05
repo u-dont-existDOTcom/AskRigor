@@ -34,6 +34,11 @@ askrigor.com {
 		file_server
 	}
 
+	handle /add {
+		rewrite * /add/index.html
+		file_server
+	}
+
 	handle /compare {
 		rewrite * /compare/index.html
 		file_server

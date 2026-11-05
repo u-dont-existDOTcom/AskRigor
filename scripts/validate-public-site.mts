@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
 
 export interface SiteValidationResult {
-  pages: 6;
+  pages: 7;
   internalLinks: number;
   errors: string[];
 }
@@ -80,6 +80,17 @@ const pageRequirements = [
     ]
   },
   {
+    path: "add/index.html",
+    title: "Add AskRigor | AskRigor",
+    canonical: "https://askrigor.com/add",
+    fragments: [
+      "https://mcp.askrigor.com/mcp",
+      "Add custom connector",
+      "coming to ChatGPT's app directory",
+      "doesn't diagnose, treat or prescribe"
+    ]
+  },
+  {
     path: "compare/index.html",
     title: "Compare: the same AI, with and without AskRigor | AskRigor",
     canonical: "https://askrigor.com/compare",
@@ -127,6 +138,7 @@ const commonFragments = [
   'aria-label="Primary navigation"',
   // The menu item for the benefit comparisons (the owner, 5 Nov 2026).
   '<li><a href="/compare">Compare</a></li>',
+  '<li><a href="/add">Add AskRigor</a></li>',
   'aria-label="Footer navigation"'
 ] as const;
 
@@ -257,10 +269,10 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   try {
     rootStatus = await lstat(rootPath);
   } catch {
-    return { pages: 6, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
+    return { pages: 7, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
   }
   if (!rootStatus.isDirectory() || rootStatus.isSymbolicLink()) {
-    return { pages: 6, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
+    return { pages: 7, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
   }
 
   const { files, errors: fileErrors } = await collectFiles(rootPath);
@@ -298,7 +310,7 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     // The required-file error above is the stable diagnostic for a missing stylesheet.
   }
 
-  return { pages: 6, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
+  return { pages: 7, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -307,6 +319,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const error of result.errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log("Validated AskRigor public site: 6 pages");
+    console.log("Validated AskRigor public site: 7 pages");
   }
 }

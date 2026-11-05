@@ -58,6 +58,7 @@ describe("public-site deployment packet", () => {
     expect(caddy).toContain("/privacy/index.html");
     expect(caddy).toContain("/terms/index.html");
     expect(caddy).toContain("/support/index.html");
+    expect(caddy).toContain("/add/index.html");
     expect(caddy).toContain("/compare/index.html");
     expect(caddy).toContain("/compare/free-chatgpt/index.html");
     expect(caddy).toContain("path /assets/*");

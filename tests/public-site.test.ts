@@ -17,16 +17,16 @@ const pages = [
 const pageHtml = async (file: string) => readFile(rootFile(file), "utf8");
 
 describe("AskRigor public site", () => {
-  it("ships exactly six complete public pages", async () => {
+  it("ships exactly seven complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(6);
+    expect(result.pages).toBe(7);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    expect(result.internalLinks).toBe(59);
+    expect(result.internalLinks).toBe(82);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
