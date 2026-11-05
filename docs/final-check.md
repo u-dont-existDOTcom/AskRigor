@@ -142,6 +142,16 @@ claim is meaning, and the meaning judge reads it where it is on (its job 5). Lim
 hour after its last read, so a later check leaves those quotes unchecked and says so; a source with no full text held
 and no PMID has nothing to look in; and the check can't say what the answer shows after it.
 
+Owner answer 249a (5 November 2026) adds the study map, an optional later input, and no blocking rule
+(`apps/research-mcp/src/study-map.ts`; plan `docs/superpowers/plans/2026-11-05-study-map.md`). When a conclusion
+combines studies, `study_map` names them, the group of people behind each, the links between them and, per claim, how
+many independent groups of people it counts. Once a check passes, AskRigor looks each passage up word for word in its
+own study's text (found through the verified receipts, as a source line's), looks registry numbers up in the text and
+on ClinicalTrials.gov, and counts once the studies it can tell share people: the same paper, a declared link, the same
+group or registry number, one registration listing both, or identical audited figures. Only over-counting is flagged,
+and a trial registered after it started is said to be; whether two groups overlap otherwise stays the AI's judgment.
+Every finding is a note, beside the runtime `study_map` result, and consumes no round.
+
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
 (owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in
