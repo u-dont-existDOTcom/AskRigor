@@ -39,6 +39,11 @@ askrigor.com {
 		file_server
 	}
 
+	handle /roadmap {
+		rewrite * /roadmap/index.html
+		file_server
+	}
+
 	handle /compare {
 		rewrite * /compare/index.html
 		file_server

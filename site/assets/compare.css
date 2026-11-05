@@ -204,6 +204,8 @@
 .button { display: inline-block; padding: 0.7rem 1.15rem; background: var(--accent); color: var(--surface); border-radius: 0.6rem; text-decoration: none; font-weight: 800; }
 .button:hover, .button:focus-visible { background: var(--accent-hover); color: var(--surface); text-decoration: none; }
 .steps { padding-left: 1.3rem; }
+.roadmap { padding-left: 1.2rem; }
+.roadmap li { margin: 0.6rem 0; }
 .steps li { margin: 0.45rem 0; }
 .try { margin-top: 2.5rem; padding: 1.5rem; border: 1px solid var(--gain); border-radius: 0.85rem; background: linear-gradient(var(--gain-soft), var(--gain-soft)), var(--surface); }
 .try h2 { margin-top: 0; }

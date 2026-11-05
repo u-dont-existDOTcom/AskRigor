@@ -517,6 +517,7 @@ for required_member in \
   site/terms/index.html \
   site/support/index.html \
   site/add/index.html \
+  site/roadmap/index.html \
   site/compare/index.html \
   site/compare/free-chatgpt/index.html \
   site/assets/site.css \
@@ -653,6 +654,7 @@ verify_public_routes() {
     https://askrigor.com/terms \
     https://askrigor.com/support \
     https://askrigor.com/add \
+    https://askrigor.com/roadmap \
     https://askrigor.com/compare \
     https://askrigor.com/compare/free-chatgpt
   do
