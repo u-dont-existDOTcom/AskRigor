@@ -10,18 +10,19 @@ import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import {
   READ_DEPTH_VALUES, communitySkipCaveat, finalizeResearch, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import { discoveryQueryDigest, issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  ANSWER_READINGS, ANSWER_READING_LABELS, READING_RESULT_WHEN, identifierShown, readingResultNote, receiptReadingNote,
-  sourceReadingGuidance, verifiedAnswerReading, type AnswerReading
+  ANSWER_READINGS, ANSWER_READING_LABELS, READING_RESULT_WHEN, compareReadings, identifierShown, readingResultNote,
+  receiptReadingNote, sourceReadingGuidance, verifiedAnswerReading, type AnswerReading
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 // How each key study was read, said beside it (the owner, 5 Nov 2026: "make sure askrigor is enforcing that the AI tells
 // people what it actually read, like 'In this study (abstract read/full text read/full text and images analyzed)'").
-// source_reading, a later input of finalize_research, copies the answer's words for each key source; under the read_depth
-// blocking rule, a key source the draft cites needs an entry whose quote the draft shows. The studies, identifiers and
+// source_reading, a later input of finalize_research, gives each key source's reading and copies the answer's words for
+// it; under the read_depth blocking rule, a key source the draft cites needs an entry whose quote the draft shows and
+// whose reading claims no more than the check verifies (the review of 5 Nov 2026). The studies, identifiers and
 // receipts are synthetic fixtures, not evidence about a treatment.
 const SECRET = "source-reading-test-secret-0123456789abcdefgh";
 const TARGET = "Synthetic reading labels beside each study";
@@ -46,9 +47,11 @@ const input = (overrides: Record<string, unknown> = {}): Record<string, unknown>
   absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], key_terms: [],
   safety_claims: [], safety_question: false, mechanism_claims: [], recommendations: [],
   answer_draft: draft(STUDY),
-  later_inputs: { source_reading: [{ source: DOI, quote: AUDITED }] },
+  later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED }] },
   ...overrides
 });
+// An entry giving a reading and the words for it.
+const entry = (source: string, reading: AnswerReading, quote = ANSWER_READING_LABELS[reading]) => ({ source, reading, quote });
 const check = (overrides: Record<string, unknown> = {}) =>
   assertNextStepsContract(finalizeResearch(input(overrides), { secret: SECRET }));
 const readingSteps = (result: FinalizeResearchOutput) => result.next_steps.filter((step) => step.includes("how it was read"));
@@ -57,19 +60,29 @@ const readingSteps = (result: FinalizeResearchOutput) => result.next_steps.filte
 const missing = (id: string, reading?: AnswerReading) => reading === undefined
   ? `Key source ${id} is cited in the answer without saying how it was read: give it a read_depth its receipts ` +
     "support, say beside it how it was read, in the answer's language, and give later_inputs.source_reading an entry " +
-    `for it, with source ${id} and quote those words copied from answer_draft.`
+    `for it, with source ${id}, that reading, and quote those words copied from answer_draft.`
   : `Key source ${id} is cited in the answer without saying how it was read (${ANSWER_READING_LABELS[reading]}): say ` +
     "so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with source " +
-    `${id} and quote those words copied from answer_draft.`;
+    `${id}, reading ${reading}, and quote those words copied from answer_draft.`;
+const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading) => `source_reading gives ${id} the ` +
+  `reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: this check verifies ` +
+  `${verified} (${ANSWER_READING_LABELS[verified]}). Say that beside it instead, in the answer's language, and give ` +
+  `source_reading reading ${verified} with those words as its quote, copied from answer_draft.`;
+const GUIDANCE_LEAD = "Say beside each study how it was read, in the answer's language, and give each in " +
+  "later_inputs.source_reading as {source, reading, quote}: source its id as key_sources gives it, reading as named " +
+  "here, and quote those words, copied from answer_draft: ";
+const claimsLess = (id: string, given: AnswerReading, verified: AnswerReading) => `source_reading gives ${id} the ` +
+  `reading ${given} (${ANSWER_READING_LABELS[given]}), less than this check verifies: ${verified} ` +
+  `(${ANSWER_READING_LABELS[verified]}). The answer may say so beside it.`;
 const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer: say ` +
   `beside it how it was read (${ANSWER_READING_LABELS[reading]}), in the answer's language, and copy those words ` +
   "exactly from answer_draft.";
 
 describe("source_reading: its shape and words", () => {
-  it("is a later input of finalize_research, with a reading for each read_depth, a search copy and another tool", () => {
+  it("is a later input of finalize_research, with a reading for each read_depth, search copies, a listing and another tool", () => {
     expect(laterInputNames("finalize_research")).toContain("source_reading");
     expect([...ANSWER_READINGS].sort())
-      .toEqual([...READ_DEPTH_VALUES, "search_copy_audited", "other_tool"].sort());
+      .toEqual([...READ_DEPTH_VALUES, "search_copy_audited", "search_copy_read", "found_in_search", "other_tool"].sort());
   });
 
   it("words each reading as the owner's examples do, with no semicolon to blur the list", () => {
@@ -78,6 +91,9 @@ describe("source_reading: its shape and words", () => {
       // As the Atlas reads a card's sources (owner answer 252a): an audit of a copy AskRigor didn't fetch says so.
       search_copy_audited: "full text read from a copy the AI found, methods audited by AskRigor",
       full_text_read: "full text read",
+      // The review of 5 Nov 2026: a full reading of the AI's own copy says so too, and a search's listing is no reading.
+      search_copy_read: "full text read from a copy the AI found",
+      found_in_search: "found in a search, not read",
       partial_text: "part of the text read",
       abstract_only: "abstract only",
       conference_abstract: "abstract only",
@@ -98,6 +114,7 @@ describe("source_reading: its shape and words", () => {
     expect(verifiedAnswerReading("full_text_audited", { ...none, audited: true, searchCopy: true, read: true }))
       .toBe("search_copy_audited");
     expect(verifiedAnswerReading("full_text_audited", { ...none, read: true })).toBe("full_text_read");
+    expect(verifiedAnswerReading("full_text_read", { ...none, read: true, readSearchCopy: true })).toBe("search_copy_read");
     expect(verifiedAnswerReading("full_text_audited", none)).toBeUndefined();
     expect(verifiedAnswerReading("full_text_read", none)).toBeUndefined();
     expect(verifiedAnswerReading(undefined, none)).toBeUndefined();
@@ -135,38 +152,50 @@ const atlasLookup = issueResearchReceipt("atlas_lookup", {
   words: ["synthetic"], target: researchTargetDigest(TARGET), origin: "https://askrigor.com",
   found: [`P-1001|F-1001|c|${atlasSourceDigest({ scheme: "doi", value: DOI })}`]
 }, { secret: SECRET });
-const CASES: ReadonlyArray<[AnswerReading, Record<string, unknown>, Record<string, unknown>]> = [
-  ["full_text_audited", { receipts: [audit] }, { status: "validated", read_depth: "full_text_audited" }],
+// Each case: the reading, the call's receipts, the key source, and what AskRigor's receipts show when they don't show the
+// reading itself (the review of 5 Nov 2026), for the panel to list it apart.
+type Case = [AnswerReading, Record<string, unknown>, Record<string, unknown>, AnswerReading | undefined, boolean];
+const CASES: ReadonlyArray<Case> = [
+  ["full_text_audited", { receipts: [audit] }, { status: "validated", read_depth: "full_text_audited" }, undefined, true],
   ["search_copy_audited", { receipts: [sign("study_audit", { doi: DOI, content: "c".repeat(16),
     retrieval_provider: "client_search_index", host: "copies.example.org" })] },
-  { status: "validated", read_depth: "full_text_audited" }],
+  { status: "validated", read_depth: "full_text_audited" }, undefined, true],
   ["full_text_read", { receipts: [sign("full_text_read", { doi: DOI, content: "b".repeat(16) })] },
-    { status: "validated", read_depth: "full_text_read" }],
+    { status: "validated", read_depth: "full_text_read" }, undefined, true],
+  ["search_copy_read", { receipts: [sign("full_text_read", { doi: DOI, content: "b".repeat(16),
+    retrieval_provider: "client_search_index", host: "copies.example.org" })] },
+  { status: "validated", read_depth: "full_text_read" }, undefined, true],
+  // A PubMed record shows its abstract, its record and a listing; the rest of these are the AI's own account.
   ...(["partial_text", "abstract_only", "conference_abstract", "secondary_only", "metadata_only", "inaccessible",
-    "route_error"] as const).map((read_depth): [AnswerReading, Record<string, unknown>, Record<string, unknown>] =>
-    [read_depth, { receipts: [PUBMED] }, { status: "lead_only", read_depth }]),
-  ["other_tool", { receipts: [LEAD] }, { status: "lead_only", read_depth: "abstract_only", other_route: "read" }],
+    "route_error"] as const).map((read_depth): Case => {
+    const shown = ["abstract_only", "conference_abstract", "metadata_only"].includes(read_depth);
+    return [read_depth, { receipts: [PUBMED] }, { status: "lead_only", read_depth }, shown ? undefined : "abstract_only", shown];
+  }),
+  ["other_tool", { receipts: [LEAD] }, { status: "lead_only", read_depth: "abstract_only", other_route: "read" },
+    "inaccessible", false],
   ["atlas_checked", {
     receipts: [atlasLookup],
     atlas_reuse: [{ number: "P-1001", relation: "confirms", answer_quote: ATLAS_QUOTE, page_url: ATLAS_URL }]
-  }, { status: "validated", read_depth: "atlas_checked" }]
+  }, { status: "validated", read_depth: "atlas_checked" }, undefined, true]
 ];
 
 describe("each reading, as the check verified it", () => {
-  it.each(CASES)("%s: named up front, asked for beside a cited study, and met by the answer's words", (reading, extra, source) => {
+  it.each(CASES)("%s: named up front, asked for beside a cited study, and met by the answer's words", (reading, extra, source, receipts, shown) => {
     const label = ANSWER_READING_LABELS[reading];
     const keySources = [{ id: DOI, answer_marker: "Trial", ...source }];
     const atlas = reading === "atlas_checked" ? [ATLAS_QUOTE] : [];
     const cited = `[Trial](https://doi.org/${DOI}) compared two routines`;
     const blocked = check({ ...extra, key_sources: keySources, later_inputs: {},
       answer_draft: draft(`${cited}.`, ...atlas) });
-    expect(blocked.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading }]);
+    expect(blocked.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading, shown,
+      ...(receipts === undefined ? {} : { receipts }) }]);
     expect(blocked.status).toBe("not_ready");
     expect(readingSteps(blocked)).toEqual([missing(DOI, reading)]);
     const met = check({ ...extra, key_sources: keySources, answer_draft: draft(`${cited} (${label}).`, ...atlas),
-      later_inputs: { source_reading: [{ source: DOI, quote: label }] } });
+      later_inputs: { source_reading: [entry(DOI, reading)] } });
     expect(met.next_steps).toEqual([]);
     expect(met.status).toMatch(/^ready/u);
+    expect(advisoryNotes(met).join(" ")).not.toContain("source_reading");
     expect(met.source_reading).toEqual(blocked.source_reading);
   });
 
@@ -180,12 +209,120 @@ describe("each reading, as the check verified it", () => {
 
   it("names what the receipts show when a declared reading is refused", () => {
     const result = check({ receipts: [sign("full_text_read", { doi: DOI, content: "b".repeat(16) })], later_inputs: {} });
-    expect(result.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_read" }]);
+    expect(result.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_read", shown: true }]);
     expect(result.next_steps).toEqual([
       `Key source ${DOI} cannot support read_depth full_text_audited with these receipts; give read_depth ` +
         "full_text_read, or pass its matching research_receipt.",
       missing(DOI, "full_text_read")
     ]);
+  });
+});
+
+// The review of 5 Nov 2026: an answer saying "full text read" passed on a PubMed record alone, once read_depth was
+// lowered, and a quote with no reading in it passed too. Each entry now gives its reading, held exactly to the one the
+// check verifies; the words stay the model's, in any language.
+describe("the reading each entry gives, held to what the check verifies", () => {
+  const ABSTRACT = "abstract only";
+  const fromRecord = (given: AnswerReading, words = ANSWER_READING_LABELS[given], depth = "abstract_only") => check({
+    receipts: [PUBMED],
+    key_sources: [{ id: DOI, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
+    answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
+    later_inputs: { source_reading: [entry(DOI, given, words)] }
+  });
+
+  it("blocks a reading claiming more than the receipts show, under read_depth, naming the verified one", () => {
+    for (const given of ["full_text_audited", "full_text_read", "search_copy_read", "partial_text"] as const) {
+      const result = fromRecord(given);
+      expect(result.status, given).toBe("not_ready");
+      expect(result.next_steps).toEqual([claimsMore(DOI, given, "abstract_only")]);
+      expect(result.next_step_kinds).toEqual(["answer_draft"]);
+    }
+    // Lowering read_depth alone, the words and the reading left as they were, still blocks (the probe's second round).
+    const lowered = fromRecord("full_text_read", "full text read");
+    expect(lowered.next_steps).toEqual([claimsMore(DOI, "full_text_read", "abstract_only")]);
+    // Said as the check verifies it, it passes.
+    expect(fromRecord("abstract_only", ABSTRACT).next_steps).toEqual([]);
+  });
+
+  it("holds a full text AskRigor fetched apart from a copy the AI found, however deep the copy was read", () => {
+    const copy = { retrieval_provider: "client_search_index", host: "copies.example.org" };
+    const run = (receipt: string, depth: string, given: AnswerReading) => check({
+      receipts: [receipt], key_sources: [{ id: DOI, status: "validated", read_depth: depth, answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ANSWER_READING_LABELS[given]}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, given)] }
+    });
+    const read = sign("full_text_read", { doi: DOI, content: "b".repeat(16), ...copy });
+    expect(run(read, "full_text_read", "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "search_copy_read")]);
+    expect(run(read, "full_text_read", "search_copy_read").next_steps).toEqual([]);
+    const audited = sign("study_audit", { doi: DOI, content: "c".repeat(16), ...copy });
+    expect(run(audited, "full_text_audited", "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "search_copy_audited")]);
+    expect(run(audited, "full_text_audited", "full_text_audited").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_audited", "search_copy_audited")]);
+    // AskRigor's own copy, said to be the AI's, claims less: a note.
+    const own = run(audit, "full_text_audited", "search_copy_audited");
+    expect(own.next_steps).toEqual([]);
+    expect(advisoryNotes(own)).toContain(claimsLess(DOI, "search_copy_audited", "full_text_audited"));
+  });
+
+  it("notes a reading claiming less, and blocks nothing", () => {
+    const result = check({ answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ABSTRACT}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "abstract_only", ABSTRACT)] } });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result)).toContain(claimsLess(DOI, "abstract_only", "full_text_audited"));
+  });
+
+  it("takes another tool's reading as the AI's own account, which never claims more", () => {
+    const lead = { status: "lead_only", read_depth: "abstract_only", other_route: "read", answer_marker: "Trial" };
+    const words = ANSWER_READING_LABELS.other_tool;
+    const result = check({ receipts: [LEAD], key_sources: [{ id: DOI, ...lead }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "other_tool")] } });
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result).join(" ")).not.toContain("source_reading gives");
+    // A full text read by AskRigor, said of a lead read through another tool, claims more.
+    const more = check({ receipts: [LEAD], key_sources: [{ id: DOI, ...lead }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (full text read) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_read")] } });
+    expect(more.next_steps).toEqual([claimsMore(DOI, "full_text_read", "other_tool")]);
+    // Said of a study AskRigor audited, it claims less: a note.
+    const audited = check({ answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "other_tool")] } });
+    expect(audited.next_steps).toEqual([]);
+    expect(advisoryNotes(audited)).toContain(claimsLess(DOI, "other_tool", "full_text_audited"));
+  });
+
+  it("leaves the words to the model, in any language, once the reading is right", () => {
+    for (const words of ["抄録のみ確認", "قرأنا الملخص فقط", "**(abstract only)**"]) {
+      expect(fromRecord("abstract_only", words).next_steps, words).toEqual([]);
+    }
+    // The words are not read for meaning: an entry quoting words that say no reading passes on its reading alone.
+    expect(fromRecord("abstract_only", "compared two routines").next_steps).toEqual([]);
+  });
+
+  it("drops an entry without a reading, with a note, so a cited source still needs one", () => {
+    const result = check({ later_inputs: { source_reading: [{ source: DOI, quote: AUDITED }] } });
+    expect(result.next_steps).toEqual([missing(DOI, "full_text_audited")]);
+    expect(result.notes!.join("\n")).toContain("source_reading");
+  });
+
+  it("is exact: each pair of readings compares the same way every time", () => {
+    for (const given of ANSWER_READINGS) {
+      expect(compareReadings(given, given)).toBe("same");
+      for (const verified of ANSWER_READINGS) {
+        const forth = compareReadings(given, verified);
+        expect(["same", "more", "less"]).toContain(forth);
+        expect(compareReadings(given, verified)).toBe(forth);
+      }
+    }
+    expect(compareReadings("conference_abstract", "abstract_only")).toBe("same");
+    expect(compareReadings("full_text_audited", "abstract_only")).toBe("more");
+    expect(compareReadings("abstract_only", "full_text_audited")).toBe("less");
+    expect(compareReadings("inaccessible", "route_error")).toBe("same");
+    expect(compareReadings("atlas_checked", "full_text_audited")).toBe("more");
+    expect(compareReadings("abstract_only", "atlas_checked")).toBe("less");
   });
 });
 
@@ -206,7 +343,7 @@ describe("the check: a cited key source says how it was read", () => {
   });
 
   it("blocks an entry whose quote the answer doesn't show", () => {
-    const result = check({ later_inputs: { source_reading: [{ source: DOI, quote: "full text read and audited" }] } });
+    const result = check({ later_inputs: { source_reading: [entry(DOI, "full_text_audited", "full text read and audited")] } });
     expect(result.status).toBe("not_ready");
     expect(result.next_steps).toEqual([unshown(DOI, "full_text_audited")]);
     expect(result.next_step_kinds).toEqual(["answer_draft"]);
@@ -218,18 +355,18 @@ describe("the check: a cited key source says how it was read", () => {
   it("compares the quote as the other declared quotes are compared", () => {
     for (const quote of [`"${AUDITED.toUpperCase()}."`, AUDITED.replace("AskRigor", "*AskRigor*"),
       `[Trial](https://doi.org/${DOI}) (${AUDITED})`, `Trial (${AUDITED})`]) {
-      expect(check({ later_inputs: { source_reading: [{ source: DOI, quote }] } }).next_steps, quote).toEqual([]);
+      expect(check({ later_inputs: { source_reading: [entry(DOI, "full_text_audited", quote)] } }).next_steps, quote).toEqual([]);
     }
     expect(check({ answer_draft: draft(`[Trial](https://doi.org/${DOI}) (full text read – methods audited by AskRigor).`),
-      later_inputs: { source_reading: [{ source: DOI, quote: "full text read - methods audited by AskRigor" }] } })
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited", "full text read - methods audited by AskRigor")] } })
       .next_steps).toEqual([]);
     // A quote of marks alone shows nothing.
-    expect(check({ later_inputs: { source_reading: [{ source: DOI, quote: "()" }] } }).next_steps)
+    expect(check({ later_inputs: { source_reading: [entry(DOI, "full_text_audited", "()")] } }).next_steps)
       .toEqual([unshown(DOI, "full_text_audited")]);
   });
 
   it("matches an entry to its key source by the identifier as the gate normalizes it", () => {
-    expect(check({ later_inputs: { source_reading: [{ source: `https://doi.org/${DOI.toUpperCase()}`, quote: AUDITED }] } })
+    expect(check({ later_inputs: { source_reading: [entry(`https://doi.org/${DOI.toUpperCase()}`, "full_text_audited")] } })
       .next_steps).toEqual([]);
   });
 
@@ -242,8 +379,8 @@ describe("the check: a cited key source says how it was read", () => {
     expect(result.next_steps).toEqual([`Key study ${OTHER_DOI} has no link in the answer; link it to the page ` +
       `AskRigor's tools returned, such as https://doi.org/${OTHER_DOI} or https://pubmed.ncbi.nlm.nih.gov/27182818/.`]);
     expect(result.source_reading).toEqual([
-      { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited" },
-      { source: OTHER_DOI, name: `"Cohort" (${OTHER_DOI})`, reading: "abstract_only" }
+      { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited", shown: true },
+      { source: OTHER_DOI, name: `"Cohort" (${OTHER_DOI})`, reading: "abstract_only", shown: true }
     ]);
   });
 
@@ -258,27 +395,39 @@ describe("the check: a cited key source says how it was read", () => {
   it("takes the answer's own words in any language", () => {
     const french = "texte intégral lu, méthodes vérifiées par AskRigor";
     expect(check({ answer_draft: draft(`[L'essai](https://doi.org/${DOI}) (${french}) a comparé deux routines.`),
-      later_inputs: { source_reading: [{ source: DOI, quote: french }] } }).next_steps).toEqual([]);
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited", french)] } }).next_steps).toEqual([]);
     const japanese = "全文を読み、AskRigorが方法を監査済み";
     expect(check({ answer_draft: draft(`[試験](https://doi.org/${DOI})（${japanese}）は二つの方法を比べた。`),
-      later_inputs: { source_reading: [{ source: DOI, quote: japanese }] } }).next_steps).toEqual([]);
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited", japanese)] } }).next_steps).toEqual([]);
     expect(check({ answer_draft: draft(`[試験](https://doi.org/${DOI})は二つの方法を比べた。`),
-      later_inputs: { source_reading: [{ source: DOI, quote: japanese }] } }).next_steps)
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited", japanese)] } }).next_steps)
       .toEqual([unshown(DOI, "full_text_audited")]);
   });
 
-  it("notes an entry naming no key source, and a second entry for one, without blocking", () => {
-    const result = check({ later_inputs: { source_reading: [{ source: DOI, quote: AUDITED },
-      { source: OTHER_DOI, quote: "abstract only" }, { source: DOI.toUpperCase(), quote: "full text read" }] } });
+  it("notes an entry naming no key source, and takes any entry for a source that passes (the review of 5 Nov 2026)", () => {
+    const result = check({ later_inputs: { source_reading: [entry(DOI, "full_text_audited"),
+      entry(OTHER_DOI, "abstract_only"), entry(DOI.toUpperCase(), "full_text_read")] } });
     expect(result.next_steps).toEqual([]);
     expect(advisoryNotes(result)).toEqual(expect.arrayContaining([
       `source_reading names ${OTHER_DOI}, which key_sources does not list: give each key source's id as key_sources ` +
-        "gives it, or leave the entry out.",
-      `source_reading gives ${DOI.toUpperCase()} more than once: give each key source one entry; only the first is checked.`
+        "gives it, or leave the entry out."
     ]));
-    // The first entry for a source is the one checked.
-    expect(check({ later_inputs: { source_reading: [{ source: DOI, quote: "full text read and audited" },
-      { source: DOI, quote: AUDITED }] } }).next_steps).toEqual([unshown(DOI, "full_text_audited")]);
+    expect(advisoryNotes(result).join(" ")).not.toContain("more than once");
+    // A stale first entry does no harm when a later one passes, in either order.
+    for (const entries of [[entry(DOI, "full_text_audited", "full text read and audited"), entry(DOI, "full_text_audited")],
+      [entry(DOI, "full_text_audited"), entry(DOI, "full_text_audited", "full text read and audited")],
+      [entry(DOI, "abstract_only", AUDITED), entry(DOI, "full_text_audited")]]) {
+      expect(check({ later_inputs: { source_reading: entries } }).next_steps).toEqual([]);
+    }
+    // With none passing, an entry whose quote the answer shows says what its reading claims; otherwise the quote's step.
+    expect(check({ answer_draft: draft(`[Trial](https://doi.org/${DOI}) (full text read) compared two routines.`),
+      receipts: [sign("full_text_read", { doi: DOI, content: "b".repeat(16) })],
+      key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_read", answer_marker: "Trial" }],
+      later_inputs: { source_reading: [entry(DOI, "full_text_read", "full text read, audited"),
+        entry(DOI, "full_text_audited", "full text read")] } }).next_steps)
+      .toEqual([claimsMore(DOI, "full_text_audited", "full_text_read")]);
+    expect(check({ later_inputs: { source_reading: [entry(DOI, "full_text_audited", "full text read and audited"),
+      entry(DOI, "full_text_audited", "read twice")] } }).next_steps).toEqual([unshown(DOI, "full_text_audited")]);
   });
 
   it("changes nothing for a call without key sources", () => {
@@ -289,7 +438,7 @@ describe("the check: a cited key source says how it was read", () => {
     expect(without.next_steps).toEqual([]);
     expect(advisoryNotes(without).join(" ")).not.toContain("source_reading");
     // A stray entry is a note, and nothing else changes.
-    const stray = check({ ...plain, later_inputs: { source_reading: [{ source: DOI, quote: "abstract only" }] } });
+    const stray = check({ ...plain, later_inputs: { source_reading: [entry(DOI, "abstract_only")] } });
     expect(stray).toMatchObject({ status: without.status, next_steps: [], limits: without.limits });
     expect(advisoryNotes(stray).filter((note) => !advisoryNotes(without).includes(note))).toEqual([
       `source_reading names ${DOI}, which key_sources does not list: give each key source's id as key_sources gives ` +
@@ -308,7 +457,7 @@ describe("the check: a cited key source says how it was read", () => {
     expect(result!.check_report!.could_not.map(({ rule }) => rule)).toEqual([
       "Key source … is cited in the answer without saying how it was read (full text read, methods audited by " +
         "AskRigor): say so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, " +
-        "with source … and quote those words copied from answer_draft."
+        "with source …, reading full_text_audited, and quote those words copied from answer_draft."
     ]);
   });
 });
@@ -319,7 +468,8 @@ describe("the check: a cited key source says how it was read", () => {
 // tests/analysis-staging.test.ts and tests/mcp-tools.test.ts check them there).
 describe("the tools that read a paper name its words before the first final check", () => {
   const say = (when: string, label: string) => `${when}, say "${label}" beside it in the answer, in the answer's ` +
-    "language, and give those words in finalize_research's later_inputs.source_reading.";
+    "language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
+    `${(Object.keys(ANSWER_READING_LABELS) as AnswerReading[]).find((key) => ANSWER_READING_LABELS[key] === label)}.`;
 
   it("words each reading tool's sentence", () => {
     expect(readingResultNote(READING_RESULT_WHEN.record, "abstract_only")).toBe(say("If the answer cites this study " +
@@ -341,6 +491,10 @@ describe("the tools that read a paper name its words before the first final chec
     expect(receiptReadingNote(sign("study_audit", { doi: DOI, retrieval_provider: "client_search_index",
       host: "copies.example.org" }), SECRET)).toBe(say("With this study's methods audited",
       "full text read from a copy the AI found, methods audited by AskRigor"));
+    // The review of 5 Nov 2026: a full reading of the AI's own copy says so too.
+    expect(receiptReadingNote(sign("full_text_read", { doi: DOI, content: "b".repeat(16),
+      retrieval_provider: "client_search_index", host: "copies.example.org" }), SECRET))
+      .toBe(say("With this study's full text read to its end", "full text read from a copy the AI found"));
     expect(receiptReadingNote(PUBMED, SECRET)).toBe("");
     expect(receiptReadingNote(LEAD, SECRET)).toBe("");
     expect(receiptReadingNote(undefined, SECRET)).toBe("");
@@ -354,11 +508,14 @@ describe("the result names each reading up front, and the panel lists it", () =>
 
   it("words the result's line from each key source's name and reading", () => {
     expect(sourceReadingGuidance([
-      { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited" },
-      { source: PMID, name: PMID, reading: "abstract_only" }
-    ])).toBe("Say beside each study how it was read, in the answer's language, and copy those words into " +
-      "later_inputs.source_reading as {source, quote}, with source the study's id as key_sources gives it: " +
-      `"Trial" (${DOI}), full text read, methods audited by AskRigor; ${PMID}, abstract only.`);
+      { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited", shown: true },
+      { source: PMID, name: PMID, reading: "abstract_only", shown: false, receipts: "found_in_search" },
+      { source: OTHER_DOI, name: OTHER_DOI, reading: "partial_text", shown: false },
+      { source: "PMC7654321", name: "PMC7654321", reading: "other_tool", shown: false, receipts: "inaccessible" }
+    ])).toBe(GUIDANCE_LEAD + `"Trial" (${DOI}), "full text read, methods audited by AskRigor" (full_text_audited); ` +
+      `${PMID}, "abstract only" (abstract_only), by your account alone: AskRigor's receipts show "found in a search, ` +
+      `not read"; ${OTHER_DOI}, "part of the text read" (partial_text), by your account alone: no receipt here shows ` +
+      `it; PMC7654321, "read through another tool, not checked by AskRigor" (other_tool).`);
   });
 
   it.each(["/mcp", "/mcp/claude"] as const)("gives the line on %s before a check blocks, and none without key sources", async (mcpSurface) => {
@@ -374,9 +531,7 @@ describe("the result names each reading up front, and the panel lists it", () =>
         return { output: response.structuredContent as FinalizeResearchOutput,
           text: (response.content as Array<{ text: string }>)[0]!.text };
       };
-      const line = `\nSay beside each study how it was read, in the answer's language, and copy those words into ` +
-        "later_inputs.source_reading as {source, quote}, with source the study's id as key_sources gives it: " +
-        `"Trial" (${DOI}), full text read, methods audited by AskRigor.`;
+      const line = `\n${GUIDANCE_LEAD}"Trial" (${DOI}), "full text read, methods audited by AskRigor" (full_text_audited).`;
       const blocked = await text(input({ later_inputs: {} }));
       expect(blocked.output.status).toBe("not_ready");
       expect(blocked.text).toContain(line);
@@ -395,17 +550,56 @@ describe("the result names each reading up front, and the panel lists it", () =>
       key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
         { id: PMID, status: "lead_only", read_depth: "abstract_only" }],
       answer_draft: draft(STUDY, `[A cohort](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) (abstract only) agreed.`),
-      later_inputs: { source_reading: [{ source: DOI, quote: AUDITED }, { source: PMID, quote: "abstract only" }] } });
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(PMID, "abstract_only")] } });
     expect(passed.status).toBe("ready_with_limits");
     const checked = fold(render(passed), "What AskRigor checked");
     expect(checked.children.map(({ textContent }) => textContent)).toContain(`What AskRigor read: "Trial" (${DOI}), ` +
       `full text read, methods audited by AskRigor; ${PMID}, abstract only.`);
+    expect(checked.textContent).not.toContain("As the AI gives them");
     const blocked = check({ later_inputs: {} });
     expect(blocked.source_reading).toHaveLength(1);
     expect(render(blocked).textContent).not.toContain("What AskRigor read");
+    expect(render(blocked).textContent).not.toContain("As the AI gives them");
     // Only the panel's own words: an entry it does not know is left out.
     expect(fold(render({ ...passed, source_reading: [{ source: DOI, name: "Trial", reading: "figures_read" }] }),
       "What AskRigor checked").textContent).not.toContain("What AskRigor read");
+  });
+});
+
+// The review of 5 Nov 2026: a search's listing alone showed "abstract only" under "What AskRigor read". The panel lists
+// only the readings AskRigor's receipts show, and the others apart, as the AI gives them, with what the receipts show.
+describe("the panel lists apart the readings AskRigor's receipts don't show", () => {
+  it("names what the receipts do show beside the AI's own account", () => {
+    const listed = sign("literature_search", { src: "pubmed", q: discoveryQueryDigest(["reading trial"]), ret: 1,
+      ids: [PMID], n: 1 });
+    const lead = { status: "lead_only", read_depth: "abstract_only", other_route: "read", answer_marker: "Elsewhere" };
+    const passed = check({ receipts: [audit, listed, sign("full_text_lead", { doi: OTHER_DOI, state: "ABSTRACT_ONLY" })],
+      key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
+        { id: PMID, status: "lead_only", read_depth: "abstract_only" }, { id: OTHER_DOI, ...lead }],
+      answer_draft: draft(STUDY, `[A cohort](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) (abstract only) agreed.`,
+        `[Elsewhere](https://doi.org/${OTHER_DOI}) (${ANSWER_READING_LABELS.other_tool}) agreed too.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(PMID, "abstract_only"),
+        entry(OTHER_DOI, "other_tool")] } });
+    expect(passed.status).toBe("ready_with_limits");
+    expect(passed.source_reading).toEqual([
+      { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited", shown: true },
+      { source: PMID, name: PMID, reading: "abstract_only", shown: false, receipts: "found_in_search" },
+      { source: OTHER_DOI, name: `"Elsewhere" (${OTHER_DOI})`, reading: "other_tool", shown: false, receipts: "inaccessible" }
+    ]);
+    const lines = fold(render(passed), "What AskRigor checked").children.map(({ textContent }) => textContent);
+    expect(lines).toContain(`What AskRigor read: "Trial" (${DOI}), full text read, methods audited by AskRigor.`);
+    expect(lines).toContain(`As the AI gives them, which AskRigor's receipts don't show: ${PMID}, abstract only ` +
+      `(AskRigor's receipts show: found in a search, not read); "Elsewhere" (${OTHER_DOI}), read through another tool, ` +
+      "not checked by AskRigor.");
+    // A PubMed record without an abstract shows its record, not an abstract.
+    const bare = sign("pubmed_record", { pmid: PMID, doi: OTHER_DOI, abs: "0" });
+    const record = check({ receipts: [audit, bare],
+      key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" },
+        { id: PMID, status: "lead_only", read_depth: "abstract_only" }],
+      answer_draft: draft(STUDY, `[A cohort](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) (abstract only) agreed.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(PMID, "abstract_only")] } });
+    expect(record.source_reading![1]).toEqual({ source: PMID, name: PMID, reading: "abstract_only", shown: false,
+      receipts: "metadata_only" });
   });
 });
 

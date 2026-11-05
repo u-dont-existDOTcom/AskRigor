@@ -63,6 +63,7 @@ import {
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
   TOOL_LIST_REFRESH_HINT,
+  type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
@@ -203,6 +204,21 @@ describe("findings library save", () => {
     await expect(service(github).save(saveInput({ findings_card: unsafe, finalization_receipt: receipt }), CONTEXT))
       .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });
     expect(github.writes).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: a test run's check signs its mark, and the save refuses its card, whoever asks.
+  it("refuses a card whose check was marked findings_save off, before the limit or the queue", async () => {
+    const github = new FakeGitHub();
+    let consumed = 0;
+    const counting: LessonAttemptLimiter = {
+      consume: () => { consumed += 1; return { allowed: true }; },
+      lastBlockingReason: () => "hourly_limit",
+    };
+    const receipt = finalization({ findings: findingsCardDigest(findingsCardSchema.parse(CARD)), fs: "off" });
+    await expect(service(github, { limiter: counting }).save(saveInput({ findings_card: CARD, finalization_receipt: receipt }), CONTEXT))
+      .resolves.toEqual({ status: "call_saving_off", retryable: false });
+    expect(github.writes).toEqual([]);
+    expect(consumed).toBe(0);
   });
 
   // Owner answer 156a (2026-10-22): the library keeps only findings that would help other people.
@@ -1220,6 +1236,64 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(open.structuredContent).toMatchObject({ status: "not_ready" });
     expect(calls).toEqual([]);
     expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: one misspelt later input beside the marker once dropped every later input, the marker too,
+  // and a test run's card was saved. The marker is read from the raw call on its own.
+  it("keeps the marker beside a misspelt, misplaced or doubled later input", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    for (const later of [{ findings_save: "off", name_form: [] }, { findings_save: "off", absence_claims: [] },
+      { findings_save: "off", search_coverage: ["other_journals"] }]) {
+      const result = await finalize({ ...request(), search_coverage: ["historical_terms"], later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+      });
+      // A marked call whose answer hasn't passed keeps no copy either.
+      await finalize({ ...request(), receipts: [], later_inputs: later }, "auth0|free");
+    }
+    // At the top level, where an older app may put it, the marker is read too.
+    expect((await finalize({ ...request(), findings_save: "off", later_inputs: {} }, "auth0|free")).structuredContent)
+      .toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: the marker reached neither the paid flow nor save_research_findings.
+  it("offers no save from a marked call, for every account, and its receipt makes save_research_findings refuse it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    const save = connectorTool("save_research_findings", options);
+    const marked = (subject: string) => finalize({ ...request(), later_inputs: { findings_save: "off" } }, subject);
+    const paid = (await marked("auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(paid).toMatchObject({ status: "ready_with_limits", caveats: [SKIP], findings_card: { status: "checked" } });
+    expect(paid.findings_card).not.toHaveProperty("saved");
+    expect(paid).not.toHaveProperty("research_map");
+    const free = (await marked("auth0|free")).structuredContent as FinalizeResearchOutput;
+    expect(free).not.toHaveProperty("research_map");
+    for (const [result, subject] of [[paid, "auth0|paid"], [free, "auth0|free"]] as const) {
+      expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET }))
+        .toMatchObject({ ok: true, kind: "finalization", claims: { fs: "off" } });
+      const refused = await save({ findings_card: CHECKED_CARD, finalization_receipt: result.finalization_receipt,
+        user_consent: "yes_to_this_save" }, subject);
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toEqual({ status: "call_saving_off", retryable: false });
+      expect(refused.content).toEqual([{ type: "text", text: "Not saved: the finalize_research call that checked " +
+        "this card was marked findings_save \"off\", as a test run is, so its card is never saved." }]);
+    }
+    expect(calls).toEqual([]);
+    // An unmarked check's receipt signs no mark, and its card is saved after the user's yes.
+    const unmarked = (await finalize(request(), "auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(verifyResearchReceipt(unmarked.finalization_receipt!, { secret: SECRET }).claims).not.toHaveProperty("fs");
+    expect((await save({ findings_card: CHECKED_CARD, finalization_receipt: unmarked.finalization_receipt,
+      user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
   });
 
   it("can't turn saving on: another value is dropped with a note, and the account's switch decides", async () => {

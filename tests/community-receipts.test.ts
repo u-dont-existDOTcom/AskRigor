@@ -45,7 +45,7 @@ const input = (searches: Entry[], receipts: string[] = []) => ({
   safety_claims: [], safety_question: false, mechanism_claims: [], recommendations: [],
   community_searches: searches,
   answer_draft: `[Trial](https://doi.org/${DOI}) (${AUDITED}) tested the leaves' extract.\n\n${communitySkipCaveat(REASON)}`,
-  later_inputs: { source_reading: [{ source: DOI, quote: AUDITED }] }
+  later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED }] }
 });
 const check = (searches: Entry[], receipts: string[] = []) =>
   assertNextStepsContract(finalizeResearch(input(searches, receipts), { secret: SECRET }));
@@ -92,9 +92,35 @@ describe("a community declared searched or read needs this call's receipt for it
     expect(receiptNotes(check([forum], [read(FORUM_THREAD)]))).toEqual([]);
   });
 
+  // The review of 5 Nov 2026: a subreddit is read from its name exactly, in any case, with its address or a slash before
+  // it, and a search the host answered WEBSITE_FORMAT_CHANGED is a search of its subreddit.
+  it("reads a subreddit's name in any case, with its reddit.com address or a slash before it", () => {
+    for (const name of ["reddit.com/r/herbalism", "R/Herbalism", "/r/herbalism", "https://www.reddit.com/r/Herbalism/",
+      "old.reddit.com/r/herbalism"]) {
+      const placeholder = entry(name, "reddit", { access_boundary: "no_relevant_results" });
+      expect(receiptNotes(check([placeholder])), name).toEqual([unsearchedSubreddit(name, "herbalism")]);
+      expect(receiptNotes(check([placeholder], [redditSearch({ sr: "herbalism" })])), name).toEqual([]);
+      expect(advisoryNotes(check([placeholder])).join("\n"), name).not.toContain("by its subreddit, as r/<name>");
+    }
+    // A bare name is not a subreddit: "Reddit" alone names the site, so no search of a subreddit is asked for.
+    expect(receiptNotes(check([entry("Reddit", "reddit", { access_boundary: "no_relevant_results" })]))).toEqual([]);
+  });
+
+  it("takes a search the host answered WEBSITE_FORMAT_CHANGED as a search of its subreddit, and as nothing else", () => {
+    const placeholder = entry("r/herbalism", "reddit", { access_boundary: "no_relevant_results" });
+    const changed = redditSearch({ sr: "herbalism", h: "format_changed" });
+    expect(receiptNotes(check([placeholder], [changed]))).toEqual([]);
+    // It lists no thread, so threads declared read still need their own receipts.
+    const declared = entry("r/herbalism", "reddit", { threads_read: [{ url: THREAD }] });
+    expect(receiptNotes(check([declared], [changed]))).toEqual([]);
+    expect(advisoryNotes(check([declared], [changed])).join("\n")).not.toContain("AskRigor's searches found");
+  });
+
   it("asks nothing where the reader can't reach, nothing was read, or the site refused access", () => {
     const quiet = [
       entry("Shrub Lovers", "facebook", { threads_read: [{ url: "https://www.facebook.com/groups/shrublovers/posts/1" }] }),
+      // Platform other covers sites the reader can't open, read through the AI's own search (the review of 5 Nov 2026).
+      entry("Xiaohongshu", "other", { threads_read: [{ url: "https://www.xiaohongshu.com/explore/64b1c2d3e4f5a6b7c8d9e0f1" }] }),
       entry("Shrub Forum", "forum", { access_boundary: "no_relevant_results", url: "https://forum.example.org/" }),
       entry("r/shrubs", "reddit", { access_boundary: "login_required" }),
       entry("r/sleep", "reddit", { access_boundary: "blocked" }),
@@ -108,7 +134,8 @@ describe("a community declared searched or read needs this call's receipt for it
     const asSource = assertNextStepsContract(finalizeResearch({ ...input([]), key_sources: [
       ...input([]).key_sources, { id: THREAD, status: "lead_only", read_depth: "partial_text", answer_marker: "Thread" }],
       answer_draft: `${input([]).answer_draft}\n\n[Thread](${THREAD}) (part of the text read) describes the tea.`,
-      later_inputs: { source_reading: [{ source: DOI, quote: AUDITED }, { source: THREAD, quote: "part of the text read" }] }
+      later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED },
+        { source: THREAD, reading: "partial_text", quote: "part of the text read" }] }
     }, { secret: SECRET }));
     expect(result.status).toBe("ready");
     expect(asSource.status).toBe("not_ready");

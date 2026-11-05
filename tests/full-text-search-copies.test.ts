@@ -266,6 +266,24 @@ describe("Phase 1b search copies through the real HTTP MCP endpoint", () => {
     expect(output.candidates).toHaveLength(7);
     expect(output.source.provider).toBe("direct_candidate");
   });
+  // The review of 5 Nov 2026: a full reading of the AI's own copy, with no audit, read plainly as "full text read".
+  it("signs a full reading of the AI's copy as the AI's, and names it so for the answer", async () => {
+    let result = await call("acquire_open_full_text", { doi: DOI, candidate_texts: [supplied(chrome + embedded())] });
+    let output = result.structuredContent as any;
+    const handle = output.coverage_receipt.document_handle;
+    while (!output.coverage_receipt.exhausted) {
+      result = await call("continue_open_full_text", { document_handle: handle });
+      output = result.structuredContent as any;
+    }
+    expect(output.source.provider).toBe("client_supplied");
+    expect(verifyResearchReceipt(output.research_receipt, { secret: SECRET })).toMatchObject({ ok: true,
+      kind: "full_text_read", claims: { doi: DOI, retrieval_provider: "client_search_index", host: "www.academia.edu" } });
+    expect((result.content as Array<{ text: string }>).map(({ text }) => text).join("\n")).toContain("With this " +
+      "study's full text read to its end, say \"full text read from a copy the AI found\" beside it in the answer, in " +
+      "the answer's language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
+      "search_copy_read.");
+  });
+
   it.each(["study", "review"])("signs server-derived search provenance on a %s audit receipt and requires its finalization caveat", async (kind) => {
     let output = await copy(chrome + embedded());
     const source = output.source;

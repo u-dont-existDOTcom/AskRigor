@@ -76,7 +76,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withSourceReading(withCommunitySkip(packageFor(overrides)));
+    const input = withSourceReading(withCommunitySkip(packageFor(overrides)), { check: { secret: SECRET } });
     if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });

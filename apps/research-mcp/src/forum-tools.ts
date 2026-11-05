@@ -194,7 +194,8 @@ export function registerForumTools(
     }
     if (reader === undefined) return result("forum_search", { ...empty, access_state: "not_available" }, SEARCH_GUIDANCE, REDDIT_GUIDANCE);
     try {
-      const searched = withoutReaderHints(await reader.searchThreads(input));
+      const answer = await reader.searchThreads(input);
+      const searched = withoutReaderHints(answer);
       const data = searchData.parse(searched.fields);
       // Whether more pages exist: "1" when Reddit offered one. Without one it is unknown, short page or full, since the
       // host returns what Reddit's search page shows first (#412's run: 7 threads in 132 of 144 searches), so the
@@ -202,11 +203,19 @@ export function registerForumTools(
       const more = data.after ? "1" : undefined;
       // The subreddit a search was limited to (sr), so the final check can tie a subreddit declared searched to this
       // search when it found nothing there (the free Claude test of 5 Nov 2026: r/herbalism, declared, never searched).
+      // The review of 5 Nov 2026: a search the host answered WEBSITE_FORMAT_CHANGED, which has come back when Reddit
+      // found nothing for the words, is signed too, with no thread and its answer (h), so a subreddit honestly declared
+      // as having no relevant results isn't called unsearched; the final check counts it nowhere else.
+      const formatChanged = answer.host_code === "WEBSITE_FORMAT_CHANGED";
       return result("forum_search", data, SEARCH_GUIDANCE, searched.note,
         (data.access_state === "read" || data.access_state === "searched") ? receipt("forum_search", {
         q: discoveryQueryDigest([input.query]), u: data.threads.slice(0, 25).map(({ url }) => forumThreadDigest(url)),
         ...(input.subreddit === undefined ? {} : { sr: input.subreddit.toLowerCase() }),
         ...(more === undefined ? {} : { more })
+      }) : formatChanged ? receipt("forum_search", {
+        q: discoveryQueryDigest([input.query]), u: [],
+        ...(input.subreddit === undefined ? {} : { sr: input.subreddit.toLowerCase() }),
+        h: "format_changed"
       }) : undefined);
     } catch {
       return result("forum_search", { ...empty, access_state: "unavailable" }, SEARCH_GUIDANCE);

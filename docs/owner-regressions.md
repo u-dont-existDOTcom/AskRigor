@@ -37,9 +37,12 @@ How each case runs:
   research shares, and on 5 November that research switched saving on mid-run, so two test cases saved cards (ARF-0297
   and ARF-0300) that had to be set aside. So every case also marks each of its `finalize_research` calls with
   `later_inputs: { "findings_save": "off" }`: a call so marked saves no findings card and keeps no private copy,
-  whatever the account's switch says, and its result says `not_saved` with reason `call_saving_off`. The marker can only
-  turn saving off: `"off"` is its only value (in any case), and any other is dropped with a note, leaving the switch in
-  charge. A connection-level marker, such as a header, would not depend on the model, but the harness can't send one:
+  whatever the account's switch says, and its result says `not_saved` with reason `call_saving_off`. Since the review of
+  5 November 2026 it also makes no save offer and no research-map offer or reminder, for every account kind, files no
+  held analysis to the review inbox (and drops those its own audits name), and its finalization receipt signs the mark,
+  so `save_research_findings` refuses that card too. It is read from the raw call on its own, so a misspelt later input
+  beside it can't lose it. The marker can only turn saving off: `"off"` is its only value (in any case), and any other
+  is dropped with a note, leaving the switch in charge. A connection-level marker, such as a header, would not depend on the model, but the harness can't send one:
   it reaches AskRigor through the ChatGPT app inside Codex (`codex_apps`), whose connection OpenAI's platform makes, so
   the marker rides in the call. The harness therefore: puts it in the preamble ("Give every `finalize_research` call
   `later_inputs.findings_save` `"off"`; this test's cards are never saved."), keeps switching the account's saving off

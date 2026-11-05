@@ -12,7 +12,7 @@ import { withSourceReading } from "./helpers/source-reading.js";
 // The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
 // source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
 const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
 // use, its follow-up and stopping. Owner question 92 (lessons #25, #27, #28, #29): a share of selected reports, how

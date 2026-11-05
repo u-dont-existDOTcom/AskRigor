@@ -12,7 +12,7 @@ import { withSourceReading } from "./helpers/source-reading.js";
 // The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
 // source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
 const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner questions 86, 88 and 89 (issues #324, #325, #328, #330 and #331): harm and safety sentences, the terms a
 // conclusion depends on, and mechanism claims, declared by the model and checked exactly by the final check.

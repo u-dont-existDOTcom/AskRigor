@@ -10,7 +10,7 @@ import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { sourceReadingInputSchema } from "./source-reading.js";
-import { nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
+import { keyNameSchema, nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
 import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
@@ -81,9 +81,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("Before saying something was not found: each other spelling, older name or synonym of the key name " +
         "that was searched, with the exact query of the search_pubmed, search_europe_pmc or search_clinical_trials " +
         "call that searched it. AskRigor checks each query against this call's literature-search receipts and that the " +
-        "form is in it; what it finds are notes."),
+        "form's words are in it; what it finds are notes."),
+    key_name: keyNameSchema.optional()
+      .describe("With name_forms: the key name, as the answer writes it, copied from answer_draft. Only a form other " +
+        "than it counts as another name searched."),
     search_coverage: searchCoverageSchema.optional()
-      .describe("search_coverage's newer form, given here or at the top level, not both: what the searches covered " +
+      .describe("search_coverage's newer form, given here or at the top level (given in both, this one is used): " +
+        "what the searches covered " +
         "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
         "PMC don't index, which AskRigor can't see."),
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
@@ -183,19 +187,40 @@ interface RuntimeInputOptions {
   handler?: "merges" | "validates";
 }
 
-/** A problem with a call's later_inputs, by path. */
-export interface LaterInputProblem { path: PropertyKey[]; message: string }
+/**
+ * A problem with a call's later_inputs, by path: a key left out ("dropped"), or, for a tool that keeps the usable keys, a
+ * key given in both places whose later_inputs form was used ("replaced").
+ */
+export interface LaterInputProblem { path: PropertyKey[]; message: string; kind?: "dropped" | "replaced" }
+
+/**
+ * Whether a call is marked findings_save "off", read from the raw call on its own (the review of 5 Nov 2026: a misspelt
+ * key beside it once dropped every later input, the marker too, and a test run's card was saved): in later_inputs, or
+ * at the top level, where an older app may put it, in any case or separator, as an enum's spelling is read. The marker
+ * can only turn saving off, so reading it wherever it is given never saves more.
+ */
+export function findingsSaveOff(raw: unknown): boolean {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const off = (value: unknown): boolean =>
+    typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off";
+  return object(raw) && (off(raw.findings_save) || (object(raw.later_inputs) && off(raw.later_inputs.findings_save)));
+}
 
 /**
  * Merges a call's later_inputs into its top-level inputs. A key the later shape declares (a new input, or a newer form
- * of a published one) is merged, unless the call also gives it at the top level; any other key is a problem: a
- * published top-level input belongs at the top level, and an unknown key is named with the tool's later inputs.
+ * of a published one) is merged; any other key is a problem: a published top-level input belongs at the top level, and
+ * an unknown key is named with the tool's later inputs. By default any problem leaves every later input out, and the
+ * wrapper refuses the call. A tool that words its own result keeps the usable keys (keepUsable): it drops only the bad
+ * ones, and a key given at the top level too takes its later_inputs form, the newer one, each named in a problem (the
+ * review of 5 Nov 2026: one misspelt key lost a final check's source_reading and its test marker).
  */
 export function mergeLaterInputs(
   tool: string,
   raw: unknown,
   topLevel: ReadonlySet<string>,
   laterShape: z.ZodRawShape = laterInputShape(tool),
+  { keepUsable = false }: { keepUsable?: boolean } = {},
 ): { input: unknown; problems: LaterInputProblem[] } {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw) || !Object.hasOwn(raw, "later_inputs")) {
     return { input: raw, problems: [] };
@@ -203,19 +228,28 @@ export function mergeLaterInputs(
   const { later_inputs: later, ...own } = raw as Record<string, unknown>;
   const envelope = laterInputsField.safeParse(later);
   if (!envelope.success) {
-    return { input: own, problems: envelope.error.issues.map((issue) => ({ path: ["later_inputs", ...issue.path], message: issue.message })) };
+    return { input: own, problems: envelope.error.issues.map((issue) =>
+      ({ path: ["later_inputs", ...issue.path], message: issue.message, kind: "dropped" as const })) };
   }
   const additions = envelope.data ?? {};
   const names = Object.keys(laterShape);
+  const merged: Record<string, unknown> = { ...own };
   const problems = Object.keys(additions).flatMap((key): LaterInputProblem[] => {
     const path = ["later_inputs", key];
-    if (Object.hasOwn(laterShape, key) && key !== "later_inputs") return Object.hasOwn(own, key)
-      ? [{ path, message: `${key} is also given at the top level; each input may be given only once.` }] : [];
-    return topLevel.has(key)
-      ? [{ path, message: `${key} is a published top-level input of ${tool}; give "${key}" at the top level.` }]
-      : [{ path, message: `Unknown later input ${JSON.stringify(key)} for ${tool}. Its later inputs: ${names.join(", ") || "none"}.` }];
+    if (Object.hasOwn(laterShape, key) && key !== "later_inputs") {
+      merged[key] = additions[key];
+      if (!Object.hasOwn(own, key)) return [];
+      return [keepUsable
+        ? { path, kind: "replaced", message: `${key} is given both at the top level and in later_inputs: its ` +
+          "later_inputs form, the newer one, is used." }
+        : { path, kind: "dropped", message: `${key} is also given at the top level; each input may be given only once.` }];
+    }
+    return [topLevel.has(key)
+      ? { path, kind: "dropped", message: `${key} is a published top-level input of ${tool}; give "${key}" at the top level.` }
+      : { path, kind: "dropped", message: `Unknown later input ${JSON.stringify(key)} for ${tool}. Its later inputs: ` +
+        `${names.join(", ") || "none"}.` }];
   });
-  return { input: problems.length > 0 ? own : { ...own, ...additions }, problems };
+  return { input: keepUsable || problems.length === 0 ? merged : own, problems };
 }
 
 /**

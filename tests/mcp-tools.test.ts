@@ -35,7 +35,6 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
-import { SMALL_LITERATURE_SEARCH_NOTE } from "../apps/research-mcp/src/absence-searches.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -119,8 +118,14 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
-// What a PubMed or Europe PMC search with few records adds to its result (the free Claude test of 5 Nov 2026).
-const SPARSE_SEARCH_NOTE = SMALL_LITERATURE_SEARCH_NOTE;
+// What a literature search with few records adds to its result: the owner's words (owner report, 2026-09-30), and,
+// for PubMed and Europe PMC, the not-found searches after them (the free Claude test of 5 Nov 2026).
+const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
+  "the components of a mixed exposure, and citation chains.";
+const NOT_FOUND_SEARCHES_NOTE = " Before saying studies don't exist, also search the key name's other spellings and " +
+  "older names, and a source beyond PubMed and Europe PMC: your own web search finds journals they don't index, and " +
+  "search_clinical_trials covers trial registries (HRP UserNamedInterventionSweep, " +
+  "HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).";
 
 describe("AskRigor MCP tools", () => {
   it("registers the exact thirty-five-tool catalog with six declared writes", async () => {
@@ -2525,11 +2530,12 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      // Few records: the result says what to search before calling anything not found (owner report, 2026-09-30, and
-      // the free Claude test of 5 Nov 2026: the key name's other forms and a source beyond PubMed and Europe PMC).
+      // Few records: the result says what to try before calling anything not found, in the owner's words (owner report,
+      // 2026-09-30), then what to search (the free Claude test of 5 Nov 2026: the key name's other forms and a source
+      // beyond PubMed and Europe PMC).
       expect(result.content).toEqual([{
         type: "text",
-        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "pubmed",
@@ -2570,13 +2576,14 @@ describe("AskRigor MCP tools", () => {
       expect(verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" })).toMatchObject({
         ok: true,
         kind: "pubmed_record",
-        claims: { pmid: "40123456", doi: "10.1234/recorded.example" }
+        // The review of 5 Nov 2026: whether the record had an abstract, so the final check shows one read only then.
+        claims: { pmid: "40123456", doi: "10.1234/recorded.example", abs: "1" }
       });
       // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
       expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
         "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
         "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
-        "finalize_research's later_inputs.source_reading.");
+        "finalize_research's later_inputs.source_reading, with reading abstract_only.");
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);
@@ -2603,7 +2610,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "europe_pmc",

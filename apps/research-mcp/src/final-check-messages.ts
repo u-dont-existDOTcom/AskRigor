@@ -16,8 +16,9 @@ export const FINAL_CHECK_PANEL_SOURCE_LINES_LEAD = "The quotes behind key claims
 // Owner answers 193a, 195 and 217b. Sent at runtime; the published tool catalog remains fixed (189a).
 export const FINAL_CHECK_RUNTIME_DESCRIPTION = "Final check of a research answer before it is given. " +
   "Only six checks can return not_ready: source receipts and links match the named sources; declared read depth " +
-  "matches receipts, and the answer says beside each key source it cites how it was read, its words copied into " +
-  "later_inputs.source_reading; binary arithmetic and shown figures match their declared counts; safety statements have a " +
+  "matches receipts, and the answer says beside each key source it cites how it was read, that reading and its words " +
+  "given in later_inputs.source_reading; binary arithmetic and shown figures match their declared counts; safety " +
+  "statements have a " +
   "named-harm screen with at least one harm searched; retracted statements stay out; and a plain answer registered " +
   "before the research, passed in receipts, is compared claim by claim in plain_answer_comparison (unless the " +
   "account turned its note off). All other diagnostics are notes " +

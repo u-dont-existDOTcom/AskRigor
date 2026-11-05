@@ -34,6 +34,91 @@ async function connected<T>(server: McpServer, use: (client: Client) => Promise<
   } finally { await client.close(); await server.close(); }
 }
 
+// The review of 5 Nov 2026: one bad key in later_inputs (a misspelt name, or a published input placed there) dropped
+// every later input of a final check, so an honest answer's source_reading went and the answer was held back, and a test
+// run's marker went and its card was saved. finalize_research now keeps the usable keys and drops only the bad ones.
+describe("finalize_research keeps the usable later inputs beside a bad one", () => {
+  const SECRET = "later-inputs-kept-test-secret-0123456789abcdef";
+  const DOI = "10.1000/kept-trial";
+  const AUDITED = "full text read, methods audited by AskRigor";
+  const ABSENT = "No study of the leaves' toxicity in mammals turned up in these searches.";
+  const NA = { status: "not_applicable" as const, reason: "Synthetic fixture isolates the later inputs." };
+  const READING = { source: DOI, reading: "full_text_audited", quote: AUDITED };
+  const call = (later: Record<string, unknown>, overrides: Record<string, unknown> = {}) => withCommunitySkip({
+    receipts: [issueResearchReceipt("study_audit", { doi: DOI, content: "a".repeat(16) }, { secret: SECRET })],
+    research_target: "Toxicity of a synthetic shrub's leaves", research_depth: "deep", treatment_choice: "not_compared",
+    community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
+    not_relevant_reason: "Synthetic fixture isolates the later inputs.", commercial_review_applicability: NA,
+    intervention_identity: NA, full_text_search: { status: "not_needed", reason: NA.reason }, lab_preparation: NA,
+    key_sources: [{ id: DOI, status: "validated", read_depth: "full_text_audited", answer_marker: "Trial" }],
+    absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], key_terms: [],
+    safety_claims: [], safety_question: false, mechanism_claims: [], recommendations: [],
+    answer_draft: `[Trial](https://doi.org/${DOI}) (${AUDITED}) gave rats the leaves' extract.`,
+    later_inputs: later, ...overrides
+  });
+  const check = (later: Record<string, unknown>, overrides: Record<string, unknown> = {}) =>
+    finalizeResearch(call(later, overrides), { secret: SECRET });
+
+  it("drops only a misspelt key, naming it, and uses the rest", () => {
+    const result = check({ source_reading: [READING], name_form: [{ form: "Samplia", query: "Samplia toxicity" }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.notes).toContain("later_inputs.name_form: dropped. Unknown later input \"name_form\" for " +
+      `finalize_research. Its later inputs: ${laterInputNames("finalize_research").join(", ")}.`);
+  });
+
+  it("drops only a published input placed in later_inputs, naming where it belongs", () => {
+    const result = check({ source_reading: [READING], absence_claims: [{ quote: ABSENT, state: "support_not_located" }] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(result.notes).toContain("later_inputs.absence_claims: dropped. absence_claims is a published top-level input " +
+      "of finalize_research; give \"absence_claims\" at the top level.");
+  });
+
+  it("takes a key given in both places in its later_inputs form, the newer one, and says so", () => {
+    const parsed = parseFinalizeResearchInput(call({ source_reading: [READING], search_coverage: ["other_journals"] },
+      { search_coverage: ["historical_terms"] }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.data!.search_coverage).toEqual(["other_journals"]);
+    expect(parsed.data!.source_reading).toEqual([READING]);
+    expect(parsed.notes).toContain("later_inputs.search_coverage: search_coverage is given both at the top level and in " +
+      "later_inputs: its later_inputs form, the newer one, is used.");
+    const result = check({ source_reading: [READING], search_coverage: ["other_journals"] },
+      { search_coverage: ["historical_terms"] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+  });
+
+  it("merges every later input but the bad ones only for a tool that keeps them; others still refuse the call", () => {
+    const top = new Set(["answer_draft", "later_inputs"]);
+    const shape = { source_reading: z.unknown(), findings_save: z.unknown() };
+    const raw = { answer_draft: "A", later_inputs: { source_reading: [READING], findings_save: "off", typo: 1, answer_draft: "B" } };
+    expect(laterInputs.mergeLaterInputs("finalize_research", raw, top, shape, { keepUsable: true })).toEqual({
+      input: { answer_draft: "A", source_reading: [READING], findings_save: "off" },
+      problems: [
+        { path: ["later_inputs", "typo"], kind: "dropped", message: "Unknown later input \"typo\" for finalize_research. " +
+          "Its later inputs: source_reading, findings_save." },
+        { path: ["later_inputs", "answer_draft"], kind: "dropped", message: "answer_draft is a published top-level input " +
+          "of finalize_research; give \"answer_draft\" at the top level." }
+      ]
+    });
+    const refused = laterInputs.mergeLaterInputs("search_pubmed", raw, top, shape);
+    expect(refused.input).toEqual({ answer_draft: "A" });
+    expect(refused.problems).toHaveLength(2);
+  });
+
+  it("reads findings_save from the raw call on its own: off in any case or separator, in later_inputs or at the top", () => {
+    for (const raw of [{ later_inputs: { findings_save: "off" } }, { later_inputs: { findings_save: " OFF " } },
+      { later_inputs: { findings_save: "o-f_f", typo: [] } }, { findings_save: "Off" }]) {
+      expect(laterInputs.findingsSaveOff(raw), JSON.stringify(raw)).toBe(true);
+    }
+    for (const raw of [{ later_inputs: { findings_save: "on" } }, { later_inputs: { findings_save: true } },
+      { later_inputs: "findings_save off" }, { later_inputs: [{ findings_save: "off" }] }, null, "off", {}]) {
+      expect(laterInputs.findingsSaveOff(raw), JSON.stringify(raw)).toBe(false);
+    }
+  });
+});
+
 describe("later_inputs (owner answer 189a)", () => {
   afterEach(() => vi.restoreAllMocks());
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
@@ -43,8 +128,9 @@ describe("later_inputs (owner answer 189a)", () => {
         // Owner answer 237a: the source lines. Owner answer 249a: the study map. 5 Nov 2026: user_observations' newer form,
         // the leads people's reports raised, with the study search that followed each, and how each key source was read;
         // from the free Claude test of 5 Nov 2026, the name forms searched before a not-found claim, search_coverage's
-        // newer form with other_journals, and the marker that turns a test run's card saving off.
-        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "search_coverage", "findings_save"]
+        // newer form with other_journals, and the marker that turns a test run's card saving off; from its review, the
+        // key name as the answer writes it, which a name form must differ from.
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage", "findings_save"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           : operation.name === "validate_study_method_audit" ? ["audit"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
@@ -218,7 +304,8 @@ describe("later_inputs (owner answer 189a)", () => {
         "synthetic mechanism.",
       later_inputs: { safety_question: false, future_probe: "checked", key_sources: [{ id: "10.1000/later",
         status: "validated", read_depth: "full_text_audited", answer_marker: "Study", future_nested: "reached gate" }],
-        source_reading: [{ source: "10.1000/later", quote: "full text read, methods audited by AskRigor" }] },
+        source_reading: [{ source: "10.1000/later", reading: "full_text_audited",
+          quote: "full text read, methods audited by AskRigor" }] },
     }), { secret });
     let received: Record<string, unknown> | undefined;
     const evolving = withLaterInputs("finalize_research", older, async (input) => {

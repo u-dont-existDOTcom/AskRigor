@@ -106,7 +106,7 @@ describe("AskRigor plugin package", () => {
     expectFragmentsInOrder(gate, [
       "call `finalize_research`",
       "Beside each study it cites, the answer says how it was read (such as \"abstract only\" or \"full text read\")",
-      "`later_inputs.source_reading` gives those words.",
+      "`later_inputs.source_reading` gives that reading and those words.",
       "On `not_ready`, do its next steps",
     ]);
   });

@@ -262,6 +262,8 @@ export class FindingsSaveService {
       const receipt = verifyResearchReceipt(input.finalization_receipt, { secret, now: () => now });
       if (!receipt.ok) return notChecked(receipt.reason === "expired" ? "receipt_expired" : "receipt_invalid");
       if (receipt.kind !== "finalization") return notChecked("receipt_invalid");
+      // A test run's check, marked findings_save "off": nothing from it is saved, whoever asks.
+      if (receipt.claims.fs === "off") return result({ status: "call_saving_off", retryable: false });
       const signed = receipt.claims.findings;
       if (typeof signed !== "string" || signed === "") return notChecked("card_not_in_receipt");
       const cardSha256 = findingsCardDigest(input.findings_card);

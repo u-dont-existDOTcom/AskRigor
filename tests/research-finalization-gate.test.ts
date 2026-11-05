@@ -57,7 +57,7 @@ const REJECTED_RECEIPT_STEPS = {
 } as const;
 
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  assertNextStepsContract(finalizeResearchUnwrapped(withSourceReading(withAtlasLookupFixture(args[0], args[1])), args[1]));
+  assertNextStepsContract(finalizeResearchUnwrapped(withSourceReading(withAtlasLookupFixture(args[0], args[1]), { check: args[1] }), args[1]));
 
 // Detailed legacy assertions inspect diagnostics; the contract suite pins the refresh hint itself.
 const SECRET = "research-finalization-test-secret-0123456789";

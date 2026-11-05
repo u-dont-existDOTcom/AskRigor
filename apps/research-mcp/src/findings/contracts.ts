@@ -59,6 +59,9 @@ export const FINDINGS_SAVE_STATUSES = [
   // Owner answers 170 and 173: every finding rests on YouTube comments, so no card is saved; the findings are held for
   // the owner's review.
   "youtube_findings_only",
+  // The free Claude test of 5 Nov 2026: the finalize_research call that checked the card was marked findings_save
+  // "off", as a test run is, and its receipt signs that, so its card is never saved (the review of 5 Nov 2026).
+  "call_saving_off",
   "queue_unavailable"
 ] as const;
 

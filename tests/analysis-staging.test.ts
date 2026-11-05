@@ -538,10 +538,11 @@ describe("the server sends a free contributor's validated analyses when the fina
     // 5 Nov 2026: each result names how the study is now read, for the answer and source_reading, before the final check.
     const named = (result: CallToolResult) => (result.content as Array<{ text?: string }>).map(({ text }) => text).join("\n");
     expect(named(acquired)).toContain("With this study's full text read to its end, say \"full text read\" beside it " +
-      "in the answer, in the answer's language, and give those words in finalize_research's later_inputs.source_reading.");
+      "in the answer, in the answer's language, and give those words in finalize_research's later_inputs.source_reading, " +
+      "with reading full_text_read.");
     expect(named(validated)).toContain("With this study's methods audited, say \"full text read, methods audited by " +
       "AskRigor\" beside it in the answer, in the answer's language, and give those words in finalize_research's " +
-      "later_inputs.source_reading.");
+      "later_inputs.source_reading, with reading full_text_audited.");
 
     // The checked answer says how its study was read (the owner, 5 Nov 2026), in the shared helper's words.
     const finalize = (receipts: string[]) => call("finalize_research", withSourceReading(finalizeResearchInputSchema.parse({
@@ -585,6 +586,57 @@ describe("the server sends a free contributor's validated analyses when the fina
     const again = await finalize([receipt]);
     expect((again.structuredContent as { analyses_saved?: unknown }).analyses_saved).toBeUndefined();
     expect(store.inserted).toHaveLength(1);
+  });
+
+  // The review of 5 Nov 2026: test runs share the owner's account, so a test run's check, marked findings_save "off",
+  // leaves nothing in the review inbox: it sends no analysis, and drops those of the documents its own audit receipts
+  // name, while the account's other research keeps its analyses for its own check.
+  it("sends nothing at a check marked findings_save off, and drops only the analyses its own audits name", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    integrity.mockResolvedValue(NO_RECORD);
+    const { store, service } = await accessService();
+    const call = tools(service);
+    const validate = async (text: string) => {
+      const index = studyIndex(text);
+      acquire.mockResolvedValue({ access_status: "complete", data: { requested_doi: DOI, discovery_attempts: [], document_index: index } });
+      const acquired = await call("acquire_open_full_text", { doi: DOI }, "auth0|free");
+      const handle = (acquired.structuredContent as { coverage_receipt: { document_handle: string } }).coverage_receipt.document_handle;
+      const validated = await call("validate_study_method_audit", { document_handle: handle, audit: studyAudit(index) }, "auth0|free");
+      expect(validated.isError).not.toBe(true);
+      const body = validated.structuredContent as { research_receipt: string; coverage_receipt: { source_content_sha256: string } };
+      return { receipt: body.research_receipt, content: body.coverage_receipt.source_content_sha256 };
+    };
+    const testRun = await validate("A full text a test run read to the end.");
+    const ownRun = await validate("A full text the owner's own research read to the end.");
+    expect(testRun.content).not.toBe(ownRun.content);
+    const tested = testRun.receipt;
+    const own = ownRun.receipt;
+    const request = (receipts: string[], marked: boolean) => {
+      const input = withSourceReading(finalizeResearchInputSchema.parse({
+        lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
+        full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates staged analysis checks." },
+        receipts, community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
+        commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
+        not_relevant_reason: "How the body clears a drug, with no real-world outcome.", treatment_choice: "not_compared",
+        research_target: "How the body clears a drug in adults", research_depth: "deep",
+        intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
+        key_sources: [{ read_depth: "full_text_audited" as const, answer_marker: "Study", id: DOI, status: "validated" }],
+        answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})\n\n` +
+          communitySkipCaveat("How the body clears a drug, with no real-world outcome."),
+        absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
+      })) as Record<string, unknown>;
+      return marked ? { ...input, later_inputs: { ...(input.later_inputs as object), findings_save: "off" } } : input;
+    };
+    const marked = await call("finalize_research", request([tested], true), "auth0|free");
+    expect(marked.structuredContent).toMatchObject({ status: "ready_with_limits" });
+    expect((marked.structuredContent as { analyses_saved?: unknown }).analyses_saved).toBeUndefined();
+    expect(store.inserted).toHaveLength(0);
+    // The owner's own check later sends its own analysis alone: the test run's was dropped.
+    const later = await call("finalize_research", request([own], false), "auth0|free");
+    expect(later.structuredContent).toMatchObject({ analyses_saved: { saved: 1, already_saved: 0, unconfirmed: 0, not_saved: [] } });
+    expect(store.inserted).toHaveLength(1);
+    expect(JSON.stringify(store.inserted[0]!.payload)).toContain(ownRun.content);
+    expect(JSON.stringify(store.inserted[0]!.payload)).not.toContain(testRun.content);
   });
 
   it("holds nothing for a paid private account, and makes no integrity check for it", async () => {

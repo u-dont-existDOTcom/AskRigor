@@ -245,8 +245,33 @@ owner's; the release needs the owner's explicit yes, as always.
       and keeps no copy, whatever the account's switch; it can only turn saving off. The harness reaches AskRigor
       through the ChatGPT app in Codex (`codex_apps`), whose connection OpenAI makes, so it can't send a header; the
       runbook (`docs/owner-regressions.md`) says how the harness marks every call and checks for the marker. The
-      harness files are the coordinator's to change. Not covered: validated analyses still go to the review inbox at a
-      free contributor's passing check, as before.
+      harness files are the coordinator's to change.
+    - **The independent review of #414 at 8e5eafa8 (5 Nov 2026), nine fixes**, no new blocking rule, frozen tool lists
+      unchanged:
+      1. One bad later_inputs key no longer drops them all: `finalize_research` keeps the usable keys, drops each bad one
+         with a note naming it, takes a key given in both places in its later_inputs form with a note, and reads
+         `findings_save` from the raw call on its own (`mergeLaterInputs` with `keepUsable`, `findingsSaveOff`).
+      2. Each `source_reading` entry declares `reading`, from the fixed set; one claiming more than the check verifies
+         blocks under read_depth with a step naming the verified reading, by depth and, for a full text, by whose copy;
+         one claiming less is a note; another tool's reading stays the AI's own declaration and never claims more. The
+         quote's words stay the model's (docs/final-check.md says so).
+      3. The marker reaches every account and the save tool: no save offer or research-map offer or reminder, the
+         finalization receipt signs `fs` `off` so `save_research_findings` and the save refuse its card
+         (`call_saving_off`), and a marked free check files no held analysis and drops those its own audits name.
+      4. The panel lists only the readings AskRigor's receipts show under "What AskRigor read", and the others apart,
+         as the AI gives them, with what the receipts show ("found in a search, not read"; a PubMed record's receipt now
+         signs whether it had an abstract).
+      5. The small-search note has the owner's words of 30 Sep 2026 back, before the not-found asks; the tool test
+         checks them again.
+      6. Community notes: platform `other` is no longer checked; a search the reader's host answers
+         `WEBSITE_FORMAT_CHANGED` is signed with no thread and counts only as a search of its subreddit; subreddit
+         names are read in any case, with a slash or their reddit.com address before them.
+      7. `name_forms`: one-character forms; each word of a form among its query's words, a word in a script without
+         spaces inside the query; queries digested in Unicode's composed form; and `key_name`, the key name as the
+         answer writes it, so only a form other than it counts and the usual name alone leaves the ask.
+      8. Any `source_reading` entry for a source that passes will do.
+      9. A full reading of the AI's own copy signs its provenance and reads "full text read from a copy the AI found"
+         (`search_copy_read`), in the answer and in the Atlas.
 
 ## Measures waiting
 

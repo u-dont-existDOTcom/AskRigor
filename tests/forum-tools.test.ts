@@ -271,7 +271,14 @@ describe("forum tools", () => {
       expect(result.structuredContent).toMatchObject({ access_status: "inaccessible", limitations: note === undefined ? [] : [note],
         data: { access_state } });
       expect(result.structuredContent!.data).not.toHaveProperty("host_code");
-      expect(result.structuredContent).not.toHaveProperty("research_receipt");
+      // The review of 5 Nov 2026: a search the host answered WEBSITE_FORMAT_CHANGED, which has come back when Reddit
+      // found nothing for the words, is signed with no thread and that answer; every other failure signs nothing.
+      if (code === "WEBSITE_FORMAT_CHANGED" && name === "search_reddit_threads") {
+        expect(verifyResearchReceipt(String(result.structuredContent!.research_receipt), { secret: SECRET }))
+          .toMatchObject({ ok: true, kind: "forum_search", claims: { u: [], h: "format_changed" } });
+      } else {
+        expect(result.structuredContent).not.toHaveProperty("research_receipt");
+      }
       if (note !== undefined) expect((result.content[0] as { text: string }).text).toContain(note);
     }
   });

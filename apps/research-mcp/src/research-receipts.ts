@@ -95,8 +95,10 @@ export interface VerifyResearchReceiptOptions extends ResearchReceiptOptions {
  * themselves never enter the receipt.
  */
 export function discoveryQueryDigest(queries: readonly string[]): string {
+  // Unicode's composed form first (the review of 5 Nov 2026), so a query typed with decomposed accents digests as the
+  // same query typed composed, when a search's receipt signs it and when the final check compares a declared one.
   const normalized = [...new Set(queries.map((query) =>
-    query.trim().toLowerCase().replace(/\s+/gu, " ")
+    query.normalize("NFC").trim().toLowerCase().replace(/\s+/gu, " ")
   ))].sort();
   return createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 12);
 }

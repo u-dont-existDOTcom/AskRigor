@@ -87,8 +87,11 @@ describe("conversation state carried between final checks", () => {
     const repeated = check({ ...parsed.data!, proposed_tests: [{ quote: "Try it.", repeats: 0, blinded: true }] });
     expect(advisoryNotes(repeated)).toContain("proposed_tests[0].repeats names user_observations[0], a report whose writer never tried it: leave repeats out.");
     expect(advisoryNotes(repeated).join("\n")).not.toContain("repeats what the user already tried");
+    // Given in both places, the later_inputs form, the newer one, is used, and a note says so (the review of 5 Nov 2026).
     const both = parseFinalizeResearchInput({ ...base({ user_observations: [observation] }), later_inputs: { user_observations: [review] } });
-    expect(both.notes.join("\n")).toContain("user_observations is also given at the top level");
+    expect(both.notes).toContain("later_inputs.user_observations: user_observations is given both at the top level and " +
+      "in later_inputs: its later_inputs form, the newer one, is used.");
+    expect(both.data!.user_observations).toEqual([review]);
   });
   it("gives a note once per turn: a later check of the turn names how many it does not repeat (5 Nov 2026)", () => {
     const { user_observations: _left, ...withoutObservations } = base({ answer_draft: "Synthetic answer." });
@@ -118,11 +121,16 @@ describe("conversation state carried between final checks", () => {
     const second = call({ carried_state: first.carry_forward, round_token: first.round_token });
     expect(second.carried!.observations).toEqual([observation]);
     expect(second.carried!.turn_observations).toEqual([0]);
-    // A later_inputs problem drops every later input, user_observations' newer form among them: still nothing is lost.
+    // A misspelt later input is dropped alone, and user_observations' newer form beside it is used (the review of 5 Nov
+    // 2026: one bad key once dropped every later input).
+    const newer = { ...observation, response: "not_tried" as const };
     const parsed = parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
-      later_inputs: { user_observations: [{ ...observation, response: "not_tried" }], open_leadz: [] } });
+      later_inputs: { user_observations: [newer], open_leadz: [] } });
     expect(parsed.notes.join("\n")).toContain("open_leadz");
-    expect(call(parsed.data!).carried!.observations).toEqual([observation]);
+    expect(parsed.data!.user_observations).toEqual([newer]);
+    // With every later input dropped, the turn's own observations are still carried: nothing is lost.
+    expect(call(parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
+      later_inputs: [] }).data!).carried!.observations).toEqual([observation]);
     // The next turn: the entry is an earlier turn's, and a call leaving the list out still carries it.
     const next = call({ carried_state: second.carry_forward });
     expect(next.carried!.observations).toEqual([observation]);

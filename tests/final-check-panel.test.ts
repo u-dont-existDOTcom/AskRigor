@@ -20,7 +20,7 @@ import { withSourceReading } from "./helpers/source-reading.js";
 // The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
 // source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
 const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const MIME = "text/html;profile=mcp-app";
 const SECRET = "final-check-panel-test-secret-01234567890123456789";

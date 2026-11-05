@@ -72,7 +72,7 @@ function compared(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResea
   };
 }
 const run = (input: FinalizeResearchInput) =>
-  assertNextStepsContract(finalizeResearch(withSourceReading(input), { secret: SECRET }));
+  assertNextStepsContract(finalizeResearch(withSourceReading(input, { check: { secret: SECRET } }), { secret: SECRET }));
 const checked = (input: FinalizeResearchInput) => {
   const first = run(input);
   return run({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });

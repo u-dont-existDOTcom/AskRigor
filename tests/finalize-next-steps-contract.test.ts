@@ -36,7 +36,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   commercial_review_applicability: declaration, intervention_identity: declaration,
   key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: DOI, status: "validated" }], absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
   answer_draft: `[Study](https://doi.org/${DOI}) describes ion exchange.`, ...overrides
-} satisfies FinalizeResearchInput));
+} satisfies FinalizeResearchInput), { check: { secret: SECRET } });
 const sourceInput = (id: string, answer: string, receipts = [study(id)]) => base({
   receipts, key_sources: [{ read_depth: "partial_text" as const, answer_marker: answer.startsWith("[Cette étude]") ? "Cette étude" : answer.startsWith("Study page:") ? "Study page" : "Study", id, status: "validated" }], answer_draft: answer
 });
