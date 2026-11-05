@@ -34,8 +34,13 @@ askrigor.com {
 		file_server
 	}
 
-	handle /free-chatgpt {
-		rewrite * /free-chatgpt/index.html
+	handle /compare {
+		rewrite * /compare/index.html
+		file_server
+	}
+
+	handle /compare/free-chatgpt {
+		rewrite * /compare/free-chatgpt/index.html
 		file_server
 	}
 

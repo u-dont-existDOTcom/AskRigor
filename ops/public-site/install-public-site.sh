@@ -516,7 +516,8 @@ for required_member in \
   site/privacy/index.html \
   site/terms/index.html \
   site/support/index.html \
-  site/free-chatgpt/index.html \
+  site/compare/index.html \
+  site/compare/free-chatgpt/index.html \
   site/assets/site.css \
   site/assets/compare.css \
   ops/public-site/Caddyfile.site \
@@ -649,7 +650,8 @@ verify_public_routes() {
     https://askrigor.com/privacy \
     https://askrigor.com/terms \
     https://askrigor.com/support \
-    https://askrigor.com/free-chatgpt
+    https://askrigor.com/compare \
+    https://askrigor.com/compare/free-chatgpt
   do
     probe_http_200 "$route" || die "public route did not return 200: $route"
   done

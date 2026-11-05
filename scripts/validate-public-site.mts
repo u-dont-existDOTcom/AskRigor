@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
 
 export interface SiteValidationResult {
-  pages: 5;
+  pages: 6;
   internalLinks: number;
   errors: string[];
 }
@@ -80,9 +80,20 @@ const pageRequirements = [
     ]
   },
   {
-    path: "free-chatgpt/index.html",
+    path: "compare/index.html",
+    title: "Compare: the same AI, with and without AskRigor | AskRigor",
+    canonical: "https://askrigor.com/compare",
+    fragments: [
+      "doesn't diagnose, treat or prescribe",
+      "isn't a substitute for professional advice",
+      'href="/compare/free-chatgpt"',
+      '<link rel="stylesheet" href="/assets/compare.css">'
+    ]
+  },
+  {
+    path: "compare/free-chatgpt/index.html",
     title: "Free ChatGPT, with the research done | AskRigor",
-    canonical: "https://askrigor.com/free-chatgpt",
+    canonical: "https://askrigor.com/compare/free-chatgpt",
     fragments: [
       "doesn't diagnose, treat or prescribe",
       "isn't a substitute for professional advice",
@@ -97,7 +108,11 @@ const expectedFiles = new Set([
   ...pageRequirements.map(({ path }) => path),
   "assets/askrigor-mark.svg",
   "assets/site.css",
-  "assets/compare.css"
+  "assets/compare.css",
+  // Openly licensed photos for the free ChatGPT page, credited on it (Wikimedia Commons, CC BY-SA 4.0 and CC BY 4.0).
+  "assets/piliostigma/shrub-senegal.jpg",
+  "assets/piliostigma/dried-leaves-nigeria.jpg",
+  "assets/piliostigma/sign-senegal.jpg"
 ]);
 
 const commonFragments = [
@@ -110,6 +125,8 @@ const commonFragments = [
   'rel="icon" href="/assets/askrigor-mark.svg" type="image/svg+xml"',
   'class="brand-mark" src="/assets/askrigor-mark.svg"',
   'aria-label="Primary navigation"',
+  // The menu item for the benefit comparisons (the owner, 5 Nov 2026).
+  '<li><a href="/compare">Compare</a></li>',
   'aria-label="Footer navigation"'
 ] as const;
 
@@ -240,10 +257,10 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   try {
     rootStatus = await lstat(rootPath);
   } catch {
-    return { pages: 5, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
+    return { pages: 6, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
   }
   if (!rootStatus.isDirectory() || rootStatus.isSymbolicLink()) {
-    return { pages: 5, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
+    return { pages: 6, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
   }
 
   const { files, errors: fileErrors } = await collectFiles(rootPath);
@@ -281,7 +298,7 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     // The required-file error above is the stable diagnostic for a missing stylesheet.
   }
 
-  return { pages: 5, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
+  return { pages: 6, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -290,6 +307,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const error of result.errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log("Validated AskRigor public site: 5 pages");
+    console.log("Validated AskRigor public site: 6 pages");
   }
 }
