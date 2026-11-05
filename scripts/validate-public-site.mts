@@ -113,7 +113,7 @@ const pageRequirements = [
   },
   {
     path: "compare/free-chatgpt/index.html",
-    title: "Free ChatGPT, with the research done | AskRigor",
+    title: "ChatGPT Instant, with the research done | AskRigor",
     canonical: "https://askrigor.com/compare/free-chatgpt",
     fragments: [
       "doesn't diagnose, treat or prescribe",
