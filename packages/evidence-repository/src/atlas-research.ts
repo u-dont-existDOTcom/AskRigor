@@ -27,6 +27,20 @@ export const ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS = 300;
 export const ATLAS_PUBLISHED_BACKING_PER_FINDING = 3;
 export const ATLAS_PUBLISHED_THREADS_PER_FINDING = 20;
 
+/**
+ * The forms a forum thread is published in (the review of 5 November 2026, finding 1): its link only as a Reddit post by
+ * its id (https://www.reddit.com/comments/<id>/), or on another forum's host as phpBB's viewtopic.php?t=<id>,
+ * vBulletin's showthread.php?t=<id>, XenForo's /threads/<id>/ or Discourse's /t/<id>, with nothing else in the path or
+ * query, so a link never carries a user, a title, a slug or a query value; its community as r/<subreddit>, never a
+ * person's profile (u_), or a site's registrable host. Any other page is counted, never linked: a list of safe link
+ * forms per site is the owner's to approve later.
+ */
+const THREAD_HOST = "(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})";
+export const ATLAS_THREAD_HOST = new RegExp(`^${THREAD_HOST}$`, "u");
+export const ATLAS_THREAD_LINK = new RegExp("^https://(?:www\\.reddit\\.com/comments/[a-z0-9]{1,12}/|" +
+  `${THREAD_HOST}/(?:viewtopic\\.php\\?t=[0-9]{1,12}|showthread\\.php\\?t=[0-9]{1,12}|threads/[0-9]{1,12}/|t/[0-9]{1,12}))$`, "u");
+export const ATLAS_THREAD_COMMUNITY = new RegExp(`^(?:r/(?!u_)[a-z0-9][a-z0-9_]{1,20}|${THREAD_HOST})$`, "u");
+
 type TextCheck = (max: number) => z.ZodType<string>;
 const YOUTUBE_HOST = /^\s*https?:\/\/(?:[^/?#@]*\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)(?:[:/?#]|$)/iu;
 const peopleCount = z.number().int().nonnegative().max(100_000);
@@ -56,12 +70,17 @@ export function atlasResearchSchemas(text: TextCheck) {
     figures: z.enum(ATLAS_SOURCE_FIGURES).optional(),
   }).strict();
   const forumSignal = z.object({
-    /** The communities the threads read belong to: r/<name> on Reddit, or a forum's site name. */
-    communities: z.array(text(120)).min(1).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
+    /**
+     * The communities the threads read belong to, as the read's verified parts give them (ATLAS_THREAD_COMMUNITY):
+     * r/<subreddit> on Reddit, a forum's registrable host elsewhere; none when every thread is a post on a person's
+     * profile.
+     */
+    communities: z.array(text(120).refine((community) => ATLAS_THREAD_COMMUNITY.test(community),
+      { message: "a community as the Atlas names one" })).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
     /** How many threads AskRigor's reader read for it, each by a verified receipt. */
     threads_read: z.number().int().min(1).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
-    /** The threads' links as published (a Reddit post by its id); a link the pages can't show is left out. */
-    threads: z.array(z.string().url().max(2_048)).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
+    /** The threads' links in a published form (ATLAS_THREAD_LINK); a thread without one is counted only. */
+    threads: z.array(z.string().max(2_048).regex(ATLAS_THREAD_LINK)).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
     people: z.object({ better: peopleCount, no_change: peopleCount, worse: peopleCount, mixed: peopleCount }).strict(),
     report_quality: z.object({ detailed: peopleCount, measured: peopleCount, bare: peopleCount }).strict(),
     mechanism: text(300).optional(),
@@ -78,6 +97,9 @@ export function atlasResearchSchemas(text: TextCheck) {
     }
     if (signal.threads.length > signal.threads_read) {
       context.addIssue({ code: "custom", path: ["threads"], message: "no more links than threads read" });
+    }
+    if (signal.communities.length > signal.threads_read) {
+      context.addIssue({ code: "custom", path: ["communities"], message: "no more communities than threads read" });
     }
     // A YouTube page is never a forum thread (owner answers 170, 208b and 227).
     if (signal.threads.some((thread) => YOUTUBE_HOST.test(thread))) {

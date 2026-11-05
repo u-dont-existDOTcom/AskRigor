@@ -580,7 +580,11 @@ export function holdsYouTubeReference(value: string): boolean {
  * findings are held with its question and topic.
  */
 export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set(),
-  options: { threadLinks?: boolean } = {}): {
+  options: {
+    threadLinks?: boolean;
+    /** The subreddits the final check's receipt signed for the card's Reddit threads (threadCommunitiesFromReceipt). */
+    threadCommunities?: ReadonlyMap<number, ReadonlyMap<number, string>>;
+  } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   let omitted = false;
@@ -591,16 +595,19 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
   };
   const kept = card.findings.flatMap((finding, index) =>
     heldByCardFields(finding) || drawnFromComments.has(index) ? [] : [index]);
-  const findings = kept.map((index) => card.findings[index]!).map(({
+  const findings = kept.map((index): StoredFinding => {
     // The backing lines are stored as the receipt signed their lookups, which the save adds (owner answer 252a).
-    sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding
-  }): StoredFinding => {
+    const { sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding } =
+      card.findings[index]!;
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
     // Owner answer 252a: stored with its communities and how many threads were read, and, owner answer 253a, the
     // threads' links when the saving account's notice covers them; a thread link to YouTube is never a forum thread (the
-    // final check refuses one), and a signal left with no forum is not kept.
-    const stored = signal === undefined ? undefined : storedForumSignalOf(signal, text, options.threadLinks === true);
+    // final check refuses one), and a signal left with no thread is not kept. Each thread is rebuilt from its verified
+    // parts, a Reddit post's community from its signed subreddit (the review of 5 November, findings 1 and 2).
+    const subreddits = options.threadCommunities?.get(index);
+    const stored = signal === undefined ? undefined
+      : storedForumSignalOf(signal, text, options.threadLinks === true, (place) => subreddits?.get(place));
     return {
       ...finding,
       claim: text(finding.claim),

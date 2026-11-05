@@ -220,7 +220,12 @@ export function parseFindingsRecordBody(
         }),
       })),
     };
-    if (findingsCardDigest(checked as FindingsCard) !== stored.card_sha256) return "tampered";
+    // A card saved after #398 and before its record named the declarations it leaves out stored each kept finding
+    // without its draws_on_youtube_comments, which was false on every kept finding once comments were read: the review
+    // of 5 November (finding 8) reads that form too.
+    const declared = { ...checked, findings: checked.findings.map((finding) => ({ ...finding, draws_on_youtube_comments: false })) };
+    if (findingsCardDigest(checked as FindingsCard) !== stored.card_sha256 &&
+      findingsCardDigest(declared as FindingsCard) !== stored.card_sha256) return "tampered";
   }
   return { record: stored, metadata };
 }

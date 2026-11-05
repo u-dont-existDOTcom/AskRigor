@@ -12,6 +12,7 @@ import {
   deterministicUuid,
   prepareAtlasFindingIntent,
   sha256,
+  type AtlasResearch,
 } from "@askrigor/evidence-repository";
 
 import { AtlasReview, ATLAS_FAILURE_EXPLANATIONS } from "../apps/research-mcp/src/findings/atlas-review.js";
@@ -324,7 +325,7 @@ describe("the findings actions' calls", () => {
       findings: [{ ...DOI_CARD.findings[0]!, claim: "People with Velmor syndrome on invented forums report less tremor " +
         "after a warm bath.", answer_quote: "People on invented forums report less tremor after a warm bath.", sources: [],
       tags: [], kind: "overlooked_option", subject: "warm bath", subject_type: "practice", direction: "benefit", numbers: [],
-      forum_signal: forum }] }, ["forum_read"]);
+      forum_signal: forum }] }, ["forum_read"], [], { ft: ["1.1:inventedvelmor"] });
     const check = await h.call({ action: "inspect_finding", card: "ARF-0043", finding: 1 });
     expect(check.structured, check.text).toMatchObject({ checks: { community: "forum_only", wouldBecome: "checked" } });
     const accepted = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
@@ -333,9 +334,48 @@ describe("the findings actions' calls", () => {
       atlas: { atlasNumber: "F-1002", entryKind: "finding", labelAfter: "checked" } });
     const [forumIntent] = await h.review.inspectIntents(["F-1002"]);
     expect(forumIntent!.payload).toMatchObject({ entryKind: "finding", sources: [],
-      content: { verifiedBases: ["forum_read"], research: { forum_signal: { communities: ["r/InventedVelmor"],
+      content: { verifiedBases: ["forum_read"], research: { forum_signal: { communities: ["r/inventedvelmor"],
         threads_read: 1, threads: [], people: forum.people, studies: "support_not_located" } } } });
     expect((await h.promote()).result.status).toBe("promoted");
+  });
+
+  // The review of 5 November, finding 4: the research a version keeps holds only the sources the owner accepts, so a
+  // source dropped at acceptance (a retracted one, say) or at a revision never shows with the finding.
+  it("keeps only the accepted sources' research, at acceptance and at a revision", async () => {
+    await stubProviders();
+    const h = harness();
+    const kept = "10.0000/synthetic-velmor-c";
+    const other = "10.0000/synthetic-velmor-a";
+    const dropped = "10.0000/synthetic-retracted";
+    const line = (source: string, sentence: string) => ({ source, sentence, against: "The invented trial was small." });
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, sources: [kept, other, dropped],
+      numbers: [{ ...LOW_DOSE, source: dropped }],
+      backing: [line(kept, "Tremor scores halved in 20 of 100 people on the invented low dose."),
+        line(other, "Tremor scores fell in a second invented trial of the low dose."),
+        line(dropped, "Tremor scores fell by half in the retracted invented trial.")] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:-", "1.2:abstract_only:-", "1.3:full_text_audited:-"],
+      bl: ["1.1:fu:full_text", "1.2:fu:abstract", "1.3:fu:full_text"] });
+    const edited = await h.call({ action: "edit_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await inspected(h, "ARF-0042", 1), topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome",
+      numbers: [LOW_DOSE], sources: [kept, other] });
+    expect(edited.structured.outcome, edited.text).toBe("finding_queued");
+    const [accepted] = await h.review.inspectIntents(["F-1001"]);
+    const research = (accepted!.payload as { content: { research: AtlasResearch } }).content.research;
+    expect(research.backing!.map(({ source }) => source)).toEqual([kept, other]);
+    expect(research.source_reading).toEqual([{ source: kept, read: "full_text_audited" }, { source: other, read: "abstract_only" }]);
+    // The figure came from the dropped study, so it names no source.
+    expect(research).not.toHaveProperty("figure_sources");
+    expect(JSON.stringify(accepted!.payload)).not.toContain("retracted invented trial");
+    expect((await h.promote()).result.status).toBe("promoted");
+    // A revision that keeps one source leaves the other's research out of the new version.
+    const revised = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1, sources: [kept],
+      note: "Kept the trial AskRigor read in full." });
+    expect(revised.structured.outcome, revised.text).toBe("finding_queued");
+    const revision = (await h.review.inspectIntents(["F-1001"])).find(({ intentKind }) => intentKind === "revise");
+    expect((revision!.payload as { content: { research: AtlasResearch } }).content.research).toEqual({
+      backing: [{ ...line(kept, "Tremor scores halved in 20 of 100 people on the invented low dose."), text: "full_text" }],
+      source_reading: [{ source: kept, read: "full_text_audited" }],
+    });
   });
 
   it("refuses a call without cardSha256, a topicLabel without its key, and any field its action does not take", async () => {

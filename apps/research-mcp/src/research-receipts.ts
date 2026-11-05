@@ -189,6 +189,20 @@ export function researchMapAccountBinding(secret: string, accountKey: string): s
     .update(accountKey, "utf8").digest("hex").slice(0, 16);
 }
 
+/**
+ * A text as a receipt may sign it: whole characters only, at most `max` UTF-16 code units, with any unpaired surrogate
+ * written as U+FFFD, so encodeURIComponent never meets half a character (the review of 5 November 2026, finding 6: a
+ * section heading cut through a character outside the Basic Multilingual Plane, such as 𝛽, stopped the final check).
+ */
+export function receiptText(value: string, max: number): string {
+  let cut = "";
+  for (const character of value.toWellFormed()) {
+    if (cut.length + character.length > max) break;
+    cut += character;
+  }
+  return cut;
+}
+
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Atlas lookups carry bounded normalized words and public finding/source fingerprints, in any script.
 export const RESEARCH_RECEIPT_MAX_CHARACTERS = 32_768;

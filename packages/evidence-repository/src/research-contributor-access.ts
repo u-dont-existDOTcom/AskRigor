@@ -445,21 +445,7 @@ export class ResearchContributorAccessService {
     findingsSave: boolean;
     noticeVersion: ResearchUseNoticeVersion | null;
   }> {
-    const account = await this.store.getAccount(
-      this.accountKeyForSubject(subject),
-    );
-    if (account === null) {
-      throw new ResearchAccessError(
-        "RESEARCH_ACCESS_REQUIRED",
-        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
-      );
-    }
-    if (account.status !== "ACTIVE" || account.mode === null) {
-      throw new ResearchAccessError(
-        "RESEARCH_ACCESS_REVOKED",
-        "Research access is revoked. Choose an allowed mode again before using AskRigor research tools.",
-      );
-    }
+    const account = await this.enrolledAccount(subject);
     if (outdatedFreeNotice(account)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -482,6 +468,26 @@ export class ResearchContributorAccessService {
       findingsSave: account.findingsSave ?? true,
       noticeVersion: account.noticeVersion,
     };
+  }
+
+  /** An account that chose a mode and is not revoked, whatever notice it accepted and whatever its entitlement. */
+  private async enrolledAccount(subject: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
+    const account = await this.store.getAccount(
+      this.accountKeyForSubject(subject),
+    );
+    if (account === null) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    if (account.status !== "ACTIVE" || account.mode === null) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REVOKED",
+        "Research access is revoked. Choose an allowed mode again before using AskRigor research tools.",
+      );
+    }
+    return { ...account, mode: account.mode };
   }
 
   /**
@@ -514,9 +520,15 @@ export class ResearchContributorAccessService {
     return enabled;
   }
 
-  /** Turns findings-card saving off or on for an active account; the connector checks the dev-account restriction. */
+  /**
+   * Turns findings-card saving off or on; the connector checks the dev-account restriction. Turning it on needs an active
+   * account on the current notice, since a saved card may be published. Turning it off publishes nothing, so it works
+   * for an enrolled account whatever notice it accepted (the review of 5 November 2026, finding 5): a dev account still
+   * on an earlier notice switches its saving off before it accepts the new one, so a regression run never publishes.
+   */
   async setFindingsSave(subject: string, enabled: boolean): Promise<boolean> {
-    await this.requireActive(subject);
+    if (enabled) await this.requireActive(subject);
+    else await this.enrolledAccount(subject);
     if (!await this.store.setFindingsSave(this.accountKeyForSubject(subject), enabled)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",

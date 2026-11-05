@@ -74,11 +74,14 @@ import {
   researchBehindProblems,
   signedBackingClaims,
   signedReadingClaims,
+  signedThreadCommunities,
   type BackingLookup,
   type ResearchBehindContext,
   type SourceFigures,
   type SourceReading
 } from "./findings/research-behind.js";
+// How two links to one thread compare, and the digest a forum_thread_read receipt signs: kept apart, so the save reads them too.
+import { comparableUrl, forumThreadDigest, isSignedSubreddit, NON_THREAD_PARAMETER } from "./forum-thread-links.js";
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
@@ -1886,6 +1889,18 @@ export function finalizeResearch(
   // Reports the user pasted are not a search of the community, so nothing there is left to read.
   const forumReadUrls = new Set(verified.filter(({ kind }) => kind === "forum_thread_read")
     .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
+  // What each thread's reads signed (the review of 5 November, findings 1 and 7), by the thread's digest: whether Reddit's
+  // reader read it, the subreddit it returned (u_ for a person's profile), and the comments read, over every part read.
+  const forumReads = new Map<string, { reddit: boolean; subreddit: string | undefined; comments: number }>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
+    const reddit = text(claims.v) === "reddit";
+    const subreddit = reddit && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
+    const comments = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
+    const known = forumReads.get(claims.u);
+    forumReads.set(claims.u, known === undefined ? { reddit, subreddit, comments }
+      : { reddit: known.reddit && reddit, subreddit: known.subreddit ?? subreddit, comments: known.comments + comments });
+  }
   const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
   // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
@@ -3416,7 +3431,12 @@ export function finalizeResearch(
           keySource: (source) => input.key_sources.some(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source)),
           threadRead: (url) => forumReadUrls.has(forumThreadDigest(url)),
           comparableThread: comparableUrl,
-          literatureSearched: verified.some(({ kind }) => kind === "literature_search")
+          threadCapacity: (url) => {
+            const read = forumReads.get(forumThreadDigest(url));
+            return read?.reddit === true ? read.comments + 1 : undefined;
+          },
+          literatureSearched: (query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
+            text(claims.q) === discoveryQueryDigest([query]))
         }
       });
       if (findingsCard.status === "checked") {
@@ -3931,6 +3951,13 @@ export function finalizeResearch(
     ? signedReadingClaims(input.findings_card, sourceReadingOf) : [];
   const backingClaims = findingsCard.status === "checked" && options.backingLookups !== undefined
     ? signedBackingClaims(options.backingLookups) : undefined;
+  // The review of 5 November, finding 1: each Reddit thread's subreddit, as its reader's receipt signed it, which the save
+  // alone takes a Reddit thread's community and link from.
+  const threadCommunities = findingsCard.status === "checked" && input.findings_card !== undefined
+    ? signedThreadCommunities(input.findings_card, (url) => {
+      const read = forumReads.get(forumThreadDigest(url));
+      return read?.reddit === true ? read.subreddit : undefined;
+    }) : [];
   if (passed) {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
@@ -3960,7 +3987,8 @@ export function finalizeResearch(
             // Owner answer 252a: how each source was read, and what the backing lines' lookups found and where.
             ...(cardReadings.length === 0 ? {} : { rd: cardReadings }),
             ...(backingClaims === undefined || backingClaims.bl.length === 0 ? {} : { bl: backingClaims.bl }),
-            ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs })
+            ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs }),
+            ...(threadCommunities.length === 0 ? {} : { ft: threadCommunities })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -4961,36 +4989,12 @@ function listOf(items: readonly string[], conjunction: "and" | "or"): string {
   return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} ${conjunction} ${items.at(-1)}`;
 }
 
+export { comparableUrl, forumThreadDigest };
+
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 // A thread, not a subreddit's front page, wiki, search or share link:
 // /r/<name>/comments/<post id>, a comment permalink within it included.
 const REDDIT_THREAD_PATH = /^\/r\/([A-Za-z0-9_]{2,21})\/comments\/([a-z0-9]+)(?:\/|$)/iu;
-// A Reddit post by its id alone, as reddit.com/comments/<id> or redd.it/<id> link it.
-const REDDIT_POST_PATH = /^\/(?:r\/[A-Za-z0-9_]{2,21}\/)?comments\/([a-z0-9]+)(?:\/|$)/iu;
-const REDD_IT_POST_PATH = /^\/([a-z0-9]+)\/?$/iu;
-// Query parameters that track a click or share, or pick a page, a sort order
-// or a session of a discussion (phpBB's start, sid and sort keys; vBulletin's
-// page and s), rather than name the discussion itself.
-const NON_THREAD_PARAMETER = new RegExp("^(?:utm_\\w+|fbclid|gclid|dclid|msclkid|igshid|mc_cid|mc_eid|ref|ref_src|" +
-  "share_id|si|_ga|start|page|pg|offset|sid|s|phpsessid|sessionid|jsessionid|sort|order|sk|sd|st|highlight|hilit)$", "iu");
-// With a thread id (phpBB's and vBulletin's t, a topic or Discuz tid), a post
-// id or the forum id only locates a post in the thread or repeats where it is.
-const THREAD_ID_PARAMETER = /^(?:t|topic|topicid|threadid|tid)$/iu;
-const WITHIN_THREAD_PARAMETER = /^(?:p|pid|post|postid|f|fid|forum|forumid)$/iu;
-// A page or post within a thread, at the end of its path: XenForo's /page-2
-// and /post-123, vBulletin's /page2, a blog's /page/2.
-const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
-// A post number after a Discourse topic: /t/<slug>/<topic id>/<post number>.
-const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
-
-/**
- * A URL as two links to one thread compare: no scheme, subdomain prefix,
- * fragment, session, trailing slash or trailing punctuation, and no parameter
- * or path suffix that only tracks a click or picks a page, post or sort order.
- * A Reddit post is its id, which Reddit never reuses, whatever its subreddit,
- * title slug or comment permalink. Other query parameters stay: they may be
- * what names a forum's thread.
- */
 /**
  * A link without the sentence's punctuation after it or a closing parenthesis it does not open, so a link written
  * inside parentheses keeps only its own; a DOI's balanced parentheses stay (the 30 Oct rerun's o354-work-left,
@@ -5004,33 +5008,6 @@ function trimLinkEnd(link: string): string {
     if (end.endsWith(")") && (end.match(/\)/gu) ?? []).length > (end.match(/\(/gu) ?? []).length) end = end.slice(0, -1);
   }
   return end;
-}
-
-export function forumThreadDigest(url: string): string {
-  return createHash("sha256").update(comparableUrl(url)).digest("hex").slice(0, 16);
-}
-
-export function comparableUrl(url: string): string {
-  const trimmed = url.trim().replace(/[.,;:!?"'*`\]]+$/u, "");
-  try {
-    const link = new globalThis.URL(trimmed);
-    const host = link.hostname.toLowerCase().replace(/^(?:www|old|new|m|np|amp)\./u, "");
-    const post = host === "redd.it"
-      ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
-      : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
-    if (post !== undefined) return `reddit.com/comments/${post.toLowerCase()}`;
-    const threadId = [...link.searchParams.keys()].some((key) => THREAD_ID_PARAMETER.test(key));
-    const query = [...link.searchParams]
-      .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => `${key}=${value}`)
-      .join("&");
-    const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
-      .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
-    return `${host}${path}${query === "" ? "" : `?${query}`}`;
-  } catch {
-    return trimmed.toLowerCase().replace(/^https?:\/\//u, "").replace(/#.*$/u, "").replace(/\/+$/u, "");
-  }
 }
 
 // What the answer does with a community lane; must_report ends with it.

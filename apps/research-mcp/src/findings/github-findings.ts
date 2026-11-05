@@ -632,7 +632,8 @@ function researchBehindLines(finding: FindingsRecord["card"]["findings"][number]
         `${escapeMarkdown(signal.studies)}${signal.studies_measured === undefined ? ""
           : `, measured instead: ${escapeMarkdown(signal.studies_measured)}`}` +
         `${signal.mechanism === undefined ? "" : `; a way it could work: ${escapeMarkdown(signal.mechanism)}`}`,
-      `- Forum threads read: ${signal.threads_read}, in ${signal.communities.map(escapeMarkdown).join(", ")}` +
+      `- Forum threads read: ${signal.threads_read}` +
+        `${signal.communities.length === 0 ? "" : `, in ${signal.communities.map(escapeMarkdown).join(", ")}`}` +
         `${signal.threads === undefined ? "" : `: ${signal.threads.map(escapeMarkdown).join(", ")}`}`,
     ]),
   ];

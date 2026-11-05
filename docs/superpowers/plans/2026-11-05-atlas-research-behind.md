@@ -128,7 +128,7 @@ one that the hold check flags is left out rather than holding the finding. `agai
 `studies_measured` are the AI's words and go through the hold check as every other published text. Should links be
 published, a Reddit post goes as `https://www.reddit.com/comments/<id>/`, so a link never names a user or carries a
 title slug, and another forum's link as read, without a fragment, session or tracking parameter, and never a person's
-page.
+page. (Replaced by the review's first finding, below: communities and links are rebuilt from the verified read.)
 
 ### 5. The pages (`atlas/page-data.ts`, `atlas/pages.ts`)
 
@@ -170,7 +170,7 @@ audit domain prose; prohibited key names.
    in main (main's last is `0024`; this stack's are `0025` to `0027`).
 3. **The forum signal is its own field.** A forum thread isn't a source identifier (cards cite DOIs, PMIDs, PMCIDs and
    NCT ids), so the threads live in `forum_signal`, checked against `forum_thread_read` receipts, and communities are
-   worked out from the links rather than declared.
+   worked out from the verified reads rather than declared (the review's first finding, below).
 4. **No thread titles.** A thread's title is a forum user's words, so it never shows.
 5. **No thread links yet.** The design shows the threads as links. The free contributor notice people accepted
    (version 4) says a findings card holds "what public online communities reported, summarized without their posts,
@@ -219,6 +219,66 @@ branch:
 Both migrations are numbered after this stack's 0025 to 0027 and must be renumbered when the stack next takes in main
 (main's last is 0024).
 
+## The independent review of 5 November, after #416 merged
+
+#416 merged into main (`f9106e51`, not deployed). An independent review found eight problems; the owner's coordinator
+decided each, and branch `claude/atlas-review-fixes-20261105` fixes them before anything deploys.
+
+1. **Usernames and titles on public pages; links from the AI's string.** A thread is published only from the verified
+   parts of its read, never passed through from the AI's link (`forum-thread-links.ts`, which now also holds
+   `comparableUrl` and `forumThreadDigest`). The `PERSON_PATH` word list is gone. A Reddit `forum_thread_read` receipt
+   also signs the subreddit the reader returned (`c`, lower case; `u_` alone for a post on a person's profile, so no
+   receipt names a user); the final check signs it again for each of the card's Reddit threads (`ft`, `"<finding>.<thread>:<subreddit>"`),
+   and the save takes a Reddit thread's community (`r/<subreddit>`) and link (`https://www.reddit.com/comments/<id>/`,
+   the post id from the thread's comparable link, which the receipt's digest verified) from those alone. A profile post
+   counts, with no community and no link; so does a Reddit read whose receipt signed no subreddit (one from before).
+   Another forum's community is its registrable host: the last two labels, or three under a country's second level
+   (`example.co.uk`), a structural approximation of the public suffix list that never keeps a person's or a blog's
+   subdomain (`janedoe.substack.com` is `substack.com`). Its link is kept only in a structural, id-only form at the root of
+   its host, with nothing else in the path or query: phpBB `viewtopic.php?t=<id>`, vBulletin `showthread.php?t=<id>`,
+   XenForo `/threads/<id>/` (the id taken from `/threads/<slug>.<id>/`) or Discourse `/t/<id>` (from `/t/<slug>/<id>`; a
+   numeric slug is ambiguous and gets none). Any other page publishes no link and is counted only, which includes Earth
+   Clinic's pages and a forum installed under a folder (`/forum/viewtopic.php`), for now. **A list of safe link forms per
+   site is the owner's to approve later**; until then nothing else is linked. Thread titles, slugs and query values are
+   never published. The shared schemas (`ATLAS_THREAD_LINK`, `ATLAS_THREAD_COMMUNITY`) refuse anything else in a stored
+   card, a publication and an accepted version; a signal whose threads are all profile posts publishes no community.
+2. **Tests** cover a wrong subreddit in the AI's link, `highlight=`, `;jsessionid=` and page parameters, the `u_` profile,
+   XenForo, Discourse and Quora slugs, and a blog subdomain.
+3. **Accepted forum-only findings got no page.** Decided drafts (`planCardPublication` with decisions, and
+   `decidedPublicationDraft`, which the review's reconciliation uses for a paid private card or a card without a
+   publication) now go through the same card-context path as every other publication, so they are version 3 when the
+   stored finding carries the research behind it, and a forum-only finding gets its page.
+4. **Sources the owner drops still showed.** Acceptance copies the research only for the accepted sources (`kept`, from
+   `request.sources`), and a revision that keeps some sources drops the others' research (`researchKeeping`). An accepted
+   finding's page shows only its canonical sources, from its version or its publication alike, each with its newest
+   check's retraction status.
+5. **Notice v5 locked out the owner's login and the harness.** `set_findings_save` with `findingsSave: false` works for
+   any enrolled account whatever notice it accepted, since switching saving off publishes nothing; `true` still needs the
+   current notice. The runbook says the owner accepts v5 right after the deploy, before any research or regression run,
+   and that a dev account switches saving off before accepting it.
+6. **A section cut split a character.** A section or label signed into a receipt is cut at whole characters
+   (`receiptText`: at most the limit in UTF-16 units, never half of a character outside the Basic Multilingual Plane, an
+   unpaired surrogate written as U+FFFD): the backing lines' sections, the source lines' sections and a study audit's
+   impossible printed values. The lookups' second pass of `finalize_research` is guarded: a receipt that can't be issued
+   with what the lookups found is made again without the backing lines' lookups, and otherwise the first pass stands.
+7. **Forum-only findings on unchecked counts.** On Reddit, a finding's people may not exceed the sum over its threads of
+   each thread's comments read (`n`, over every receipt for the thread, since a continuation signs its own part) plus one,
+   its poster. **A forum page has no person bound**: its reader counts characters, not comments, so a signal with a page
+   among its threads is not bounded. `support_not_located` now needs `forum_signal.search_query`, the query of a
+   literature search passed here, compared with its receipt's query digest as `option_classes` does; the query is checked,
+   never stored.
+8. **For the release.** The storage policy says what the code keeps: at most three lines a finding, each one source's
+   sentence and its conclusion. The runbook names the image-rollback hazard: an earlier image can't parse a version 3
+   publication; its pages leave such a row out, but its publication store refuses it, withdrawn or not (a withdrawn row
+   keeps its fields), and its review reads a card stored with the research behind it as unreadable, so a rollback after
+   either exists needs a tolerant hotfix of the earlier image, with the rows withdrawn first if they must not show
+   meanwhile. The review's digest read accepts both digest forms for a card saved
+   since #398 whose findings' declarations were left out without a `stored_without` entry: as stored, and with
+   `draws_on_youtube_comments: false` on every finding.
+
+**Known limit, left as it is.** The source line's lookup matches a quote as a substring of the fetched text, live since
+#411; whether a match should also respect sentence or word boundaries is a separate design, not part of these fixes.
+
 ## Merging the stack into main
 
 Checked 5 November against today's `origin/main` (`bf3581aa`, #412): this branch already holds it, so a merge of main
@@ -239,3 +299,9 @@ escaped, the plain relationship words, nothing for v2 rows, an accepted finding'
 `findings-save.test.ts` (the tool looks backing up and signs it), `atlas-review-tool.test.ts` (acceptance takes each
 figure alone), `findings-unsaved-card.test.ts` (no thread link in a kept copy), `held-youtube-findings.test.ts` and
 `finalize-input-validation.test.ts` (updated), and the frozen tool lists unchanged.
+
+The review's fixes: `atlas-research-behind.test.ts` (threads and communities from the verified read, the signed
+subreddits and the person bound at the final check, the search query, an accepted forum-only finding's version 3 page, a
+dropped retracted source, 𝛽 at the section limit, both digest forms), `atlas-review-tool.test.ts` (research only for the
+accepted sources, at acceptance and at a revision), `research-use-notice-mcp.test.ts` (a dev account on v4 switches
+saving off, and on only after accepting v5) and `atlas-publication.test.ts` (a decided draft in its card's context).

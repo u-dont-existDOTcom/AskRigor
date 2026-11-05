@@ -11,7 +11,7 @@ import {
   ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from "jose";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
@@ -33,6 +33,7 @@ const clients: Client[] = [];
 const servers: HttpServer[] = [];
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(clients.splice(0).map((client) => client.close().catch(() => undefined)));
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
@@ -161,6 +162,39 @@ describe("free contributor notice v5 on both connector surfaces", () => {
       ]);
       const permitted = await client.callTool(research);
       expect(permitted.isError).not.toBe(true);
+    },
+  );
+
+  // The review of 5 November (finding 5): switching card saving off publishes nothing, so a dev account still on an
+  // earlier notice (the owner's login, the regression harness) switches it off before it accepts v5; switching it on
+  // waits for v5, since a saved card may be published.
+  it.each(SURFACES)("on %s, a dev account still on v4 switches card saving off, and back on only after accepting v5",
+    async (surface) => {
+      const { store, service, connect } = await start();
+      const subject = `dev-on-${surface}`;
+      await seedEarlierAccount(store, service, subject, V4);
+      vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject(subject));
+      const client = await connect(surface, subject);
+      const setSaving = async (findingsSave: boolean) =>
+        await client.callTool({ name: "manage_research_access", arguments: { action: "set_findings_save", findingsSave } });
+
+      const off = await setSaving(false);
+      expect(off.isError).not.toBe(true);
+      expect(off.structuredContent).toEqual({ ok: true, findingsSave: false });
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4, findingsSave: false })]);
+
+      const on = await setSaving(true);
+      expect(on.isError).toBe(true);
+      expect(on.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
+      expect(JSON.stringify(on.content)).toContain("AskRigor's free contributor notice has changed.");
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4, findingsSave: false })]);
+
+      const accepted = await client.callTool({ name: "manage_research_access",
+        arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+      expect(accepted.isError).not.toBe(true);
+      // Accepting the notice leaves the setting as it was, so nothing is saved, or published, until it is switched on.
+      expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V5, findingsSave: false })]);
+      expect((await setSaving(true)).structuredContent).toEqual({ ok: true, findingsSave: true });
     },
   );
 });

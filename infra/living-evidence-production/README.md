@@ -296,6 +296,13 @@ without new columns or grants, and is safe to run again; renumber it when the
 Atlas stack next takes in main. Run the one-shot admin `migrate` before an image
 offering v5 serves. Earlier accounts, v4's included, accept v5 before free
 research, and a card saved for an account still on v4 stores no thread link.
+Right after the deploy, before any research or regression run, the owner's
+login accepts v5 (`manage_research_access` `inspect`, then
+`accept_free_contributor` with the v5 agreement), since free research refuses
+an account still on v4. A dev account the regression harness uses first
+switches card saving off (`set_findings_save` with `findingsSave: false`, which
+works whatever notice the account accepted, since it publishes nothing), then
+accepts v5; switching saving back on needs v5.
 For an image rollback below v5, follow the v4 order above with
 `research-use-notice-v5-hold.sql` and `research-use-notice-v5-restore.sql`
 (`research_use_notice_v5_hold`; held accounts may accept v4 on the earlier
@@ -312,6 +319,22 @@ finding), and redefines `atlas_redaction_permits()` and `erase_atlas_wording()`
 so that an erasure removes that column whole. No role, grant or table is added,
 and no row is changed; an earlier image ignores the column. Renumber it when the
 Atlas stack next takes in main.
+
+Image rollback hazard (the review of 5 November 2026): an image from before this
+release cannot parse a version 3 publication (`askrigor.atlas-publication.v3`,
+the research behind a finding and what people report). Its pages leave out an
+unreviewed publication they can't read (an accepted one shows its F number's
+version), but its publication store refuses such a row, and a withdrawn row
+keeps its published fields: withdrawing them first (the owner's
+`unpublish_finding`, by P number) keeps them off the earlier image's pages,
+while its owner tools that list publications still fail on them. Its review
+likewise reads a findings card stored with the research behind it (quotes,
+readings, figures' sources, a forum signal, or `forum_read` among its bases) as
+unreadable. So once the release has published or stored any, a rollback to an
+earlier image needs a hotfix of that image that reads them tolerantly, with the
+publications withdrawn first if they must not show meanwhile. Check first with
+read-only counts of the publications whose `published_json` names that schema
+and of the cards saved since the release; with none, the rollback needs no step.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner

@@ -2,6 +2,8 @@ import type { AuditableDocumentIndex } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
+// A section is cut at whole characters, since the final check signs it into a receipt (the review of 5 November).
+import { receiptText } from "./research-receipts.js";
 
 /**
  * The source line (owner answer 237a, 4 November 2026; report "What people want from AI answers"): beside a key claim
@@ -91,7 +93,7 @@ export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDoc
       : "full_text",
     blocks: index.blocks.map(({ text, section_path: path }) => ({
       text,
-      ...(path.length === 0 ? {} : { section: path[path.length - 1]!.slice(0, SOURCE_LINE_LIMITS.section) })
+      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) })
     }))
   };
 }

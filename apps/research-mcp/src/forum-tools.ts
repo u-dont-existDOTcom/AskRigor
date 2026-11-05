@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./actions/gemini-scout-route.js";
 import { redditReaderFromEnv, SEARCH_PAGE_SIZE } from "./reddit-reader-client.js";
-import { forumThreadDigest } from "./research-finalization-gate.js";
+import { forumThreadDigest, signedSubreddit } from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
 import type { RegisterToolsOptions } from "./register-tools.js";
@@ -134,9 +134,13 @@ export function registerForumTools(
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       const data = readData.parse({ ...base, ...read.fields });
+      // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
+      // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
+      const subreddit = reddit ? signedSubreddit(data.community) : undefined;
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
         u: forumThreadDigest(data.url), n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
-        v: reddit ? "reddit" : "page"
+        v: reddit ? "reddit" : "page",
+        ...(subreddit === undefined ? {} : { c: subreddit })
       }) : undefined;
       return result("forum_thread", data, READ_GUIDANCE + (data.more || data.next_page ? UNFINISHED_GUIDANCE : ""), read.note, signed);
     } catch {

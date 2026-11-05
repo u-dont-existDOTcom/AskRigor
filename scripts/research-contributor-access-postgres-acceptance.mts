@@ -2079,7 +2079,7 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
         backing: [{ source: sourced, sentence: "Tremor fell in 20 of 100 people on the invented dose at 12 weeks.",
           sentence_section: "Results", text: "full_text", against: "The invented trial was small." }],
         source_reading: [{ source: sourced, read: "full_text_audited", figures: "consistent" }],
-        forum_signal: { communities: ["r/InventedVelmor"], threads_read: 1, threads: ["https://www.reddit.com/comments/abc123/"],
+        forum_signal: { communities: ["r/inventedvelmor"], threads_read: 1, threads: ["https://www.reddit.com/comments/abc123/"],
           people: { better: 3, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 1 },
           mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
       };
@@ -2533,7 +2533,7 @@ export async function verifyAtlasPublications(context: {
     const forumOnly: AtlasPublishedFinding = {
       ...published("Version 3: people on invented forums report fewer relapses."), ...question,
       schema: ATLAS_PUBLICATION_SCHEMA_V3, sources: [], numbers: [], verified_bases: [],
-      forum_signal: { communities: ["r/InventedVelmor"], threads_read: 2, threads: [],
+      forum_signal: { communities: ["r/inventedvelmor"], threads_read: 2, threads: [],
         people: { better: 5, no_change: 1, worse: 0, mixed: 1 }, report_quality: { detailed: 3, measured: 1, bare: 2 },
         mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
     };

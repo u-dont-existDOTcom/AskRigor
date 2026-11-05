@@ -23,9 +23,11 @@ import { atlasPageProblems, escapeHtml, renderAtlasFinding } from "../apps/resea
 
 import {
   canonicalResearchOf,
+  decidedPublicationDraft,
   planCardPublication,
   publicationHoldReasons,
   researchBehindOf,
+  researchKeeping,
 } from "../apps/research-mcp/src/atlas/publication.js";
 import {
   findingsCardDigest,
@@ -38,14 +40,16 @@ import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-fi
 import {
   findingBackingFromReceipt,
   findingReadingFromReceipt,
-  forumCommunityOf,
-  publishedThreadLink,
   researchBehindProblems,
   signedBackingClaims,
   signedReadingClaims,
+  signedThreadCommunities,
   sourceIdKey,
+  storedForumSignalOf,
+  threadCommunitiesFromReceipt,
   type ResearchBehindContext,
 } from "../apps/research-mcp/src/findings/research-behind.js";
+import { publishedThreadOf, registrableHost, signedSubreddit } from "../apps/research-mcp/src/forum-thread-links.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import { FindingsSaveService, type FindingsRecord, type FindingsSaveAccount } from "../apps/research-mcp/src/findings/service.js";
 import {
@@ -57,7 +61,12 @@ import {
   parseFinalizeResearchInput,
   type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import {
+  discoveryQueryDigest,
+  issueResearchReceipt,
+  receiptText,
+  verifyResearchReceipt,
+} from "../apps/research-mcp/src/research-receipts.js";
 import { lookUpSourceLines, sourceLineDocument, type SourceLineDocument } from "../apps/research-mcp/src/source-lines.js";
 import { FakeGitHub, storedRecordOf } from "./helpers/fake-github-findings.js";
 
@@ -73,6 +82,8 @@ const HANDLE = `aft1_${"a".repeat(32)}`;
 const STUDY = "10.1000/depth";
 const THREAD = "https://www.reddit.com/r/KneePain/comments/abc123/my_knee_after_six_weeks_of_squats/";
 const FORUM_THREAD = "https://forum.example.org/t/knee-squats/4512?utm_source=share#post-7";
+// The literature search that found no study of what people report (the review of 5 November, finding 7).
+const SEARCH = "slow squats knee pain";
 const PAPER: SourceLineDocument = {
   kind: "full_text",
   blocks: [
@@ -91,6 +102,7 @@ const signal = (overrides: Record<string, unknown> = {}) => ({
   report_quality: { detailed: 4, measured: 1, bare: 5 },
   mechanism: "Slow loading may strengthen the muscles around the knee, which takes load off the joint.",
   studies: "support_not_located",
+  search_query: SEARCH,
   ...overrides,
 });
 
@@ -139,15 +151,18 @@ function card(overrides: { quote?: Record<string, unknown>; forum?: Record<strin
 
 const receipt = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Record<string, unknown>) =>
   issueResearchReceipt(kind, claims as never, { secret: SECRET });
-const threadRead = (url: string) => receipt("forum_thread_read", { u: forumThreadDigest(url), n: 40, v: "reddit" });
+// A Reddit read signs the subreddit the reader returned; a forum page's read signs its text's length, and no subreddit.
+const threadRead = (url: string, claims: Record<string, unknown> = { n: 40, v: "reddit", c: "kneepain" }) =>
+  receipt("forum_thread_read", { u: forumThreadDigest(url), ...claims });
+const PAGE_READ = { n: 4_000, v: "page" };
 
 function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput {
   return {
     receipts: [
       receipt("study_audit", { doi: STUDY, content: "a".repeat(16), handle: HANDLE, fig: "consistent" }),
-      receipt("literature_search", { src: "pubmed", q: "0123456789abcdef", n: 0 }),
+      receipt("literature_search", { src: "pubmed", q: discoveryQueryDigest([SEARCH]), n: 0 }),
       threadRead(THREAD),
-      threadRead(FORUM_THREAD),
+      threadRead(FORUM_THREAD, PAGE_READ),
     ],
     research_target: "Synthetic research behind a finding", research_depth: "deep", treatment_choice: "not_compared",
     community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
@@ -204,7 +219,8 @@ describe("the exact checks (owner answer 252a)", () => {
     keySource: (source) => sourceIdKey(source) === STUDY,
     threadRead: (url) => [THREAD, FORUM_THREAD].some((read) => read.replace(/[?#].*$/u, "") === url.replace(/[?#].*$/u, "")),
     comparableThread: (url) => url.replace(/[?#].*$/u, ""),
-    literatureSearched: true,
+    threadCapacity: (url) => url.startsWith("https://www.reddit.com/") ? 41 : undefined,
+    literatureSearched: (query) => query === SEARCH,
   };
   const problems = (given: ReturnType<typeof card>, overrides: Partial<ResearchBehindContext> = {}) =>
     researchBehindProblems(laterFindingsCardSchema.parse(given), { ...context, ...overrides });
@@ -259,8 +275,32 @@ describe("the exact checks (owner answer 252a)", () => {
     expect(problems(card({ forum: { forum_signal: signal({ studies: "corroborated" }) } }))[0])
       .toMatch(/studies is corroborated, but the finding cites no study/u);
     expect(problems(card({ forum: { forum_signal: signal({ studies: "contradicted" }), sources: [STUDY] } }))).toEqual([]);
-    expect(problems(card(), { literatureSearched: false }))
-      .toEqual([expect.stringMatching(/support_not_located, but no literature search was passed here/u)]);
+  });
+
+  // The review of 5 November, finding 7: "none found" names its search, as option_classes does, and is compared with a
+  // literature-search receipt of this call by the query's digest.
+  it("takes support_not_located only with the query of a literature search passed here", () => {
+    expect(problems(card({ forum: { forum_signal: signal({ search_query: undefined }) } })))
+      .toEqual([expect.stringMatching(/studies is support_not_located without search_query/u)]);
+    expect(problems(card({ forum: { forum_signal: signal({ search_query: "squats for knees" }) } })))
+      .toEqual([expect.stringMatching(/search_query is not the query of any literature search passed here/u)]);
+    expect(problems(card(), { literatureSearched: () => false })).toHaveLength(1);
+  });
+
+  // The review of 5 November, finding 7: on Reddit no more people than the threads hold, each its comments read and its
+  // poster; a forum page's reader counts no comments, so a signal with a page has no bound.
+  it("counts no more people than the Reddit threads read here hold, and bounds no forum page", () => {
+    const reddit = { forum_signal: signal({ threads: [THREAD] }) };
+    expect(problems(card({ forum: reddit }), { threadCapacity: () => 11 })).toEqual([]);
+    expect(problems(card({ forum: reddit }), { threadCapacity: () => 10 }))
+      .toEqual([expect.stringMatching(/people counts 11 people, more than the 10 the Reddit threads read here can hold/u)]);
+    // Summed over the threads, each thread once.
+    const two = "https://www.reddit.com/r/KneePain/comments/def456/";
+    const both = { forum_signal: signal({ threads: [THREAD, two] }) };
+    expect(problems(card({ forum: both }), { threadRead: () => true, threadCapacity: () => 6 })).toEqual([]);
+    expect(problems(card({ forum: both }), { threadRead: () => true, threadCapacity: () => 5 })).toHaveLength(1);
+    // A forum page among the threads: no person bound.
+    expect(problems(card(), { threadCapacity: (url) => url === THREAD ? 1 : undefined })).toEqual([]);
   });
 
   it("lets a finding rest on its forum signal alone, but not on nothing", () => {
@@ -318,6 +358,38 @@ describe("the final check signs the research behind each finding", () => {
     const library = finalizeResearch(input, { ...OPTIONS,
       backingLookups: [{ finding: 0, line: 0, lookup: { ...FOUND, text: "library_copy" } }] });
     expect(library.notes).toContainEqual(expect.stringMatching(/found only in the owner's library copy, which the Atlas never quotes/u));
+  });
+
+  // The review of 5 November, findings 1 and 7: a Reddit read signs the subreddit its reader returned, which the final
+  // check signs again for each of the card's Reddit threads; a forum page signs none; and the people counted must fit.
+  it("signs each Reddit thread's subreddit as its reader's receipt signed it, and bounds the people by the comments read", () => {
+    const given = laterFindingsCardSchema.parse(card());
+    const checked = finalizeResearch(fixture({ findings_card: given }), OPTIONS);
+    expect(checked.findings_card?.status).toBe("checked");
+    expect(signedClaims(checked.finalization_receipt).ft).toEqual(["2.1:kneepain"]);
+    // A post on a person's profile signs u_ alone, never the user's name; a read from before signs nothing.
+    const profile = finalizeResearch(fixture({ findings_card: given, receipts: [...fixture().receipts.slice(0, 2),
+      threadRead(THREAD, { n: 40, v: "reddit", c: "u_" }), threadRead(FORUM_THREAD, PAGE_READ)] }), OPTIONS);
+    expect(signedClaims(profile.finalization_receipt).ft).toEqual(["2.1:u_"]);
+    const older = finalizeResearch(fixture({ findings_card: given, receipts: [...fixture().receipts.slice(0, 2),
+      threadRead(THREAD, { n: 40, v: "reddit" }), threadRead(FORUM_THREAD, PAGE_READ)] }), OPTIONS);
+    expect(signedClaims(older.finalization_receipt)).not.toHaveProperty("ft");
+    // Two Reddit threads of 4 and 5 comments read hold at most 11 people; the card's 11 fit, 12 don't. Each thread's
+    // parts, read with more, add up.
+    const two = "https://www.reddit.com/r/KneePain/comments/def456/";
+    const reddit = laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads: [THREAD, two] }) } }));
+    const fits = finalizeResearch(fixture({ findings_card: reddit, receipts: [...fixture().receipts.slice(0, 2),
+      threadRead(THREAD, { n: 3, v: "reddit", c: "kneepain" }), threadRead(THREAD, { n: 1, v: "reddit", c: "kneepain" }),
+      threadRead(two, { n: 5, v: "reddit", c: "kneepain" })] }), OPTIONS);
+    expect(fits.findings_card?.status).toBe("checked");
+    expect(signedClaims(fits.finalization_receipt).ft).toEqual(["2.1:kneepain", "2.2:kneepain"]);
+    const crowded = finalizeResearch(fixture({ findings_card: reddit, receipts: [...fixture().receipts.slice(0, 2),
+      threadRead(THREAD, { n: 3, v: "reddit", c: "kneepain" }), threadRead(two, { n: 5, v: "reddit", c: "kneepain" })] }),
+    OPTIONS);
+    expect(crowded.status).toMatch(/^ready/u);
+    expect(crowded.findings_card?.status).toBe("rejected");
+    expect(crowded.findings_card?.problems.join(" "))
+      .toMatch(/people counts 11 people, more than the 10 the Reddit threads read here can hold/u);
   });
 
   it("refuses the card, not the answer, for a thread not read here", () => {
@@ -394,26 +466,77 @@ describe("the receipt's claims and what the save keeps of them", () => {
   });
 });
 
-describe("thread links and communities", () => {
-  it("publishes a Reddit post by its id, never a user's name or the title's words", () => {
-    expect(publishedThreadLink(THREAD)).toBe("https://www.reddit.com/comments/abc123/");
-    expect(publishedThreadLink("https://old.reddit.com/user/some_person/comments/xyz789/a_title/")).toBe("https://www.reddit.com/comments/xyz789/");
-    expect(publishedThreadLink("https://redd.it/abc123")).toBe("https://www.reddit.com/comments/abc123/");
-    expect(publishedThreadLink("https://www.reddit.com/user/some_person/")).toBeUndefined();
+// The review of 5 November, findings 1 and 2: a thread is published from the verified parts of its read, never from the
+// AI's link: a Reddit post's community from the subreddit its reader's receipt signed, and its link by its id alone;
+// another forum's registrable host, and a link only in one of four structural, id-only forms.
+describe("thread links and communities, from the verified read", () => {
+  const stored = (threads: string[], subreddit?: string) => storedForumSignalOf(laterFindingsCardSchema.parse(card({
+    forum: { forum_signal: signal({ threads }) } })).findings[1]!.forum_signal!, (value) => value, true, () => subreddit);
+
+  it("publishes a Reddit post as r/<subreddit> from its signed subreddit, and its link by its id, whatever the AI's link says", () => {
+    expect(publishedThreadOf(THREAD, "kneepain")).toEqual({ key: "reddit.com/comments/abc123", community: "r/kneepain",
+      link: "https://www.reddit.com/comments/abc123/" });
+    // A wrong subreddit in the AI's link: the community is the one the reader returned.
+    expect(stored(["https://www.reddit.com/r/cancer/comments/abc123/x/"], "askdocs"))
+      .toMatchObject({ communities: ["r/askdocs"], threads_read: 1, threads: ["https://www.reddit.com/comments/abc123/"] });
+    expect(publishedThreadOf("https://redd.it/abc123", "kneepain")?.link).toBe("https://www.reddit.com/comments/abc123/");
+    // A post on a person's profile counts, with no community and no link; so does a read with no subreddit signed.
+    for (const subreddit of ["u_", "u_JaneDoe1980", undefined]) {
+      expect(stored(["https://www.reddit.com/r/u_JaneDoe1980/comments/abc123/my_story/"], subreddit))
+        .toEqual(expect.objectContaining({ communities: [], threads_read: 1 }));
+      expect(stored(["https://www.reddit.com/r/u_JaneDoe1980/comments/abc123/my_story/"], subreddit)).not.toHaveProperty("threads");
+    }
+    expect(signedSubreddit("u_JaneDoe1980")).toBe("u_");
+    expect(signedSubreddit("KneePain")).toBe("kneepain");
+    expect(signedSubreddit("not a subreddit")).toBeUndefined();
   });
 
-  it("keeps another forum's link as read, without its fragment, session or tracking, and refuses a person's page", () => {
-    expect(publishedThreadLink(FORUM_THREAD)).toBe("https://forum.example.org/t/knee-squats/4512");
-    expect(publishedThreadLink("https://forum.example.org/viewtopic.php?t=12&sid=abcdef")).toBe("https://forum.example.org/viewtopic.php?t=12");
-    expect(publishedThreadLink("https://forum.example.org/members/someone.12/")).toBeUndefined();
-    expect(publishedThreadLink("https://user:pass@forum.example.org/t/1")).toBeUndefined();
-    expect(publishedThreadLink("https://youtu.be/aaaaaaaaaaa")).toBeUndefined();
+  it("publishes another forum's link only in an id-only form, never a title, a slug or a query value", () => {
+    const linkOf = (url: string) => publishedThreadOf(url)?.link;
+    expect(linkOf("https://forum.example.org/viewtopic.php?t=123&highlight=jane+doe+says+i+cured+it"))
+      .toBe("https://forum.example.org/viewtopic.php?t=123");
+    expect(linkOf("https://forum.example.org/viewtopic.php?t=123&p=anything-at-all&start=40&sid=abcdef"))
+      .toBe("https://forum.example.org/viewtopic.php?t=123");
+    expect(linkOf("https://www.forums.example.co.uk/showthread.php?t=77&page=3")).toBe("https://forums.example.co.uk/showthread.php?t=77");
+    expect(linkOf("https://forum.example.org/threads/my-husband-john-smith-cured-his-back.12345/page-2"))
+      .toBe("https://forum.example.org/threads/12345/");
+    expect(linkOf("https://discourse.example.org/t/my-title-slug/4512/7")).toBe("https://discourse.example.org/t/4512");
+    expect(linkOf(FORUM_THREAD)).toBe("https://forum.example.org/t/4512");
+    // Anything else is counted, never linked: a session in the path, a person's or a blog's page, Quora's answer slugs,
+    // Earth Clinic's pages for now, a Discourse post that names no topic apart from it, an install under a folder.
+    for (const url of ["https://forum.example.org/thread/123;jsessionid=0123ABCDEF",
+      "https://forum.example.org/members/jane-doe.12/", "https://medium.com/@janedoe/how-i-beat-x-9f8e7d",
+      "https://janedoe.substack.com/p/my-recovery", "https://www.quora.com/Does-X-cure-Y/answer/Jane-Doe-42",
+      "https://www.earthclinic.com/cures/knee-pain.html", "https://discourse.example.org/t/4512/7",
+      "https://example.org/forum/viewtopic.php?t=123", "https://forum.example.org/viewtopic.php?t=12ab"]) {
+      expect(linkOf(url)).toBeUndefined();
+    }
+    expect(linkOf("https://user:pass@forum.example.org/t/1")).toBe("https://forum.example.org/t/1");
+    expect(publishedThreadOf("not a link")).toBeUndefined();
   });
 
-  it("names the community from the link", () => {
-    expect(forumCommunityOf(THREAD)).toBe("r/KneePain");
-    expect(forumCommunityOf("https://redd.it/abc123")).toBe("Reddit");
-    expect(forumCommunityOf("https://www.healthforum.example/thread/1")).toBe("healthforum.example");
+  it("names another forum by its registrable host, never a person's or a blog's subdomain", () => {
+    expect(stored(["https://janedoe.substack.com/p/my-recovery", "https://janedoe.blogspot.com/2024/05/my-story.html",
+      "https://www.quora.com/Does-X-cure-Y/answer/Jane-Doe-42", "https://medium.com/@janedoe/how-i-beat-x-9f8e7d"]))
+      .toEqual(expect.objectContaining({ communities: ["substack.com", "blogspot.com", "quora.com", "medium.com"],
+        threads_read: 4 }));
+    expect(registrableHost("forum.example.org")).toBe("example.org");
+    expect(registrableHost("forums.example.co.uk")).toBe("example.co.uk");
+    expect(registrableHost("www.earthclinic.com")).toBe("earthclinic.com");
+    expect(registrableHost("192.168.0.1")).toBeUndefined();
+    // The same thread twice counts once; a YouTube link is never a thread.
+    expect(stored([FORUM_THREAD, "https://forum.example.org/t/knee-squats/4512/9", "https://youtu.be/aaaaaaaaaaa"]))
+      .toEqual(expect.objectContaining({ communities: ["example.org"], threads_read: 1, threads: ["https://forum.example.org/t/4512"] }));
+  });
+
+  it("signs and reads each Reddit thread's subreddit by the finding's place and the thread's", () => {
+    const given = laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({
+      threads: [FORUM_THREAD, THREAD, "https://www.reddit.com/r/u_JaneDoe1980/comments/xyz789/"] }) } }));
+    const signed = signedThreadCommunities(given, (url) => url === THREAD ? "kneepain" : url.includes("xyz789") ? "u_" : undefined);
+    expect(signed).toEqual(["2.2:kneepain", "2.3:u_"]);
+    expect(threadCommunitiesFromReceipt(signed, given)).toEqual(new Map([[1, new Map([[1, "kneepain"], [2, "u_"]])]]));
+    // Nothing it can't read, for a thread the card doesn't have, or a name that isn't one.
+    expect(threadCommunitiesFromReceipt(["2.9:kneepain", "1.1:kneepain", "2.2:Knee Pain", "junk"], given).size).toBe(0);
   });
 });
 
@@ -449,24 +572,31 @@ describe("the save stores the research behind each finding", () => {
   it("stores the found quotes, the readings and the forum signal, and the review reads it against the signed digest", async () => {
     const h = saveHarness();
     await expect(h.save(card(), { rd: ["1.1:full_text_audited:consistent"], bl: ["1.1:ff:full_text"],
-      bs: ["1.1.s:Results", "1.1.c:Discussion"] })).resolves.toMatchObject({ status: "saved" });
+      bs: ["1.1.s:Results", "1.1.c:Discussion"], ft: ["2.1:kneepain"] })).resolves.toMatchObject({ status: "saved" });
     const body = h.github.issue(42).body;
     const record = storedRecordOf(body) as FindingsRecord;
     const [quoted, forum] = record.card.findings;
     expect(quoted!.backing).toEqual([{ ...backingLine, sentence_section: "Results", conclusion_section: "Discussion",
       text: "full_text" }]);
     expect(quoted!.source_reading).toEqual([{ source: STUDY, read: "full_text_audited", figures: "consistent" }]);
-    // A finding resting on its forum signal alone is saved, with no source. The free notice says a card's community
-    // summary holds no links, so the signal keeps its communities and how many threads were read, never the links.
+    // A finding resting on its forum signal alone is saved, with no source. With no account whose notice covers links,
+    // the signal keeps how many threads were read and their communities, as the verified reads give them: the Reddit
+    // post's subreddit as its receipt signed it, the forum's registrable host. Never the links or the search's query.
     expect(forum!.sources).toEqual([]);
-    const { threads: _threads, ...counted } = signal();
-    expect(forum!.forum_signal).toEqual({ ...counted, communities: ["r/KneePain", "forum.example.org"], threads_read: 2 });
+    const { threads: _threads, search_query: _query, ...counted } = signal();
+    expect(forum!.forum_signal).toEqual({ ...counted, communities: ["r/kneepain", "example.org"], threads_read: 2 });
     expect(record.stored_without).toEqual(["forum_thread_links"]);
     expect(body).not.toContain("abc123");
     expect(body).not.toContain("knee-squats");
+    expect(body).not.toContain(SEARCH);
     expect(body).toContain("- Research behind it, 10\\.1000/depth \\(found in the full text AskRigor fetched\\)");
     expect(body).toContain("- What people report: better 7, no change 2, worse 1, mixed 1");
-    expect(body).toContain("- Forum threads read: 2, in r/KneePain, forum\\.example\\.org");
+    expect(body).toContain("- Forum threads read: 2, in r/kneepain, example\\.org");
+    // A receipt that signed no subreddit names no community for the Reddit post.
+    const unsigned = saveHarness();
+    await unsigned.save(card(), {});
+    const unsignedSignal = (storedRecordOf(unsigned.github.issue(42).body) as FindingsRecord).card.findings[1]!.forum_signal;
+    expect(unsignedSignal).toMatchObject({ communities: ["example.org"], threads_read: 2 });
     expect(parseFindingsRecordBody(body, "card")).toMatchObject({ record: { stored_without: ["forum_thread_links"] } });
     // With every quote kept and no forum signal, the stored card, what the save adds set aside, is the card the final
     // check signed, so the review reads it against that digest.
@@ -517,12 +647,14 @@ describe("the save stores the research behind each finding", () => {
     ];
     for (const [account, links] of accounts) {
       const h = saveHarness();
-      await h.save(card(), {}, account);
+      await h.save(card(), { ft: ["2.1:kneepain"] }, account);
       const body = h.github.issue(42).body;
       const signal = (storedRecordOf(body) as FindingsRecord).card.findings[1]!.forum_signal!;
       if (links) {
-        expect(signal.threads).toEqual(["https://www.reddit.com/comments/abc123/", "https://forum.example.org/t/knee-squats/4512"]);
-        expect(body).toContain("forum\\.example\\.org/t/knee\\-squats/4512");
+        // Rebuilt from the verified reads: the Reddit post by its id, the Discourse topic by its number alone.
+        expect(signal.threads).toEqual(["https://www.reddit.com/comments/abc123/", "https://forum.example.org/t/4512"]);
+        expect(body).toContain("forum\\.example\\.org/t/4512");
+        expect(body).not.toContain("knee\\-squats");
       } else {
         expect(signal).not.toHaveProperty("threads");
         expect(body).not.toContain("abc123");
@@ -538,8 +670,8 @@ describe("the save stores the research behind each finding", () => {
       threads: [THREAD, "https://youtu.be/aaaaaaaaaaa"],
       mechanism: "As https://youtu.be/bbbbbbbbbbb shows, slow loading may strengthen the knee.",
     }) } }));
-    const stored = withoutYouTubeData(given);
-    expect(stored.card.findings[1]!.forum_signal).toMatchObject({ communities: ["r/KneePain"], threads_read: 1,
+    const stored = withoutYouTubeData(given, new Set(), { threadCommunities: new Map([[1, new Map([[0, "kneepain"]])]]) });
+    expect(stored.card.findings[1]!.forum_signal).toMatchObject({ communities: ["r/kneepain"], threads_read: 1,
       mechanism: "As (YouTube video) shows, slow loading may strengthen the knee." });
     expect(stored.card.findings[1]!.forum_signal).not.toHaveProperty("threads");
     expect(stored.omitted).toBe(true);
@@ -570,8 +702,8 @@ const STORED_QUOTED = {
   verified_bases: ["full_text_audit" as const],
 } as unknown as FindingsRecord["card"]["findings"][number];
 const storedSignal = (overrides: Record<string, unknown> = {}) => {
-  const { threads: _threads, ...counted } = signal(overrides);
-  return { ...counted, communities: ["r/KneePain", "forum.example.org"], threads_read: 2 };
+  const { threads: _threads, search_query: _query, ...counted } = signal(overrides);
+  return { ...counted, communities: ["r/kneepain", "example.org"], threads_read: 2 };
 };
 const STORED_FORUM = { ...card().findings[1]!, sources: [], forum_signal: storedSignal() } as unknown as
   FindingsRecord["card"]["findings"][number];
@@ -598,7 +730,7 @@ describe("publication version 3", () => {
       schema: ATLAS_PUBLICATION_SCHEMA_V3,
       sources: [],
       forum_signal: {
-        communities: ["r/KneePain", "forum.example.org"], threads_read: 2, threads: [],
+        communities: ["r/kneepain", "example.org"], threads_read: 2, threads: [],
         people: { better: 7, no_change: 2, worse: 1, mixed: 1 }, report_quality: { detailed: 4, measured: 1, bare: 5 },
         studies: "support_not_located",
       },
@@ -634,13 +766,22 @@ describe("publication version 3", () => {
       .drafts[0]!.published)).toEqual(["phone_number"]);
   });
 
-  // Waiting for the owner (plan, owner questions): a signal that holds its threads' links, which the save stores only
-  // once a notice covers them, publishes each as the pages show it.
-  it("publishes a thread link as the pages show it, from a signal that holds one", () => {
-    const research = researchBehindOf({ ...STORED_FORUM, forum_signal: { ...storedSignal(), threads: [THREAD, FORUM_THREAD,
-      "https://forum.example.org/members/someone.12/"] } } as never, { sources: [], numbers: null });
-    expect(research?.forum_signal?.threads).toEqual(["https://www.reddit.com/comments/abc123/",
-      "https://forum.example.org/t/knee-squats/4512"]);
+  // Owner answer 253a, and the review of 5 November (finding 1): a signal that holds its threads' links, which the save
+  // stores only once a notice covers them, publishes only those in the Atlas's own forms, and only such communities.
+  it("publishes only a thread link and a community in the Atlas's own forms", () => {
+    const research = researchBehindOf({ ...STORED_FORUM, forum_signal: { ...storedSignal(),
+      communities: ["r/kneepain", "example.org", "r/u_janedoe", "Jane's forum"],
+      threads: ["https://www.reddit.com/comments/abc123/", "https://forum.example.org/t/4512", THREAD, FORUM_THREAD,
+        "https://forum.example.org/members/someone.12/"] } } as never, { sources: [], numbers: null });
+    expect(research?.forum_signal?.communities).toEqual(["r/kneepain", "example.org"]);
+    expect(research?.forum_signal?.threads).toEqual(["https://www.reddit.com/comments/abc123/", "https://forum.example.org/t/4512"]);
+    // A signal whose threads were all posts on people's profiles publishes its counts, with no community.
+    const profiles = researchBehindOf({ ...STORED_FORUM, forum_signal: { ...storedSignal(), communities: [] } } as never,
+      { sources: [], numbers: null });
+    expect(profiles?.forum_signal).toMatchObject({ communities: [], threads_read: 2, threads: [] });
+    expect(atlasPublishedFindingSchema.safeParse(planCardPublication({ record: record([{ ...STORED_FORUM,
+      forum_signal: { ...storedSignal(), communities: [] } } as never]), setAside: false, route: ROUTE })
+      .drafts[0]!.published).success).toBe(true);
   });
 
   it("maps a line's source to the publication's own form of it", () => {
@@ -699,7 +840,7 @@ describe("the finding page (owner answer 252a)", () => {
     const page = await (await publishedPages([STORED_QUOTED, STORED_FORUM]))("P-1002");
     expect(atlasPageProblems(page)).toEqual([]);
     expect(page).toContain('<h2 id="people">What people report</h2>');
-    expect(page).toContain("From 2 forum threads AskRigor’s own reader read, in r/KneePain, forum.example.org. " +
+    expect(page).toContain("From 2 forum threads AskRigor’s own reader read, in r/kneepain, example.org. " +
       "AskRigor counts people, not comments, and quotes no one.");
     expect(page).toContain("<dt>Better</dt><dd>7 people</dd>");
     expect(page).toContain("<dt>Worse</dt><dd>1 person</dd>");
@@ -791,8 +932,8 @@ describe("the research behind an accepted finding (owner answer 255a)", () => {
       figure_sources: [STUDY],
     });
     expect(canonicalResearchOf(STORED_QUOTED as never, [{ ...CARD_FIGURE, option_events: 31 }])).not.toHaveProperty("figure_sources");
-    expect(canonicalResearchOf(STORED_FORUM as never, [])?.forum_signal).toMatchObject({ communities: ["r/KneePain",
-      "forum.example.org"], threads_read: 2, threads: [], studies: "support_not_located" });
+    expect(canonicalResearchOf(STORED_FORUM as never, [])?.forum_signal).toMatchObject({ communities: ["r/kneepain",
+      "example.org"], threads_read: 2, threads: [], studies: "support_not_located" });
     const { backing: _b, source_reading: _r, numbers: _n, ...older } = STORED_QUOTED as never as Record<string, unknown>;
     expect(canonicalResearchOf({ ...older, numbers: [] } as never, [])).toBeUndefined();
   });
@@ -849,3 +990,123 @@ describe("the research behind an accepted finding (owner answer 255a)", () => {
   });
 });
 
+
+// The independent review of 5 November 2026, after #416 merged: what an accepted finding's page shows, a section cut
+// through a character, and the review's digest read of a card saved since #398.
+describe("the review of 5 November", () => {
+  const pageOf = async (publication: AtlasPagePublication, finding: AtlasPageFinding) => renderAtlasFinding(
+    (await loadAtlasFinding({
+      read: async (work) => await work({
+        listPublications: async () => [publication],
+        readFindings: async () => [finding],
+        listCardSiblings: async () => [],
+      } as unknown as AtlasPageReads),
+    } as AtlasPageSource, publication.publicationNumber))!);
+  const canonical = (content: Record<string, unknown>, sources: unknown[]) => ({
+    atlasNumber: "F-1001", question: "Does exercise help adults with knee pain?", links: [], entryKind: "finding",
+    label: "checked", topic: { key: "knee-pain", label: "Knee pain" }, versionNumber: 1,
+    content: { wording: "The owner's wording of the finding.", appliesTo: "Adults with knee pain", certainty: "low",
+      usualAnswer: null, whyNotUsual: null, whatWouldChangeIt: null, whoElse: null, whatItChanges: null, tags: [],
+      verifiedBases: ["forum_read"], numbers: [], ...content },
+    erased: false, acceptedOn: "2026-11-06", researchCheckedOn: "2026-11-05", askrigorVersion: "0.1.0",
+    sources, contradicts: [], replacedBy: [],
+  }) as unknown as AtlasPageFinding;
+
+  // Finding 3: a decided draft goes through the version 3 path, so an accepted forum-only finding gets its page, from a
+  // paid private card's acceptance or from a card that has no publication.
+  it("publishes an accepted forum-only finding as version 3, and its page shows what people report", async () => {
+    const forumRecord = record([STORED_FORUM]);
+    const draft = decidedPublicationDraft(forumRecord, 1, { state: "accepted", atlasNumber: "F-1001" });
+    expect(draft).toMatchObject({ findingNumber: 1, state: "accepted", atlasNumber: "F-1001", heldBecause: null,
+      published: { schema: ATLAS_PUBLICATION_SCHEMA_V3, sources: [], forum_signal: { threads_read: 2 } } });
+    const owner = planCardPublication({ record: forumRecord, setAside: false, route: { route: "owner", paidPrivate: false },
+      decided: new Map([[1, { state: "accepted" as const, atlasNumber: "F-1001" }]]) });
+    expect(owner).toMatchObject({ problems: [], leftOut: [],
+      drafts: [{ state: "accepted", atlasNumber: "F-1001", published: { schema: ATLAS_PUBLICATION_SCHEMA_V3 } }] });
+    // A decided finding with sources takes its card's context too.
+    const quoted = planCardPublication({ record: record([STORED_QUOTED]), setAside: false,
+      route: { route: "owner", paidPrivate: false }, decided: new Map([[1, { state: "edited" as const, atlasNumber: "F-1001" }]]),
+      sourceTitles: TITLES });
+    expect(quoted.drafts[0]).toMatchObject({ state: "edited", published: { schema: ATLAS_PUBLICATION_SCHEMA_V3,
+      source_details: [{ source: STUDY, retraction: "expression_of_concern" }] } });
+    const publication: AtlasPagePublication = { publicationNumber: "P-1001", state: "accepted", atlasNumber: "F-1001",
+      published: draft!.published, publishedAt: "2026-11-05T12:00:00.000Z", stateChangedAt: "2026-11-06T09:00:00.000Z",
+      kept: false };
+    const page = await pageOf(publication, canonical({ research: canonicalResearchOf(STORED_FORUM as never, []) }, []));
+    expect(atlasPageProblems(page)).toEqual([]);
+    expect(page).toContain("The owner&#39;s wording of the finding.");
+    expect(page).toContain('<h2 id="people">What people report</h2>');
+    expect(page).toContain("From 2 forum threads AskRigor’s own reader read, in r/kneepain, example.org.");
+  });
+
+  // Finding 4: the owner keeps one study and drops another, a retracted one: neither the version's research nor the
+  // page shows the dropped one, and each source shown has its retraction status looked up.
+  it("never shows a source the owner dropped, and shows each kept source's retraction status", async () => {
+    const dropped = "10.1000/dropped-retracted";
+    const twoSources = { ...STORED_QUOTED, sources: [dropped, STUDY], numbers: [],
+      backing: [{ source: dropped, sentence: "Pain fell by 12 points in the dropped trial.", text: "full_text", against: "Small." },
+        ...(STORED_QUOTED as never as { backing: object[] }).backing],
+      source_reading: [{ source: dropped, read: "full_text_audited" }, { source: STUDY, read: "full_text_audited" }],
+    } as never;
+    const keptOnly = canonicalResearchOf(twoSources, [], [STUDY]);
+    expect(keptOnly?.backing?.map(({ source }) => source)).toEqual([STUDY]);
+    expect(keptOnly?.source_reading?.map(({ source }) => source)).toEqual([STUDY]);
+    expect(canonicalResearchOf(twoSources, [], ["https://doi.org/10.1000/DEPTH"])?.backing).toHaveLength(1);
+    expect(researchKeeping(canonicalResearchOf(twoSources, [])!, (source) => source === STUDY)).toEqual(keptOnly);
+    expect(researchKeeping({ backing: keptOnly!.backing! }, () => false)).toBeUndefined();
+    // Even a version whose research still holds the dropped source, and a publication that does, show only the kept one.
+    const sources = [{ identifiers: [{ scheme: "doi", value: STUDY }], title: "The kept trial", year: 2021, retraction: "retracted" }];
+    const publication: AtlasPagePublication = { publicationNumber: "P-1001", state: "accepted", atlasNumber: "F-1001",
+      published: planCardPublication({ record: record([twoSources]), setAside: false, route: ROUTE }).drafts[0]!.published,
+      publishedAt: "2026-11-05T12:00:00.000Z", stateChangedAt: "2026-11-06T09:00:00.000Z", kept: false };
+    for (const research of [canonicalResearchOf(twoSources, []), undefined]) {
+      const page = await pageOf(publication, canonical({ verifiedBases: ["full_text_audit"],
+        ...(research === undefined ? {} : { research }) }, sources));
+      expect(page).not.toContain("dropped");
+      expect(page).toContain("<h3><cite>The kept trial</cite> (2021)</h3>");
+      expect(page).toContain("This paper has been retracted.");
+      expect(page).toContain(`<blockquote class="quote"><p>${escapeHtml(SENTENCE)}</p>`);
+    }
+  });
+
+  // Finding 6: a section is cut at whole characters before the receipt encodes it, so a character outside the Basic
+  // Multilingual Plane at the limit never leaves half of itself to stop the final check.
+  it("cuts a section at whole characters, with 𝛽 at the limit, and the receipt is issued", () => {
+    const section = `${"Effects of oat supplementation on pain: ".padEnd(79, "x")}𝛽-glucan arm`;
+    expect(section.length).toBeGreaterThan(80);
+    const { bs } = signedBackingClaims([{ finding: 0, line: 0, lookup: { ...FOUND, sentence_section: section } }]);
+    expect(bs[0]).toBe(`1.1.s:${section.slice(0, 79)}`);
+    expect(() => issueResearchReceipt("finalization", { status: "ready", bs }, { secret: SECRET })).not.toThrow();
+    // Room for the whole character keeps it whole.
+    const fits = `${"x".repeat(78)}𝛽 and more`;
+    expect(signedBackingClaims([{ finding: 0, line: 0, lookup: { ...FOUND, sentence_section: fits } }]).bs[0])
+      .toBe(`1.1.s:${"x".repeat(78)}𝛽`);
+    expect(receiptText("ab\ud835", 10)).toBe("ab�");
+    expect(receiptText(`${"x".repeat(119)}𝛽`, 120)).toBe("x".repeat(119));
+    const index = { source: { provider: "europe_pmc" }, blocks: [{ text: SENTENCE, section_path: [`${"x".repeat(119)}𝛽`] }] };
+    expect(sourceLineDocument(index as never).blocks[0]!.section).toBe("x".repeat(119));
+    // What the save reads back is the same section.
+    const given = laterFindingsCardSchema.parse(card());
+    expect(findingBackingFromReceipt(["1.1:ff:full_text"], bs, given, () => undefined).get(0)![0]!.sentence_section)
+      .toBe(section.slice(0, 79));
+  });
+
+  // Finding 8: a card saved after #398 and before its record named the declarations it leaves out stored its findings
+  // without draws_on_youtube_comments, false on each: the review reads it against either form of the digest.
+  it("reads a card saved since #398 with its declarations left out unnamed against either digest form", async () => {
+    const declared = card({ quote: { draws_on_youtube_comments: false }, forum: null });
+    const h = saveHarness();
+    await h.save(declared, { rd: ["1.1:full_text_audited:consistent"], bl: ["1.1:ff:full_text"],
+      bs: ["1.1.s:Results", "1.1.c:Discussion"] });
+    const body = h.github.issue(42).body;
+    expect((storedRecordOf(body) as FindingsRecord).stored_without).toEqual(["youtube_comment_declarations"]);
+    // The record as a save before the marker wrote it: no stored_without at all.
+    const unmarked = body.replace(/,\n {2}"stored_without": \[\n {4}"youtube_comment_declarations"\n {2}\]/u, "");
+    expect(unmarked).not.toBe(body);
+    expect((storedRecordOf(unmarked) as FindingsRecord).stored_without).toBeUndefined();
+    expect(parseFindingsRecordBody(unmarked, "card")).toMatchObject({ record: { card_sha256: findingsCardDigest(
+      laterFindingsCardSchema.parse(declared)) } });
+    // Hand-edited, it reads as tampered under both forms.
+    expect(parseFindingsRecordBody(unmarked.replaceAll("A larger invented trial", "A larger trial"), "card")).toBe("tampered");
+  });
+});
