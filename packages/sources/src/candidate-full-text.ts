@@ -215,7 +215,7 @@ const BLOCK_BREAK = "\u0000";
 const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
 /** A superscript of digits (a citation, "12,14–16", or a power, "−3") in Unicode's superscripts, as it is printed. */
 function superscript(element: string, inner: string): string {
-  const text = decodeEntities(inner.replace(/<[^>]*>/gu, "")).replace(HTML_SPACE, "");
+  const text = decodeEntities(withoutTags(inner)).replace(HTML_SPACE, "");
   if (!/^[+\u2212\u2010-\u2014-]?\d+(?:[,\u2212\u2010-\u2014-]\d+)*$/u.test(text)) return element;
   return text.replace(/\d/gu, (digit) => SUPERSCRIPT_DIGITS[Number(digit)]!)
     .replace(/[\u2212\u2010-\u2014-]/gu, "⁻").replace(/\+/gu, "⁺");
@@ -238,17 +238,24 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
   const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
   // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
-  const visible = removeAll(removeAll(html.replaceAll(BLOCK_BREAK, ""), /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
+  const laidOut = removeAll(removeAll(html.replaceAll(BLOCK_BREAK, ""), /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
     .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?=\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
     // A <pre> keeps its own line breaks, as a browser shows them.
     .replace(/<pre\b[^>]*>[\s\S]*?<\/pre\s*>/giu, (block) => block.replace(/\r\n?|\n/gu, "<br>"))
     .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup\s*>/giu, superscript)
-    .replace(BLOCK_TAG, BLOCK_BREAK)
-    .replace(/<[^>]*>/gu, "");
+    .replace(BLOCK_TAG, BLOCK_BREAK);
+  const visible = withoutTags(laidOut);
   return { text: decodeEntities(visible).replace(HTML_SPACE, " ").replaceAll(BLOCK_BREAK, "\n")
     .replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
+}
+/**
+ * Every tag removed, again until nothing changes, so split markup can't reassemble one. A "<" still opening a tag (an
+ * unclosed one at the end) goes too, as a browser drops it, so the text never holds the start of a tag.
+ */
+function withoutTags(html: string): string {
+  return removeAll(html, /<[^>]*>/gu).replace(/<(?=[A-Za-z!/?])/gu, "");
 }
 function removeAll(text: string, pattern: RegExp): string {
   let previous: string;
