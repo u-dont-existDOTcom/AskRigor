@@ -67,6 +67,19 @@ owner's; the release needs the owner's explicit yes, as always.
    six until that was noticed on 5 Nov (the page is now in the per-video form). The check now also reads
    `askrigor/comment-maps.json` (schema `askrigor.comment-maps.v1`), so a page's layout can't hide a map.
 
+8. **Reddit's rate limit is a wait, not a block (built).** In the run on #412's build, Reddit limited the forum
+   reader's host three times for a few minutes (about 02:36, 06:28 and 07:15 UTC). The host's `RATE_LIMITED` had no
+   entry in the client's code table, so each call came back "unavailable" with no time to retry, and runs called the
+   communities blocked (n389-forum-depth read 2 threads, against 14 on #394's build). Now it is `busy` with a retry
+   time (the host's, or 60 seconds), the note says it isn't a block, and for that time every call of the process
+   answers busy without asking the host, so Reddit gets nothing while it is limiting.
+9. **A short Reddit search page is not a total (built).** #398 asked the host for pages of 25, but it still returns
+   what Reddit's rendered search page shows first: 7 threads in 132 of 144 searches in the run, none with a next
+   page, and 7 in a direct test asking for 25. The result called such a page "all this search found" and the receipt
+   signed it as the last page, so the final check's note told the AI to say few threads exist. Now a page without a
+   next page is "whether more exist is unknown", the receipt signs nothing about more, and the guidance asks for
+   other wordings, sorts and subreddits.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy

@@ -120,23 +120,27 @@ describe("forum tools", () => {
     }
   });
   // #394's run: 138 of 148 searches returned exactly 7 threads and none offered a next page, so "found" counted a page.
-  it("says whether a search's page is all there is, and signs only what it knows", async () => {
+  it("says whether more pages exist only when Reddit offers one, and signs only what it knows", async () => {
     const threads = (count: number) => Array.from({ length: count }, (_, index) =>
       ({ url: `https://www.reddit.com/r/example/comments/p${index}/`, subreddit: "example", title: `Report ${index}` }));
     search.mockResolvedValueOnce({ access_state: "searched", threads: threads(25), returned: 25, after: "next" })
       .mockResolvedValueOnce({ access_state: "searched", threads: threads(12), returned: 12 })
       .mockResolvedValueOnce({ access_state: "searched", threads: threads(25), returned: 25 });
     const caller = await client();
+    // #412's run: the host returns what Reddit's search page shows first (7 threads in 132 of 144 searches, none with a
+    // next page), so a short page is no more a total than a full one.
+    const unknown = "the threads Reddit's search page showed first, with no next page offered, so whether more exist is unknown";
     const expected = [
       ["one page: more exist, and its after gives the next page", "1"],
-      ["all this search found", "0"],
-      ["a full page, and Reddit offered no next page, so whether more exist is unknown", undefined]
+      [unknown, undefined],
+      [unknown, undefined]
     ] as const;
     for (const [page, more] of expected) {
       const result = await caller.callTool({ name: "search_reddit_threads", arguments: { query: "exercise outcomes" } });
       const text = (result.content[0] as { text: string }).text;
       expect(text).toContain(`, ${page}; access status searched.`);
-      expect(text).toContain("Each search returns one page of up to 25 threads: pass its after for the next page");
+      expect(text).toContain("Each search returns the threads Reddit's search page shows first, often about seven, and an " +
+        "after for a next page only when Reddit offers one, so a short page is not all there is");
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
       expect(verified.ok && verified.claims.more).toBe(more);
     }
@@ -156,6 +160,19 @@ describe("forum tools", () => {
       expect(result.structuredContent).not.toHaveProperty("research_receipt");
       expect((result.content[0] as { text: string }).text).toContain(note);
     }
+  });
+  // #412's run: a rate limit read as "unavailable" made runs call the communities blocked.
+  it("tells the AI a rate limit is a wait, not a block, with when to try again", async () => {
+    thread.mockResolvedValue({ access_state: "busy", url: URL, retry_after_seconds: 60, host_code: "RATE_LIMITED" });
+    const caller = await client();
+    const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } });
+    const note = "Reddit is limiting how often AskRigor's Reddit reader may ask, for a few minutes. That isn't a block, " +
+      "so don't call the community blocked: go on with the rest of the research, and try this again in about 60 " +
+      "seconds, one request at a time.";
+    expect(result.structuredContent).toMatchObject({ limitations: [note], data: { access_state: "busy" } });
+    expect(result.structuredContent!.data).not.toHaveProperty("host_code");
+    expect((result.content[0] as { text: string }).text).toContain(note);
+    expect((result.content[0] as { text: string }).text).not.toContain("The reader is busy with other requests");
   });
   it("says a signed-out reader stays signed out, so the AI stops calling it and says why", async () => {
     thread.mockResolvedValue({ access_state: "not_available", url: URL, host_code: "LOGIN_REQUIRED" });
