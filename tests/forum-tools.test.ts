@@ -105,6 +105,22 @@ describe("forum tools", () => {
     thread.mockResolvedValueOnce({ access_state: "read", url: URL, post_text: "Synthetic public report", comments: [], comments_read: 0 });
     expect(await guidance()).toEqual({ state: "read", asked: true });
   });
+  // The fourth check of 5 Nov 2026: a read cut short is part-way, though no next page or more token follows it.
+  it("signs a truncated read as part-way: a page cut at the size limit, or a Reddit read that missed comments", async () => {
+    page.mockResolvedValue({ url: "https://forum.example/thread/long", access_state: "read", title: "Long thread",
+      page_text: "a".repeat(1_500), truncated: true });
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", title: "A thread", post_text: "Post",
+      comments: [], thread_comment_count: 40, comments_read: 25, comments_without_text: 0, truncated: true });
+    const caller = await client();
+    for (const url of ["https://forum.example/thread/long", URL]) {
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent).toMatchObject({ access_status: "partial" });
+      expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET })).toMatchObject({
+        ok: true, kind: "forum_thread_read", claims: { e: "0" }
+      });
+    }
+  });
+
   it("signs page characters and sends continuation only to the Reddit reader", async () => {
     page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state: "read", page_text: "a".repeat(1_500),
       truncated: false, next_page: "https://forum.example/thread/1?page=2" });

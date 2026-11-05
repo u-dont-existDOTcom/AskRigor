@@ -159,19 +159,21 @@ describe("a community declared searched or read needs this call's receipt for it
     const step = (given: string, verified: string, label: string) => `source_reading gives ${THREAD} the reading ` +
       `${given} (${given === "full_text_audited" ? AUDITED : given === "full_text_read" ? "full text read" : "part of the text read"}), ` +
       `more than this call's receipts show: this check verifies ${verified} (${label}). Remove the source_reading entry ` +
-      `claiming ${given} for it, say that beside it instead, in the answer's language, and give source_reading reading ` +
-      `${verified} with those words as its quote, copied from answer_draft.`;
+      `claiming ${given} for ${THREAD}, or change its reading to ${verified}, with the answer's words saying so, in its ` +
+      "language, copied into its quote.";
     // An audit claimed of a thread, read_depth left out: it claims more than the thread's read, under read_depth.
     const audited = thread("full_text_audited", toEnd);
     expect(audited.status).toBe("not_ready");
     expect(audited.next_steps).toEqual([step("full_text_audited", "full_text_read", "full text read")]);
-    // Read to its end, it is fully read, and shown; a receipt from before the reader said counts as read to its end.
-    for (const receipt of [toEnd, read(THREAD)]) {
-      const plain = thread("full_text_read", receipt);
-      expect(plain.next_steps).toEqual([]);
-      expect(plain.source_reading).toContainEqual({ source: THREAD, name: `"Thread" (${THREAD})`, reading: "full_text_read",
-        shown: true });
-    }
+    // Read to its end, it is fully read, and shown.
+    const plain = thread("full_text_read", toEnd);
+    expect(plain.next_steps).toEqual([]);
+    expect(plain.source_reading).toContainEqual({ source: THREAD, name: `"Thread" (${THREAD})`, reading: "full_text_read",
+      shown: true });
+    // A receipt from before the reader said counts as part-way, the under-claim (the fourth check of 5 Nov 2026).
+    expect(thread("full_text_read", read(THREAD)).next_steps)
+      .toEqual([step("full_text_read", "partial_text", "part of the text read")]);
+    expect(thread("partial_text", read(THREAD)).next_steps).toEqual([]);
     expect(thread("full_text_read", toEnd, "full_text_read").next_steps).toEqual([]);
     // Read part-way, it is part read: a full reading claims more, and read_depth full_text_read is refused.
     expect(thread("full_text_read", partWay).next_steps).toEqual([step("full_text_read", "partial_text", "part of the text read")]);

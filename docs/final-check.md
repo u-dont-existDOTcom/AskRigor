@@ -211,16 +211,25 @@ draft cites (a link its receipts tie to it, or its identifier in the prose a rea
 PMCID as a whole number) needs an entry whose quote the draft shows, compared as the other declared quotes are, and
 no entry whose quote the draft shows may give a reading claiming more than the check verifies; a missing entry, no
 quote shown or a reading claiming more is a blocking step under `read_depth`, and the last names the verified reading
-to give instead, and names the entry to remove, so a round isn't lost. An entry counts only where its quote shows in a
-block (a paragraph, list item or heading) that cites the entry's own source, by the same citation the check reads (a
-link its receipts tie to it, or its DOI, PMID or PMCID), and not only inside another of its own entries' quotes, as
-"full text read" sits inside "full text read from a copy the AI found" (the third check of 5 November 2026: the quotes
-are often the check's own generic words, so another study's label, or the corrected words, showed a leftover entry). Any
-other entry is set aside, so an older entry left beside a newer one does no harm, but an honest entry beside one
-claiming more doesn't let it pass (the recheck of 5 November 2026). With no reading verified (no `read_depth` given, or
-one its receipts refuse), an entry is held to what the receipts show. A forum thread AskRigor's reader read is read as
-its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the receipt now signs
-which); a thread is never method-audited nor read as an abstract, so an audit claimed of one holds the answer back. The comparison is exact,
+and the entry exactly ("remove the source_reading entry claiming X for the source, or change its reading to Y"), so a
+round isn't lost.
+
+The mechanism (the fourth check of 5 November 2026): AskRigor checks each declared reading exactly against the
+receipts of the source the entry names, and which words are about which study is the AI's declaration, as for every
+declared quote. Three rounds of checking which study the draft's layout put words beside each failed a different way:
+an overclaim passed beside an honest entry, generic labels counted for the wrong study, and tying an entry to the block
+citing its source held back honest answers in common layouts (a heading citing the study with the reading in the next
+paragraph, a numbered reference list, a child bullet, a bold label with a separate source line). So the check reads no
+layout: every entry whose quote the draft shows counts for the source it declares and is checked against that source's
+reading, and any one claiming more holds the answer back. An entry whose quote the draft doesn't show is set aside, with
+a note, so an older entry left beside a newer one does no harm; an entry whose quote shows only inside another of the
+same source's shown quotes, as "full text read" sits inside "full text read from a copy the AI found", is set aside too.
+A key source the draft cites still needs at least one entry whose quote the draft shows. With no reading verified (no
+`read_depth` given, or one its receipts refuse), an entry is held to what the receipts show. A forum thread AskRigor's
+reader read is read as its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the
+receipt now signs which, and a page cut at the reader's size limit, or a Reddit read that missed comments, is
+part-way; a receipt from before it said counts as part-way, the under-claim); a thread is never method-audited nor read
+as an abstract, so an audit claimed of one holds the answer back. The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor

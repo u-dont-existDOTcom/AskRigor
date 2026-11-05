@@ -2021,15 +2021,16 @@ export function finalizeResearch(
   // either form matches, and both stand for one thread (5 Nov 2026: l34 on #412's build declared LongeCity's
   // /forum/topic/63977-…/page-2, which the reader read as viewtopic.php?t=1063977&start=30).
   const landedRead = new Map<string, string>();
-  // Whether AskRigor's reader read each thread to its end, by either link's digest: a read with nothing after it (e 1).
-  // A receipt from before the reader said is counted as one (the third check of 5 Nov 2026).
+  // Whether AskRigor's reader read each thread to its end, by either link's digest: a read with nothing after it and
+  // nothing cut (e 1; the third check of 5 Nov 2026). A receipt from before the reader said counts as part-way, the
+  // under-claim, for the day such receipts live (its fourth check).
   const threadReadToEnd = new Map<string, boolean>();
   for (const { claims } of verified.filter(({ kind }) => kind === "forum_thread_read")) {
     if (typeof claims.u !== "string") continue;
     landedRead.set(claims.u, claims.u);
     if (typeof claims.a === "string" && !landedRead.has(claims.a)) landedRead.set(claims.a, claims.u);
     for (const link of [claims.u, claims.a]) {
-      if (typeof link === "string") threadReadToEnd.set(link, threadReadToEnd.get(link) === true || claims.e !== "0");
+      if (typeof link === "string") threadReadToEnd.set(link, threadReadToEnd.get(link) === true || claims.e === "1");
     }
   }
   const forumReadUrls: ReadonlySet<string> = new Set(landedRead.keys());
@@ -2858,10 +2859,8 @@ export function finalizeResearch(
   // What each key source's receipts show of it, a forum thread's read among them.
   const shownReadings: Array<ReadonlySet<ShownReading>> = [];
   const citedSources = new Set<number>();
-  // The displayed blocks (paragraphs, list items, headings) and, for each key source, those that cite it, as the
-  // check reads a citation: a link its receipts tie to it, or its identifier (the third check of 5 Nov 2026).
+  // The displayed blocks (paragraphs, list items, headings), where a declared quote is looked up.
   const shownBlocks = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft);
-  const citingBlocks: Array<ReadonlySet<number>> = [];
   const shownProse = shownBlocks.map(visibleText).join("\n");
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
@@ -2909,8 +2908,6 @@ export function finalizeResearch(
     const receiptsShow = receiptReadings(sourceReceipts, checkedInAtlas(source.id));
     if (threadReading !== undefined) receiptsShow.add(threadReading);
     shownReadings[index] = receiptsShow;
-    citingBlocks[index] = new Set(shownBlocks.flatMap((block, at) =>
-      linksFor(block).some(linked) || identifierShown(visibleText(block), id) ? [at] : []));
     if (input.answer_draft !== undefined) {
       if (studyLinks.some(linked) || identifierShown(shownProse, id)) citedSources.add(index);
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
@@ -3026,8 +3023,9 @@ export function finalizeResearch(
   // quote the draft shows gives a reading claiming more than the check verifies, or, with no reading verified (no
   // read_depth), more than the receipts show (the review of 5 Nov 2026 and its recheck), exactly, by the fixed readings.
   // An entry whose quote the draft doesn't show is left aside, so an older one does no harm, but an honest entry beside
-  // one that claims more doesn't let it pass. Which words say that reading stays the model's declaration, in any
-  // language. A key source the draft doesn't cite needs nothing, and every other finding about the entries, a reading
+  // one that claims more doesn't let it pass. Which study an entry's words are about, and whether they say its reading,
+  // stay the model's declaration, in any language: AskRigor checks each declared reading exactly against the receipts of
+  // the source it names, never the draft's layout (the fourth check of 5 Nov 2026). A key source the draft doesn't cite needs nothing, and every other finding about the entries, a reading
   // claiming less among them, is a note. Each key source's reading goes back in the result, for the answer to say
   // before a check blocks, and for the panel to list under a passing one, apart when AskRigor's receipts don't show it.
   const sourceReadings: SourceReadingCheck[] = [];
@@ -3065,18 +3063,23 @@ export function finalizeResearch(
       const deepest = deepestShown(shownSet);
       const bar = reading ?? (deepest === undefined ? undefined : declarableReading(deepest));
       const otherRoute = source.other_route === "read";
-      // Each entry whose quote the draft shows in a block that cites this source (the third check of 5 Nov 2026: the
-      // quotes are often the check's own generic words, so another study's label showed a stale entry), and not only
-      // inside another of its own entries' quotes, as "full text read" is inside "full text read from a copy the AI
-      // found", with how its reading compares; any other entry is set aside.
-      const citing = citingBlocks[index] ?? new Set<number>();
-      const placed = given.map((entry) => ({ entry, at: showing(entry.quote).filter((block) => citing.has(block)) }))
-        .filter(({ at }) => at.length > 0);
+      // Each entry whose quote the draft shows counts for the source it declares, and is held to that source's reading:
+      // which words are about which study is the AI's declaration, as for every declared quote (the fourth check of 5
+      // Nov 2026: tying an entry to the block citing its source misread headings, reference lists, nested bullets and
+      // separate source lines). An entry whose quote shows only inside another of this source's shown quotes, as
+      // "full text read" sits inside "full text read from a copy the AI found", says nothing of its own and is set
+      // aside, and so is one whose quote the draft doesn't show, with a note.
+      const placed = given.map((entry) => ({ entry, at: showing(entry.quote) })).filter(({ at }) => at.length > 0);
       const shownEntries = placed.filter(({ entry, at }) => quoteShownBeyond(shownBlocks, entry.quote,
         placed.filter((other) => other.entry !== entry).map((other) => other.entry.quote), at)).map(({ entry }) => ({
         entry,
         verdict: bar === undefined ? "same" as const : judgeSourceReading(entry.reading, bar, shownSet, { otherRoute })
       }));
+      if (placed.length > 0) {
+        for (const entry of given.filter((one) => !placed.some(({ entry: shown }) => shown === one))) {
+          addStep("declaration", rule`source_reading's entry claiming ${entry.reading} for ${source.id} quotes words the answer doesn't show, so it is set aside: copy them exactly from answer_draft, or leave the entry out.`);
+        }
+      }
       const claimsMore = shownEntries.find(({ verdict }) => verdict === "more");
       if (given.length === 0) {
         addBlockingStep("read_depth", "answer_draft", reading === undefined
@@ -3089,8 +3092,8 @@ export function finalizeResearch(
             rule`source ${source.id}, reading ${reading}, and quote those words copied from answer_draft.`));
       } else if (shownEntries.length === 0) {
         addBlockingStep("read_depth", "answer_draft", joinRules(
-          rule`source_reading's quote for ${source.id} is not in the answer beside it: say beside it how it was read${how}, `,
-          "in the answer's language, and copy those words exactly from answer_draft."));
+          rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
+          "in the answer's language, and copy those words exactly from answer_draft into the entry's quote."));
       } else if (claimsMore !== undefined && bar !== undefined) {
         const given = claimsMore.entry.reading;
         // The recheck of 5 Nov 2026: a lower reading the AI's own search gave it (an abstract it read, say) is one a
@@ -3102,14 +3105,14 @@ export function finalizeResearch(
           reading === undefined
             ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
             : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
-          rule`Remove the source_reading entry claiming ${given} for it, say that beside it instead, `,
-          rule`in the answer's language, and give source_reading reading ${bar} with those words as its quote, copied `,
+          rule`Remove the source_reading entry claiming ${given} for ${source.id}, or change its reading to ${bar}, with `,
+          "the answer's words saying so, in its language, copied into its quote",
           declarable
-            ? rule`from answer_draft; or, if it was read so, give key_sources.read_depth ${given} for it, which needs no receipt.`
+            ? rule`; or, if it was read so, give key_sources.read_depth ${given} for it, which needs no receipt.`
             // Another tool's reading is the AI's own account only for a source key_sources declares read so.
             : given === "other_tool" && !otherRoute
-              ? "from answer_draft; or, if it was read through another tool, give it other_route read in key_sources."
-              : "from answer_draft."));
+              ? "; or, if it was read through another tool, give it other_route read in key_sources."
+              : "."));
       } else if (bar !== undefined) {
         // A reading claiming less than the check verifies is a note: the answer may say more.
         const less = shownEntries.find(({ verdict }) => verdict === "less")?.entry.reading;

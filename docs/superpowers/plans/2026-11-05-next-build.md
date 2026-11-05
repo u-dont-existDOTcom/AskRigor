@@ -302,6 +302,16 @@ owner's; the release needs the owner's explicit yes, as always.
          the receipt now signs `e`), and its entries are held to that.
       4. Only an explicit off is the marker: "off", false, ["off"], also in a JSON-string later_inputs; true, "on" and
          free text are not, with a note that the account's setting decides.
+    - **The fourth check of #414 at 6d424ac7 (5 Nov 2026): a recurring class, so the mechanism changed** (AGENTS.md's
+      recurring-finding check). The class: deciding from the draft's layout which words are about which study (round
+      2, an overclaim passed beside an honest entry; round 3, generic labels counted for the wrong study; round 4,
+      block tying held back honest answers in headings, reference lists, nested bullets and separate source lines).
+      Which words are about which study is meaning, and the entry already declares it, so the check reads no layout:
+      every entry whose quote the draft shows counts for the source it declares, held exactly to that source's
+      receipts; one claiming more blocks with a step naming it exactly; one whose quote isn't shown is set aside with a
+      note; same-source subsumption stays. The shared test helper's citing paragraph is gone and its fixtures restored;
+      tests cover the four layouts. Forum reads cut short (a page at the size limit, Reddit's truncated) sign `e` 0, and
+      receipts without `e` count as part-way.
 
 ## Measures waiting
 

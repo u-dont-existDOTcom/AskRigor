@@ -76,10 +76,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    // The study's link goes in before the shared helper reads the draft, so its words sit beside the link it cites.
-    const linked = withCommunitySkip(packageFor(overrides));
-    if (linked.answer_draft !== undefined) linked.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
-    const input = withSourceReading(linked, { check: { secret: SECRET } });
+    const input = withSourceReading(withCommunitySkip(packageFor(overrides)), { check: { secret: SECRET } });
+    if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);

@@ -64,26 +64,30 @@ const missing = (id: string, reading?: AnswerReading) => reading === undefined
   : `Key source ${id} is cited in the answer without saying how it was read (${ANSWER_READING_LABELS[reading]}): say ` +
     "so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with source " +
     `${id}, reading ${reading}, and quote those words copied from answer_draft.`;
-// The step for a reading claiming more: it names the verified reading, or with none what the receipts show, and offers
-// a lower reading a read_depth declares with no receipt (the recheck of 5 Nov 2026).
+// The step for a reading claiming more: it names the verified reading, or with none what the receipts show, names the
+// entry to remove or change exactly (the fourth check of 5 Nov 2026), and offers a lower reading a read_depth declares
+// with no receipt (the recheck of 5 Nov 2026).
 const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading,
   { shownOnly = false, offer = false }: { shownOnly?: boolean; offer?: boolean } = {}) => `source_reading gives ${id} ` +
   `the reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: ` +
   (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}). Remove the ` +
-  `source_reading entry claiming ${given} for it, say that beside it instead, in the answer's language, and give ` +
-  `source_reading reading ${verified} with those words as its quote, copied from answer_draft` +
+  `source_reading entry claiming ${given} for ${id}, or change its reading to ${verified}, with the answer's words ` +
+  "saying so, in its language, copied into its quote" +
   (offer ? `; or, if it was read so, give key_sources.read_depth ${given} for it, ` +
   "which needs no receipt." : given === "other_tool" ? "; or, if it was read through another tool, give it " +
   "other_route read in key_sources." : ".");
+// The note for an entry set aside, its words not in the answer.
+const setAside = (id: string, reading: AnswerReading) => `source_reading's entry claiming ${reading} for ${id} quotes ` +
+  "words the answer doesn't show, so it is set aside: copy them exactly from answer_draft, or leave the entry out.";
 const GUIDANCE_LEAD = "Say beside each study how it was read, in the answer's language, and give each in " +
   "later_inputs.source_reading as {source, reading, quote}: source its id as key_sources gives it, reading as named " +
   "here, and quote those words, copied from answer_draft: ";
 const claimsLess = (id: string, given: AnswerReading, verified: AnswerReading) => `source_reading gives ${id} the ` +
   `reading ${given} (${ANSWER_READING_LABELS[given]}), less than this check verifies: ${verified} ` +
   `(${ANSWER_READING_LABELS[verified]}). The answer may say so beside it.`;
-const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer beside it: say ` +
+const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer: say ` +
   `beside it how it was read (${ANSWER_READING_LABELS[reading]}), in the answer's language, and copy those words ` +
-  "exactly from answer_draft.";
+  "exactly from answer_draft into the entry's quote.";
 
 describe("source_reading: its shape and words", () => {
   it("is a later input of finalize_research, with a reading for each read_depth, search copies, a listing and another tool", () => {
@@ -322,39 +326,56 @@ describe("the reading each entry gives, held to what the check verifies", () => 
     expect(stale.next_steps).toEqual([]);
   });
 
-  // The third check of 5 Nov 2026: the quotes are often the check's own generic words, so a leftover entry was "shown" by
-  // another study's label, or inside the corrected words, and held an honest answer back. An entry counts only where
-  // its quote shows in a block citing its own source, and not only inside another of its own entries' quotes.
-  it("ties each entry to its own source, and sets aside one met only inside another of its entries' words", () => {
+  // The fourth check of 5 Nov 2026: which words are about which study is the AI's declaration. Tying an entry to the
+  // block that cites its source (the third check's fix) blocked honest answers in common layouts, so an entry's words
+  // count wherever the answer shows them, for the source it names, and its reading is held to that source's receipts.
+  it("counts an entry's words for the source it names, wherever the answer shows them", () => {
     const COHORT_DOI = "10.1000/reading-cohort-b";
     const readB = sign("full_text_read", { doi: COHORT_DOI, content: "b".repeat(16) });
     const keys = [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" },
       { id: COHORT_DOI, status: "lead_only", read_depth: "full_text_read", answer_marker: "Cohort" }];
-    const two = (...paragraphs: string[]) => check({ receipts: [PUBMED, readB], key_sources: keys,
-      answer_draft: draft(...paragraphs),
-      later_inputs: { source_reading: [entry(DOI, "full_text_read"), entry(DOI, "abstract_only"),
-        entry(COHORT_DOI, "full_text_read")] } });
-    // The stale entry's words show only beside the cohort, so they say nothing of the trial.
-    const apart = two(`[Trial](https://doi.org/${DOI}) (abstract only) compared two routines.`,
+    const answer = draft(`[Trial](https://doi.org/${DOI}) (abstract only) compared two routines.`,
       `[Cohort](https://doi.org/${COHORT_DOI}) (full text read) followed people for a year.`);
-    expect(apart.status).toBe("ready_with_limits");
-    expect(apart.next_steps).toEqual([]);
-    // Beside the trial too, they claim more, and the step names the entry to remove.
-    const beside = two(`[Trial](https://doi.org/${DOI}) (abstract only; full text read) compared two routines.`,
-      `[Cohort](https://doi.org/${COHORT_DOI}) (full text read) followed people for a year.`);
-    expect(beside.next_steps).toEqual([claimsMore(DOI, "full_text_read", "abstract_only")]);
-    expect(beside.next_steps[0]).toContain("Remove the source_reading entry claiming full_text_read for it");
-    // A quote shown only in a paragraph citing no study is not beside its source.
-    const unplaced = check({ receipts: [PUBMED],
-      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
-      answer_draft: draft(`[Trial](https://doi.org/${DOI}) compared two routines.`, "How the studies were read: abstract only."),
-      later_inputs: { source_reading: [entry(DOI, "abstract_only")] } });
-    expect(unplaced.next_steps).toEqual([unshown(DOI, "abstract_only")]);
-    // A source named by its identifier in a block is cited there too.
+    const honest = [entry(DOI, "abstract_only"), entry(COHORT_DOI, "full_text_read")];
+    const run = (entries: ReturnType<typeof entry>[]) => check({ receipts: [PUBMED, readB], key_sources: keys,
+      answer_draft: answer, later_inputs: { source_reading: entries } });
+    expect(run(honest).next_steps).toEqual([]);
+    // A stale entry claiming more for the trial blocks once, naming the entry to remove; removed, the answer passes.
+    const stale = run([entry(DOI, "full_text_read"), ...honest]);
+    expect(stale.status).toBe("not_ready");
+    expect(stale.next_steps).toEqual([claimsMore(DOI, "full_text_read", "abstract_only")]);
+    expect(stale.next_steps[0]).toContain(`Remove the source_reading entry claiming full_text_read for ${DOI}`);
+    expect(run(honest).status).toBe("ready_with_limits");
+    // An entry whose words the answer doesn't show is set aside, with a note, beside one it does show.
+    const unquoted = run([entry(DOI, "abstract_only"), entry(DOI, "full_text_read", "read twice over"),
+      entry(COHORT_DOI, "full_text_read")]);
+    expect(unquoted.next_steps).toEqual([]);
+    expect(advisoryNotes(unquoted)).toContain(setAside(DOI, "full_text_read"));
+    // Words in a paragraph citing no study count for the source the entry names.
     expect(check({ receipts: [PUBMED],
       key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
-      answer_draft: draft(`[Trial](https://doi.org/${DOI}) compared two routines.`, `Of ${DOI}, the abstract only was read.`),
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) compared two routines.`, "How the studies were read: abstract only."),
       later_inputs: { source_reading: [entry(DOI, "abstract_only")] } }).next_steps).toEqual([]);
+  });
+
+  // The fourth check of 5 Nov 2026: four layouts where the words sit apart from the link, each ready before the third
+  // check's block tying, and so again. A check that read the layout to decide which study words are about would block.
+  it.each([
+    ["a heading cites it, the next paragraph says how", [`### [Trial](https://doi.org/${DOI})`,
+      "Abstract only. It compared two routines in 120 adults."]],
+    ["a numbered reference list cites it", ["Trial [1] compared two routines in 120 adults (Abstract only).",
+      "**References**", `1. [Trial](https://doi.org/${DOI})`]],
+    ["a parent bullet cites it, a child bullet says how", [`- [Trial](https://doi.org/${DOI})\n  - Abstract only; it ` +
+      "compared two routines in 120 adults."]],
+    ["a bold label says how, a separate line cites it", ["**Trial** (Abstract only) compared two routines in 120 adults.",
+      `Source: [Trial](https://doi.org/${DOI})`]]
+  ])("passes when %s", (_layout, paragraphs) => {
+    const result = check({ receipts: [PUBMED],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
+      answer_draft: draft(...paragraphs), later_inputs: { source_reading: [entry(DOI, "abstract_only", "Abstract only")] } });
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only", shown: true }]);
   });
 
   it("sets aside an entry whose words show only inside another of its own entries' words", () => {
