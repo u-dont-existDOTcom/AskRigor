@@ -5,6 +5,8 @@ import {
   ATLAS_PUBLICATION_SCHEMA_V3,
   ATLAS_PUBLISHED_RETRACTIONS,
   ATLAS_PUBLISHED_THREADS_PER_FINDING,
+  ATLAS_THREAD_COMMUNITY,
+  ATLAS_THREAD_LINK,
   ATLAS_VERIFIED_BASES,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
@@ -22,7 +24,7 @@ import {
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
 import { isYouTubeVideoId, topicKeyText, type StoredFinding } from "../findings/card.js";
-import { publishedThreadLink, sourceIdKey } from "../findings/research-behind.js";
+import { sourceIdKey } from "../findings/research-behind.js";
 import type {
   FindingsCardPublisher,
   FindingsRecord,
@@ -108,7 +110,8 @@ export function accountPublicationProblems(account: FindingsSaveAccount | undefi
  */
 export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
   return (finding.youtube_videos ?? 0) > 0 || finding.sources.some(isYouTubeVideoId) ||
-    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit");
+    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit") ||
+    finding.draws_on_youtube_comments === true;
 }
 
 /**
@@ -298,12 +301,16 @@ function inCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
 /**
  * The research behind a finding as its accepted version keeps it (owner answer 255a), so that an accepted finding from
  * any card, a paid private one's too, shows it: what a version 3 publication would show of it, with each figure's source
- * by the figure's place in the version's numbers when those are the card's own figures. Undefined when the finding
+ * by the figure's place in the version's numbers when those are the card's own figures. Only the sources the owner
+ * accepted (`kept`, the accept's sources; all the finding's when the owner kept them all) are in it, so a source the
+ * owner dropped, a retracted one say, never shows (the review of 5 November, finding 4). Undefined when the finding
  * carries none, or when what it carries is not what the canonical Atlas keeps (its texts refuse a card's number and a
  * YouTube link): the accept goes ahead without it.
  */
-export function canonicalResearchOf(finding: StoredFinding, numbers: readonly AtlasNumberEntry[]): AtlasResearch | undefined {
-  const sources = finding.sources.filter((source) => !isYouTubeVideoId(source));
+export function canonicalResearchOf(finding: StoredFinding, numbers: readonly AtlasNumberEntry[],
+  kept: readonly string[] = finding.sources): AtlasResearch | undefined {
+  const keys = new Set(kept.map(sourceIdKey));
+  const sources = finding.sources.filter((source) => !isYouTubeVideoId(source) && keys.has(sourceIdKey(source)));
   const research = researchBehindOf(finding, { sources, numbers: null });
   const own = (finding.numbers ?? []).map(({ source: _source, ...figure }) => figure);
   const figureSources = own.length === numbers.length && own.every((figure, index) =>
@@ -318,6 +325,24 @@ export function canonicalResearchOf(finding: StoredFinding, numbers: readonly At
     ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
   });
   return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * An accepted version's research behind it with only the sources a revision keeps (the review of 5 November, finding
+ * 4): each backing line and reading of a source dropped is left out, and a figure's source dropped becomes none.
+ * Undefined when nothing is left.
+ */
+export function researchKeeping(research: AtlasResearch, keeps: (source: string) => boolean): AtlasResearch | undefined {
+  const backing = (research.backing ?? []).filter(({ source }) => keeps(source));
+  const reading = (research.source_reading ?? []).filter(({ source }) => keeps(source));
+  const figures = (research.figure_sources ?? []).map((source) => source !== null && keeps(source) ? source : null);
+  const kept: AtlasResearch = {
+    ...(backing.length === 0 ? {} : { backing }),
+    ...(reading.length === 0 ? {} : { source_reading: reading }),
+    ...(figures.some((source) => source !== null) ? { figure_sources: figures } : {}),
+    ...(research.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+  };
+  return Object.keys(kept).length === 0 ? undefined : kept;
 }
 
 /**
@@ -368,19 +393,20 @@ export function researchBehindOf(finding: StoredFinding, published: Pick<AtlasPu
       const source = figureSources[index];
       return source === undefined ? entry : { ...entry, source };
     });
-  // The stored signal holds its communities and how many threads were read, and the threads' links only when the saving
-  // account's notice covered them (owner answer 253a); each link is published as the pages show it.
+  // The stored signal holds how many threads were read and their communities, and the threads' links only when the
+  // saving account's notice covered them (owner answer 253a), each rebuilt at the save from the read's verified parts.
+  // Only a community and a link in the Atlas's own forms are published (the review of 5 November, findings 1 and 2).
   const signal = finding.forum_signal;
   const communities = signal === undefined ? [] : [...new Set(signal.communities.flatMap((community) => {
     const named = shown(community);
-    return named === undefined ? [] : [named];
-  }))].slice(0, ATLAS_PUBLISHED_THREADS_PER_FINDING);
+    return named === undefined || !ATLAS_THREAD_COMMUNITY.test(named) ? [] : [named];
+  }))].slice(0, Math.min(ATLAS_PUBLISHED_THREADS_PER_FINDING, signal.threads_read));
   const links = signal?.threads ?? [];
   const threads = [...new Set(links.flatMap((thread) => {
-    const link = shown(publishedThreadLink(thread));
-    return link === undefined ? [] : [link];
+    const link = shown(thread);
+    return link === undefined || !ATLAS_THREAD_LINK.test(link) ? [] : [link];
   }))].slice(0, signal?.threads_read ?? 0);
-  const forum = signal === undefined || communities.length === 0 ? undefined : {
+  const forum = signal === undefined ? undefined : {
     communities,
     threads_read: signal.threads_read,
     threads,
@@ -478,28 +504,21 @@ export function planCardPublication(input: {
       leftOut.push({ findingNumber, reason: "rejected" });
       return;
     }
-    const published = publishedFindingOf(input.record, findingNumber, input.ownerTopic);
     // Owner answer 252a: a finding resting on its forum signal alone has no source, so it makes no version 1 and is
-    // published in its card's context only, as version 3.
-    const base = published ?? publishedFieldsOf(input.record, findingNumber, input.ownerTopic);
-    const inContext = base === undefined || (published === undefined && decided !== undefined) ? undefined
-      : inCardContext(base, input.record, input.sourceTitles ?? new Map(), findingNumber);
-    if (published === undefined && inContext === undefined) {
+    // published in its card's context only, as version 3. A decided finding goes the same way (the review of 5
+    // November, finding 3), so an accepted forum-only finding gets its page too.
+    const shown = cardPublicationOf(input.record, findingNumber, input.sourceTitles ?? new Map(), input.ownerTopic);
+    if (shown === undefined) {
       leftOut.push({ findingNumber, reason: "not_publishable" });
       return;
     }
-    const held = publicationHoldReasons((published ?? inContext)!);
-    if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
-      if (published === undefined) {
-        leftOut.push({ findingNumber, reason: "not_publishable" });
-        return;
-      }
-      // A decided finding's page shows its F number's latest version, so its publication keeps version 1's fields.
-      drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null, published });
+    const holds = publicationHoldReasons(shown);
+    if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || holds.length === 0)) {
+      // A decided finding's page shows its F number's latest version; its publication holds the card's fields.
+      drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null,
+        published: shown });
       return;
     }
-    const shown = inContext ?? published!;
-    const holds = publicationHoldReasons(shown);
     drafts.push(holds.length === 0
       ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: shown }
       : { findingNumber, state: "held", atlasNumber: null, heldBecause: holds, published: shown });
@@ -594,9 +613,24 @@ export function decidedPublicationDraft(
   if (target.state === "rejected" || target.atlasNumber === null) return undefined;
   const finding = record.card.findings[findingNumber - 1];
   if (finding === undefined || drawnFromYouTubeComments(finding)) return undefined;
-  const published = publishedFindingOf(record, findingNumber);
+  // The review of 5 November, finding 3: by the same path as a card's other publications, so a finding accepted from a
+  // paid private card, or a forum-only one, gets its page.
+  const published = cardPublicationOf(record, findingNumber, new Map());
   return published === undefined ? undefined
     : { findingNumber, state: target.state, atlasNumber: target.atlasNumber, heldBecause: null, published };
+}
+
+/**
+ * A card's finding as it is published (findingNumber from 1): in its card's context, as version 3 when its stored
+ * finding carries the research behind it and as version 2 otherwise, or as version 1 when the context makes no
+ * publication. Undefined when none does, which a finding resting on its forum signal alone, with no source, can only
+ * make as version 3.
+ */
+function cardPublicationOf(record: FindingsRecord, findingNumber: number, titles: AtlasSourceTitles,
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
+  const published = publishedFindingOf(record, findingNumber, ownerTopic);
+  const base = published ?? publishedFieldsOf(record, findingNumber, ownerTopic);
+  return (base === undefined ? undefined : inCardContext(base, record, titles, findingNumber)) ?? published;
 }
 
 /**

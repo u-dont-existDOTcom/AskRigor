@@ -16,7 +16,7 @@ import {
 import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
 import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
-import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
+import { findingsCardDigest, findingsCardSchema, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
@@ -149,10 +149,13 @@ function harness(options: {
         structured,
       };
     },
-    /** Saves a card in another research thread; with account null, as a card saved before publishing began. */
-    async save(card: object, account: FindingsSaveAccount | null = FREE) {
+    /**
+     * Saves a card in another research thread; with account null, as a card saved before publishing began. With
+     * `claims`, the card is read in its later shape and the receipt signs them too (its bases, say).
+     */
+    async save(card: object, account: FindingsSaveAccount | null = FREE, claims?: Record<string, unknown>) {
       contributor += 1;
-      const parsed = findingsCardSchema.parse(card);
+      const parsed = claims === undefined ? findingsCardSchema.parse(card) : laterFindingsCardSchema.parse(card);
       const key = contributor.toString(16).padStart(64, "0");
       const saved = await library.save({
         findings_card: card,
@@ -160,7 +163,8 @@ function harness(options: {
         finalization_receipt: issueResearchReceipt("finalization", {
           status: "ready", depth: "standard", target: key.slice(0, 12), findings: findingsCardDigest(parsed),
           bases: parsed.findings.map((_, index) => index === 0 ? "full_text_audit" : "none"),
-        }, { secret: SECRET, now: clock }),
+          ...claims,
+        } as never, { secret: SECRET, now: clock }),
       }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === null ? {} : { account }) });
       await library.publicationsSettled();
       return saved;
@@ -318,6 +322,29 @@ describe("the publications through the owner's review", () => {
     await h.call({ action: "inspect_finding", card: "ARF-0042" });
     await h.call({ action: "inspect_finding", card: "ARF-0043" });
     expect((await states(h)).length).toBe(2);
+  });
+
+  // The review of 5 November (finding 3): a decided finding's publication takes the same path as any other, so a paid
+  // private card's finding resting on its forum signal alone, which makes no version 1, is published once accepted.
+  it("publishes a paid private card's accepted forum-only finding as version 3", async () => {
+    await stubProviders();
+    const h = harness();
+    const forum = { threads: ["https://www.reddit.com/r/InventedVelmor/comments/xyz789/a_title/"],
+      people: { better: 4, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 2 },
+      studies: "support_not_located" };
+    await h.save({ ...DOI_CARD, question: "Do people with Velmor syndrome report less tremor after a warm bath?",
+      findings: [{ ...DOI_CARD.findings[0]!, claim: "People with Velmor syndrome on invented forums report less tremor " +
+        "after a warm bath.", answer_quote: "People on invented forums report less tremor after a warm bath.", sources: [],
+      tags: [], kind: "overlooked_option", subject: "warm bath", subject_type: "practice", direction: "benefit", numbers: [],
+      forum_signal: forum }] }, PAID, { bases: ["forum_read"], ft: ["1.1:inventedvelmor"] });
+    expect(await states(h)).toEqual([]);
+    const accept = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await cardSha256Of(h, "ARF-0042", 1), topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome" });
+    expect(accept.structured.outcome, accept.text).toBe("finding_queued");
+    expect(await states(h)).toEqual([["P-1001", 42, 1, "accepted", "F-1001"]]);
+    const [publication] = await h.publications.inspect({});
+    expect(publication!.published).toMatchObject({ schema: "askrigor.atlas-publication.v3", sources: [],
+      forum_signal: { communities: ["r/inventedvelmor"], threads_read: 1, threads: ["https://www.reddit.com/comments/xyz789/"] } });
   });
 
   it("publishes an accepted finding the decision's own call could not publish on the next read of its card", async () => {
