@@ -11,6 +11,10 @@ import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
+import {
+  identifierShown, sourceReadingCheckSchema, sourceReadingRule, verifiedSourceReading,
+  type SourceReading, type SourceReadingCheck, type SourceReadingEntry
+} from "./source-reading.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -992,7 +996,8 @@ export function finalizeResearchRuntimeInputSchema() {
   return finalizeResearchInputSchema.extend({
     ...later,
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
-      "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
+      "The exact answer to check. Only source provenance and links, declared reading depth (with the answer's words " +
+      "on how each cited key source was read, in later_inputs.source_reading), binary arithmetic and " +
       "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
       "diagnostics are notes. State in your own words the limits that change what the person should believe or do; " +
       "their exact wording is not checked."),
@@ -1659,6 +1664,11 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   source_lines: z.array(sourceLineCheckSchema).optional()
     .describe("For a passing check with source_lines, in their order: whether each quote is in the text AskRigor " +
       "fetched, and where. Only a line with both found in a paper AskRigor fetched may be marked as found."),
+  // The owner, 5 Nov 2026, runtime only (owner answer 189a): how each key source was read, said beside it in the answer.
+  source_reading: z.array(sourceReadingCheckSchema).optional()
+    .describe("For each key source whose reading this check knows: its id, how a limit names it, and how it was read, " +
+      "from its verified receipts and accepted read_depth. The answer says it beside each study it cites, and the " +
+      "panel lists it under a passing check."),
   // Owner answer 249a, runtime only (owner answer 189a): what the check of the study map found.
   study_map: studyMapCheckSchema.optional()
     .describe("For a passing check with study_map: each study's receipt, text, group of people and registry numbers, " +
@@ -2757,6 +2767,12 @@ export function finalizeResearch(
   const foundHere = (sourceId: string): boolean => paperReceipts(sourceLinks(sourceId)).length > 0 ||
     checkedInAtlas(sourceId) || threadReadHere(sourceId);
   const keyLinks = input.key_sources.map((source) => sourceLinks(source.id));
+  // How each key source was read, as this check verifies it, and which ones the draft cites, by a link its receipts tie
+  // to it or by its identifier in the prose a reader sees (the owner, 5 Nov 2026; source-reading.ts).
+  const readings: Array<SourceReading | undefined> = [];
+  const citedSources = new Set<number>();
+  const shownProse = input.answer_draft === undefined ? ""
+    : displayedProse(input.answer_draft).map(visibleText).join("\n");
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
     const threadRead = threadReadHere(source.id);
@@ -2787,7 +2803,9 @@ export function finalizeResearch(
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
     }
+    readings[index] = verifiedSourceReading(source.read_depth, { audited, read, atlasChecked: checkedInAtlas(source.id) });
     if (input.answer_draft !== undefined) {
+      if (studyLinks.some(linked) || identifierShown(shownProse, id)) citedSources.add(index);
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
       const marker = source.answer_marker === undefined ? "" : caveatText(source.answer_marker);
       const markerLinks = marker === "" ? [] : studyLines
@@ -2838,6 +2856,7 @@ export function finalizeResearch(
       };
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
+        readings[index] = "other_tool";
         continue;
       }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
@@ -2860,6 +2879,7 @@ export function finalizeResearch(
       leadSources.push(source.id);
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
+        readings[index] = "other_tool";
         continue;
       }
       addStep("declaration", joinRules(rule`Cite ${keySourceName(source)} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
@@ -2892,6 +2912,54 @@ export function finalizeResearch(
     addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text${target === source.id ? rule`` : rule` (DOI ${target})`}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id}${target === source.id ? rule`` : rule` (DOI ${target})`} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH_RULE}`));
   }
   for (const caveat of unreadStudiesCaveats(unreadStudies)) requireLimit(caveat, caveat);
+  // How each cited key source was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing
+  // that the AI tells people what it actually read"; HRP StudyReadDepthDisclosure; source-reading.ts). Under the
+  // read_depth rule, which already holds each declared reading to its receipts: a key source the draft cites has a
+  // source_reading entry, and the draft shows its quote, compared as the other declared quotes are. Which words say how
+  // it was read stays the model's declaration, in any language. A key source the draft doesn't cite needs nothing, and
+  // every other finding about the entries is a note. Each key source's reading goes back in the result, for the answer
+  // to say before a check blocks and for the panel to list under a passing one.
+  const sourceReadings: SourceReadingCheck[] = [];
+  {
+    const keyIds = input.key_sources.map(({ id }) => normalizeIdentifier(id));
+    const entries = new Map<string, SourceReadingEntry>();
+    for (const entry of input.source_reading ?? []) {
+      const key = normalizeIdentifier(entry.source);
+      if (!keyIds.includes(key)) {
+        addStep("declaration", rule`source_reading names ${entry.source}, which key_sources does not list: give each key source's id as key_sources gives it, or leave the entry out.`);
+      } else if (entries.has(key)) {
+        addStep("declaration", rule`source_reading gives ${entry.source} more than once: give each key source one entry; only the first is checked.`);
+      } else {
+        entries.set(key, entry);
+      }
+    }
+    const showing = quoteLocator(displayedProse(input.answer_draft ?? ""));
+    const checkedKeys = new Set<string>();
+    for (const [index, source] of input.key_sources.entries()) {
+      const key = keyIds[index]!;
+      if (checkedKeys.has(key)) continue;
+      checkedKeys.add(key);
+      const reading = readings[index];
+      if (reading !== undefined) sourceReadings.push({ source: source.id, name: keySourceName(source).text, reading });
+      if (!citedSources.has(index)) continue;
+      const how = reading === undefined ? rule`` : rule` (${sourceReadingRule(reading)})`;
+      const entry = entries.get(key);
+      if (entry === undefined) {
+        addBlockingStep("read_depth", "answer_draft", reading === undefined
+          ? joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read: give it a `,
+            rule`read_depth its receipts support, say beside it how it was read, in the answer's language, and give `,
+            rule`later_inputs.source_reading an entry for it, with source ${source.id} and quote those words copied `,
+            "from answer_draft.")
+          : joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read${how}: say `,
+            rule`so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with `,
+            rule`source ${source.id} and quote those words copied from answer_draft.`));
+      } else if (showing(entry.quote).length === 0) {
+        addBlockingStep("read_depth", "answer_draft", joinRules(
+          rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
+          "in the answer's language, and copy those words exactly from answer_draft."));
+      }
+    }
+  }
   // A key study's headline figures, as its audit recomputed them (owner
   // questions 87 and 89, issues #329 and #331): a study whose own data
   // contradict its figures, a value impossible as printed, and two studies
@@ -4124,6 +4192,7 @@ export function finalizeResearch(
   }
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
   if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
+  if (sourceReadings.length > 0) output.source_reading = sourceReadings;
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
   // None of them holds back the answer.

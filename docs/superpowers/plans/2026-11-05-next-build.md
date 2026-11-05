@@ -173,6 +173,40 @@ owner's; the release needs the owner's explicit yes, as always.
       `NoFixedStudiesThenCommunitySequence`: a formal finding that could explain or challenge the community pattern
       reopens community sampling). Then measure: rejudge the leads of a regression run on this build.
 
+13. **How each study was read, said beside it (built)** (the owner, 5 Nov: "make sure askrigor is enforcing that the AI
+    tells people what it actually read, like 'In this study (abstract read/full text read/full text and images
+    analyzed)' that will make it much easier to understand the evidentiary basis"). HRP's `StudyReadDepthDisclosure`
+    already asks for it, and the final check already held each declared `read_depth` to its receipts, but nothing made
+    the answer say it. No seventh blocking rule: the reading-depth rule now covers the answer's words too.
+    - **Built:** `source_reading`, a later input of `finalize_research` (`apps/research-mcp/src/source-reading.ts`; the
+      frozen tool lists don't change): one entry per key source, its id as `key_sources` gives it and the answer's own
+      words on how it was read, copied from the draft, in any language. A key source the draft cites (a link its
+      receipts tie to it, or its DOI, PMID or PMCID in the prose) needs an entry whose quote the draft shows, compared as
+      the other declared quotes are; a missing entry or an unshown quote is a blocking step under `read_depth`. A key
+      source the draft doesn't cite needs nothing; an entry naming no key source, or a second one for a source, is a
+      note. Which words say how it was read stays the model's declaration. Each step names the reading the check
+      verified: a checked Atlas finding, "from a checked Atlas finding"; an audit receipt, "full text read, methods
+      audited by AskRigor"; a completed reading, "full text read"; a lead read through another tool, "read through
+      another tool, not checked by AskRigor"; otherwise the declared lower depth ("part of the text read", "abstract
+      only" for an abstract or a conference abstract, "only another source's description of it read", "only its title
+      and record read", "not read, no access to it", "not read, it could not be fetched"). A declared audit with only a
+      completed reading behind it reads as "full text read"; any other refused full-text or Atlas declaration has no
+      reading until it matches its receipts, and its step asks for a `read_depth` they support.
+    - **Up front and in the panel:** every result with key sources carries the runtime `source_reading` (each key
+      source's id, its name as limits give it, its reading) and a line, "Say beside each study how it was read: …", so
+      the answer can say it before a check blocks; under a passing check the panel lists "What AskRigor read: …", so
+      the reader sees it even when the answer is reworded. The runtime tool description says the read-depth check now
+      covers the answer's words.
+    - **Waits for figure reading:** "full text and figures analyzed", the owner's third example, waits for item 2
+      (figures as images); no receipt yet shows a figure was read, so no label says so. When item 2 is built, its
+      receipt can earn a reading of its own.
+    - **Tests:** `tests/source-reading.test.ts`. Existing fixtures whose drafts cite key sources get their entries from
+      the shared helper `tests/helpers/source-reading.ts` (`withSourceReading`), which quotes each key source's declared
+      reading and adds the words in a paragraph of their own when the draft lacks them, as `withHarmScreen` does.
+    - **Known limits:** the words are the model's, so an entry can quote a sentence that doesn't say how the source was
+      read; where the words sit isn't checked; a key source with no `read_depth` and no receipt showing a reading has
+      no reading, so the result's list and the panel leave it out.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy

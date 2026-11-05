@@ -1,6 +1,7 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -128,7 +129,7 @@ const cases: Case[] = [
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 async function exercise(c: Case, call: (input: FinalizeResearchInput) => Promise<FinalizeResearchOutput>) {
-  const input = c.input();
+  const input = withSourceReading(c.input());
   const first = assertNextStepsContract(await call(input));
   if (c.caveat) {
     expect(first.limits).toContain(c.caveat);

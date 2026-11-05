@@ -1,6 +1,7 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -70,7 +71,8 @@ function compared(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResea
     answer_draft: `${input.answer_draft}\n\n${CLASS_SENTENCE}`
   };
 }
-const run = (input: FinalizeResearchInput) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
+const run = (input: FinalizeResearchInput) =>
+  assertNextStepsContract(finalizeResearch(withSourceReading(input), { secret: SECRET }));
 const checked = (input: FinalizeResearchInput) => {
   const first = run(input);
   return run({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });
@@ -362,9 +364,9 @@ describe("communities named by the user and the visible check line", () => {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
       const input = base();
-      const result = await client.callTool({ name: "finalize_research", arguments: {
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({
         ...input, answer_draft: `${input.answer_draft}\n\n${run(input).caveats.join(" ")}`
-      } });
+      }) });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits",
         check_line: "Checked with AskRigor's final check, with the limits it found." });
@@ -430,7 +432,7 @@ describe("strict declaration schemas", () => {
       expect(published.anyOf).toBeUndefined();
       expect(published.type).toBeUndefined();
       expect(published.description).toContain("Outside review sites");
-      const result = await client.callTool({ name: "finalize_research", arguments: { ...shown(single(identity())) } });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...shown(single(identity())) }) });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits" });
     } finally {

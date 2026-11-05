@@ -14,6 +14,7 @@ import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./me
 import {
   lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
+import { sourceReadingGuidance } from "./source-reading.js";
 import {
   lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
@@ -2676,6 +2677,8 @@ function defineResearchOperations(
           result.caveats
             .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          // The owner, 5 Nov 2026: each key source's reading, up front, so the answer says it before a check blocks.
+          (result.source_reading === undefined ? "" : `\n${sourceReadingGuidance(result.source_reading)}`) +
           (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +

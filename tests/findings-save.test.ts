@@ -67,6 +67,7 @@ import {
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
 const NOW = new Date("2026-09-30T12:00:00.000Z");
@@ -632,7 +633,9 @@ describe("finalize_research, save_research_findings and the findings library", (
       const parsed = name === "finalize_research" && !("later_inputs" in input)
         ? finalizeResearchInputSchema.parse(input)
         : name === "save_research_findings" ? saveResearchFindingsInputSchema.parse(input) : input;
-      return await handler!(parsed, subject === undefined ? {} : {
+      // A checked answer says how each key study it cites was read (the owner, 5 Nov 2026); the shared helper gives
+      // these fixtures its words after the published schema has read the call.
+      return await handler!(name === "finalize_research" ? withSourceReading(parsed) : parsed, subject === undefined ? {} : {
         authInfo: {
           token: "synthetic-token",
           clientId: "synthetic-client",

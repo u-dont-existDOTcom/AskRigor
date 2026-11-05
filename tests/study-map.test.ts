@@ -16,6 +16,7 @@ import {
   type RegistryRecord, type StudyMap, type StudyMapTexts
 } from "../apps/research-mcp/src/study-map.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 // Every number and name here is invented. NCT01234567 is the fixture record the ClinicalTrials.gov tests use.
 const SECRET = "study-map-test-secret-0123456789012345678901";
@@ -86,8 +87,9 @@ const draft = (...extra: string[]) => [
   communitySkipCaveat(REASON),
 ].join("\n");
 
+// check() sets later_inputs aside for the study map, so the fixture gives its key sources' reading at the top level.
 function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput {
-  return {
+  return withSourceReading({
     receipts: [A, B, C, A2, R].map((each) => audit(each)),
     research_target: "Synthetic study map", research_depth: "deep", treatment_choice: "not_compared",
     community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
@@ -102,7 +104,7 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
     safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
     answer_draft: draft(),
     ...overrides,
-  } as FinalizeResearchInput;
+  } as FinalizeResearchInput, { topLevel: true });
 }
 
 type MapStudy = StudyMap["studies"][number];

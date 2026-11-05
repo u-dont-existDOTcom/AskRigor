@@ -1,5 +1,6 @@
 import { expectPassingLimits, advisoryNotes as allAdvisoryNotes, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract, copiedLimitsNote, fixtureStudyLinks } from "./helpers/finalize-next-steps-contract.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
@@ -56,7 +57,7 @@ const REJECTED_RECEIPT_STEPS = {
 } as const;
 
 const finalizeResearchBare = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
-  assertNextStepsContract(finalizeResearchUnwrapped(withAtlasLookupFixture(args[0], args[1]), args[1]));
+  assertNextStepsContract(finalizeResearchUnwrapped(withSourceReading(withAtlasLookupFixture(args[0], args[1])), args[1]));
 
 // Detailed legacy assertions inspect diagnostics; the contract suite pins the refresh hint itself.
 const SECRET = "research-finalization-test-secret-0123456789";

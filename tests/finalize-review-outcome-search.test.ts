@@ -8,11 +8,17 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 const SECRET = "review-outcome-search-test-secret-0123456789";
 const PRODUCT = "Liver Supplement 200 mg capsules";
@@ -79,7 +85,7 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
   });
   const call = async (input: FinalizeResearchInput): Promise<FinalizeResearchOutput> => {
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };

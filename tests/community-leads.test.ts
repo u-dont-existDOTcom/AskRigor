@@ -13,7 +13,7 @@ import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import { createTokenBucketLimiter } from "../apps/research-mcp/src/rate-limit.js";
 import {
   NOT_SEARCHED_LEADS_CAVEAT_STARTS,
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   forumThreadDigest,
   notSearchedLeadsCaveat,
   type FinalizeResearchOutput
@@ -23,6 +23,12 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_MISSING, advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 // The loop from people's reports to studies (the owner, 5 Nov 2026: "make sure that our feedback loop is working between
 // forum signal and studies"). Judges reading 18 runs found 19 of 98 leads from forum threads or comments searched in
@@ -207,7 +213,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research community_le
   const call = async (leads: Leads, overrides: Record<string, unknown> = {}): Promise<FinalizeResearchOutput> => {
     const input = packageFor(leads, overrides);
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: input });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading(input) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };

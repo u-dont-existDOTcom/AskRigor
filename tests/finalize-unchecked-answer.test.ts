@@ -9,12 +9,18 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
-  TOOL_LIST_REFRESH_HINT, finalizeResearch, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
+  TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 // AskRigor#354: an answer delivered while the final check said not_ready, with no sign that it was unchecked, and a
 // "continue" turn that did not know. The server never sees the delivered answer, so each step says what kind of gap it
@@ -208,7 +214,7 @@ describe("the unchecked line and the previous check in finalize_research's resul
   const call = async (input: FinalizeResearchInput) => {
     if (input.receipts === DEPTH_GAP.receipts) input = { ...input,
       receipts: [issueResearchReceipt("pubmed_record", { pmid: "12345", doi: STUDY }, { secret: SECRET })] };
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     const text = (result.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
     return { text, output: assertNextStepsContract(result.structuredContent as FinalizeResearchOutput) };

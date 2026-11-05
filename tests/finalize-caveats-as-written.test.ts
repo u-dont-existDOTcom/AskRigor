@@ -2,7 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  CORRECTION_REPORT_OFFER, communitySkipCaveat, finalizeResearch,
+  CORRECTION_REPORT_OFFER, communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { COMPLETE_CHECKS_TIP, PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
@@ -11,6 +11,12 @@ import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { advisoryNotes, assertNextStepsContract, copiedLimitsNote } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 const SECRET = "caveats-as-written-test-secret-0123456789";
 const DOI = "10.1000/caveats";
@@ -59,7 +65,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize caveats shown as writ
   const call = async (input: FinalizeResearchInput) => {
     const request = withAtlasLookupFixture(input, { secret: SECRET });
     if (surface === "gate") return { result: assertNextStepsContract(finalizeResearch(request, { secret: SECRET })), text: "" };
-    const response = await client!.callTool({ name: "finalize_research", arguments: { ...request } });
+    const response = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...request }) });
     expect(response.isError).not.toBe(true);
     return {
       result: assertNextStepsContract(response.structuredContent as FinalizeResearchOutput),

@@ -9,6 +9,7 @@ import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
+import { sourceReadingSchema } from "./source-reading.js";
 import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 
@@ -56,7 +57,15 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "or YouTube comments read here raised and the question didn't name: searched, with the exact query of the " +
         "study search that followed, what the studies showed and the answer's sentence on it, or not_searched, with " +
         "why; an empty list when the reports raised nothing new. AskRigor checks the reads, searches and sentences " +
-        "against this call's receipts and answer_draft; what it finds are notes, and leads not searched are a limit.")
+        "against this call's receipts and answer_draft; what it finds are notes, and leads not searched are a limit."),
+    // 5 Nov 2026 (the owner: "make sure askrigor is enforcing that the AI tells people what it actually read"): for each
+    // key source, the answer's words saying how it was read.
+    source_reading: sourceReadingSchema.optional()
+      .describe("For each key source the answer cites, one entry: source, its id as key_sources gives it, and quote, " +
+        "the answer's own words saying how it was read (as this check's result names it, such as abstract only or " +
+        "full text read), beside or in the sentence citing it, in the answer's language, copied from answer_draft. " +
+        "A cited key source without an entry, or whose quote the answer doesn't show, holds the answer back under the " +
+        "reading-depth check.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

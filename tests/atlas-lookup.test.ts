@@ -6,9 +6,15 @@ import { loadAtlasFindings } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasSearchQuery } from "../apps/research-mcp/src/atlas/search.js";
 import { ATLAS_LOOKUP_FAILED_CAVEAT, atlasReceiptFinding, atlasSourceDigest, checkAtlasReuse, uncheckedAtlasCaveat } from "../apps/research-mcp/src/atlas/reuse.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
-import { finalizeResearch, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { finalizeResearch as finalizeResearchUnwrapped, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { RESEARCH_OPERATIONS, registerTools } from "../apps/research-mcp/src/register-tools.js";
 import { publications } from "./helpers/atlas-participation-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 const SECRET = "atlas-lookup-test-secret-01234567890123456789";
 const now = () => new Date("2026-11-04T12:00:00.000Z");

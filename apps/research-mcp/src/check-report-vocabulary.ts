@@ -1860,6 +1860,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "other_product",
   "other_review",
   "other_target",
+  "other_tool",
   "other_update_recorded",
   "other_variant",
   "outbound",

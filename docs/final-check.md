@@ -12,7 +12,8 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    its link; it is not asked for a DOI, full text or lead (#394's run, 3 November 2026, refused two such threads). A
    note asks for a study a claim rests on to be added to `key_sources` only when this check would accept it there;
    otherwise it asks for the study to be looked up first.
-2. A study's declared `read_depth` matches its receipts.
+2. A study's declared `read_depth` matches its receipts, and an answer citing a key source says beside it how it was
+   read, in its own words, which `source_reading` copies (5 November 2026, not yet released; below).
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
 4. Declared `safety_claims` have a `harm_screen` naming at least one harm actually searched. Duplicates, other
    values, quotes and a `not_found` query without a receipt produce notes. The harms and source types searched
@@ -196,6 +197,37 @@ read. Limits: a study search made before the reports were read still counts, sin
 search receipts sign no research target, so a read or search made for another question within the receipts' 24 hours
 counts too; and a same-site redirect to a login or index page could sign the link as asked (the reader's own access
 states are the guard). The other direction, a study's finding followed up in the communities, is next.
+
+How each study was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing that the AI tells
+people what it actually read, like 'In this study (abstract read/full text read/full text and images analyzed)' that will
+make it much easier to understand the evidentiary basis"; not yet released) adds one later input and no blocking rule:
+the read-depth check (rule 2) now covers the answer's words too (`apps/research-mcp/src/source-reading.ts`). HRP's
+`StudyReadDepthDisclosure` already asks the answer to say beside each supporting study what was actually read, and the
+check already held each declared `read_depth` to its receipts, but nothing made the answer say it. `source_reading`,
+sent in `later_inputs`, gives one entry per key source: `source`, its id as `key_sources` gives it, and `quote`, the
+answer's own words saying how it was read, beside or in the sentence citing it, in the answer's language, copied from
+`answer_draft`. A key source the draft cites (a link its receipts tie to it, or its identifier in the prose a reader
+sees: a DOI in any case, a PMID or PMCID as a whole number) needs an entry whose quote the draft shows, compared as the
+other declared quotes are; a missing entry or a quote not shown is a blocking step under `read_depth`. Whether the words
+say how it was read is the AI's declaration, since no word list can judge that in every language. A key source the
+draft doesn't cite needs nothing (its link is asked for under rule 1 already); an entry naming no key source, or a
+second entry for one, is a note, and only the first entry for a source is checked. Each step gives the reading the
+check verified, for the AI to put in its own words: a checked Atlas finding the call uses, "from a checked Atlas
+finding"; an audit receipt, "full text read, methods audited by AskRigor"; a completed reading, "full text read"; a lead
+read through another tool, "read through another tool, not checked by AskRigor"; otherwise the declared lower depth:
+"part of the text read", "abstract only" (for a conference abstract too), "only another source's description of it
+read", "only its title and record read", "not read, no access to it" or "not read, it could not be fetched". A declared
+audit with only a completed reading behind it reads as "full text read"; any other declared full-text reading or Atlas
+finding its receipts don't support has no reading until the declaration matches (rule 2's own step names what to
+give), and its step asks for a `read_depth` the receipts support. On any check with key sources
+the result names each one's reading up front ("Say beside each study how it was read: …"), from the runtime
+`source_reading` (each key source's id, its name as a limit gives it and its reading), so the answer can say it before a
+check blocks; under a passing check the panel lists the same, "What AskRigor read: "Trial" (10.1000/…), full text read,
+methods audited by AskRigor; …", so the reader sees it even when the answer is reworded. "Full text and figures
+analyzed", the owner's third example, waits for AskRigor's figure reading (the next build's item 2), which isn't built:
+no receipt yet shows that a figure was read. Limits: the words are the AI's, so an entry can quote a sentence that
+doesn't say how the source was read; where they sit is not checked; and a key source with no `read_depth` and no
+receipt showing a reading has no reading, so the result and the panel leave it out.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

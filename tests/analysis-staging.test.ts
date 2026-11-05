@@ -50,6 +50,7 @@ const {
 const { registerTools } = await import("../apps/research-mcp/src/register-tools.js");
 const { communitySkipCaveat, finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
 const { verifyResearchReceipt } = await import("../apps/research-mcp/src/research-receipts.js");
+const { withSourceReading } = await import("./helpers/source-reading.js");
 
 const DOI = "10.1002/art.41142";
 const NOW = new Date("2026-10-03T12:00:00.000Z");
@@ -535,7 +536,8 @@ describe("the server sends a free contributor's validated analyses when the fina
     expect(validated.structuredContent).toMatchObject({ status: "source_linked_study_audit_validated" });
     expect(store.inserted).toHaveLength(0);
 
-    const finalize = (receipts: string[]) => call("finalize_research", finalizeResearchInputSchema.parse({
+    // The checked answer says how its study was read (the owner, 5 Nov 2026), in the shared helper's words.
+    const finalize = (receipts: string[]) => call("finalize_research", withSourceReading(finalizeResearchInputSchema.parse({
       lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
       full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates staged analysis checks." },
       receipts,
@@ -552,7 +554,7 @@ describe("the server sends a free contributor's validated analyses when the fina
       answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})\n\n` +
         communitySkipCaveat("How the body clears a drug, with no real-world outcome."),
       absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
-    }), "auth0|free");
+    })), "auth0|free");
     const receipt = (validated.structuredContent as { research_receipt: string }).research_receipt;
     // The audit's figures check rides in its receipt (owner questions 87 and 89).
     expect(verifyResearchReceipt(receipt, { secret: SECRET })).toMatchObject({

@@ -41,8 +41,8 @@ describe("later_inputs (owner answer 189a)", () => {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
         // Owner answer 219b: the findings card's newer form, with each finding's YouTube-comments declaration.
         // Owner answer 237a: the source lines. Owner answer 249a: the study map. 5 Nov 2026: user_observations' newer form,
-        // and the leads people's reports raised, with the study search that followed each.
-        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads"]
+        // the leads people's reports raised, with the study search that followed each, and how each key source was read.
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           : operation.name === "validate_study_method_audit" ? ["audit"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
@@ -191,9 +191,11 @@ describe("later_inputs (owner answer 189a)", () => {
     // Emulate an older kept list that predates safety_question. The actual parser already knows the field;
     // production's later-input schemas remain empty, and its published safety_question stays top-level.
     // A genuinely new field is declared only in the shared registry; the strict parser picks it up too.
+    // Today's source_reading stays in it, since a cited key source needs its reading (the owner, 5 Nov 2026).
     const futureShape = {
       future_probe: z.string().max(8),
       key_sources: z.array(finalizeResearchInputSchema.shape.key_sources.element.extend({ future_nested: z.string().optional() })),
+      source_reading: laterInputs.laterInputShape("finalize_research").source_reading,
     };
     vi.spyOn(laterInputs, "laterInputShape").mockImplementation(() => futureShape);
     const published = finalizeResearchPublishedInputSchema({ relaxed: false });
@@ -210,9 +212,11 @@ describe("later_inputs (owner answer 189a)", () => {
       full_text_search: { status: "not_needed", reason: "Synthetic mechanism fixture." },
       absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [],
       key_terms: [], mechanism_claims: [], recommendations: [],
-      answer_draft: "[Study](https://doi.org/10.1000/later) describes a synthetic mechanism.",
+      answer_draft: "[Study](https://doi.org/10.1000/later) (full text read, methods audited by AskRigor) describes a " +
+        "synthetic mechanism.",
       later_inputs: { safety_question: false, future_probe: "checked", key_sources: [{ id: "10.1000/later",
-        status: "validated", read_depth: "full_text_audited", answer_marker: "Study", future_nested: "reached gate" }] },
+        status: "validated", read_depth: "full_text_audited", answer_marker: "Study", future_nested: "reached gate" }],
+        source_reading: [{ source: "10.1000/later", quote: "full text read, methods audited by AskRigor" }] },
     }), { secret });
     let received: Record<string, unknown> | undefined;
     const evolving = withLaterInputs("finalize_research", older, async (input) => {

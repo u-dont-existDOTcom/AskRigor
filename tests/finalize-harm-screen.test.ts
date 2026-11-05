@@ -15,13 +15,19 @@ import { registerTools } from "../apps/research-mcp/src/register-tools.js";
 import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION, HARM_NOT_CHECKED_CAVEAT_START, HARM_SCREEN_SOURCES, HARM_SCREEN_STATES,
-  TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
+  TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
   type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { CARD } from "./helpers/findings-fixtures.js";
 import { SCREENED_HARM_SENTENCE, withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 // Owner answer "128b" (2026-10-20), from lesson #44 (UDA #403): comparing the safety of a prescribed growth hormone
 // with peptides that raise it, an answer searched blood sugar, swelling, joints, the heart and cancer, but never severe
@@ -638,11 +644,11 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
     });
     const card = { ...CARD, findings: [{ ...CARD.findings[0]!, answer_quote: SAFETY, sources: [DOI], tags: ["full_text_read"] }] };
     const stroke = "stroke after rechallenge";
-    const result = await finalize!(base({
+    const result = await finalize!(withSourceReading(base({
       receipts: [audit, search()], harm_screen: [onLabel, notFound, { harm: stroke, state: "not_checked" }],
       findings_card: findingsCardSchema.parse(card),
       answer_draft: `${base().answer_draft}\n\n${BOUNDED("PubMed")} ${harmNotCheckedCaveat(stroke)}`
-    }), {
+    })), {
       authInfo: {
         token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
         expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|free" }
@@ -713,7 +719,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       const logged = (["log", "info", "warn", "error", "debug"] as const)
         .map((method) => vi.spyOn(console, method).mockImplementation(() => undefined));
       const call = async (input: unknown) => {
-        const response = await client.callTool({ name: "finalize_research", arguments: input as Record<string, unknown> });
+        const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) as Record<string, unknown> });
         expect(response.isError).not.toBe(true);
         const text = (response.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
         return { result: response.structuredContent as Record<string, unknown>, text };

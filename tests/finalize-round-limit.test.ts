@@ -14,13 +14,19 @@ import {
 } from "../apps/research-mcp/src/check-rounds.js";
 import {
   communitySkipCaveat,
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   UNCHECKED_LINE_START,
   type FinalizeResearchInput,
   type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { uncheckedAnswerInstructions } from "../apps/research-mcp/src/register-tools.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 // Owner answer 172a (2026-10-24): at most ten rounds of the final check in a turn, and a step that comes back
 // unchanged three rounds running is stuck, so the check stops asking for it and counts it as a reason.

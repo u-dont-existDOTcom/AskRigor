@@ -2,11 +2,17 @@ import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/fin
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch, finalizeResearchInputSchema,
+  FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema,
   forumThreadDigest, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0]), args[1]);
 
 // The owner regression run of 2026-10-16: 19 of 20 first finalize_research calls were rejected by ChatGPT's connector
 // for fields its app shows the model only as "unknown" (read-only Codex probes), and #336's fourth turn kept its

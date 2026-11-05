@@ -25,6 +25,7 @@ import {
   discoveryQueryDigest, issueResearchReceipt, researchTargetDigest, verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 
 // Owner answer 153a, from the OCD comparison reports (AskRigor#354 to #357), with the approved HRP sentence: "The same
@@ -132,7 +133,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = packageFor(overrides);
+    const input = withSourceReading(packageFor(overrides));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
@@ -400,10 +401,10 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
       ]);
       if (surface === "gate") {
         const named = "DeepBrainProtocol devices";
-        const result = assertNextStepsContract(finalizeResearch(packageFor({
+        const result = assertNextStepsContract(finalizeResearch(withSourceReading(packageFor({
           option_classes: [supplements, { option_class: named, state: "inaccessible" }],
           answer_draft: `${STUDY_LINE}\n\n${SEARCHED} ${optionClassCaveat("inaccessible", named)}`
-        }), { secret: SECRET, protocolNames: new Set(["DeepBrainProtocol"]) }));
+        })), { secret: SECRET, protocolNames: new Set(["DeepBrainProtocol"]) }));
         // The answer stating the caveat shows the name too, which the answer's own check names as well.
         expect(advisoryNotes(result)).toContain("option_classes[1].option_class shows internal labels (DeepBrainProtocol): " +
           "the answer names this class in its caveat, so give it in plain words.");
@@ -435,7 +436,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research option_class
     { state: "partly" }, { option_class: "" }, { option_class: "o".repeat(121) }, { search_query: "q".repeat(501) },
     { answer_quote: "a".repeat(1_001) }, { extra: "unexpected" }
   ])("notes a malformed entry (%j) and still checks the answer", async (invalid) => {
-    const input = { ...packageFor(), option_classes: [{ ...supplements, ...invalid }] };
+    const input = withSourceReading({ ...packageFor(), option_classes: [{ ...supplements, ...invalid }] });
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     const result = surface === "gate"
       ? finalizeResearch(input, { secret: SECRET })
