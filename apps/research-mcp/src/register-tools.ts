@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import {
-  lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+  abstractDocument, lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -47,6 +47,8 @@ import {
   failedPrimaryRoutes,
   fetchClinicalTrial,
   fetchPubmedRecord,
+  pubmedAbstractSections,
+  type PubmedRecord,
   checkRetractionStatus,
   resolveDoi,
   searchClinicalTrials,
@@ -3548,8 +3550,10 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
   },
   async abstract(pmid) {
     const result = await fetchPubmedRecord(pmid, ncbiConfig());
-    const abstract = (result.data as { abstract?: string } | undefined)?.abstract;
-    return abstract === undefined || abstract === "" ? undefined : { kind: "abstract", blocks: [{ text: abstract }] };
+    const record = result.data as PubmedRecord | undefined;
+    const abstract = record?.abstract;
+    return record === undefined || abstract === undefined || abstract === "" ? undefined
+      : abstractDocument(abstract, pubmedAbstractSections(record));
   }
 };
 

@@ -2138,20 +2138,37 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       );
       checks.push("atlas_versions_keep_the_research_behind_them_and_forum_read_and_erasure_removes_the_research_whole");
 
-      // The runbook's read-only rollback check (the review of #417, finding 2): what an earlier image can't parse. Here
-      // the two accept intents (one with the research behind it, one resting on forum_read) and the versions on forum_read.
-      const rollbackCounts = await admin.query<{ publications: string; intents: string; versions: string }>(
-        `SELECT (SELECT count(*) FROM ${schema}.atlas_publications
-                  WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3') AS publications,
-                (SELECT count(*) FROM ${schema}.atlas_finding_intents
+      // The runbook's read-only rollback check (the review of #417, finding 2, and its recheck): what an earlier image
+      // can't parse. Here the two accept intents (one with the research behind it, one resting on forum_read), then a
+      // re-check intent resting on forum_read, whose bases sit at its payload's top level, and the versions on forum_read.
+      // verifyAtlasPublications counts the version 3 publications.
+      const rollbackCounts = async () => (await admin.query<{ intents: string; versions: string }>(
+        `SELECT (SELECT count(*) FROM ${schema}.atlas_finding_intents
                   WHERE payload_json -> 'content' ? 'research'
-                     OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read') AS intents,
+                     OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read'
+                     OR payload_json -> 'verifiedBases' ? 'forum_read') AS intents,
                 (SELECT count(*) FROM ${schema}.atlas_finding_versions WHERE verified_bases ? 'forum_read') AS versions`,
-      );
-      const counted = rollbackCounts.rows[0]!;
-      assert(Number(counted.intents) >= 2 && Number(counted.versions) >= 2 && Number(counted.publications) >= 0,
-        `ATLAS_ROLLBACK_CHECK_MISMATCH ${JSON.stringify(counted)}`);
-      checks.push("the_runbooks_rollback_check_counts_the_intents_and_versions_an_earlier_image_cannot_parse");
+      )).rows[0]!;
+      const accepts = await rollbackCounts();
+      const forumWording = "People on invented forums report less tremor after a warm bath.";
+      const recheck = prepareAtlasFindingIntent({
+        schema: "askrigor.atlas-finding-intent.v1", kind: "recheck", publicNumber: forumOnly,
+        cardWordingKey: atlasWordingKey(ATLAS_QUESTION, forumWording), verifiedBases: ["forum_read"], sources: [],
+        researchCheckedOn: "2026-11-05", madeWith: ATLAS_MADE_WITH,
+      });
+      await review.decide({
+        cardNumber: 9005, itemKind: "finding", itemNumber: 1, decision: "rechecked", cardSha256: atlasCardSha256(9005),
+        ownerReason: null, decidedAt: tick(),
+        intent: { intentId: deterministicUuid(`card-fields-intent:${schema}:9005`), ...recheck },
+        recheckedPublicNumber: forumOnly,
+      });
+      const rechecked = await runner.promoteAccepted();
+      assert(rechecked.failed.length === 0 && rechecked.result.status === "promoted",
+        `ATLAS_FORUM_RECHECK_NOT_PROMOTED ${JSON.stringify(rechecked.failed)}`);
+      const counted = await rollbackCounts();
+      assert(Number(accepts.intents) >= 2 && Number(counted.intents) === Number(accepts.intents) + 1 &&
+        Number(counted.versions) >= 2, `ATLAS_ROLLBACK_CHECK_MISMATCH ${JSON.stringify({ accepts, counted })}`);
+      checks.push("the_runbooks_rollback_check_counts_the_accept_and_recheck_intents_and_versions_an_earlier_image_cannot_parse");
 
       // A second migrate on the populated database changes nothing.
       const before = await atlasMigrationSnapshot(admin, schema);
@@ -2552,6 +2569,11 @@ export async function verifyAtlasPublications(context: {
         people: { better: 5, no_change: 1, worse: 0, mixed: 1 }, report_quality: { detailed: 3, measured: 1, bare: 2 },
         mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
     };
+    // The runbook's read-only rollback check (the recheck of #417) counts the version 3 rows, withdrawn or not.
+    const versionThree = async () => Number((await admin.query<{ count: string }>(
+      `SELECT count(*) FROM ${schema}.atlas_publications WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3'`,
+    )).rows[0]!.count);
+    const versionThreeBefore = await versionThree();
     const third = await store.publish({ cardNumber: 7006, cardSha256: atlasHex("synthetic-publication-card-v3"),
       findings: [draft(1, { published: researched }), draft(2, { published: forumOnly })], publishedAt: tick(),
       revive: false });
@@ -2565,6 +2587,11 @@ export async function verifyAtlasPublications(context: {
       `ATLAS_PUBLICATION_VERSION_3_MISMATCH ${JSON.stringify(readBack.map(({ published: row }) => row))}`,
     );
     checks.push("atlas_publications_of_version_3_round_trip_with_the_research_behind_them_and_what_people_report");
+    // Both version 3 rows count, withdrawn as they now are, since a withdrawn row keeps its published fields.
+    const versionThreeAfter = await versionThree();
+    assert(versionThreeAfter === versionThreeBefore + 2,
+      `ATLAS_ROLLBACK_PUBLICATION_COUNT ${JSON.stringify({ versionThreeBefore, versionThreeAfter })}`);
+    checks.push("the_runbooks_rollback_check_counts_the_version_3_publications_withdrawn_or_not");
 
     const [accepted] = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
       decidedAt: tick() });

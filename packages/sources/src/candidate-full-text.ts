@@ -199,7 +199,28 @@ function decodeEntities(text: string): string {
     return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "";
   });
 }
-/** Small static extractor: block tags preserve heading/paragraph boundaries.
+// HTML's own white space, which a browser collapses to one space: the source's line breaks included.
+const HTML_SPACE = /[ \t\n\f\r]+/gu;
+// The elements a browser lays out as blocks, and <br>: only they break the text's lines. Every other element (b, strong,
+// i, em, span, a, sup, sub and the like) stays inline, so "did <b>not</b> decrease" reads as one sentence, as a browser
+// shows it (the recheck of #417, 5 November 2026).
+const BLOCK_TAG = new RegExp(`<\\/?(?:${[
+  "address", "article", "aside", "blockquote", "body", "br", "caption", "center", "dd", "details", "dialog", "dir", "div",
+  "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form", "frameset", "h[1-6]", "head", "header", "hgroup", "hr",
+  "html", "legend", "li", "main", "menu", "nav", "ol", "option", "p", "pre", "section", "summary", "table", "tbody", "td",
+  "tfoot", "th", "thead", "title", "tr", "ul"
+].join("|")})\\b[^>]*>`, "giu");
+// Where a block breaks the text while the source's own white space collapses: a character no text keeps.
+const BLOCK_BREAK = "\u0000";
+const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+/** A superscript of digits (a citation, "12,14–16", or a power, "−3") in Unicode's superscripts, as it is printed. */
+function superscript(element: string, inner: string): string {
+  const text = decodeEntities(inner.replace(/<[^>]*>/gu, "")).replace(HTML_SPACE, "");
+  if (!/^[+\u2212\u2010-\u2014-]?\d+(?:[,\u2212\u2010-\u2014-]\d+)*$/u.test(text)) return element;
+  return text.replace(/\d/gu, (digit) => SUPERSCRIPT_DIGITS[Number(digit)]!)
+    .replace(/[\u2212\u2010-\u2014-]/gu, "⁻").replace(/\+/gu, "⁺");
+}
+/** Small static extractor, laid out as a browser lays the page out: only block elements and <br> break its lines.
  * Scripts, templates, hidden blocks and navigation never supply article text.
  * No script execution, subresource requests, cookies, or browser rendering. */
 export function extractHtmlText(html: string): { text: string; title?: string; doi?: string } {
@@ -217,11 +238,15 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
   const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
   // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
-  const visible = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
+  const visible = removeAll(removeAll(html.replaceAll(BLOCK_BREAK, ""), /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
     .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?=\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
-    .replace(/<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu, "\n")
-    .replace(/<[^>]*>/gu, " ");
-  return { text: decodeEntities(visible).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
+    // A <pre> keeps its own line breaks, as a browser shows them.
+    .replace(/<pre\b[^>]*>[\s\S]*?<\/pre\s*>/giu, (block) => block.replace(/\r\n?|\n/gu, "<br>"))
+    .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup\s*>/giu, superscript)
+    .replace(BLOCK_TAG, BLOCK_BREAK)
+    .replace(/<[^>]*>/gu, "");
+  return { text: decodeEntities(visible).replace(HTML_SPACE, " ").replaceAll(BLOCK_BREAK, "\n")
+    .replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
 }

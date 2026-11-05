@@ -589,6 +589,8 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     threadLinks?: boolean;
     /** The subreddits the final check's receipt signed for the card's Reddit threads (threadCommunitiesFromReceipt). */
     threadCommunities?: ReadonlyMap<number, ReadonlyMap<number, string>>;
+    /** The forum pages whose links the final check's receipt signed as read (threadLinksFromReceipt). */
+    threadLinksRead?: ReadonlyMap<number, ReadonlySet<number>>;
   } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
@@ -611,8 +613,10 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     // final check refuses one), and a signal left with no thread is not kept. Each thread is rebuilt from its verified
     // parts, a Reddit post's community from its signed subreddit (the review of 5 November, findings 1 and 2).
     const subreddits = options.threadCommunities?.get(index);
+    const linksRead = options.threadLinksRead?.get(index);
     const stored = signal === undefined ? undefined
-      : storedForumSignalOf(signal, text, options.threadLinks === true, (place) => subreddits?.get(place));
+      : storedForumSignalOf(signal, text, options.threadLinks === true, (place) => subreddits?.get(place),
+        (place) => linksRead?.has(place) === true);
     return {
       ...finding,
       claim: text(finding.claim),

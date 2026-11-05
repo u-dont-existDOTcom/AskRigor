@@ -44,12 +44,16 @@ import {
   signedBackingClaims,
   signedReadingClaims,
   signedThreadCommunities,
+  signedThreadLinks,
   sourceIdKey,
   storedForumSignalOf,
   threadCommunitiesFromReceipt,
+  threadLinksFromReceipt,
   type ResearchBehindContext,
 } from "../apps/research-mcp/src/findings/research-behind.js";
-import { publishedThreadOf, registrableHost, shownCommunity, signedSubreddit } from "../apps/research-mcp/src/forum-thread-links.js";
+import {
+  forumLinkDigest, forumPublishedLink, publishedThreadOf, registrableHost, sameThreadAtSite, shownCommunity, signedSubreddit,
+} from "../apps/research-mcp/src/forum-thread-links.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import { unsavedCardCopy } from "../apps/research-mcp/src/findings/unsaved-card.js";
 import { FindingsSaveService, type FindingsRecord, type FindingsSaveAccount } from "../apps/research-mcp/src/findings/service.js";
@@ -420,6 +424,48 @@ describe("the final check signs the research behind each finding", () => {
     expect(pages.findings_card?.problems.join(" ")).toMatch(/people counts 5000 people, more than the 404 the threads read/u);
   });
 
+  // The recheck of #417: a read the reader was sent on to signs the link it was given only for the same thread at the
+  // same site, and the two links are one thread, which holds its people once.
+  it("counts a link the reader was sent on from as the thread it read, once", () => {
+    const given = "https://example.org/viewtopic.php?t=4";
+    const read = "https://talk.example.org/viewtopic.php?t=4";
+    const page = (people: number, threads: string[]) => finalizeResearch(fixture({
+      findings_card: laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads,
+        people: { better: people, no_change: 0, worse: 0, mixed: 0 }, report_quality: { detailed: 0, measured: 0, bare: 0 } }) } })),
+      receipts: [...fixture().receipts.slice(0, 2),
+        receipt("forum_thread_read", { u: forumThreadDigest(read), ur: forumThreadDigest(given), n: 200, v: "page", w: "aaaaaaaaaaaaaaaa" })],
+    }), OPTIONS);
+    // 200 characters hold 10 people, by either link.
+    for (const link of [given, read]) {
+      expect(page(10, [link]).findings_card?.status, link).toBe("checked");
+      expect(page(11, [link]).findings_card?.problems.join(" "), link)
+        .toMatch(/people counts 11 people, more than the 10 the threads read here can hold/u);
+    }
+    // Both links are one thread: given twice, refused as a repeat, and its people counted once.
+    const both = page(20, [given, read]);
+    expect(both.findings_card?.status).toBe("rejected");
+    expect(both.findings_card?.problems.join(" ")).toMatch(/threads\[1\] gives a thread already listed/u);
+    expect(both.findings_card?.problems.join(" ")).toMatch(/people counts 20 people, more than the 10/u);
+  });
+
+  // The recheck of #417: the final check signs a forum page's place (`fl`) only when the card's link is the one the
+  // reader read, as the read's `l` signed it.
+  it("signs a forum page's link for the save only when the card gives it as its reader read it", () => {
+    const read = "https://www.example.org/viewtopic.php?t=12";
+    const linked = (link: string) => signedClaims(finalizeResearch(fixture({
+      findings_card: laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads: [THREAD, link] }) } })),
+      receipts: [...fixture().receipts.slice(0, 3),
+        receipt("forum_thread_read", { u: forumThreadDigest(read), n: 4_000, v: "page", w: "aaaaaaaaaaaaaaaa",
+          l: forumLinkDigest(read) })],
+    }), OPTIONS).finalization_receipt);
+    expect(linked(`${read}&highlight=jane`).fl).toEqual(["2.2"]);
+    for (const other of ["http://www.example.org/viewtopic.php?t=12", "https://example.org/viewtopic.php?t=12"]) {
+      const claims = linked(other);
+      expect(claims.findings, other).toBeDefined();
+      expect(claims, other).not.toHaveProperty("fl");
+    }
+  });
+
   it("refuses the card, not the answer, for a thread not read here", () => {
     const unread = card({ forum: { forum_signal: signal({ threads: ["https://forum.example.org/t/unread/9"] }) } });
     const result = finalizeResearch(fixture({ findings_card: laterFindingsCardSchema.parse(unread) }), OPTIONS);
@@ -498,8 +544,10 @@ describe("the receipt's claims and what the save keeps of them", () => {
 // AI's link: a Reddit post's community from the subreddit its reader's receipt signed, and its link by its id alone;
 // another forum's registrable host, and a link only in one of four structural, id-only forms.
 describe("thread links and communities, from the verified read", () => {
-  const stored = (threads: string[], subreddit?: string) => storedForumSignalOf(laterFindingsCardSchema.parse(card({
-    forum: { forum_signal: signal({ threads }) } })).findings[1]!.forum_signal!, (value) => value, true, () => subreddit);
+  // linkRead: the final check signed each forum page's link as the one its reader read (`fl`).
+  const stored = (threads: string[], subreddit?: string, linkRead = true) => storedForumSignalOf(
+    laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads }) } })).findings[1]!.forum_signal!,
+    (value) => value, true, () => subreddit, () => linkRead);
 
   it("publishes a Reddit post as r/<subreddit> from its signed subreddit, and its link by its id, whatever the AI's link says", () => {
     expect(publishedThreadOf(THREAD, "kneepain")).toEqual({ key: "reddit.com/comments/abc123", community: "r/kneepain",
@@ -520,7 +568,7 @@ describe("thread links and communities, from the verified read", () => {
   });
 
   it("publishes another forum's link only in an id-only form at its own host, never a title, a slug or a query value", () => {
-    const linkOf = (url: string) => publishedThreadOf(url)?.link;
+    const linkOf = (url: string) => publishedThreadOf(url, undefined, true)?.link;
     expect(linkOf("https://example.org/viewtopic.php?t=123&highlight=jane+doe+says+i+cured+it"))
       .toBe("https://example.org/viewtopic.php?t=123");
     expect(linkOf("https://example.org/viewtopic.php?t=123&p=anything-at-all&start=40&sid=abcdef"))
@@ -529,9 +577,12 @@ describe("thread links and communities, from the verified read", () => {
     expect(linkOf("https://example.org/threads/my-husband-john-smith-cured-his-back.12345/page-2"))
       .toBe("https://example.org/threads/12345/");
     expect(linkOf("https://example.net/t/my-title-slug/4512/7")).toBe("https://example.net/t/4512");
-    // The scheme as read; any other port, never.
+    // The form keeps the link's scheme and host; any other port, never.
     expect(linkOf("http://example.org/viewtopic.php?t=12")).toBe("http://example.org/viewtopic.php?t=12");
     expect(linkOf("https://example.org:8443/viewtopic.php?t=12")).toBeUndefined();
+    // With no sign that it is the link read, a page is named and counted, never linked.
+    expect(publishedThreadOf("https://example.org/viewtopic.php?t=12")).toEqual({ key: "example.org/viewtopic.php?t=12",
+      community: "example.org" });
     // Anything else is counted, never linked: a host that isn't the forum's own (a person's subdomain, a mobile or
     // "new" host), a session in the path, a person's or a blog's page, Quora's answer slugs, Earth Clinic's pages for
     // now, a Discourse post that names no topic apart from it, an install under a folder.
@@ -570,19 +621,61 @@ describe("thread links and communities, from the verified read", () => {
       .toEqual(expect.objectContaining({ communities: ["another website"], threads_read: 1 }));
   });
 
-  // The review of #417 (findings 5 and 8): only Reddit's own prefixes are set aside, and a punycode host shows in Unicode.
-  it("keeps a forum's host as read, sets aside only Reddit's prefixes, and shows a punycode host in Unicode", () => {
-    expect(forumThreadDigest("https://www.example.org/t/1")).not.toBe(forumThreadDigest("https://example.org/t/1"));
+  // The review of #417 (findings 5 and 8) and its recheck: a www host and the bare one compare as one, and only Reddit's
+  // other prefixes are set aside; a punycode host shows in Unicode only when its letters are in one script.
+  it("compares a www host and the bare one as one, keeps the rest of a host, and shows Unicode only in one script", () => {
+    expect(forumThreadDigest("https://www.example.org/t/1")).toBe(forumThreadDigest("https://example.org/t/1"));
     expect(forumThreadDigest("https://new.example.org/t/1")).not.toBe(forumThreadDigest("https://example.org/t/1"));
+    expect(forumThreadDigest("https://m.example.org/t/1")).not.toBe(forumThreadDigest("https://example.org/t/1"));
     expect(forumThreadDigest("https://old.reddit.com/r/KneePain/comments/abc123/")).toBe(forumThreadDigest("https://redd.it/abc123"));
     expect(forumThreadDigest("http://example.org/t/1/")).toBe(forumThreadDigest("https://example.org/t/1"));
     const idn = stored(["https://xn--e1afmkfd.xn--p1ai/viewtopic.php?t=5"]);
     expect(idn).toEqual(expect.objectContaining({ communities: ["xn--e1afmkfd.xn--p1ai"],
       threads: ["https://xn--e1afmkfd.xn--p1ai/viewtopic.php?t=5"] }));
     expect(shownCommunity("xn--e1afmkfd.xn--p1ai")).toBe("пример.рф");
+    expect(shownCommunity("xn--bcher-kva.de")).toBe("bücher.de");
+    expect(shownCommunity("xn--hxargifdar.xn--qxam")).toBe("ελληνικά.ελ");
+    // A look-alike: a Cyrillic а among Latin letters, a Cyrillic label before a Latin one (аррӏе.com), or two scripts in
+    // a label. A label in one script under a Latin one shows as read too, whoever it is (ελληνικά.gr).
+    for (const host of ["xn--pple-43d.com", "xn--80ak6aa92e.com", "xn--e1afmkfd.com", "xn--r8jz45g.xn--zckzah",
+      "xn--hxargifdar.gr"]) {
+      expect(shownCommunity(host), host).toBe(host);
+    }
     expect(shownCommunity("r/kneepain")).toBe("r/kneepain");
     expect(shownCommunity("another website")).toBe("another website");
     expect(shownCommunity("example.org")).toBe("example.org");
+  });
+
+  // The recheck of #417: a forum page's link is published only as its reader read it, by the read's `l` and the final
+  // check's `fl`, never the AI's own http:// or host.
+  it("links a forum page only as its reader read it, and names and counts it either way", () => {
+    const given = laterFindingsCardSchema.parse(card({ forum: { forum_signal: signal({ threads: [
+      "https://www.example.org/viewtopic.php?t=12&highlight=x", "http://www.example.org/viewtopic.php?t=13",
+      "https://example.org/viewtopic.php?t=14", THREAD, "https://janedoe.substack.com/p/my-recovery"] }) } }));
+    const read = new Set(["https://www.example.org/viewtopic.php?t=12", "https://www.example.org/viewtopic.php?t=13",
+      "https://www.example.org/viewtopic.php?t=14"].map(forumLinkDigest));
+    const signed = signedThreadLinks(given, () => read);
+    expect(signed).toEqual(["2.1"]);
+    expect(threadLinksFromReceipt(signed, given)).toEqual(new Map([[1, new Set([0])]]));
+    expect(threadLinksFromReceipt(["2.9", "1.1", "2.1:x", "junk"], given).size).toBe(0);
+    expect(stored(["https://example.org/viewtopic.php?t=14"], undefined, false))
+      .toEqual(expect.objectContaining({ communities: ["example.org"], threads_read: 1 }));
+    expect(stored(["https://example.org/viewtopic.php?t=14"], undefined, false)).not.toHaveProperty("threads");
+    expect(forumPublishedLink("https://www.example.org/threads/my-story.12/page-3")).toBe("https://www.example.org/threads/12/");
+    expect(forumPublishedLink(THREAD)).toBeUndefined();
+    expect(forumPublishedLink("https://janedoe.substack.com/p/my-recovery")).toBeUndefined();
+  });
+
+  // The recheck of #417: a link the reader was sent on from counts as the thread read only for the same thread at the
+  // same registrable host.
+  it("takes a link the reader was sent on from as the thread read only for the same thread at the same site", () => {
+    expect(sameThreadAtSite("https://example.org/viewtopic.php?t=4", "https://talk.example.org/viewtopic.php?t=4&sid=1"))
+      .toBe(true);
+    expect(sameThreadAtSite("https://example.org/viewtopic.php?t=4", "https://example.net/viewtopic.php?t=4")).toBe(false);
+    expect(sameThreadAtSite("https://example.org/viewtopic.php?t=4", "https://example.org/viewtopic.php?t=5")).toBe(false);
+    expect(sameThreadAtSite("https://example.org/viewtopic.php?t=4", "https://example.org/login")).toBe(false);
+    expect(sameThreadAtSite(THREAD, "https://www.reddit.com/comments/abc123/")).toBe(false);
+    expect(sameThreadAtSite("not a link", "https://example.org/t/1")).toBe(false);
   });
 
   it("signs and reads each Reddit thread's subreddit by the finding's place and the thread's", () => {
@@ -719,6 +812,22 @@ describe("the save stores the research behind each finding", () => {
       // Never the title's words, a username or a tracking parameter.
       expect(body).not.toMatch(/my_knee_after|utm_source|post-7/u);
       expect(parseFindingsRecordBody(body, "card")).not.toBe("tampered");
+    }
+  });
+
+  // The recheck of #417: a forum page's link is stored only where the receipt signed it as the link its reader read.
+  it("stores a forum page's link only where the receipt signed it as read", async () => {
+    const forum = "https://www.example.org/viewtopic.php?t=12";
+    const given = card({ forum: { forum_signal: signal({ threads: [THREAD, forum] }) } });
+    for (const [claims, threads] of [
+      [{ ft: ["2.1:kneepain"], fl: ["2.2"] }, ["https://www.reddit.com/comments/abc123/", forum]],
+      [{ ft: ["2.1:kneepain"] }, ["https://www.reddit.com/comments/abc123/"]],
+    ] as const) {
+      const h = saveHarness();
+      await h.save(given, claims, { mode: "PAID_PRIVATE", noticeVersion: null });
+      const stored = (storedRecordOf(h.github.issue(42).body) as FindingsRecord).card.findings[1]!.forum_signal!;
+      expect(stored.communities).toEqual(["r/kneepain", "example.org"]);
+      expect(stored.threads).toEqual(threads);
     }
   });
 
@@ -1188,6 +1297,18 @@ describe("the review of 5 November", () => {
     expect(parseFindingsRecordBody(production, "card")).toMatchObject({ record: { card_sha256: findingsCardDigest(
       laterFindingsCardSchema.parse(mixed)) } });
     expect(parseFindingsRecordBody(production.replaceAll("Quick answers lead with painkillers.",
+      "Quick answers lead with something else."), "card")).toBe("tampered");
+    // The recheck of #417: a record that left both declarations out unnamed reads against the digest of the card the
+    // check had, one finding declared false and the other not declaring: each finding's form is tried apart.
+    const leftOut = { ...rest, card: { ...record.card, findings: record.card.findings.map((finding) => {
+      const { draws_on_youtube_comments: _declared, ...kept } = finding;
+      return kept;
+    }) } };
+    const unnamed = body.replace(/(`{3,})json\n[\s\S]*?\n\1/u, (_, fence: string) =>
+      `${fence}json\n${JSON.stringify(leftOut, null, 2)}\n${fence}`);
+    expect(parseFindingsRecordBody(unnamed, "card")).toMatchObject({ record: { card_sha256: findingsCardDigest(
+      laterFindingsCardSchema.parse(mixed)) } });
+    expect(parseFindingsRecordBody(unnamed.replaceAll("Quick answers lead with painkillers.",
       "Quick answers lead with something else."), "card")).toBe("tampered");
     // A stored finding declared as drawing on YouTube comments is never published, as one held at the save is not.
     const drawn = { ...(record.card.findings[1] as object), draws_on_youtube_comments: true } as never;

@@ -133,14 +133,20 @@ conclusion, each copied whole and exactly, and the strongest thing against the c
 looks both quotes up word for word in the text it fetched: the full text it still holds, through the handle the
 source's verified `full_text_read` or audit receipt signs, or otherwise the PubMed abstract. Spacing, case, Unicode
 form, curly quotation marks, dashes and emphasis are set aside and nothing else, so a changed word, number or sign is
-not found, in any language, with no model. The result's runtime `source_lines` and the panel say which quotes were
+not found, in any language, with no model. A quote is found only as one or more whole sentences of one paragraph, by
+Unicode's sentence rules (UAX #29), with only white space, quotation marks, brackets and citation markers at its ends,
+so a part of a sentence that left out its negation is not found; a colon or a semicolon never ends a sentence, and a
+structured abstract is read section by section, its labels apart. The result's runtime `source_lines` and the panel say which quotes were
 found and in which section. Only a line with both found in a paper AskRigor fetched may carry "✓ AskRigor found both
 in the paper"; a copy the AI supplied is named as one and gets no tick. A quote not found is a note and a line in the
 panel, not a step, since the six blocking checks don't name it. Finding a quote shows the words exist, not that they
 are fair, which is why the conclusion and the strongest thing against the claim sit beside it; whether they back the
 claim is meaning, and the meaning judge reads it where it is on (its job 5). Limits: AskRigor holds a full text for an
 hour after its last read, so a later check leaves those quotes unchecked and says so; a source with no full text held
-and no PMID has nothing to look in; and the check can't say what the answer shows after it.
+and no PMID has nothing to look in; the check can't say what the answer shows after it; a whole sentence can still be
+quoted out of its paragraph's context; a text with no sentence marks (Thai, say) is found only as a whole block, and a
+heading that runs into its paragraph, as a PDF's do, as part of its first sentence; and a full stop before a capital
+letter ends a sentence by Unicode's rules, an abbreviation's included ("vs. Group B").
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

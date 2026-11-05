@@ -14,7 +14,9 @@ import {
 import { z } from "zod";
 
 import { contactDetailKinds } from "../atlas/contact-check.js";
-import { isSignedSubreddit, publishedThreadOf, type PublishedThread } from "../forum-thread-links.js";
+import {
+  forumLinkDigest, forumPublishedLink, isSignedSubreddit, publishedThreadOf, type PublishedThread
+} from "../forum-thread-links.js";
 import { receiptText } from "../research-receipts.js";
 import type { SourceLineLookup } from "../source-lines.js";
 
@@ -172,14 +174,16 @@ export interface StoredForumSignal {
  * account's consent covers them), each thread's link as published, one that holds contact details left out. Each thread
  * is rebuilt from its verified parts (publishedThreadOf): `subredditAt` gives, by the thread's place in the signal, the
  * subreddit the final check's receipt signed for a Reddit post (threadCommunitiesFromReceipt), and a Reddit post without
- * one publishes neither community nor link.
+ * one publishes neither community nor link; `linkReadAt` whether the receipt signed a forum page's link as the one its
+ * reader read (threadLinksFromReceipt), without which the page publishes no link.
  */
 export function storedForumSignalOf(signal: ForumSignal, text: (value: string) => string = (value) => value,
-  links = false, subredditAt: (place: number) => string | undefined = () => undefined): StoredForumSignal | undefined {
+  links = false, subredditAt: (place: number) => string | undefined = () => undefined,
+  linkReadAt: (place: number) => boolean = () => false): StoredForumSignal | undefined {
   const seen = new Set<string>();
   const threads = signal.threads.flatMap((thread, place): PublishedThread[] => {
     if (!isWebLink(thread) || isYouTubeLink(thread)) return [];
-    const published = publishedThreadOf(thread, subredditAt(place));
+    const published = publishedThreadOf(thread, subredditAt(place), linkReadAt(place));
     if (published === undefined || seen.has(published.key)) return [];
     seen.add(published.key);
     return [published];
@@ -382,6 +386,46 @@ export function threadCommunitiesFromReceipt(
     subreddits.set(finding, places);
   }
   return subreddits;
+}
+
+const SIGNED_THREAD_LINK = /^([1-5])\.(20|1[0-9]|[1-9])$/u;
+
+/**
+ * What the finalization receipt signs of the forum pages a card's forum signals name (`fl`, the recheck of #417): by
+ * the finding's place and the thread's, each page whose id-only link, as the card gives it, is the link its reader read,
+ * as the page's forum_thread_read receipt signed it (`l`). The save publishes only those pages' links, so a link is never
+ * the AI's own http:// or another host than the one read.
+ */
+export function signedThreadLinks(
+  card: { findings: ReadonlyArray<{ forum_signal?: ForumSignal | undefined }> },
+  linksRead: (url: string) => ReadonlySet<string> | undefined,
+): string[] {
+  return card.findings.flatMap(({ forum_signal: signal }, finding) =>
+    (signal?.threads ?? []).slice(0, FORUM_SIGNAL_LIMITS.threads).flatMap((thread, place) => {
+      const link = forumPublishedLink(thread);
+      return link !== undefined && linksRead(thread)?.has(forumLinkDigest(link)) === true
+        ? [`${finding + 1}.${place + 1}`] : [];
+    }));
+}
+
+/**
+ * The forum pages a receipt signed as linked as read (`fl`), by the finding's place and then the thread's, both from 0.
+ * Empty for a receipt that signed none, and then no forum page publishes a link.
+ */
+export function threadLinksFromReceipt(
+  signed: unknown,
+  card: { findings: ReadonlyArray<{ forum_signal?: ForumSignal | undefined }> },
+): Map<number, Set<number>> {
+  const linked = new Map<number, Set<number>>();
+  for (const entry of strings(signed)) {
+    const match = SIGNED_THREAD_LINK.exec(entry);
+    if (match === null) continue;
+    const finding = Number(match[1]) - 1;
+    const place = Number(match[2]) - 1;
+    if (card.findings[finding]?.forum_signal?.threads[place] === undefined) continue;
+    linked.set(finding, (linked.get(finding) ?? new Set<number>()).add(place));
+  }
+  return linked;
 }
 
 function strings(value: unknown): string[] {

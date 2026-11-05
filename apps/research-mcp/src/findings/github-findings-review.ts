@@ -76,6 +76,9 @@ import type { FindingsRecord } from "./service.js";
  * 5a); GitHub then answers 404 or 410 for them.
  */
 
+// A card holds at most five findings, so a stored card's declarations are read in at most 32 forms.
+const MAXIMUM_DECLARATION_FINDINGS = 5;
+
 export const REVIEWED_LABEL = "reviewed";
 export const DECISION_MARKER = "askrigor-findings-decision";
 
@@ -223,13 +226,16 @@ export function parseFindingsRecordBody(
       })),
     };
     // The findings' declarations of whether they draw on YouTube comments (owner answer 219b), which a card saved after
-    // #398 and before its record named them may hold as the check had them, or without them: the stored form exactly as
-    // stored first, then each kept finding declared false, then none declaring (the reviews of 5 November).
-    const declarations = (declared: boolean | undefined) => ({ ...checked, findings: checked.findings.map(
-      ({ draws_on_youtube_comments: _declared, ...finding }) => declared === undefined ? finding
-        : { ...finding, draws_on_youtube_comments: declared }) });
-    if (![checked, declarations(false), declarations(undefined)]
-      .some((form) => findingsCardDigest(form as FindingsCard) === stored.card_sha256)) return "tampered";
+    // #398 and before its record named them may hold as the check had them, or without them, finding by finding: the
+    // stored form exactly as stored first, then each combination of the kept findings declared false or not declaring
+    // (the reviews of 5 November and the recheck of #417), at most 32 for a card's five findings. A finding stored as
+    // drawing on them is never published, whichever form the digest matches.
+    const combinations = checked.findings.length <= MAXIMUM_DECLARATION_FINDINGS ? 2 ** checked.findings.length : 0;
+    const declared = (mask: number) => ({ ...checked, findings: checked.findings.map(
+      ({ draws_on_youtube_comments: _declared, ...finding }, index) =>
+        (mask & (1 << index)) === 0 ? finding : { ...finding, draws_on_youtube_comments: false }) });
+    const forms = [checked, ...Array.from({ length: combinations }, (_, mask) => declared(mask))];
+    if (!forms.some((form) => findingsCardDigest(form as FindingsCard) === stored.card_sha256)) return "tampered";
   }
   return { record: stored, metadata };
 }

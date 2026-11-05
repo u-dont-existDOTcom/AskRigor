@@ -12,7 +12,9 @@ export { FORUM_READER_USER_AGENT, readForumPage, type ForumPage, type ForumPageR
 export { parseRobotsTxt, robotsTxtAllows, robotsResponseAllows, type RobotsGroup, type RobotsRule } from "./robots-txt.js";
 export {
   fetchPubmedRecord,
+  pubmedAbstractSections,
   searchPubmed,
+  type PubmedAbstractSection,
   type PubmedConfig,
   type PubmedDateRange,
   type PubmedRecord,
