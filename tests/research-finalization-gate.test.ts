@@ -359,10 +359,12 @@ describe("finalize_research gate", () => {
       const result = check({ community_searches: [declared, search("second", 1)], receipts: reads });
       expect(result.notes.join(" ")).not.toContain("Forum evidence rests on");
       passing(result);
-      // A thread's second page, and its receipt under another form of its link, count once with it.
+      // A thread's second page, and its receipt under another form of its link, count once with it. A forum's host is
+      // kept whole (the review of #417, finding 5): only Reddit's www, old, new, m, np and amp are set aside.
       const paged = check({ community_searches: [{ ...search("first", 0), threads_read: [
         { url: "https://first.example/threads/9" }, { url: "https://first.example/threads/9/page-2" }] }],
-      receipts: [sign("forum_thread_read", { u: forumThreadDigest("https://www.first.example/threads/9/"), n: 1_500, v: "page" })] });
+      receipts: [sign("forum_thread_read", { u: forumThreadDigest("http://first.example/threads/9/?utm_source=share"), n: 1_500,
+        v: "page" })] });
       expect(paged.notes).toContain(depthNote(1, 1));
     });
 
@@ -1152,7 +1154,7 @@ describe("finalize_research gate", () => {
     expect(advisoryNotes(twice).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(alreadyListed("ExcelMale"));
     // A fragment, tracking parameter or trailing slash does not make it another thread...
     for (const alias of [`${forumThread}#post-12`, `${forumThread}?utm_source=share&fbclid=abc`, forumThread.slice(0, -1),
-      forumThread.replace("https://", "http://www.")]) {
+      forumThread.replace("https://", "http://")]) {
       expect(advisoryNotes(gate({
         principal_communities: [{ name: "MESO-Rx", platform: "forum" }, { name: "ExcelMale", platform: "forum" }],
         community_searches: [read("MESO-Rx", forumThread, "forum"), read("ExcelMale", alias, "forum")]

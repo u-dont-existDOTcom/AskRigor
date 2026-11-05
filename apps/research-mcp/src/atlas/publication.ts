@@ -110,7 +110,8 @@ export function accountPublicationProblems(account: FindingsSaveAccount | undefi
  */
 export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
   return (finding.youtube_videos ?? 0) > 0 || finding.sources.some(isYouTubeVideoId) ||
-    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit");
+    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit") ||
+    finding.draws_on_youtube_comments === true;
 }
 
 /**

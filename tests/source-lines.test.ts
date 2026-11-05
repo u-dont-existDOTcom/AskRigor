@@ -80,13 +80,96 @@ describe("looking a source line's quotes up", () => {
   });
 
   it("finds a quote a PDF broke across lines, a page or a real hyphen", async () => {
+    // A PDF's page text: its line breaks and its pages wrap the sentences.
     const paper: SourceLineDocument = { kind: "full_text", blocks: [
-      { text: "Participants in the inter-\nvention arm reported well-\nknown side effects and pre- and post-treatment scores were", section: "Results" },
-      { text: "compared with those of the control arm at twelve weeks.", section: "Results" },
+      { text: "Participants in the inter-\nvention arm reported side effects. Most were well-\nknown ones, such as\nsoreness. " +
+        "Pre- and post-treatment scores were", section: "Results", wraps: true },
+      { text: "compared with those of the control arm at twelve weeks.", section: "Results", wraps: true },
     ] };
-    expect(await lookUp(line({ sentence: "Participants in the intervention arm reported", conclusion: "pre- and post-treatment scores were compared with those of the control arm" }), held(paper)))
+    expect(await lookUp(line({ sentence: "Participants in the intervention arm reported side effects.",
+      conclusion: "Pre- and post-treatment scores were compared with those of the control arm at twelve weeks." }), held(paper)))
       .toMatchObject({ sentence: "found", conclusion: "found" });
-    expect(await lookUp(line({ sentence: "reported well-known side effects and" }), held(paper))).toMatchObject({ sentence: "found" });
+    expect(await lookUp(line({ sentence: "Most were well-known ones, such as soreness." }), held(paper))).toMatchObject({ sentence: "found" });
+    // A wrapped line's start isn't a clause's.
+    expect(await lookUp(line({ sentence: "soreness. Pre- and post-treatment scores were compared" }), held(paper)))
+      .toMatchObject({ sentence: "not_found" });
+  });
+
+  // The review of 5 November 2026 (finding 1): a quote is found only from a clause's boundary to a clause's boundary, so a
+  // part of a sentence that dropped its negation, or the start of a number, is never published as the paper's words.
+  describe("only whole clauses", () => {
+    const found = async (text: string, sentence: string, block: Partial<SourceLineDocument["blocks"][number]> = {}) =>
+      (await lookUp(line({ sentence }), held({ kind: "full_text", blocks: [{ text, ...block }, { text: CONCLUSION }] }))).sentence;
+
+    it("doesn't find a part of a sentence that leaves its negation out", async () => {
+      expect(await found("Pain scores did not decrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
+        .toBe("not_found");
+      expect(await found("Pain scores did not decrease significantly after 12 weeks.",
+        "Pain scores did not decrease significantly after 12 weeks.")).toBe("found");
+    });
+
+    it("finds a whole sentence, and a clause after a semicolon or a colon, in any script", async () => {
+      const text = "We enrolled 64 adults. Pain fell by 12 points in the exercise group; function improved by 4 points " +
+        "with usual care. Results: the effect faded after a year.";
+      expect(await found(text, "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found(text, "function improved by 4 points with usual care.")).toBe("found");
+      expect(await found(text, "the effect faded after a year")).toBe("found");
+      expect(await found(text, "improved by 4 points with usual care")).toBe("not_found");
+      expect(await found("ألم الركبة انخفض بشكل ملحوظ؛ تحسنت الوظيفة بعد ستة أشهر.", "تحسنت الوظيفة بعد ستة أشهر")).toBe("found");
+      expect(await found("膝の痛みは12週間後に有意に減少した。その他の結果は示さない。", "膝の痛みは12週間後に有意に減少した。"))
+        .toBe("found");
+      expect(await found("膝の痛みは12週間後に有意に減少しなかった。", "12週間後に有意に減少しなかった")).toBe("not_found");
+    });
+
+    it("lets a citation, a closing mark or a bracket sit between the quote and the boundary", async () => {
+      expect(await found("Pain fell by 12 points in the exercise group [12]. Function did not change.",
+        "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("Pain fell by 12 points in the exercise group [3, 4–6]. Function did not change.",
+        "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("Pain fell by 12 points in the exercise group¹². Function did not change.",
+        "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("He said: “Pain fell by 12 points in the exercise group.” Then he left.",
+        "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("(Pain fell by 12 points in the exercise group.) Then it rose.",
+        "Pain fell by 12 points in the exercise group")).toBe("found");
+      // A unit in superscript matches its quote.
+      expect(await found("Mean body mass index was 31 kg/m² in both groups.", "Mean body mass index was 31 kg/m² in both groups."))
+        .toBe("found");
+    });
+
+    it("doesn't cut a number or an abbreviation's word short", async () => {
+      expect(await found("The dose of 12.5 mg reduced pain in most adults.", "5 mg reduced pain in most adults")).toBe("not_found");
+      expect(await found("Pain fell in the exercise group by 12.5 points.", "Pain fell in the exercise group by 12"))
+        .toBe("not_found");
+      expect(await found("Pain fell in the exercise group by 125 points overall.", "Pain fell in the exercise group by 12"))
+        .toBe("not_found");
+      expect(await found("The ratio of 1:2 doses reduced pain in most adults.", "2 doses reduced pain in most adults"))
+        .toBe("not_found");
+      // A bare number after a word may be a value, never a citation to pass over.
+      expect(await found("Pain fell in the exercise group 12. Function did not change.", "Pain fell in the exercise group"))
+        .toBe("not_found");
+    });
+
+    it("takes a line break or a block's start as a boundary, except a PDF's wrapped lines", async () => {
+      const heading = "Primary outcome\nPain fell by 12 points in the exercise group\nSecondary outcomes";
+      expect(await found(heading, "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("• Pain fell by 12 points in the exercise group", "Pain fell by 12 points in the exercise group"))
+        .toBe("found");
+      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
+        .toBe("found");
+      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks",
+        { wraps: true })).toBe("not_found");
+    });
+
+    it("reads a PDF's page text as wrapped, and every other text's lines as its own", () => {
+      const index = { source: { provider: "unpaywall_open_location" }, blocks: [
+        { text: "a page", section_path: ["Page 1"], kind: "page_text" },
+        { text: "a paragraph", section_path: ["Results"], kind: "paragraph" },
+      ] };
+      expect(sourceLineDocument(index as never).blocks).toEqual([
+        { text: "a page", section: "Page 1", wraps: true }, { text: "a paragraph", section: "Results" },
+      ]);
+    });
   });
 
   it("says when a quote is too short to mean much", async () => {

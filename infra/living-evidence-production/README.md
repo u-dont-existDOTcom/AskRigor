@@ -320,21 +320,47 @@ so that an erasure removes that column whole. No role, grant or table is added,
 and no row is changed; an earlier image ignores the column. Renumber it when the
 Atlas stack next takes in main.
 
-Image rollback hazard (the review of 5 November 2026): an image from before this
-release cannot parse a version 3 publication (`askrigor.atlas-publication.v3`,
-the research behind a finding and what people report). Its pages leave out an
-unreviewed publication they can't read (an accepted one shows its F number's
-version), but its publication store refuses such a row, and a withdrawn row
-keeps its published fields: withdrawing them first (the owner's
-`unpublish_finding`, by P number) keeps them off the earlier image's pages,
-while its owner tools that list publications still fail on them. Its review
-likewise reads a findings card stored with the research behind it (quotes,
-readings, figures' sources, a forum signal, or `forum_read` among its bases) as
-unreadable. So once the release has published or stored any, a rollback to an
-earlier image needs a hotfix of that image that reads them tolerantly, with the
-publications withdrawn first if they must not show meanwhile. Check first with
-read-only counts of the publications whose `published_json` names that schema
-and of the cards saved since the release; with none, the rollback needs no step.
+Image rollback hazard (the reviews of 5 November 2026): an image from before this
+release cannot parse three kinds of row this release writes.
+
+- **Version 3 publications** (`askrigor.atlas-publication.v3`, the research
+  behind a finding and what people report). The earlier image's pages leave out
+  an unreviewed publication they can't read (an accepted one shows its F
+  number's version), but its publication store refuses such a row, and a
+  withdrawn row keeps its published fields: withdrawing them first (the owner's
+  `unpublish_finding`, by P number) keeps them off the earlier image's pages,
+  while its owner tools that list publications still fail on them.
+- **Atlas intents.** An accept or revise intent from this release carries
+  `content.research`, and a forum-only one `verifiedBases: ["forum_read"]`. The
+  earlier image (`bf3581aa`) parses every intent strictly
+  (`atlasVersionContentSchema`, whose `ATLAS_VERIFIED_BASES` has no
+  `forum_read`), both where its review lists intents (`intentFromRow`) and where
+  promotion prepares one (`prepareStoredAtlasIntent`, called by
+  `contributeAtlasFinding`). So after a rollback, one such intent, pending or
+  completed, breaks the old review's listing and stops its promotion; and a
+  revision of a version whose bases hold `forum_read` can't be made there.
+- **Findings cards** stored with the research behind it (quotes, readings,
+  figures' sources, a forum signal, or `forum_read` among its bases), which the
+  earlier image's review reads as unreadable.
+
+So once the release has published, queued or stored any, a rollback to an
+earlier image needs a hotfix of that image that reads all three tolerantly,
+with the publications withdrawn first if they must not show meanwhile. Check
+first with read-only queries, as the migrator (the intents table is private to
+the review role's functions):
+
+```sql
+SELECT count(*) FROM living_evidence.atlas_publications
+ WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3';
+SELECT count(*) FROM living_evidence.atlas_finding_intents
+ WHERE payload_json -> 'content' ? 'research'
+    OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read';
+SELECT count(*) FROM living_evidence.atlas_finding_versions
+ WHERE verified_bases ? 'forum_read';
+```
+
+and count the findings cards saved since the release in the owner's review.
+With none of any, the rollback needs no step.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner

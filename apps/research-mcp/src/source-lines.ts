@@ -75,7 +75,11 @@ export interface SourceLineRequest {
 
 export interface SourceLineDocument {
   kind: TextKind;
-  blocks: ReadonlyArray<{ text: string; section?: string | undefined }>;
+  /**
+   * The text's blocks in order. `wraps` marks a block whose line breaks only wrap its lines, as a PDF's page text
+   * does: neither they nor the block's start end a clause, since a sentence runs on across them.
+   */
+  blocks: ReadonlyArray<{ text: string; section?: string | undefined; wraps?: boolean | undefined }>;
 }
 
 export interface SourceLineTexts {
@@ -91,9 +95,11 @@ export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDoc
     kind: index.source.provider === "client_supplied" ? "search_copy"
       : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
       : "full_text",
-    blocks: index.blocks.map(({ text, section_path: path }) => ({
+    blocks: index.blocks.map(({ text, section_path: path, kind }) => ({
       text,
-      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) })
+      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
+      // A PDF's page text breaks its lines where the page did, not where a clause ends.
+      ...(kind === "page_text" ? { wraps: true } : {})
     }))
   };
 }
@@ -109,32 +115,131 @@ function quoteForm(quote: string): string {
 
 type Finder = (quote: string) => { found: boolean; section?: string | undefined };
 
+// Clause boundaries (the review of 5 November 2026, finding 1): a quote is the paper's own words only from a clause's
+// start to a clause's end, so "decrease significantly after 12 weeks" is not found in "Pain scores did not decrease
+// significantly after 12 weeks." All of it is structural, the same in any script: a line break or a block's start
+// (where they are the text's own, not a PDF's wrapped lines), a sentence's end (Unicode's Sentence_Terminal) or a colon
+// or a semicolon. Between the quote and the boundary may sit only white space, quotation marks and brackets, and a
+// citation marker: numbers in brackets, or in superscript.
+const LINE_BREAK = /[^\S\r\n\v\f\u0085\u2028\u2029]*(?:\r\n|[\r\n\v\f\u0085\u2028\u2029])\s*/u;
+const CLAUSE_MARK = /^[\p{Sentence_Terminal}:;\u061b\u1364-\u1366\u1804\u204f\ua6f4\ua6f6]$/u;
+// A full stop, a colon or another mark between two Latin letters or digits joins them ("12.5", "1:2", "e.g"): no
+// boundary. Figures and abbreviations are written that way in every script that uses these marks.
+const JOINED = /^[a-z0-9]$/u;
+const SURROUND = /^[\s"'\p{Pi}\p{Pf}\p{Ps}\p{Pe}]$/u;
+const CITATION_AFTER = /^[[(] ?\d{1,4}(?: ?[,-] ?\d{1,4}){0,20} ?[\])]/u;
+const CITATION_BEFORE = /[[(] ?\d{1,4}(?: ?[,-] ?\d{1,4}){0,20} ?[\])]$/u;
+// A list's own marks, at the start of a line: a bullet, or a dash.
+const LIST_MARK = /^[\u2022\u2023\u2043\u2219\u25e6\u00b7-]$/u;
+// A run of superscript digits, as a citation prints one (a comma or a dash between): put in brackets in the text and in
+// the quote alike, so it reads as a citation marker and a unit such as kg/m² still matches its quote.
+const SUPERSCRIPT_RUN = /[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+(?:[,\u207b\u2013-][\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+)*/gu;
+const bracketedSuperscripts = (text: string): string => text.replace(SUPERSCRIPT_RUN, (run) => ` [${run}]`);
+
+/** The character at a position, whole, and the one that ends just before one. */
+const characterAt = (text: string, at: number): string => String.fromCodePoint(text.codePointAt(at) ?? 0);
+function characterBefore(text: string, at: number): string {
+  const last = text.charCodeAt(at - 1);
+  return last >= 0xdc00 && last <= 0xdfff && at >= 2 ? text.slice(at - 2, at) : text.charAt(at - 1);
+}
+
+/** Whether the mark at a position ends a clause: not one joining two Latin letters or digits. */
+function endsClauseAt(text: string, at: number, mark: string): boolean {
+  return CLAUSE_MARK.test(mark) && !(JOINED.test(text.charAt(at - 1)) && JOINED.test(text.charAt(at + mark.length)));
+}
+
+/** Whether a quote found at `at` starts a clause of the text: going back over white space, marks and citations only. */
+function startsClause(text: string, at: number, breaks: ReadonlySet<number>): boolean {
+  let position = at;
+  for (;;) {
+    if (position === 0 || breaks.has(position)) return true;
+    const citation = CITATION_BEFORE.exec(text.slice(Math.max(0, position - 120), position));
+    if (citation !== null) {
+      position -= citation[0].length;
+      continue;
+    }
+    const before = characterBefore(text, position);
+    if (SURROUND.test(before)) {
+      position -= before.length;
+      continue;
+    }
+    // A list item's own mark, right at its line's start.
+    if (LIST_MARK.test(before) && (position - 1 === 0 || breaks.has(position - 1))) return true;
+    return endsClauseAt(text, position - before.length, before);
+  }
+}
+
+/** Whether a quote that ends at `end` ends a clause of the text: going on over white space, marks and citations only. */
+function endsClause(text: string, end: number, breaks: ReadonlySet<number>): boolean {
+  // A quote that ends with a clause's own mark (a colon, say) ends one.
+  const last = characterBefore(text, end);
+  if (end > 0 && endsClauseAt(text, end - last.length, last)) return true;
+  let position = end;
+  for (;;) {
+    if (position >= text.length || (position > end && breaks.has(position))) return true;
+    const citation = CITATION_AFTER.exec(text.slice(position, position + 120));
+    if (citation !== null) {
+      position += citation[0].length;
+      continue;
+    }
+    const next = characterAt(text, position);
+    if (SURROUND.test(next)) {
+      position += next.length;
+      continue;
+    }
+    return endsClauseAt(text, position, next);
+  }
+}
+
+/** One reading of a document as quotes are looked up in it: its text, where each block starts, and its clause breaks. */
+interface Searchable {
+  text: string;
+  blocks: Array<{ start: number; section: string | undefined }>;
+  breaks: ReadonlySet<number>;
+}
+
+function searchable(document: SourceLineDocument, reading: (text: string) => string): Searchable {
+  const parts: string[] = [];
+  const blocks: Searchable["blocks"] = [];
+  const breaks = new Set<number>();
+  let length = 0;
+  for (const block of document.blocks) {
+    const read = bracketedSuperscripts(reading(block.text));
+    // A PDF's lines and pages wrap a sentence; any other text's lines and blocks are its own.
+    const lines = block.wraps === true ? [read] : read.split(LINE_BREAK);
+    let first = true;
+    for (const line of lines) {
+      const part = figureText(line);
+      if (part === "") continue;
+      const start = length === 0 ? 0 : length + 1;
+      if (first) blocks.push({ start, section: block.section });
+      if (block.wraps !== true) breaks.add(start);
+      first = false;
+      parts.push(part);
+      length = start + part.length;
+    }
+  }
+  return { text: parts.join(" "), blocks, breaks };
+}
+
 /**
  * Looks quotes up in one text, in figureText's form: Unicode form, invisible characters, spacing, case, curly quotation
  * marks, dashes and emphasis set aside, and nothing else, so a changed word, number or sign is not found. The blocks
- * read as one text, as a sentence may cross a page.
+ * read as one text, as a sentence may cross a page. A quote is found only where it starts and ends at a clause's
+ * boundary (startsClause and endsClause): a part of a sentence, which may have lost its negation, is not found.
  */
 function finder(document: SourceLineDocument): Finder {
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
-    (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => {
-    let at = 0;
-    const starts: number[] = [];
-    const parts = document.blocks.map(({ text }) => {
-      const part = figureText(reading(text));
-      starts.push(at);
-      at += part.length + 1;
-      return part;
-    });
-    return { text: parts.join(" "), starts };
-  });
+    (text: string) => text.replace(BROKEN_WORD, "-")].map((reading) => searchable(document, reading));
   return (quote) => {
-    const wanted = quoteForm(quote);
-    for (const { text, starts } of forms) {
-      const at = text.indexOf(wanted);
-      if (at < 0) continue;
-      let block = starts.length - 1;
-      while (block > 0 && starts[block]! > at) block -= 1;
-      return { found: true, section: document.blocks[block]?.section };
+    const wanted = quoteForm(bracketedSuperscripts(quote));
+    if (wanted === "") return { found: false };
+    for (const { text, blocks, breaks } of forms) {
+      for (let at = text.indexOf(wanted); at >= 0; at = text.indexOf(wanted, at + 1)) {
+        if (!startsClause(text, at, breaks) || !endsClause(text, at + wanted.length, breaks)) continue;
+        const block = blocks.findLast(({ start }) => start <= at);
+        return { found: true, section: block?.section };
+      }
     }
     return { found: false };
   };
