@@ -331,7 +331,8 @@ release cannot parse three kinds of row this release writes.
   `unpublish_finding`, by P number) keeps them off the earlier image's pages,
   while its owner tools that list publications still fail on them.
 - **Atlas intents.** An accept or revise intent from this release carries
-  `content.research`, and a forum-only one `verifiedBases: ["forum_read"]`. The
+  `content.research`, and a forum-only one `verifiedBases: ["forum_read"]`
+  (in `content`, or, for a re-check, at the payload's top level). The
   earlier image (`bf3581aa`) parses every intent strictly
   (`atlasVersionContentSchema`, whose `ATLAS_VERIFIED_BASES` has no
   `forum_read`), both where its review lists intents (`intentFromRow`) and where
@@ -354,7 +355,8 @@ SELECT count(*) FROM living_evidence.atlas_publications
  WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3';
 SELECT count(*) FROM living_evidence.atlas_finding_intents
  WHERE payload_json -> 'content' ? 'research'
-    OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read';
+    OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read'
+    OR payload_json -> 'verifiedBases' ? 'forum_read';
 SELECT count(*) FROM living_evidence.atlas_finding_versions
  WHERE verified_bases ? 'forum_read';
 ```

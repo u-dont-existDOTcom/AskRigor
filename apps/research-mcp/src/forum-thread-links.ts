@@ -32,13 +32,17 @@ const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
 const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
 
 // The prefixes Reddit serves the same posts under, and only Reddit (the review of 5 November, finding 5): on any other
-// site a www, m or new host may be another site, so it stays as it was read.
+// site an m or new host may be another site. A www host and the bare one are one site everywhere (the recheck of #417):
+// a forum's link compares the same either way, and only the published link keeps the host exactly as read.
 const REDDIT_PREFIX = /^(?:www|old|new|m|np|amp)\./u;
+const WWW_PREFIX = /^www\./u;
 
 /** A thread's link as two links to it compare, in parts. */
 interface ThreadParts {
-  /** The host, lower case; on Reddit without a www, old, new, m, np or amp prefix. */
+  /** The host as read, lower case, which a published link keeps. */
   host: string;
+  /** The host as two links compare it: on Reddit without a www, old, new, m, np or amp prefix, elsewhere without www. */
+  site: string;
   /** The scheme and the port the link gives ("" for the scheme's own), which a published link keeps as read. */
   scheme: string;
   port: string;
@@ -58,22 +62,24 @@ function threadParts(url: string): ThreadParts | undefined {
   } catch {
     return undefined;
   }
-  const hostname = link.hostname.toLowerCase();
-  const reddit = REDDIT_SITE.test(hostname);
-  const host = reddit ? hostname.replace(REDDIT_PREFIX, "") : hostname;
+  const host = link.hostname.toLowerCase();
+  const reddit = REDDIT_SITE.test(host);
+  const site = host.replace(reddit ? REDDIT_PREFIX : WWW_PREFIX, "");
   const scheme = link.protocol;
   const port = link.port;
-  const post = host === "redd.it"
+  const post = site === "redd.it"
     ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
-    : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
-  if (post !== undefined) return { host: "reddit.com", scheme, port, post: post.toLowerCase(), path: "", query: [] };
+    : /(?:^|\.)reddit\.com$/u.test(site) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
+  if (post !== undefined) {
+    return { host: "www.reddit.com", site: "reddit.com", scheme, port, post: post.toLowerCase(), path: "", query: [] };
+  }
   const threadId = [...link.searchParams.keys()].some((key) => THREAD_ID_PARAMETER.test(key));
   const query = [...link.searchParams]
     .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
     .sort(([left], [right]) => left.localeCompare(right));
   const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
     .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
-  return { host, scheme, port, path, query };
+  return { host, site, scheme, port, path, query };
 }
 
 /**
@@ -82,8 +88,8 @@ function threadParts(url: string): ThreadParts | undefined {
  * suffix that only tracks a click or picks a page, post or sort order. A
  * Reddit post is its id, which Reddit never reuses, whatever its subreddit,
  * title slug, comment permalink or prefix (www, old, new, m, np, amp); any
- * other site's host is kept whole. Other query parameters stay: they may be
- * what names a forum's thread.
+ * other site's host is kept whole but for a www, which names the same site.
+ * Other query parameters stay: they may be what names a forum's thread.
  */
 export function comparableUrl(url: string): string {
   const parts = threadParts(url);
@@ -93,12 +99,59 @@ export function comparableUrl(url: string): string {
   }
   if (parts.post !== undefined) return `reddit.com/comments/${parts.post}`;
   const query = parts.query.map(([key, value]) => `${key}=${value}`).join("&");
-  return `${parts.host}${parts.path}${query === "" ? "" : `?${query}`}`;
+  return `${parts.site}${parts.path}${query === "" ? "" : `?${query}`}`;
 }
+
+const digestOf = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
 
 /** A thread's digest, as a forum_thread_read receipt signs it: of its comparable link. */
 export function forumThreadDigest(url: string): string {
-  return createHash("sha256").update(comparableUrl(url)).digest("hex").slice(0, 16);
+  return digestOf(comparableUrl(url));
+}
+
+// The parameters, and the path's end, that pick a page of a thread: phpBB's start, vBulletin's and Discourse's page, a
+// page count or offset elsewhere, XenForo's /page-2.
+const PAGE_PARAMETER = /^(?:start|page|pg|offset)$/iu;
+const PAGE_SUFFIX = /\/(page[-/]?\d+)\/?$/iu;
+
+/**
+ * A forum page's digest, as a forum_thread_read receipt signs it (`w`): of its thread's comparable link and the page the
+ * link picks, so a page read again by another of its links (another tracking parameter, http, a trailing slash, www)
+ * counts once (the recheck of #417). A link to a post within a thread picks no page of its own.
+ */
+export function forumPageDigest(url: string): string {
+  let link: URL | undefined;
+  try {
+    link = new globalThis.URL(url.trim());
+  } catch {
+    link = undefined;
+  }
+  const parameters = link === undefined ? [] : [...link.searchParams]
+    .filter(([key]) => PAGE_PARAMETER.test(key))
+    .map(([key, value]) => `${key.toLowerCase()}=${value}`).sort();
+  const suffix = link === undefined ? undefined : PAGE_SUFFIX.exec(link.pathname)?.[1]?.toLowerCase();
+  return digestOf(`${comparableUrl(url)}#${[...(suffix === undefined ? [] : [suffix]), ...parameters].join("&")}`);
+}
+
+/**
+ * Whether a link the reader was sent on from names the same thread as the link it read, at the same site: the same
+ * path and parameters at the same registrable host (a bare host sent on to a forum's subdomain, say). Only then does a
+ * read sign the link it was given (`ur`, the recheck of #417), so a redirect to another site or to another page never
+ * vouches for the link it started from.
+ */
+export function sameThreadAtSite(given: string, read: string): boolean {
+  const left = threadParts(given);
+  const right = threadParts(read);
+  if (left === undefined || right === undefined || left.post !== undefined || right.post !== undefined) return false;
+  const site = registrableHost(left.host);
+  return site !== undefined && site === registrableHost(right.host) && left.path === right.path &&
+    JSON.stringify(left.query) === JSON.stringify(right.query);
+}
+
+/** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form
+ * (`l`), so only the link as the reader read it is published (the recheck of #417). */
+export function forumLinkDigest(link: string): string {
+  return digestOf(link);
 }
 
 // A subreddit's name as Reddit gives it, lower case, and the mark a receipt signs for a post on a person's profile
@@ -177,7 +230,10 @@ export interface PublishedThread {
    * id-only forms at that host or at www. and it; ATLAS_OTHER_WEBSITE, with no name, for any other page.
    */
   community?: string;
-  /** https://www.reddit.com/comments/<id>/ on Reddit, or a forum's structural, id-only form at its community's host. */
+  /**
+   * https://www.reddit.com/comments/<id>/ on Reddit, or a forum's structural, id-only form at its community's host, as
+   * the reader read it.
+   */
   link?: string;
 }
 
@@ -189,13 +245,16 @@ export interface PublishedThread {
  *   profile or no subreddit was signed.
  * - A forum's thread in one of the four structural, id-only forms (phpBB's viewtopic.php?t=<id>, vBulletin's
  *   showthread.php?t=<id>, XenForo's /threads/<id>/, Discourse's /t/<id>), at the root of its registrable host or of
- *   www. and it, with the scheme it was read with and no other port, publishes that host as its community and the
- *   thread in that form: never a title, a slug or a query value. The notice promises communities "without their posts
- *   or names", so a host that may be a person's (a subdomain, janedoe.forumhost.example) is never named.
+ *   www. and it, with no other port, publishes that host as its community and the thread in that form: never a title, a
+ *   slug or a query value. Its link only when `linkRead` says that form is the link the reader read, as its receipt
+ *   signed it (`l`, then the final check's `fl`), scheme and host exactly: never the AI's own http:// or host. The
+ *   notice promises communities "without their posts or names", so a host that may be a person's (a subdomain,
+ *   janedoe.forumhost.example) is never named; a site at the root of such a form is named by its domain, which is the
+ *   forum's name, whoever runs it.
  * - Any other page, Earth Clinic's included for now, counts as ATLAS_OTHER_WEBSITE, with no name and no link.
  * Undefined for a value that isn't a link.
  */
-export function publishedThreadOf(url: string, subreddit?: string): PublishedThread | undefined {
+export function publishedThreadOf(url: string, subreddit?: string, linkRead = false): PublishedThread | undefined {
   const parts = threadParts(url);
   if (parts === undefined) return undefined;
   const key = comparableUrl(url);
@@ -209,16 +268,46 @@ export function publishedThreadOf(url: string, subreddit?: string): PublishedThr
   const registrable = registrableHost(parts.host);
   const atItsHost = registrable !== undefined && (parts.host === registrable || parts.host === `www.${registrable}`);
   const link = atItsHost ? forumThreadLink(parts) : undefined;
-  return link === undefined ? { key, community: ATLAS_OTHER_WEBSITE } : { key, community: registrable!, link };
+  return link === undefined ? { key, community: ATLAS_OTHER_WEBSITE }
+    : { key, community: registrable!, ...(linkRead ? { link } : {}) };
+}
+
+/** The id-only link a forum page would publish, whoever read it: the form its receipt and the final check compare. */
+export function forumPublishedLink(url: string): string | undefined {
+  const parts = threadParts(url);
+  return parts === undefined || parts.post !== undefined || REDDIT_SITE.test(parts.host) ? undefined
+    : publishedThreadOf(url, undefined, true)?.link;
+}
+
+// The scripts Unicode recommends for identifiers in modern use (UAX #31, table 4). A host's letters in another script, or
+// in more than one, show as the host was read, in punycode.
+const RECOMMENDED_SCRIPTS = ["Arabic", "Armenian", "Bengali", "Bopomofo", "Cyrillic", "Devanagari", "Ethiopic",
+  "Georgian", "Greek", "Gujarati", "Gurmukhi", "Han", "Hangul", "Hebrew", "Hiragana", "Kannada", "Katakana", "Khmer",
+  "Lao", "Latin", "Malayalam", "Myanmar", "Oriya", "Sinhala", "Tamil", "Telugu", "Thaana", "Thai", "Tibetan"]
+  .map((name) => ({ name, pattern: new RegExp(`^\\p{Script=${name}}$`, "u") }));
+const NO_SCRIPT = /^[\p{Script=Common}\p{Script=Inherited}]$/u;
+
+/** The one script a host's letters are in, by their Unicode Script property; undefined for none, null for more or other. */
+function hostScript(host: string): string | undefined | null {
+  let script: string | undefined;
+  for (const character of host) {
+    if (NO_SCRIPT.test(character)) continue;
+    const own = RECOMMENDED_SCRIPTS.find(({ pattern }) => pattern.test(character))?.name;
+    if (own === undefined || (script !== undefined && own !== script)) return null;
+    script = own;
+  }
+  return script;
 }
 
 /**
- * A community as the pages and the owner's review show it (the review of #417, finding 8): a forum's host in its Unicode
- * form (xn--e1afmkfd.xn--p1ai as пример.рф), which the page then escapes as every text; r/<subreddit> and the generic
- * community as they are.
+ * A community as the pages and the owner's review show it (the review of #417, finding 8, and its recheck): a forum's
+ * host in its Unicode form (xn--e1afmkfd.xn--p1ai as пример.рф), which the page then escapes as every text, only when
+ * all its letters are in one script, label by label and across its labels, so a look-alike (xn--pple-43d.com, a
+ * Cyrillic а before Latin letters, or a Cyrillic label before .com) shows in punycode, as read; r/<subreddit> and the
+ * generic community as they are.
  */
 export function shownCommunity(community: string): string {
   if (community.startsWith("r/") || community === ATLAS_OTHER_WEBSITE || !community.includes("xn--")) return community;
   const unicode = domainToUnicode(community);
-  return unicode === "" ? community : unicode;
+  return unicode === "" || hostScript(unicode) === null ? community : unicode;
 }

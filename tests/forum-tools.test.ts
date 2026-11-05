@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { forumPageDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { createRedditReaderClient } from "../apps/research-mcp/src/reddit-reader-client.js";
@@ -114,12 +115,36 @@ describe("forum tools", () => {
       .toMatchObject({ n: "7", m: digest("opaque") });
     page.mockResolvedValue({ url: "https://forum.example/thread/1?page=2", access_state: "read", page_text: "a".repeat(1_500) });
     const second = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/1?page=2" } }));
-    expect(second).toMatchObject({ u: forumThreadDigest("https://forum.example/thread/1"), w: digest("https://forum.example/thread/1?page=2") });
+    expect(second).toMatchObject({ u: forumThreadDigest("https://forum.example/thread/1"),
+      w: forumPageDigest("https://forum.example/thread/1?page=2") });
     expect(second).not.toHaveProperty("ur");
-    // Sent on from a bare host to its www.: both links are the thread read.
-    page.mockResolvedValue({ url: "https://www.forum.example/thread/3", access_state: "read", page_text: "a".repeat(1_500) });
-    expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/3" } })))
-      .toMatchObject({ u: forumThreadDigest("https://www.forum.example/thread/3"), ur: forumThreadDigest("https://forum.example/thread/3") });
+    expect(second).not.toHaveProperty("l");
+    // The recheck of #417: a page is the same page by any of its links, and another page is another.
+    expect(forumPageDigest("https://www.forum.example/thread/1/?page=2&utm_source=x"))
+      .toBe(forumPageDigest("https://forum.example/thread/1?page=2"));
+    expect(forumPageDigest("https://forum.example/thread/1?page=3")).not.toBe(forumPageDigest("https://forum.example/thread/1?page=2"));
+    expect(forumPageDigest("https://forum.example/threads/x.12/page-2")).not.toBe(forumPageDigest("https://forum.example/threads/x.12/"));
+    expect(forumPageDigest("https://forum.example/threads/x.12/post-99")).toBe(forumPageDigest("https://forum.example/threads/x.12/"));
+    // Sent on from a bare host to its www.: one link, as the two compare the same; no ur.
+    page.mockResolvedValue({ url: "https://www.forum.example/viewtopic.php?t=3", access_state: "read", page_text: "a".repeat(1_500) });
+    const www = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/viewtopic.php?t=3" } }));
+    expect(www).toMatchObject({ u: forumThreadDigest("https://forum.example/viewtopic.php?t=3"),
+      l: digest("https://www.forum.example/viewtopic.php?t=3") });
+    expect(www).not.toHaveProperty("ur");
+    // Sent on to the same thread at the site's other host: the link given counts as that one thread.
+    page.mockResolvedValue({ url: "https://talk.forum.example/viewtopic.php?t=4", access_state: "read", page_text: "a".repeat(1_500) });
+    expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/viewtopic.php?t=4" } })))
+      .toMatchObject({ u: forumThreadDigest("https://talk.forum.example/viewtopic.php?t=4"),
+        ur: forumThreadDigest("https://forum.example/viewtopic.php?t=4") });
+    // Sent on to another site, or to another page of the site: the link given is vouched for by nothing.
+    for (const [given, read] of [["https://forum.example/viewtopic.php?t=5", "https://elsewhere.example/viewtopic.php?t=5"],
+      ["https://forum.example/viewtopic.php?t=6", "https://forum.example/login"],
+      ["https://forum.example/viewtopic.php?t=7", "https://forum.example/viewtopic.php?t=8"]]) {
+      page.mockResolvedValue({ url: read, access_state: "read", page_text: "a".repeat(1_500) });
+      const claims = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: given } }));
+      expect(claims, given).toMatchObject({ u: forumThreadDigest(read) });
+      expect(claims, given).not.toHaveProperty("ur");
+    }
   });
 
   // A post on a person's profile (a subreddit named u_ and the user's name) signs u_ alone, so no receipt names a user.

@@ -76,8 +76,8 @@ export interface SourceLineRequest {
 export interface SourceLineDocument {
   kind: TextKind;
   /**
-   * The text's blocks in order. `wraps` marks a block whose line breaks only wrap its lines, as a PDF's page text
-   * does: neither they nor the block's start end a clause, since a sentence runs on across them.
+   * The text's blocks in order. A block's line breaks only wrap its lines. `wraps` marks a block whose text runs on into
+   * the next one's, as a PDF's pages and a plain text's lines do: a sentence may cross from one to the next.
    */
   blocks: ReadonlyArray<{ text: string; section?: string | undefined; wraps?: boolean | undefined }>;
 }
@@ -91,6 +91,9 @@ export interface SourceLineTexts {
 
 /** A fetched paper as the source line reads it. A copy the AI supplied, or one from the owner's library, is said to be one. */
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
+  // A PDF's page text breaks where its page did, and a plain text's lines (a block each) may be wrapped where no
+  // paragraph ends: a sentence runs on across both. An HTML page's or a JATS paper's blocks are its own.
+  const plain = index.source.format === "plain_text";
   return {
     kind: index.source.provider === "client_supplied" ? "search_copy"
       : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
@@ -98,10 +101,18 @@ export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDoc
     blocks: index.blocks.map(({ text, section_path: path, kind }) => ({
       text,
       ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
-      // A PDF's page text breaks its lines where the page did, not where a clause ends.
-      ...(kind === "page_text" ? { wraps: true } : {})
+      ...(kind === "page_text" || plain ? { wraps: true } : {})
     }))
   };
+}
+
+/** A PubMed abstract as the source line reads it: a structured one's sections each a block, under its label, as a label
+ * ("RESULTS:") is no part of a sentence. */
+export function abstractDocument(abstract: string, sections?: ReadonlyArray<{ label?: string | undefined; text: string }>):
+SourceLineDocument {
+  return { kind: "abstract", blocks: sections === undefined || sections.length === 0 ? [{ text: abstract }]
+    : sections.map(({ label, text }) =>
+      ({ text, ...(label === undefined ? {} : { section: receiptText(label, SOURCE_LINE_LIMITS.section) }) })) };
 }
 
 // A word a PDF broke across lines: a hyphen after a letter, then a space or line break before a small letter. It may
@@ -110,123 +121,158 @@ const BROKEN_WORD = /(?<=\p{L})[-­‐‑]\s+(?=\p{Ll})/gu;
 
 /** A quote as it is looked up: without the quotation marks around it or a closing mark, which may differ. */
 function quoteForm(quote: string): string {
-  return figureText(quote).replace(/^["'\p{Pi}\p{Pf}]+/u, "").replace(/["'\p{Pi}\p{Pf}\p{STerm}; ]+$/u, "");
+  return figureText(quote).replace(/^["'\p{Pi}\p{Pf}\s]+/u, "").replace(/["'\p{Pi}\p{Pf}\p{STerm}\s]+$/u, "");
 }
 
 type Finder = (quote: string) => { found: boolean; section?: string | undefined };
 
-// Clause boundaries (the review of 5 November 2026, finding 1): a quote is the paper's own words only from a clause's
-// start to a clause's end, so "decrease significantly after 12 weeks" is not found in "Pain scores did not decrease
-// significantly after 12 weeks." All of it is structural, the same in any script: a line break or a block's start
-// (where they are the text's own, not a PDF's wrapped lines), a sentence's end (Unicode's Sentence_Terminal) or a colon
-// or a semicolon. Between the quote and the boundary may sit only white space, quotation marks and brackets, and a
-// citation marker: numbers in brackets, or in superscript.
-const LINE_BREAK = /[^\S\r\n\v\f\u0085\u2028\u2029]*(?:\r\n|[\r\n\v\f\u0085\u2028\u2029])\s*/u;
-const CLAUSE_MARK = /^[\p{Sentence_Terminal}:;\u061b\u1364-\u1366\u1804\u204f\ua6f4\ua6f6]$/u;
-// A full stop, a colon or another mark between two Latin letters or digits joins them ("12.5", "1:2", "e.g"): no
-// boundary. Figures and abbreviations are written that way in every script that uses these marks.
-const JOINED = /^[a-z0-9]$/u;
-const SURROUND = /^[\s"'\p{Pi}\p{Pf}\p{Ps}\p{Pe}]$/u;
-const CITATION_AFTER = /^[[(] ?\d{1,4}(?: ?[,-] ?\d{1,4}){0,20} ?[\])]/u;
-const CITATION_BEFORE = /[[(] ?\d{1,4}(?: ?[,-] ?\d{1,4}){0,20} ?[\])]$/u;
-// A list's own marks, at the start of a line: a bullet, or a dash.
-const LIST_MARK = /^[\u2022\u2023\u2043\u2219\u25e6\u00b7-]$/u;
+/*
+ * Whole sentences only (the recheck of #417, 5 November 2026): a quote is the paper's own words only when it is one or
+ * more whole, consecutive sentences of one paragraph. So "decrease significantly after 12 weeks" is not found in "Pain
+ * scores did not decrease significantly after 12 weeks.", nor "vitamin D reduces fracture risk in older adults" after
+ * "We could not confirm the earlier report:". The sentences are Unicode's (UAX #29, by Intl.Segmenter), the same in any
+ * script and with no word list: a full stop between digits ("12.5") or before a small letter ("6 wk. but", "e.g. zinc")
+ * ends none, and a colon or a semicolon never does. A paragraph is a block, or a run of blocks that wrap; its line
+ * breaks read as spaces. At the quote's ends may sit only white space, quotation marks and brackets, a list's mark and,
+ * before its sentence's end, a citation marker: numbers in brackets or in superscript, or authors and a year in
+ * parentheses. What this can't see: a text with no sentence marks (Thai, say) is one sentence a block, so only a whole
+ * block is found; a heading that runs into its paragraph, as a PDF's do, is part of its first sentence; a full stop
+ * before a capital letter ends a sentence, an abbreviation's included ("vs. Group B"); a line an HTML page breaks with
+ * <br> ends its block, as the page shows it; and a whole sentence can still be quoted out of its paragraph's context.
+ */
+// Unicode's rules in one fixed locale, so every server finds the same sentences; no tailoring is asked for.
+const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
+const LINE_BREAKS = /\r\n|[\r\n\v\f\u0085\u2028\u2029]/gu;
 // A run of superscript digits, as a citation prints one (a comma or a dash between): put in brackets in the text and in
 // the quote alike, so it reads as a citation marker and a unit such as kg/m² still matches its quote.
 const SUPERSCRIPT_RUN = /[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+(?:[,\u207b\u2013-][\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+)*/gu;
 const bracketedSuperscripts = (text: string): string => text.replace(SUPERSCRIPT_RUN, (run) => ` [${run}]`);
+// A citation marker in figureText's form: numbers in brackets or parentheses ("[3, 4-6]", a superscript as
+// bracketedSuperscripts writes it), or authors and a year in parentheses, exactly: "(smith, 2020)", "(smith et al.,
+// 2020)", "(smith & jones 2019; lee, 2021)".
+const NUMBERS = String.raw`\d{1,4}(?: ?[,-] ?\d{1,4}){0,20}`;
+const NAME = String.raw`\p{L}[\p{L}\p{M}'-]*`;
+const AUTHORS = String.raw`${NAME}(?: et al\.?,?| & ${NAME},?|,) \d{4}[a-z]?`;
+const CITATION = String.raw`\[ ?${NUMBERS} ?\]|\( ?${NUMBERS} ?\)|\(${AUTHORS}(?:; ?${AUTHORS})*\)`;
+// Between a sentence's start and the quote: white space, quotation marks and brackets, a list's mark (a bullet, or a dash
+// before a space, never a minus sign) and a citation marker the sentence before left.
+const LEADING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Ps}\p{Pe}\u2022\u2023\u2043\u2219\u25e6\u00b7]|-(?=\s)|${CITATION})*$`, "u");
+// Between the quote and its sentence's end: white space, closing marks, the sentence's own end and a citation marker.
+const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${CITATION})*$`, "u");
 
-/** The character at a position, whole, and the one that ends just before one. */
-const characterAt = (text: string, at: number): string => String.fromCodePoint(text.codePointAt(at) ?? 0);
-function characterBefore(text: string, at: number): string {
-  const last = text.charCodeAt(at - 1);
-  return last >= 0xdc00 && last <= 0xdfff && at >= 2 ? text.slice(at - 2, at) : text.charAt(at - 1);
-}
-
-/** Whether the mark at a position ends a clause: not one joining two Latin letters or digits. */
-function endsClauseAt(text: string, at: number, mark: string): boolean {
-  return CLAUSE_MARK.test(mark) && !(JOINED.test(text.charAt(at - 1)) && JOINED.test(text.charAt(at + mark.length)));
-}
-
-/** Whether a quote found at `at` starts a clause of the text: going back over white space, marks and citations only. */
-function startsClause(text: string, at: number, breaks: ReadonlySet<number>): boolean {
-  let position = at;
-  for (;;) {
-    if (position === 0 || breaks.has(position)) return true;
-    const citation = CITATION_BEFORE.exec(text.slice(Math.max(0, position - 120), position));
-    if (citation !== null) {
-      position -= citation[0].length;
-      continue;
-    }
-    const before = characterBefore(text, position);
-    if (SURROUND.test(before)) {
-      position -= before.length;
-      continue;
-    }
-    // A list item's own mark, right at its line's start.
-    if (LIST_MARK.test(before) && (position - 1 === 0 || breaks.has(position - 1))) return true;
-    return endsClauseAt(text, position - before.length, before);
+/** Where a paragraph's sentences start. An opening bracket Unicode's rules leave at a sentence's end ("group.[12] Next")
+ * opens the next one. */
+function sentenceStarts(text: string): number[] {
+  const starts: number[] = [];
+  for (const { index } of SENTENCES.segment(text)) {
+    let start = index;
+    while (start > (starts.at(-1) ?? -1) + 1 && /\p{Ps}/u.test(text.charAt(start - 1))) start -= 1;
+    starts.push(start);
   }
+  return starts;
 }
 
-/** Whether a quote that ends at `end` ends a clause of the text: going on over white space, marks and citations only. */
-function endsClause(text: string, end: number, breaks: ReadonlySet<number>): boolean {
-  // A quote that ends with a clause's own mark (a colon, say) ends one.
-  const last = characterBefore(text, end);
-  if (end > 0 && endsClauseAt(text, end - last.length, last)) return true;
-  let position = end;
-  for (;;) {
-    if (position >= text.length || (position > end && breaks.has(position))) return true;
-    const citation = CITATION_AFTER.exec(text.slice(position, position + 120));
-    if (citation !== null) {
-      position += citation[0].length;
-      continue;
-    }
-    const next = characterAt(text, position);
-    if (SURROUND.test(next)) {
-      position += next.length;
-      continue;
-    }
-    return endsClauseAt(text, position, next);
-  }
-}
+// How far into a sentence a block's start is placed exactly.
+const SECTION_REACH = 20_000;
 
-/** One reading of a document as quotes are looked up in it: its text, where each block starts, and its clause breaks. */
+/** One reading of a document as quotes are looked up in it: its paragraphs in figureText's form, one a line; each
+ * sentence's span in that text; and where each block starts. */
 interface Searchable {
   text: string;
+  sentences: Array<{ start: number; end: number }>;
   blocks: Array<{ start: number; section: string | undefined }>;
-  breaks: ReadonlySet<number>;
 }
 
 function searchable(document: SourceLineDocument, reading: (text: string) => string): Searchable {
-  const parts: string[] = [];
-  const blocks: Searchable["blocks"] = [];
-  const breaks = new Set<number>();
-  let length = 0;
+  const paragraphs: Array<Array<SourceLineDocument["blocks"][number]>> = [];
+  let wrapping = false;
   for (const block of document.blocks) {
-    const read = bracketedSuperscripts(reading(block.text));
-    // A PDF's lines and pages wrap a sentence; any other text's lines and blocks are its own.
-    const lines = block.wraps === true ? [read] : read.split(LINE_BREAK);
-    let first = true;
-    for (const line of lines) {
-      const part = figureText(line);
-      if (part === "") continue;
-      const start = length === 0 ? 0 : length + 1;
-      if (first) blocks.push({ start, section: block.section });
-      if (block.wraps !== true) breaks.add(start);
-      first = false;
-      parts.push(part);
-      length = start + part.length;
+    if (wrapping && block.wraps === true) paragraphs.at(-1)!.push(block);
+    else paragraphs.push([block]);
+    wrapping = block.wraps === true;
+  }
+  const lines: string[] = [];
+  const sentences: Searchable["sentences"] = [];
+  const blocks: Searchable["blocks"] = [];
+  let next = 0;
+  for (const paragraph of paragraphs) {
+    let raw = "";
+    const starts: Array<{ at: number; section: string | undefined }> = [];
+    for (const block of paragraph) {
+      if (raw !== "") raw += " ";
+      starts.push({ at: raw.length, section: block.section });
+      raw += bracketedSuperscripts(reading(block.text)).replace(LINE_BREAKS, " ");
+    }
+    // Each sentence in figureText's form, with a space before it where the text had white space.
+    let line = "";
+    let space = false;
+    const spans: Array<{ start: number; end: number; raw: number }> = [];
+    const cuts = sentenceStarts(raw);
+    cuts.forEach((cut, index) => {
+      const piece = raw.slice(cut, cuts[index + 1] ?? raw.length);
+      const form = figureText(piece);
+      if (/^\s/u.test(piece)) space = true;
+      if (form !== "") {
+        if (space && line !== "") line += " ";
+        spans.push({ start: line.length, end: line.length + form.length, raw: cut });
+        line += form;
+        space = false;
+      }
+      if (/\s$/u.test(piece)) space = true;
+    });
+    if (line === "") continue;
+    // Where each block starts: in its sentence, after the form of the sentence's text before it (or, past a long way
+    // into one sentence, as a text with no sentence marks may run on for pages, about there: it names only the section).
+    let span = 0;
+    for (const { at, section } of starts) {
+      while (span + 1 < spans.length && spans[span + 1]!.raw <= at) span += 1;
+      const { start, end, raw: from } = spans[span]!;
+      const before = at - from > SECTION_REACH ? at - from : figureText(raw.slice(from, at)).length;
+      blocks.push({ start: next + Math.min(end, start + (before === 0 ? 0 : before + 1)), section });
+    }
+    for (const { start, end } of spans) sentences.push({ start: next + start, end: next + end });
+    lines.push(line);
+    next += line.length + 1;
+  }
+  return { text: lines.join("\n"), sentences, blocks };
+}
+
+/** The index of the last of the sentences that starts at or before a position, found by halves, as they are in order. */
+function sentenceAt(sentences: Searchable["sentences"], position: number): number {
+  let low = 0;
+  let high = sentences.length - 1;
+  let found = -1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (sentences[middle]!.start <= position) {
+      found = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
     }
   }
-  return { text: parts.join(" "), blocks, breaks };
+  return found;
+}
+
+// How far after a quote what may sit before its sentence's end is looked for.
+const TRAILING_REACH = 400;
+
+/** Whether only what TRAILING allows lies between a quote's end and a sentence's end. That may be a later sentence's, a
+ * short way on in the same paragraph: Unicode's rules end a sentence inside "(Smith et al. 2020)", before the year. */
+function endsSentence(text: string, sentences: Searchable["sentences"], last: number, end: number): boolean {
+  for (let index = last; index < sentences.length; index += 1) {
+    const after = text.slice(end, sentences[index]!.end);
+    if (after.length > TRAILING_REACH || after.includes("\n")) return false;
+    if (TRAILING.test(after)) return true;
+  }
+  return false;
 }
 
 /**
  * Looks quotes up in one text, in figureText's form: Unicode form, invisible characters, spacing, case, curly quotation
- * marks, dashes and emphasis set aside, and nothing else, so a changed word, number or sign is not found. The blocks
- * read as one text, as a sentence may cross a page. A quote is found only where it starts and ends at a clause's
- * boundary (startsClause and endsClause): a part of a sentence, which may have lost its negation, is not found.
+ * marks, dashes and emphasis set aside, and nothing else, so a changed word, number or sign is not found. A quote is
+ * found only as one or more whole sentences of a paragraph (above): a part of a sentence, which may have lost its
+ * negation, is not.
  */
 function finder(document: SourceLineDocument): Finder {
   const forms = [(text: string) => text, (text: string) => text.replace(BROKEN_WORD, ""),
@@ -234,9 +280,13 @@ function finder(document: SourceLineDocument): Finder {
   return (quote) => {
     const wanted = quoteForm(bracketedSuperscripts(quote));
     if (wanted === "") return { found: false };
-    for (const { text, blocks, breaks } of forms) {
+    for (const { text, sentences, blocks } of forms) {
       for (let at = text.indexOf(wanted); at >= 0; at = text.indexOf(wanted, at + 1)) {
-        if (!startsClause(text, at, breaks) || !endsClause(text, at + wanted.length, breaks)) continue;
+        const end = at + wanted.length;
+        const first = sentenceAt(sentences, at);
+        const last = sentenceAt(sentences, end - 1);
+        if (first < 0 || end > sentences[last]!.end || !LEADING.test(text.slice(sentences[first]!.start, at)) ||
+            !endsSentence(text, sentences, last, end)) continue;
         const block = blocks.findLast(({ start }) => start <= at);
         return { found: true, section: block?.section };
       }

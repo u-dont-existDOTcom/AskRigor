@@ -12,9 +12,10 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  lookUpSourceLines, quoteShown, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
+  abstractDocument, lookUpSourceLines, quoteShown, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
   sourceLineNotes, type SourceLine, type SourceLineDocument, type SourceLineRequest, type SourceLineTexts,
 } from "../apps/research-mcp/src/source-lines.js";
+import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
 
 const SECRET = "source-lines-test-secret-0123456789012345678901";
 const SENTENCE = "Pain fell by 12 points in the exercise group at 6 months, against 3 points with usual care.";
@@ -95,11 +96,15 @@ describe("looking a source line's quotes up", () => {
       .toMatchObject({ sentence: "not_found" });
   });
 
-  // The review of 5 November 2026 (finding 1): a quote is found only from a clause's boundary to a clause's boundary, so a
-  // part of a sentence that dropped its negation, or the start of a number, is never published as the paper's words.
-  describe("only whole clauses", () => {
+  // The review of #417 and its recheck (5 November 2026): a quote is found only as one or more whole sentences of a
+  // paragraph, Unicode's sentences, so a part of a sentence that dropped its negation, or the start of a number, is never
+  // published as the paper's words.
+  describe("only whole sentences", () => {
     const found = async (text: string, sentence: string, block: Partial<SourceLineDocument["blocks"][number]> = {}) =>
       (await lookUp(line({ sentence }), held({ kind: "full_text", blocks: [{ text, ...block }, { text: CONCLUSION }] }))).sentence;
+    // An HTML page as its index holds it: a block for each line the extractor lays out.
+    const fromHtml = (html: string): SourceLineDocument =>
+      ({ kind: "full_text", blocks: [...extractHtmlText(html).text.split("\n").map((text) => ({ text })), { text: CONCLUSION }] });
 
     it("doesn't find a part of a sentence that leaves its negation out", async () => {
       expect(await found("Pain scores did not decrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
@@ -108,36 +113,127 @@ describe("looking a source line's quotes up", () => {
         "Pain scores did not decrease significantly after 12 weeks.")).toBe("found");
     });
 
-    it("finds a whole sentence, and a clause after a semicolon or a colon, in any script", async () => {
-      const text = "We enrolled 64 adults. Pain fell by 12 points in the exercise group; function improved by 4 points " +
-        "with usual care. Results: the effect faded after a year.";
-      expect(await found(text, "Pain fell by 12 points in the exercise group")).toBe("found");
-      expect(await found(text, "function improved by 4 points with usual care.")).toBe("found");
-      expect(await found(text, "the effect faded after a year")).toBe("found");
-      expect(await found(text, "improved by 4 points with usual care")).toBe("not_found");
-      expect(await found("ألم الركبة انخفض بشكل ملحوظ؛ تحسنت الوظيفة بعد ستة أشهر.", "تحسنت الوظيفة بعد ستة أشهر")).toBe("found");
+    it("reads an HTML page's inline elements inline, so a bold negation stays in its sentence", async () => {
+      const html = "<p>Pain scores did <b>not</b>\ndecrease significantly after 12 weeks.</p><p>Function improved.</p>";
+      expect(extractHtmlText(html).text).toBe("Pain scores did not decrease significantly after 12 weeks.\nFunction improved.");
+      expect((await lookUp(line({ sentence: "decrease significantly after 12 weeks" }), held(fromHtml(html)))).sentence)
+        .toBe("not_found");
+      expect((await lookUp(line({ sentence: "Pain scores did not decrease significantly after 12 weeks." }), held(fromHtml(html))))
+        .sentence).toBe("found");
+      // <strong>, <i>, <span>, <a> and <sub> stay inline too; a block element and <br> break the line.
+      expect(extractHtmlText("<div>The <strong>dose</strong> of <i>E</i><sub>2</sub> was <span>not</span> " +
+        "<a href=\"#t1\">changed</a>.<br>It held.</div><ul><li>One</li><li>Two</li></ul>").text)
+        .toBe("The dose of E2 was not changed.\nIt held.\nOne\nTwo");
+    });
+
+    it("prints an HTML superscript of digits as Unicode's, so a citation can be left out and a unit still matches", async () => {
+      const html = "<p>Pain fell by 12 points in the exercise group<sup><a href=\"#b4\">4</a>,5&ndash;7</sup>. " +
+        "Mean body mass index was 31 kg/m<sup>2</sup> in both groups.</p>";
+      expect(extractHtmlText(html).text)
+        .toBe("Pain fell by 12 points in the exercise group⁴,⁵⁻⁷. Mean body mass index was 31 kg/m² in both groups.");
+      expect((await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group." }), held(fromHtml(html)))).sentence)
+        .toBe("found");
+      expect((await lookUp(line({ sentence: "Mean body mass index was 31 kg/m² in both groups." }), held(fromHtml(html)))).sentence)
+        .toBe("found");
+      // A superscript that isn't digits stays as it is, inline.
+      expect(extractHtmlText("<p>The 1<sup>st</sup> visit</p>").text).toBe("The 1st visit");
+    });
+
+    it("doesn't end a sentence at an abbreviation before a small letter", async () => {
+      expect(await found("The drug reduced pain at 6 wk. but not at 12 wk.", "The drug reduced pain at 6 wk.")).toBe("not_found");
+      expect(await found("The drug reduced pain at 6 wk. but not at 12 wk.", "The drug reduced pain at 6 wk. but not at 12 wk."))
+        .toBe("found");
+      expect(await found("There is no evidence that supplements, e.g. zinc lozenges shorten colds in adults.",
+        "zinc lozenges shorten colds in adults")).toBe("not_found");
+      expect(await found("Pain fell more with exercise vs. usual care at 12 weeks in older adults.",
+        "usual care at 12 weeks in older adults")).toBe("not_found");
+      expect(await found("Pain fell more with exercise vs. usual care at 12 weeks in older adults.",
+        "Pain fell more with exercise vs.")).toBe("not_found");
+      expect(await found("Most adults, i.e. those under 60, saw no benefit from the drug after a year.",
+        "those under 60, saw no benefit from the drug after a year")).toBe("not_found");
+      expect(await found("Smith et al. found no reduction in pain after 12 weeks of treatment.",
+        "found no reduction in pain after 12 weeks of treatment")).toBe("not_found");
+      expect(await found("Smith et al. found no reduction in pain after 12 weeks of treatment.",
+        "Smith et al. found no reduction in pain after 12 weeks of treatment.")).toBe("found");
+    });
+
+    it("never takes a colon or a semicolon as a sentence's end, in any script", async () => {
+      const colon = "We could not confirm the earlier report: vitamin D reduces fracture risk in older adults.";
+      expect(await found(colon, "vitamin D reduces fracture risk in older adults")).toBe("not_found");
+      expect(await found(colon, colon)).toBe("found");
+      const semicolon = "We enrolled 64 adults. Pain fell by 12 points in the exercise group; function improved by 4 points " +
+        "with usual care. The effect faded after a year.";
+      expect(await found(semicolon, "Pain fell by 12 points in the exercise group")).toBe("not_found");
+      expect(await found(semicolon, "function improved by 4 points with usual care.")).toBe("not_found");
+      expect(await found(semicolon, "Pain fell by 12 points in the exercise group; function improved by 4 points with usual care."))
+        .toBe("found");
+      expect(await found(semicolon, "We enrolled 64 adults. Pain fell by 12 points in the exercise group; function improved by " +
+        "4 points with usual care.")).toBe("found");
+      expect(await found(semicolon, "The effect faded after a year")).toBe("found");
+      const chinese = "我们无法证实先前的报告：维生素D可显著降低老年人的骨折风险。其他结果未显示。";
+      expect(await found(chinese, "维生素D可显著降低老年人的骨折风险。")).toBe("not_found");
+      expect(await found(chinese, "我们无法证实先前的报告：维生素D可显著降低老年人的骨折风险。")).toBe("found");
+      const arabic = "انخفض ألم الركبة بشكل ملحوظ؛ تحسنت الوظيفة بعد ستة أشهر من العلاج. وانتهت الدراسة.";
+      expect(await found(arabic, "تحسنت الوظيفة بعد ستة أشهر من العلاج")).toBe("not_found");
+      expect(await found(arabic, "انخفض ألم الركبة بشكل ملحوظ؛ تحسنت الوظيفة بعد ستة أشهر من العلاج.")).toBe("found");
+    });
+
+    it("finds whole sentences in any script", async () => {
       expect(await found("膝の痛みは12週間後に有意に減少した。その他の結果は示さない。", "膝の痛みは12週間後に有意に減少した。"))
         .toBe("found");
       expect(await found("膝の痛みは12週間後に有意に減少しなかった。", "12週間後に有意に減少しなかった")).toBe("not_found");
+      expect(await found("انخفض ألم الركبة بشكل ملحوظ بعد ستة أشهر من العلاج. وتحسنت الوظيفة أيضا.",
+        "انخفض ألم الركبة بشكل ملحوظ بعد ستة أشهر من العلاج.")).toBe("found");
+      expect(await found("छह महीने के उपचार के बाद घुटने का दर्द काफी कम हो गया। कार्य में भी सुधार हुआ।",
+        "छह महीने के उपचार के बाद घुटने का दर्द काफी कम हो गया।")).toBe("found");
+      expect(await found("छह महीने के उपचार के बाद घुटने का दर्द काफी कम नहीं हुआ।", "महीने के उपचार के बाद घुटने का दर्द काफी कम नहीं हुआ"))
+        .toBe("not_found");
+      expect(await found("Ο πόνος στο γόνατο μειώθηκε σημαντικά μετά από 12 εβδομάδες. Η λειτουργία βελτιώθηκε.",
+        "Ο πόνος στο γόνατο μειώθηκε σημαντικά μετά από 12 εβδομάδες.")).toBe("found");
     });
 
-    it("lets a citation, a closing mark or a bracket sit between the quote and the boundary", async () => {
-      expect(await found("Pain fell by 12 points in the exercise group [12]. Function did not change.",
-        "Pain fell by 12 points in the exercise group")).toBe("found");
-      expect(await found("Pain fell by 12 points in the exercise group [3, 4–6]. Function did not change.",
-        "Pain fell by 12 points in the exercise group")).toBe("found");
-      expect(await found("Pain fell by 12 points in the exercise group¹². Function did not change.",
-        "Pain fell by 12 points in the exercise group")).toBe("found");
+    it("finds only a whole block in a script with no sentence marks", async () => {
+      const thai = "ความเจ็บปวดลดลงอย่างมีนัยสำคัญหลังจาก 12 สัปดาห์ การทำงานของข้อเข่าดีขึ้นด้วย";
+      expect(await found(thai, "ความเจ็บปวดลดลงอย่างมีนัยสำคัญหลังจาก 12 สัปดาห์")).toBe("not_found");
+      expect(await found(thai, "การทำงานของข้อเข่าดีขึ้นด้วย")).toBe("not_found");
+      expect(await found(thai, thai)).toBe("found");
+    });
+
+    it("lets a citation, a closing mark or a bracket sit between the quote and its sentence's end", async () => {
+      for (const text of [
+        "Pain fell by 12 points in the exercise group [12]. Function did not change.",
+        "Pain fell by 12 points in the exercise group [3, 4–6]. Function did not change.",
+        "Pain fell by 12 points in the exercise group¹². Function did not change.",
+        "Pain fell by 12 points in the exercise group.¹²,¹³ Function did not change.",
+        "Pain fell by 12 points in the exercise group.[12] Function did not change.",
+        "Pain fell by 12 points in the exercise group (Smith et al., 2020). Function did not change.",
+        "Pain fell by 12 points in the exercise group (Smith et al. 2020; Lee, 2021). Function did not change.",
+        "Pain fell by 12 points in the exercise group (Smith et al. 2020). Function did not change.",
+        "Pain fell by 12 points in the exercise group (Smith & Jones, 2019). Function did not change.",
+        "“Pain fell by 12 points in the exercise group.” Then he left.",
+        "(Pain fell by 12 points in the exercise group.) Then it rose.",
+      ]) {
+        expect(await found(text, "Pain fell by 12 points in the exercise group"), text).toBe("found");
+      }
+      // A citation the sentence before left at the next one's start.
+      expect(await found("Pain fell in the exercise group.[12] Function did not change in either arm.",
+        "Function did not change in either arm.")).toBe("found");
+      expect(await found("Pain fell in the exercise group.¹² Function did not change in either arm.",
+        "Function did not change in either arm.")).toBe("found");
+      // A quotation inside a sentence is no sentence of its own.
       expect(await found("He said: “Pain fell by 12 points in the exercise group.” Then he left.",
-        "Pain fell by 12 points in the exercise group")).toBe("found");
-      expect(await found("(Pain fell by 12 points in the exercise group.) Then it rose.",
-        "Pain fell by 12 points in the exercise group")).toBe("found");
+        "Pain fell by 12 points in the exercise group")).toBe("not_found");
+      // Only an exact, simple author-year form: anything else in the parentheses is the sentence's.
+      expect(await found("Pain fell by 12 points in older adults (but not after 2020). Function did not change.",
+        "Pain fell by 12 points in older adults")).toBe("not_found");
+      expect(await found("Pain fell by 12 points in older adults (not 2020). Function did not change.",
+        "Pain fell by 12 points in older adults")).toBe("not_found");
       // A unit in superscript matches its quote.
       expect(await found("Mean body mass index was 31 kg/m² in both groups.", "Mean body mass index was 31 kg/m² in both groups."))
         .toBe("found");
     });
 
-    it("doesn't cut a number or an abbreviation's word short", async () => {
+    it("doesn't cut a number short, nor take a minus sign for a list's mark", async () => {
       expect(await found("The dose of 12.5 mg reduced pain in most adults.", "5 mg reduced pain in most adults")).toBe("not_found");
       expect(await found("Pain fell in the exercise group by 12.5 points.", "Pain fell in the exercise group by 12"))
         .toBe("not_found");
@@ -148,27 +244,76 @@ describe("looking a source line's quotes up", () => {
       // A bare number after a word may be a value, never a citation to pass over.
       expect(await found("Pain fell in the exercise group 12. Function did not change.", "Pain fell in the exercise group"))
         .toBe("not_found");
-    });
-
-    it("takes a line break or a block's start as a boundary, except a PDF's wrapped lines", async () => {
-      const heading = "Primary outcome\nPain fell by 12 points in the exercise group\nSecondary outcomes";
-      expect(await found(heading, "Pain fell by 12 points in the exercise group")).toBe("found");
+      expect(await found("−0.5 points was the mean change in pain over the year.", "0.5 points was the mean change in pain over the year."))
+        .toBe("not_found");
       expect(await found("• Pain fell by 12 points in the exercise group", "Pain fell by 12 points in the exercise group"))
         .toBe("found");
-      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
+      expect(await found("- Pain fell by 12 points in the exercise group", "Pain fell by 12 points in the exercise group"))
         .toBe("found");
-      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks",
-        { wraps: true })).toBe("not_found");
     });
 
-    it("reads a PDF's page text as wrapped, and every other text's lines as its own", () => {
-      const index = { source: { provider: "unpaywall_open_location" }, blocks: [
+    it("takes a block's start as a sentence's, never a line break inside a block", async () => {
+      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks"))
+        .toBe("not_found");
+      expect(await found("Pain scores did not\ndecrease significantly after 12 weeks.", "decrease significantly after 12 weeks",
+        { wraps: true })).toBe("not_found");
+      expect(await found("Primary outcome\nPain fell by 12 points in the exercise group\nSecondary outcomes",
+        "Pain fell by 12 points in the exercise group")).toBe("not_found");
+      // Its own block is a paragraph of its own.
+      const paper: SourceLineDocument = { kind: "full_text", blocks: [
+        { text: "Primary outcome" }, { text: "Pain fell by 12 points in the exercise group" }, { text: "Secondary outcomes" },
+      ] };
+      expect(await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group" }), held(paper)))
+        .toMatchObject({ sentence: "found" });
+    });
+
+    it("runs a PDF's heading into its first sentence, so that sentence alone isn't found", async () => {
+      const page = { text: "Results\nPain fell by 12 points in the exercise group at six months.\nFunction did not change in " +
+        "either arm of the trial.", section: "Page 4", wraps: true };
+      const paper: SourceLineDocument = { kind: "full_text", blocks: [page] };
+      expect(await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group at six months." }), held(paper)))
+        .toMatchObject({ sentence: "not_found" });
+      expect(await lookUp(line({ sentence: "Results Pain fell by 12 points in the exercise group at six months." }), held(paper)))
+        .toMatchObject({ sentence: "found", sentence_section: "Page 4" });
+      expect(await lookUp(line({ sentence: "Function did not change in either arm of the trial." }), held(paper)))
+        .toMatchObject({ sentence: "found", sentence_section: "Page 4" });
+    });
+
+    it("says on which page a sentence that crosses pages starts", async () => {
+      const paper: SourceLineDocument = { kind: "full_text", blocks: [
+        { text: "We enrolled 64 adults with knee pain. Pain fell by 12 points in the", section: "Page 3", wraps: true },
+        { text: "exercise group at six months. Function did not change in either arm.", section: "Page 4", wraps: true },
+      ] };
+      expect(await lookUp(line({ sentence: "Pain fell by 12 points in the exercise group at six months.",
+        conclusion: "Function did not change in either arm." }), held(paper)))
+        .toMatchObject({ sentence: "found", sentence_section: "Page 3", conclusion: "found", conclusion_section: "Page 4" });
+    });
+
+    it("reads a PDF's page text and a plain text's lines as wrapped, and every other text's blocks as its own", () => {
+      const index = { source: { provider: "unpaywall_open_location", format: "pdf_text" }, blocks: [
         { text: "a page", section_path: ["Page 1"], kind: "page_text" },
         { text: "a paragraph", section_path: ["Results"], kind: "paragraph" },
       ] };
       expect(sourceLineDocument(index as never).blocks).toEqual([
         { text: "a page", section: "Page 1", wraps: true }, { text: "a paragraph", section: "Results" },
       ]);
+      const plain = { source: { provider: "direct_candidate", format: "plain_text" }, blocks: [
+        { text: "a line", section_path: ["Results"], kind: "paragraph" },
+      ] };
+      expect(sourceLineDocument(plain as never).blocks).toEqual([{ text: "a line", section: "Results", wraps: true }]);
+    });
+
+    it("looks a structured abstract up section by section, as its labels are no part of a sentence", async () => {
+      const abstract = abstractDocument(`RESULTS: ${SENTENCE}\nCONCLUSIONS: ${CONCLUSION}`,
+        [{ label: "RESULTS", text: SENTENCE }, { label: "CONCLUSIONS", text: CONCLUSION }]);
+      expect(abstract).toEqual({ kind: "abstract", blocks: [
+        { text: SENTENCE, section: "RESULTS" }, { text: CONCLUSION, section: "CONCLUSIONS" },
+      ] });
+      expect(await lookUp(line(), held(abstract))).toMatchObject({ sentence: "found", sentence_section: "RESULTS",
+        conclusion: "found", conclusion_section: "CONCLUSIONS" });
+      // Without its sections, a label runs into its section's first sentence.
+      expect(await lookUp(line(), held(abstractDocument(`RESULTS: ${SENTENCE}\nCONCLUSIONS: ${CONCLUSION}`))))
+        .toMatchObject({ sentence: "not_found", conclusion: "not_found" });
     });
   });
 
@@ -190,10 +335,11 @@ describe("looking a source line's quotes up", () => {
   });
 
   it("looks in the abstract when no full text is held, and a quote missing from it isn't found there", async () => {
-    const abstract = vi.fn<SourceLineTexts["abstract"]>().mockResolvedValue({ kind: "abstract", blocks: [{ text: `Results: ${SENTENCE}` }] });
+    const abstract = vi.fn<SourceLineTexts["abstract"]>()
+      .mockResolvedValue(abstractDocument(`RESULTS: ${SENTENCE}`, [{ label: "RESULTS", text: SENTENCE }]));
     const texts: SourceLineTexts = { fullText: () => undefined, abstract };
     const result = await lookUp(line(), texts, request({ handles: [], pmids: ["12345"] }));
-    expect(result).toMatchObject({ sentence: "found", conclusion: "not_found", text: "abstract" });
+    expect(result).toMatchObject({ sentence: "found", sentence_section: "RESULTS", conclusion: "not_found", text: "abstract" });
     expect(abstract).toHaveBeenCalledWith("12345");
   });
 

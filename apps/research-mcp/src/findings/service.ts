@@ -12,6 +12,7 @@ import {
   findingBackingFromReceipt,
   findingReadingFromReceipt,
   threadCommunitiesFromReceipt,
+  threadLinksFromReceipt,
   type FindingBacking,
   type StoredBacking,
 } from "./research-behind.js";
@@ -312,7 +313,10 @@ export class FindingsSaveService {
       // The review of 5 November (finding 1): a Reddit thread's community and link come only from the subreddit its
       // reader's receipt signed, which the final check signed again for each of the card's threads.
       const threadCommunities = threadCommunitiesFromReceipt(receipt.claims.ft, input.findings_card);
-      const stored = withoutYouTubeData(input.findings_card, drawnFromComments, { threadLinks, threadCommunities });
+      // The recheck of #417: a forum page's link only as its reader read it, which the final check signed (`fl`).
+      const threadLinksRead = threadLinksFromReceipt(receipt.claims.fl, input.findings_card);
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments,
+        { threadLinks, threadCommunities, threadLinksRead });
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {

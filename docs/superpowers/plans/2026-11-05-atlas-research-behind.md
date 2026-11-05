@@ -322,6 +322,81 @@ The independent review of #417 found eight more problems; the coordinator decide
 8. **Punycode communities.** The pages and the owner's review show a forum's host in its Unicode form
    (`xn--e1afmkfd.xn--p1ai` as `пример.рф`), escaped as every text; its link keeps the host as read.
 
+## The recheck of #417 (head `06b96b14`), 5 November
+
+The independent recheck of the fixes above found the clause matcher a second failure of the same class as substring
+matching (a rule about where a quote may start and end, patched with exceptions), and eight smaller problems. The
+coordinator decided each; the fixes are on `claude/atlas-review-fixes-20261105`, merged into
+`claude/atlas-owner-page-20261105`.
+
+**A. The quote matcher's mechanism.**
+
+1. *HTML laid out as a browser lays it out.* `extractHtmlText` broke a line at `<b>` and `<strong>`, so "Pain scores
+   did <b>not</b> decrease significantly after 12 weeks." became three lines and "decrease significantly after 12
+   weeks." a whole line of its own. Inline elements (b, strong, i, em, span, a, sup, sub and the like) now stay inline
+   and the source's own line breaks collapse to spaces; only block elements and `<br>` break a line, and `<pre>` keeps
+   its own. A superscript of digits is printed in Unicode's superscripts (`<sup>4,5–7</sup>` as `⁴,⁵⁻⁷`, `m<sup>2</sup>`
+   as `m²`), so a citation can be left out and a unit still matches. A PDF's wrapped lines stay as they were.
+2. *Whole sentences, Unicode's.* A quote is found only when it covers one or more whole, consecutive sentences of one
+   paragraph, the sentences of `Intl.Segmenter` with `granularity: "sentence"` (UAX #29) in one fixed locale with no
+   tailoring. A paragraph is a block, or a run of blocks that wrap (a PDF's pages, and a plain text's lines, which may
+   be wrapped where no paragraph ends); a block's own line breaks read as spaces. At the quote's ends may sit only white
+   space, quotation marks and brackets, a list's mark (a bullet, or a dash before a space, never a minus sign) and,
+   before the sentence's end, a citation marker: numbers in brackets or parentheses, a superscript run, or authors and a
+   year in parentheses in exact, simple forms (`(Smith, 2020)`, `(Smith et al., 2020)`, `(Smith et al. 2020; Lee,
+   2021)`, `(Smith & Jones 2019)`; anything else in the parentheses is the sentence's). Unicode's rules end a sentence
+   inside "(Smith et al. 2020)", before the year, so what may follow a quote may run on to a later sentence's end a short
+   way on (400 characters), within the paragraph; and an opening bracket they leave at a sentence's end ("group.[12]
+   Next") opens the next one. No word list: a full stop between digits ("12.5") or before a small letter ("6 wk. but",
+   "e.g. zinc", "vs. usual", "i.e. those", "et al. found") ends no sentence.
+3. *Colons and semicolons are no boundary*, in any script (`:` `;` `：` `؛`): the quote must include the clause before
+   them. A PubMed structured abstract is read section by section: its sections are kept beside the record in memory
+   (`pubmedAbstractSections`, a `WeakMap`; the tool's output is unchanged), each a block under its label, as a label
+   ("RESULTS:") is no part of a sentence.
+4. *A script without sentence marks* (Thai) is one sentence a block: only the whole block is found.
+5. Tests cover the HTML inline negation, the abbreviations, the colon (Latin and Chinese), Thai, decimals, a PDF's
+   heading without a colon, citations at both ends, whole sentences in CJK, Arabic, Devanagari and Greek, and the
+   earlier test that took a line break inside a block as a boundary now finds no part after it.
+6. *What it can't see*, said in the code, the final-check document, the privacy map and the storage policy: a whole
+   sentence can still be quoted out of its paragraph's context; a heading that runs into its paragraph, as a PDF's do,
+   is part of its first sentence, so that sentence alone isn't found (the safe direction); a full stop before a capital
+   letter ends a sentence by Unicode's rules, an abbreviation's included ("vs. Group B", "e.g. Zinc"), so a sentence
+   after such an abbreviation can be found on its own; and a `<br>` inside a sentence ends its line, as the page breaks
+   it. #413's build carries its own copy of the old finder, which takes this mechanism when the stacks meet.
+
+**B. Eight smaller problems.**
+
+1. *`ur` vouched for unread links and counted twice.* A read signs `ur` only when the link it was given and the link it
+   read are the same thread (path and parameters) at the same registrable host (`sameThreadAtSite`). The final check
+   counts it under that one thread: the read threads are the `u` digests, an `ur` finds its `u`, and a card giving both
+   links gives one thread twice, its people held once.
+2. *Comparisons broke on www.* `comparableUrl` treats a `www.` host and the bare one as one, everywhere; only the
+   published link keeps the host exactly as read. Reddit keeps its own prefixes set aside, and any other part of a
+   host is kept.
+3. *The rollback note missed re-check intents*, whose `verifiedBases` sit at the payload's top level: the runbook's
+   query has `OR payload_json -> 'verifiedBases' ? 'forum_read'`. The PostgreSQL acceptance now counts the accept
+   intents, adds a re-check intent resting on `forum_read` and counts exactly one more, and counts the version 3
+   publications before and after two are published and withdrawn (two more, withdrawn included).
+4. *Forum pages counted by their link's variants.* A page's `w` is the digest of its thread's comparable link and the
+   page that link picks (`start`, `page`, `pg`, `offset`, `/page-N`), so another tracking parameter, `http`, a
+   trailing slash or `www` reads as the same page; a link to a post picks no page of its own (the safe direction).
+5. *An `http://` link came from the AI's string.* A forum page's read signs its id-only link as read (`l`, always
+   `https`, as the reader reads only `https`); the final check signs `fl`, the places of the card's forum pages whose
+   link, as the card gives it, is that one; the save stores a forum page's link only there. Any other page is named
+   and counted, not linked.
+6. *The privacy map said a personal domain counts as "another website"*, while `https://janedoe.com/threads/12/` is
+   named `janedoe.com` with a link. The map now says what the code does: the rule is on the link's form, so a site at
+   the root of a forum-software form is named by its domain, the forum's name, whoever runs it; that is its limit.
+7. *Look-alike hosts.* A punycode host shows in Unicode only when all its letters are in one of the scripts UAX #31
+   recommends for identifiers, the same one across its labels (by the Script property); otherwise as read. That is
+   stricter than one script a label: it also keeps `аррӏе.com` (a Cyrillic label before `.com`) in punycode, at the
+   cost of showing a one-script label under a Latin top level (`ελληνικά.gr`) in punycode too.
+8. *The digest read* tries the stored form, then each per-finding combination of `false` and no declaration (at most 32
+   for five findings). A stored `true` is still never published.
+
+Kept as sound: the 20 characters a person on a forum page; Reddit counted once; the naming rules; ports counted
+only; `true` never published; the unsaved copy; the punycode display apart from item 7.
+
 ## Merging the stack into main
 
 Checked 5 November against today's `origin/main` (`bf3581aa`, #412): this branch already holds it, so a merge of main

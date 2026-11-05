@@ -132,9 +132,11 @@ Owner answer 252a (5 November 2026, option a, "quotes included"; plan
 the public Atlas: a findings card may store, and a finding page show, the
 paper's own sentence behind a finding and its conclusion, so that people can
 inspect what the finding rests on. Each is kept only when AskRigor's own lookup
-found it word for word in a text AskRigor fetched itself (an open full text or
-a PubMed abstract), never from the AI's search copy or a copy from the owner's
-library. A finding has at most three lines, each one source's sentence and its
+found it word for word, as one or more whole sentences, in a text AskRigor
+fetched itself (an open full text or a PubMed abstract), never from the AI's
+search copy or a copy from the owner's library; a whole sentence may still be
+quoted out of its paragraph's context, which the strongest thing against the
+finding and the source's link let a reader check. A finding has at most three lines, each one source's sentence and its
 conclusion, two quotes of at most 300 characters each (so at most six quotes a
 finding), with the source's identifier and the section each was found in as its
 locator, and the kind of text as its class; it never assembles a substitute
@@ -149,8 +151,9 @@ under free contributor notice version 5 or a paid private user's yes to a save,
 are kept like a source's identifier: a pointer to the public thread AskRigor's
 reader read, rebuilt from the verified read in an id-only form (a Reddit post by
 its id; another forum's thread by its number, in phpBB's, vBulletin's,
-XenForo's or Discourse's own form at the forum's own host; any other page is
-counted as "another website", never named or linked),
+XenForo's or Discourse's own form at the forum's own host, linked only as the
+reader read it; any other page is counted as "another website", never named or
+linked),
 never the thread's text, title, slug or a username; YouTube comments never enter
 a forum signal. An accepted finding's
 Atlas version keeps the same research as its publication shows, and an erasure
