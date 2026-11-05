@@ -639,6 +639,57 @@ describe("the server sends a free contributor's validated analyses when the fina
     expect(JSON.stringify(store.inserted[0]!.payload)).not.toContain(testRun.content);
   });
 
+  // The recheck of 5 Nov 2026: a test run's audit its marked check didn't name still reached the inbox at the owner's next
+  // check. Nothing else tells a test run's analyses apart from the owner's own research on the shared account (a session
+  // or a time window would also catch the owner's own work), so the marker travels to the audit itself: a validate call
+  // marked findings_save holds nothing, whatever later check comes.
+  it("holds nothing from a validate call marked findings_save, so no later check sends it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    integrity.mockResolvedValue(NO_RECORD);
+    const { store, service } = await accessService();
+    const call = tools(service);
+    const validate = async (text: string, marker?: unknown) => {
+      const index = studyIndex(text);
+      acquire.mockResolvedValue({ access_status: "complete", data: { requested_doi: DOI, discovery_attempts: [], document_index: index } });
+      const acquired = await call("acquire_open_full_text", { doi: DOI }, "auth0|free");
+      const handle = (acquired.structuredContent as { coverage_receipt: { document_handle: string } }).coverage_receipt.document_handle;
+      const validated = await call("validate_study_method_audit", { document_handle: handle, audit: studyAudit(index),
+        ...(marker === undefined ? {} : { findings_save: marker }) }, "auth0|free");
+      expect(validated.isError).not.toBe(true);
+      expect(validated.structuredContent).toMatchObject({ status: "source_linked_study_audit_validated" });
+      const body = validated.structuredContent as { research_receipt: string; coverage_receipt: { source_content_sha256: string } };
+      return { receipt: body.research_receipt, content: body.coverage_receipt.source_content_sha256 };
+    };
+    // Two audits of a test run, one left out of its check, marked as the marker's value or any other; and the owner's own.
+    const testA = await validate("A full text a test run read to the end.", "off");
+    const testB = await validate("A second full text the same test run audited and left out of its check.", ["off"]);
+    const ownRun = await validate("A full text the owner's own research read to the end.");
+    const request = (receipts: string[]) => withSourceReading(finalizeResearchInputSchema.parse({
+      lab_preparation: { status: "not_applicable", reason: "Synthetic fixture interprets no lab result and plans no test." },
+      full_text_search: { status: "not_needed", reason: "Synthetic fixture isolates staged analysis checks." },
+      receipts, community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
+      commercial_review_applicability: { status: "not_applicable", reason: "Drug clearance mechanism involves no product or service people buy." },
+      not_relevant_reason: "How the body clears a drug, with no real-world outcome.", treatment_choice: "not_compared",
+      research_target: "How the body clears a drug in adults", research_depth: "deep",
+      intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
+      key_sources: [{ read_depth: "full_text_audited" as const, answer_marker: "Study", id: DOI, status: "validated" }],
+      answer_draft: `The liver clears this drug within a few hours. [Study](https://doi.org/${DOI})\n\n` +
+        communitySkipCaveat("How the body clears a drug, with no real-world outcome."),
+      absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], safety_claims: [], safety_question: false, key_terms: [], mechanism_claims: [], recommendations: [],
+    })) as Record<string, unknown>;
+    // The owner's own passing check sends the owner's analysis alone.
+    const later = await call("finalize_research", request([ownRun.receipt]), "auth0|free");
+    expect(later.structuredContent).toMatchObject({ analyses_saved: { saved: 1, already_saved: 0, unconfirmed: 0, not_saved: [] } });
+    expect(store.inserted).toHaveLength(1);
+    const payload = JSON.stringify(store.inserted[0]!.payload);
+    expect(payload).toContain(ownRun.content);
+    for (const test of [testA, testB]) expect(payload).not.toContain(test.content);
+    // A check naming the test run's audits sends nothing either.
+    const again = await call("finalize_research", request([testA.receipt, testB.receipt]), "auth0|free");
+    expect((again.structuredContent as { analyses_saved?: unknown }).analyses_saved).toBeUndefined();
+    expect(store.inserted).toHaveLength(1);
+  });
+
   it("holds nothing for a paid private account, and makes no integrity check for it", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const index = studyIndex("Another full text read to the end.");

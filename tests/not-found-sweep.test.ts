@@ -57,6 +57,9 @@ const FORMS_ASK = "search the key name's other spellings, older names and synony
   "the key name as the answer writes it in later_inputs.key_name";
 // With the key name the answer shows given (the review of 5 Nov 2026), the ask leaves it out.
 const FORMS_ASK_NAMED = FORMS_ASK.replace(", and the key name as the answer writes it in later_inputs.key_name", "");
+// With forms searched here and only the key name missing, the ask is for it alone (the recheck of 5 Nov 2026).
+const KEY_NAME_ASK = "give the key name as the answer writes it in later_inputs.key_name, copied from answer_draft, so " +
+  "the other names searched in name_forms count";
 const BEYOND_ASK = "search a source beyond PubMed and Europe PMC: your own web search finds journals they don't index " +
   "(then give other_journals in later_inputs.search_coverage), and search_clinical_trials covers trial registries";
 const sweep = (...asks: string[]) => `The answer says something was not found: before saying so, ${ABSENCE_SWEEP_RULES} ` +
@@ -180,14 +183,19 @@ describe("the searches before a not-found claim: the final check", () => {
     expect(formNotes(named)).toEqual(["name_forms[0].form is the key name as the answer writes it: give the other " +
       "spellings, older names and synonyms searched."]);
     expect(sweepNotes(named)).toEqual([sweep(FORMS_ASK_NAMED)]);
-    // Without the key name, no form can be shown to be another one: the ask stays, and asks for it.
-    expect(sweepNotes(check({}, usual))).toEqual([sweep(FORMS_ASK)]);
+    // Without the key name, no form can be shown to be another one: the ask stays, and, the forms being searched here,
+    // asks just for it (the recheck of 5 Nov 2026).
+    expect(sweepNotes(check({}, usual))).toEqual([sweep(KEY_NAME_ASK)]);
     // A key name the answer doesn't show counts nothing, and is a note of its own.
     const unshown = check({ receipts: [...input().receipts as string[], searched(`${VARIANT} toxicity`)] },
       { name_forms: [{ form: VARIANT, query: `${VARIANT} toxicity` }], key_name: "Exemplaria", search_coverage: ["other_journals"] });
     expect(advisoryNotes(unshown)).toContain("later_inputs.key_name is not in the answer: give the key name exactly as " +
       "the answer writes it, copied from answer_draft.");
-    expect(sweepNotes(unshown)).toEqual([sweep(FORMS_ASK)]);
+    expect(sweepNotes(unshown)).toEqual([sweep(KEY_NAME_ASK)]);
+    // Given as the answer writes it, the same forms count, and the ask goes.
+    expect(sweepNotes(check({ receipts: [...input().receipts as string[], searched(`${VARIANT} toxicity`)] },
+      { name_forms: [{ form: VARIANT, query: `${VARIANT} toxicity` }], key_name: NAME, search_coverage: ["other_journals"] })))
+      .toEqual([]);
     // The same name in another case is still the key name.
     expect(formNotes(check({}, { ...usual, key_name: NAME.toUpperCase() }))).toEqual(formNotes(named));
   });

@@ -41,11 +41,17 @@ How each case runs:
   5 November 2026 it also makes no save offer and no research-map offer or reminder, for every account kind, files no
   held analysis to the review inbox (and drops those its own audits name), and its finalization receipt signs the mark,
   so `save_research_findings` refuses that card too. It is read from the raw call on its own, so a misspelt later input
-  beside it can't lose it. The marker can only turn saving off: `"off"` is its only value (in any case), and any other
-  is dropped with a note, leaving the switch in charge. A connection-level marker, such as a header, would not depend on the model, but the harness can't send one:
+  beside it can't lose it. The marker can only turn saving off: `"off"` is its value (in any case), and since the
+  recheck of 5 November 2026 any other value given for it but null is read as off too, with a note, as is `later_inputs`
+  sent as text holding it. A test run's audits are held for the review inbox at their method check, before any final
+  check, so every case also marks each `validate_study_method_audit` and `validate_review_method_audit` call with the
+  same `later_inputs: { "findings_save": "off" }`; a marked audit is never held. Nothing else tells the run's analyses
+  apart from the owner's own research on the shared account, so the preamble names those two tools beside
+  `finalize_research`, and the save guard reads their arguments in the event log as it reads the final checks'. A connection-level marker, such as a header, would not depend on the model, but the harness can't send one:
   it reaches AskRigor through the ChatGPT app inside Codex (`codex_apps`), whose connection OpenAI's platform makes, so
-  the marker rides in the call. The harness therefore: puts it in the preamble ("Give every `finalize_research` call
-  `later_inputs.findings_save` `"off"`; this test's cards are never saved."), keeps switching the account's saving off
+  the marker rides in the call. The harness therefore: puts it in the preamble ("Give every `finalize_research`,
+  `validate_study_method_audit` and `validate_review_method_audit` call `later_inputs.findings_save` `"off"`; this test
+  saves nothing."), keeps switching the account's saving off
   and back on as above, as a second guard, and has the save guard read each `finalize_research` call's arguments in the
   event log, so a call without the marker shows at once, besides a saved card.
 - **Questions to the user:** a run asks what AskRigor would ask a real user and sends nothing. After a correction the

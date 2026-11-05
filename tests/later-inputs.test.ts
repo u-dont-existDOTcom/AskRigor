@@ -110,12 +110,45 @@ describe("finalize_research keeps the usable later inputs beside a bad one", () 
   it("reads findings_save from the raw call on its own: off in any case or separator, in later_inputs or at the top", () => {
     for (const raw of [{ later_inputs: { findings_save: "off" } }, { later_inputs: { findings_save: " OFF " } },
       { later_inputs: { findings_save: "o-f_f", typo: [] } }, { findings_save: "Off" }]) {
-      expect(laterInputs.findingsSaveOff(raw), JSON.stringify(raw)).toBe(true);
+      expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true });
     }
-    for (const raw of [{ later_inputs: { findings_save: "on" } }, { later_inputs: { findings_save: true } },
-      { later_inputs: "findings_save off" }, { later_inputs: [{ findings_save: "off" }] }, null, "off", {}]) {
-      expect(laterInputs.findingsSaveOff(raw), JSON.stringify(raw)).toBe(false);
+    // The recheck of 5 Nov 2026: the marker can only turn saving off, so any value given for it is off, with a note,
+    // and later_inputs sent as text is read for it too.
+    const other = "findings_save: read as \"off\": the marker can only turn card saving off, so any value given for it " +
+      "turns saving off; give \"off\".";
+    const text = "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an object, with " +
+      "findings_save \"off\".";
+    for (const raw of [{ later_inputs: { findings_save: ["off"] } }, { later_inputs: { findings_save: "on" } },
+      { later_inputs: { findings_save: true } }, { later_inputs: { findings_save: false } }, { findings_save: {} },
+      { later_inputs: [{ findings_save: "off" }, { findings_save: "yes" }] }]) {
+      expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true, note: other });
     }
+    for (const raw of [{ later_inputs: JSON.stringify({ findings_save: "off" }) }, { later_inputs: "findings_save off" },
+      { later_inputs: JSON.stringify({ findings_save: ["off"], source_reading: [] }) }]) {
+      expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true, note: text });
+    }
+    // Absent: not given, or given as null; and a call that is no object.
+    for (const raw of [{ later_inputs: { findings_save: null } }, { findings_save: null }, { later_inputs: "{}" },
+      { later_inputs: { source_reading: [] } }, null, "off", {}]) {
+      expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: false });
+      expect(laterInputs.findingsSaveOff(raw)).toBe(false);
+    }
+  });
+
+  // The recheck of 5 Nov 2026: an unusable later form no longer replaces a valid top-level one.
+  it("keeps a valid top-level form when its later_inputs form doesn't parse, and says so", () => {
+    const parsed = parseFinalizeResearchInput(call({ source_reading: [{ source: DOI, quote: AUDITED }] },
+      { source_reading: [READING] }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.data!.source_reading).toEqual([READING]);
+    expect(parsed.notes).toContain("later_inputs.source_reading: source_reading is given both at the top level and in " +
+      "later_inputs, and its later_inputs form doesn't parse: its top-level form is used.");
+    const result = check({ source_reading: [{ source: DOI, quote: AUDITED }] }, { source_reading: [READING] });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    // With both unusable, the later form is read, as the salvage reads it.
+    expect(parseFinalizeResearchInput(call({ source_reading: [{ source: DOI }] }, { source_reading: [{ quote: AUDITED }] }))
+      .notes.join("\n")).toContain("its later_inputs form, the newer one, is used");
   });
 });
 
@@ -132,7 +165,9 @@ describe("later_inputs (owner answer 189a)", () => {
         // key name as the answer writes it, which a name form must differ from.
         : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage", "findings_save"]
           : operation.name === "save_research_findings" ? ["findings_card"]
-          : operation.name === "validate_study_method_audit" ? ["audit"]
+          // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
+          : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]
+          : operation.name === "validate_review_method_audit" ? ["findings_save"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber"]
               : operation.name === "review_research_contribution" ? ["sharedAnswerId", "items", "placements", "reportState", "report", "verdict", "glanceRow", "glanceRowId", "glanceState"] : [];

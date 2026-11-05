@@ -3517,9 +3517,12 @@ function registerOpenFullTextMcpTools(
       outputSchema: studyMethodAuditPublishedRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input, extra) => stageValidatedAnalysis(
-      "study", await invokeOpenFullTextMcp("validate_study_method_audit", input), extra, options
-    )
+    async (input, extra) => {
+      // The recheck of 5 Nov 2026: a test run's audit, marked findings_save, is never held for the review inbox.
+      const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
+      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit), extra,
+        options, marker !== undefined && marker !== null);
+    }
   );
   registrar.registerTool(
     "validate_review_method_audit",
@@ -3529,9 +3532,11 @@ function registerOpenFullTextMcpTools(
       outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input, extra) => stageValidatedAnalysis(
-      "review", await invokeOpenFullTextMcp("validate_review_method_audit", input), extra, options
-    )
+    async (input, extra) => {
+      const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
+      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit), extra,
+        options, marker !== undefined && marker !== null);
+    }
   );
 }
 
@@ -3540,14 +3545,19 @@ function registerOpenFullTextMcpTools(
  * to send to the review inbox (owner decision, 30 Sep). The validation result
  * is returned unchanged and never waits: building the contribution, with its
  * Crossref integrity check, runs in the background. Repository reuse is
- * skipped, since that analysis is already in the repository.
+ * skipped, since that analysis is already in the repository. A test run's
+ * audit, marked findings_save, is never held (the recheck of 5 Nov 2026): test
+ * runs share the owner's account, and nothing else tells their analyses apart
+ * from the owner's own research, whose analyses stay held as before.
  */
 async function stageValidatedAnalysis(
   kind: "study" | "review",
   result: CallToolResult,
   extra: unknown,
-  options: RegisterToolsOptions
+  options: RegisterToolsOptions,
+  marked = false
 ): Promise<CallToolResult> {
+  if (marked) return result;
   const body = result.structuredContent as {
     status?: string;
     audit_receipt?: { audit_sha256?: string };

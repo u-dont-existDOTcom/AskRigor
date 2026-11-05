@@ -1296,30 +1296,44 @@ describe("finalize_research, save_research_findings and the findings library", (
       user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
   });
 
-  it("can't turn saving on: another value is dropped with a note, and the account's switch decides", async () => {
+  // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. The
+  // marker can only turn saving off, so any value given for it is off, with a note; only its absence leaves the switch
+  // in charge.
+  it("reads any value given for the marker as off, with a note, and never turns saving on", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
     const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
     const finalize = connectorTool("finalize_research", {
-      researchContributorAccessService: service, findingsLibrary: true, findingsSave,
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
     });
-    await service.setFindingsSave("auth0|free", false);
-    for (const findings_save of ["on", true, "yes"]) {
-      const result = await finalize({ ...request(), later_inputs: { findings_save } }, "auth0|free");
-      expect(result.structuredContent, String(findings_save)).toMatchObject({
-        findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+    // Sent as text, later_inputs holds no source_reading the check can read, so the call gives it at the top level.
+    const asText = { ...withSourceReading(request(), { topLevel: true, check: { secret: SECRET } }),
+      later_inputs: JSON.stringify({ findings_save: "off" }) };
+    for (const later of [{ findings_save: "on" }, { findings_save: true }, { findings_save: "yes" },
+      { findings_save: ["off"] }, asText.later_inputs]) {
+      const result = await finalize(typeof later === "string" ? asText : { ...request(), later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } },
       });
       expect(((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n"))
-        .toContain("findings_save: dropped");
+        .toMatch(/findings_save: read as "off"/u);
+      expect(verifyResearchReceipt((result.structuredContent as FinalizeResearchOutput).finalization_receipt!,
+        { secret: SECRET }).claims).toMatchObject({ fs: "off" });
     }
     expect(calls).toEqual([]);
-    // With the switch on, a call whose marker was dropped saves as any other; "OFF", only cased otherwise, is off.
+    expect(kept).toEqual([]);
+    // Absent, or given as null, the account's switch decides: with it off nothing is saved, and with it on the card is.
+    await service.setFindingsSave("auth0|free", false);
+    expect((await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free")).structuredContent)
+      .toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } } });
     await service.setFindingsSave("auth0|free", true);
-    const saved = await finalize({ ...request(), later_inputs: { findings_save: "on" } }, "auth0|free");
+    const saved = await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free");
     expect(saved.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
     expect(calls).toHaveLength(1);
     const cased = await finalize({ ...request(), later_inputs: { findings_save: "OFF" } }, "auth0|free");
     expect(cased.structuredContent).toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(((cased.structuredContent as { notes?: string[] }).notes ?? []).join("\n")).not.toContain("findings_save");
     expect(calls).toHaveLength(1);
   });
 

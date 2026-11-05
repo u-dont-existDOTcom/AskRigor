@@ -58,22 +58,41 @@ export function withSourceReading<T>(
       // A fixture the check can't read keeps its declared readings.
     }
   }
-  const added: Entry[] = [];
-  for (const source of keySources) {
-    if (typeof source?.id !== "string" || named.has(normalizeIdentifier(source.id))) continue;
-    named.add(normalizeIdentifier(source.id));
-    const reading = verified.get(normalizeIdentifier(source.id));
-    added.push(reading === undefined
-      ? { source: source.id, reading: fixtureReading(source), quote: fixtureReadingWords(source) }
-      : { source: source.id, reading, quote: ANSWER_READING_LABELS[reading] });
-  }
-  if (added.length === 0) return input;
-  const shown = raw.answer_draft.toLowerCase();
-  const words = [...new Set(added.map(({ quote }) => quote))].filter((quote) => !shown.includes(quote.toLowerCase()));
-  const entries = [...given, ...added];
-  return {
-    ...input,
-    ...(words.length === 0 ? {} : { answer_draft: `${raw.answer_draft}\n\nHow each study was read: ${words.join("; ")}.` }),
-    ...(atTop ? { source_reading: entries } : { later_inputs: { ...later, source_reading: entries } })
+  const unread = new Set<string>();
+  const build = (): T => {
+    const added: Entry[] = [];
+    for (const source of keySources) {
+      const key = typeof source?.id === "string" ? normalizeIdentifier(source.id) : undefined;
+      if (key === undefined || named.has(key) || added.some(({ source: id }) => normalizeIdentifier(id) === key)) continue;
+      const reading = unread.has(key) ? "inaccessible" as const : verified.get(key);
+      added.push(reading === undefined
+        ? { source: source.id, reading: fixtureReading(source), quote: fixtureReadingWords(source) }
+        : { source: source.id, reading, quote: ANSWER_READING_LABELS[reading] });
+    }
+    if (added.length === 0) return input;
+    const shown = (raw.answer_draft as string).toLowerCase();
+    const words = [...new Set(added.map(({ quote }) => quote))].filter((quote) => !shown.includes(quote.toLowerCase()));
+    const entries = [...given, ...added];
+    return {
+      ...input,
+      ...(words.length === 0 ? {} : { answer_draft: `${raw.answer_draft as string}\n\nHow each study was read: ${words.join("; ")}.` }),
+      ...(atTop ? { source_reading: entries } : { later_inputs: { ...later, source_reading: entries } })
+    };
   };
+  const first = build();
+  if (options === undefined) return first;
+  // A source the check verifies no reading for (its read_depth refused, or left out) is held to what its receipts show
+  // (the recheck of 5 Nov 2026): where its declared reading claims more than they show, the fixture gives a reading of
+  // nothing, which claims no more than any, so the reading check changes no other check.
+  try {
+    const steps = finalizeResearch(first, options).next_steps;
+    for (const source of keySources) {
+      if (typeof source?.id !== "string" || source.other_route === "read") continue;
+      const step = `source_reading gives ${source.id} the reading `;
+      if (steps.some((text) => text.startsWith(step))) unread.add(normalizeIdentifier(source.id));
+    }
+  } catch {
+    return first;
+  }
+  return unread.size === 0 ? first : build();
 }

@@ -24,6 +24,10 @@ import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.j
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
+// The test marker (the free Claude test of 5 Nov 2026): "off", and any other value given, read as off, since it can
+// only turn saving off (its recheck: ["off"] let a card save). The value is read from the raw call (findingsSaveMarker).
+const findingsSaveMarkerSchema = z.unknown().optional();
+
 const LATER_INPUT_SHAPES = Object.freeze({
   finalize_research: {
     community_evidence: z.enum(["researched", "not_relevant"]).optional()
@@ -91,9 +95,9 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
         "PMC don't index, which AskRigor can't see."),
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
-    findings_save: z.literal("off").optional()
+    findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
-        "cannot turn saving on.")
+        "can only turn saving off: any value given turns it off.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -105,7 +109,19 @@ const LATER_INPUT_SHAPES = Object.freeze({
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
   },
-  validate_study_method_audit: { audit: studyMethodAuditSubmissionSchema.optional() },
+  // The recheck of 5 Nov 2026: a test run's audits leave nothing in the review inbox, so a marked check of the method is
+  // never held for it.
+  validate_study_method_audit: {
+    audit: studyMethodAuditSubmissionSchema.optional(),
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. Any value given " +
+        "turns that off; it changes nothing else.")
+  },
+  validate_review_method_audit: {
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. Any value given " +
+        "turns that off; it changes nothing else.")
+  },
   // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
   manage_research_access: {
     sharedAnswer: sharedAnswerInputSchema.optional()
@@ -191,20 +207,54 @@ interface RuntimeInputOptions {
  * A problem with a call's later_inputs, by path: a key left out ("dropped"), or, for a tool that keeps the usable keys, a
  * key given in both places whose later_inputs form was used ("replaced").
  */
-export interface LaterInputProblem { path: PropertyKey[]; message: string; kind?: "dropped" | "replaced" }
+export interface LaterInputProblem { path: PropertyKey[]; message: string; kind?: "dropped" | "replaced" | "kept" }
 
 /**
- * Whether a call is marked findings_save "off", read from the raw call on its own (the review of 5 Nov 2026: a misspelt
- * key beside it once dropped every later input, the marker too, and a test run's card was saved): in later_inputs, or
- * at the top level, where an older app may put it, in any case or separator, as an enum's spelling is read. The marker
- * can only turn saving off, so reading it wherever it is given never saves more.
+ * Whether a call is marked findings_save, read from the raw call on its own (the review of 5 Nov 2026: a misspelt key
+ * beside it once dropped every later input, the marker too, and a test run's card was saved), and the note it needs:
+ * in later_inputs, at the top level, where an older app may put it, or inside later_inputs sent as text (the recheck of 5
+ * Nov 2026: later_inputs sent as a JSON string, and ["off"], let a card save). The marker can only turn saving off, so
+ * any value given for it but null is off, and only "off", in any case or separator, needs no note. Text holding the
+ * marker's name that isn't JSON is read as off too.
  */
-export function findingsSaveOff(raw: unknown): boolean {
+export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string } {
   const object = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value);
-  const off = (value: unknown): boolean =>
-    typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off";
-  return object(raw) && (off(raw.findings_save) || (object(raw.later_inputs) && off(raw.later_inputs.findings_save)));
+  if (!object(raw)) return { off: false };
+  const values: unknown[] = [];
+  let asText = false;
+  const read = (later: unknown, depth: number): void => {
+    if (object(later)) {
+      if (Object.hasOwn(later, "findings_save")) values.push(later.findings_save);
+    } else if (Array.isArray(later) && depth < 2) {
+      for (const item of later.slice(0, 100)) read(item, depth + 1);
+    } else if (typeof later === "string" && depth < 2) {
+      let parsed: unknown;
+      try { parsed = JSON.parse(later); } catch { parsed = undefined; }
+      const before = values.length;
+      if (parsed !== undefined) read(parsed, depth + 1);
+      else if (later.includes("findings_save")) values.push(later);
+      if (values.length > before) asText = true;
+    }
+  };
+  if (Object.hasOwn(raw, "findings_save")) values.push(raw.findings_save);
+  read(raw.later_inputs, 0);
+  const given = values.filter((value) => value !== undefined && value !== null);
+  if (given.length === 0) return { off: false };
+  const exact = given.every((value) =>
+    typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off");
+  return {
+    off: true,
+    ...(asText ? { note: "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an " +
+        "object, with findings_save \"off\"." }
+      : exact ? {} : { note: "findings_save: read as \"off\": the marker can only turn card saving off, so any value " +
+        "given for it turns saving off; give \"off\"." })
+  };
+}
+
+/** Whether a call is marked findings_save, as findingsSaveMarker reads it. */
+export function findingsSaveOff(raw: unknown): boolean {
+  return findingsSaveMarker(raw).off;
 }
 
 /**
@@ -239,10 +289,19 @@ export function mergeLaterInputs(
     if (Object.hasOwn(laterShape, key) && key !== "later_inputs") {
       merged[key] = additions[key];
       if (!Object.hasOwn(own, key)) return [];
-      return [keepUsable
-        ? { path, kind: "replaced", message: `${key} is given both at the top level and in later_inputs: its ` +
-          "later_inputs form, the newer one, is used." }
-        : { path, kind: "dropped", message: `${key} is also given at the top level; each input may be given only once.` }];
+      if (!keepUsable) {
+        return [{ path, kind: "dropped", message: `${key} is also given at the top level; each input may be given only once.` }];
+      }
+      // The recheck of 5 Nov 2026: a later form that doesn't parse beside a top-level one that does keeps the top-level
+      // form, rather than losing a valid declaration to an unusable one.
+      const schema = laterShape[key]!;
+      if (!z.safeParse(schema, additions[key]).success && z.safeParse(schema, own[key]).success) {
+        merged[key] = own[key];
+        return [{ path, kind: "kept", message: `${key} is given both at the top level and in later_inputs, and its ` +
+          "later_inputs form doesn't parse: its top-level form is used." }];
+      }
+      return [{ path, kind: "replaced", message: `${key} is given both at the top level and in later_inputs: its ` +
+        "later_inputs form, the newer one, is used." }];
     }
     return [topLevel.has(key)
       ? { path, kind: "dropped", message: `${key} is a published top-level input of ${tool}; give "${key}" at the top level.` }

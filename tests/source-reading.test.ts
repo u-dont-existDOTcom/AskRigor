@@ -64,10 +64,16 @@ const missing = (id: string, reading?: AnswerReading) => reading === undefined
   : `Key source ${id} is cited in the answer without saying how it was read (${ANSWER_READING_LABELS[reading]}): say ` +
     "so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with source " +
     `${id}, reading ${reading}, and quote those words copied from answer_draft.`;
-const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading) => `source_reading gives ${id} the ` +
-  `reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: this check verifies ` +
-  `${verified} (${ANSWER_READING_LABELS[verified]}). Say that beside it instead, in the answer's language, and give ` +
-  `source_reading reading ${verified} with those words as its quote, copied from answer_draft.`;
+// The step for a reading claiming more: it names the verified reading, or with none what the receipts show, and offers
+// a lower reading a read_depth declares with no receipt (the recheck of 5 Nov 2026).
+const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading,
+  { shownOnly = false, offer = false }: { shownOnly?: boolean; offer?: boolean } = {}) => `source_reading gives ${id} ` +
+  `the reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: ` +
+  (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}). Say that ` +
+  `beside it instead, in the answer's language, and give source_reading reading ${verified} with those words as its ` +
+  "quote, copied from answer_draft" + (offer ? `; or, if it was read so, give key_sources.read_depth ${given} for it, ` +
+  "which needs no receipt." : given === "other_tool" ? "; or, if it was read through another tool, give it " +
+  "other_route read in key_sources." : ".");
 const GUIDANCE_LEAD = "Say beside each study how it was read, in the answer's language, and give each in " +
   "later_inputs.source_reading as {source, reading, quote}: source its id as key_sources gives it, reading as named " +
   "here, and quote those words, copied from answer_draft: ";
@@ -172,7 +178,7 @@ const CASES: ReadonlyArray<Case> = [
     return [read_depth, { receipts: [PUBMED] }, { status: "lead_only", read_depth }, shown ? undefined : "abstract_only", shown];
   }),
   ["other_tool", { receipts: [LEAD] }, { status: "lead_only", read_depth: "abstract_only", other_route: "read" },
-    "inaccessible", false],
+    "lead_abstract_readable", false],
   ["atlas_checked", {
     receipts: [atlasLookup],
     atlas_reuse: [{ number: "P-1001", relation: "confirms", answer_quote: ATLAS_QUOTE, page_url: ATLAS_URL }]
@@ -234,7 +240,7 @@ describe("the reading each entry gives, held to what the check verifies", () => 
     for (const given of ["full_text_audited", "full_text_read", "search_copy_read", "partial_text"] as const) {
       const result = fromRecord(given);
       expect(result.status, given).toBe("not_ready");
-      expect(result.next_steps).toEqual([claimsMore(DOI, given, "abstract_only")]);
+      expect(result.next_steps).toEqual([claimsMore(DOI, given, "abstract_only", { offer: given === "partial_text" })]);
       expect(result.next_step_kinds).toEqual(["answer_draft"]);
     }
     // Lowering read_depth alone, the words and the reading left as they were, still blocks (the probe's second round).
@@ -274,7 +280,7 @@ describe("the reading each entry gives, held to what the check verifies", () => 
     expect(advisoryNotes(result)).toContain(claimsLess(DOI, "abstract_only", "full_text_audited"));
   });
 
-  it("takes another tool's reading as the AI's own account, which never claims more", () => {
+  it("takes another tool's reading as the AI's own account, only where key_sources declares it read so", () => {
     const lead = { status: "lead_only", read_depth: "abstract_only", other_route: "read", answer_marker: "Trial" };
     const words = ANSWER_READING_LABELS.other_tool;
     const result = check({ receipts: [LEAD], key_sources: [{ id: DOI, ...lead }],
@@ -287,11 +293,63 @@ describe("the reading each entry gives, held to what the check verifies", () => 
       answer_draft: draft(`[Trial](https://doi.org/${DOI}) (full text read) compared two routines.`),
       later_inputs: { source_reading: [entry(DOI, "full_text_read")] } });
     expect(more.next_steps).toEqual([claimsMore(DOI, "full_text_read", "other_tool")]);
-    // Said of a study AskRigor audited, it claims less: a note.
+    // The recheck of 5 Nov 2026: for a source key_sources doesn't declare read through another tool (other_route
+    // read), it is no reading AskRigor can set aside: it claims more than the check verifies, whatever that is.
+    const unrouted = check({ receipts: [PUBMED], key_sources: [{ ...lead, id: DOI, other_route: undefined }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "other_tool")] } });
+    expect(unrouted.next_steps).toEqual([claimsMore(DOI, "other_tool", "abstract_only")]);
     const audited = check({ answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
       later_inputs: { source_reading: [entry(DOI, "other_tool")] } });
-    expect(audited.next_steps).toEqual([]);
-    expect(advisoryNotes(audited)).toContain(claimsLess(DOI, "other_tool", "full_text_audited"));
+    expect(audited.next_steps).toEqual([claimsMore(DOI, "other_tool", "full_text_audited")]);
+  });
+
+  // The recheck of 5 Nov 2026: an honest entry beside one claiming more no longer lets it pass.
+  it("blocks any entry whose quote the answer shows that claims more, beside an honest one", () => {
+    const both = check({ receipts: [PUBMED],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${AUDITED}) compared two routines.`,
+        `Of [Trial](https://doi.org/${DOI}), only the abstract only was available.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(DOI, "abstract_only", ABSTRACT)] } });
+    expect(both.status).toBe("not_ready");
+    expect(both.next_steps).toEqual([claimsMore(DOI, "full_text_audited", "abstract_only")]);
+    // An entry claiming more whose quote the answer doesn't show is set aside, as a stale one is.
+    const stale = check({ receipts: [PUBMED],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ABSTRACT}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(DOI, "abstract_only", ABSTRACT)] } });
+    expect(stale.next_steps).toEqual([]);
+  });
+
+  // The recheck of 5 Nov 2026: with read_depth left out the check verifies no reading, so an entry is held to what the
+  // receipts show.
+  it("holds an entry to what the receipts show when read_depth is left out", () => {
+    const run = (receipts: string[], given: AnswerReading) => check({ receipts,
+      key_sources: [{ id: DOI, status: "lead_only", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ANSWER_READING_LABELS[given]}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, given)] } });
+    expect(run([PUBMED], "full_text_audited").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_audited", "abstract_only", { shownOnly: true })]);
+    expect(run([PUBMED], "abstract_only").next_steps).toEqual([]);
+    // A lead's state is what its receipt shows: a paywall shows no access.
+    expect(run([sign("full_text_lead", { doi: DOI, state: "PAYWALL_OR_LOGIN_REQUIRED" })], "full_text_read").next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "inaccessible", { shownOnly: true })]);
+  });
+
+  // The recheck of 5 Nov 2026: an abstract the AI read through its own search, behind a paywall AskRigor met, is a
+  // reading a read_depth declares with no receipt, so the step offers that rather than only "no access".
+  it("offers declaring a lower reading no receipt can show, rather than only understating it", () => {
+    const paywall = sign("full_text_lead", { doi: DOI, state: "PAYWALL_OR_LOGIN_REQUIRED" });
+    const run = (depth: string) => check({ receipts: [paywall],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ABSTRACT}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "abstract_only", ABSTRACT)] } });
+    expect(run("inaccessible").next_steps).toEqual([claimsMore(DOI, "abstract_only", "inaccessible", { offer: true })]);
+    const raised = run("abstract_only");
+    expect(raised.next_steps).toEqual([]);
+    // Declared so, it stands as the AI's account, which the panel lists apart, with what the receipt shows.
+    expect(raised.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only",
+      shown: false, receipts: "lead_paywalled" }]);
   });
 
   it("leaves the words to the model, in any language, once the reading is right", () => {
@@ -584,7 +642,8 @@ describe("the panel lists apart the readings AskRigor's receipts don't show", ()
     expect(passed.source_reading).toEqual([
       { source: DOI, name: `"Trial" (${DOI})`, reading: "full_text_audited", shown: true },
       { source: PMID, name: PMID, reading: "abstract_only", shown: false, receipts: "found_in_search" },
-      { source: OTHER_DOI, name: `"Elsewhere" (${OTHER_DOI})`, reading: "other_tool", shown: false, receipts: "inaccessible" }
+      { source: OTHER_DOI, name: `"Elsewhere" (${OTHER_DOI})`, reading: "other_tool", shown: false,
+        receipts: "lead_abstract_readable" }
     ]);
     const lines = fold(render(passed), "What AskRigor checked").children.map(({ textContent }) => textContent);
     expect(lines).toContain(`What AskRigor read: "Trial" (${DOI}), full text read, methods audited by AskRigor.`);
@@ -600,6 +659,39 @@ describe("the panel lists apart the readings AskRigor's receipts don't show", ()
       later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(PMID, "abstract_only")] } });
     expect(record.source_reading![1]).toEqual({ source: PMID, name: PMID, reading: "abstract_only", shown: false,
       receipts: "metadata_only" });
+  });
+
+  // The recheck of 5 Nov 2026: a lead whose abstract was readable showed "not read, no access to it". Each lead state
+  // shows its own words, as the check's lead note gives them, and a copy whose abstract alone was readable is one
+  // AskRigor read that far.
+  it("words each lead's state as the check's note does, and shows the abstract a lead read", () => {
+    const lead = (state: string) => sign("full_text_lead", { doi: DOI, state });
+    const run = (state: string, depth: string) => check({ receipts: [lead(state)],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: depth, answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ANSWER_READING_LABELS[depth as AnswerReading]}) ` +
+        "compared two routines."),
+      later_inputs: { source_reading: [entry(DOI, depth as AnswerReading)] } });
+    const abstract = run("ABSTRACT_ONLY", "abstract_only");
+    expect(abstract.next_steps).toEqual([]);
+    expect(abstract.source_reading).toEqual([{ source: DOI, name: `"Trial" (${DOI})`, reading: "abstract_only", shown: true }]);
+    expect(fold(render(abstract), "What AskRigor checked").children.map(({ textContent }) => textContent))
+      .toContain(`What AskRigor read: "Trial" (${DOI}), abstract only.`);
+    expect(run("PARTIAL_TEXT_READABLE", "partial_text").source_reading![0]).toMatchObject({ reading: "partial_text", shown: true });
+    expect(run("PAYWALL_OR_LOGIN_REQUIRED", "inaccessible").source_reading![0]).toMatchObject({ reading: "inaccessible", shown: true });
+    expect(run("CANDIDATE_FOUND_FETCH_BLOCKED", "route_error").source_reading![0]).toMatchObject({ reading: "route_error", shown: true });
+    // A secondary account stands apart, with the lead's own words beside it.
+    const words = (state: string) => fold(render(run(state, "secondary_only")), "What AskRigor checked").children
+      .map(({ textContent }) => textContent).find((line) => line.startsWith("As the AI gives them"));
+    expect(words("ABSTRACT_ONLY")).toContain("(AskRigor's receipts show: only its abstract was readable)");
+    expect(words("PARTIAL_TEXT_READABLE")).toContain("(AskRigor's receipts show: only part of its text was readable)");
+    expect(words("PAYWALL_OR_LOGIN_REQUIRED")).toContain("(AskRigor's receipts show: not read, its full text needs a login or a subscription)");
+    expect(words("CANDIDATE_FOUND_FETCH_BLOCKED")).toContain("(AskRigor's receipts show: not read, a possible public copy " +
+      "was found but couldn't be fetched to check it)");
+    expect(words("NO_COPY_FOUND_AFTER_EXPANDED_SEARCH")).toContain("(AskRigor's receipts show: not read, no public full " +
+      "text was found after an exact search)");
+    expect(words("IDENTITY_MISMATCH")).toContain("(AskRigor's receipts show: not read, no copy found could be verified as " +
+      "the same paper)");
+    expect(words("PROVIDER_UNAVAILABLE")).toContain("(AskRigor's receipts show: not read, no open full text was available)");
   });
 });
 

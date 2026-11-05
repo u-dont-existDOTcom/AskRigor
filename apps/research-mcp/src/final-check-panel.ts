@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import {
   COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
-import { ANSWER_READING_LABELS } from "./source-reading.js";
+import { ANSWER_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -59,6 +59,7 @@ const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
 const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
 const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
 const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
+const SHOWN_READING_LABELS = ${JSON.stringify(SHOWN_READING_LABELS)};
 function sourceLineOutcome(line) {
   const place = line.text === "abstract" ? "the paper's abstract"
     : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
@@ -148,8 +149,8 @@ function renderFinalCheck(doc, structuredContent) {
     if (apart.length > 0) {
       appendText("p", "As the AI gives them, which AskRigor's receipts don't show: " + apart.map((entry) =>
         entry.name + ", " + ANSWER_READING_LABELS[entry.reading] +
-        (entry.reading !== "other_tool" && Object.hasOwn(ANSWER_READING_LABELS, entry.receipts)
-          ? " (AskRigor's receipts show: " + ANSWER_READING_LABELS[entry.receipts] + ")" : "")).join("; ") + ".", checked);
+        (entry.reading !== "other_tool" && Object.hasOwn(SHOWN_READING_LABELS, entry.receipts)
+          ? " (AskRigor's receipts show: " + SHOWN_READING_LABELS[entry.receipts] + ")" : "")).join("; ") + ".", checked);
     }
     if (typeof result.checked_answer === "string") {
       const figures = answerFigures(result.checked_answer);

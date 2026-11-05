@@ -1,4 +1,4 @@
-import { findingsSaveOff, laterInputShape, mergeLaterInputs } from "./later-inputs.js";
+import { findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs } from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -13,8 +13,9 @@ import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
-  answerReadingRule, deepestShown, identifierShown, judgeSourceReading, readingShown, receiptReadings,
-  sourceReadingCheckSchema, verifiedAnswerReading, type AnswerReading, type SourceReadingCheck, type SourceReadingQuote
+  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
+  readingShown, receiptReadings, sourceReadingCheckSchema, verifiedAnswerReading, type AnswerReading,
+  type ShownReading, type SourceReadingCheck, type SourceReadingQuote
 } from "./source-reading.js";
 
 import { z } from "zod";
@@ -1153,7 +1154,11 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
   // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined, { keepUsable: true });
   const notes = problems.map(({ path, message, kind }) =>
-    kind === "replaced" ? `${inputPath(path)}: ${message}` : `${inputPath(path)}: dropped. ${message}`);
+    kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
+  // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
+  // as off, which a note says (the recheck of 5 Nov 2026).
+  const marker = findingsSaveMarker(rawInput).note;
+  if (marker !== undefined) notes.push(marker);
   const runtime = finalizeResearchRuntimeInputSchema();
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
@@ -2060,10 +2065,13 @@ export function finalizeResearch(
   // Facebook, Telegram, Discord, review sites and platform other, sites the reader can't read or isn't made for, and
   // entries whose site refused access, keep their own-web-search limit alone (the review of 5 Nov 2026: a community read
   // through the AI's own search under platform other got a false note).
-  // A search the reader's host answered WEBSITE_FORMAT_CHANGED, which has come back when Reddit found nothing for the
-  // words, is a search of its subreddit too: its receipt signs no thread and is counted nowhere else.
-  const searchedSubreddits = new Set(verified.filter(({ kind }) => kind === "forum_search")
-    .map(({ claims }) => text(claims.sr).toLowerCase()).filter((subreddit) => subreddit !== ""));
+  const searchedSubreddits = new Set(forumSearchReceipts.map(({ claims }) => text(claims.sr).toLowerCase())
+    .filter((subreddit) => subreddit !== ""));
+  // A search the reader's host answered WEBSITE_FORMAT_CHANGED: it has come back when Reddit found nothing for the words,
+  // and when the reader was broken, so it shows only that AskRigor tried and couldn't search there, never that nothing
+  // relevant was found (the recheck of 5 Nov 2026).
+  const unsearchableSubreddits = new Set(verified.filter(({ kind, claims }) => kind === "forum_search" &&
+    claims.h !== undefined).map(({ claims }) => text(claims.sr).toLowerCase()).filter((subreddit) => subreddit !== ""));
   for (const search of input.community_searches ?? []) {
     if (!READER_PLATFORMS.has(search.platform) || (search.access_boundary !== undefined &&
         !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary))) continue;
@@ -2076,6 +2084,14 @@ export function finalizeResearch(
       return forumReadUrls.has(thread) || forumFound.has(thread);
     });
     if (threadReceipt || (subreddit !== undefined && searchedSubreddits.has(subreddit))) continue;
+    if (subreddit !== undefined && search.threads_read.length === 0 && unsearchableSubreddits.has(subreddit)) {
+      addStep("research", joinRules(rule`community_searches for ${search.community} declares it searched with nothing `,
+        rule`relevant found, but AskRigor's reader couldn't search it: its host answered WEBSITE_FORMAT_CHANGED, as it `,
+        rule`does when Reddit finds nothing and when the reader is broken. Search it again with other words (subreddit `,
+        rule`${subreddit}); if that fails too, give its access_boundary as retrieval_failed and say in the answer that `,
+        "the reader couldn't search it."));
+      continue;
+    }
     addStep("research", subreddit === undefined
       ? joinRules(rule`community_searches for ${search.community} declares threads read, but no receipt in this call `,
         "shows AskRigor read any of them: read them with read_forum_thread and pass their research_receipts, or leave ",
@@ -2831,7 +2847,7 @@ export function finalizeResearch(
   // to it or by its identifier in the prose a reader sees (the owner, 5 Nov 2026; source-reading.ts).
   const readings: Array<AnswerReading | undefined> = [];
   // What each key source's receipts show of it, and whether AskRigor's reader read it as a forum thread.
-  const shownReadings: Array<ReadonlySet<AnswerReading>> = [];
+  const shownReadings: Array<ReadonlySet<ShownReading>> = [];
   const threadsRead = new Set<number>();
   const citedSources = new Set<number>();
   const shownProse = input.answer_draft === undefined ? ""
@@ -2988,13 +3004,14 @@ export function finalizeResearch(
   // How each cited key source was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing
   // that the AI tells people what it actually read"; HRP StudyReadDepthDisclosure; source-reading.ts). Under the
   // read_depth rule, which already holds each declared reading to its receipts: a key source the draft cites has a
-  // source_reading entry whose quote the draft shows, compared as the other declared quotes are, and whose reading claims
-  // no more than the check verifies (the review of 5 Nov 2026), exactly, by the fixed readings. Any entry for a source
-  // that passes will do, so an older one does no harm. Which words say that reading stays the model's declaration, in
-  // any language. A key source the draft doesn't cite needs nothing, and every other finding about the entries, a
-  // reading claiming less among them, is a note. Each key source's reading goes back in the result, for the answer to
-  // say before a check blocks, and for the panel to list under a passing one, apart when AskRigor's receipts don't show
-  // it.
+  // source_reading entry whose quote the draft shows, compared as the other declared quotes are, and no entry whose
+  // quote the draft shows gives a reading claiming more than the check verifies, or, with no reading verified (no
+  // read_depth), more than the receipts show (the review of 5 Nov 2026 and its recheck), exactly, by the fixed readings.
+  // An entry whose quote the draft doesn't show is left aside, so an older one does no harm, but an honest entry beside
+  // one that claims more doesn't let it pass. Which words say that reading stays the model's declaration, in any
+  // language. A key source the draft doesn't cite needs nothing, and every other finding about the entries, a reading
+  // claiming less among them, is a note. Each key source's reading goes back in the result, for the answer to say
+  // before a check blocks, and for the panel to list under a passing one, apart when AskRigor's receipts don't show it.
   const sourceReadings: SourceReadingCheck[] = [];
   {
     const keyIds = input.key_sources.map(({ id }) => normalizeIdentifier(id));
@@ -3014,7 +3031,7 @@ export function finalizeResearch(
       if (checkedKeys.has(key)) continue;
       checkedKeys.add(key);
       const reading = readings[index];
-      const shownSet = shownReadings[index] ?? new Set<AnswerReading>();
+      const shownSet = shownReadings[index] ?? new Set<ShownReading>();
       if (reading !== undefined) {
         // A thread AskRigor's reader read is read as its receipt signs; a paper's reading is shown when its receipts
         // show it, and otherwise the panel lists it apart, with what they do show.
@@ -3026,13 +3043,16 @@ export function finalizeResearch(
       if (!citedSources.has(index)) continue;
       const how = reading === undefined ? rule`` : rule` (${answerReadingRule(reading)})`;
       const given = entries.get(key) ?? [];
-      // Each entry: whether the draft shows its quote, and how its reading compares with the verified one.
-      const judged = given.map((entry) => ({
+      // What each entry's reading is held to: the reading the check verifies, or with none, what the receipts show.
+      const deepest = deepestShown(shownSet);
+      const bar = reading ?? (deepest === undefined ? undefined : declarableReading(deepest));
+      const otherRoute = source.other_route === "read";
+      // Each entry whose quote the draft shows, with how its reading compares; one whose quote it doesn't show is aside.
+      const shownEntries = given.filter(({ quote }) => showing(quote).length > 0).map((entry) => ({
         entry,
-        quoted: showing(entry.quote).length > 0,
-        verdict: reading === undefined ? "same" as const : judgeSourceReading(entry.reading, reading, shownSet)
+        verdict: bar === undefined ? "same" as const : judgeSourceReading(entry.reading, bar, shownSet, { otherRoute })
       }));
-      const passing = judged.filter(({ quoted, verdict }) => quoted && verdict !== "more");
+      const claimsMore = shownEntries.find(({ verdict }) => verdict === "more");
       if (given.length === 0) {
         addBlockingStep("read_depth", "answer_draft", reading === undefined
           ? joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read: give it a `,
@@ -3042,27 +3062,35 @@ export function finalizeResearch(
           : joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read${how}: say `,
             rule`so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with `,
             rule`source ${source.id}, reading ${reading}, and quote those words copied from answer_draft.`));
-      } else if (passing.length > 0) {
+      } else if (shownEntries.length === 0) {
+        addBlockingStep("read_depth", "answer_draft", joinRules(
+          rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
+          "in the answer's language, and copy those words exactly from answer_draft."));
+      } else if (claimsMore !== undefined && bar !== undefined) {
+        const given = claimsMore.entry.reading;
+        // The recheck of 5 Nov 2026: a lower reading the AI's own search gave it (an abstract it read, say) is one a
+        // read_depth declares with no receipt behind it, so the step offers that too, rather than only the words for
+        // what AskRigor's receipts show.
+        const declarable = DECLARABLE_WITHOUT_RECEIPT.has(given) && source.read_depth !== given;
+        addBlockingStep("read_depth", "answer_draft", joinRules(
+          rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
+          reading === undefined
+            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). Say that beside it instead, `
+            : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). Say that beside it instead, `,
+          rule`in the answer's language, and give source_reading reading ${bar} with those words as its quote, copied `,
+          declarable
+            ? rule`from answer_draft; or, if it was read so, give key_sources.read_depth ${given} for it, which needs no receipt.`
+            // Another tool's reading is the AI's own account only for a source key_sources declares read so.
+            : given === "other_tool" && !otherRoute
+              ? "from answer_draft; or, if it was read through another tool, give it other_route read in key_sources."
+              : "from answer_draft."));
+      } else if (bar !== undefined) {
         // A reading claiming less than the check verifies is a note: the answer may say more.
-        const less = passing.every(({ verdict }) => verdict === "less") ? passing[0]!.entry.reading : undefined;
-        if (less !== undefined && reading !== undefined) {
+        const less = shownEntries.find(({ verdict }) => verdict === "less")?.entry.reading;
+        if (less !== undefined) {
           addStep("declaration", joinRules(rule`source_reading gives ${source.id} the reading ${less} `,
-            rule`(${answerReadingRule(less)}), less than this check verifies: ${reading} (${answerReadingRule(reading)}). `,
+            rule`(${answerReadingRule(less)}), less than this check verifies: ${bar} (${answerReadingRule(bar)}). `,
             "The answer may say so beside it."));
-        }
-      } else {
-        const claimsMore = judged.find(({ quoted, verdict }) => quoted && verdict === "more");
-        if (claimsMore !== undefined && reading !== undefined) {
-          addBlockingStep("read_depth", "answer_draft", joinRules(
-            rule`source_reading gives ${source.id} the reading ${claimsMore.entry.reading} `,
-            rule`(${answerReadingRule(claimsMore.entry.reading)}), more than this call's receipts show: this check `,
-            rule`verifies ${reading} (${answerReadingRule(reading)}). Say that beside it instead, in the answer's `,
-            rule`language, and give source_reading reading ${reading} with those words as its quote, copied from `,
-            "answer_draft."));
-        } else {
-          addBlockingStep("read_depth", "answer_draft", joinRules(
-            rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
-            "in the answer's language, and copy those words exactly from answer_draft."));
         }
       }
     }
@@ -3622,6 +3650,8 @@ export function finalizeResearch(
     addStep("declaration", rule`later_inputs.key_name is not in the answer: give the key name exactly as the answer writes it, copied from answer_draft.`);
   }
   let nameFormsSearched = 0;
+  // Forms searched here that wait only for the key name the answer shows (the recheck of 5 Nov 2026: ask just for it).
+  let formsAwaitingKeyName = 0;
   for (const [index, entry] of (input.name_forms ?? []).entries()) {
     if (!literatureQueries.has(discoveryQueryDigest([entry.query]))) {
       addStep("research", joinRules(rule`name_forms[${index}].query is not the query of any literature search passed `,
@@ -3633,6 +3663,8 @@ export function finalizeResearch(
       addStep("declaration", rule`name_forms[${index}].form is the key name as the answer writes it: give the other spellings, older names and synonyms searched.`);
     } else if (keyNameShown) {
       nameFormsSearched += 1;
+    } else {
+      formsAwaitingKeyName += 1;
     }
   }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
@@ -3668,10 +3700,13 @@ export function finalizeResearch(
       // forms, searched here, and a source beyond PubMed and Europe PMC. A note: no seventh blocking check.
       if (notLocated) {
         const asks = [
-          ...(nameFormsSearched > 0 ? [] : [joinRules("search the key name's other spellings, older names and synonyms, ",
-            "each with search_pubmed or search_europe_pmc, and give each in later_inputs.name_forms as {form, query}, ",
-            "with that search's exact query", keyNameShown ? "" : joinRules(", and the key name as the answer writes ",
-              "it in later_inputs.key_name"))]),
+          ...(nameFormsSearched > 0 ? []
+            : formsAwaitingKeyName > 0 ? [joinRules("give the key name as the answer writes it in later_inputs.key_name, ",
+              "copied from answer_draft, so the other names searched in name_forms count")]
+            : [joinRules("search the key name's other spellings, older names and synonyms, ",
+              "each with search_pubmed or search_europe_pmc, and give each in later_inputs.name_forms as {form, query}, ",
+              "with that search's exact query", keyNameShown ? "" : joinRules(", and the key name as the answer writes ",
+                "it in later_inputs.key_name"))]),
           ...(covered.has("other_journals") ? [] : [joinRules("search a source beyond PubMed and Europe PMC: your own ",
             "web search finds journals they don't index (then give other_journals in later_inputs.search_coverage), and ",
             "search_clinical_trials covers trial registries")])

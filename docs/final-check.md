@@ -209,15 +209,21 @@ reading the answer gives it, from the fixed set below, as the result names it; a
 saying so, beside or in the sentence citing it, in the answer's language, copied from `answer_draft`. A key source the
 draft cites (a link its receipts tie to it, or its identifier in the prose a reader sees: a DOI in any case, a PMID or
 PMCID as a whole number) needs an entry whose quote the draft shows, compared as the other declared quotes are, and
-whose reading claims no more than the check verifies; a missing entry, a quote not shown or a reading claiming more is
-a blocking step under `read_depth`, and the last names the verified reading to give instead. The comparison is exact,
+no entry whose quote the draft shows may give a reading claiming more than the check verifies; a missing entry, no
+quote shown or a reading claiming more is a blocking step under `read_depth`, and the last names the verified reading
+to give instead. An entry whose quote the draft doesn't show is set aside, so an older entry left beside a newer one
+does no harm, but an honest entry beside one claiming more doesn't let it pass (the recheck of 5 November 2026). With no
+reading verified (no `read_depth` given, or one its receipts refuse), an entry is held to what the receipts show. The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor
-fetched. A reading claiming less than the check verifies is a note, saying the answer may say more. "Read through
-another tool, not checked by AskRigor" stays the AI's own declaration, which AskRigor can't verify: it never claims
-more, and the panel lists it apart from what AskRigor read. Any entry for a source that passes will do, so an older
-entry left beside a newer one does no harm; an entry naming no key source is a note. The words in the quote remain the
+fetched. A reading claiming less than the check verifies is a note, saying the answer may say more. A reading claiming
+more that a `read_depth` declares with no receipt behind it (part of the text, an abstract, another source's
+description, a record: an abstract the AI read through its own search behind a paywall AskRigor met, say) is also offered
+that way in its step, so an honest answer isn't pushed to understate. "Read through another tool, not checked by
+AskRigor" stays the AI's own declaration, which AskRigor can't verify, only for a source `key_sources` declares read so
+(`other_route` `read`): there it never claims more, and the panel lists it apart from what AskRigor read; for any other
+source it claims more than the check verifies. An entry naming no key source is a note. The words in the quote remain the
 model's: whether they say the reading the entry gives is not checked, since no word list can judge that in every
 language, so an entry can give the right reading and quote words that say another; the panel's own line, from the
 receipts, is what a reader can rely on. A key source the draft doesn't cite needs nothing (its link is asked for under
@@ -242,8 +248,11 @@ AskRigor; …", so the reader sees them even when the answer is reworded, and ap
 "As the AI gives them, which AskRigor's receipts don't show: "Cohort" (…), abstract only (AskRigor's receipts show:
 found in a search, not read); …". A receipt shows a reading when it shows that reading or a deeper one of the same text:
 an audit or a full reading (of AskRigor's copy or the AI's), a PubMed record (its abstract, unless the record had none,
-which its receipt now signs), a DOI's record, a search's listing, a full-text lead (no access) or a full-text service
-failure; part of a text, another source's description and another tool's reading are never shown by a receipt. Before
+which its receipt now signs), a DOI's record, a search's listing, a full-text lead, by the state it signs, in the words
+the check's lead note gives it (a copy whose abstract alone was readable shows "only its abstract was readable", and so
+an abstract read; part of its text, "only part of its text was readable"; a paywall, "not read, its full text needs a
+login or a subscription"; and so on), or a full-text service failure; another source's description and another tool's
+reading are never shown by a receipt. Before
 any check, the tools that establish a reading name its words and its name in their results, with where to give them: a
 signed `fetch_pubmed_record` ("abstract only", or "only its title and record read" for a record without an abstract,
 for a study cited from the record alone), `acquire_open_full_text` or `continue_open_full_text` once the text is read to
@@ -278,8 +287,9 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   ("Samplia[tiab] AND reticulata[tiab]" searched "Samplia reticulata"), with a word in a script written without spaces
   (Chinese, Japanese, Thai and the like) found inside the query instead, and a form may be one character, as 艾 is.
   Only a form other than the key name counts as another name searched, so declaring the usual name alone leaves the ask
-  (the review of 5 November 2026); a `key_name` the answer doesn't show, or a form that is the key name, is a note of its
-  own. A form searched counts as "older or variant terms" covered. `search_coverage`'s newer form, a later input too,
+  (the review of 5 November 2026): the forms count only with `key_name` given and shown in the answer, and when that is
+  all that is missing, the ask is for the key name alone (its recheck). A `key_name` the answer doesn't show, or a form
+  that is the key name, is a note of its own. A form searched counts as "older or variant terms" covered. `search_coverage`'s newer form, a later input too,
   adds `other_journals` for journals the AI's own web search covered, which AskRigor can't see. The not-found limit now
   names "journals outside PubMed and Europe PMC" among what the searches didn't cover unless that is declared. The
   AskRigor skill says the same in one sentence.
@@ -288,9 +298,10 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   to it (whose receipt now signs the subreddit, `sr`); a forum or a patient organization, one of its threads read with
   `read_forum_thread`. A subreddit is read from its name exactly, in any case, with or without a leading slash or its
   reddit.com address ("reddit.com/r/herbalism" and "R/Herbalism" name r/herbalism). A search the reader's host answers
-  `WEBSITE_FORMAT_CHANGED`, which has come back when Reddit found nothing for the words, is signed too, with no thread
-  and that answer, so an honest `no_relevant_results` for its subreddit gets no note; it counts as no search anywhere
-  else. The placeholder in the test fits `community_searches`, which rests on the AI's word for its own web search, so
+  `WEBSITE_FORMAT_CHANGED` is signed too, with no thread and that answer, but since the host gives it both when Reddit
+  finds nothing and when the reader is broken, it shows only that AskRigor couldn't search there (the recheck of 5
+  November 2026): a subreddit declared `no_relevant_results` with only that answer behind it gets a note saying the
+  reader couldn't search it, to search again or record `retrieval_failed`, and it counts as no search anywhere else. The placeholder in the test fits `community_searches`, which rests on the AI's word for its own web search, so
   no receipt was asked for and community checks are notes: an entry like `r/herbalism` with no thread and
   `no_relevant_results` passes with a limit. This is a note, not a step: the sources check (rule 1) holds key sources,
   whose forum threads already need their `forum_thread_read` receipts there, and an entry of `community_searches` is not
@@ -302,13 +313,20 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   review inbox, and those of the documents its own audit receipts name are dropped (the account's other research keeps
   its own for its next check). Its finalization receipt signs the mark (`fs`), so `save_research_findings` refuses that
   receipt's card (status `call_saving_off`) whoever asks. The marker is read from the raw call on its own, so no other
-  input's problem can lose it, and it can only turn saving off. The regression harness marks every call
-  ([the runbook](owner-regressions.md)), since its runs share the owner's account and switch.
+  input's problem can lose it, and it can only turn saving off, so any value given for it but null is off, with a note
+  unless it is `"off"`, and so is `later_inputs` sent as text holding it (the recheck of 5 November 2026: `["off"]`, and
+  `later_inputs` sent as a JSON string, let a card save). `validate_study_method_audit` and
+  `validate_review_method_audit` take the same marker: a marked audit is never held for the review inbox, whatever
+  later check comes. Nothing else tells a test run's analyses apart from the owner's own research on the shared
+  account: a time window or a session would catch the owner's own work too, so the marker travels to the audit that
+  holds it. The regression harness marks every such call ([the runbook](owner-regressions.md)), since its runs share the
+  owner's account and switch.
 - One bad key in `later_inputs` (a misspelt name, or a published input placed there) is dropped alone, with a note
   naming it, and the valid keys beside it are used (the review of 5 November 2026: one such key once dropped every later
   input, the answer's `source_reading` and its test marker with it). A key given both at the top level and in
-  `later_inputs` takes its `later_inputs` form, the newer one, and a note says so; other tools still refuse a call whose
-  `later_inputs` has a problem.
+  `later_inputs` takes its `later_inputs` form, the newer one, and a note says so, unless that form doesn't parse and the
+  top-level one does: then the top-level form is used, and the note says that (its recheck). Other tools still refuse a
+  call whose `later_inputs` has a problem.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

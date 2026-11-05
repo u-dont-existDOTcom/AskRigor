@@ -269,9 +269,29 @@ owner's; the release needs the owner's explicit yes, as always.
       7. `name_forms`: one-character forms; each word of a form among its query's words, a word in a script without
          spaces inside the query; queries digested in Unicode's composed form; and `key_name`, the key name as the
          answer writes it, so only a form other than it counts and the usual name alone leaves the ask.
-      8. Any `source_reading` entry for a source that passes will do.
+      8. A stale `source_reading` entry no longer blocks: entries whose quote the answer doesn't show are set aside (the
+         recheck below narrowed "any passing entry" so an honest entry can't carry one that claims more).
       9. A full reading of the AI's own copy signs its provenance and reads "full text read from a copy the AI found"
          (`search_copy_read`), in the answer and in the Atlas.
+    - **The recheck of #414 at 0ab48181 (5 Nov 2026)**, still six blocking rules and the frozen tool lists unchanged:
+      1. Any entry whose quote the answer shows that claims more blocks, beside an honest one; entries whose quote isn't
+         shown are set aside.
+      2. With no verified reading (no `read_depth`), an entry is held to what the receipts show.
+      3. A test run's audits are marked at the method check: `validate_study_method_audit` and
+         `validate_review_method_audit` take `later_inputs.findings_save`, and a marked audit is never held for the
+         review inbox. A time window or a session would also catch the owner's own work on the shared account, so the
+         marker travels to the audit; the marked final check still drops what its own receipts name. The harness must
+         mark those calls too (docs/owner-regressions.md).
+      4. `other_tool` is accepted only for a source `key_sources` declares `other_route` `read`.
+      5. Any value given for `findings_save` but null is off, with a note, and `later_inputs` sent as text is read for
+         it; no tool parses text later_inputs, so the envelope is still dropped with a note.
+      6. A step holding back a lower reading a read_depth declares with no receipt (an abstract read through the AI's
+         own search) offers declaring it.
+      7. A later form that doesn't parse beside a top-level form that does keeps the top-level form, with a note.
+      8. Each lead state shows its own words, as the check's lead note gives them; a lead whose abstract alone, or part
+         of whose text, was readable shows that reading.
+      9. A `WEBSITE_FORMAT_CHANGED` search counts only as "couldn't search", with its own note; `name_forms` count only
+         with `key_name` given and shown, and with only that missing the ask is for it alone.
 
 ## Measures waiting
 

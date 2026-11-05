@@ -203,9 +203,10 @@ export function registerForumTools(
       const more = data.after ? "1" : undefined;
       // The subreddit a search was limited to (sr), so the final check can tie a subreddit declared searched to this
       // search when it found nothing there (the free Claude test of 5 Nov 2026: r/herbalism, declared, never searched).
-      // The review of 5 Nov 2026: a search the host answered WEBSITE_FORMAT_CHANGED, which has come back when Reddit
-      // found nothing for the words, is signed too, with no thread and its answer (h), so a subreddit honestly declared
-      // as having no relevant results isn't called unsearched; the final check counts it nowhere else.
+      // The review of 5 Nov 2026: a search the host answered WEBSITE_FORMAT_CHANGED, which has come back both when
+      // Reddit found nothing for the words and when the reader was broken, is signed too, with no thread and its answer
+      // (h). The final check reads it only as a search AskRigor tried and couldn't make (its recheck), never as nothing
+      // found, and counts it nowhere else.
       const formatChanged = answer.host_code === "WEBSITE_FORMAT_CHANGED";
       return result("forum_search", data, SEARCH_GUIDANCE, searched.note,
         (data.access_state === "read" || data.access_state === "searched") ? receipt("forum_search", {

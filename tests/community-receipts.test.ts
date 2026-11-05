@@ -106,13 +106,25 @@ describe("a community declared searched or read needs this call's receipt for it
     expect(receiptNotes(check([entry("Reddit", "reddit", { access_boundary: "no_relevant_results" })]))).toEqual([]);
   });
 
-  it("takes a search the host answered WEBSITE_FORMAT_CHANGED as a search of its subreddit, and as nothing else", () => {
+  // The recheck of 5 Nov 2026: the host answers WEBSITE_FORMAT_CHANGED both when Reddit finds nothing and when the
+  // reader is broken, so that answer shows only that AskRigor couldn't search there, never that nothing was found.
+  it("takes a search the host answered WEBSITE_FORMAT_CHANGED as one AskRigor couldn't make, and as nothing else", () => {
     const placeholder = entry("r/herbalism", "reddit", { access_boundary: "no_relevant_results" });
     const changed = redditSearch({ sr: "herbalism", h: "format_changed" });
     expect(receiptNotes(check([placeholder], [changed]))).toEqual([]);
-    // It lists no thread, so threads declared read still need their own receipts.
+    expect(advisoryNotes(check([placeholder], [changed]))).toContain("community_searches for r/herbalism declares it " +
+      "searched with nothing relevant found, but AskRigor's reader couldn't search it: its host answered " +
+      "WEBSITE_FORMAT_CHANGED, as it does when Reddit finds nothing and when the reader is broken. Search it again with " +
+      "other words (subreddit herbalism); if that fails too, give its access_boundary as retrieval_failed and say in the " +
+      "answer that the reader couldn't search it.");
+    // Declared as a search that failed, it asks nothing; a search that worked there settles it too.
+    const failed = entry("r/herbalism", "reddit", { access_boundary: "retrieval_failed" });
+    expect(advisoryNotes(check([failed], [changed])).join("\n")).not.toContain("r/herbalism declares");
+    expect(advisoryNotes(check([placeholder], [changed, redditSearch({ sr: "herbalism" })])).join("\n"))
+      .not.toContain("r/herbalism declares");
+    // It lists no thread, so threads declared read still need their own receipts, and it counts in no search total.
     const declared = entry("r/herbalism", "reddit", { threads_read: [{ url: THREAD }] });
-    expect(receiptNotes(check([declared], [changed]))).toEqual([]);
+    expect(receiptNotes(check([declared], [changed]))).toEqual([unsearchedSubreddit("r/herbalism", "herbalism")]);
     expect(advisoryNotes(check([declared], [changed])).join("\n")).not.toContain("AskRigor's searches found");
   });
 
