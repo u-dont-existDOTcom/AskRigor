@@ -279,6 +279,22 @@ export function forumPublishedLink(url: string): string | undefined {
     : publishedThreadOf(url, undefined, true)?.link;
 }
 
+/**
+ * The link a forum page's reader read, when it already is in its id-only form, so that publishing it rewrites nothing:
+ * the only link a forum_thread_read receipt signs for publication (`l`, the recheck of #417). A page read at any other
+ * link, "/t/events/2024" say, is never published as "/t/2024", which no one fetched: it is named and counted, not linked.
+ */
+export function forumReadLink(url: string): string | undefined {
+  const link = forumPublishedLink(url);
+  let read: string;
+  try {
+    read = new globalThis.URL(url.trim()).toString();
+  } catch {
+    return undefined;
+  }
+  return link === read ? link : undefined;
+}
+
 // The scripts Unicode recommends for identifiers in modern use (UAX #31, table 4). A host's letters in another script, or
 // in more than one, show as the host was read, in punycode.
 const RECOMMENDED_SCRIPTS = ["Arabic", "Armenian", "Bengali", "Bopomofo", "Cyrillic", "Devanagari", "Ethiopic",

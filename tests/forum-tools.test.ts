@@ -131,6 +131,16 @@ describe("forum tools", () => {
     expect(www).toMatchObject({ u: forumThreadDigest("https://forum.example/viewtopic.php?t=3"),
       l: digest("https://www.forum.example/viewtopic.php?t=3") });
     expect(www).not.toHaveProperty("ur");
+    // The recheck of #417 (item 6): a page read at a link that isn't already its id-only form signs no link to publish,
+    // so "/t/events/2024", which may be no Discourse topic, is never published as "/t/2024", which no one fetched.
+    for (const [read, signed] of [["https://forum.example/t/events/2024", false], ["https://forum.example/t/2024", true],
+      ["https://forum.example/threads/my-story.12/", false], ["https://forum.example/threads/12/", true],
+      ["https://forum.example/viewtopic.php?t=3&sid=0123abcd", false]] as const) {
+      page.mockResolvedValue({ url: read, access_state: "read", page_text: "a".repeat(1_500) });
+      const claims = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: read } }));
+      if (signed) expect(claims, read).toMatchObject({ l: digest(read) });
+      else expect(claims, read).not.toHaveProperty("l");
+    }
     // Sent on to the same thread at the site's other host: the link given counts as that one thread.
     page.mockResolvedValue({ url: "https://talk.forum.example/viewtopic.php?t=4", access_state: "read", page_text: "a".repeat(1_500) });
     expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/viewtopic.php?t=4" } })))

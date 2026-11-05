@@ -199,28 +199,25 @@ function decodeEntities(text: string): string {
     return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "";
   });
 }
-// HTML's own white space, which a browser collapses to one space: the source's line breaks included.
-const HTML_SPACE = /[ \t\n\f\r]+/gu;
-// The elements a browser lays out as blocks, and <br>: only they break the text's lines. Every other element (b, strong,
-// i, em, span, a, sup, sub and the like) stays inline, so "did <b>not</b> decrease" reads as one sentence, as a browser
-// shows it (the recheck of #417, 5 November 2026).
-const BLOCK_TAG = new RegExp(`<\\/?(?:${[
-  "address", "article", "aside", "blockquote", "body", "br", "caption", "center", "dd", "details", "dialog", "dir", "div",
-  "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form", "frameset", "h[1-6]", "head", "header", "hgroup", "hr",
-  "html", "legend", "li", "main", "menu", "nav", "ol", "option", "p", "pre", "section", "summary", "table", "tbody", "td",
-  "tfoot", "th", "thead", "title", "tr", "ul"
-].join("|")})\\b[^>]*>`, "giu");
-// Where a block breaks the text while the source's own white space collapses: a character no text keeps.
-const BLOCK_BREAK = "\u0000";
+// The tags that break the stored text's lines, as at 06b96b14 and before (the recheck of #417): the blocks, and strong
+// and b, which set a page's run-in headings ("<b>Methods</b> We enrolled…") and its access labels ("<strong>Subscription
+// required</strong> to read…"), so full-text admission and the paywall labels read each on a line of its own. The
+// source's own line breaks stay too. Any other tag reads as a space. This layout serves admission, the paywall labels
+// and the blocks the AI reads; the quote lookup reads its lines run on within a section (source-lines.ts), so a line
+// break here is never a sentence's end.
+const LINE_TAG = /<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu;
+// A tag starts with "<" and a letter, "/" and a letter, "!" or "?". A "<" before anything else is text, as a browser
+// shows it, so "(p<0.05) and function rose (q>0.1)" keeps its words.
+const TAG = /<(?:\/?[A-Za-z]|[!?])[^>]*>/gu;
 const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
 /** A superscript of digits (a citation, "12,14–16", or a power, "−3") in Unicode's superscripts, as it is printed. */
 function superscript(element: string, inner: string): string {
-  const text = decodeEntities(withoutTags(inner)).replace(HTML_SPACE, "");
-  if (!/^[+\u2212\u2010-\u2014-]?\d+(?:[,\u2212\u2010-\u2014-]\d+)*$/u.test(text)) return element;
+  const text = decodeEntities(withoutTags(inner)).replace(/\s+/gu, "");
+  if (!/^[+−‐-—-]?\d+(?:[,−‐-—-]\d+)*$/u.test(text)) return element;
   return text.replace(/\d/gu, (digit) => SUPERSCRIPT_DIGITS[Number(digit)]!)
-    .replace(/[\u2212\u2010-\u2014-]/gu, "⁻").replace(/\+/gu, "⁺");
+    .replace(/[−‐-—-]/gu, "⁻").replace(/\+/gu, "⁺");
 }
-/** Small static extractor, laid out as a browser lays the page out: only block elements and <br> break its lines.
+/** Small static extractor: block tags, and strong and b, keep heading, label and paragraph lines (LINE_TAG).
  * Scripts, templates, hidden blocks and navigation never supply article text.
  * No script execution, subresource requests, cookies, or browser rendering. */
 export function extractHtmlText(html: string): { text: string; title?: string; doi?: string } {
@@ -236,33 +233,30 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   }
   const citationTitle = meta.get("citation_title");
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
-  const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
+  const title = citationTitle ?? (h1 === undefined ? undefined : withoutTags(h1, " "));
   // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
-  const laidOut = removeAll(removeAll(html.replaceAll(BLOCK_BREAK, ""), /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
+  const laidOut = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
     .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?=\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
-    // A <pre> keeps its own line breaks, as a browser shows them.
-    .replace(/<pre\b[^>]*>[\s\S]*?<\/pre\s*>/giu, (block) => block.replace(/\r\n?|\n/gu, "<br>"))
     .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup\s*>/giu, superscript)
-    .replace(BLOCK_TAG, BLOCK_BREAK);
-  const visible = withoutTags(laidOut);
-  return { text: decodeEntities(visible).replace(HTML_SPACE, " ").replaceAll(BLOCK_BREAK, "\n")
-    .replace(/\s*\n\s*/gu, "\n").trim(),
+    .replace(LINE_TAG, "\n");
+  return { text: decodeEntities(withoutTags(laidOut, " ")).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
 }
 /**
- * Every tag removed, again until nothing changes, so split markup can't reassemble one. A "<" still opening a tag (an
- * unclosed one at the end) goes too, as a browser drops it, so the text never holds the start of a tag.
+ * Every tag replaced (by nothing, or by a space between words), again until nothing changes, so split markup can't
+ * reassemble one (CodeQL, #417). A "<" still opening a tag (an unclosed one at the end) goes too, as a browser drops it,
+ * so the text never holds the start of a tag.
  */
-function withoutTags(html: string): string {
-  return removeAll(html, /<[^>]*>/gu).replace(/<(?=[A-Za-z!/?])/gu, "");
+function withoutTags(html: string, replacement = ""): string {
+  return removeAll(html, TAG, replacement).replace(/<(?=[A-Za-z!/?])/gu, "");
 }
-function removeAll(text: string, pattern: RegExp): string {
+function removeAll(text: string, pattern: RegExp, replacement = ""): string {
   let previous: string;
   let current = text;
   do {
     previous = current;
-    current = current.replace(pattern, "");
+    current = current.replace(pattern, replacement);
   } while (current !== previous);
   return current;
 }

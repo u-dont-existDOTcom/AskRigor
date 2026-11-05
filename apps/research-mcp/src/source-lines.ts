@@ -1,4 +1,4 @@
-import type { AuditableDocumentIndex } from "@askrigor/sources";
+import { sectionKind, type AuditableDocumentIndex } from "@askrigor/sources";
 import { z } from "zod";
 
 import { figureText } from "./binary-results.js";
@@ -76,10 +76,11 @@ export interface SourceLineRequest {
 export interface SourceLineDocument {
   kind: TextKind;
   /**
-   * The text's blocks in order. A block's line breaks only wrap its lines. `wraps` marks a block whose text runs on into
-   * the next one's, as a PDF's pages and a plain text's lines do: a sentence may cross from one to the next.
+   * The text's blocks in order. A block's line breaks only wrap its lines. `runsOn` marks a block whose text runs on
+   * from the block before it, as a PDF's next page does, and an HTML page's or a plain text's next line within its
+   * section: a sentence may cross from one to the next.
    */
-  blocks: ReadonlyArray<{ text: string; section?: string | undefined; wraps?: boolean | undefined }>;
+  blocks: ReadonlyArray<{ text: string; section?: string | undefined; runsOn?: boolean | undefined }>;
 }
 
 export interface SourceLineTexts {
@@ -91,18 +92,26 @@ export interface SourceLineTexts {
 
 /** A fetched paper as the source line reads it. A copy the AI supplied, or one from the owner's library, is said to be one. */
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
-  // A PDF's page text breaks where its page did, and a plain text's lines (a block each) may be wrapped where no
-  // paragraph ends: a sentence runs on across both. An HTML page's or a JATS paper's blocks are its own.
-  const plain = index.source.format === "plain_text";
+  // A PDF's page text breaks where its page did, and an HTML page's or a plain text's lines (a block each) where a tag,
+  // the page's own source or a wrap did, not where a sentence ends (an HTML page's lines are laid out for full-text
+  // admission and the paywall labels, "did <b>not</b> decrease" on three: the recheck of #417). So the next page runs on
+  // from the page before, and the next line from the line before within its section; a heading its index took into the
+  // section path starts the section afresh. A JATS paper's blocks are its own paragraphs.
+  const lined = index.source.format === "html_text" || index.source.format === "plain_text";
   return {
     kind: index.source.provider === "client_supplied" ? "search_copy"
       : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
       : "full_text",
-    blocks: index.blocks.map(({ text, section_path: path, kind }) => ({
-      text,
-      ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
-      ...(kind === "page_text" || plain ? { wraps: true } : {})
-    }))
+    blocks: index.blocks.map(({ text, section_path: path, kind }, place) => {
+      const before = index.blocks[place - 1];
+      const runsOn = before !== undefined && (kind === "page_text" && before.kind === "page_text" ||
+        lined && before.section_path.length === path.length && before.section_path.every((part, at) => part === path[at]));
+      return {
+        text,
+        ...(path.length === 0 ? {} : { section: receiptText(path[path.length - 1]!, SOURCE_LINE_LIMITS.section) }),
+        ...(runsOn ? { runsOn: true } : {})
+      };
+    })
   };
 }
 
@@ -132,13 +141,18 @@ type Finder = (quote: string) => { found: boolean; section?: string | undefined 
  * scores did not decrease significantly after 12 weeks.", nor "vitamin D reduces fracture risk in older adults" after
  * "We could not confirm the earlier report:". The sentences are Unicode's (UAX #29, by Intl.Segmenter), the same in any
  * script and with no word list: a full stop between digits ("12.5") or before a small letter ("6 wk. but", "e.g. zinc")
- * ends none, and a colon or a semicolon never does. A paragraph is a block, or a run of blocks that wrap; its line
- * breaks read as spaces. At the quote's ends may sit only white space, quotation marks and brackets, a list's mark and,
- * before its sentence's end, a citation marker: numbers in brackets or in superscript, or authors and a year in
- * parentheses. What this can't see: a text with no sentence marks (Thai, say) is one sentence a block, so only a whole
- * block is found; a heading that runs into its paragraph, as a PDF's do, is part of its first sentence; a full stop
- * before a capital letter ends a sentence, an abbreviation's included ("vs. Group B"); a line an HTML page breaks with
- * <br> ends its block, as the page shows it; and a whole sentence can still be quoted out of its paragraph's context.
+ * ends none, and a colon or a semicolon never does. Two structural additions: a full stop after an abbreviation ends
+ * no sentence even before a capital letter ("e.g. Lactobacillus", ABBREVIATION_END), and a section's label at a
+ * line's start ("Conclusions:", one the section-name list full-text admission uses knows) ends one (LABEL_LINE). A
+ * paragraph is a block, or a run of blocks that run on (a PDF's pages, an HTML page's or a plain text's lines within a
+ * section); its line breaks read as spaces. At the quote's ends may sit only white space, quotation marks and brackets,
+ * a list's mark and, before its sentence's end, a citation marker: numbers in brackets or in superscript, or authors
+ * and a year in parentheses. What this can't see, each refusing a quote rather than finding a part: a text with no
+ * sentence marks (Thai, Lao, Tibetan) is one sentence a paragraph, so only a whole paragraph is found; a Greek question
+ * mark is the semicolon itself once a text is in NFC (U+037E is U+003B), where Unicode's rules end no sentence; a
+ * heading that runs into its paragraph, as a PDF's and an HTML page's unknown ones do, is part of its first sentence;
+ * and a sentence that truly ends with a short word ("twice a day.") runs on into the next. And what it lets through: a
+ * whole sentence can still be quoted out of its paragraph's context.
  */
 // Unicode's rules in one fixed locale, so every server finds the same sentences; no tailoring is asked for.
 const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
@@ -160,16 +174,45 @@ const LEADING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Ps}\p{Pe}\u2022\u2
 // Between the quote and its sentence's end: white space, closing marks, the sentence's own end and a citation marker.
 const TRAILING = new RegExp(String.raw`^(?:[\s"'\p{Pi}\p{Pf}\p{Pe}\p{STerm}]|${CITATION})*$`, "u");
 
-/** Where a paragraph's sentences start. An opening bracket Unicode's rules leave at a sentence's end ("group.[12] Next")
- * opens the next one. */
-function sentenceStarts(text: string): number[] {
-  const starts: number[] = [];
+// A sentence's last word that is an abbreviation (the recheck of #417): one with a full stop inside it (e.g., i.e., z.B.,
+// U.S., т.е.) or of one to three small letters (al., wk., yr., vs., cf., ca.). Unicode's rules end a sentence at its full
+// stop before a capital letter ("No probiotic tested, e.g. Lactobacillus rhamnosus GG reduced diarrhoea"), so such a
+// sentence runs on into the next: joining two sentences can only make a quote longer or refuse it, never let a part of
+// one through. Structural, by the word's form; a short last word that is no abbreviation ("a day.") runs on too.
+const ABBREVIATION_END = /(?:^|[^\p{L}\p{M}.])(?:(?:\p{L}\p{M}*)+\.){2,}$|(?:^|[^\p{L}\p{M}.])\p{Ll}{1,3}\.$/u;
+// A section's label and its colon at a line's start ("Conclusions: Vitamin D…", as a PDF or a plain text sets a
+// structured abstract's): the label's text, for sectionKind, the list full-text admission reads headings by.
+const LABEL_LINE = /^\s*([^\s:：][^:：\n]{0,60}?)\s*[:：]\s*/u;
+
+/**
+ * Where a paragraph's sentences start: Unicode's sentences (UAX #29), with an opening bracket its rules leave at a
+ * sentence's end ("group.[12] Next") opening the next one, a sentence ending in an abbreviation run on into the next
+ * (ABBREVIATION_END), and a sentence that starts with a section's label at a line's start (`lines`) starting again after
+ * the label (LABEL_LINE): "We could not confirm the earlier report: vitamin D…" has no label, so it stays whole.
+ */
+function sentenceStarts(text: string, lines: readonly number[]): number[] {
+  const segments: number[] = [];
   for (const { index } of SENTENCES.segment(text)) {
     let start = index;
-    while (start > (starts.at(-1) ?? -1) + 1 && /\p{Ps}/u.test(text.charAt(start - 1))) start -= 1;
-    starts.push(start);
+    while (start > (segments.at(-1) ?? -1) + 1 && /\p{Ps}/u.test(text.charAt(start - 1))) start -= 1;
+    segments.push(start);
   }
-  return starts;
+  const starts = segments.filter((start, place) =>
+    place === 0 || !ABBREVIATION_END.test(text.slice(segments[place - 1]!, start).trimEnd()));
+  const labelled = new Set(starts);
+  // The lines are in order, so the last sentence start at or before each is found going on, not again from the first.
+  let sentence = 0;
+  for (const line of lines) {
+    const label = LABEL_LINE.exec(text.slice(line, line + 100));
+    if (label === null || sectionKind(label[1]!) === undefined) continue;
+    const at = line + label[0].search(/\S/u);
+    while (sentence + 1 < starts.length && starts[sentence + 1]! <= at) sentence += 1;
+    // Only a label that starts a sentence: one in a sentence a line break cut ("…the earlier\nresults: …") is none.
+    if (text.slice(starts[sentence]!, at).trim() !== "") continue;
+    const after = line + label[0].length;
+    if (after < text.length) labelled.add(after);
+  }
+  return [...labelled].sort((left, right) => left - right);
 }
 
 // How far into a sentence a block's start is placed exactly.
@@ -185,11 +228,9 @@ interface Searchable {
 
 function searchable(document: SourceLineDocument, reading: (text: string) => string): Searchable {
   const paragraphs: Array<Array<SourceLineDocument["blocks"][number]>> = [];
-  let wrapping = false;
   for (const block of document.blocks) {
-    if (wrapping && block.wraps === true) paragraphs.at(-1)!.push(block);
+    if (block.runsOn === true && paragraphs.length > 0) paragraphs.at(-1)!.push(block);
     else paragraphs.push([block]);
-    wrapping = block.wraps === true;
   }
   const lines: string[] = [];
   const sentences: Searchable["sentences"] = [];
@@ -198,16 +239,22 @@ function searchable(document: SourceLineDocument, reading: (text: string) => str
   for (const paragraph of paragraphs) {
     let raw = "";
     const starts: Array<{ at: number; section: string | undefined }> = [];
+    // Where each of the paragraph's lines starts: each block's start, and after each line break inside a block.
+    const lineStarts: number[] = [];
     for (const block of paragraph) {
       if (raw !== "") raw += " ";
       starts.push({ at: raw.length, section: block.section });
-      raw += bracketedSuperscripts(reading(block.text)).replace(LINE_BREAKS, " ");
+      lineStarts.push(raw.length);
+      const read = bracketedSuperscripts(reading(block.text));
+      for (const { index, 0: lineBreak } of read.matchAll(LINE_BREAKS)) lineStarts.push(raw.length + index + lineBreak.length);
+      // A line break reads as as many spaces, so every position stays where it was.
+      raw += read.replace(LINE_BREAKS, (lineBreak) => " ".repeat(lineBreak.length));
     }
     // Each sentence in figureText's form, with a space before it where the text had white space.
     let line = "";
     let space = false;
     const spans: Array<{ start: number; end: number; raw: number }> = [];
-    const cuts = sentenceStarts(raw);
+    const cuts = sentenceStarts(raw, lineStarts);
     cuts.forEach((cut, index) => {
       const piece = raw.slice(cut, cuts[index + 1] ?? raw.length);
       const form = figureText(piece);
