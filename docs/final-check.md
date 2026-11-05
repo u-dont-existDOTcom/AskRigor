@@ -168,22 +168,34 @@ repeated or high-value community observations into study searches, `FormalAbsenc
 how studies relate to the signal, and `MatchedContradictionAndOutcomeAlignment` lets a study contradict reports only when
 it measured the same thing. Yet judges reading 18 runs lead by lead found 19 of the 98 leads forum threads or comments
 raised searched in studies, and no answer saying a lead went unsearched. `community_leads`, sent in `later_inputs`, lists
-up to 12 leads: the option, form, dose, timing, responder group, harm or way it could work that the reports raised and
-the question didn't name; where each was read (`from`: a thread's link `read_forum_thread` read, or `video:<id>` for
-comments AskRigor read); and either `searched`, with the exact query of the study search that followed, what the studies
-showed (`corroborated`; `contradicted`, only when they measured it the way the reports did; `outcome_mismatch`; or
-`support_not_located`) and the answer's sentence on it, or `not_searched`, with why. An empty list means the reports
-raised nothing new. Each check is exact, and each finding is a note naming the entry by its place as given: no list
-while this call's receipts show threads or comments read (a verified `forum_thread_read` or `youtube_comments_read`, a
-video audit that returned comments, or the videos a one-call audit for this research target read), with how many; a
-`from` those receipts don't show read; a searched lead without its query, or with a query no `literature_search`
-receipt signed (a forum or YouTube search of the same words is not a study search), without `studies`, or without a
+up to 12 leads, one entry each: the option, form, dose, timing, responder group, harm or way it could work that the
+reports raised and the question didn't name, with at least one letter or digit; where each was read (`from`: a thread's
+link that `read_forum_thread` read or a `community_searches` entry declares, or `video:<id>` or the video's YouTube link
+in any form the video tool reads, for comments AskRigor read); and either `searched`, with the exact query of the study
+search that followed, what the studies showed (`corroborated`; `contradicted`, only when they measured it the way the
+reports did; `outcome_mismatch`; or `support_not_located`) and the answer's sentence on it, or `not_searched`, with why.
+An empty list means the reports raised nothing new. Each check is exact, and each finding is a note naming the entry by
+its place as given: no list while threads or comments were read, with how many (threads AskRigor's reader read, by a
+verified `forum_thread_read`, apart from those `community_searches` declares from the AI's own web search outside review
+sites and pasted reports, as the forum note counts them; and the videos whose comments the model received, by
+`youtube_comments_read`, a video audit that returned comments, or a one-call audit for this research target); a second
+entry naming the same lead (compared in Unicode's compatibility form, in lower case, without its closing mark), which is
+then left out of every other check; a `from` the call doesn't show read; a searched lead without its query, or with a
+query no `literature_search` receipt signed (a forum or YouTube search of the same words is not a study search), without
+`studies`, with a search whose receipts returned no records though `studies` isn't `support_not_located`, or without a
 sentence the answer shows (for `support_not_located`, the sentence that the search found none); and a lead not searched
-without its reason. The leads not searched are one limit, "Leads from people's reports that this research did not
-search in studies: …" ("A lead …" for one). Which reports raise a lead, and what the studies showed, stay the AI's
-judgment, in any language. The results of `read_forum_thread`, `get_youtube_comments`, `search_youtube_comments` and the
-two comment audits ask for the loop where the reports are read. The other direction, a study's finding followed up in
-the communities, is next.
+without its reason. A declaration in `community_searches` only ties a lead to a read the call reports; the limits on
+reports from the AI's own web search stand. The leads AskRigor saw no study search for, those declared `not_searched` and
+those declared `searched` with no literature search passed under their query, are one limit, "Leads from people's
+reports that this research did not search in studies: …" ("A lead …" for one), which is true from AskRigor's view. In it
+a semicolon inside a lead becomes a comma, so "; " stays the only separator, and a lead's closing `.`, `,`, `:` or `;`
+(with their full-width and CJK forms) is left out, never a `?` or `!`. Which reports raise a lead, and what the studies
+showed, stay the AI's judgment, in any language. The results of `read_forum_thread` (only when it read the page),
+`get_youtube_comments`, `search_youtube_comments` and the two comment audits ask for the loop where the reports are
+read. Limits: a study search made before the reports were read still counts, since the lead was searched; read and
+search receipts sign no research target, so a read or search made for another question within the receipts' 24 hours
+counts too; and a same-site redirect to a login or index page could sign the link as asked (the reader's own access
+states are the guard). The other direction, a study's finding followed up in the communities, is next.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

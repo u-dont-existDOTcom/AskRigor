@@ -85,6 +85,25 @@ describe("forum tools", () => {
     expect(text.text).toContain(COMMUNITY_LEADS_GUIDANCE);
     expect(text.text).toMatch(/call read_forum_thread again with it before counting it as read\.$/u);
   });
+  it("asks for the leads people's reports raised only after a read: a page not read raised none (review of 5 Nov 2026)", async () => {
+    const guidance = async () => {
+      const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url: URL } });
+      return { state: (result.structuredContent!.data as { access_state: string }).access_state,
+        asked: (result.content[0] as { text: string }).text.includes(COMMUNITY_LEADS_GUIDANCE) };
+    };
+    for (const state of ["blocked", "not_found", "robots_disallowed"] as const) {
+      thread.mockResolvedValueOnce({ url: URL, access_state: state });
+      expect(await guidance()).toEqual({ state, asked: false });
+    }
+    thread.mockResolvedValueOnce({ url: URL, access_state: "busy", retry_after_seconds: 30 });
+    expect(await guidance()).toEqual({ state: "busy", asked: false });
+    thread.mockRejectedValueOnce(new Error("synthetic outage"));
+    expect(await guidance()).toEqual({ state: "unavailable", asked: false });
+    account.mockResolvedValueOnce(undefined);
+    expect(await guidance()).toEqual({ state: "needs_research_access", asked: false });
+    thread.mockResolvedValueOnce({ access_state: "read", url: URL, post_text: "Synthetic public report", comments: [], comments_read: 0 });
+    expect(await guidance()).toEqual({ state: "read", asked: true });
+  });
   it("signs page characters and sends continuation only to the Reddit reader", async () => {
     page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state: "read", page_text: "a".repeat(1_500),
       truncated: false, next_page: "https://forum.example/thread/1?page=2" });

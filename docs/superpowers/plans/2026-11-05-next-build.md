@@ -156,6 +156,19 @@ owner's; the release needs the owner's explicit yes, as always.
       studies: …". Entries are read one at a time, as the study map's are, so a dropped entry never moves the others'
       places in the notes. `read_forum_thread`, `get_youtube_comments`, `search_youtube_comments` and the two comment
       audits ask for the loop in their results. Test `tests/community-leads.test.ts`.
+    - **Review fixes (5 Nov):** one lead, one entry (a repeat, compared in NFKC, lower case and without its closing
+      mark, is noted and left out of every other check); threads the call declares in `community_searches` tie a lead
+      to a read, and the missing-list note counts them apart from the reader's (outside review sites and pasted
+      reports, as the forum note counts them); `read_forum_thread` asks for the loop only after a read; a lead needs a
+      letter or digit; in the limit a semicolon inside a lead becomes a comma, and only a closing `.`, `,`, `:` or `;`
+      (and their full-width and CJK forms) is left out, never `?` or `!`; `from` takes a YouTube link in any form
+      `extract_youtube_video_claims` reads; a lead declared searched with no literature search passed under its query
+      joins the limit, since AskRigor saw no such search; and a search whose receipts returned no records gets a note
+      unless `studies` is `support_not_located`.
+    - **Known limits, left as they are:** a study search made before the reports were read still counts (the lead was
+      searched); read and search receipts carry no research target, so a read or search made for another question in
+      the receipts' 24 hours counts; a same-site redirect to a login or index page could sign the link as asked (`a`),
+      and the reader's own access states are the guard.
     - **Next:** the other direction, a study's finding followed up in the communities (HRP's
       `NoFixedStudiesThenCommunitySequence`: a formal finding that could explain or challenge the community pattern
       reopens community sampling). Then measure: rejudge the leads of a regression run on this build.

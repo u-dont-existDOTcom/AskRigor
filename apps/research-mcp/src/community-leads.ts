@@ -1,6 +1,6 @@
-import { parseYoutubeVideoId } from "@askrigor/sources";
 import { z } from "zod";
 
+import { parseVideoReference } from "./gemini-video-tool.js";
 import { salvageFinalizeInput } from "./salvage-finalize-input.js";
 
 /**
@@ -34,13 +34,17 @@ export const COMMUNITY_LEADS_GUIDANCE = "Turn each option, dose, form, responder
   "later_inputs.community_leads.";
 
 export const communityLeadSchema = z.object({
+  // A lead names something, so it holds a letter or digit in some script; "..." names nothing (review of 5 Nov 2026).
+  // A lead too short to name anything gets the length note alone.
   lead: z.string().trim().min(3).max(COMMUNITY_LEAD_LIMITS.leadCharacters)
+    .refine((lead) => lead.length < 3 || /[\p{L}\p{N}]/u.test(lead), "needs at least one letter or digit")
     .describe("The option, form, dose, timing, responder group, harm or way it could work that people's reports " +
       `raised and the question didn't name, in at most ${COMMUNITY_LEAD_LIMITS.leadCharacters} characters, as the ` +
       "answer would name it."),
   from: z.array(z.string().trim().min(1).max(COMMUNITY_LEAD_LIMITS.fromCharacters)).min(1).max(COMMUNITY_LEAD_LIMITS.from)
-    .describe("Where the reports were read: a thread's link read_forum_thread read, or video:<YouTube id> for a " +
-      "video whose comments AskRigor read."),
+    .describe("Where the reports were read: a thread's link that read_forum_thread read or community_searches " +
+      "declares in threads_read, or video:<YouTube id> (or the video's YouTube link) for a video whose comments " +
+      "AskRigor read."),
   state: z.enum(COMMUNITY_LEAD_STATES)
     .describe("searched: searched in studies with search_pubmed, search_europe_pmc or search_clinical_trials; " +
       "not_searched: not searched in studies, with reason."),
@@ -87,10 +91,33 @@ export function readCommunityLeads(raw: unknown): { leads?: CommunityLead[]; pla
 }
 
 /**
- * The video a lead's `from` entry names: video:<YouTube id>, or a YouTube link in a form the YouTube tools accept.
- * Undefined for anything else, which is read as a thread's link. Exact: the forms are identifiers, not meanings.
+ * The video a lead's `from` entry names: video:<YouTube id>, or a YouTube link in any form extract_youtube_video_claims
+ * reads (watch, youtu.be, Shorts, live and embed links, on www, m and music hosts, over http or https, with any other
+ * parameters, such as t= or si=). Undefined for anything else, which is read as a thread's link. Exact: the forms are
+ * identifiers, not meanings.
  */
 export function communityLeadVideo(source: string): string | undefined {
   const named = /^video:\s*(.+)$/iu.exec(source.trim());
-  return parseYoutubeVideoId(named === null ? source.trim() : named[1]!.trim());
+  return parseVideoReference(named === null ? source : named[1]!);
+}
+
+// The end of a lead that only closes it: white space and . , : ; with their full-width and CJK forms. A ? or ! stays,
+// since it carries meaning ("¿magnesio?"). Structural, the same in any language.
+const LEAD_CLOSING = /[\s.,:;。、：；，．]+$/u;
+
+/**
+ * A lead as the limit for leads not searched names it: on one line, without a closing mark, and with a semicolon inside
+ * it as a comma (a full-width one as a full-width comma), so "; " between leads stays the only separator.
+ */
+export function leadPhrase(lead: string): string {
+  return lead.replace(/\s+/gu, " ").trim().replace(/;/gu, ",").replace(/；/gu, "，").replace(LEAD_CLOSING, "");
+}
+
+/**
+ * What two entries compare by, so one lead has one entry: the lead in Unicode's compatibility form (NFKC), in lower case
+ * without a locale, its white space collapsed and its closing mark left out. Exact, in any language: two different
+ * words for one thing are two leads.
+ */
+export function leadKey(lead: string): string {
+  return lead.normalize("NFKC").toLowerCase().replace(/\s+/gu, " ").trim().replace(LEAD_CLOSING, "");
 }

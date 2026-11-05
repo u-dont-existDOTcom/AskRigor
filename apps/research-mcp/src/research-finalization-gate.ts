@@ -10,7 +10,7 @@ import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
-import { communityLeadVideo, readCommunityLeads } from "./community-leads.js";
+import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -256,14 +256,12 @@ export const NOT_SEARCHED_LEADS_CAVEAT_STARTS = {
 } as const;
 
 /**
- * The caveat for the leads not searched in studies: the server's words and each declared lead, on one line, ending as
- * a sentence. A lead before the last loses its closing mark, so the leads join cleanly; the last keeps its own.
+ * The caveat for the leads not searched in studies: the server's words and each declared lead as leadPhrase gives it
+ * (on one line, its closing . , : or ; left out, a semicolon inside it a comma), ending as a sentence; a lead ending in ?
+ * or ! keeps it, and the sentence then ends there.
  */
 export function notSearchedLeadsCaveat(leads: readonly string[]): string {
-  const phrases = leads.map((lead, index) => {
-    const phrase = lead.replace(/\s+/gu, " ").trim();
-    return index === leads.length - 1 ? phrase : phrase.replace(/[\s\p{STerm};:,]+$/u, "");
-  });
+  const phrases = leads.map(leadPhrase);
   return completedCaveat(NOT_SEARCHED_LEADS_CAVEAT_STARTS[phrases.length === 1 ? "one" : "several"], phrases.join("; "));
 }
 
@@ -2479,55 +2477,89 @@ export function finalizeResearch(
   // FormalAbsenceCannotEraseCommunitySignal and MatchedContradictionAndOutcomeAlignment; community-leads.ts). Judges
   // reading 18 runs found 19 of 98 leads from forum threads or comments searched in studies, and no answer saying a lead
   // went unsearched. As option_classes' are, each part the model declares is checked exactly: where it read a lead, by
-  // this call's read receipts; a search, by a literature-search receipt's query; a sentence, by the draft (with the
-  // other declared quotes, below). Which reports raise a lead, and what the studies showed, stay the model's judgment.
-  // Every finding is a note; the leads not searched are one limit.
-  // Each thread once, by the link the reader landed on; each video whose comments the model received.
-  const leadThreads = new Set(landedRead.values());
+  // this call's read receipts or the threads community_searches declares; a search, by a literature-search receipt's
+  // query and the records it returned; a sentence, by the draft (with the other declared quotes, below). Which reports
+  // raise a lead, and what the studies showed, stay the model's judgment. Every finding is a note; the leads AskRigor
+  // saw no study search for are one limit.
+  // Each thread once: those the reader read, by the link it landed on, and those the call declares from its own web
+  // search that the reader didn't read (community_searches outside review sites and reports the user pasted, as the
+  // forum note counts them). Each video whose comments the model received.
+  const readerThreads = new Set(landedRead.values());
+  const ownSearchThreads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) =>
+    landedRead.get(forumThreadDigest(url)) ?? forumThreadDigest(url))).filter((thread) => !readerThreads.has(thread)));
   const leadVideos = new Set([...commentVideos, ...directlyReadVideos]);
+  // A lead's source is a video whose comments the model received, a thread the reader read, or any link a
+  // community_searches entry declares in threads_read. A declaration only ties the lead to a read the call reports; the
+  // limits on reports from the AI's own web search stand as they are.
+  const declaredLinks = new Set((input.community_searches ?? []).flatMap(({ threads_read }) =>
+    threads_read.map(({ url }) => forumThreadDigest(url))));
   const leadRead = (source: string): boolean => {
     const video = communityLeadVideo(source);
-    return video === undefined ? forumReadUrls.has(forumThreadDigest(source)) : leadVideos.has(video);
+    if (video !== undefined) return leadVideos.has(video);
+    const thread = forumThreadDigest(source);
+    return forumReadUrls.has(thread) || declaredLinks.has(thread);
   };
   const communityLeads = input.community_leads ?? [];
   // Each entry by its place as given, though an entry before it was left out.
   const leadAt = (index: number): string => `community_leads[${parsed.leadPlaces?.[index] ?? index}]`;
-  if (input.community_leads === undefined && input.answer_draft !== undefined && leadThreads.size + leadVideos.size > 0) {
-    const threadsRead = rule`${leadThreads.size} forum ${leadThreads.size === 1 ? rule`thread` : rule`threads`}`;
+  if (input.community_leads === undefined && input.answer_draft !== undefined &&
+      readerThreads.size + ownSearchThreads.size + leadVideos.size > 0) {
+    const [reader, own] = [readerThreads.size, ownSearchThreads.size];
+    const threads = (count: number) => count === 1 ? rule`thread` : rule`threads`;
+    const threadsRead = own === 0 ? rule`${reader} forum ${threads(reader)}`
+      : reader === 0 ? rule`${own} forum ${threads(own)} declared from your own web search`
+      : rule`${reader + own} forum threads (${reader} with AskRigor's reader, ${own} declared from your own web search)`;
     const videosRead = rule`the comments of ${leadVideos.size} ${leadVideos.size === 1 ? rule`video` : rule`videos`}`;
-    const read = leadVideos.size === 0 ? threadsRead : leadThreads.size === 0 ? videosRead
+    const read = leadVideos.size === 0 ? threadsRead : reader + own === 0 ? videosRead
       : rule`${threadsRead} and ${videosRead}`;
     addStep("declaration", joinRules(rule`community_leads is missing: this research read ${read}. `,
       "In later_inputs.community_leads, list each option, form, dose, timing, responder group, harm or way it could ",
       "work that those reports raised and the question didn't name, as {lead, from, state, search_query, studies, ",
-      "answer_quote, reason}: from gives the links of the threads read_forum_thread read, or video:<id> for the ",
-      "comments read; searched gives the exact search_query of the search_pubmed, search_europe_pmc or ",
-      "search_clinical_trials call that followed, studies (corroborated, contradicted, outcome_mismatch or ",
-      "support_not_located) and the answer's sentence on what it found as answer_quote; not_searched gives reason. ",
-      "An empty list means the reports raised nothing new."));
+      "answer_quote, reason}: from gives the links of the threads read (with read_forum_thread, or declared in ",
+      "community_searches), or video:<id> for the comments read; searched gives the exact search_query of the ",
+      "search_pubmed, search_europe_pmc or search_clinical_trials call that followed, studies (corroborated, ",
+      "contradicted, outcome_mismatch or support_not_located) and the answer's sentence on what it found as ",
+      "answer_quote; not_searched gives reason. An empty list means the reports raised nothing new."));
   }
-  // The leads not searched, each once, as harms and classes are compared.
-  const leadsNotSearched = new Map<string, string>();
+  // One lead, one entry, as one class has one (leadKey compares them); a repeat is left out of every other check.
+  const leadEntries = new Map<string, number>();
+  const repeatedLeads = new Set<number>();
+  // The leads AskRigor saw no study search for: those declared not_searched, and those declared searched with no
+  // literature search passed here under their query. From AskRigor's view this research did not search them, which is
+  // what their limit says.
+  const leadsNotSearched: string[] = [];
   for (const [index, entry] of communityLeads.entries()) {
     const at = leadAt(index);
-    const lead = plainPhrase(entry.lead).replace(/\s+/gu, " ");
+    const first = leadEntries.get(leadKey(entry.lead));
+    if (first !== undefined) {
+      repeatedLeads.add(index);
+      addStep("declaration", rule`${at} names the same lead as ${leadAt(first)}: give each lead one entry.`);
+      continue;
+    }
+    leadEntries.set(leadKey(entry.lead), index);
+    const lead = leadPhrase(entry.lead);
     const unread = entry.from.flatMap((source, place) => leadRead(source) ? [] : [`from[${place}]`]);
     if (unread.length > 0) {
       addStep("declaration", joinRules(
-        rule`${at}.${joinNames(unread)} ${unread.length === 1 ? rule`is not a read` : rule`are not reads`} this `,
-        "call's receipts show: give the link of a thread read_forum_thread read, or video:<id> for a video whose ",
-        "comments AskRigor read, and pass that read's research_receipt in receipts, or leave it out of from."));
+        rule`${at}.${joinNames(unread)} ${unread.length === 1 ? rule`is not a read` : rule`are not reads`} this call `,
+        "shows: give the link of a thread that read_forum_thread read (with its research_receipt in receipts) or that ",
+        "community_searches declares in threads_read, or video:<id> for a video whose comments AskRigor read; or leave ",
+        "it out of from."));
     }
     // Each state's own field; another state's field, if given, is not used.
+    let searchShown = false;
     if (entry.state === "searched") {
       // Searched with a query a literature-search receipt in this call signed, compared by its digest as a class
       // researched is: a forum or YouTube search signing the same query is not a study search.
       const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      const searches = query === undefined ? []
+        : verified.filter(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query);
+      searchShown = searches.length > 0;
       if (query === undefined) {
         addStep("declaration", joinRules(rule`${at} is searched without search_query: give the exact query ${lead} `,
           "was searched with in search_pubmed, search_europe_pmc or search_clinical_trials, and pass that search's ",
           "research_receipt, or declare it not_searched with reason."));
-      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+      } else if (!searchShown) {
         addStep("research", joinRules(rule`${at}.search_query is not the query of any literature search passed here: `,
           rule`search ${lead} with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, `,
           "and pass its research_receipt, or declare it not_searched with reason."));
@@ -2537,6 +2569,13 @@ export function finalizeResearch(
           rule`${lead} as corroborated, contradicted (only when they measured it the way the reports did), `,
           "outcome_mismatch (they measured something else) or support_not_located (the search found no study of it)."));
       }
+      // Each receipt under the query signs the records its page returned (ret); when none returned any, the search
+      // found no study, whatever the studies field says. A receipt from before ret was signed says nothing.
+      if (searchShown && entry.studies !== "support_not_located" &&
+          searches.every(({ claims }) => text(claims.ret) === "0")) {
+        addStep("declaration", joinRules(rule`${at}'s search returned no records: give support_not_located as studies, `,
+          "or, as search_query, the query of the search that found the studies."));
+      }
       // A search that found no study is said in the answer too: the quote rule is the same, and nothing reads its words.
       if (entry.answer_quote === undefined) {
         addStep("answer_draft", entry.studies === "support_not_located"
@@ -2545,22 +2584,21 @@ export function finalizeResearch(
           : joinRules(rule`${at} is searched without answer_quote: say in the answer what the search for ${lead} `,
             "found, and copy that sentence from answer_draft."));
       }
-      continue;
-    }
-    if (entry.reason === undefined) {
+    } else if (entry.reason === undefined) {
       addStep("declaration", rule`${at} is not_searched without reason: say why ${lead} was not searched in studies, in 10 to 300 characters.`);
     }
-    // The lead reaches the reader in the caveat, so it shows no internal labels, as a class not researched does.
+    if (searchShown) continue;
+    // The lead reaches the reader in the limit, so it shows no internal labels, as a class not researched does.
     const labels = internalLabels(entry.lead, options.protocolNames ?? new Set());
     if (labels.length > 0) {
       addStep("declaration", joinRules(joinRules(rule`${at}.lead shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names this lead in its caveat, so give it in plain `), "words."));
     }
-    if (!leadsNotSearched.has(caveatText(lead))) leadsNotSearched.set(caveatText(lead), entry.lead);
+    leadsNotSearched.push(entry.lead);
   }
-  if (leadsNotSearched.size > 0) {
-    const leads = [...leadsNotSearched.values()];
-    caveatOnce(joinRules(rule`Leads from people's reports were not searched in studies (${joinNames(leads.map(plainPhrase))}): `,
-      "say so in the answer, as the caveat does."), notSearchedLeadsCaveat(leads));
+  if (leadsNotSearched.length > 0) {
+    caveatOnce(joinRules(rule`No study search this call shows followed leads from people's reports (`,
+      rule`${joinNames(leadsNotSearched.map(leadPhrase))}): say so in the answer, as the caveat does.`),
+    notSearchedLeadsCaveat(leadsNotSearched));
   }
 
   // Key studies.
@@ -3807,8 +3845,9 @@ export function finalizeResearch(
         ...optionClasses.flatMap(({ state, answer_quote: quote }, index) => state === "researched" && quote !== undefined
           ? [{ at: `option_classes[${index}].answer_quote`, quote }] : []),
         // So is a lead from people's reports searched in studies, by its sentence on what the search found.
-        ...communityLeads.flatMap(({ state, answer_quote: quote }, index) => state === "searched" && quote !== undefined
-          ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
+        ...communityLeads.flatMap(({ state, answer_quote: quote }, index) =>
+          state === "searched" && quote !== undefined && !repeatedLeads.has(index)
+            ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
         // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
         ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
           { at: `binary_results[${index}]`, quote },
