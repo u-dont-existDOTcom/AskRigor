@@ -60,6 +60,7 @@ import {
   findingsCardSchema,
   findingsSaveOffer,
   heldByCardFields,
+  isYouTubeVideoId,
   PUBLIC_VALUE_SCOPES,
   screenFindingsCard,
   signedFindingBases,
@@ -69,6 +70,15 @@ import {
   type VerifiedBasis,
   type VerifiedWork
 } from "./findings/card.js";
+import {
+  researchBehindProblems,
+  signedBackingClaims,
+  signedReadingClaims,
+  type BackingLookup,
+  type ResearchBehindContext,
+  type SourceFigures,
+  type SourceReading
+} from "./findings/research-behind.js";
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
@@ -1586,6 +1596,11 @@ export interface FinalizeResearchOptions {
   meaningJudgment?: MeaningJudgment;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
+  /**
+   * Each backing line's quotes as looked up after this check's earlier pass (owner answer 252a), by the finding and the
+   * line, which the finalization receipt signs.
+   */
+  backingLookups?: readonly BackingLookup[];
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
   now?: () => Date;
@@ -3279,26 +3294,34 @@ export function finalizeResearch(
   // states a correction the research found. Whether the finding is better than a quick answer stays the model's
   // why_not_usual, for the owner's review.
   const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
-  const verifiedWork = (sources: readonly string[], quote: string | undefined) => ({
+  // Owner answer 254a: the forum threads a finding's forum signal names that AskRigor's reader read here, each by its
+  // verified forum_thread_read receipt, count as studies AskRigor read do.
+  const verifiedWork = (sources: readonly string[], quote: string | undefined, threads: readonly string[] = []) => ({
     studies: new Set(sources.filter(auditedStudy).map(paperKey)),
     videos: new Set(sources.filter((source) => commentVideos.has(source))),
     absences: new Set(quote === undefined ? [] : absenceClaims.flatMap(({ quote: claimed }, index) =>
       acceptedAbsences.has(index) && sameQuote(quote, claimed) ? [index] : [])),
     corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
-      by_user === false && sameQuote(quote, change) ? [index] : []))
+      by_user === false && sameQuote(quote, change) ? [index] : [])),
+    threads: new Set(threads.flatMap((thread) => {
+      const digest = forumThreadDigest(thread);
+      return forumReadUrls.has(digest) ? [digest] : [];
+    }))
   });
   type Work = ReturnType<typeof verifiedWork>;
   const basesOf = (work: Work): VerifiedBasis[] => [
     ...(work.studies.size > 0 ? ["full_text_audit" as const] : []),
     ...(work.videos.size > 0 ? ["comment_audit" as const] : []),
     ...(work.absences.size > 0 ? ["bounded_absence" as const] : []),
-    ...(work.corrections.size > 0 ? ["research_correction" as const] : [])
+    ...(work.corrections.size > 0 ? ["research_correction" as const] : []),
+    ...(work.threads.size > 0 ? ["forum_read" as const] : [])
   ];
   const countWork = (works: readonly Work[]) => ({
     studies: new Set(works.flatMap(({ studies }) => [...studies])).size,
     videos: new Set(works.flatMap(({ videos }) => [...videos])).size,
     absences: new Set(works.flatMap(({ absences }) => [...absences])).size,
-    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
+    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size,
+    threads: new Set(works.flatMap(({ threads }) => [...threads])).size
   });
   let cardBases: VerifiedBasis[][] | undefined;
   // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
@@ -3322,7 +3345,8 @@ export function finalizeResearch(
     studies: new Set([...validatedIds].map(paperKey)).size,
     videos: commentVideos.size,
     absences: acceptedAbsences.size,
-    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
+    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length,
+    threads: forumReadUrls.size
   };
   // Owner answer 140b (2026-10-20): an active research account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
@@ -3384,10 +3408,20 @@ export function finalizeResearch(
           text(claims.src) === database && text(claims.q) === discoveryQueryDigest([query]) &&
           text(claims.dr) === (dateRange === undefined ? "" : `${dateRange.start}/${dateRange.end}`)),
         absenceStates: (quote) => absenceClaims.filter(({ quote: claimed }) => sameQuote(quote, claimed))
-          .map(({ state }) => state)
+          .map(({ state }) => state),
+        // Owner answer 252a: the research behind each finding and what people report, checked exactly: a line's source
+        // is one of the finding's key sources, a thread was read here by a verified receipt, and the counts add up.
+        researchBehind: {
+          sameSource: (left, right) => normalizeIdentifier(left) === normalizeIdentifier(right),
+          keySource: (source) => input.key_sources.some(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source)),
+          threadRead: (url) => forumReadUrls.has(forumThreadDigest(url)),
+          comparableThread: comparableUrl,
+          literatureSearched: verified.some(({ kind }) => kind === "literature_search")
+        }
       });
       if (findingsCard.status === "checked") {
-        const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
+        const work = input.findings_card.findings.map(({ sources, answer_quote: quote, forum_signal: signal }) =>
+          verifiedWork(sources, quote, signal?.threads));
         cardBases = work.map(basesOf);
         // Owner answer 219b: a finding drawn from YouTube comments is held privately for the owner's review and never
         // published. Beside what the card itself shows (a video among its sources, community_checked, audited comments
@@ -3428,6 +3462,13 @@ export function finalizeResearch(
         const scope = input.findings_card.public_value!.scope;
         findingsCard = { ...findingsCard, beyond_quick_answer: beyond, public_value: scope,
           ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => index + 1) }) };
+        // Owner answer 252a: the published tool list is fixed (189a), so a result names the card's new fields when they
+        // would show something: a finding citing a study gives no backing, or forum threads were read and no finding
+        // gives a forum signal. A note only; nothing here holds the card or the answer back.
+        const studyWithoutBacking = findingsInCard.some((finding) => finding.backing === undefined &&
+          finding.sources.some((source) => !isYouTubeVideoId(source)));
+        const signalMissing = forumReadUrls.size > 0 && findingsInCard.every(({ forum_signal: signal }) => signal === undefined);
+        if (scope === "public" && (studyWithoutBacking || signalMissing)) notes.push(RESEARCH_BEHIND_NOTE);
         // A paid private answer offers the save only when a finding rests on such work, which the offer names with
         // this call's counts; without one there is no offer line, and the receipt still signs the card, so the user
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
@@ -3683,7 +3724,8 @@ export function finalizeResearch(
   // Owner answer 237a: each line's quotes are looked up once the check passes, in the text its key source's verified
   // receipts name, and what came of it goes to the AI as notes, and to the panel. None of it holds the answer back.
   const sourceLines = input.source_lines ?? [];
-  const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => {
+  // Where a quote said to come from a source may be looked up: the texts its key source's verified receipts name.
+  const quoteRequest = (source: string, line: number): SourceLineRequest => {
     const key = input.key_sources.find(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source));
     const receipts = key === undefined ? [] : paperReceipts(sourceLinks(key.id));
     return {
@@ -3694,7 +3736,31 @@ export function finalizeResearch(
       pmids: [...new Set([...(key !== undefined && isPmid(normalizeIdentifier(key.id)) ? [normalizeIdentifier(key.id)] : []),
         ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
     };
-  });
+  };
+  const sourceLineRequests: SourceLineRequest[] = sourceLines.map(({ source }, line) => quoteRequest(source, line));
+  // Owner answer 252a: a checked card's backing lines are looked up the same way, once the check passes; what came of
+  // it is signed into the finalization receipt, so the save keeps only quotes found word for word.
+  const backingLines = findingsCard.status === "checked" && input.findings_card !== undefined
+    ? input.findings_card.findings.flatMap((finding, index) => (finding.backing ?? []).map((line, place) =>
+      ({ finding: index, line: place, source: line.source, sentence: line.sentence, conclusion: line.conclusion })))
+    : [];
+  const backingRequests: SourceLineRequest[] = backingLines.map(({ source }, line) => quoteRequest(source, line));
+  const backingLookups = options.backingLookups ?? [];
+  for (const { finding, line, lookup } of backingLookups) {
+    const missing = [
+      ...(lookup.sentence === "not_found" ? ["sentence"] : []),
+      ...(lookup.conclusion === "not_found" ? ["conclusion"] : [])
+    ];
+    const at = `findings_card.findings[${finding}].backing[${line}]`;
+    if (missing.length > 0) {
+      notes.push(`The ${missing.join(" and the ")} of ${at} ${missing.length === 1 ? "isn't" : "aren't"} in the text ` +
+        "AskRigor fetched, so the Atlas won't show it. Copy each whole and exactly, in the paper's language.");
+    } else if (lookup.text === "search_copy" || lookup.text === "library_copy") {
+      notes.push(`The quotes of ${at} were found only in ${lookup.text === "search_copy" ? "the copy the AI supplied"
+        : "the owner's library copy"}, which the Atlas never quotes; a quote found in a full text AskRigor fetched ` +
+        "itself or a PubMed abstract is shown.");
+    }
+  }
   const sourceLineChecks = passed && draft !== undefined ? (options.sourceLineLookups ?? []).flatMap((lookup, index) => {
     const line = sourceLines[index];
     if (line === undefined) return [];
@@ -3838,6 +3904,33 @@ export function finalizeResearch(
       output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
     }
   }
+  // Owner answer 252a: how each source of a checked card was read, from this call's receipts (an audit, of a copy AskRigor
+  // fetched or of the AI's search copy, or a full reading), else the depth the AI declared for it; and an audit's check
+  // of its printed figures against its own data. Signed into the receipt, so the save stores it as checked here.
+  const sourceReadingOf = (source: string): { read: SourceReading; figures?: SourceFigures } | undefined => {
+    const id = normalizeIdentifier(source);
+    if (!isDoi(id) && !isPmid(id) && !isPmcid(id)) return undefined;
+    const links = sourceLinks(source);
+    const receipts = paperReceipts(links);
+    const audits = receipts.filter(({ kind }) => kind === "study_audit" || kind === "review_audit");
+    const figures = audits.flatMap(({ kind, claims }) => kind === "study_audit" &&
+      (claims.fig === "consistent" || claims.fig === "internally_inconsistent") ? [claims.fig as SourceFigures] : []);
+    const shown = figures.includes("internally_inconsistent") ? "internally_inconsistent" as const
+      : figures.length > 0 ? "consistent" as const : undefined;
+    const withFigures = (read: SourceReading) => ({ read, ...(shown === undefined ? {} : { figures: shown }) });
+    if (audits.some(({ claims }) => claims.retrieval_provider !== "client_search_index")) return withFigures("full_text_audited");
+    if (audits.length > 0) return withFigures("search_copy_audited");
+    if (receipts.some(({ kind }) => kind === "full_text_read")) return withFigures("full_text_read");
+    const linked = new Set(links.linkIds.map(normalizeIdentifier));
+    const declared = input.key_sources.find((key) => linked.has(normalizeIdentifier(key.id)))?.read_depth;
+    return withFigures(declared === "full_text_audited" || declared === "full_text_read" || declared === "partial_text" ||
+      declared === "atlas_checked" || declared === "secondary_only" ? declared
+      : declared === "abstract_only" || declared === "conference_abstract" ? "abstract_only" : "not_read");
+  };
+  const cardReadings = findingsCard.status === "checked" && input.findings_card !== undefined
+    ? signedReadingClaims(input.findings_card, sourceReadingOf) : [];
+  const backingClaims = findingsCard.status === "checked" && options.backingLookups !== undefined
+    ? signedBackingClaims(options.backingLookups) : undefined;
   if (passed) {
     output.finalization_receipt = issueResearchReceipt("finalization", {
       status,
@@ -3863,7 +3956,11 @@ export function finalizeResearch(
             ...(cardBases === undefined ? {} : { bases: cardBases.map(signedFindingBases) }),
             // Owner answer 219b: the save holds these findings apart, by their places on the card, 1 for the first.
             ...(heldFindings.length === 0 ? {} : { held: heldFindings.map((index) => String(index + 1)) }),
-            ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) })
+            ...(atlasReuse.basis.length === 0 ? {} : { atlas: atlasReuse.basis.map(({ number, relation }) => `${number}:${relation}`) }),
+            // Owner answer 252a: how each source was read, and what the backing lines' lookups found and where.
+            ...(cardReadings.length === 0 ? {} : { rd: cardReadings }),
+            ...(backingClaims === undefined || backingClaims.bl.length === 0 ? {} : { bl: backingClaims.bl }),
+            ...(backingClaims === undefined || backingClaims.bs.length === 0 ? {} : { bs: backingClaims.bs })
           }
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
@@ -3890,6 +3987,9 @@ export function finalizeResearch(
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
+  }
+  if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
+    BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
   }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
@@ -3918,6 +4018,17 @@ export function finalizeResearch(
   return parsedOutput;
 }
 
+/** What the card's later shape adds for the Atlas's research behind each finding (owner answer 252a), as a note. */
+export const RESEARCH_BEHIND_NOTE = "The Atlas shows the research behind each finding. Send the whole card in " +
+  "later_inputs.findings_card, and give each finding that cites a study backing: up to 3 lines {source, sentence, " +
+  "conclusion, against}, the paper's sentence behind the finding and its conclusion each copied whole and exactly (at " +
+  "most 300 characters), and the strongest thing against it in your own words; and each figure its source " +
+  "(numbers[].source). For a finding people's reports bear on, give forum_signal: {threads read here, people: {better, " +
+  "no_change, worse, mixed}, report_quality: {detailed, measured, bare}, mechanism, studies: corroborated, contradicted " +
+  "(only when studies measured it the way the reports did), support_not_located or outcome_mismatch, with " +
+  "studies_measured for outcome_mismatch}. A finding may rest on its forum_signal alone, with no sources, when the " +
+  "reports agree. Then check the answer again.";
+
 // What a passing check gives the meaning judge, by the result it returned; nothing else reads it, and it goes with the
 // result object.
 const MEANING_JUDGE_SOURCES = new WeakMap<FinalizeResearchOutput, MeaningJudgeSource>();
@@ -3933,6 +4044,20 @@ const SOURCE_LINE_REQUESTS = new WeakMap<FinalizeResearchOutput, SourceLineReque
 /** Where this result's source lines may be looked up: a passing check whose lines haven't been yet. */
 export function sourceLineRequestsOf(result: FinalizeResearchOutput): readonly SourceLineRequest[] | undefined {
   return SOURCE_LINE_REQUESTS.get(result);
+}
+
+/** A checked card's backing lines in order, each with its finding and place, and where each may be looked up. */
+export interface BackingRequests {
+  lines: ReadonlyArray<{ finding: number; line: number; source: string; sentence: string; conclusion?: string | undefined }>;
+  requests: readonly SourceLineRequest[];
+}
+
+// What a passing check asks to have looked up of its card's backing lines, by the result it returned (owner answer 252a).
+const BACKING_REQUESTS = new WeakMap<FinalizeResearchOutput, BackingRequests>();
+
+/** Where this result's card's backing lines may be looked up: a passing check whose lines haven't been yet. */
+export function backingRequestsOf(result: FinalizeResearchOutput): BackingRequests | undefined {
+  return BACKING_REQUESTS.get(result);
 }
 
 // Why the meaning judge did not run, as its note says it.
@@ -4355,6 +4480,7 @@ function findingsCardCheck(
     answerFigures: readonly AnswerFigure[];
     searched: (database: string, query: string, dateRange?: { start: string; end: string }) => boolean;
     absenceStates: (quote: string) => readonly string[];
+    researchBehind: ResearchBehindContext;
   }
 ): FindingsCardCheck {
   const problems: RuleInput[] = [];
@@ -4404,6 +4530,8 @@ function findingsCardCheck(
     searched: context.searched,
     absenceStates: context.absenceStates
   }));
+  // Owner answer 252a: the backing lines, the figures' sources and the forum signals (findings/research-behind.ts).
+  problems.push(...researchBehindProblems(card, context.researchBehind));
   // A source that is not an identifier is already unverified above.
   for (const { field, reasonCode } of screenFindingsCard(card)) {
     if (reasonCode === "not_a_source_identifier") continue;

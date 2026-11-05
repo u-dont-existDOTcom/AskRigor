@@ -164,7 +164,7 @@ describe("Your AskRigor features on the account page", () => {
 
     expect(featureOf(body, "research-access")).toEqual({
       on: "On",
-      forYou: "Free contributor use, under the free-use notice you accepted: version 4, of 25 Oct 2026.",
+      forYou: "Free contributor use, under the free-use notice you accepted: version 5, of 5 Nov 2026.",
       whoPays: "No one pays money: free use is reciprocal. What AskRigor learns from your research is saved for its " +
         "research library, and your findings cards are published in the Atlas.",
       limit: "AskRigor sets no limit on your research; some features below have limits of their own.",
@@ -240,8 +240,8 @@ describe("Your AskRigor features on the account page", () => {
 
     let body = await page();
     expect(featureOf(body, "research-access")).toMatchObject({ on: "Off", forYou: "Not chosen yet, or AskRigor's free-use " +
-      "notice changed since you accepted it. Before research, your AI app shows you the current notice (version 4, of " +
-      "25 Oct 2026) and asks you to choose free contributor use or paid private use." });
+      "notice changed since you accepted it. Before research, your AI app shows you the current notice (version 5, of " +
+      "5 Nov 2026) and asks you to choose free contributor use or paid private use." });
     expect(needsAccess(body)).toBe(9);
     expect(featureOf(body, "meaning-judge").forYou).toBe("It runs only for the owner's dev accounts.");
 
@@ -256,7 +256,7 @@ describe("Your AskRigor features on the account page", () => {
     body = await page();
     expect(featureOf(body, "research-access")).toMatchObject({ on: "Off", forYou: "You turned research access off. " +
       "Before you research again, your AI app asks you to choose free contributor use, under the free-use notice " +
-      "(version 4, of 25 Oct 2026), or paid private use." });
+      "(version 5, of 5 Nov 2026), or paid private use." });
     expect(needsAccess(body)).toBe(9);
 
     grant(SUBJECT, "2026-11-06T00:00:00.000Z");
@@ -308,7 +308,7 @@ describe("the features' words", () => {
   const row = (map: Map<string, AtlasFeatureRow>, id: string) => map.get(id)!;
 
   it("reads the notice version as a date and a number", () => {
-    expect(noticeWords(RESEARCH_USE_NOTICE_VERSION)).toBe("version 4, of 25 Oct 2026");
+    expect(noticeWords(RESEARCH_USE_NOTICE_VERSION)).toBe("version 5, of 5 Nov 2026");
     expect(noticeWords("free-contributor-v12-2027-01-09")).toBe("version 12, of 9 Jan 2027");
     expect(noticeWords("free-contributor-v5-2027-13-01")).toBe("the current version");
     expect(noticeWords("another-notice")).toBe("the current version");

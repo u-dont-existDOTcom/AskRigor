@@ -596,11 +596,45 @@ function atlasFieldLines(finding: FindingsRecord["card"]["findings"][number]): s
         `${entry.comparator_events} of ${entry.comparator_total} with ${entry.comparator} ` +
         `(${percent(entry.comparator_events, entry.comparator_total)}), ${entry.better} is better` +
         `${entry.nnt === undefined ? "" : `, NNT ${entry.nnt}`}${entry.nnh === undefined ? "" : `, NNH ${entry.nnh}`}` +
-        `${entry.harms_none_found === true ? ", no harms found" : ""}`)).join("; ")}`]),
+        `${entry.harms_none_found === true ? ", no harms found" : ""}` +
+        `${entry.source === undefined ? "" : `, from ${entry.source}`}`)).join("; ")}`]),
     ...((finding.searches ?? []).length === 0 ? [] : [`- Searches that found nothing: ${finding.searches!
       .map((search) => escapeMarkdown(`${search.database}: ${search.query}` +
         `${search.date_range === undefined ? "" : `, ${search.date_range.start} to ${search.date_range.end}`}`))
       .join("; ")}`]),
+    ...researchBehindLines(finding),
+  ];
+}
+
+/**
+ * The research behind a finding, as the save stored it (owner answer 252a): each backing line's quotes found word for
+ * word, with the text and section they were found in, and the strongest thing against it; how each source was read;
+ * and what people report in the forum threads read for it. A finding without them shows no line.
+ */
+function researchBehindLines(finding: FindingsRecord["card"]["findings"][number]): string[] {
+  const signal = finding.forum_signal;
+  return [
+    ...(finding.backing ?? []).map((line) => `- Research behind it, ${escapeMarkdown(line.source)} \\(found in the ` +
+      `${line.text === "abstract" ? "PubMed abstract" : "full text AskRigor fetched"}\\): ${[
+        ...(line.sentence === undefined ? [] : [`sentence "${escapeMarkdown(line.sentence)}"` +
+          `${line.sentence_section === undefined ? "" : ` \\(${escapeMarkdown(line.sentence_section)}\\)`}`]),
+        ...(line.conclusion === undefined ? [] : [`conclusion "${escapeMarkdown(line.conclusion)}"` +
+          `${line.conclusion_section === undefined ? "" : ` \\(${escapeMarkdown(line.conclusion_section)}\\)`}`]),
+        `strongest against it: ${escapeMarkdown(line.against)}`,
+      ].join("; ")}`),
+    ...((finding.source_reading ?? []).length === 0 ? [] : [`- How each source was read: ${finding.source_reading!
+      .map(({ source, read, figures }) => escapeMarkdown(`${source}: ${read}${figures === undefined ? "" : `, figures ${figures}`}`))
+      .join("; ")}`]),
+    ...(signal === undefined ? [] : [
+      `- What people report: better ${signal.people.better}, no change ${signal.people.no_change}, worse ` +
+        `${signal.people.worse}, mixed ${signal.people.mixed}; detailed ${signal.report_quality.detailed}, measured ` +
+        `${signal.report_quality.measured}, bare one-liners ${signal.report_quality.bare}; studies ` +
+        `${escapeMarkdown(signal.studies)}${signal.studies_measured === undefined ? ""
+          : `, measured instead: ${escapeMarkdown(signal.studies_measured)}`}` +
+        `${signal.mechanism === undefined ? "" : `; a way it could work: ${escapeMarkdown(signal.mechanism)}`}`,
+      `- Forum threads read: ${signal.threads_read}, in ${signal.communities.map(escapeMarkdown).join(", ")}` +
+        `${signal.threads === undefined ? "" : `: ${signal.threads.map(escapeMarkdown).join(", ")}`}`,
+    ]),
   ];
 }
 

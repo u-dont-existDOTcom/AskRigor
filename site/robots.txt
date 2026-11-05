@@ -1,0 +1,9 @@
+# Unreviewed Atlas findings carry noindex on their pages; the sitemap lists only reviewed findings and the pages that
+# hold them (owner answer 224a, 2 Nov 2026). Searches, sign-in and accounts are not for crawling.
+User-agent: *
+Disallow: /atlas/search
+Disallow: /atlas/auth/
+Disallow: /atlas/account
+Allow: /
+
+Sitemap: https://askrigor.com/atlas/sitemap.xml

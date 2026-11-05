@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { validatePublicSite } from "../scripts/validate-public-site.mts";
+import { validatePublicSite, validateRobots } from "../scripts/validate-public-site.mts";
 
 const rootFile = (file: string) =>
   pathToFileURL(resolve(fileURLToPath(new URL("../", import.meta.url)), file));
@@ -311,6 +311,17 @@ describe("AskRigor public site", () => {
       "accessibility", "security", "Do not email API keys", "emergency", "local emergency services",
       "joel@askrigor.com"
     ]) expect(html).toContain(fragment);
+  });
+
+  it("points crawlers to the sitemap of reviewed findings and lets them read every finding page's noindex", async () => {
+    const robots = await readFile(rootFile("site/robots.txt"), "utf8");
+    expect(validateRobots(robots)).toEqual([]);
+    expect(robots).toContain("Sitemap: https://askrigor.com/atlas/sitemap.xml");
+    for (const blocked of ["Disallow: /", "Disallow: /atlas/findings", "Disallow: /atlas/topics/", "Disallow: /atlas"]) {
+      expect(validateRobots(`User-agent: *\n${blocked}\nDisallow: /atlas/search\nSitemap: https://askrigor.com/atlas/sitemap.xml\n`),
+        blocked).toHaveLength(1);
+    }
+    expect(validateRobots("User-agent: *\n")).toHaveLength(2);
   });
 
   it("ships accessible responsive styles", async () => {

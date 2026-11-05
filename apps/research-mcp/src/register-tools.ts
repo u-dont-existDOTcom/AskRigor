@@ -84,8 +84,10 @@ import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
   atlasReviewEnabledFromEnv,
+  crossrefConfigFromEnv,
   devAccountKeysFromEnv,
   findingsLibraryEnabledFromEnv,
+  ncbiConfigFromEnv,
   optionalLivingEvidenceReuseConfigFromEnv
 } from "./config.js";
 import type { AtlasReview } from "./findings/atlas-review.js";
@@ -211,6 +213,7 @@ import {
   type ResearchMapOptions,
 } from "./research-contributor-access-tool.js";
 import { SHARE_OFFER, sharedAnswersFromEnv, type SharedAnswers } from "./shared-answers.js";
+import { atlasReportDoorFromEnv } from "./atlas/report-door.js";
 import {
   AnalysisStaging,
   buildStagedAnalysis,
@@ -262,6 +265,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
+  backingRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -979,6 +983,8 @@ function defineResearchOperations(
   // account tool nor the final check's offer), when the server keeps them.
   const sharing = options.mcpSurface === "/mcp/gemini" ? undefined
     : options.sharedAnswers !== undefined ? options.sharedAnswers ?? undefined : sharedAnswersFromEnv();
+  // Owner answer 229a: people's reports to the Atlas, the MCP connector's like sharing.
+  const atlasReports = options.mcpSurface === "/mcp/gemini" ? undefined : atlasReportDoorFromEnv();
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -1943,6 +1949,7 @@ function defineResearchOperations(
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
       devAccountKeys: () => devAccountKeysFromEnv(),
+      ...(atlasReports === undefined ? {} : { atlasReports }),
       // Owner answer 200a: sharing is the MCP connector's, like the plain answer.
       ...(sharing === undefined ? {} : { sharedAnswers: { ...sharing, versions: async () =>
         options.runningVersions ?? await versionPayload().then(runningVersionsOf, () => ({})) } }),
@@ -2470,13 +2477,28 @@ function defineResearchOperations(
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
-      const lookups = sourceLineRequestsOf(result);
-      if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
-        const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
+      // Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same texts, and
+      // what came of them is signed into the finalization receipt.
+      const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
+      const backing = backingRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined) {
+        const given = lookups === undefined ? [] : checkedInput!.source_lines!;
+        const lines = [...given, ...(backing?.lines ?? [])];
+        const requests = [...(lookups ?? []),
+          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
+        const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
-        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
-          .catch(() => late);
-        gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
+        const looked = await withinDeadline(lookUpSourceLines(lines, requests, options.sourceLineTexts ?? AskRigorSourceLineTexts)
+          .catch(() => late), SOURCE_LINE_DEADLINE_MILLISECONDS, late);
+        const fromLines = lookups?.length ?? 0;
+        gateOptions = {
+          ...gateOptions,
+          ...(lookups === undefined ? {} : { sourceLineLookups: looked.slice(0, fromLines) }),
+          ...(backing === undefined ? {} : {
+            backingLookups: backing.lines.map(({ finding, line }, place) =>
+              ({ finding, line, lookup: looked[fromLines + place] ?? late[fromLines + place]! }))
+          })
+        };
         result = finalizeResearch(input, gateOptions);
       }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
@@ -3786,17 +3808,11 @@ async function verifyIntegrity(
 }
 
 function ncbiConfig() {
-  return {
-    tool: process.env.NCBI_TOOL ?? "askrigor",
-    email: process.env.NCBI_EMAIL ?? "",
-    ...(process.env.NCBI_API_KEY === undefined
-      ? {}
-      : { apiKey: process.env.NCBI_API_KEY })
-  };
+  return ncbiConfigFromEnv();
 }
 
 function crossrefConfig() {
-  return { mailto: process.env.CROSSREF_MAILTO ?? "" };
+  return crossrefConfigFromEnv();
 }
 
 function youtubeConfig() {

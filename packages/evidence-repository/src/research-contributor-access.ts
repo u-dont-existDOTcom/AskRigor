@@ -44,7 +44,7 @@ import {
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v4-2026-10-25" as const;
+  "free-contributor-v5-2026-11-05" as const;
 
 /**
  * Notices free accounts accepted before the current one, oldest first. Such an
@@ -53,12 +53,14 @@ export const RESEARCH_USE_NOTICE_VERSION =
  * decision Q11, 2026-09-30), v3 when findings the owner accepts may be
  * published in the public Atlas and the notice says what deleting a card
  * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22),
- * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25).
+ * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25), v5 when a card's
+ * summary of what communities reported holds links to the forum threads AskRigor read (owner answer 253a, 2026-11-05).
  */
 export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
+  "free-contributor-v4-2026-10-25",
 ] as const;
 
 const researchUseNoticeVersionSchema = z.enum([
@@ -68,12 +70,14 @@ const researchUseNoticeVersionSchema = z.enum([
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
 
-// Version 4 (owner answer 171, 2026-10-25), word for word: free cards publish on save, with the unreviewed label,
-// votes and comments; deleting a card removes it from the Atlas unless its findings were already accepted. An
-// accepted finding stays while it is valid. All other sentences remain version 3's.
+// Version 5 (owner answer 253a, 2026-11-05), word for word as the owner chose it: a card's summary of what public
+// online communities reported holds the communities, counts of what people reported and links to the forum threads
+// AskRigor read, never their posts or names, YouTube comments or video IDs. All other sentences remain version 4's
+// (owner answer 171, 2026-10-25: free cards publish on save, with the unreviewed label, votes and comments; deleting a
+// card removes it from the Atlas unless its findings were already accepted; an accepted finding stays while valid).
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
-  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
+  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
   "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",

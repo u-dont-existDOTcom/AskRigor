@@ -13,14 +13,19 @@ import {
   sha256,
 } from "@askrigor/evidence-repository";
 
-import { AtlasCardPublisher } from "../apps/research-mcp/src/atlas/publication.js";
+import { CONTEXT_REASON, AtlasPublicationReview } from "../apps/research-mcp/src/atlas/publication-review.js";
+import { AtlasCardPublisher, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
-import { FindingsSaveService, type FindingsSaveAccount } from "../apps/research-mcp/src/findings/service.js";
-import { AtlasSourceCheckCache } from "../apps/research-mcp/src/findings/source-checks.js";
+import {
+  FindingsSaveService,
+  type FindingsRecord,
+  type FindingsSaveAccount,
+} from "../apps/research-mcp/src/findings/service.js";
+import { AtlasSourceCheckCache, type AtlasSourceTitleLookup } from "../apps/research-mcp/src/findings/source-checks.js";
 import {
   createResearchContributionReviewHandler,
   researchContributionReviewInputSchema,
@@ -83,7 +88,11 @@ interface Reply {
   structured: Record<string, any>;
 }
 
-function harness(options: { enabled?: boolean; publications?: boolean } = {}) {
+function harness(options: {
+  enabled?: boolean;
+  publications?: boolean;
+  sourceTitles?: (providers: typeof PROVIDERS) => AtlasSourceTitleLookup;
+} = {}) {
   let instant = Date.parse("2026-11-04T09:00:00.000Z");
   const clock = () => new Date(instant);
   const github = new FakeGitHub();
@@ -115,6 +124,7 @@ function harness(options: { enabled?: boolean; publications?: boolean } = {}) {
     newIntentId: () => deterministicUuid(`atlas-publication-review-test:${sequence++}`),
     sourceCheckCache: new AtlasSourceCheckCache(),
     ...(options.publications === false ? {} : { publications }),
+    ...(options.sourceTitles === undefined ? {} : { sourceTitles: options.sourceTitles }),
   });
   const handler = createResearchContributionReviewHandler({
     allowedReviewerSubjects: new Set([OWNER]),
@@ -255,8 +265,8 @@ describe("the publications through the owner's review", () => {
     expect((await h.promote()).result.status).toBe("promoted");
     expect((await h.promote()).result.status).toBe("promoted");
     const corrected = await h.call({ action: "edit_finding", atlasNumber: "F-1001", version: 1,
-      wording: "In one invented trial of 240 adults, zentarine 20 mg halved the tremor score in 30 of 120 against 18 of " +
-        "120 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 12 of 120 against 6 of 120, a " +
+      wording: "In one invented trial of 480 adults, zentarine 20 mg halved the tremor score in 60 of 240 against 36 of " +
+        "240 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 24 of 240 against 12 of 240, a " +
         "number needed to harm of 20.",
       note: "Said the trial size without the condition.", eraseWording: true });
     expect(corrected.structured.outcome, corrected.text).toBe("finding_queued");
@@ -388,6 +398,119 @@ describe("the publications through the owner's review", () => {
     expect(reply.text).toContain(topicKey);
     expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"], topicKey, topicLabel })).isError).toBe(false);
     expect(withdraw).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds its card's question, usual answer and source titles to an older publication under its own number", async () => {
+    const asked: Array<{ providers: unknown; sources: string[] }> = [];
+    const h = harness({ sourceTitles: (providers) => async (sources) => {
+      asked.push({ providers, sources: [...sources] });
+      return new Map([[sources[0]!, { title: "An invented trial", year: 2025 }]]);
+    } });
+    const { topic: _topic, ...card } = VELMOR_CARD;
+    await h.save(card, null);
+    // Published before the card's context was: version 1's fields, filed under the owner's topic (owner answer 191b).
+    const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
+    const plants = { key: "plants", label: "Medicinal plants" };
+    await h.publications.publish({ cardNumber: 42, cardSha256: stored.card_sha256, publishedAt: "2026-11-04T08:00:00.000Z",
+      revive: false, findings: [1, 2].map((findingNumber) => ({ findingNumber, state: "unreviewed" as const, atlasNumber: null,
+        heldBecause: null, published: { ...publishedFindingOf(stored, findingNumber)!, topic: plants } })) });
+    const before = await h.publications.inspect({ cardNumbers: [42] });
+    expect(before.map(({ published }) => published?.schema)).toEqual(["askrigor.atlas-publication.v1", "askrigor.atlas-publication.v1"]);
+    const withdraw = vi.spyOn(h.publications, "withdraw");
+    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(reply.isError, reply.text).toBe(false);
+    expect(asked).toEqual([{ providers: PROVIDERS, sources: VELMOR_CARD.findings.map(({ sources }) => sources[0]!) }]);
+    const after = await h.publications.inspect({ cardNumbers: [42] });
+    expect(after.map(({ publicationNumber, state, publishedAt }) => [publicationNumber, state, publishedAt]))
+      .toEqual(before.map(({ publicationNumber, publishedAt }) => [publicationNumber, "unreviewed", publishedAt]));
+    for (const [index, row] of after.entries()) {
+      // Every stored field stays, the owner's topic included, and the card's context joins them.
+      const { schema: _schema, ...kept } = before[index]!.published!;
+      expect(row.published).toMatchObject({ ...kept, schema: "askrigor.atlas-publication.v2", question: VELMOR_CARD.question,
+        usual_answer: VELMOR_CARD.usual_answer, topic: plants });
+    }
+    expect(after.find(({ findingNumber }) => findingNumber === 1)!.published!.source_details)
+      .toEqual([{ source: VELMOR_CARD.findings[0]!.sources[0], title: "An invented trial", year: 2025 }]);
+    expect(withdraw).toHaveBeenCalledWith(expect.objectContaining({ reason: "owner_unpublished", ownerReason: CONTEXT_REASON,
+      publicationNumbers: before.map(({ publicationNumber }) => publicationNumber).sort() }));
+    expect(reply.text).toContain(`ARF-0042: P-1001 and P-1002 now show their card's question and usual answer`);
+    // Once it is there, publish_cards changes nothing.
+    expect((await h.call({ action: "publish_cards", cards: ["ARF-0042"] })).structured.publications.cards[0])
+      .toMatchObject({ outcome: "already_published" });
+    expect(withdraw).toHaveBeenCalledTimes(1);
+  });
+
+  it("picks up a publication an interrupted call took down for its context, and leaves the others' fields", async () => {
+    const h = harness();
+    await h.save(DOI_CARD, null);
+    const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
+    await h.publications.publish({ cardNumber: 42, cardSha256: stored.card_sha256, publishedAt: "2026-11-04T08:00:00.000Z",
+      revive: false, findings: [{ findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+        published: publishedFindingOf(stored, 1)! }] });
+    await h.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1001"], ownerReason: CONTEXT_REASON,
+      withdrawnAt: "2026-11-04T08:30:00.000Z" });
+    expect(await states(h)).toEqual([["P-1001", 42, 1, "withdrawn", null]]);
+    const reply = await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(reply.isError, reply.text).toBe(false);
+    expect(await states(h)).toEqual([["P-1001", 42, 1, "unreviewed", null]]);
+    expect((await h.publications.inspect({}))[0]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2",
+      question: DOI_CARD.question });
+    // One unpublished for another reason stays down until the owner publishes it again by name.
+    await h.publications.withdraw({ reason: "owner_unpublished", publicationNumbers: ["P-1001"], ownerReason: "Not now.",
+      withdrawnAt: "2026-11-04T09:30:00.000Z" });
+    await h.call({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect((await h.publications.inspect({}))[0]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2" });
+  });
+
+  it("keeps an older publication's fields when its card's context holds what the pages never show", async () => {
+    const parsed = findingsCardSchema.parse(VELMOR_CARD);
+    const record: FindingsRecord = {
+      schema: "askrigor.findings-card.v1",
+      card: { ...parsed, question: "Does zentarine help? Write to jane.doe@example.org with your answer." } as never,
+      card_sha256: findingsCardDigest(parsed),
+      stamp: { saved_at: "2026-11-04T08:00:00.000Z", askrigor_version: "0.1.0", askrigor_build: "0123abc",
+        protocols: PROTOCOLS, tool_catalog_sha256: "c".repeat(64), surface: "/mcp/claude",
+        research: { finalized_at: "2026-11-04T08:00:00.000Z", depth: "standard", status: "ready" } },
+    } as FindingsRecord;
+    const publications = new InMemoryAtlasPublicationStore();
+    await publications.publish({ cardNumber: 42, cardSha256: record.card_sha256, publishedAt: "2026-11-04T08:00:00.000Z",
+      revive: false, findings: [{ findingNumber: 1, state: "unreviewed", atlasNumber: null, heldBecause: null,
+        published: publishedFindingOf(record, 1)! }] });
+    const withdraw = vi.spyOn(publications, "withdraw");
+    const review = new AtlasPublicationReview({
+      publications,
+      store: { inspectCards: async () => [], inspectIntents: async () => [] },
+      reader: new InMemoryAtlasCanonicalStore(),
+      inbox: {
+        readCard: async () => ({ status: "found", card: { number: 42, state: "open", labels: [],
+          marks: { atlasPublish: false, paidPrivate: false }, record, occurrences: [], decisions: [] } }),
+        openCards: async () => [],
+        repositoryIssues: async () => [],
+        setAside: async () => undefined,
+      },
+      now: () => new Date("2026-11-04T09:00:00.000Z"),
+    });
+    const result = await review.run({ action: "publish_cards", cards: ["ARF-0042"] });
+    expect(result.ok).toBe(true);
+    expect(result.text).toContain("ARF-0042: P-1001 keeps its published fields: its card's question or usual answer holds " +
+      "an email address, which the pages never show.");
+    expect(withdraw).not.toHaveBeenCalled();
+    // The older publication stays as it was; the finding not published before is held for the owner.
+    expect((await publications.inspect({})).map(({ publicationNumber, state, published }) =>
+      [publicationNumber, state, published?.schema])).toEqual([
+      ["P-1002", "held", "askrigor.atlas-publication.v2"],
+      ["P-1001", "unreviewed", "askrigor.atlas-publication.v1"],
+    ]);
+  });
+
+  it("lists the cards that wait with the strongest claim first (the owner, 2 Nov 2026)", async () => {
+    const h = harness();
+    // Saved first: a low-certainty effect whose difference is not clear (strength 2).
+    await h.save(DOI_CARD);
+    // Saved second: a moderate effect with a clear difference of 10 out of 100 (strength 4).
+    await h.save(VELMOR_CARD);
+    const listed = await h.call({ action: "list_findings" });
+    expect(listed.structured.findings.cards.map(({ card }: { card: string }) => card)).toEqual(["ARF-0043", "ARF-0042"]);
   });
 
   it("uses the owner's topic for an unpublished older card and keeps a declared topic", async () => {

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_STATES,
   ATLAS_PUBLICATION_WITHDRAWN_REASONS,
   AtlasPublicationError,
@@ -71,6 +72,36 @@ describe("the published fields", () => {
       .toBe(false);
     // comment_audit is never a published basis.
     expect(atlasPublishedFindingSchema.safeParse({ ...published(), verified_bases: ["comment_audit"] }).success).toBe(false);
+  });
+
+  it("add the card's question and usual answer only in version 2, with titles that name a published source", () => {
+    const context = { question: "Does zentarine ease the tremor of Velmor syndrome?",
+      usual_answer: "A quick answer calls it gentle." };
+    const v2 = { ...published(), schema: ATLAS_PUBLICATION_SCHEMA_V2, ...context,
+      source_details: [{ source: "10.0000/synthetic-velmor-a", title: "An invented trial", year: 2025 }] };
+    expect(atlasPublishedFindingSchema.parse(v2)).toEqual(v2);
+    const { source_details: _titles, ...untitled } = v2;
+    expect(atlasPublishedFindingSchema.safeParse(untitled).success).toBe(true);
+    // Version 1 has none of them; version 2 has both texts.
+    for (const extra of [context, { question: context.question }, { source_details: v2.source_details }]) {
+      expect(atlasPublishedFindingSchema.safeParse({ ...published(), ...extra }).success, JSON.stringify(extra)).toBe(false);
+    }
+    for (const missing of ["question", "usual_answer"] as const) {
+      const { [missing]: _left, ...without } = v2;
+      expect(atlasPublishedFindingSchema.safeParse(without).success, missing).toBe(false);
+    }
+    // A title names one published source, once, with a year in range, and no field beyond.
+    for (const details of [
+      [{ source: "10.0000/not-published", title: "An invented trial", year: 2025 }],
+      [v2.source_details[0], v2.source_details[0]],
+      [{ ...v2.source_details[0], year: 1066 }],
+      [{ ...v2.source_details[0], title: "" }],
+      [{ ...v2.source_details[0], authors: "Someone" }],
+    ]) {
+      expect(atlasPublishedFindingSchema.safeParse({ ...v2, source_details: details }).success, JSON.stringify(details)).toBe(false);
+    }
+    expect(atlasPublishedFindingSchema.safeParse({ ...v2, question: "x".repeat(301) }).success).toBe(false);
+    expect(atlasPublishedFindingSchema.safeParse({ ...v2, usual_answer: "x".repeat(401) }).success).toBe(false);
   });
 });
 

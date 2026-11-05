@@ -64,12 +64,12 @@ const DOI_A = "10.0000/synthetic-velmor-a";
 const DOI_B = "10.0000/synthetic-velmor-b";
 
 const TREMOR = {
-  outcome: "tremor score halved", better: "more" as const, option: "zentarine 20 mg", option_events: 30,
-  option_total: 120, comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more" as const, option: "zentarine 20 mg", option_events: 60,
+  option_total: 240, comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 };
 const NAUSEA = {
-  outcome: "nausea", better: "fewer" as const, option: "zentarine 20 mg", option_events: 12, option_total: 120,
-  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+  outcome: "nausea", better: "fewer" as const, option: "zentarine 20 mg", option_events: 24, option_total: 240,
+  comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20,
 };
 const LOW_DOSE = {
   outcome: "tremor score halved", better: "more" as const, option: "zentarine 5 mg", option_events: 20,
@@ -88,9 +88,9 @@ export const VELMOR_CARD = {
   question: "Does zentarine ease the hand tremor of Velmor syndrome in adults, and what are its side effects?",
   usual_answer: "Zentarine is a gentle supplement that eases the tremor and is well tolerated.",
   findings: [{
-    claim: "In one invented trial of 240 adults with Velmor syndrome, zentarine 20 mg halved the tremor score in 30 of " +
-      "120 against 18 of 120 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 12 of 120 " +
-      "against 6 of 120, a number needed to harm of 20.",
+    claim: "In one invented trial of 480 adults with Velmor syndrome, zentarine 20 mg halved the tremor score in 60 of " +
+      "240 against 36 of 240 on placebo over 12 weeks, a number needed to treat of 10; nausea affected 24 of 240 " +
+      "against 12 of 240, a number needed to harm of 20.",
     certainty: "moderate",
     applies_to: "Adults with Velmor syndrome",
     answer_quote: "In the invented trial, zentarine 20 mg halved the tremor score for 1 in 10 more adults than placebo.",
@@ -360,9 +360,9 @@ export async function runAtlasScenario(
     // 5. A correction of F-1001: version 2, with a dated note.
     const corrected = await call("correct F-1001", {
       action: "edit_finding", atlasNumber: "F-1001", version: 1,
-      wording: VELMOR_CARD.findings[0]!.claim.replace("nausea affected 12 of 120 against 6 of 120, a number needed " +
-        "to harm of 20", "nausea affected 13 of 120 against 6 of 120, a number needed to harm of 18"),
-      numbers: [TREMOR, { ...NAUSEA, option_events: 13, nnh: 18 }],
+      wording: VELMOR_CARD.findings[0]!.claim.replace("nausea affected 24 of 240 against 12 of 240, a number needed " +
+        "to harm of 20", "nausea affected 26 of 240 against 12 of 240, a number needed to harm of 18"),
+      numbers: [TREMOR, { ...NAUSEA, option_events: 26, nnh: 18 }],
       note: "The invented trial report gives 13 cases of nausea on zentarine, not 12.",
     });
     assert.equal(corrected.structured.outcome, "finding_queued", corrected.text);
