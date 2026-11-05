@@ -59,6 +59,11 @@ owner's; the release needs the owner's explicit yes, as always.
    `tests/literature-outage-note.test.ts`. The run's 61 cases with a failed literature search wait for a rerun (owner
    question 248).
 
+7. **The private-map check reads the maps store (built).** The six Neal K. Shah maps were written on the owner's private
+   page as one summary table without video links, so the pre-push check read 13 maps, not 19, and protected none of the
+   six until that was noticed on 5 Nov (the page is now in the per-video form). The check now also reads
+   `askrigor/comment-maps.json` (schema `askrigor.comment-maps.v1`), so a page's layout can't hide a map.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy
