@@ -28,10 +28,11 @@ API money. It needs no review from the owner.
      the finding reads on its own. A passing mention in a list isn't the same as giving the point.
    - **Headline:** true and not in the quick answer, but it wouldn't change an important decision.
    - **Fail:** the quick answer already gives the finding's useful point, or offers something better.
-5. A pass goes to `show_on_pages` once its card carries the whole picture (below). Until AskRigor can store that, log
-   the pass and leave the finding kept. A headline or a fail goes to `keep_for_research` with the reason
-   `owner answer 240a: quick-answer test, headline` or `owner answer 240a: quick-answer test, failed`, so it isn't
-   tested twice.
+5. A pass goes to `show_on_pages` once its card carries the whole picture (below). Until AskRigor can store that, a
+   pass goes to `keep_for_research` with the reason `owner answer 240a: quick-answer test, passed, waiting for the whole
+   picture`, so it isn't tested twice and can be shown once its card is complete. A headline or a fail goes to
+   `keep_for_research` with the reason `owner answer 240a: quick-answer test, headline` or
+   `owner answer 240a: quick-answer test, failed`, so it isn't tested twice.
 6. Append each result to `askrigor/atlas-quick-answer-log.md` on owner-pages: the P number, the question, what the quick
    answer said, and the verdict.
 
