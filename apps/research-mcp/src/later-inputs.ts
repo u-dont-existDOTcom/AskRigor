@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
 import { laterUserObservationSchema, openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { communityLeadsSchema } from "./community-leads.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
@@ -47,7 +48,15 @@ const LATER_INPUT_SHAPES = Object.freeze({
     user_observations: z.array(laterUserObservationSchema).max(30).optional()
       .describe("user_observations' newer form, given here or at the top level, not both: as the top-level input, " +
         "and not_tried for a report whose writer never tried what it describes, such as a review of a book whose " +
-        "exercises the reviewer didn't do.")
+        "exercises the reviewer didn't do."),
+    // 5 Nov 2026 (the owner: "make sure that our feedback loop is working between forum signal and studies"): each lead
+    // people's reports raised, with the study search that followed it or why none did.
+    community_leads: communityLeadsSchema.optional()
+      .describe("Each option, form, dose, timing, responder group, harm or way it could work that the forum threads " +
+        "or YouTube comments read here raised and the question didn't name: searched, with the exact query of the " +
+        "study search that followed, what the studies showed and the answer's sentence on it, or not_searched, with " +
+        "why; an empty list when the reports raised nothing new. AskRigor checks the reads, searches and sentences " +
+        "against this call's receipts and answer_draft; what it finds are notes, and leads not searched are a limit.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

@@ -30,8 +30,8 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
 `FINAL_CHECK_BLOCKING_RULES` in `research-finalization-gate.ts` names this set. A single admission point checks
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
-landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
-currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
+landscape coverage, Atlas lookups, community reports and their counts, the leads people's reports raised and the study
+searches that followed them, omitted carried lists and tool-list currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
 note its turn's checks gave, and a later check of that turn leaves those out, with one line saying how many and that a
 note still stands unless the draft or the call's declarations already meet it; a note whose words changed is new, and
 the next turn gives notes again. Notes on the call's own input or the conversation's continuity (input problems,
@@ -160,6 +160,30 @@ people is meaning, so what AskRigor finds (the same registration given twice, a 
 registration listing another study's paper, identical figures) joins nothing: each is a hint, worded as a question for
 the AI that names the link each answer calls for. Every finding is a note naming each item by its place as given, beside the runtime `study_map` result, and
 consumes no round; what the shared deadline allowed is kept.
+
+The loop from people's reports to studies (the owner, 5 November 2026: "make sure that our feedback loop is working
+between forum signal and studies"; not yet released) adds one optional later input and no blocking rule
+(`apps/research-mcp/src/community-leads.ts`). HRP already asks for the loop: `CommunityToFormalHypothesisTransfer` turns
+repeated or high-value community observations into study searches, `FormalAbsenceCannotEraseCommunitySignal` records
+how studies relate to the signal, and `MatchedContradictionAndOutcomeAlignment` lets a study contradict reports only when
+it measured the same thing. Yet judges reading 18 runs lead by lead found 19 of the 98 leads forum threads or comments
+raised searched in studies, and no answer saying a lead went unsearched. `community_leads`, sent in `later_inputs`, lists
+up to 12 leads: the option, form, dose, timing, responder group, harm or way it could work that the reports raised and
+the question didn't name; where each was read (`from`: a thread's link `read_forum_thread` read, or `video:<id>` for
+comments AskRigor read); and either `searched`, with the exact query of the study search that followed, what the studies
+showed (`corroborated`; `contradicted`, only when they measured it the way the reports did; `outcome_mismatch`; or
+`support_not_located`) and the answer's sentence on it, or `not_searched`, with why. An empty list means the reports
+raised nothing new. Each check is exact, and each finding is a note naming the entry by its place as given: no list
+while this call's receipts show threads or comments read (a verified `forum_thread_read` or `youtube_comments_read`, a
+video audit that returned comments, or the videos a one-call audit for this research target read), with how many; a
+`from` those receipts don't show read; a searched lead without its query, or with a query no `literature_search`
+receipt signed (a forum or YouTube search of the same words is not a study search), without `studies`, or without a
+sentence the answer shows (for `support_not_located`, the sentence that the search found none); and a lead not searched
+without its reason. The leads not searched are one limit, "Leads from people's reports that this research did not
+search in studies: …" ("A lead …" for one). Which reports raise a lead, and what the studies showed, stay the AI's
+judgment, in any language. The results of `read_forum_thread`, `get_youtube_comments`, `search_youtube_comments` and the
+two comment audits ask for the loop where the reports are read. The other direction, a study's finding followed up in
+the communities, is next.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

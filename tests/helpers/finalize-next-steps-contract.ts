@@ -78,12 +78,19 @@ export const copiedLimitsNote = (count: number): string => `The draft repeats ${
   "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
   "should believe or do, in your own words, and call finalize_research again with the changed draft.";
 
-/** Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes. */
+/**
+ * Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes, and
+ * tests/community-leads.test.ts the note asking for the leads people's reports raised (5 Nov 2026).
+ */
 export function notesApartFromCommunityReminders(result: FinalizeResearchOutput): string[] {
   return advisoryNotes(result).filter((note) => !note.startsWith("Forum evidence rests on ") && !note.startsWith("No forum thread was read.") &&
     !note.startsWith("No study search came after the community research.") &&
+    !note.startsWith(COMMUNITY_LEADS_MISSING) &&
     !note.startsWith("Research went past the emergency warning, so community evidence applies:"));
 }
+
+/** The start of the note asking for later_inputs.community_leads after people's reports were read. */
+export const COMMUNITY_LEADS_MISSING = "community_leads is missing: this research read ";
 
 /** A limit remains available independently of how the draft phrases or omits it (owner 195). */
 export function expectPassingLimits(result: FinalizeResearchOutput, limits: readonly string[]): void {

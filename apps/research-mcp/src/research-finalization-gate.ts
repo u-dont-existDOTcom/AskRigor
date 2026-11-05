@@ -10,6 +10,7 @@ import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import { communityLeadVideo, readCommunityLeads } from "./community-leads.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -244,6 +245,26 @@ export const OPTION_CLASS_CAVEAT_STARTS = {
 /** The caveat for a class not researched or out of reach: the server's words and the declared class, ending as a sentence. */
 export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS, optionClass: string): string {
   return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
+}
+
+// Leads from people's reports that the research did not search in studies (community_leads, 5 November 2026) reach the
+// answer in one sentence naming each, in the colon form of owner answer "165a": two phrases of one kind share the colon,
+// separated by "; ".
+export const NOT_SEARCHED_LEADS_CAVEAT_STARTS = {
+  one: "A lead from people's reports that this research did not search in studies:",
+  several: "Leads from people's reports that this research did not search in studies:"
+} as const;
+
+/**
+ * The caveat for the leads not searched in studies: the server's words and each declared lead, on one line, ending as
+ * a sentence. A lead before the last loses its closing mark, so the leads join cleanly; the last keeps its own.
+ */
+export function notSearchedLeadsCaveat(leads: readonly string[]): string {
+  const phrases = leads.map((lead, index) => {
+    const phrase = lead.replace(/\s+/gu, " ").trim();
+    return index === leads.length - 1 ? phrase : phrase.replace(/[\s\p{STerm};:,]+$/u, "");
+  });
+  return completedCaveat(NOT_SEARCHED_LEADS_CAVEAT_STARTS[phrases.length === 1 ? "one" : "several"], phrases.join("; "));
 }
 
 // The one thing a question is about, and a video the person gave that AskRigor could not read (AskRigor#359: an answer
@@ -1111,6 +1132,8 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
   /** The study map as checked (owner answer 249a): each item at its place as given. */
   studyMap?: CheckedStudyMap;
+  /** Each accepted community_leads entry's place as given, in order (5 November 2026). */
+  leadPlaces?: number[];
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
@@ -1148,9 +1171,21 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
     if (read.given === undefined) delete normalized.study_map;
     else normalized.study_map = read.given;
   }
+  // So are the leads from people's reports (5 November 2026): an entry left out never moves the others' places.
+  let leadPlaces: number[] | undefined;
+  if (normalized.community_leads !== undefined) {
+    const read = readCommunityLeads(normalized.community_leads);
+    notes.push(...read.notes);
+    if (read.leads === undefined) delete normalized.community_leads;
+    else {
+      normalized.community_leads = read.leads;
+      leadPlaces = read.places;
+    }
+  }
   const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
   return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}),
-    ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }) };
+    ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }),
+    ...(leadPlaces === undefined ? {} : { leadPlaces }) };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -2042,6 +2077,8 @@ export function finalizeResearch(
   const offTarget: FinalizeResearchOutput["receipts_rejected"] = [];
   const offTargetVideos = new Set<string>();
   let directlyReadComments = false;
+  // The videos whose comments get_youtube_comments or search_youtube_comments returned, a lead's source (community_leads).
+  const directlyReadVideos = new Set<string>();
   for (const receipt of verified) {
     const { kind, claims } = receipt;
     if (DISCOVERY_KINDS.has(kind) && text(claims.target) !== targetDigest) {
@@ -2087,7 +2124,10 @@ export function finalizeResearch(
         Number(text(claims.shown) || text(claims.records)),
         text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
-    if (kind === "youtube_comments_read") directlyReadComments = true;
+    if (kind === "youtube_comments_read") {
+      directlyReadComments = true;
+      if (text(claims.video) !== "") directlyReadVideos.add(text(claims.video));
+    }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
       // survey; each material video still needs its own video audit.
@@ -2432,6 +2472,95 @@ export function finalizeResearch(
       caveatOnce(entry.state === "not_researched" ? rule`A plausible class of treatment, ${optionClass}, was not researched: say so in the answer, as the caveat does.` : joinRules(rule`The research on a plausible class of treatment, ${optionClass}, was out of reach: say so in the answer, as `, "the caveat does."),
       optionClassCaveat(entry.state, entry.option_class));
     }
+  }
+
+  // Leads from people's reports, and the study search that followed each (the owner, 5 November 2026: "make sure that
+  // our feedback loop is working between forum signal and studies"; HRP CommunityToFormalHypothesisTransfer,
+  // FormalAbsenceCannotEraseCommunitySignal and MatchedContradictionAndOutcomeAlignment; community-leads.ts). Judges
+  // reading 18 runs found 19 of 98 leads from forum threads or comments searched in studies, and no answer saying a lead
+  // went unsearched. As option_classes' are, each part the model declares is checked exactly: where it read a lead, by
+  // this call's read receipts; a search, by a literature-search receipt's query; a sentence, by the draft (with the
+  // other declared quotes, below). Which reports raise a lead, and what the studies showed, stay the model's judgment.
+  // Every finding is a note; the leads not searched are one limit.
+  // Each thread once, by the link the reader landed on; each video whose comments the model received.
+  const leadThreads = new Set(landedRead.values());
+  const leadVideos = new Set([...commentVideos, ...directlyReadVideos]);
+  const leadRead = (source: string): boolean => {
+    const video = communityLeadVideo(source);
+    return video === undefined ? forumReadUrls.has(forumThreadDigest(source)) : leadVideos.has(video);
+  };
+  const communityLeads = input.community_leads ?? [];
+  // Each entry by its place as given, though an entry before it was left out.
+  const leadAt = (index: number): string => `community_leads[${parsed.leadPlaces?.[index] ?? index}]`;
+  if (input.community_leads === undefined && input.answer_draft !== undefined && leadThreads.size + leadVideos.size > 0) {
+    const threadsRead = rule`${leadThreads.size} forum ${leadThreads.size === 1 ? rule`thread` : rule`threads`}`;
+    const videosRead = rule`the comments of ${leadVideos.size} ${leadVideos.size === 1 ? rule`video` : rule`videos`}`;
+    const read = leadVideos.size === 0 ? threadsRead : leadThreads.size === 0 ? videosRead
+      : rule`${threadsRead} and ${videosRead}`;
+    addStep("declaration", joinRules(rule`community_leads is missing: this research read ${read}. `,
+      "In later_inputs.community_leads, list each option, form, dose, timing, responder group, harm or way it could ",
+      "work that those reports raised and the question didn't name, as {lead, from, state, search_query, studies, ",
+      "answer_quote, reason}: from gives the links of the threads read_forum_thread read, or video:<id> for the ",
+      "comments read; searched gives the exact search_query of the search_pubmed, search_europe_pmc or ",
+      "search_clinical_trials call that followed, studies (corroborated, contradicted, outcome_mismatch or ",
+      "support_not_located) and the answer's sentence on what it found as answer_quote; not_searched gives reason. ",
+      "An empty list means the reports raised nothing new."));
+  }
+  // The leads not searched, each once, as harms and classes are compared.
+  const leadsNotSearched = new Map<string, string>();
+  for (const [index, entry] of communityLeads.entries()) {
+    const at = leadAt(index);
+    const lead = plainPhrase(entry.lead).replace(/\s+/gu, " ");
+    const unread = entry.from.flatMap((source, place) => leadRead(source) ? [] : [`from[${place}]`]);
+    if (unread.length > 0) {
+      addStep("declaration", joinRules(
+        rule`${at}.${joinNames(unread)} ${unread.length === 1 ? rule`is not a read` : rule`are not reads`} this `,
+        "call's receipts show: give the link of a thread read_forum_thread read, or video:<id> for a video whose ",
+        "comments AskRigor read, and pass that read's research_receipt in receipts, or leave it out of from."));
+    }
+    // Each state's own field; another state's field, if given, is not used.
+    if (entry.state === "searched") {
+      // Searched with a query a literature-search receipt in this call signed, compared by its digest as a class
+      // researched is: a forum or YouTube search signing the same query is not a study search.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      if (query === undefined) {
+        addStep("declaration", joinRules(rule`${at} is searched without search_query: give the exact query ${lead} `,
+          "was searched with in search_pubmed, search_europe_pmc or search_clinical_trials, and pass that search's ",
+          "research_receipt, or declare it not_searched with reason."));
+      } else if (!verified.some(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query)) {
+        addStep("research", joinRules(rule`${at}.search_query is not the query of any literature search passed here: `,
+          rule`search ${lead} with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, `,
+          "and pass its research_receipt, or declare it not_searched with reason."));
+      }
+      if (entry.studies === undefined) {
+        addStep("declaration", joinRules(rule`${at} is searched without studies: say what the studies showed about `,
+          rule`${lead} as corroborated, contradicted (only when they measured it the way the reports did), `,
+          "outcome_mismatch (they measured something else) or support_not_located (the search found no study of it)."));
+      }
+      // A search that found no study is said in the answer too: the quote rule is the same, and nothing reads its words.
+      if (entry.answer_quote === undefined) {
+        addStep("answer_draft", entry.studies === "support_not_located"
+          ? joinRules(rule`${at}'s search found no study of ${lead}, and it gives no answer_quote: say in the answer `,
+            "that the search found none, and copy that sentence from answer_draft.")
+          : joinRules(rule`${at} is searched without answer_quote: say in the answer what the search for ${lead} `,
+            "found, and copy that sentence from answer_draft."));
+      }
+      continue;
+    }
+    if (entry.reason === undefined) {
+      addStep("declaration", rule`${at} is not_searched without reason: say why ${lead} was not searched in studies, in 10 to 300 characters.`);
+    }
+    // The lead reaches the reader in the caveat, so it shows no internal labels, as a class not researched does.
+    const labels = internalLabels(entry.lead, options.protocolNames ?? new Set());
+    if (labels.length > 0) {
+      addStep("declaration", joinRules(joinRules(rule`${at}.lead shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names this lead in its caveat, so give it in plain `), "words."));
+    }
+    if (!leadsNotSearched.has(caveatText(lead))) leadsNotSearched.set(caveatText(lead), entry.lead);
+  }
+  if (leadsNotSearched.size > 0) {
+    const leads = [...leadsNotSearched.values()];
+    caveatOnce(joinRules(rule`Leads from people's reports were not searched in studies (${joinNames(leads.map(plainPhrase))}): `,
+      "say so in the answer, as the caveat does."), notSearchedLeadsCaveat(leads));
   }
 
   // Key studies.
@@ -3677,6 +3806,9 @@ export function finalizeResearch(
         // A class researched is shown in the answer by the sentence on what its search found.
         ...optionClasses.flatMap(({ state, answer_quote: quote }, index) => state === "researched" && quote !== undefined
           ? [{ at: `option_classes[${index}].answer_quote`, quote }] : []),
+        // So is a lead from people's reports searched in studies, by its sentence on what the search found.
+        ...communityLeads.flatMap(({ state, answer_quote: quote }, index) => state === "searched" && quote !== undefined
+          ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
         // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
         ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
           { at: `binary_results[${index}]`, quote },

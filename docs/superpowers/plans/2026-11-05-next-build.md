@@ -136,6 +136,30 @@ owner's; the release needs the owner's explicit yes, as always.
       reported from a writing exercise; the web-search limit for a page the reader read under another link form;
       a zero-hit Reddit search reported as a host failure ("WEBSITE_FORMAT_CHANGED").
 
+12. **The loop from people's reports to studies (built)** (the owner, 5 Nov: "make sure that our feedback loop is
+    working between forum signal and studies, i'm still not quite sure i'm seeing that in practice"). HRP already asks
+    for it (`CommunityToFormalHypothesisTransfer`, with owner answer 250a's one tried, cheap, low-risk option;
+    `FormalAbsenceCannotEraseCommunitySignal`; `MatchedContradictionAndOutcomeAlignment`). Judges read 18 recent runs
+    lead by lead: of 98 options, doses, forms, responder groups and harms that forum threads or comments raised, 19 got a
+    study search, most of them harms; 49 reached the answer only as reports, and 30 were dropped. Cheap options people
+    had tried went unsearched (sleeping on a wedge, B vitamins, fish oil, sea buckthorn after omega-3 failed). No answer
+    said that a reported lead went unsearched, and two described searches the run never made. The protocol's words
+    don't move the model; the final check's notes do, so the loop gets an exact check of what the model declares.
+    - **Built:** `community_leads`, a later input of `finalize_research` (`apps/research-mcp/src/community-leads.ts`;
+      the frozen tool lists don't change). Each of up to 12 leads gives `lead`, `from` (a thread `read_forum_thread`
+      read, or `video:<id>` for comments AskRigor read), and `searched` with the study search's exact query, what the
+      studies showed (`corroborated`, `contradicted` only when they measured it the way the reports did,
+      `support_not_located`, `outcome_mismatch`) and the answer's sentence, or `not_searched` with why. All checks are
+      notes, in the `option_classes` pattern: a missing list after threads or comments were read (with how many); a
+      `from` no read receipt shows; a search no `literature_search` receipt signed; a missing `studies`, sentence or
+      reason. The leads not searched are one limit: "Leads from people's reports that this research did not search in
+      studies: …". Entries are read one at a time, as the study map's are, so a dropped entry never moves the others'
+      places in the notes. `read_forum_thread`, `get_youtube_comments`, `search_youtube_comments` and the two comment
+      audits ask for the loop in their results. Test `tests/community-leads.test.ts`.
+    - **Next:** the other direction, a study's finding followed up in the communities (HRP's
+      `NoFixedStudiesThenCommunitySequence`: a formal finding that could explain or challenge the community pattern
+      reopens community sampling). Then measure: rejudge the leads of a regression run on this build.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy

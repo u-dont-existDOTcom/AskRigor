@@ -34,6 +34,7 @@ import { mcpYoutubeCommunityAuditOutputSchema, mcpYoutubeVideoCommunityAuditOutp
 import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/youtube-community-survey.js";
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
+import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -574,7 +575,7 @@ describe("AskRigor MCP tools", () => {
         text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
           `pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} This lock covers retrieving these YouTube comments only; other communities and the ` +
           "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
-          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
+          `give it to finalize_research as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       });
       expectCommunityRemindersInTextOnly(result);
       expect(result.structuredContent).toStrictEqual(mcpYoutubeCommunityAuditOutputSchema.parse(result.structuredContent));
@@ -1108,7 +1109,7 @@ describe("AskRigor MCP tools", () => {
         text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
           "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
-          "as community_findings, even if the signal is weak or neutral."
+          `as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
@@ -2004,7 +2005,8 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete."
+        // 5 Nov 2026: comments that came back raise leads for studies, so the result asks for the loop.
+        text: `YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -2104,7 +2106,7 @@ describe("AskRigor MCP tools", () => {
         text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial. " +
           "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence " +
           "that commenters do not report something; read the full comments with audit_youtube_video_community before " +
-          "saying so."
+          `saying so. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       // No count from a query-bounded search, zero included, may be read as absence.
       expect(result.structuredContent).toMatchObject({

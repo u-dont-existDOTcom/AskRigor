@@ -2,6 +2,7 @@ import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
+import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
@@ -1636,7 +1637,8 @@ function defineResearchOperations(
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return withResearchReceipt(youtubeToolResult(
-          `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
+          `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.` +
+            commentLeadsGuidance(result),
           result
         ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
@@ -1667,7 +1669,8 @@ function defineResearchOperations(
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return withResearchReceipt(youtubeToolResult(
-          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
+          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}` +
+            commentLeadsGuidance(result),
           commentSearchOutput(result)
         ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
@@ -2924,10 +2927,11 @@ function reservedResultBytes(text: string, receipt: string | undefined): number 
   return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + reminderBytes + 200;
 }
 // A pass lock says the comments were retrieved, not that they reached the answer.
+// 5 Nov 2026: the loop from people's reports to studies is asked for where the comments are read (community-leads.ts).
 const MCP_COMMENT_FINDINGS_HANDOFF =
   "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
   "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research as " +
-  "community_findings, even if the signal is weak or neutral.";
+  `community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`;
 const MCP_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view; read each video's comments with audit_youtube_video_community.";
 const MCP_VIDEO_COMMENTS_NOT_SHOWN =
@@ -3342,6 +3346,12 @@ function researchReceipt(
   return secret === undefined
     ? undefined
     : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
+}
+
+// 5 Nov 2026: comments returned outside an audit raise leads for studies too, so their result asks for the loop
+// (community-leads.ts) when comments came back, as their receipt is signed.
+function commentLeadsGuidance(result: { error?: unknown; pagination: { returned: number } }): string {
+  return result.error === undefined && result.pagination.returned > 0 ? ` ${COMMUNITY_LEADS_GUIDANCE}` : "";
 }
 
 // Owner answer 219b: comments returned outside an audit leave a receipt too, so a findings card that says nothing about
