@@ -1,4 +1,6 @@
-import { findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs } from "./later-inputs.js";
+import {
+  findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
+} from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -1152,7 +1154,8 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
-  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined, { keepUsable: true });
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined,
+    { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
   const notes = problems.map(({ path, message, kind }) =>
     kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
   // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
@@ -2018,10 +2021,16 @@ export function finalizeResearch(
   // either form matches, and both stand for one thread (5 Nov 2026: l34 on #412's build declared LongeCity's
   // /forum/topic/63977-…/page-2, which the reader read as viewtopic.php?t=1063977&start=30).
   const landedRead = new Map<string, string>();
+  // Whether AskRigor's reader read each thread to its end, by either link's digest: a read with nothing after it (e 1).
+  // A receipt from before the reader said is counted as one (the third check of 5 Nov 2026).
+  const threadReadToEnd = new Map<string, boolean>();
   for (const { claims } of verified.filter(({ kind }) => kind === "forum_thread_read")) {
     if (typeof claims.u !== "string") continue;
     landedRead.set(claims.u, claims.u);
     if (typeof claims.a === "string" && !landedRead.has(claims.a)) landedRead.set(claims.a, claims.u);
+    for (const link of [claims.u, claims.a]) {
+      if (typeof link === "string") threadReadToEnd.set(link, threadReadToEnd.get(link) === true || claims.e !== "0");
+    }
   }
   const forumReadUrls: ReadonlySet<string> = new Set(landedRead.keys());
   // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
@@ -2846,12 +2855,14 @@ export function finalizeResearch(
   // How each key source was read, as this check verifies it, and which ones the draft cites, by a link its receipts tie
   // to it or by its identifier in the prose a reader sees (the owner, 5 Nov 2026; source-reading.ts).
   const readings: Array<AnswerReading | undefined> = [];
-  // What each key source's receipts show of it, and whether AskRigor's reader read it as a forum thread.
+  // What each key source's receipts show of it, a forum thread's read among them.
   const shownReadings: Array<ReadonlySet<ShownReading>> = [];
-  const threadsRead = new Set<number>();
   const citedSources = new Set<number>();
-  const shownProse = input.answer_draft === undefined ? ""
-    : displayedProse(input.answer_draft).map(visibleText).join("\n");
+  // The displayed blocks (paragraphs, list items, headings) and, for each key source, those that cite it, as the
+  // check reads a citation: a link its receipts tie to it, or its identifier (the third check of 5 Nov 2026).
+  const shownBlocks = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft);
+  const citingBlocks: Array<ReadonlySet<number>> = [];
+  const shownProse = shownBlocks.map(visibleText).join("\n");
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
     const threadRead = threadReadHere(source.id);
@@ -2867,7 +2878,11 @@ export function finalizeResearch(
     const searchCopy = audited && sourceReceipts.every(({ kind, claims }) => (kind !== "study_audit" &&
       kind !== "review_audit") || claims.retrieval_provider === "client_search_index");
     const fullReads = sourceReceipts.filter(({ kind }) => kind === "full_text_read");
-    const read = audited || fullReads.length > 0;
+    // A forum thread AskRigor's reader read is read as its receipt signs: to its end, the plain full reading, and
+    // otherwise part of it; a thread is never method-audited nor read as an abstract (the third check of 5 Nov 2026).
+    const threadReading: AnswerReading | undefined = !threadRead ? undefined
+      : threadReadToEnd.get(forumThreadDigest(source.id)) === true ? "full_text_read" : "partial_text";
+    const read = audited || fullReads.length > 0 || threadReading === "full_text_read";
     // The review of 5 Nov 2026: every full reading was of a copy the AI found, which reads so, as an audit's does.
     const readSearchCopy = fullReads.length > 0 &&
       fullReads.every(({ claims }) => claims.retrieval_provider === "client_search_index");
@@ -2889,10 +2904,13 @@ export function finalizeResearch(
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
     }
-    readings[index] = verifiedAnswerReading(source.read_depth,
+    readings[index] = threadReading ?? verifiedAnswerReading(source.read_depth,
       { audited, searchCopy, read, readSearchCopy, atlasChecked: checkedInAtlas(source.id) });
-    shownReadings[index] = receiptReadings(sourceReceipts, checkedInAtlas(source.id));
-    if (threadRead) threadsRead.add(index);
+    const receiptsShow = receiptReadings(sourceReceipts, checkedInAtlas(source.id));
+    if (threadReading !== undefined) receiptsShow.add(threadReading);
+    shownReadings[index] = receiptsShow;
+    citingBlocks[index] = new Set(shownBlocks.flatMap((block, at) =>
+      linksFor(block).some(linked) || identifierShown(visibleText(block), id) ? [at] : []));
     if (input.answer_draft !== undefined) {
       if (studyLinks.some(linked) || identifierShown(shownProse, id)) citedSources.add(index);
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
@@ -3024,7 +3042,7 @@ export function finalizeResearch(
         entries.set(key, [...(entries.get(key) ?? []), entry]);
       }
     }
-    const showing = quoteLocator(displayedProse(input.answer_draft ?? ""));
+    const showing = quoteLocator(shownBlocks);
     const checkedKeys = new Set<string>();
     for (const [index, source] of input.key_sources.entries()) {
       const key = keyIds[index]!;
@@ -3033,9 +3051,9 @@ export function finalizeResearch(
       const reading = readings[index];
       const shownSet = shownReadings[index] ?? new Set<ShownReading>();
       if (reading !== undefined) {
-        // A thread AskRigor's reader read is read as its receipt signs; a paper's reading is shown when its receipts
-        // show it, and otherwise the panel lists it apart, with what they do show.
-        const shown = threadsRead.has(index) || readingShown(reading, shownSet);
+        // A reading is shown when the source's receipts show it, a thread's read among them, and otherwise the panel
+        // lists it apart, with what they do show.
+        const shown = readingShown(reading, shownSet);
         const receipts = shown ? undefined : deepestShown(shownSet);
         sourceReadings.push({ source: source.id, name: keySourceName(source).text, reading, shown,
           ...(receipts === undefined ? {} : { receipts }) });
@@ -3047,8 +3065,15 @@ export function finalizeResearch(
       const deepest = deepestShown(shownSet);
       const bar = reading ?? (deepest === undefined ? undefined : declarableReading(deepest));
       const otherRoute = source.other_route === "read";
-      // Each entry whose quote the draft shows, with how its reading compares; one whose quote it doesn't show is aside.
-      const shownEntries = given.filter(({ quote }) => showing(quote).length > 0).map((entry) => ({
+      // Each entry whose quote the draft shows in a block that cites this source (the third check of 5 Nov 2026: the
+      // quotes are often the check's own generic words, so another study's label showed a stale entry), and not only
+      // inside another of its own entries' quotes, as "full text read" is inside "full text read from a copy the AI
+      // found", with how its reading compares; any other entry is set aside.
+      const citing = citingBlocks[index] ?? new Set<number>();
+      const placed = given.map((entry) => ({ entry, at: showing(entry.quote).filter((block) => citing.has(block)) }))
+        .filter(({ at }) => at.length > 0);
+      const shownEntries = placed.filter(({ entry, at }) => quoteShownBeyond(shownBlocks, entry.quote,
+        placed.filter((other) => other.entry !== entry).map((other) => other.entry.quote), at)).map(({ entry }) => ({
         entry,
         verdict: bar === undefined ? "same" as const : judgeSourceReading(entry.reading, bar, shownSet, { otherRoute })
       }));
@@ -3064,7 +3089,7 @@ export function finalizeResearch(
             rule`source ${source.id}, reading ${reading}, and quote those words copied from answer_draft.`));
       } else if (shownEntries.length === 0) {
         addBlockingStep("read_depth", "answer_draft", joinRules(
-          rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
+          rule`source_reading's quote for ${source.id} is not in the answer beside it: say beside it how it was read${how}, `,
           "in the answer's language, and copy those words exactly from answer_draft."));
       } else if (claimsMore !== undefined && bar !== undefined) {
         const given = claimsMore.entry.reading;
@@ -3075,8 +3100,9 @@ export function finalizeResearch(
         addBlockingStep("read_depth", "answer_draft", joinRules(
           rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
           reading === undefined
-            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). Say that beside it instead, `
-            : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). Say that beside it instead, `,
+            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+            : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
+          rule`Remove the source_reading entry claiming ${given} for it, say that beside it instead, `,
           rule`in the answer's language, and give source_reading reading ${bar} with those words as its quote, copied `,
           declarable
             ? rule`from answer_draft; or, if it was read so, give key_sources.read_depth ${given} for it, which needs no receipt.`
@@ -4952,6 +4978,28 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
     return quoteBlocks.flatMap(({ targets, text }, index) =>
       targets.includes(byTarget) || text.includes(byText) ? [index] : []);
   };
+}
+
+/**
+ * Whether a quote shows in any of the given blocks outside every longer quote that holds it (the third check of 5 Nov
+ * 2026): "full text read", met only inside "full text read from a copy the AI found", says nothing of its own there.
+ * Compared as quoteLocator compares, by a link's target and by its text, so exact and the same in any language.
+ */
+function quoteShownBeyond(shownBlocks: readonly string[], quote: string, others: readonly string[],
+  at: readonly number[]): boolean {
+  const [byTarget, byText] = quoteForms(quote);
+  const longer = others.map(quoteForms).filter(([target, text]) =>
+    (target.length > byTarget.length && target.includes(byTarget)) || (text.length > byText.length && text.includes(byText)));
+  if (longer.length === 0) return true;
+  return at.some((index) => {
+    let targets = caveatText(linkTargets(shownBlocks[index]!));
+    let text = caveatText(visibleText(shownBlocks[index]!));
+    for (const [target, words] of longer) {
+      if (target !== "") targets = targets.split(target).join("\u0000");
+      if (words !== "") text = text.split(words).join("\u0000");
+    }
+    return (byTarget !== "" && targets.includes(byTarget)) || (byText !== "" && text.includes(byText));
+  });
 }
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */

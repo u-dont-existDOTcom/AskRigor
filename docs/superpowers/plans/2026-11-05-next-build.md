@@ -292,6 +292,16 @@ owner's; the release needs the owner's explicit yes, as always.
          of whose text, was readable shows that reading.
       9. A `WEBSITE_FORMAT_CHANGED` search counts only as "couldn't search", with its own note; `name_forms` count only
          with `key_name` given and shown, and with only that missing the ask is for it alone.
+    - **The third check of #414 at 00a1a28f (5 Nov 2026)**, still six blocking rules and the frozen tool lists unchanged:
+      1. An entry counts only where its quote shows in a block citing its own source (the check's citation: a tied link,
+         or its DOI, PMID or PMCID), and not only inside another of its entries' quotes; a blocking step names the entry
+         to remove.
+      2. Only `source_reading`, `name_forms`, `key_name` and `search_coverage` fall back to their top-level form; a
+         findings card, or anything else saved or published, never does (its unusable later form is kept privately).
+      3. A forum thread key source is read as its read receipt signs (to its end, full text read; part-way, part read;
+         the receipt now signs `e`), and its entries are held to that.
+      4. Only an explicit off is the marker: "off", false, ["off"], also in a JSON-string later_inputs; true, "on" and
+         free text are not, with a note that the account's setting decides.
 
 ## Measures waiting
 

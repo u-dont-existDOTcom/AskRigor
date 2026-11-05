@@ -3521,7 +3521,7 @@ function registerOpenFullTextMcpTools(
       // The recheck of 5 Nov 2026: a test run's audit, marked findings_save, is never held for the review inbox.
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
       return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit), extra,
-        options, marker !== undefined && marker !== null);
+        options, findingsSaveOff({ findings_save: marker }));
     }
   );
   registrar.registerTool(
@@ -3535,7 +3535,7 @@ function registerOpenFullTextMcpTools(
     async (input, extra) => {
       const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
       return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit), extra,
-        options, marker !== undefined && marker !== null);
+        options, findingsSaveOff({ findings_save: marker }));
     }
   );
 }

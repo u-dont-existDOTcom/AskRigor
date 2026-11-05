@@ -141,6 +141,49 @@ describe("a community declared searched or read needs this call's receipt for it
     for (const one of quiet) expect(receiptNotes(check([one])), String(one.community)).toEqual([]);
   });
 
+  // The third check of 5 Nov 2026: a thread key source with no read_depth took any reading, an audit among them. A
+  // thread's read receipt is its verified reading: read to its end, the plain full reading; part-way, part of it; and
+  // never a method audit or an abstract.
+  it("reads a forum thread key source as its read receipt signs, and holds its reading to that", () => {
+    const words = { full_text_read: "full text read", partial_text: "part of the text read", full_text_audited: AUDITED };
+    const thread = (reading: keyof typeof words, receipt: string, depth?: string) => assertNextStepsContract(finalizeResearch({
+      ...input([], [receipt]),
+      key_sources: [...input([]).key_sources, { id: THREAD, status: "lead_only", answer_marker: "Thread",
+        ...(depth === undefined ? {} : { read_depth: depth }) }],
+      answer_draft: `${input([]).answer_draft}\n\n[Thread](${THREAD}) (${words[reading]}) describes the tea.`,
+      later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED },
+        { source: THREAD, reading, quote: words[reading] }] }
+    }, { secret: SECRET }));
+    const toEnd = sign("forum_thread_read", { u: forumThreadDigest(THREAD), n: 12, v: "reddit", e: "1" });
+    const partWay = sign("forum_thread_read", { u: forumThreadDigest(THREAD), n: 12, v: "reddit", e: "0" });
+    const step = (given: string, verified: string, label: string) => `source_reading gives ${THREAD} the reading ` +
+      `${given} (${given === "full_text_audited" ? AUDITED : given === "full_text_read" ? "full text read" : "part of the text read"}), ` +
+      `more than this call's receipts show: this check verifies ${verified} (${label}). Remove the source_reading entry ` +
+      `claiming ${given} for it, say that beside it instead, in the answer's language, and give source_reading reading ` +
+      `${verified} with those words as its quote, copied from answer_draft.`;
+    // An audit claimed of a thread, read_depth left out: it claims more than the thread's read, under read_depth.
+    const audited = thread("full_text_audited", toEnd);
+    expect(audited.status).toBe("not_ready");
+    expect(audited.next_steps).toEqual([step("full_text_audited", "full_text_read", "full text read")]);
+    // Read to its end, it is fully read, and shown; a receipt from before the reader said counts as read to its end.
+    for (const receipt of [toEnd, read(THREAD)]) {
+      const plain = thread("full_text_read", receipt);
+      expect(plain.next_steps).toEqual([]);
+      expect(plain.source_reading).toContainEqual({ source: THREAD, name: `"Thread" (${THREAD})`, reading: "full_text_read",
+        shown: true });
+    }
+    expect(thread("full_text_read", toEnd, "full_text_read").next_steps).toEqual([]);
+    // Read part-way, it is part read: a full reading claims more, and read_depth full_text_read is refused.
+    expect(thread("full_text_read", partWay).next_steps).toEqual([step("full_text_read", "partial_text", "part of the text read")]);
+    expect(thread("partial_text", partWay).next_steps).toEqual([]);
+    expect(thread("partial_text", partWay, "full_text_read").next_steps).toEqual([`Key source ${THREAD} cannot support ` +
+      "read_depth full_text_read with these receipts; give read_depth partial_text or another lower value reflecting what " +
+      "was read, or pass its matching research_receipt."]);
+    // A method audit can never be a thread's read_depth.
+    expect(thread("full_text_read", toEnd, "full_text_audited").next_steps).toEqual([`Key source ${THREAD} cannot support ` +
+      "read_depth full_text_audited with these receipts; give read_depth full_text_read, or pass its matching research_receipt."]);
+  });
+
   it("still holds a thread given as a key source to its read receipt, under the sources check", () => {
     const result = check([]);
     const asSource = assertNextStepsContract(finalizeResearch({ ...input([]), key_sources: [

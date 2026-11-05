@@ -19,7 +19,8 @@ const base = {
   answer_draft: `[Rat study](${page}) (full text read, methods audited by AskRigor) reports a provisional result.`,
   key_sources: [{ id: doi, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }]
 };
-const check = (overrides: Record<string, unknown> = {}) => finalizeResearch(withSourceReading({ ...base, ...overrides }), options);
+const check = (overrides: Record<string, unknown> = {}) =>
+  finalizeResearch(withSourceReading({ ...base, ...overrides }, { check: options }), options);
 
 describe("owner answers 193a and 195: only five blocking checks", () => {
   it("passes a replay with every other declaration missing in one round, preserving notes, limits and the draft digest", () => {

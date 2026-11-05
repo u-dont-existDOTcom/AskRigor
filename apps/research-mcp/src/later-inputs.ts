@@ -24,8 +24,8 @@ import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.j
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
-// The test marker (the free Claude test of 5 Nov 2026): "off", and any other value given, read as off, since it can
-// only turn saving off (its recheck: ["off"] let a card save). The value is read from the raw call (findingsSaveMarker).
+// The test marker (the free Claude test of 5 Nov 2026): "off", or another explicit off such as false or ["off"]; the
+// value is read from the raw call (findingsSaveMarker), so any value parses here, and one that isn't off gets a note.
 const findingsSaveMarkerSchema = z.unknown().optional();
 
 const LATER_INPUT_SHAPES = Object.freeze({
@@ -97,7 +97,7 @@ const LATER_INPUT_SHAPES = Object.freeze({
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
-        "can only turn saving off: any value given turns it off.")
+        "can only turn saving off; any value other than off leaves the account's setting to decide.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -114,13 +114,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
   validate_study_method_audit: {
     audit: studyMethodAuditSubmissionSchema.optional(),
     findings_save: findingsSaveMarkerSchema
-      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. Any value given " +
-        "turns that off; it changes nothing else.")
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. It changes " +
+        "nothing else.")
   },
   validate_review_method_audit: {
     findings_save: findingsSaveMarkerSchema
-      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. Any value given " +
-        "turns that off; it changes nothing else.")
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. It changes " +
+        "nothing else.")
   },
   // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
   manage_research_access: {
@@ -212,10 +212,11 @@ export interface LaterInputProblem { path: PropertyKey[]; message: string; kind?
 /**
  * Whether a call is marked findings_save, read from the raw call on its own (the review of 5 Nov 2026: a misspelt key
  * beside it once dropped every later input, the marker too, and a test run's card was saved), and the note it needs:
- * in later_inputs, at the top level, where an older app may put it, or inside later_inputs sent as text (the recheck of 5
- * Nov 2026: later_inputs sent as a JSON string, and ["off"], let a card save). The marker can only turn saving off, so
- * any value given for it but null is off, and only "off", in any case or separator, needs no note. Text holding the
- * marker's name that isn't JSON is read as off too.
+ * in later_inputs, at the top level, where an older app may put it, or in later_inputs sent as a JSON string (its
+ * recheck). Only an explicit off reads as off: "off", in any case or separator, false, or a list of those such as
+ * ["off"]. Any other value (true, "on") is not read as off, with a note that the account's setting decides: the owner's
+ * own research must never lose a card because a model meant true as "save", as set_findings_save's true does (the third
+ * check of 5 Nov 2026). Text that isn't JSON is not read for it; its envelope is dropped with its note, as any other.
  */
 export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string } {
   const object = (value: unknown): value is Record<string, unknown> =>
@@ -223,32 +224,29 @@ export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string 
   if (!object(raw)) return { off: false };
   const values: unknown[] = [];
   let asText = false;
-  const read = (later: unknown, depth: number): void => {
-    if (object(later)) {
-      if (Object.hasOwn(later, "findings_save")) values.push(later.findings_save);
-    } else if (Array.isArray(later) && depth < 2) {
-      for (const item of later.slice(0, 100)) read(item, depth + 1);
-    } else if (typeof later === "string" && depth < 2) {
-      let parsed: unknown;
-      try { parsed = JSON.parse(later); } catch { parsed = undefined; }
-      const before = values.length;
-      if (parsed !== undefined) read(parsed, depth + 1);
-      else if (later.includes("findings_save")) values.push(later);
-      if (values.length > before) asText = true;
-    }
-  };
   if (Object.hasOwn(raw, "findings_save")) values.push(raw.findings_save);
-  read(raw.later_inputs, 0);
+  let later = raw.later_inputs;
+  if (typeof later === "string") {
+    try { later = JSON.parse(later); asText = true; } catch { later = undefined; }
+  }
+  if (object(later) && Object.hasOwn(later, "findings_save")) values.push(later.findings_save);
+  else asText = false;
   const given = values.filter((value) => value !== undefined && value !== null);
   if (given.length === 0) return { off: false };
-  const exact = given.every((value) =>
-    typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off");
+  const offWord = (value: unknown): boolean => value === false ||
+    (typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off");
+  const explicit = (value: unknown): boolean => offWord(value) ||
+    (Array.isArray(value) && value.length > 0 && value.length <= 10 && value.every(offWord));
+  if (!given.every(explicit)) {
+    return { off: false, note: "findings_save: not read as off. It only turns card saving off, with \"off\"; any other " +
+      "value leaves the account's setting to decide." };
+  }
+  const exact = given.every((value) => typeof value === "string" && offWord(value));
   return {
     off: true,
     ...(asText ? { note: "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an " +
         "object, with findings_save \"off\"." }
-      : exact ? {} : { note: "findings_save: read as \"off\": the marker can only turn card saving off, so any value " +
-        "given for it turns saving off; give \"off\"." })
+      : exact ? {} : { note: "findings_save: read as \"off\"; give \"off\", its value." })
   };
 }
 
@@ -256,6 +254,16 @@ export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string 
 export function findingsSaveOff(raw: unknown): boolean {
   return findingsSaveMarker(raw).off;
 }
+
+/**
+ * The later inputs whose top-level form a final check falls back to when their later_inputs form doesn't parse (the
+ * recheck of 5 Nov 2026): ones the check only reads, whose older form is harmless. Anything saved or published, a
+ * findings card above all, never falls back (the third check of 5 Nov 2026: a corrected card's unusable later form gave
+ * way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
+ * kept privately, with its note, as before.
+ */
+export const TOP_LEVEL_FALLBACK_INPUTS: ReadonlySet<string> = new Set(["source_reading", "name_forms", "key_name",
+  "search_coverage"]);
 
 /**
  * Merges a call's later_inputs into its top-level inputs. A key the later shape declares (a new input, or a newer form
@@ -270,7 +278,7 @@ export function mergeLaterInputs(
   raw: unknown,
   topLevel: ReadonlySet<string>,
   laterShape: z.ZodRawShape = laterInputShape(tool),
-  { keepUsable = false }: { keepUsable?: boolean } = {},
+  { keepUsable = false, fallback = new Set<string>() }: { keepUsable?: boolean; fallback?: ReadonlySet<string> } = {},
 ): { input: unknown; problems: LaterInputProblem[] } {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw) || !Object.hasOwn(raw, "later_inputs")) {
     return { input: raw, problems: [] };
@@ -293,9 +301,10 @@ export function mergeLaterInputs(
         return [{ path, kind: "dropped", message: `${key} is also given at the top level; each input may be given only once.` }];
       }
       // The recheck of 5 Nov 2026: a later form that doesn't parse beside a top-level one that does keeps the top-level
-      // form, rather than losing a valid declaration to an unusable one.
+      // form, rather than losing a valid declaration to an unusable one, for an input whose older form is harmless
+      // (fallback); anything saved or published keeps its later form (the third check of 5 Nov 2026).
       const schema = laterShape[key]!;
-      if (!z.safeParse(schema, additions[key]).success && z.safeParse(schema, own[key]).success) {
+      if (fallback.has(key) && !z.safeParse(schema, additions[key]).success && z.safeParse(schema, own[key]).success) {
         merged[key] = own[key];
         return [{ path, kind: "kept", message: `${key} is given both at the top level and in later_inputs, and its ` +
           "later_inputs form doesn't parse: its top-level form is used." }];

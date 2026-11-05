@@ -211,9 +211,16 @@ draft cites (a link its receipts tie to it, or its identifier in the prose a rea
 PMCID as a whole number) needs an entry whose quote the draft shows, compared as the other declared quotes are, and
 no entry whose quote the draft shows may give a reading claiming more than the check verifies; a missing entry, no
 quote shown or a reading claiming more is a blocking step under `read_depth`, and the last names the verified reading
-to give instead. An entry whose quote the draft doesn't show is set aside, so an older entry left beside a newer one
-does no harm, but an honest entry beside one claiming more doesn't let it pass (the recheck of 5 November 2026). With no
-reading verified (no `read_depth` given, or one its receipts refuse), an entry is held to what the receipts show. The comparison is exact,
+to give instead, and names the entry to remove, so a round isn't lost. An entry counts only where its quote shows in a
+block (a paragraph, list item or heading) that cites the entry's own source, by the same citation the check reads (a
+link its receipts tie to it, or its DOI, PMID or PMCID), and not only inside another of its own entries' quotes, as
+"full text read" sits inside "full text read from a copy the AI found" (the third check of 5 November 2026: the quotes
+are often the check's own generic words, so another study's label, or the corrected words, showed a leftover entry). Any
+other entry is set aside, so an older entry left beside a newer one does no harm, but an honest entry beside one
+claiming more doesn't let it pass (the recheck of 5 November 2026). With no reading verified (no `read_depth` given, or
+one its receipts refuse), an entry is held to what the receipts show. A forum thread AskRigor's reader read is read as
+its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the receipt now signs
+which); a thread is never method-audited nor read as an abstract, so an audit claimed of one holds the answer back. The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor
@@ -313,9 +320,12 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   review inbox, and those of the documents its own audit receipts name are dropped (the account's other research keeps
   its own for its next check). Its finalization receipt signs the mark (`fs`), so `save_research_findings` refuses that
   receipt's card (status `call_saving_off`) whoever asks. The marker is read from the raw call on its own, so no other
-  input's problem can lose it, and it can only turn saving off, so any value given for it but null is off, with a note
-  unless it is `"off"`, and so is `later_inputs` sent as text holding it (the recheck of 5 November 2026: `["off"]`, and
-  `later_inputs` sent as a JSON string, let a card save). `validate_study_method_audit` and
+  input's problem can lose it, and it can only turn saving off. Only an explicit off reads as off: `"off"` in any case,
+  `false`, or a list of those such as `["off"]`, also inside `later_inputs` sent as a JSON string (the recheck of 5
+  November 2026: `["off"]`, and `later_inputs` sent as a JSON string, let a card save), with a note for any form but
+  `"off"`. Any other value (`true`, `"on"`) is no marker, with a note that the account's setting decides: the owner's
+  own research must never lose a card because a model meant `true` as "save", as `set_findings_save`'s `true` does (its
+  third check). Text that isn't JSON is not read for it; its envelope is dropped with its note, as any other. `validate_study_method_audit` and
   `validate_review_method_audit` take the same marker: a marked audit is never held for the review inbox, whatever
   later check comes. Nothing else tells a test run's analyses apart from the owner's own research on the shared
   account: a time window or a session would catch the owner's own work too, so the marker travels to the audit that
@@ -325,8 +335,11 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   naming it, and the valid keys beside it are used (the review of 5 November 2026: one such key once dropped every later
   input, the answer's `source_reading` and its test marker with it). A key given both at the top level and in
   `later_inputs` takes its `later_inputs` form, the newer one, and a note says so, unless that form doesn't parse and the
-  top-level one does: then the top-level form is used, and the note says that (its recheck). Other tools still refuse a
-  call whose `later_inputs` has a problem.
+  top-level one does, for an input the check only reads, whose older form is harmless: `source_reading`, `name_forms`,
+  `key_name` and `search_coverage`. Then the top-level form is used, and the note says that (its recheck). Anything saved
+  or published, a findings card above all, never falls back (its third check: a corrected card's unusable later form
+  gave way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
+  kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed

@@ -167,9 +167,12 @@ export function registerForumTools(
       // but the page it landed on.
       const landed = forumThreadDigest(data.url);
       const asked = sameSitePage(url, data.url) ? forumThreadDigest(url) : landed;
+      // Whether this read reached the thread's end (e): no more comments or pages after it, so the final check reads a
+      // thread read to its end as fully read, and one left part-way as part read (the third check of 5 Nov 2026).
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
         u: landed, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
-        v: reddit ? "reddit" : "page", ...(asked === landed ? {} : { a: asked })
+        v: reddit ? "reddit" : "page", ...(asked === landed ? {} : { a: asked }),
+        e: data.more || data.next_page ? "0" : "1"
       }) : undefined;
       // 5 Nov 2026: the loop from people's reports to studies is asked for where reports were read (community-leads.ts),
       // and only there: a page the reader couldn't read raised no lead.

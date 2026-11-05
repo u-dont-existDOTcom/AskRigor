@@ -41,9 +41,10 @@ How each case runs:
   5 November 2026 it also makes no save offer and no research-map offer or reminder, for every account kind, files no
   held analysis to the review inbox (and drops those its own audits name), and its finalization receipt signs the mark,
   so `save_research_findings` refuses that card too. It is read from the raw call on its own, so a misspelt later input
-  beside it can't lose it. The marker can only turn saving off: `"off"` is its value (in any case), and since the
-  recheck of 5 November 2026 any other value given for it but null is read as off too, with a note, as is `later_inputs`
-  sent as text holding it. A test run's audits are held for the review inbox at their method check, before any final
+  beside it can't lose it. The marker can only turn saving off: `"off"` is its value (in any case); `false` and
+  `["off"]` read as off too, with a note, as does `later_inputs` sent as a JSON string holding one of them. Any other
+  value (`true`, `"on"`) is no marker, and the account's switch decides, so the harness sends exactly `"off"`, as proper
+  JSON, and keeps the switch off as the second guard (the third check of 5 November 2026). A test run's audits are held for the review inbox at their method check, before any final
   check, so every case also marks each `validate_study_method_audit` and `validate_review_method_audit` call with the
   same `later_inputs: { "findings_save": "off" }`; a marked audit is never held. Nothing else tells the run's analyses
   apart from the owner's own research on the shared account, so the preamble names those two tools beside

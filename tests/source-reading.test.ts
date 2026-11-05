@@ -69,9 +69,10 @@ const missing = (id: string, reading?: AnswerReading) => reading === undefined
 const claimsMore = (id: string, given: AnswerReading, verified: AnswerReading,
   { shownOnly = false, offer = false }: { shownOnly?: boolean; offer?: boolean } = {}) => `source_reading gives ${id} ` +
   `the reading ${given} (${ANSWER_READING_LABELS[given]}), more than this call's receipts show: ` +
-  (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}). Say that ` +
-  `beside it instead, in the answer's language, and give source_reading reading ${verified} with those words as its ` +
-  "quote, copied from answer_draft" + (offer ? `; or, if it was read so, give key_sources.read_depth ${given} for it, ` +
+  (shownOnly ? "they show" : "this check verifies") + ` ${verified} (${ANSWER_READING_LABELS[verified]}). Remove the ` +
+  `source_reading entry claiming ${given} for it, say that beside it instead, in the answer's language, and give ` +
+  `source_reading reading ${verified} with those words as its quote, copied from answer_draft` +
+  (offer ? `; or, if it was read so, give key_sources.read_depth ${given} for it, ` +
   "which needs no receipt." : given === "other_tool" ? "; or, if it was read through another tool, give it " +
   "other_route read in key_sources." : ".");
 const GUIDANCE_LEAD = "Say beside each study how it was read, in the answer's language, and give each in " +
@@ -80,7 +81,7 @@ const GUIDANCE_LEAD = "Say beside each study how it was read, in the answer's la
 const claimsLess = (id: string, given: AnswerReading, verified: AnswerReading) => `source_reading gives ${id} the ` +
   `reading ${given} (${ANSWER_READING_LABELS[given]}), less than this check verifies: ${verified} ` +
   `(${ANSWER_READING_LABELS[verified]}). The answer may say so beside it.`;
-const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer: say ` +
+const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer beside it: say ` +
   `beside it how it was read (${ANSWER_READING_LABELS[reading]}), in the answer's language, and copy those words ` +
   "exactly from answer_draft.";
 
@@ -319,6 +320,56 @@ describe("the reading each entry gives, held to what the check verifies", () => 
       answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${ABSTRACT}) compared two routines.`),
       later_inputs: { source_reading: [entry(DOI, "full_text_audited"), entry(DOI, "abstract_only", ABSTRACT)] } });
     expect(stale.next_steps).toEqual([]);
+  });
+
+  // The third check of 5 Nov 2026: the quotes are often the check's own generic words, so a leftover entry was "shown" by
+  // another study's label, or inside the corrected words, and held an honest answer back. An entry counts only where
+  // its quote shows in a block citing its own source, and not only inside another of its own entries' quotes.
+  it("ties each entry to its own source, and sets aside one met only inside another of its entries' words", () => {
+    const COHORT_DOI = "10.1000/reading-cohort-b";
+    const readB = sign("full_text_read", { doi: COHORT_DOI, content: "b".repeat(16) });
+    const keys = [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" },
+      { id: COHORT_DOI, status: "lead_only", read_depth: "full_text_read", answer_marker: "Cohort" }];
+    const two = (...paragraphs: string[]) => check({ receipts: [PUBMED, readB], key_sources: keys,
+      answer_draft: draft(...paragraphs),
+      later_inputs: { source_reading: [entry(DOI, "full_text_read"), entry(DOI, "abstract_only"),
+        entry(COHORT_DOI, "full_text_read")] } });
+    // The stale entry's words show only beside the cohort, so they say nothing of the trial.
+    const apart = two(`[Trial](https://doi.org/${DOI}) (abstract only) compared two routines.`,
+      `[Cohort](https://doi.org/${COHORT_DOI}) (full text read) followed people for a year.`);
+    expect(apart.status).toBe("ready_with_limits");
+    expect(apart.next_steps).toEqual([]);
+    // Beside the trial too, they claim more, and the step names the entry to remove.
+    const beside = two(`[Trial](https://doi.org/${DOI}) (abstract only; full text read) compared two routines.`,
+      `[Cohort](https://doi.org/${COHORT_DOI}) (full text read) followed people for a year.`);
+    expect(beside.next_steps).toEqual([claimsMore(DOI, "full_text_read", "abstract_only")]);
+    expect(beside.next_steps[0]).toContain("Remove the source_reading entry claiming full_text_read for it");
+    // A quote shown only in a paragraph citing no study is not beside its source.
+    const unplaced = check({ receipts: [PUBMED],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) compared two routines.`, "How the studies were read: abstract only."),
+      later_inputs: { source_reading: [entry(DOI, "abstract_only")] } });
+    expect(unplaced.next_steps).toEqual([unshown(DOI, "abstract_only")]);
+    // A source named by its identifier in a block is cited there too.
+    expect(check({ receipts: [PUBMED],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "abstract_only", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) compared two routines.`, `Of ${DOI}, the abstract only was read.`),
+      later_inputs: { source_reading: [entry(DOI, "abstract_only")] } }).next_steps).toEqual([]);
+  });
+
+  it("sets aside an entry whose words show only inside another of its own entries' words", () => {
+    const copyRead = sign("full_text_read", { doi: DOI, content: "c".repeat(16), retrieval_provider: "client_search_index",
+      host: "copies.example.org" });
+    const run = (words: string) => check({ receipts: [copyRead],
+      key_sources: [{ id: DOI, status: "lead_only", read_depth: "full_text_read", answer_marker: "Trial" }],
+      answer_draft: draft(`[Trial](https://doi.org/${DOI}) (${words}) compared two routines.`),
+      later_inputs: { source_reading: [entry(DOI, "full_text_read"), entry(DOI, "search_copy_read")] } });
+    const corrected = run(ANSWER_READING_LABELS.search_copy_read);
+    expect(corrected.status).toBe("ready_with_limits");
+    expect(corrected.next_steps).toEqual([]);
+    // Said on its own too, the stale words claim more than the AI's copy, and are named for removal.
+    expect(run(`${ANSWER_READING_LABELS.search_copy_read}; full text read`).next_steps)
+      .toEqual([claimsMore(DOI, "full_text_read", "search_copy_read")]);
   });
 
   // The recheck of 5 Nov 2026: with read_depth left out the check verifies no reading, so an entry is held to what the

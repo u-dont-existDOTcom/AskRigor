@@ -1296,10 +1296,11 @@ describe("finalize_research, save_research_findings and the findings library", (
       user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
   });
 
-  // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. The
-  // marker can only turn saving off, so any value given for it is off, with a note; only its absence leaves the switch
-  // in charge.
-  it("reads any value given for the marker as off, with a note, and never turns saving on", async () => {
+  // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. Its
+  // third check: true, "on" and stray text read as off would cost the owner's own research a card, when a model meant
+  // true as "save", as set_findings_save's true does. Only an explicit off is off; any other value leaves the account's
+  // setting to decide, with a note.
+  it("reads only an explicit off as the marker, and leaves any other value to the account's setting, with a note", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
     const { calls, findingsSave } = recorder();
@@ -1307,34 +1308,52 @@ describe("finalize_research, save_research_findings and the findings library", (
     const finalize = connectorTool("finalize_research", {
       researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
     });
+    const notes = (result: CallToolResult) => ((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n");
     // Sent as text, later_inputs holds no source_reading the check can read, so the call gives it at the top level.
     const asText = { ...withSourceReading(request(), { topLevel: true, check: { secret: SECRET } }),
       later_inputs: JSON.stringify({ findings_save: "off" }) };
-    for (const later of [{ findings_save: "on" }, { findings_save: true }, { findings_save: "yes" },
-      { findings_save: ["off"] }, asText.later_inputs]) {
+    for (const [later, note] of [[{ findings_save: ["off"] }, 'findings_save: read as "off"; give "off", its value.'],
+      [{ findings_save: false }, 'findings_save: read as "off"; give "off", its value.'],
+      [asText.later_inputs, "findings_save: read as \"off\" from later_inputs given as text"]] as const) {
       const result = await finalize(typeof later === "string" ? asText : { ...request(), later_inputs: later }, "auth0|free");
       expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
         findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } },
       });
-      expect(((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n"))
-        .toMatch(/findings_save: read as "off"/u);
+      expect(notes(result)).toContain(note);
       expect(verifyResearchReceipt((result.structuredContent as FinalizeResearchOutput).finalization_receipt!,
         { secret: SECRET }).claims).toMatchObject({ fs: "off" });
     }
     expect(calls).toEqual([]);
     expect(kept).toEqual([]);
-    // Absent, or given as null, the account's switch decides: with it off nothing is saved, and with it on the card is.
+    // Any other value is no marker: the account's switch decides, off or on, and a note says why.
+    const notOff = "findings_save: not read as off. It only turns card saving off, with \"off\"; any other value leaves " +
+      "the account's setting to decide.";
     await service.setFindingsSave("auth0|free", false);
-    expect((await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free")).structuredContent)
-      .toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } } });
+    for (const value of [true, "on", "yes"]) {
+      const result = await finalize({ ...request(), later_inputs: { findings_save: value } }, "auth0|free");
+      expect(result.structuredContent, String(value)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+      });
+      expect(notes(result)).toContain(notOff);
+    }
+    expect(calls).toEqual([]);
     await service.setFindingsSave("auth0|free", true);
+    const meantSave = await finalize({ ...request(), later_inputs: { findings_save: true } }, "auth0|free");
+    expect(meantSave.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // Absent, or given as null, nothing is said; "OFF", only cased otherwise, is off with no note.
     const saved = await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free");
     expect(saved.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
-    expect(calls).toHaveLength(1);
+    expect(notes(saved)).not.toContain("findings_save");
+    expect(calls).toHaveLength(2);
     const cased = await finalize({ ...request(), later_inputs: { findings_save: "OFF" } }, "auth0|free");
     expect(cased.structuredContent).toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
-    expect(((cased.structuredContent as { notes?: string[] }).notes ?? []).join("\n")).not.toContain("findings_save");
-    expect(calls).toHaveLength(1);
+    expect(notes(cased)).not.toContain("findings_save");
+    // Text that isn't JSON is no marker either: its envelope is dropped with its note, as any other.
+    const textual = await finalize({ ...asText, later_inputs: "findings_save is not needed here" }, "auth0|free");
+    expect(textual.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved" } } });
+    expect(notes(textual)).toContain("later_inputs: dropped.");
+    expect(calls).toHaveLength(3);
   });
 
   it("keeps a private copy of a refused card, tells the AI, and says so at the end of a passing answer", async () => {
@@ -1386,6 +1405,27 @@ describe("finalize_research, save_research_findings and the findings library", (
     });
     expect(kept).toHaveLength(1);
     expect(kept[0]).toMatchObject({ why: "malformed", card: tooLong });
+  });
+
+  // The third check of 5 Nov 2026: a corrected card sent in later_inputs that doesn't read gave way to the out-of-date
+  // top-level card, which was saved. A findings card never falls back: its later form is read, and kept privately.
+  it("never saves the top-level card beside a corrected later card that doesn't read, and keeps the correction", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const corrected = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0],
+      claim: "A corrected claim the AI meant to save instead.",
+      backing: [{ source: "PMC10518852", sentence: "x".repeat(400), against: "Too long a sentence for the later shape." }] }] };
+    const result = await finalize({ ...request(), later_inputs: { findings_card: corrected } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      findings_card: { status: "rejected", saved: { status: "not_saved", reason: "kept_for_review" } },
+    });
+    expect(calls).toEqual([]);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({ why: "malformed", card: corrected });
   });
 
   it("keeps a checked card whose answer hasn't passed, with no line for an answer that isn't finished", async () => {

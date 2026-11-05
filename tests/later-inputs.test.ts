@@ -112,24 +112,35 @@ describe("finalize_research keeps the usable later inputs beside a bad one", () 
       { later_inputs: { findings_save: "o-f_f", typo: [] } }, { findings_save: "Off" }]) {
       expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true });
     }
-    // The recheck of 5 Nov 2026: the marker can only turn saving off, so any value given for it is off, with a note,
-    // and later_inputs sent as text is read for it too.
-    const other = "findings_save: read as \"off\": the marker can only turn card saving off, so any value given for it " +
-      "turns saving off; give \"off\".";
+    // The recheck of 5 Nov 2026 and its third check: only an explicit off is off ("off", false, a list of those), with a
+    // note for a form other than "off", and later_inputs sent as a JSON string is read for it.
+    const other = "findings_save: read as \"off\"; give \"off\", its value.";
     const text = "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an object, with " +
       "findings_save \"off\".";
-    for (const raw of [{ later_inputs: { findings_save: ["off"] } }, { later_inputs: { findings_save: "on" } },
-      { later_inputs: { findings_save: true } }, { later_inputs: { findings_save: false } }, { findings_save: {} },
-      { later_inputs: [{ findings_save: "off" }, { findings_save: "yes" }] }]) {
+    for (const raw of [{ later_inputs: { findings_save: ["off"] } }, { later_inputs: { findings_save: false } },
+      { findings_save: ["OFF", false] }]) {
       expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true, note: other });
     }
-    for (const raw of [{ later_inputs: JSON.stringify({ findings_save: "off" }) }, { later_inputs: "findings_save off" },
+    for (const raw of [{ later_inputs: JSON.stringify({ findings_save: "off" }) },
       { later_inputs: JSON.stringify({ findings_save: ["off"], source_reading: [] }) }]) {
       expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: true, note: text });
     }
-    // Absent: not given, or given as null; and a call that is no object.
+    // Any other value is no marker: the owner's own research must never lose a card because a model meant true as
+    // "save", as set_findings_save's true does, so the account's setting decides, and a note says so.
+    const notOff = "findings_save: not read as off. It only turns card saving off, with \"off\"; any other value leaves " +
+      "the account's setting to decide.";
+    for (const raw of [{ later_inputs: { findings_save: true } }, { later_inputs: { findings_save: "on" } },
+      { findings_save: {} }, { later_inputs: { findings_save: ["off", "on"] } }, { later_inputs: { findings_save: [] } },
+      { later_inputs: JSON.stringify({ findings_save: "yes" }) }]) {
+      expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: false, note: notOff });
+    }
+    // Absent: not given, or given as null; a call that is no object; and text that isn't JSON, whatever it says, whose
+    // envelope is dropped with its note, as any other (the third check: no free-text reading).
     for (const raw of [{ later_inputs: { findings_save: null } }, { findings_save: null }, { later_inputs: "{}" },
-      { later_inputs: { source_reading: [] } }, null, "off", {}]) {
+      { later_inputs: { source_reading: [{ quote: "findings_save off" }] } }, { later_inputs: "findings_save off" },
+      { later_inputs: "{\"source_reading\":[{\"quote\":\"the findings_save marker" },
+      { later_inputs: ["note: findings_save is not set"] }, { later_inputs: [{ findings_save: "off" }] },
+      { answer_draft: "We left findings_save alone.", later_inputs: {} }, null, "off", {}]) {
       expect(laterInputs.findingsSaveMarker(raw), JSON.stringify(raw)).toEqual({ off: false });
       expect(laterInputs.findingsSaveOff(raw)).toBe(false);
     }
@@ -149,6 +160,22 @@ describe("finalize_research keeps the usable later inputs beside a bad one", () 
     // With both unusable, the later form is read, as the salvage reads it.
     expect(parseFinalizeResearchInput(call({ source_reading: [{ source: DOI }] }, { source_reading: [{ quote: AUDITED }] }))
       .notes.join("\n")).toContain("its later_inputs form, the newer one, is used");
+  });
+
+  // The third check of 5 Nov 2026: the fallback saved an out-of-date card. Only inputs the check only reads may fall back.
+  it("falls back only for inputs whose older form is harmless, never for a findings card", () => {
+    expect([...laterInputs.TOP_LEVEL_FALLBACK_INPUTS].sort()).toEqual(["key_name", "name_forms", "search_coverage",
+      "source_reading"]);
+    const corrected = { ...CARD, findings: [{ ...CARD.findings[0], claim: "A corrected claim the AI meant to save instead.",
+      backing: [{ source: "10.1000/kept-trial", sentence: "x".repeat(400), against: "Too long a sentence." }] }] };
+    const parsed = parseFinalizeResearchInput(call({ source_reading: [READING], findings_card: corrected },
+      { findings_card: CARD }));
+    expect(parsed.notes).toContain("later_inputs.findings_card: findings_card is given both at the top level and in " +
+      "later_inputs: its later_inputs form, the newer one, is used.");
+    expect(parsed.notes.join("\n")).not.toContain("its top-level form is used");
+    // The unusable later card is dropped, never replaced by the older one, so it can't be saved as checked.
+    expect(parsed.data?.findings_card).toBeUndefined();
+    expect(parsed.droppedFindingsCard).toBe(true);
   });
 });
 

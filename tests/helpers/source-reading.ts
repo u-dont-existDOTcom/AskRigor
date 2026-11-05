@@ -4,7 +4,22 @@ import {
 import { ANSWER_READING_LABELS, type AnswerReading } from "../../apps/research-mcp/src/source-reading.js";
 
 type Entry = { source: string; reading?: string; quote: string };
-type KeySource = { id: string; read_depth?: string; other_route?: string };
+type KeySource = { id: string; read_depth?: string; other_route?: string; answer_marker?: string };
+
+// A Markdown link, its label and its target.
+const LINK = /\[([^[\]\n]*)\]\(([^\s()]+)\)/gu;
+
+/**
+ * How a fixture's paragraph cites a key source beside its words: by its id as written, as the check reads a DOI, PMID or
+ * PMCID in the prose, so no link the draft hides is shown; a forum thread, whose id is its link, by the draft's own link
+ * to it.
+ */
+function citationOf(draft: string, id: string): string {
+  if (!/^https?:\/\//iu.test(id.trim())) return id;
+  const key = id.trim().toLowerCase();
+  const decoded = (target: string): string => { try { return decodeURIComponent(target); } catch { return target; } };
+  return [...draft.matchAll(LINK)].find(([, , target]) => decoded(target!).toLowerCase() === key)?.[0] ?? id;
+}
 
 /** The reading a fixture's answer gives a key source: its declared read_depth, or another tool's for a lead read so. */
 export function fixtureReading({ read_depth, other_route }: KeySource): AnswerReading {
@@ -24,8 +39,8 @@ export function fixtureReadingWords(source: KeySource): string {
  * The owner, 5 Nov 2026: an answer citing a key source says beside it how it was read, and source_reading gives that
  * reading and copies those words, or the read_depth check holds the answer back. Fixtures that isolate other checks
  * get, for each key source without an entry, an entry in later_inputs giving its declared read_depth as its reading and
- * quoting that reading's words, and those words, when the draft
- * doesn't show them yet, in a paragraph of their own at its end, so the reading check changes no other check. Entries a
+ * quoting that reading's words, and those words, beside a citation of the source, in a paragraph of their own at the
+ * draft's end, so the reading check changes no other check. Entries a
  * fixture gives itself, at the top level or in later_inputs, are kept, and so is a call without key sources or a draft.
  * A fixture whose test sets later_inputs aside takes the entries at the top level, which the runtime also reads.
  */
@@ -58,8 +73,11 @@ export function withSourceReading<T>(
       // A fixture the check can't read keeps its declared readings.
     }
   }
+  // Sources whose words need a paragraph citing them (the third check of 5 Nov 2026: an entry's words count only in a
+  // block citing its source), and sources given a reading of nothing (below).
+  const placed = new Set<string>();
   const unread = new Set<string>();
-  const build = (): T => {
+  const build = (all: boolean): T => {
     const added: Entry[] = [];
     for (const source of keySources) {
       const key = typeof source?.id === "string" ? normalizeIdentifier(source.id) : undefined;
@@ -70,29 +88,48 @@ export function withSourceReading<T>(
         : { source: source.id, reading, quote: ANSWER_READING_LABELS[reading] });
     }
     if (added.length === 0) return input;
-    const shown = (raw.answer_draft as string).toLowerCase();
-    const words = [...new Set(added.map(({ quote }) => quote))].filter((quote) => !shown.includes(quote.toLowerCase()));
+    const draftText = raw.answer_draft as string;
+    const paragraphs = added.filter(({ source, quote }) => all
+      ? !draftText.toLowerCase().includes(quote.toLowerCase()) : placed.has(normalizeIdentifier(source)))
+      .map(({ source, quote }) => `${citationOf(draftText, source)} (${quote}).`);
     const entries = [...given, ...added];
     return {
       ...input,
-      ...(words.length === 0 ? {} : { answer_draft: `${raw.answer_draft as string}\n\nHow each study was read: ${words.join("; ")}.` }),
+      ...(paragraphs.length === 0 ? {} : { answer_draft: `${draftText}\n\n${paragraphs.join("\n\n")}` }),
       ...(atTop ? { source_reading: entries } : { later_inputs: { ...later, source_reading: entries } })
     };
   };
-  const first = build();
-  if (options === undefined) return first;
-  // A source the check verifies no reading for (its read_depth refused, or left out) is held to what its receipts show
-  // (the recheck of 5 Nov 2026): where its declared reading claims more than they show, the fixture gives a reading of
-  // nothing, which claims no more than any, so the reading check changes no other check.
+  // Without the check, every source whose words the draft doesn't hold yet gets its paragraph.
+  if (options === undefined) return build(true);
+  // With it, only a source the check still asks about gets one: its words aren't beside it in the draft, or, with no
+  // reading verified (its read_depth refused, or left out), its declared reading claims more than its receipts show
+  // (the recheck of 5 Nov 2026), when the fixture gives a reading of nothing, which claims no more than any. So the
+  // reading check changes no other check, and no draft that already says it changes.
+  let result = build(false);
   try {
-    const steps = finalizeResearch(first, options).next_steps;
-    for (const source of keySources) {
-      if (typeof source?.id !== "string" || source.other_route === "read") continue;
-      const step = `source_reading gives ${source.id} the reading `;
-      if (steps.some((text) => text.startsWith(step))) unread.add(normalizeIdentifier(source.id));
+    for (let pass = 0; pass < 3; pass += 1) {
+      // A stopped check lists what it could not check in place of its steps.
+      const checked = finalizeResearch(result, options);
+      const steps = [...checked.next_steps, ...(checked.stopped?.could_not ?? []).map(({ step }) => step)];
+      let changed = false;
+      for (const source of keySources) {
+        if (typeof source?.id !== "string" || named.has(normalizeIdentifier(source.id))) continue;
+        const key = normalizeIdentifier(source.id);
+        const asked = (start: string) => steps.some((step) => step.startsWith(start));
+        if (!unread.has(key) && source.other_route !== "read" && asked(`source_reading gives ${source.id} the reading `)) {
+          unread.add(key);
+          placed.add(key);
+          changed = true;
+        } else if (!placed.has(key) && asked(`source_reading's quote for ${source.id} is not in the answer`)) {
+          placed.add(key);
+          changed = true;
+        }
+      }
+      if (!changed) break;
+      result = build(false);
     }
   } catch {
-    return first;
+    return result;
   }
-  return unread.size === 0 ? first : build();
+  return result;
 }
