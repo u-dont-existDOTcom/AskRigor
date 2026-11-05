@@ -1037,10 +1037,12 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   };
 
   /**
-   * The owner's private page (owner-pages.ts): signed out, the account pages' sign-in prompt; signed in as anyone but the
-   * owner, the Atlas's own "Not found", as for an address with no page; the owner, the page, read afresh, never cached,
-   * kept out of search engines and sending no referrer. Its maps' video links are the one exception to the last check,
-   * and on this page alone (ownerPageProblems): a page that still fails it is shown without the maps.
+   * The owner's private page (owner-pages.ts): signed out, the account pages' sign-in prompt, with their headers; signed
+   * in as anyone but the owner, the Atlas's own "Not found", the page and headers of an address with no page; the owner,
+   * the page, read afresh, never cached, kept out of search engines and sending no referrer (the only response that
+   * sets Referrer-Policy: no-referrer, which the apex Caddy leaves as it is). Its maps' video links are the one exception
+   * to the last check, and on this page alone (ownerPageProblems): a page that still fails it is shown without the maps.
+   * It reads no Atlas data, so it answers while the page reader is not configured.
    */
   const ownerPagesRoute = async (request: IncomingMessage, response: ServerResponse, runtime: AtlasParticipationRuntime,
     now: Date) => {
@@ -1048,10 +1050,9 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     const ownerHeaders = { "cache-control": PRIVATE, vary: "Cookie", "x-robots-tag": "noindex, nofollow",
       "referrer-policy": "no-referrer" };
     if (session === undefined) {
-      const reader = await readerFor(runtime, PRIVATE_PAGES_PATH, session);
-      write(response, 200, HTML, renderAtlasMessage("Your account", "Sign in with your AskRigor account to see this page.",
-        { href: signInHref(runtime.settings, PRIVATE_PAGES_PATH), text: "Sign in with your AskRigor account" }, reader),
-      ownerHeaders, clear);
+      messageFor(await readerFor(runtime, PRIVATE_PAGES_PATH, session))(response, 200, "Your account",
+        "Sign in with your AskRigor account to see this page.", signInHref(runtime.settings, PRIVATE_PAGES_PATH), clear,
+        "Sign in with your AskRigor account");
       return;
     }
     if (!isOwner(session)) {
@@ -1355,6 +1356,15 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         return true;
       }
+      if (participation !== undefined && route.kind === "private-pages") {
+        // The owner's page reads no Atlas data (the review of #418, finding 3): it needs no page reader.
+        try {
+          await ownerPagesRoute(request, response, participation, clock());
+        } catch {
+          if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());
+        }
+        return true;
+      }
       if (source === undefined) {
         plainFailure(response, 503, renderAtlasUnavailable());
         return true;
@@ -1390,10 +1400,6 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         if (participation !== undefined && route.kind === "own-reports") {
           await ownReportsRoute(request, response, participation, source, now);
-          return true;
-        }
-        if (participation !== undefined && route.kind === "private-pages") {
-          await ownerPagesRoute(request, response, participation, now);
           return true;
         }
         let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "health" |

@@ -14,11 +14,15 @@ maps as a page.
 
 - **The route.** `/atlas/account/private` (`PRIVATE_PAGES_PATH`), one of the account pages: there only while sign-in is
   on (`ASKRIGOR_ATLAS_PARTICIPATION=enabled`), GET and HEAD only.
-  - Signed out: the account pages' plain sign-in prompt ("Sign in with your AskRigor account to see this page."), which
-    names nothing that is there.
+  - Signed out: the account pages' plain sign-in prompt ("Sign in with your AskRigor account to see this page."), with
+    their headers, which names nothing that is there.
   - Signed in as anyone but the owner: the Atlas's own 404, the very page and headers an address with no page gives.
-  - The owner: the page. Every response is `Cache-Control: private, no-store`, `Vary: Cookie`, `X-Robots-Tag: noindex,
-    nofollow` and `Referrer-Policy: no-referrer`, with the robots and referrer meta tags; nothing is cached or stored.
+  - The owner: the page, the only response with `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex, nofollow`,
+    beside `Cache-Control: private, no-store` and `Vary: Cookie`, and the robots and referrer meta tags; nothing is
+    cached or stored. The apex Caddy's Atlas block sets its `Referrer-Policy` only as a default (`?Referrer-Policy`),
+    so the page's own reaches the browser (the review of #418, finding 2).
+  - It reads no Atlas data, so it is routed before the check that answers 503 when the page reader is not configured;
+    its own sign-in and owner checks still apply (finding 3).
 - **Who the owner is.** A session is the owner's when its participant key is one of the owner's participant keys:
   `participantKeyFor(settings, subject)` of the connector's owner subject (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`, the subject
   `oauth-resource-server.ts` binds case review to) and, when set, `ASKRIGOR_ATLAS_OWNER_SUBJECT`, another login of the
@@ -38,7 +42,9 @@ maps as a page.
 - **The maps.** `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE`, an absolute path on the server, outside the image: the owner-pages
   repository's `askrigor/comment-maps.json`, which the operator copies there (runbook). It is read afresh for each request
   of the owner's page, never for anyone else, and never cached. Unset or missing: "No comment maps are installed on the
-  server yet." A relative path, a folder, a file over 16 MiB, or one that isn't `askrigor.comment-maps.v1` as
+  server yet." The file is opened without waiting (`O_NONBLOCK`) and checked as a regular file (`fstat`) before any
+  read, so a FIFO at the path can't hold a thread (the review of #418, finding 1). A relative path, a folder, a FIFO, a
+  file over 16 MiB, or one that isn't `askrigor.comment-maps.v1` as
   `commentMapsFileSchema` reads it: "The comment maps file on the server can't be read, so no map is shown." Neither
   stops the page. The maps are rendered by `comment-map-pages.ts`'s `commentMapsBlock`, shared with the standalone page
   (whose bytes are unchanged), with headings one level down and each map linking its video.

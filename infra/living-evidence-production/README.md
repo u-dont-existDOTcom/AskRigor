@@ -880,12 +880,15 @@ release step, by the operator, never with the maps in chat, Git or a receipt:
    `/var/lib/askrigor-private-comment-maps`, and to `runtime.env`
    `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE=/var/lib/askrigor-private-comment-maps/comment-maps.json`;
    recreate `research-mcp` with both Compose files.
-4. Check: `/atlas/account/private` signed out shows the sign-in prompt and
-   `X-Robots-Tag: noindex, nofollow`; signed in as another account, 404; signed
-   in as the owner, the maps and the three GitHub links, `Cache-Control:
-   private, no-store` and `Referrer-Policy: no-referrer`, and the header's "Your
-   private pages" link on every page. A public page must still hold no YouTube
-   text.
+4. Check, through askrigor.com: `/atlas/account/private` signed out shows the
+   account pages' sign-in prompt with their headers (`Cache-Control: private,
+   no-store`, `Referrer-Policy: strict-origin-when-cross-origin`); signed in as
+   another account, 404 with the headers of an address with no page; signed in
+   as the owner, the maps and the three GitHub links, with `Cache-Control:
+   private, no-store`, `X-Robots-Tag: noindex, nofollow` and `Referrer-Policy:
+   no-referrer` (the public-site packet must hold the Atlas block's
+   `?Referrer-Policy`, or its Caddy replaces it), and the header's "Your private
+   pages" link on every page. A public page must still hold no YouTube text.
 
 To update the maps, repeat step 2: the page reads the file for each request. A
 missing file shows "No comment maps are installed", one that doesn't parse

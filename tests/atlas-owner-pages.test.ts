@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,9 +16,11 @@ import {
 } from "../apps/research-mcp/src/atlas/owner-pages.js";
 import { ATLAS_PAGE_HEADERS, atlasOwnerFromEnv, atlasRouteOf } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { PRIVATE_PAGES_PATH, atlasPageProblems } from "../apps/research-mcp/src/atlas/pages.js";
-import { participantKeyFor } from "../apps/research-mcp/src/atlas/participation.js";
 import {
-  OTHER_SUBJECT, OWNER, SUBJECT, bytes, closeAtlasServers, fixture,
+  ATLAS_SESSION_COOKIE, newSession, participantKeyFor, sealSession,
+} from "../apps/research-mcp/src/atlas/participation.js";
+import {
+  OTHER_SUBJECT, OWNER, SUBJECT, bytes, closeAtlasServers, expectPageHeaders, fixture,
 } from "./helpers/atlas-participation-fixture.js";
 
 /** The pages' own headers, but the owner's page sends no referrer at all. */
@@ -88,6 +91,7 @@ async function mapsFile(content: unknown = FILE): Promise<string> {
 }
 
 const header = (body: string) => body.slice(body.indexOf("<header"), body.indexOf("</header>") + "</header>".length);
+
 const YOUTUBE = /youtube(?:-nocookie)?\.com|youtu\.be/iu;
 
 describe("the route", () => {
@@ -110,11 +114,17 @@ describe("who sees it", () => {
     expect(page.response.status).toBe(200);
     expect(page.body).toContain("Sign in with your AskRigor account to see this page.");
     expect(page.body).toContain(`href="${f.base}/atlas/auth/login?return=${encodeURIComponent(PRIVATE_PAGES_PATH)}"`);
+    expect(page.body).toContain('<meta name="robots" content="noindex">');
     expect(page.body).not.toMatch(/private pages|comment map|github|invented/iu);
     expect(page.body).not.toMatch(YOUTUBE);
+    // The account pages' own prompt, with their headers (the review of #418, finding 2): no-referrer is the owner's page's.
+    const other = await f.get("/atlas/account/comments");
+    expect(other.response.status).toBe(200);
+    for (const name of ["cache-control", "vary", "x-robots-tag", "referrer-policy", "content-type"]) {
+      expect(page.response.headers.get(name), name).toBe(other.response.headers.get(name));
+    }
     expect(page.response.headers.get("cache-control")).toBe("private, no-store");
-    expect(page.response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expectOwnerPageHeaders(page.response);
+    expectPageHeaders(page.response);
   });
 
   it("answers anyone else signed in as an address with no page would: 404, the same page", async () => {
@@ -244,12 +254,51 @@ describe("the maps file", () => {
     }
   });
 
+  // The review of #418 (finding 1): a FIFO at the path is opened without waiting and refused before any read, so it
+  // can't hold a thread of the pool.
+  it("refuses a FIFO at the path at once, without waiting for a writer", async (context) => {
+    const folder = await mkdtemp(join(tmpdir(), "askrigor-owner-maps-"));
+    temporary.push(folder);
+    const fifo = join(folder, "comment-maps.json");
+    // Skipped where mkfifo isn't there (Windows).
+    try {
+      execFileSync("mkfifo", [fifo], { stdio: "ignore" });
+    } catch {
+      context.skip();
+      return;
+    }
+    const started = Date.now();
+    expect(await readPrivateCommentMaps(fifo)).toEqual({ state: "unreadable" });
+    expect(Date.now() - started).toBeLessThan(2_000);
+    const f = await fixture({ owner: { commentMapsFile: fifo } });
+    const page = await f.get(PRIVATE_PAGES_PATH, await f.signIn(OWNER));
+    expect(page.response.status).toBe(200);
+    expect(page.body).toContain("The comment maps file on the server can’t be read, so no map is shown.");
+  }, 10_000);
+
   it("reads none, a missing file, a folder and a relative path without throwing", async () => {
     expect(await readPrivateCommentMaps(undefined)).toEqual({ state: "none" });
     expect(await readPrivateCommentMaps(join(tmpdir(), "askrigor-no-such-maps-file.json"))).toEqual({ state: "none" });
     expect(await readPrivateCommentMaps(tmpdir())).toEqual({ state: "unreadable" });
     expect(await readPrivateCommentMaps("comment-maps.json")).toEqual({ state: "unreadable" });
     expect(await readPrivateCommentMaps(await mapsFile())).toMatchObject({ state: "installed", file: { maps: { length: 3 } } });
+  });
+});
+
+// The review of #418 (finding 3): the owner's page reads no Atlas data, so it answers while the page reader is unset,
+// with its own sign-in and owner checks; every other page answers 503 then.
+describe("without the page reader", () => {
+  it("still answers the owner's page, and its checks, while every other page is unavailable", async () => {
+    const f = await fixture({ owner: { commentMapsFile: await mapsFile() }, noSource: true });
+    expect((await f.get("/atlas")).response.status).toBe(503);
+    // Signing in needs the reader too, so these sessions are ones made before it went away.
+    const session = (subject: string) => `${ATLAS_SESSION_COOKIE}=${sealSession(f.settings,
+      newSession(participantKeyFor(f.settings, subject), new Date()))}`;
+    expect((await f.get(PRIVATE_PAGES_PATH)).body).toContain("Sign in with your AskRigor account to see this page.");
+    expect((await f.get(PRIVATE_PAGES_PATH, session(SUBJECT))).response.status).toBe(404);
+    const owner = await f.get(PRIVATE_PAGES_PATH, session(OWNER));
+    expect(owner.response.status).toBe(200);
+    expect(owner.body).toContain("An invented knee routine");
   });
 });
 

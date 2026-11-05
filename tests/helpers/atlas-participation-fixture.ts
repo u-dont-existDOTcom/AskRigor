@@ -161,6 +161,8 @@ export async function fixture(options: {
   owner?: { subjects?: readonly string[]; commentMapsFile?: string } | false;
   /** Wraps the page source the handler reads, such as to make it return what a store never would. */
   wrapSource?: (source: AtlasPageSource) => AtlasPageSource;
+  /** No page reader at all, as when the living-evidence reader is not configured: the pages answer 503. */
+  noSource?: boolean;
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -176,8 +178,8 @@ export async function fixture(options: {
     return createAtlasPagesHandler({
       enabled: true,
       publicOrigin: origin,
-      source: (options.wrapSource ?? ((inner) => inner))(
-        new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports })),
+      ...(options.noSource === true ? {} : { source: (options.wrapSource ?? ((inner) => inner))(
+        new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports })) }),
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),

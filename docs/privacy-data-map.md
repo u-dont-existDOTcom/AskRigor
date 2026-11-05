@@ -1984,10 +1984,15 @@ participant whose key is the participant key of the connector's owner subject
 (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`) or of another login of the owner's
 (`ASKRIGOR_ATLAS_OWNER_SUBJECT`); the server keeps neither subject, only the keys
 in memory. A reader who isn't signed in is asked to sign in, as on the other
-account pages, and anyone else signed in gets the Atlas's own "Not found". Every
-response is `Cache-Control: private, no-store`, `X-Robots-Tag: noindex, nofollow`
-and `Referrer-Policy: no-referrer`; nothing is logged, cached or stored, and the
-signed-in owner's header and account page alone link the page. The maps' video
+account pages and with their headers (`Cache-Control: private, no-store`), and
+anyone else signed in gets the Atlas's own "Not found", by design with a missing
+page's own page and headers. Only the owner's page itself carries
+`Referrer-Policy: no-referrer` (with its `<meta name="referrer"
+content="no-referrer">`) and `X-Robots-Tag: noindex, nofollow`, beside
+`Cache-Control: private, no-store`; the apex site's proxy sets the Atlas's
+`strict-origin-when-cross-origin` only where the pages set none, so it leaves
+that header as it is. Nothing is logged, cached or stored, and the signed-in
+owner's header and account page alone link the page. The maps' video
 links are the one exception to the pages' last check, on this page alone: any
 other YouTube text, script or card reference still stops a page, and a page of
 the owner's that would hold one is shown without the maps. No other route reads

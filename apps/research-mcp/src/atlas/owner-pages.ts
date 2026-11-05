@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 
@@ -46,14 +47,16 @@ export type PrivateCommentMaps =
 /**
  * The private maps file, read afresh for each request of the owner's page (so a new copy shows at once): none when no
  * path is set or no file is there; unreadable when the path isn't absolute, is not a plain file, is too large, or does
- * not hold a maps file as the schema reads one (commentMapsFileSchema). It never throws.
+ * not hold a maps file as the schema reads one (commentMapsFileSchema). It never throws. The file is opened without
+ * waiting (O_NONBLOCK), so a FIFO or a device at the path can't hold a thread of the pool, and what was opened is
+ * checked as a regular file (fstat) before anything is read (the review of #418, finding 1).
  */
 export async function readPrivateCommentMaps(path: string | undefined): Promise<PrivateCommentMaps> {
   if (path === undefined) return { state: "none" };
   if (!isAbsolute(path)) return { state: "unreadable" };
   let text: string;
   try {
-    const handle = await open(path, "r");
+    const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
       const info = await handle.stat();
       if (!info.isFile() || info.size > PRIVATE_COMMENT_MAPS_MAX_BYTES) return { state: "unreadable" };
