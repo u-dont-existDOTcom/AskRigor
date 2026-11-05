@@ -42,8 +42,11 @@ owner's; the release needs the owner's explicit yes, as always.
    and from which server settings are present (never a value). **Privacy change for the owner's sign-off:** the sealed
    Atlas session cookie now also carries the reader's research account key, so the page can read that one account;
    before, the sign-in dropped it at once. Sessions sealed before then ask the reader to sign in again to see the list.
-4. **From the 4 Nov CPAP test through this account's connector:** the final check's round counter stayed at 1 over four
-   calls; notes asking to cite two leads came back after the answer did.
+4. **From the 4 Nov CPAP test through this account's connector: nothing to fix.** The final check's round counter stayed
+   at 1 over four calls because all four passed: a round counts only when a blocking check stops the answer, and notes
+   consume no rounds (owner answers 193a and 195a; `countRound` in `apps/research-mcp/src/check-rounds.ts`). In the 115
+   runs on #412's build, 112 stayed at round 1 and 3 reached round 2, each at its second `not_ready`; every call after
+   the first sent its round token back. The note asking to cite two leads came once and the next draft answered it.
 5. **The meaning judge (owner answer 221).** Its validation on #394's run (`docs/audits/2026-11-04-meaning-judge-validation.md`)
    found comparison backing at 68 of 90; revise the near-miss and guidance rules on #394's run, now development data,
    freeze, and validate on the regression run on #412's build. It stays off until the owner says otherwise.
