@@ -206,9 +206,10 @@ function decodeEntities(text: string): string {
 // and the blocks the AI reads; the quote lookup reads its lines run on within a section (source-lines.ts), so a line
 // break here is never a sentence's end.
 const LINE_TAG = /<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu;
-// A tag starts with "<" and a letter, "/" and a letter, "!" or "?". A "<" before anything else is text, as a browser
-// shows it, so "(p<0.05) and function rose (q>0.1)" keeps its words.
-const TAG = /<(?:\/?[A-Za-z]|[!?])[^>]*>/gu;
+// What HTML's tokenizer takes out of the text, up to the next ">": a tag ("<" and a letter), an end tag or, after "</"
+// and anything else, a bogus comment ("</ p>", "</ br>"), and a declaration or a processing instruction ("<!", "<?"). A
+// "<" before anything else is text, as a browser shows it, so "(p<0.05)", "a < b" and "(q>0.1)" keep their words.
+const TAG = /<(?:[A-Za-z]|[/!?])[^>]*>/gu;
 const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
 /** A superscript of digits (a citation, "12,14–16", or a power, "−3") in Unicode's superscripts, as it is printed. */
 function superscript(element: string, inner: string): string {

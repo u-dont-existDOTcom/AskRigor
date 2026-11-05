@@ -438,6 +438,28 @@ with run-in bold headings (`<p><b>Methods</b> …`) went from full to partial. S
 The reviewer's three pages are admission tests, each with the state the old layout gave it; they pass against
 `06b96b14`'s extractor and fail against `d7f75505`'s.
 
+## The last structural round on the quote matcher (head `00c84e17`), 5 November
+
+The recheck confirmed admission and the paywall labels back to `06b96b14`'s behaviour (`textBlocks`, `htmlAccessState`
+and `full-text-admission.ts` byte-identical), `runsOn` changing nothing stored or signed, and the label rule and `l`.
+The matcher has needed fixes three times for the same class, so by AGENTS.md's recurring-class rule this round adds no
+exception beyond four items, and the next build changes the mechanism (planned separately):
+
+1. **Sloppy end tags.** `TAG` follows HTML's tokenizer: "<" and a letter is a tag, "</" and anything up to ">" goes (a
+   bogus comment, "</ p>", "</ br>"), `<!` and `<?` up to ">" go, and "<" before anything else stays text ("p<0.05",
+   "a < b"). `<p>Subscription required</ p>` keeps its paywall label.
+2. **The abbreviation join** is narrowed to a word with a full stop inside it (e.g., i.e., z.B., U.S., т.е.). The case
+   of one to three small letters refused common clinical sentences after one ending "twice a day.", "only in men.",
+   "in all." or "10 mg.", to protect rarer ones like "vs. Group B"; "vs.", "incl.", "approx.", "St.", "Dr." and "et al."
+   before a capital letter are known limits.
+3. **Citation spacing.** The author-year and bracket citations take white space just inside the brackets and before a
+   semicolon, so a citation linked in HTML or a JATS xref ("( Smith et al., 2020 )") is passed over as an unlinked one.
+4. **The remaining limits**, said plainly in the code, `docs/final-check.md` and the privacy map's Atlas section: a JATS
+   list after a lead-in that ends with a colon ("The drug did not:") is matched item by item; a word in a sentence that
+   sits on a line of its own and is a section's name starts a new section; JATS superscript citations read as bare
+   digits; an unknown subheading runs into the next sentence, as a table's or a list's item without a full stop does,
+   so those sentences are refused; and the abbreviation limits of item 2.
+
 ## Merging the stack into main
 
 Checked 5 November against today's `origin/main` (`bf3581aa`, #412): this branch already holds it, so a merge of main
