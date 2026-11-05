@@ -9,6 +9,10 @@ import type { AtlasPageSource } from "@askrigor/evidence-repository";
 import { currentProtocolElementNames } from "./protocol-rule-names.js";
 import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
+import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
+import {
+  lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+} from "./source-lines.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -74,7 +78,7 @@ import {
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
 
-import { infoAccessClientFromEnv, type InfoAccessClient } from "./infoaccess-client.js";
+import { infoAccessClientFromEnv, LIBRARY_CALL_DEADLINE_MS, type InfoAccessClient } from "./infoaccess-client.js";
 import { authorizedSubject } from "./research-contributor-access-tool.js";
 import {
   PUBLIC_TOOL_LIMITS,
@@ -107,8 +111,14 @@ import {
   saveResearchFindingsInputSchema,
   type FindingsSaveResult,
 } from "./findings/contracts.js";
-import { saveResearchFindings } from "./findings/runtime.js";
-import type { FindingsSaveAccount, FindingsSaveContext } from "./findings/service.js";
+import { keepUnsavedFindingsCard, saveResearchFindings } from "./findings/runtime.js";
+import type {
+  FindingsSaveAccount,
+  FindingsSaveContext,
+  UnsavedCardInput,
+  UnsavedCardResult,
+} from "./findings/service.js";
+import { findingsKeptLine, KEPT_FOR_REVIEW, unsavedCardNote, type UnsavedCardWhy } from "./findings/unsaved-card.js";
 import {
   protocolErrorResult,
   protocolRequestError,
@@ -252,6 +262,9 @@ import {
   parseFinalizeResearchInput,
   finalizeResearchOutputSchema,
   finalizeResearchPublishedOutputSchema,
+  meaningJudgeSourceOf,
+  sourceLineRequestsOf,
+  type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
 import {
@@ -814,6 +827,10 @@ export type McpSurface = "/mcp" | "/mcp/gemini" | "/mcp/claude";
 export interface RegisterToolsOptions {
   /** Replaces the configured second reader for deterministic tests. */
   secondReader?: SecondReader;
+  /** Replaces the configured meaning judge (owner answer 221) for deterministic tests. */
+  meaningJudge?: MeaningJudge;
+  /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
+  sourceLineTexts?: SourceLineTexts;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -833,6 +850,8 @@ export interface RegisterToolsOptions {
   lessonSubmission?: (raw: unknown, context: LessonSubmissionContext) => Promise<ConnectorLessonSubmissionResult>;
   /** Replaces the production findings library, for tests. */
   findingsSave?: (raw: unknown, context: FindingsSaveContext) => Promise<FindingsSaveResult>;
+  /** Keeps a private copy of a card that wasn't saved; for tests. */
+  findingsKeep?: (input: UnsavedCardInput) => Promise<UnsavedCardResult>;
   /** Whether the findings library is open; defaults to ASKRIGOR_FINDINGS_LIBRARY. */
   findingsLibrary?: boolean;
   /** Shared questions and answers (owner answer 200a); null turns them off; defaults to the server's settings. */
@@ -1580,10 +1599,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
           result
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure();
         return youtubeToolResult(
@@ -1611,10 +1630,10 @@ function defineResearchOperations(
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
-        return youtubeToolResult(
+        return withResearchReceipt(youtubeToolResult(
           `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
           commentSearchOutput(result)
-        );
+        ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
         const result = youtubeCommentsFailure(query);
         return youtubeToolResult(
@@ -2451,7 +2470,20 @@ function defineResearchOperations(
             }
           : {})
       };
-      let result = finalizeResearch(input, finalizeOptions);
+      let commentsRead = false;
+      let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
+      let result = finalizeResearch(input, gateOptions);
+      // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
+      // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
+      const lookups = sourceLineRequestsOf(result);
+      if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
+        const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
+          sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
+          .catch(() => late);
+        gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
+        result = finalizeResearch(input, gateOptions);
+      }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
       if (reader.enabled && checkedInput?.answer_draft !== undefined &&
         (result.status === "ready" || result.status === "ready_with_limits")) {
@@ -2460,7 +2492,23 @@ function defineResearchOperations(
           key_terms: checkedInput.key_terms ?? [],
           scale_results: checkedInput.scale_results ?? []
         });
-        result = finalizeResearch(input, { ...finalizeOptions, secondReading });
+        gateOptions = { ...gateOptions, secondReading };
+        result = finalizeResearch(input, gateOptions);
+      }
+      // Owner answer 221: for the owner's dev accounts only, a passing check is read once by the meaning judge, a
+      // Claude API call paid from the owner's monthly credits. Its notes go to the AI, and the findings it reads as
+      // resting on YouTube comments are held, before any save below. It never blocks: whatever happens to the call,
+      // the check stays as it is, with a note when the judge did not run.
+      const judge = options.meaningJudge ?? meaningJudgeFromEnv();
+      if (judge.enabled && researcher !== undefined && isDevAccount(researcher.accountKey, devAccountKeysFromEnv()) &&
+        (result.status === "ready" || result.status === "ready_with_limits")) {
+        const source = meaningJudgeSourceOf(result);
+        const bundle = source === undefined ? undefined : meaningJudgeBundle(source);
+        if (bundle !== undefined) {
+          const judgment = await judge.judge(bundle).then(({ judgment: read }) => read,
+            () => ({ status: "skipped" as const, reason: "error" as const }));
+          result = finalizeResearch(input, { ...gateOptions, meaningJudgment: judgment });
+        }
       }
       if (
         account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"
@@ -2499,10 +2547,39 @@ function defineResearchOperations(
         const cardId = result.findings_card.saved.card_id;
         if (cardId !== undefined) result.saved_line = findingsSavedLine(cardId);
       }
+      // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
+      // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
+      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && checkedInput !== undefined
+        ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard)
+        : undefined;
+      let keptCardId: string | undefined;
+      if (unsaved !== undefined) {
+        const kept = await withinDeadline((options.findingsKeep ?? keepUnsavedFindingsCard)({
+          card: checkedInput!.findings_card ?? parsed.droppedCard,
+          researchTarget: checkedInput!.research_target,
+          contributor: account!.accountKey,
+          why: unsaved,
+          // The answer is never stored, and an open step can quote it, so a step goes by its kind.
+          problems: result.findings_card.status === "rejected" ? result.findings_card.problems
+            : unsaved === "answer_not_ready" ? [...new Set(result.next_step_kinds ?? [])]
+            : result.findings_card.saved?.reason === undefined ? [] : [result.findings_card.saved.reason],
+          commentsRead,
+        }).catch(() => undefined), options.findingsSaveDeadlineMilliseconds ?? FINDINGS_SAVE_DEADLINE_MILLISECONDS, undefined);
+        if (kept?.status === "kept") {
+          keptCardId = kept.card_id;
+          result.findings_card.saved = { status: "not_saved", reason: KEPT_FOR_REVIEW };
+          result.notes = [...(result.notes ?? []), unsavedCardNote(kept.card_id)];
+        }
+      }
       // Owner answer 143a: a free answer whose research map was filed ends by saying what was saved, the card's id
       // included when its save confirmed.
       if (researcher?.mode === "FREE_CONTRIBUTOR" && result.research_map?.status === "filed") {
         result.saved_line = researchMapSavedLine(result.findings_card.saved?.card_id);
+      }
+      // The privacy notice says a card's id lets its deletion be requested, and a kept copy's does too.
+      if (keptCardId !== undefined && result.finalization_receipt !== undefined) {
+        const line = findingsKeptLine(keptCardId);
+        result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
       }
       // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
       // account's next passing final check (analysis-staging.ts).
@@ -2537,6 +2614,10 @@ function defineResearchOperations(
           result.caveats
             .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
+            `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
+              `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
+              "when the answer is not in English.") +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -2574,6 +2655,9 @@ function defineResearchOperations(
                 ? `; ${
                   card.saved.status === "not_saved"
                     ? card.saved.reason === "personal_only" ? PERSONAL_ONLY_NOT_SAVED
+                      : card.saved.reason === KEPT_FOR_REVIEW
+                        ? `not saved, and a private copy is kept for review${card.problems.length === 0 ? ""
+                          : `: ${card.problems.join(" ")}`}`
                       : card.saved.reason === "dev_account_saving_off" ? "not saved: this dev account's card saving is off"
                       : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
@@ -2717,6 +2801,17 @@ async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T
 }
 
 /** What finalize_research reports of a findings save: its public id, or that it was not saved. */
+// The saves' own refusals of what is meant to stay out of the library: nothing about them is a technicality.
+const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "youtube_findings_only"]);
+
+/** Why a free contributor's card wasn't saved, or undefined when it was, may yet be, or there was none to save. */
+function unsavedCardWhy(check: FinalizeResearchOutput["findings_card"], dropped: boolean): UnsavedCardWhy | undefined {
+  if (check.status === "rejected") return dropped ? "malformed" : "refused";
+  if (check.status !== "checked" || check.public_value === "personal_only") return undefined;
+  if (check.saved === undefined) return "answer_not_ready";
+  return check.saved.status === "not_saved" && !NOT_FOR_THE_LIBRARY.has(check.saved.reason ?? "") ? "save_failed" : undefined;
+}
+
 function savedFindings(result: FindingsSaveResult): NonNullable<FinalizeResearchOutput["findings_card"]["saved"]> {
   if (result.status === "saved" || result.status === "existing_card") {
     return result.card_id === undefined
@@ -3154,6 +3249,16 @@ function researchReceipt(
     : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
 }
 
+// Owner answer 219b: comments returned outside an audit leave a receipt too, so a findings card that says nothing about
+// them is held. It signs the video and how many records came back, never what they say.
+function youtubeCommentsReadReceipt(
+  result: { primary_identifier?: string | undefined; pagination: { returned: number } }
+): string | undefined {
+  return result.primary_identifier === undefined || result.pagination.returned === 0
+    ? undefined
+    : researchReceipt("youtube_comments_read", { video: result.primary_identifier, records: result.pagination.returned });
+}
+
 // A receipt's issue time has whole seconds, so each receipt also signs `t`, a
 // millisecond time that only increases within this process. finalize_research
 // orders research by it, never by the order the caller passes receipts in.
@@ -3208,6 +3313,8 @@ function registerOpenFullTextMcpTools(
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input, extra) => {
+      // From the call's start, so its earlier routes' time counts too.
+      const libraryDeadline = Date.now() + LIBRARY_CALL_DEADLINE_MS;
       let runtime: AcquireOpenFullTextRuntime | undefined;
       const auth = authorizedSubject(extra as ResearchOperationExtra | undefined, options.oauthResourceMetadataUrl, options.signIn);
       if (infoAccess !== undefined && "subject" in auth) {
@@ -3217,7 +3324,7 @@ function registerOpenFullTextMcpTools(
         const access = options.allowedReviewerSubjects?.has(auth.subject) === true ? "owner" :
           (await researchUseAccount(extra as ResearchOperationExtra | undefined, options.researchContributorAccessService)) !== undefined
             ? "public_only" : undefined;
-        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi) } };
+        if (access !== undefined) runtime = { ownerLibrary: { access, fetchPdf: (doi) => infoAccess.fetchPdf(doi, libraryDeadline) } };
       }
       return invokeOpenFullTextMcp("acquire_open_full_text", input, runtime);
     }
@@ -3399,6 +3506,24 @@ async function invokeOpenFullTextMcp(
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
+// How long a passing check may wait to look its source lines up; the held texts are in memory, PubMed's are one call.
+const SOURCE_LINE_DEADLINE_MILLISECONDS = 8_000;
+const AskRigorSourceLineTexts: SourceLineTexts = {
+  fullText(handle) {
+    try {
+      const index = OPEN_FULL_TEXT_READER.readAuditMaterial?.(handle);
+      return index === undefined ? undefined : sourceLineDocument(index);
+    } catch {
+      return undefined;
+    }
+  },
+  async abstract(pmid) {
+    const result = await fetchPubmedRecord(pmid, ncbiConfig());
+    const abstract = (result.data as { abstract?: string } | undefined)?.abstract;
+    return abstract === undefined || abstract === "" ? undefined : { kind: "abstract", blocks: [{ text: abstract }] };
+  }
+};
+
 function hasFailedFullTextSource(body: unknown): boolean {
   return hasFailedFullTextAcquisition(body as Parameters<typeof hasFailedFullTextAcquisition>[0]);
 }
@@ -3464,6 +3589,8 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     doi: source.doi,
     pmid: source.pmid,
     pmcid: source.pmcid,
+    // The final check looks source lines up in this text while AskRigor still holds it (owner answer 237a).
+    handle,
     ...(kind === "full_text_read" ? { content: source.content_sha256.slice(0, 16) } : {}),
     ...(kind !== "full_text_read" && source.provider === "client_supplied" ? {
       retrieval_provider: "client_search_index",
@@ -3563,7 +3690,8 @@ function collectResearchOperations(
       const runtimeOutputSchema = name === "finalize_research" ? finalizeResearchOutputSchema
         : name === "manage_research_access" ? manageResearchAccessRuntimeOutputSchema
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
-        : name === "get_youtube_video" ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+        : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
+          ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);

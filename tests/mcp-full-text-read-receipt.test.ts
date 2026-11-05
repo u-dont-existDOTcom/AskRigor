@@ -56,7 +56,7 @@ function checkReceipt(page: Awaited<ReturnType<typeof call>>, index: AuditableDo
     url: index.source.canonical_url
   } });
   if (!verified.ok) throw new Error("Receipt not verified");
-  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "id", "pmcid", "pmid", "t", "url"]);
+  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "handle", "id", "pmcid", "pmid", "t", "url"]);
   expect(JSON.stringify(verified)).not.toContain(index.blocks[0]!.text);
   expect(verifyResearchReceipt(page.research_receipt!, { secret: `${SECRET}other` })).toEqual({ ok: false, reason: "signature_invalid" });
 }

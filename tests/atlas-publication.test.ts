@@ -11,6 +11,7 @@ import {
 
 import {
   AtlasCardPublisher,
+  QUICK_ANSWER_TEST_WAITING,
   accountPublicationProblems,
   cardPublicationProblems,
   decidedPublicationDraft,
@@ -415,6 +416,33 @@ describe("publishing at the save", () => {
     const published = (await h.store.inspect({})).find(({ findingNumber }) => findingNumber === 1)!.published!;
     expect([published.claim, published.applies_to, published.why_not_usual])
       .toEqual([spaced.claim, spaced.applies_to, spaced.why_not_usual]);
+  });
+
+  // Owner answer 240a: the AI that did the research can't fairly judge its own card, so a saved finding stays off the
+  // pages until a separate AI's quick-answer test shows it. It is still there for AskRigor's research.
+  it("keeps a saved finding for research until the quick-answer test shows it", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect(await h.store.inspectKept()).toEqual([
+      expect.objectContaining({ publicationNumber: "P-1001", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
+      expect.objectContaining({ publicationNumber: "P-1002", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
+    ]);
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
+    expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
+  });
+
+  it("keeps nothing that is held, and a failed keep changes nothing about the save", async () => {
+    const h = harness();
+    const reference = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, why_not_usual: "As ARF-0142 also found." }] };
+    await h.save(reference, FREE);
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state }) => state)).toEqual(["held"]);
+    expect(await h.store.inspectKept()).toEqual([]);
+    const failing = harness();
+    failing.store.keep = async () => { throw new Error("synthetic failure"); };
+    await expect(failing.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved" });
+    await failing.service.publicationsSettled();
   });
 
   it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {

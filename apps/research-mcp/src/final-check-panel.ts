@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
-  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE,
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
@@ -41,10 +41,46 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // should briefly explain why it's different), along with limits of checking"): under a passing check the panel no
 // longer repeats the checked answer. One closed line opens the note comparing the answer with the quick answer the AI
 // wrote down before the research, and another what the check covers and the answer's limits.
+// Owner answer 220a (2 Nov): AskRigor never sees the answer the AI writes after the check, so what was checked also
+// lists the figures of the checked answer, and a figure in the answer that isn't on that list was written after the
+// check. A figure is a number in digits of any script, as written, with its decimal or group separators, a fraction's
+// slash and a percent sign. Links, DOIs, PubMed numbers, citation markers, list numbers and the digits of a name such as
+// COVID-19, B12 or ARF-0042 are not figures.
+// Owner answer 237a (4 Nov): what was checked also lists each key claim's two quotes, looked up word for word in the text
+// AskRigor fetched, and where each was found. A quote not found says so here, where the reader can see it.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
 const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
+const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
+function sourceLineOutcome(line) {
+  const place = line.text === "abstract" ? "the paper's abstract"
+    : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
+  const where = (section) => typeof section === "string" && section !== "" ? " (" + section + ")" : "";
+  const quote = (name, outcome, section) => outcome === "found" ? name + " found" + where(section)
+    : outcome === "not_found" ? name + " NOT found" : name + " not looked up";
+  if (line.sentence === "not_checked" && line.conclusion === "not_checked") {
+    return line.reason === "text_expired" ? "not looked up: AskRigor no longer holds this paper's text."
+      : line.reason === "too_short" ? "not looked up: the quotes are too short to mean much."
+      : line.reason === "not_a_key_source" ? "not looked up: this isn't one of the answer's key sources."
+      : "not looked up: AskRigor has no text of this paper to look in.";
+  }
+  if (line.sentence === "found" && line.conclusion === "found" && line.text !== "search_copy") {
+    return "\u2713 both quotes are in " + place + where(line.sentence_section) + where(line.conclusion_section) + ".";
+  }
+  return quote("the paper's sentence", line.sentence, line.sentence_section) + ", " +
+    quote("its conclusion", line.conclusion, line.conclusion_section) + ", in " + place + ".";
+}
+function answerFigures(text) {
+  const kept = text
+    .replace(/\bhttps?:\/\/\S+|\bwww\.\S+|\b10\.\d{4,9}\/\S+|\bPMID:?\s*\d+/giu, " ")
+    .replace(/\[\s*\p{Nd}+(?:\s*[,–-]\s*\p{Nd}+)*\s*\]/gu, " ")
+    .replace(/^([ \t]*)\p{Nd}+[.)](?=\s)/gmu, "$1");
+  const figure = /(?:(?<=^|[\s(\[])[−-])?(?<![\p{L}\p{Nd}_\/])(?<!\p{L}[-.])\p{Nd}+(?:[.,  ]\p{Nd}+)*(?:\/\p{Nd}+(?:[.,]\p{Nd}+)*)*(?:[   ]?[%‰٪])?/gu;
+  const figures = [];
+  for (const match of kept.matchAll(figure)) if (!figures.includes(match[0])) figures.push(match[0]);
+  return figures;
+}
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
@@ -77,7 +113,8 @@ function renderFinalCheck(doc, structuredContent) {
   };
   const strings = (list) => Array.isArray(list) ? list.filter((entry) => typeof entry === "string") : [];
   if (result.status === "ready" || result.status === "ready_with_limits") {
-    if (typeof result.plain_answer_note === "string" && result.plain_answer_note.trim() !== "") {
+    const noted = typeof result.plain_answer_note === "string" && result.plain_answer_note.trim() !== "";
+    if (noted) {
       const difference = fold("How this answer differs from a quick answer");
       appendText("p", DIFFERENCE_LEAD, difference);
       appendText("p", result.plain_answer_note, difference);
@@ -90,6 +127,21 @@ function renderFinalCheck(doc, structuredContent) {
     appendText("p", "Key studies whose methods were audited: " + strings(sources.validated).length +
       ". Used only as leads: " + strings(sources.lead_only).length +
       ". Communities searched: " + strings(community.communities_searched).length + ".", checked);
+    if (typeof result.checked_answer === "string") {
+      const figures = answerFigures(result.checked_answer);
+      const other = (noted ? ", apart from the quick-answer note's," : "") + " was added";
+      appendText("p", figures.length === 0
+        ? "The answer AskRigor checked gives no figures, so any figure in the answer" + other + " after the check."
+        : "Figures in the answer AskRigor checked: " + figures.join(" · ") + ". Any other figure in the answer" +
+          other + " or changed after the check.", checked);
+    }
+    const quoted = Array.isArray(result.source_lines) ? result.source_lines.filter((line) => line && typeof line.label === "string") : [];
+    if (quoted.length > 0) {
+      appendText("p", SOURCE_LINES_LEAD, checked);
+      const list = doc.createElement("ul");
+      for (const line of quoted) appendText("li", line.label + ": " + sourceLineOutcome(line), list);
+      checked.appendChild(list);
+    }
     if (limits > 0) {
       const list = doc.createElement("ul");
       for (const limit of strings(result.limits)) appendText("li", limit, list);

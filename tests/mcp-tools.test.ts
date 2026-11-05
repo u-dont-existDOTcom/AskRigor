@@ -1116,7 +1116,7 @@ describe("AskRigor MCP tools", () => {
         // Owner question 86: every research result reminds the AI of the final check, in any turn.
         type: "text",
         text: "Answers that use this research are checked with finalize_research before they are given, in this " +
-          "turn or a later one."
+          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
@@ -1672,6 +1672,59 @@ describe("AskRigor MCP tools", () => {
       expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret })).toMatchObject({
         ok: true, kind: "youtube_video_metadata", claims: { video: "XpZHKGGCK-o", access: "api_visible_complete" }
       });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
+  // Owner answer 219b: comments returned outside an audit leave a receipt, for the findings card's hold.
+  it.each([
+    ["get_youtube_comments", { video_id_or_url: "XpZHKGGCK-o" }, "6"],
+    ["search_youtube_comments", { video_id_or_url: "XpZHKGGCK-o", query: "recorded episode" }, "2"]
+  ])("%s signs that it returned comments, and never what they say", async (name, input, records) => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    const secret = "comments-receipt-secret-0123456789abcdef";
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = secret;
+    vi.stubGlobal("fetch", vi.fn(async (request: URL | RequestInfo) => {
+      const url = new URL(String(request));
+      if (name === "get_youtube_comments") return mcpCompleteCommentResponse(url);
+      return new Response(await youtubeFixture(url.pathname.endsWith("/commentThreads")
+        ? "comment-threads-query.json" : "comments-query-parent.json"), { status: 200 });
+    }));
+    try {
+      const result = await client.callTool({ name, arguments: input });
+      expect(result.isError).not.toBe(true);
+      const receipt = result.structuredContent!.research_receipt as string;
+      expect(verifyResearchReceipt(receipt, { secret })).toMatchObject({
+        ok: true, kind: "youtube_comments_read", claims: { video: "XpZHKGGCK-o", records }
+      });
+      expect(Object.keys((verifyResearchReceipt(receipt, { secret }) as { claims: object }).claims).sort())
+        .toEqual(["records", "t", "video"]);
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("gives no comment receipt when no comments came back", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = "comments-receipt-secret-0123456789abcdef";
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ pageInfo: { totalResults: 0, resultsPerPage: 0 }, items: [] })));
+    try {
+      const result = await client.callTool({ name: "get_youtube_comments", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(result.structuredContent).toMatchObject({ pagination: { returned: 0 } });
+      expect(result.structuredContent).not.toHaveProperty("research_receipt");
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousKey);
       restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
@@ -3053,15 +3106,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.36",
-          revisionDate: "2026-11-01",
-          sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
+          version: "20.6.38",
+          revisionDate: "2026-11-04",
+          sha256: "1c3e56fa6f73845f00c1bba00ed74eb67860b34dc98a05b3892360c8b98e8f5e"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "59e946c296b835a21a28f2ae83d02800a1a1ee5174689e675c597f29a7520ffa"
+        scope_sha256: "1c3e56fa6f73845f00c1bba00ed74eb67860b34dc98a05b3892360c8b98e8f5e"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

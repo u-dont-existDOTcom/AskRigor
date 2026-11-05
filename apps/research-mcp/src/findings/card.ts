@@ -194,7 +194,55 @@ export const findingsCardSchema = z.object({
   open_leads: z.array(cardText(200)).max(6).default([])
 }).strict();
 
-export type FindingsCard = z.output<typeof findingsCardSchema>;
+/**
+ * Owner answer 219b (2 November 2026): the AI declares for each finding whether it draws on YouTube comments, and
+ * AskRigor holds those (findings drawn from YouTube comments are never published; owner answers 170 and 173). The
+ * published card stays fixed (owner answer 189a), so the declaration is a nested field of the card's later shape: the
+ * whole card goes in later_inputs.findings_card, or at the top level where the app's copy of the schema lets it through.
+ * Whether a finding draws on comments is the AI's judgment, in any language; the check compares only what it declares.
+ */
+export const DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION = "Whether this finding draws on YouTube comments read in this " +
+  "research: true when any part of it rests on what commenters wrote (their reports, experiences, claims or " +
+  "numbers), false when none does. AskRigor holds a finding that draws on them privately for its owner's review and " +
+  "never publishes it; when this research read YouTube comments, a finding without this declaration is held too.";
+
+export const laterFindingSchema = findingsCardSchema.shape.findings.element.extend({
+  draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION)
+}).strict();
+
+/** The findings card with each finding's declaration of owner answer 219b, as finalize_research and the save read it. */
+export const laterFindingsCardSchema = findingsCardSchema.extend({
+  findings: z.array(laterFindingSchema).min(1).max(5).describe(FINDINGS_DESCRIPTION)
+}).strict();
+
+/** A card as checked: the published card's fields, and each finding's optional YouTube-comments declaration. */
+export type FindingsCard = z.output<typeof laterFindingsCardSchema>;
+
+/**
+ * The 1-based places of a checked card's findings that the finalization receipt signs as held (owner answer 219b), as
+ * indexes into the card: those whose declaration, or its absence after YouTube comments were read, or the meaning
+ * judge, put with the findings drawn from YouTube comments. Undefined entries, or entries past the card, are ignored.
+ */
+export function heldFindingsFromReceipt(signed: string | string[] | undefined, findings: number): Set<number> {
+  const entries = signed === undefined ? [] : Array.isArray(signed) ? signed : [signed];
+  return new Set(entries.flatMap((entry) => {
+    if (!/^[1-9]$/u.test(entry)) return [];
+    const index = Number(entry) - 1;
+    return index < findings ? [index] : [];
+  }));
+}
+
+/**
+ * Whether the save already holds a finding apart by what the card itself shows (owner answers 170 and 173): a YouTube
+ * video among its sources, community_checked, or a comment audit among the bases its receipt signed.
+ */
+export function heldByCardFields(
+  finding: Pick<FindingsCard["findings"][number], "sources" | "tags">,
+  bases: readonly VerifiedBasis[] = [],
+): boolean {
+  return finding.sources.some(isYouTubeVideoId) || finding.tags.includes("community_checked") ||
+    bases.includes("comment_audit");
+}
 
 /** The sentence a paid-private answer's offer ends with, as the owner worded it (139c): the save waits for a yes. */
 export const FINDINGS_SAVE_OFFER =
@@ -415,8 +463,11 @@ export function isSafeReportedModel(value: string): boolean {
     !containsSecretLikeData(value);
 }
 
-/** A finding as the library stores it: its YouTube videos counted, not named. */
-export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & {
+/**
+ * A finding as the library stores it: its YouTube videos counted, not named. Its YouTube-comments declaration (owner
+ * answer 219b) decided only whether it was held apart, which the finalization receipt signed, so it is not stored.
+ */
+export type StoredFinding = Omit<FindingsCard["findings"][number], "sources" | "draws_on_youtube_comments"> & {
   sources: string[];
   /** Videos whose audited comments back this finding; their IDs are not stored. */
   youtube_videos?: number;
@@ -450,8 +501,9 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
  * while its YouTube API compliance review is open: a link keeps its text. The
  * gate still checked the videos; the saved record keeps the digest it signed.
  * A finding drawn from YouTube comments (a YouTube video among its sources, or
- * community_checked, or a comment audit among the bases the receipt signed for
- * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
+ * community_checked, or, given as drawnFromComments, a comment audit among the bases the receipt signed for it or a
+ * place the receipt signed as held: declared as drawing on comments, undeclared after comments were read, or read so
+ * by the meaning judge; owner answer 219b) is left out whole: the owner told YouTube on 29 Aug 2026
  * that AskRigor stores no YouTube-derived records until YouTube clarifies
  * (owner answer 170, 24 Oct); since owner answer 173 (25 Oct) each finding left
  * out is held apart from the card, for the owner's review. `kept`
@@ -468,9 +520,11 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     if (stored !== value) omitted = true;
     return stored;
   };
-  const kept = card.findings.flatMap(({ sources, tags }, index) =>
-    sources.some(isYouTubeVideoId) || tags.includes("community_checked") || drawnFromComments.has(index) ? [] : [index]);
-  const findings = kept.map((index) => card.findings[index]!).map(({ sources, ...finding }): StoredFinding => {
+  const kept = card.findings.flatMap((finding, index) =>
+    heldByCardFields(finding) || drawnFromComments.has(index) ? [] : [index]);
+  const findings = kept.map((index) => card.findings[index]!).map(({
+    sources, draws_on_youtube_comments: _declared, ...finding
+  }): StoredFinding => {
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
     return {

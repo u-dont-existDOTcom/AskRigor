@@ -25,9 +25,11 @@ for (const name of ["search_reddit", "get_reddit_thread", "get_reddit_comments",
     record({ event: "start", name, input, at: Date.now() });
     if (mode === "crash" && !previous.includes('"event":"start"')) process.exit(0);
     if (mode === "always-crash") process.exit(0);
-    if (mode === "slow-continuation" && name === "expand_reddit_comments") await new Promise((resolve) => setTimeout(resolve, 1_000));
+    if (mode === "slow-continuation" && name === "expand_reddit_comments") await new Promise((resolve) => setTimeout(resolve, 10_000));
     if (mode === "slow") await new Promise((resolve) => setTimeout(resolve, 150));
-    if (mode.startsWith("error-")) return { isError: true, structuredContent: { error: { code: mode.slice(6), message: "Synthetic private provider message" } }, content: [] };
+    // The host's busy answer carries its retry hint, as the real host's does.
+    if (mode.startsWith("error-")) return { isError: true, structuredContent: { error: { code: mode.slice(6), message: "Synthetic private provider message",
+      ...(mode === "error-BROWSER_BUSY" ? { retry_after_seconds: 2 } : {}) } }, content: [] };
     let result;
     if (name === "search_reddit") result = { source: "reddit", posts: Array.from({ length: 7 }, (_, index) => ({
       id: `abc${index}`, name: `t3_abc${index}`, subreddit: "synthetic", title: `Synthetic search ${index}`,

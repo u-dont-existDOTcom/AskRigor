@@ -4,8 +4,10 @@ import { z } from "zod";
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
 import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
+import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
+import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
@@ -27,7 +29,23 @@ const LATER_INPUT_SHAPES = Object.freeze({
     open_leads: openLeadsSchema.optional()
       .describe("Optional planning for a later pass: studies or communities not yet reached, with what each could change."),
     another_pass_estimate: researchPlanSchema.shape.another_pass_estimate
-      .describe("Optional estimate of what another pass would take, at most 200 characters.")
+      .describe("Optional estimate of what another pass would take, at most 200 characters."),
+    // Owner answer 219b: the card's newer form, whose findings each declare whether they draw on YouTube comments.
+    findings_card: laterFindingsCardSchema.optional()
+      .describe("The findings card, as published, with each finding's draws_on_youtube_comments: true when any part " +
+        "of it rests on YouTube comments read in this research, false otherwise. A finding drawing on them is held " +
+        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared."),
+    // Owner answer 237a: the one optional field the source line adds.
+    source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
+      .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +
+        "conclusion, each copied whole and exactly, and the strongest thing against the claim. AskRigor looks both " +
+        "quotes up in the text it fetched; a quote not found is a note, and the panel says so.")
+  },
+  // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
+  save_research_findings: {
+    findings_card: laterFindingsCardSchema
+      .describe("The card exactly as the last finalize_research call checked it, with each finding's " +
+        "draws_on_youtube_comments as that call had it.")
   },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()

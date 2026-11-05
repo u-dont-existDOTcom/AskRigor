@@ -7,7 +7,11 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    A receipt-tied web address works without a DOI or an answer marker. A receipt that fails verification
    does not count and produces a note. A link counts wherever the answer writes it, inside parentheses too, and a
    step offers only pages a source's kind has (until the 30 Oct rerun, "([label](URL))." read as "URL))." and was
-   refused, and web addresses were offered as doi.org links).
+   refused, and web addresses were offered as doi.org links). A forum thread `read_forum_thread` read counts by its
+   verified `forum_thread_read` receipt, matched by the thread's comparable link, and any link to the same thread is
+   its link; it is not asked for a DOI, full text or lead (#394's run, 3 November 2026, refused two such threads). A
+   note asks for a study a claim rests on to be added to `key_sources` only when this check would accept it there;
+   otherwise it asks for the study to be looked up first.
 2. A study's declared `read_depth` matches its receipts.
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
 4. Declared `safety_claims` have a `harm_screen` naming at least one harm actually searched. Duplicates, other
@@ -29,7 +33,8 @@ missing declarations, wording and quote guidance, key terms, unfinished research
 landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
 currency. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
 `docs/superpowers/plans/2026-10-31-video-comment-maps.md`): forum evidence resting on fewer than five threads read, or
-on one community; no study search issued after the first YouTube community receipt (the loop); and the emergency
+on one community (each thread once by its comparable link, counting those the reader's verified receipts show read
+as well as those declared); no study search issued after the first YouTube community receipt (the loop); and the emergency
 exemption declared while key sources show the research went on. These notes never become next steps or consume check
 rounds. The round limit, stuck-step logic and
 stopped-check report apply only to the six blocking checks. A usable draft and research target are still needed
@@ -55,8 +60,13 @@ which study it means; a source labelled by its identifier is named once. Under a
 line and folds the rest under closed lines that open on a click (owner answer 217b, 2 November 2026: "keep it
 folded, people can unfold if they want to see how the answer is different"): first the plain-answer note, how the
 answer differs from the quick answer written before the research and what backs each change; then what the check
-covers, with the counts of audited key studies, leads and communities searched, and every limit, even one the
-draft omitted. It no longer repeats the checked answer. The advisory notes, written for the AI, come last in the panel
+covers, with the counts of audited key studies, leads and communities searched, the figures of the checked answer,
+and every limit, even one the draft omitted. It no longer repeats the checked answer. AskRigor never sees the answer
+the AI writes after the check, so the figures make a change visible (owner answer 220a, 2 November 2026): any other
+figure in the answer, apart from those the plain-answer note quotes, was added or changed after the check. A figure is
+a number in digits of any script, as written, with its decimal or group separators, a fraction's slash and a percent
+sign; links, DOIs, PubMed numbers, citation markers, list numbers and the digits of a name such as COVID-19 are not
+figures. The advisory notes, written for the AI, come last in the panel
 under every status, folded under one closed line, "Notes for the AI", that opens on a click (the owner on 30 October
 2026, of a panel whose five notes came before the answer). So, following HRP 20.6.34 (owner answer 205a, 30 October 2026), a passing check's answer states in its own words
 only the limits that change what the person should believe or do, with which limits matter left to the AI; the
@@ -97,7 +107,8 @@ Figure parsing accepts an interdigit middle dot as a decimal point, including st
 figures, while a spaced list separator stays separate. The unblinded-test limit describes the person's knowledge of
 what they took or did without assuming who runs the test.
 
-A plain-answer confirmation needs the same backing as a qualification: a study audited in full text here, a video whose
+A plain-answer confirmation or correction needs the same backing as a qualification (a first-turn correction too, since
+#394's run printed an unbacked one as the research's): a study audited in full text here, a video whose
 comments were read here, a sentence the answer declares as not found or as a correction it found, or, since owner answer
 210b (1 November 2026), a forum thread this call declares it read, for a claim about what people report. Which claims
 those are is the AI's declaration. The note names up to three such threads. When every thread behind a claim has a verified `forum_thread_read`
@@ -110,8 +121,72 @@ each registered claim with its figures, including figures absent from the checke
 with such figures says the research did not confirm them. If a receipt marked plain_answer does not verify, the result
 says so and explains exact-copy recovery; an omitted receipt's message also explains that recovery. No declaration,
 required field, caveat or blocking check is added. The published tool definitions remain frozen, including their
-older description of the note's figure replacement; the runtime result supplies the actual note.
+older description of the note's figure replacement and of a first-turn correction's sources
+(`docs/tool-list-changes-waiting.md`); the runtime result supplies the actual note. A plain answer registered after
+research began is not compared, and the registration's result no longer says it was registered before research: the
+server keeps no record of the research, so only the final check can tell, by the receipts' signed order.
 
+
+Owner answer 237a (4 November 2026) adds one optional field and no blocking rule. `source_lines`, a later input of
+`finalize_research`, gives for each key claim the key source's id, the claim, the paper's sentence and its own
+conclusion, each copied whole and exactly, and the strongest thing against the claim. Once a check passes, AskRigor
+looks both quotes up word for word in the text it fetched: the full text it still holds, through the handle the
+source's verified `full_text_read` or audit receipt signs, or otherwise the PubMed abstract. Spacing, case, Unicode
+form, curly quotation marks, dashes and emphasis are set aside and nothing else, so a changed word, number or sign is
+not found, in any language, with no model. The result's runtime `source_lines` and the panel say which quotes were
+found and in which section. Only a line with both found in a paper AskRigor fetched may carry "✓ AskRigor found both
+in the paper"; a copy the AI supplied is named as one and gets no tick. A quote not found is a note and a line in the
+panel, not a step, since the six blocking checks don't name it. Finding a quote shows the words exist, not that they
+are fair, which is why the conclusion and the strongest thing against the claim sit beside it; whether they back the
+claim is meaning, and the meaning judge reads it where it is on (its job 5). Limits: AskRigor holds a full text for an
+hour after its last read, so a later check leaves those quotes unchecked and says so; a source with no full text held
+and no PMID has nothing to look in; and the check can't say what the answer shows after it.
+
+Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
+say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
+(owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in
+`later_inputs.findings_card` (the runtime also takes it at the top level). Whether a finding draws on comments is the
+AI's judgment, in any language; the check only reads what is declared. When this call's verified receipts show that
+YouTube comments were read (a video audit whose final view returned comments, the videos a one-call community audit
+read, or comments `get_youtube_comments` or `search_youtube_comments` returned), a finding declared true, or one that
+declares nothing, is held privately for the owner's review and never published, the same as a finding with a video among its sources, `community_checked` or audited comments behind it; a
+note names each finding that declares nothing and asks for the declaration. A finding declared false is saved as
+before, and a finding declared true is held even when no comments were read here. With no comments read, no
+declaration is needed. The finalization receipt signs the held findings' places on the card (`held`), and the
+runtime result lists them in `findings_card.held`. The card's digest covers the declarations, so a paid-private save
+sends the card exactly as checked, declarations included. Card ARF-0272's third finding, about people commenting on a
+public demonstration, listed two DOIs and so was published; a declaration now holds such a finding, though it still
+depends on the AI declaring truthfully. The receipt from `get_youtube_comments` and `search_youtube_comments`
+(`youtube_comments_read`) counts only here: it is no audit, so community evidence is checked as before. An AI that
+leaves the receipt out gets no hold on a finding that declares nothing, as with any receipt left out.
+
+Owner answer 221 (2 November 2026) adds the meaning judge, for the owner's dev accounts only, and no blocking rule.
+Exact comparisons cannot judge meaning, so once a dev account's check passes, AskRigor makes one Claude API call
+(`apps/research-mcp/src/meaning-judge.ts`; `claude-opus-5-5` at effort low by default, structured JSON output, a fixed
+rubric) and reads the check again with its reply. It has four jobs:
+
+1. When this call's receipts show YouTube comments were read, whether each finding of the checked card rests on them.
+   A finding it reads so is held like a declared one (the safe direction), signed in the receipt's `held`, with a note.
+2. Whether each change the plain-answer note credits to its work is backed by what it names: a study backs only what
+   it examined, a video's comments only what commenters reported, a forum link only what people there reported. Any
+   audited study used to count as backing; the judge's doubt is a note.
+3. Whether each limit applies to this answer; a limit whose premise is false here (an unblinded-test limit when the
+   only test is clinical monitoring, a different-tissue limit naming the same tissue twice) gets a note. The panel
+   still lists every limit.
+4. Whether each card finding makes sense on its own to a reader of the public Atlas who never saw the question; a
+   fragment such as Atlas publication P-1020's ("The camping bundles do not isolate…", applying to "Interpretation of
+   the two audited camping papers.") gets a note asking for a rewrite.
+
+Jobs 2 to 4 only add notes. A failure, timeout, refusal or reached daily cap leaves the check as it was and adds one
+note saying the judge did not run. The runtime result reports `meaning_judge` (`status`, `reason`, `held`, `notes`).
+It is off unless `ASKRIGOR_MEANING_JUDGE=on`, with the key read from `ASKRIGOR_MEANING_JUDGE_KEY_FILE` (a read-only
+mounted secret), `ASKRIGOR_MEANING_JUDGE_WORKSPACE_ID` for an organization-scoped key, and optional
+`ASKRIGOR_MEANING_JUDGE_MODEL`, `_EFFORT` (`low` or `medium`), `_DAILY_CAP_USD` (default 3, the owner's "hard cap of $3 a
+day") and `_TIMEOUT_SECONDS`
+(default 60). It is paid from the owner's monthly Claude API credits under the policy's `OWNER_ANSWER_221`. Its
+development measurement on #393's run is `docs/audits/2026-11-02-meaning-judge-development.md`; as the owner's
+question put it, it returns notes only and stops no answer until a regression run has measured it against the
+owner's judges.
 
 The forum reader (owner answers 211a and 213b) adds no declaration or blocking rule. A `threads_read` URL with a
 verified `forum_thread_read` receipt was read through AskRigor. A community or subreddit all of whose declared

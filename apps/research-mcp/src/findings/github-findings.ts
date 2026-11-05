@@ -8,6 +8,7 @@ import {
   type GitHubTokenProvider,
 } from "../lessons/github-app.js";
 import type { FindingsRecord } from "./service.js";
+import { unsavedClaimKey } from "./unsaved-card.js";
 
 /**
  * The findings library's private review queue: one GitHub issue per card,
@@ -16,10 +17,16 @@ import type { FindingsRecord } from "./service.js";
  * occurrence comment instead. A save repeated with the same finalization
  * receipt writes nothing new, so a retry cannot count twice, and the same
  * research thread reaching the same findings again is not another occurrence.
- * A thread's new card replaces its earlier open cards (owner decision Q9: a
- * corrected answer's findings, not the wrong ones, are what gets reviewed).
+ * A thread's new card replaces its earlier open cards on the same question
+ * (owner decision Q9: a corrected answer's findings, not the wrong ones, are
+ * what gets reviewed; owner answer 240a: another question is another card).
  * A card with a finding that rests on work a quick answer cannot do is also
  * labeled beyond-quick-answer, and so is an open card such a save joins.
+ *
+ * A card that wasn't saved is kept here too, as an issue labeled unsaved-card
+ * alone, for a second look (findings/unsaved-card.ts). No card list reads that
+ * label, so nothing here publishes it. A card saved later closes each copy from
+ * the same research whose every claim it carries.
  */
 
 export const FINDINGS_CARD_LABEL = "findings-card";
@@ -28,6 +35,8 @@ export const PENDING_REVIEW_LABEL = "pending-review";
 export const BEYOND_QUICK_ANSWER_LABEL = "beyond-quick-answer";
 // A card the owner set aside (decision 171, default 5): never published, and left out of the waiting cards' list.
 export const SET_ASIDE_LABEL = "set-aside";
+// A copy of a card that wasn't saved, for a second look: never a findings card, so no list of cards reads it.
+export const UNSAVED_CARD_LABEL = "unsaved-card";
 
 export interface GitHubFindingsSubmission {
   record: FindingsRecord;
@@ -36,6 +45,8 @@ export interface GitHubFindingsSubmission {
   receiptSha256: string;
   /** The research thread's keyed hash (findingsThreadKey). */
   thread: string;
+  /** The card's question's hash (findingsQuestionKey): a new card replaces only a thread's cards on the same question. */
+  question: string;
   /**
    * Whether the saving account's card is published in the Atlas as soon as it is saved (decision 171, section 4B): a
    * new card's marker records it, so a card whose publishing failed can be found for the owner to retry.
@@ -69,6 +80,8 @@ export interface CardMetadata {
   receipt_sha256: string;
   saved_at: string;
   thread?: string;
+  /** The card's question's hash, on cards saved since owner answer 240a; an earlier card has none and is not replaced. */
+  question?: string;
   /** A re-filed save's: the issue number of the forgotten card it was a later save of (decision 7). */
   refiled_from?: number;
   /** Decision 171, section 4B: the saving account's card is published in the Atlas as soon as it is saved. */
@@ -92,6 +105,30 @@ export interface OccurrenceMetadata extends CardMetadata {
   occurrence_count: number;
 }
 
+/** What a kept copy's hidden marker holds: its digest, its research thread, its claims' keys and when it was kept. */
+export interface UnsavedCardMetadata {
+  card_sha256: string;
+  thread: string;
+  claims: string[];
+  kept_at: string;
+}
+
+/** A copy of a card that wasn't saved, as it is filed. */
+export interface GitHubUnsavedCard {
+  metadata: UnsavedCardMetadata;
+  question?: string;
+  card: Record<string, unknown>;
+  why: string;
+  problems: string[];
+  leftOut: string[];
+  build: string;
+}
+
+export interface GitHubUnsavedCardResult {
+  kind: "created" | "existing";
+  issueNumber: number;
+}
+
 interface OpenCard {
   number: number;
   /** The issue's comment count; unknown counts as one, so the card is kept. */
@@ -107,6 +144,7 @@ const HEX_64 = /^[a-f0-9]{64}$/u;
 /** The hidden markers a card's body and each later save's comment end with; the owner's review reads them too. */
 export const CARD_MARKER = "askrigor-findings-card";
 export const OCCURRENCE_MARKER = "askrigor-findings-occurrence";
+export const UNSAVED_CARD_MARKER = "askrigor-unsaved-card";
 const MAX_TITLE_CHARACTERS = 256;
 // GitHub refuses an issue or comment body over 65,536 characters.
 const MAX_BODY_CHARACTERS = 60_000;
@@ -133,8 +171,14 @@ export class GitHubFindingsQueue {
 
   submit(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
     const result = this.writer.then(() => this.submitSerialized(input));
-    this.writer = result.then(() => undefined, () => undefined);
+    // After the save has answered, so it never waits for this. The card is saved; a copy left open is one more to read.
+    this.writer = result.then(({ issueNumber }) => this.closeUnsaved(input, issueNumber)).then(() => undefined, () => undefined);
     return result;
+  }
+
+  /** Resolves once everything started so far has finished, whatever its outcome: for tests. */
+  settled(): Promise<void> {
+    return this.writer;
   }
 
   /**
@@ -150,6 +194,75 @@ export class GitHubFindingsQueue {
     return result;
   }
 
+  /** Files a copy of a card that wasn't saved, once for each card: the same card again writes nothing new. */
+  keepUnsaved(input: GitHubUnsavedCard): Promise<GitHubUnsavedCardResult> {
+    const result = this.writer.then(() => this.keepUnsavedSerialized(input));
+    this.writer = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  private async keepUnsavedSerialized(input: GitHubUnsavedCard): Promise<GitHubUnsavedCardResult> {
+    const { metadata } = input;
+    if (!HEX_64.test(metadata.card_sha256) || !HEX_64.test(metadata.thread)) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const same = (await this.openUnsavedCards()).find((copy) => copy.metadata.card_sha256 === metadata.card_sha256);
+    if (same !== undefined) return { kind: "existing", issueNumber: same.number };
+    const response = await this.request(this.issuesPath, {
+      method: "POST",
+      body: JSON.stringify({
+        title: issueTitle(`Not saved: ${input.question ?? "question left out"}`),
+        body: unsavedCardBody(input),
+        labels: [UNSAVED_CARD_LABEL],
+      }),
+    });
+    if (!isRecord(response) || !isPositiveInteger(response.number)) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+    return { kind: "created", issueNumber: response.number };
+  }
+
+  private async openUnsavedCards(): Promise<Array<{ number: number; metadata: UnsavedCardMetadata }>> {
+    const copies: Array<{ number: number; metadata: UnsavedCardMetadata }> = [];
+    for (let page = 1; ; page += 1) {
+      const response = await this.request(
+        `${this.issuesPath}?state=open&labels=${UNSAVED_CARD_LABEL}&per_page=100&page=${page}`,
+        { method: "GET" },
+      );
+      if (!Array.isArray(response)) throw new GitHubApiError("github_service_unavailable", true);
+      for (const issue of response) {
+        if (!isRecord(issue) || "pull_request" in issue || typeof issue.body !== "string" ||
+          !isPositiveInteger(issue.number)) {
+          continue;
+        }
+        const metadata = parseMarker(issue.body, UNSAVED_CARD_MARKER, parseUnsavedCardMetadata);
+        if (metadata !== undefined) copies.push({ number: issue.number, metadata });
+      }
+      if (response.length < 100) break;
+    }
+    return copies;
+  }
+
+  /**
+   * A saved card closes the copies from its research whose every claim it carries, compared exactly. A copy with a
+   * finding the saved card dropped or reworded stays open, as that finding is what the second look is for.
+   */
+  private async closeUnsaved(input: GitHubFindingsSubmission, savedOn: number): Promise<void> {
+    const saved = new Set(input.record.card.findings.map(({ claim }) => unsavedClaimKey(claim)));
+    for (const copy of await this.openUnsavedCards()) {
+      const { thread, claims } = copy.metadata;
+      if (thread !== input.thread || claims.length === 0 || !claims.every((claim) => saved.has(claim))) continue;
+      await this.request(`${this.issuesPath}/${copy.number}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body: `## Saved\n\nEvery finding here was saved on ${publicFindingsCardId(savedOn)}.` }),
+      });
+      await this.request(`${this.issuesPath}/${copy.number}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state: "closed", state_reason: "completed" }),
+      });
+    }
+  }
+
   private async refileSerialized(input: GitHubFindingsRefile): Promise<number> {
     const { metadata } = input;
     if (!HEX_64.test(metadata.fingerprint) || !HEX_64.test(metadata.receipt_sha256) ||
@@ -161,6 +274,7 @@ export class GitHubFindingsQueue {
       receipt_sha256: metadata.receipt_sha256,
       saved_at: metadata.saved_at,
       ...(metadata.thread === undefined ? {} : { thread: metadata.thread }),
+      ...(metadata.question === undefined ? {} : { question: metadata.question }),
       refiled_from: input.refiledFrom,
     };
     const response = await this.request(this.issuesPath, {
@@ -182,7 +296,8 @@ export class GitHubFindingsQueue {
   }
 
   private async submitSerialized(input: GitHubFindingsSubmission): Promise<GitHubFindingsQueueResult> {
-    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256) || !HEX_64.test(input.thread)) {
+    if (!HEX_64.test(input.fingerprint) || !HEX_64.test(input.receiptSha256) || !HEX_64.test(input.thread) ||
+      !HEX_64.test(input.question)) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     const open = await this.openCards();
@@ -194,7 +309,8 @@ export class GitHubFindingsQueue {
       : await this.addOccurrence(same, input);
     const replacedCards: number[] = [];
     for (const earlier of open) {
-      if (earlier.metadata.thread !== input.thread || earlier.number === saved.issueNumber) continue;
+      if (earlier.metadata.thread !== input.thread || earlier.metadata.question !== input.question ||
+        earlier.number === saved.issueNumber) continue;
       try {
         await this.replace(earlier, saved.issueNumber);
         replacedCards.push(earlier.number);
@@ -332,6 +448,7 @@ export class GitHubFindingsQueue {
       receipt_sha256: input.receiptSha256,
       saved_at: input.record.stamp.saved_at,
       thread: input.thread,
+      question: input.question,
       ...(input.atlasPublish === true ? { atlas_publish: true as const } : {}),
       ...(input.paidPrivate === true ? { paid_private: true as const } : {}),
     };
@@ -376,6 +493,21 @@ export function cardIssueBody(record: FindingsRecord, metadata: CardMetadata): s
     "save of the same question and claims, from another research thread; it is reviewed here as a card of its own.")}\n\n`;
   const full = `${refiled}${readableCard(record)}\n\n${readableStamp(record)}\n\n## Review\n\nPending the owner's ` +
     `review: nothing in this card is accepted until then.\n\n${tail}`;
+  return boundedBody(full, tail);
+}
+
+/** A kept copy's issue body: why it wasn't saved, what the copy leaves out, the card, and its marker. */
+export function unsavedCardBody(input: GitHubUnsavedCard): string {
+  const list = (lines: readonly string[]) => lines.map((line) => `- ${escapeMarkdown(line)}`).join("\n");
+  const tail = `## The card\n\n${fencedJson(input.card)}\n\n${marker(UNSAVED_CARD_MARKER, input.metadata)}`;
+  const full = [
+    section("Not saved", `${input.why} This is a private copy: nothing in it is checked, saved or ` +
+      "public. It's kept so that a finding isn't lost on a technicality."),
+    section("What stopped it", input.problems.length === 0 ? "Nothing more was given." : list(input.problems)),
+    ...(input.leftOut.length === 0 ? [] : [section("Left out of this copy", list(input.leftOut))]),
+    section("Kept", `${input.metadata.kept_at}, build ${escapeMarkdown(input.build)}`),
+    tail,
+  ].join("\n\n");
   return boundedBody(full, tail);
 }
 
@@ -516,7 +648,7 @@ function readableStamp(record: FindingsRecord): string {
 }
 
 /** Fenced JSON whose fence is longer than any run of backticks inside, so no text can close it early. */
-function fencedJson(record: FindingsRecord): string {
+function fencedJson(record: object): string {
   const json = JSON.stringify(record, null, 2);
   let longest = 0;
   for (const [run] of json.matchAll(/`+/gu)) longest = Math.max(longest, run.length);
@@ -577,10 +709,19 @@ export function parseCardMetadata(value: Record<string, unknown>): CardMetadata 
         receipt_sha256: value.receipt_sha256,
         saved_at: value.saved_at,
         ...(typeof value.thread === "string" && HEX_64.test(value.thread) ? { thread: value.thread } : {}),
+        ...(typeof value.question === "string" && HEX_64.test(value.question) ? { question: value.question } : {}),
         ...(isPositiveInteger(value.refiled_from) ? { refiled_from: value.refiled_from } : {}),
         ...(value.atlas_publish === true ? { atlas_publish: true as const } : {}),
         ...(value.paid_private === true ? { paid_private: true as const } : {}),
       }
+    : undefined;
+}
+
+export function parseUnsavedCardMetadata(value: Record<string, unknown>): UnsavedCardMetadata | undefined {
+  const { card_sha256: digest, thread, claims, kept_at: keptAt } = value;
+  return typeof digest === "string" && HEX_64.test(digest) && typeof thread === "string" && HEX_64.test(thread) &&
+    Array.isArray(claims) && claims.every((claim) => typeof claim === "string") && typeof keptAt === "string"
+    ? { card_sha256: digest, thread, claims: claims as string[], kept_at: keptAt }
     : undefined;
 }
 

@@ -8,7 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createInfoAccessClient, infoAccessClientFromEnv } from "../apps/research-mcp/src/infoaccess-client.js";
+import { createInfoAccessClient, InfoAccessError, infoAccessClientFromEnv } from "../apps/research-mcp/src/infoaccess-client.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { AcquireOpenFullTextInput, AcquireOpenFullTextRuntime } from "../packages/sources/src/open-full-text.js";
 import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
@@ -358,16 +358,19 @@ for (const surface of ["function", "mcp"] as const) describe(`owner library thro
 });
 
 describe("owner library sign-in and configuration", () => {
-  it.each(["invalid_response", "busy", "unavailable"] as const)("preserves the acquisition boundary and receipt eligibility for library %s", async (code) => {
+  it.each(["invalid_response", "busy", "unavailable", "timeout"] as const)("preserves the acquisition boundary and receipt eligibility for library %s", async (code) => {
     const result = await actual.acquireOpenFullText({ doi: DOI, public_copy_search: SEARCH }, CONFIG,
       { ...runtime, ownerLibrary: { access: "owner", fetchPdf: async () => { throw { code, message: PROVIDER_MESSAGE }; } } });
-    const attempt = { route: "owner_library", result: code === "invalid_response" ? "not_found" : "error", identifier: DOI };
+    const attempt = { route: "owner_library", result: code === "invalid_response" ? "not_found" : "error", identifier: DOI,
+      ...(code === "timeout" ? { failure_kind: "timeout" } : {}) };
     expect(result.data.discovery_attempts.at(-1)).toEqual(attempt);
     expect(result.data.public_copy_search).toEqual({ status: "declared", query_count: 2 });
     const couldNotSupply = " The owner library could not supply this paper, so repeating the call is unlikely to help.";
     const stayedBusy = " The owner library stayed busy with other requests, so the same call may work in a minute.";
+    const outOfTime = " The owner library did not answer within this call's time, so the same call may work in a minute.";
     const boundary = "No supplied or primary-route or owner-library copy was admitted. The public-copy search is declared.";
-    expect(result.data.access_boundary).toBe(boundary + (code === "invalid_response" ? couldNotSupply : code === "busy" ? stayedBusy : ""));
+    expect(result.data.access_boundary).toBe(boundary + (code === "invalid_response" ? couldNotSupply : code === "busy"
+      ? stayedBusy : code === "timeout" ? outOfTime : ""));
     expect(actual.canSignFullTextLead(result.data)).toBe(code === "invalid_response");
     expect(actual.failedPrimaryRoutes(result.data)).toEqual(code === "invalid_response" ? [] : [attempt]);
     expect(result).toMatchObject(code === "invalid_response"
@@ -379,6 +382,38 @@ describe("owner library sign-in and configuration", () => {
     expect(JSON.stringify(result)).not.toContain(PROVIDER_MESSAGE);
     expect(JSON.stringify(result)).not.toContain(syntheticBody("methods"));
     expect(downloads).toBe(0);
+  });
+  // #394's run: 15 calls ran past the app's time limit while InfoAccess answered busy, and the AI lost each whole
+  // result. The library route now ends 40 seconds after the call starts, its busy wait and retrieval included.
+  it("gives the library route a deadline 40 seconds from the call's start, and records it running out", async () => {
+    const deadlines: Array<number | undefined> = [];
+    const library = { fetchPdf: vi.fn(async (_doi: string, deadline?: number) => {
+      deadlines.push(deadline);
+      throw new InfoAccessError("timeout");
+    }) };
+    acquire.mockImplementation((input, _config, injected) => actual.acquireOpenFullText(input, CONFIG, { ...runtime, ...injected }));
+    const server = createAskRigorServer("standard", { infoAccess: library, allowedReviewerSubjects: new Set(["owner"]),
+      researchContributorAccessService: service });
+    const client = new Client({ name: "library-deadline-test", version: "1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const send = clientTransport.send.bind(clientTransport);
+    clientTransport.send = (message, options) => send(message, { ...options, authInfo: {
+      token: "synthetic-user-token", clientId: "synthetic-user-client", scopes: ["research:use"],
+      expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "owner" }
+    } });
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    try {
+      const before = Date.now();
+      const output = await client.callTool({ name: "acquire_open_full_text", arguments: { doi: DOI, public_copy_search: SEARCH } });
+      const after = Date.now();
+      expect(deadlines).toHaveLength(1);
+      expect(deadlines[0]).toBeGreaterThanOrEqual(before + 40_000);
+      expect(deadlines[0]).toBeLessThanOrEqual(after + 40_000);
+      const data = output.structuredContent as { discovery_attempts: unknown[]; access_boundary: string };
+      expect(data.discovery_attempts.at(-1)).toEqual({ route: "owner_library", result: "error", identifier: DOI, failure_kind: "timeout" });
+      expect(data.access_boundary).toContain("The owner library did not answer within this call's time");
+    } finally { await client.close(); await server.close(); }
   });
   it("treats a structural not_found as a completed library miss and any other failure as a retryable route failure", async () => {
     const acquireWithCode = (code: string) => actual.acquireOpenFullText({ doi: DOI, public_copy_search: SEARCH }, CONFIG,

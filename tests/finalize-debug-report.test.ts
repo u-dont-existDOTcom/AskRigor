@@ -96,7 +96,10 @@ describe("the final check's private debug report", () => {
       lab_preparation: { status: "not_applicable", reason: "Synthetic source fixture." },
       intervention_identity: { status: "not_applicable", reason: "Synthetic source fixture." },
       receipts: [receipt("pubmed_record", { pmcid: "PMC5640576", pmid: "12345678", doi: "" })] }));
-    expect(result.notes).toContain("Cite \"Source\" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.");
+    expect(result.notes).toContain("Try acquire_open_full_text for PMC5640576 with pmcid PMC5640576 before treating it as " +
+      "lead_only; pass the research_receipt it returns. A lead receipt needs the public-copy search recorded: search for " +
+      "the exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then " +
+      "pass those searches as public_copy_search and any public copy found as candidate_urls.");
     expect(result.check_report!.limits).toEqual([]);
     expect(JSON.stringify(result.check_report)).not.toContain("PMC5640576");
     expect(result.bug_report).toContain("rule still unmet:");

@@ -462,7 +462,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding is published as soon as its findings card is saved, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -851,7 +851,7 @@ function statusBlock(finding: ShownFinding): SafeHtml {
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
 <p class="ai-label">${AI_LABEL}.</p>
 ${needsChecking(finding) ? html`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>
-` : ""}<p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
+` : ""}<p>${finding.kept ? "" : "A separate AI found that a quick AI answer misses it. "}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
     ? " Its claim is strong, so it needs checking before anyone relies on it." : ""}</p>
 </div>`;
   }

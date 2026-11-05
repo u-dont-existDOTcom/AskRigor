@@ -790,8 +790,14 @@ async function registerPlainAnswer(
       "answer was not registered; the research goes ahead without it.");
   }
   const count = plainAnswer.claims.length;
-  const summary = `Plain answer registered before research: ${count === 1 ? "1 claim" : `${count} claims`}, signed ` +
-    "with the time. Treat each claim as something to check, confirm or correct, and look beyond the claims too. Pass " +
+  // The server keeps no record of the research, so it cannot tell here whether research began; the final check can, by
+  // the receipts' signed order (#394's run: q136-weak-lead-given registered again after research began, and both results
+  // said "registered before research").
+  const summary = `Plain answer registered: ${count === 1 ? "1 claim" : `${count} claims`}, signed with the time. The ` +
+    "final check compares the answer with the latest plain answer this account registered for the research target " +
+    "before the research's first receipt, so one registered after research began is not compared; if one for this " +
+    "research target was registered before the research began, pass that receipt too. Treat each claim as something " +
+    "to check, confirm or correct, and look beyond the claims too. Pass " +
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
     "it. Claims: " + plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +

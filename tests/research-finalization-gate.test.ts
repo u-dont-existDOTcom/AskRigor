@@ -11,10 +11,13 @@ import {
   findingsAndMapSaveOffer,
   findingsCardDigest,
   findingsCardSchema,
-  findingsSaveOffer
+  findingsSaveOffer,
+  laterFindingsCardSchema
 } from "../apps/research-mcp/src/findings/card.js";
+import type { MeaningJudgment } from "../apps/research-mcp/src/meaning-judge.js";
 import {
   finalizeResearch as finalizeResearchUnwrapped,
+  meaningJudgeSourceOf,
   MOBILE_NOTICE,
   TOOL_LIST_REFRESH_HINT,
   type RedditThreadCheck,
@@ -35,6 +38,10 @@ import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messag
 
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+const LEAD_RECEIPT_ID_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+// #394's run: the check still said the full-text tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI
+// for a paper never tried (o355-scoped-list); since #394 acquire_open_full_text fetches by PMID or PMCID too.
+const NO_DOI_WORDING = /requires a DOI|without a DOI|lists no DOI|without DOIs/u;
 // Pinned word for word: the step for each receipt that failed verification, by the verifier's reason.
 const LEAVE_IT_OUT = "Leaving it out is allowed; work that rests only on it then needs its call again.";
 const REJECTED_RECEIPT_STEPS = {
@@ -309,8 +316,8 @@ describe("finalize_research gate", () => {
 
     it("adds verified search counts without counting duplicate thread links twice or blocking", () => {
       const links = ["https://forum.example/threads/1", "https://forum.example/threads/2"];
-      const receipts = [sign("forum_search", { q: "first", u: links.map(forumThreadDigest) }),
-        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)] })];
+      const receipts = [sign("forum_search", { q: "first", u: links.map(forumThreadDigest), more: "0" }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)], more: "0" })];
       const result = check({ community_searches: [search("first", 1)], receipts });
       expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 2 threads. Only 2 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
       passing(result);
@@ -320,11 +327,43 @@ describe("finalize_research gate", () => {
     });
 
     it("uses singular thread wording when searches find only one thread", () => {
-      const receipts = [sign("forum_search", { q: "first", u: [forumThreadDigest("https://forum.example/threads/1")] }),
-        sign("forum_search", { q: "second", u: [forumThreadDigest("https://forum.example/threads/1")] })];
+      const receipts = [sign("forum_search", { q: "first", u: [forumThreadDigest("https://forum.example/threads/1")], more: "0" }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest("https://forum.example/threads/1")], more: "0" })];
       const result = check({ community_searches: [search("first", 1)], receipts });
       expect(result.notes).toContain(depthNote(1, 1).replace("community. Keep", "community. AskRigor's searches found 1 thread. Only 1 turned up in 2 searches: if other wordings find no more, say in the answer that few threads exist. Keep"));
       passing(result);
+    });
+
+    // #394's run: 138 of 148 searches returned exactly 7 threads, one page with no next page, and the note called
+    // those pages what the searches found and, under five, said few threads exist.
+    it("counts a page, not a total, when a search left more pages or could not tell", () => {
+      const links = ["https://www.reddit.com/r/first/comments/a1/", "https://www.reddit.com/r/first/comments/a2/"];
+      const page = (more?: string) => [sign("forum_search", { q: "first", u: links.map(forumThreadDigest), ...(more === undefined ? {} : { more }) }),
+        sign("forum_search", { q: "second", u: [forumThreadDigest(links[0]!)], more: "0" })];
+      const listed = (more: string) => depthNote(1, 1).replace("community. Keep", `community. AskRigor's searches listed 2 threads on the result pages read${more}: in the answer, give that as the threads those pages listed, not as how many there are. Keep`);
+      for (const [more, words] of [["1", ", and more pages exist"], [undefined, ""]] as const) {
+        const result = check({ community_searches: [search("first", 1)], receipts: page(more) });
+        expect(result.notes).toContain(listed(words));
+        expect(result.notes.join(" ")).not.toContain("say in the answer that few threads exist");
+        expect(result.notes.join(" ")).not.toContain("Only 2 turned up");
+        passing(result);
+      }
+    });
+
+    // #394's run: l49-b-label declared the 3 threads it classified, of the 9 the reader read, and the note counted 3.
+    it("counts the threads the reader's receipts show read, and each thread once", () => {
+      const declared = search("first", 2);
+      const reads = Array.from({ length: 5 }, (_, i) => sign("forum_thread_read", {
+        u: forumThreadDigest(`https://first.example/threads/${i}`), n: 1_500, v: "page"
+      }));
+      const result = check({ community_searches: [declared, search("second", 1)], receipts: reads });
+      expect(result.notes.join(" ")).not.toContain("Forum evidence rests on");
+      passing(result);
+      // A thread's second page, and its receipt under another form of its link, count once with it.
+      const paged = check({ community_searches: [{ ...search("first", 0), threads_read: [
+        { url: "https://first.example/threads/9" }, { url: "https://first.example/threads/9/page-2" }] }],
+      receipts: [sign("forum_thread_read", { u: forumThreadDigest("https://www.first.example/threads/9/"), n: 1_500, v: "page" })] });
+      expect(paged.notes).toContain(depthNote(1, 1));
     });
 
     it("removes own-web-search limits only for communities whose every thread has a valid read receipt", () => {
@@ -2074,20 +2113,27 @@ describe("finalize_research gate", () => {
     }
   });
 
-  it("states that PubMed lists a key study without a DOI, without calling it unavailable", () => {
+  it("asks to fetch a key study PubMed lists without a DOI by its PMID, then gives the lead's own reason", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
-    const result = finalizeResearch({
+    const request = {
       receipts: [survey, emptySearch, repeatScout, videoA, study, noDoiRecord],
-      community_evidence: "researched", treatment_choice: "not_compared", research_target: TARGET,
-      key_sources: [{ read_depth: "abstract_only", answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" }]
-    }, options);
-    expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(result.limits).toContain(
-      "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed " +
-        "lists without a DOI, so its methods were not checked."
-    );
-    expect(result.limits.join(" ")).not.toContain("not openly available");
+      community_evidence: "researched" as const, treatment_choice: "not_compared" as const, research_target: TARGET,
+      key_sources: [{ read_depth: "abstract_only" as const, answer_marker: "Study", id: "PMID: 31234567", status: "lead_only" as const }]
+    };
+    const untried = finalizeResearch(request, options);
+    expect(untried.status).toBe("ready_with_limits");
+    expect(untried.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(untried)).toContain("Try acquire_open_full_text for PMID: 31234567 with pmid 31234567 before " +
+      `treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`);
+    expect(untried.limits).toContain("Only the abstract of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.");
+    expect(JSON.stringify(untried)).not.toMatch(NO_DOI_WORDING);
+    const tried = finalizeResearch({ ...request, receipts: [...request.receipts,
+      sign("full_text_lead", { pmid: "31234567", state: "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" }, options)] }, options);
+    expect(tried.status).toBe("ready_with_limits");
+    expect(tried.sources.lead_only).toEqual(["PMID: 31234567"]);
+    expect(tried.limits).toContain("The full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was not " +
+      "openly available, so its methods were not checked.");
+    expect(JSON.stringify(tried)).not.toMatch(NO_DOI_WORDING);
   });
 
   describe("owner question 113: repeated primary-service failures", () => {
@@ -2253,8 +2299,10 @@ describe("finalize_research gate", () => {
 
   it("turns bounded audits and server-proven leads into limits", () => {
     const noDoiRecord = sign("pubmed_record", { pmid: "31234567" }, options);
+    // Fetched by its PMID, as acquire_open_full_text has allowed since #394.
+    const pmidLead = sign("full_text_lead", { pmid: "31234567", state: "ABSTRACT_ONLY" }, options);
     const result = finalizeResearch({
-      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord, pmidLead],
       community_evidence: "researched",
       treatment_choice: "not_compared",
       research_target: TARGET,
@@ -2272,9 +2320,8 @@ describe("finalize_research gate", () => {
     expect(result.limits).toEqual([
   "Comments on video bbbbbbbbbbb were only partly accessible; treat its community signal as bounded.",
   "Reports from this community come from my own web search, which AskRigor could not verify. Community: r/HipOA.",
-  "Only part of the text of \"Study\" (PMID: 31234567) was read for this answer; its methods were not audited.",
   "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly available, so its methods were not checked.",
-  "AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked.",
+  "Only the abstract of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was readable, so its methods were not checked.",
   "This was a first pass: some studies and communities were not reached yet.",
   "Some comments on [this video](https://www.youtube.com/watch?v=bbbbbbbbbbb) could not be read, so its comment evidence is incomplete."
 ]);
@@ -2286,12 +2333,12 @@ describe("finalize_research gate", () => {
     const caveats = [
       result.limits.find((text) => text.startsWith("Some comments on"))!,
       result.limits.find((text) => text.startsWith("The full text of"))!,
-      result.limits.find((text) => text.startsWith("AskRigor could not fetch"))!,
+      result.limits.find((text) => text.startsWith("Only the abstract of"))!,
       FIRST_PASS_LIMIT
     ];
     const request = {
       research_depth: "deep" as const,
-      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord],
+      receipts: [survey, emptySearch, repeatScout, videoA, videoB, study, lead, noDoiRecord, pmidLead],
       community_evidence: "researched" as const,
       treatment_choice: "not_compared" as const,
       research_target: TARGET,
@@ -2309,12 +2356,12 @@ describe("finalize_research gate", () => {
     const oneStudy = "The full text of [this study](https://doi.org/10.1016/j.joca.2020.01.001) was not openly " +
       "available, so its methods were not checked.";
     expectPassingLimits(answerWith(caveats[0]!, oneStudy, "The PubMed study was only an abstract."),
-      ["AskRigor could not fetch the full text of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/), which PubMed lists without a DOI, so its methods were not checked."]);
+      ["Only the abstract of [this study](https://pubmed.ncbi.nlm.nih.gov/31234567/) was readable, so its methods were not checked."]);
     // A link's text may change, and formatting and line breaks do not matter.
     expect(answerWith(
       caveats[0]!.replace("[this video]", "[Hip exercises that helped me]"),
       caveats[1]!,
-      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("could not", "**could not**")
+      studiesCaveat.replace("[this study]", "[Smith and colleagues, 2019]").replace("was readable", "**was readable**")
         .replace("so its methods", "so\nits methods").replace("were not checked", "were\u00a0not checked")
     )).toMatchObject({ status: "ready_with_limits", next_steps: [] });
 
@@ -2367,7 +2414,7 @@ describe("finalize_research gate", () => {
     expect(tried.sources.lead_only).toEqual(["10.1016/j.joca.2020.01.001"]);
   });
 
-  it("keeps a DOI-less PMID as a lead even when PMC hosts a copy the acquisition tool cannot request", () => {
+  it("asks to fetch a DOI-less PMID by its PMID and the PMC copy PubMed lists, before citing it as a lead", () => {
     const pmcRecord = sign("pubmed_record", { pmid: "31234567", pmcid: "PMC7654321" }, options);
     const result = finalizeResearch({
       receipts: [survey, emptySearch, repeatScout, videoA, study, pmcRecord],
@@ -2380,9 +2427,11 @@ describe("finalize_research gate", () => {
       ]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMID: 31234567"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMID: 31234567) as a lead: PubMed lists no DOI; acquire_open_full_text requires a DOI, so its methods were not audited.']);
-    expect(result.limits.join(" ")).toContain("which PubMed lists without a DOI");
+    expect(result.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(["Try acquire_open_full_text " +
+      "for PMID: 31234567 with pmid 31234567 and pmcid PMC7654321 before treating it as lead_only; pass the " +
+      `research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`]);
+    expect(JSON.stringify(result)).not.toMatch(NO_DOI_WORDING);
   });
 
   it("binds material videos to discovery receipts passed in the same call", () => {
@@ -2448,8 +2497,9 @@ describe("finalize_research gate", () => {
     }, options);
     expect(result.status).toBe("not_ready");
     expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
-      'Cite "Study" (PMC123) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.',
-      "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt; if it has a DOI, try acquire_open_full_text.",
+      `Try acquire_open_full_text for PMC123 with pmcid PMC123 before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`,
+      "Fetch PMID 999 with fetch_pubmed_record and pass its research_receipt, then try acquire_open_full_text: with its " +
+        "DOI when PubMed lists one, and otherwise with the PMID and any PMCID it lists.",
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
         LEAD_RECEIPT_SEARCH_TEXT,
       "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
@@ -2474,10 +2524,10 @@ describe("finalize_research gate", () => {
       key_sources: [{ id: "PMC5640576", status: "lead_only", read_depth: "partial_text", answer_marker: "Study" }]
     }, options);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.sources.lead_only).toEqual(["PMC5640576"]);
-    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(['Cite "Study" (PMC5640576) as a lead: no DOI is known; acquire_open_full_text requires a DOI, so its methods were not audited.']);
-    expect(result.limits.join(" ")).toContain("its full-text tool requires a DOI and none was known");
-    expect(result.limits.join(" ")).toContain("PMC5640576");
+    expect(result.sources.lead_only).toEqual([]);
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual(["Try acquire_open_full_text " +
+      `for PMC5640576 with pmcid PMC5640576 before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_ID_SEARCH_TEXT}`]);
+    expect(JSON.stringify(result)).not.toMatch(NO_DOI_WORDING);
   });
 
   it("closes a material video's bounded audit and requires its count and non-ranking caveats", () => {
@@ -3509,7 +3559,7 @@ describe("findings card at the final gate", () => {
   it("checks a card the answer shows and this call's receipts back, and signs it without offering anything", () => {
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, options);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     // The answer's own result is what it would be without the library: no caveat offers a save.
     expect(carded.status).toBe("ready_with_limits");
     expect(carded.status).toBe(plain.status);
@@ -3544,13 +3594,182 @@ describe("findings card at the final gate", () => {
     ] };
     const result = finalizeResearch({ ...input, findings_card: card }, options);
     expect(result).toMatchObject({ status: "ready_with_limits", next_steps: [] });
-    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public" });
+    expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public", held: [1, 2, 3, 4, 5] });
     expect(basesClaim(result.finalization_receipt)).toEqual([
       "full_text_audit", "comment_audit", "none", "none", "full_text_audit.comment_audit"
     ]);
     // A tag is still the model's declaration, and a basis does not depend on it.
     expect(finalizeResearch({ ...input, findings_card: withFinding({ tags: [] }) }, options).findings_card)
       .toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+  });
+
+  // Owner answer 219b (2 November 2026): the AI declares for each finding whether it draws on YouTube comments, and
+  // AskRigor holds those. Once this call's receipts show comments were read, a finding with no declaration is held too.
+  it("holds findings declared as drawing on YouTube comments, and undeclared ones once comments were read", () => {
+    const heldClaim = signedClaim("held");
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], ...(declared === undefined ? {} : { draws_on_youtube_comments: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("People commenting on exercise videos reported less pain after several months.", true),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch(READY, closedOptions);
+    // The card in later_inputs (its later shape), and the same card at the top level, are one card.
+    for (const input of [{ ...READY, later_inputs: { findings_card: card } }, { ...READY, findings_card: card }]) {
+      const result = finalizeResearch(input, options);
+      expect(result).toMatchObject({ status: plain.status, next_steps: [], limits: plain.limits });
+      expect(result.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 3, public_value: "public",
+        held: [2, 3] });
+      expect(heldClaim(result.finalization_receipt)).toEqual(["2", "3"]);
+      expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(laterFindingsCardSchema.parse(card)));
+      // A note asks for the missing declaration; it holds nothing back and is never a step.
+      expect(result.notes).toContainEqual("This research read YouTube comments, and findings_card.findings[2] does not " +
+        "say whether it draws on them, so AskRigor holds it privately for its owner's review and never publishes it. " +
+        "Give each finding draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false " +
+        "when none does. Send the whole card, with that field in each finding, in later_inputs.findings_card, and check " +
+        "the answer again.");
+    }
+    // Declaring every finding leaves only the declared one held, with no note.
+    const declared = { ...card, findings: [card.findings[0], card.findings[1], { ...card.findings[2], draws_on_youtube_comments: false }] };
+    const complete = finalizeResearch({ ...READY, later_inputs: { findings_card: declared } }, options);
+    expect(complete.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(complete.finalization_receipt)).toEqual(["2"]);
+    expect((complete.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+    // Two undeclared findings are named together.
+    const two = finalizeResearch({ ...READY, findings_card: { ...card, findings: [card.findings[2], card.findings[2]] } }, options);
+    expect(two.notes).toContainEqual(expect.stringMatching(/^This research read YouTube comments, and findings_card\.findings\[0\] and findings_card\.findings\[1\] do not say whether they draw on them, so AskRigor holds them privately/u));
+    // With no comments read here, a finding needs no declaration; one declared as drawing on them is still held.
+    const noComments = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const unread = finalizeResearch({ ...noComments, findings_card: card }, options);
+    expect(unread.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(unread.finalization_receipt)).toEqual(["2"]);
+    expect((unread.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+    const none = finalizeResearch({ ...noComments, findings_card: { ...card, findings: [card.findings[0], card.findings[2]] } }, options);
+    expect(none.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 2, public_value: "public" });
+    expect(heldClaim(none.finalization_receipt)).toBeUndefined();
+    // A declaration must be a boolean: anything else drops the card, with a note, and holds nothing back.
+    const wrong = finalizeResearch({ ...READY, findings_card: { ...card, findings: [{ ...card.findings[0], draws_on_youtube_comments: "yes" }] } }, options);
+    expect(wrong.findings_card.status).toBe("rejected");
+    expect(wrong.status).toBe(plain.status);
+  });
+
+  // Owner answer 221 (2 November 2026): the meaning judge reads a passing check for the owner's dev accounts. Its
+  // notes go to the AI only, and a finding it reads as resting on YouTube comments is held; it never blocks.
+  it("applies the meaning judge's reading: holds what it reads as drawn from comments, and adds only notes", () => {
+    const heldClaim = signedClaim("held");
+    const finding = (claim: string) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"], tags: [],
+      draws_on_youtube_comments: false });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials."),
+      finding("Exercise therapy has the strongest evidence for hip osteoarthritis."),
+    ] };
+    const plain = finalizeResearch({ ...READY, findings_card: card }, options);
+    expect(plain.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 2, public_value: "public" });
+    // What the judge may read of this check: the draft, the checked card, its limits, and that comments were read.
+    const source = meaningJudgeSourceOf(plain)!;
+    expect(source).toMatchObject({ commentsRead: true, limits: plain.limits, card: { findings: [
+      expect.objectContaining({ claim: card.findings[0].claim }), expect.objectContaining({ claim: card.findings[1].claim })
+    ] } });
+    expect(source.answer).toContain("Exercise therapy has the strongest evidence for hip osteoarthritis.");
+    expect(source).not.toHaveProperty("comparison");
+    const judgment: MeaningJudgment = {
+      status: "ran",
+      sourceLines: [],
+      youtube: [{ finding: 1, rests: false, why: "Trials only." },
+        { finding: 2, rests: true, why: "It repeats what commenters reported." }],
+      comparison: [{ item: 1, backed: false, why: "There is no comparison." }],
+      limits: [{ limit: 1, why: "The answer proposes no self-test." }],
+      standalone: [{ finding: 1, standsAlone: true, why: "" }, { finding: 2, standsAlone: false, why: "It leans on this research." }],
+    };
+    const judged = finalizeResearch({ ...READY, findings_card: card }, { ...options, meaningJudgment: judgment });
+    // Nothing it says holds the answer back.
+    expect(judged).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits,
+      caveats: plain.caveats });
+    expect(judged.findings_card).toEqual({ ...plain.findings_card, held: [2] });
+    expect(heldClaim(judged.finalization_receipt)).toEqual(["2"]);
+    expect(heldClaim(plain.finalization_receipt)).toBeUndefined();
+    const opening = plain.limits[0]!.split(" ").slice(0, 12).join(" ");
+    const judgeNotes = (judged.notes ?? []).filter((note) => note.startsWith("The meaning judge"));
+    expect(judgeNotes).toEqual([
+      "The meaning judge reads findings_card.findings[1] as resting on YouTube comments (It repeats what commenters " +
+        "reported), so AskRigor holds it privately for its owner's review and never publishes it, though it declares " +
+        "draws_on_youtube_comments false. If it does draw on them, declare it true.",
+      `The meaning judge reads limits[0] (${JSON.stringify(plain.limits[0]!.split(" ").length > 12 ? `${opening}…` : opening)}) ` +
+        "as not applying to this answer (The answer proposes no self-test). Leave it out of the answer's own words; " +
+        "the panel still lists it.",
+      "The meaning judge reads findings_card.findings[1] as not making sense on its own to a reader of the public Atlas " +
+        "who never saw the question (It leans on this research). Rewrite its claim to say what was found, about what " +
+        "and in whom, and applies_to to say whom it holds for, then send the card and check the answer again.",
+    ]);
+    expect(judged.meaning_judge).toEqual({ status: "ran", held: 1, notes: 3 });
+    // A finding held already is not held again, and with no comments read its YouTube judgments count for nothing.
+    const declared = finalizeResearch({ ...READY, findings_card: { ...card, findings: [card.findings[0],
+      { ...card.findings[1], draws_on_youtube_comments: true }] } }, { ...options, meaningJudgment: judgment });
+    expect(declared.meaning_judge).toMatchObject({ held: 0, notes: 2 });
+    const noComments = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const unread = finalizeResearch({ ...noComments, findings_card: card }, { ...options, meaningJudgment: judgment });
+    expect(unread.findings_card).not.toHaveProperty("held");
+    expect(meaningJudgeSourceOf(finalizeResearch({ ...noComments, findings_card: card }, options))?.commentsRead).toBe(false);
+  });
+
+  it("says once when the meaning judge did not run, and leaves the check as it was", () => {
+    const plain = finalizeResearch({ ...READY, findings_card: CARD }, options);
+    for (const [reason, words] of [["timeout", "it timed out"], ["daily_budget", "its daily cap is reached"],
+      ["refusal", "the model declined"], ["error", "the call failed"], ["unreadable", "its reply could not be read"]] as const) {
+      const skipped = finalizeResearch({ ...READY, findings_card: CARD },
+        { ...options, meaningJudgment: { status: "skipped", reason } });
+      expect(skipped).toMatchObject({ status: plain.status, next_steps: plain.next_steps, findings_card: plain.findings_card });
+      expect((skipped.notes ?? []).filter((note) => note.startsWith("The meaning judge"))).toEqual([
+        `The meaning judge did not run (${words}); this check is as it would be without it.`]);
+      expect(skipped.meaning_judge).toEqual({ status: "skipped", reason, held: 0, notes: 1 });
+    }
+    // A check that does not pass gives the judge nothing, and a judgment given to one adds nothing.
+    const notReady = finalizeResearch({ ...READY, findings_card: CARD, answer_draft: undefined }, options);
+    expect(meaningJudgeSourceOf(notReady)).toBeUndefined();
+    expect(finalizeResearch({ ...READY, findings_card: CARD, answer_draft: undefined },
+      { ...options, meaningJudgment: { status: "skipped", reason: "timeout" } })).not.toHaveProperty("meaning_judge");
+  });
+
+  it("asks a card's findings to declare YouTube comments only once this research read them", () => {
+    const missing = finalizeResearch(READY, options);
+    expect(missing.notes).toContainEqual(expect.stringContaining("This research read YouTube comments, so each finding " +
+      "also gives draws_on_youtube_comments: true when any part of it rests on what commenters wrote, false when none " +
+      "does; send the card in later_inputs.findings_card."));
+    const unread = finalizeResearch({ ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA),
+      material_video_ids: [] }, options);
+    expect(unread.notes).toContainEqual(expect.stringContaining("Give findings_card with answer_draft"));
+    expect((unread.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
+  });
+
+  // Owner answer 219b's known gap: comments read outside an audit left no receipt, so a finding resting on them and
+  // saying nothing was published. Their receipt holds it, and asks nothing else that an audit would.
+  it("holds an undeclared finding after comments read outside an audit, and changes nothing else", () => {
+    const heldClaim = signedClaim("held");
+    const noAudit = { ...READY, receipts: READY.receipts.filter((receipt) => receipt !== videoA), material_video_ids: [] };
+    const direct = { ...noAudit, receipts: [...noAudit.receipts,
+      sign("youtube_comments_read", { video: "ccccccccccc", records: 12 }, options)] };
+    const finding = (claim: string, declared?: boolean) => ({ ...CARD.findings[0], claim, sources: ["10.1002/art.41142"],
+      tags: [], ...(declared === undefined ? {} : { draws_on_youtube_comments: declared }) });
+    const card = { ...CARD, findings: [
+      finding("Exercise therapy eased pain more than usual care in the audited trials.", false),
+      finding("People commenting on exercise videos reported less pain after several months."),
+    ] };
+    expect(finalizeResearch(direct, options).notes).toContainEqual(expect.stringContaining("This research read YouTube " +
+      "comments, so each finding also gives draws_on_youtube_comments"));
+    const result = finalizeResearch({ ...direct, findings_card: card }, options);
+    const without = finalizeResearch({ ...noAudit, findings_card: card }, options);
+    expect(result.findings_card).toMatchObject({ status: "checked", held: [2] });
+    expect(heldClaim(result.finalization_receipt)).toEqual(["2"]);
+    expect(result.notes).toContainEqual(expect.stringMatching(/^This research read YouTube comments, and findings_card\.findings\[1\] does not say/u));
+    // It is no audit: nothing about community evidence changes, and the check ends as it would without the receipt.
+    expect(result).toMatchObject({ status: without.status, next_steps: without.next_steps, limits: without.limits,
+      must_report: without.must_report });
+    // Declared, it is held only if it says it draws on them.
+    const declared = { ...card, findings: [card.findings[0], { ...card.findings[1], draws_on_youtube_comments: false }] };
+    const saved = finalizeResearch({ ...direct, findings_card: declared }, options);
+    expect(saved.findings_card).not.toHaveProperty("held");
+    expect((saved.notes ?? []).some((note) => note.includes("draws_on_youtube_comments"))).toBe(false);
   });
 
   it("derives a checked absence claim or the research's own correction as a basis, in the answer's language", () => {
@@ -3647,7 +3866,12 @@ describe("findings card at the final gate", () => {
       "AskRigor's findings library for the owner's review. Put in the answer's best findings, none the user corrected, " +
       "and no personal details, and say in public_value whether they would help anyone beyond this person. A public " +
       "card also gives its topic, and each finding its kind, subject, subject_type, direction, numbers (for an " +
-      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says.");
+      "effect, harm or overlooked_option) and searches (for nothing_found), as the findings description says. With no " +
+      "finding that a plain web search of the problem wouldn't already give, send no card. " +
+      // Owner answer 219b: this research read YouTube comments, so each finding also says whether it draws on them.
+      "This research read YouTube comments, so each finding also gives draws_on_youtube_comments: true when any part " +
+      "of it rests on what commenters wrote, false when none does; send the card in later_inputs.findings_card. A " +
+      "finding drawing on them, or saying nothing, is held privately for AskRigor's owner and never published.");
     expect(missing.finalization_receipt).toEqual(expect.any(String));
     // The card is asked for with the answer, not before it.
     expect(finalizeResearchRaw(READY, options).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT).some((step) => step.startsWith("Give findings_card"))).toBe(false);
@@ -3708,7 +3932,7 @@ describe("findings card at the final gate", () => {
       const result = finalizeResearch({ ...READY, findings_card: personal }, gateOptions);
       expect(result).toMatchObject({ status: plain.status, next_steps: plain.next_steps, limits: plain.limits });
       expect(result.findings_card).toEqual({
-        status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only"
+        status: "checked", problems: [], beyond_quick_answer: 1, public_value: "personal_only", held: [1]
       });
       expect(result.caveats).toEqual(plain.caveats);
       expect(findingsClaim(result.finalization_receipt)).toBe(findingsCardDigest(findingsCardSchema.parse(personal)));
@@ -3746,7 +3970,7 @@ describe("findings card at the final gate", () => {
     };
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/J.JOCA.2020.01.001", "PMID: 31999999"], tags: ["full_text_read"] })
-    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    }, options).findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     expect(finalizeResearch({
       ...withLead, findings_card: withFinding({ sources: ["10.1016/j.joca.2020.01.001"], tags: ["full_text_read"] })
     }, options).findings_card.problems).toEqual([expect.stringContaining("is tagged full_text_read")]);
@@ -3813,7 +4037,7 @@ describe("findings card at the final gate", () => {
     const offerOptions = { secret: SECRET, now, findings: "offer" as const };
     const plain = finalizeResearch(READY, closedOptions);
     const carded = finalizeResearch({ ...READY, findings_card: CARD }, offerOptions);
-    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public" });
+    expect(carded.findings_card).toEqual({ status: "checked", problems: [], beyond_quick_answer: 1, public_value: "public", held: [1] });
     // The offer names what was done, with this call's counts (owner answer 139c), and ends with the sentence on the
     // public Atlas (owner answers 159 and 160b).
     expect(CARD_OFFER).toBe("These findings rest on a full-text audit of 1 study and audited comments on 1 video, " +

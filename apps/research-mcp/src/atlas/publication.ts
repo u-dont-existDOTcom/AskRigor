@@ -337,12 +337,19 @@ export function planCardPublication(input: {
   return { problems, drafts, leftOut };
 }
 
+/** The kept reason a saved finding carries until the quick-answer test reads it (owner answer 240a). */
+export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (owner answer 240a)";
+
 /**
  * The save path's publisher (FindingsSaveService calls it right after a confirmed save, without waiting for it): it
  * withdraws the unreviewed and held publications of the cards the save replaced (a corrected answer's findings, not the
  * replaced ones, are what stays: owner decision Q9), then publishes the card's eligible findings when the save made the
  * card (a later save joining an open card publishes nothing of its own). Publishing is idempotent by the card's digest,
  * so a retried save publishes nothing twice; a failure is the owner's to retry with publish_cards.
+ *
+ * Owner answer 240a: what publishing makes is kept for AskRigor's research, off every list, until a separate AI's
+ * quick-answer test shows it (docs/atlas-quick-answer-test.md), since the AI that did the research can't fairly judge
+ * its own card. Held findings stay held, and a card the owner publishes shows at once.
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
@@ -382,13 +389,19 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
-        await this.options.store.publish({
+        const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
           findings: plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
+        const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
+          .map(({ publicationNumber }) => publicationNumber);
+        if (waiting.length > 0) {
+          await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
+            reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
+        }
       }
     }
     if (failure !== undefined) throw failure;

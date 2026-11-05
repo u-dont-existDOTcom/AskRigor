@@ -13,6 +13,7 @@ import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mc
 import { withAtlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { frozenSurfaceServer } from "../scripts/freeze-tool-lists.mts";
+import { CARD } from "./helpers/findings-fixtures.js";
 
 const body = (result: { content: unknown }) => JSON.parse((result.content as { text: string }[])[0]!.text);
 const text = (result: { content: unknown }) => {
@@ -38,7 +39,10 @@ describe("later_inputs (owner answer 189a)", () => {
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
-        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate"]
+        // Owner answer 219b: the findings card's newer form, with each finding's YouTube-comments declaration.
+        // Owner answer 237a: the source lines.
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines"]
+          : operation.name === "save_research_findings" ? ["findings_card"]
           : operation.name === "validate_study_method_audit" ? ["audit"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.
             : operation.name === "manage_research_access" ? ["sharedAnswer", "shareCode", "atlasReport", "reportNumber"]
@@ -238,5 +242,31 @@ describe("later_inputs (owner answer 189a)", () => {
     expect(invalid.isError).toBe(true);
     expect(text(invalid)).toContain("later_inputs.safety_question");
     expect(parseFinalizeResearchInput({ ...top, safety_question: false, future_probe: "too long for the registered schema" }).success).toBe(false);
+  });
+
+  // Owner answer 219b: the findings card's newer form, whose findings each declare whether they draw on YouTube
+  // comments, reaches both tools that read a card, at the top level or in later_inputs, while their published inputs
+  // stay as they were.
+  it("accepts the findings card's later shape on finalize_research and save_research_findings", async () => {
+    const card = { ...CARD, findings: [{ ...CARD.findings[0], draws_on_youtube_comments: true }] };
+    expect(finalizeResearchInputSchema.shape.findings_card.safeParse(card).success).toBe(false);
+    for (const raw of [{ findings_card: card }, { later_inputs: { findings_card: card } }]) {
+      const parsed = parseFinalizeResearchInput({ research_target: "Synthetic target", answer_draft: "Draft.", receipts: [], ...raw });
+      expect(parsed.droppedFindingsCard).toBe(false);
+      expect(parsed.data?.findings_card?.findings[0]?.draws_on_youtube_comments).toBe(true);
+    }
+    const save = RESEARCH_OPERATIONS.find(({ name }) => name === "save_research_findings")!;
+    const base = { finalization_receipt: "rr1~finalization~status=ready~1790000000~AAAAAAAAAAAAAAAAAAAAAA", user_consent: "yes_to_this_save" };
+    for (const input of [{ ...base, findings_card: card }, { ...base, later_inputs: { findings_card: card } }]) {
+      const result = await save.execute(input, {} as never);
+      // The input is accepted; this test server has no findings library open.
+      expect(text(result)).toBe("Not saved: AskRigor's findings library is not open yet.");
+    }
+    const twice = await save.execute({ ...base, findings_card: card, later_inputs: { findings_card: card } }, {} as never);
+    expect(twice.isError).toBe(true);
+    expect(text(twice)).toContain("later_inputs.findings_card: findings_card is also given at the top level");
+    const wrong = { ...card, findings: [{ ...CARD.findings[0], draws_on_youtube_comments: "yes" }] };
+    expect(text(await save.execute({ ...base, later_inputs: { findings_card: wrong } }, {} as never)))
+      .toContain("later_inputs.findings_card.findings[0].draws_on_youtube_comments");
   });
 });

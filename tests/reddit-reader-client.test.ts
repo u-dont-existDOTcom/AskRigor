@@ -168,7 +168,9 @@ describe("Reddit stdio reader", () => {
     }
   });
   it("keeps the pending continuation when a later page reaches the overall deadline", async () => {
-    const { client } = await fake("slow-continuation", { deadlineMs: 600 });
+    // The deadline also covers starting the fake reader's process, which can take over a second while the full gate runs
+    // (a 600 ms deadline failed there once on 3 Nov), so it leaves room for that; the slow page still outlasts it.
+    const { client } = await fake("slow-continuation", { deadlineMs: 3_000 });
     const result = await client.readThread(URL);
     expect(result).toMatchObject({ access_state: "read", truncated: true, comments_read: 2 });
     expect(JSON.parse(Buffer.from(result.more!, "base64url").toString("utf8"))).toMatchObject({ pages: ["page-1"] });
@@ -179,7 +181,7 @@ describe("Reddit stdio reader", () => {
     expect((await records()).filter((record) => record.event === "start").slice(0, 2).map((record) => record.input.thread))
       .toEqual(["https://redd.it/abc123", "https://www.reddit.com/r/synthetic/comments/abc123/"]);
   });
-  it("searches seven posts, forwards filters on stdin and reuses its lazy connection", async () => {
+  it("asks for a page of 25, forwards filters on stdin and reuses its lazy connection", async () => {
     const { client, records, log } = await fake();
     await expect(readFile(log)).rejects.toMatchObject({ code: "ENOENT" });
     const input = { query: "synthetic research", subreddit: "synthetic", sort: "top" as const, time: "year" as const, after: "synthetic-after" };
@@ -189,14 +191,26 @@ describe("Reddit stdio reader", () => {
     await client.searchThreads({ query: "second wording" });
     const events = await records();
     expect(events.filter((record) => record.event === "boot")).toHaveLength(1);
-    expect(events.find((record) => record.event === "start").input).toEqual(input);
+    // Without a page size the host returned 7 (#394's run); 25 is Reddit's own default page.
+    expect(events.find((record) => record.event === "start").input).toEqual({ ...input, limit: 25 });
     expect(JSON.stringify(events.find((record) => record.event === "boot"))).not.toContain(input.query);
   });
-  it.each(["THREAD_NOT_RENDERED", "INVALID_INPUT", "UNKNOWN"])("maps %s without exposing provider text", async (code) => {
+  // The host's codes, from its browser reader's source, and one it might add later.
+  it.each([
+    ["THREAD_NOT_RENDERED", "not_found"], ["INVALID_INPUT", "invalid"], ["LOGIN_REQUIRED", "not_available"],
+    ["HUMAN_CHECK_REQUIRED", "not_available"], ["BROWSER_UNAVAILABLE", "not_available"], ["ACCESS_DENIED", "blocked"],
+    ["NOT_PUBLIC", "blocked"], ["WEBSITE_READ_FAILED", "unavailable"], ["UNKNOWN", "unavailable"]
+  ])("maps %s to %s and names the code without exposing provider text", async (code, expected) => {
     const { client } = await fake(`error-${code}`);
-    const expected = code === "THREAD_NOT_RENDERED" ? "not_found" : code === "INVALID_INPUT" ? "invalid" : "unavailable";
-    expect(await client.readThread(URL)).toEqual({ access_state: expected, url: URL });
-    expect(await client.searchThreads({ query: "synthetic" })).toEqual({ access_state: expected, threads: [], returned: 0 });
+    expect(await client.readThread(URL)).toEqual({ access_state: expected, url: URL, host_code: code });
+    expect(await client.searchThreads({ query: "synthetic" })).toEqual({ access_state: expected, threads: [], returned: 0, host_code: code });
+  });
+  it("answers the host's busy with a retry hint, and passes on no code that isn't one", async () => {
+    // The host locks its one browser for each read, whichever client sent it, and asks for a retry in 2 seconds.
+    expect(await (await fake("error-BROWSER_BUSY")).client.readThread(URL))
+      .toEqual({ access_state: "busy", url: URL, retry_after_seconds: 5, host_code: "BROWSER_BUSY" });
+    expect(await (await fake("error-not a code")).client.searchThreads({ query: "synthetic" }))
+      .toEqual({ access_state: "unavailable", threads: [], returned: 0 });
   });
   it("rejects malformed data without reconnecting", async () => {
     const { client, records } = await fake("malformed");
@@ -218,8 +232,10 @@ describe("Reddit stdio reader", () => {
     const { client, records } = await fake("slow", { busyWaitMs: 20 });
     const first = client.searchThreads({ query: "first" });
     await untilStarted(records);
-    expect((await client.searchThreads({ query: "never sent" })).access_state).toBe("busy");
-    expect((await client.searchThreads({ query: "also never sent" })).access_state).toBe("busy");
+    // One call is ahead, so about ten seconds (#394's run: seven parallel reads came back busy with no hint).
+    expect(await client.searchThreads({ query: "never sent" })).toEqual({ access_state: "busy", threads: [], returned: 0,
+      retry_after_seconds: 10 });
+    expect(await client.readThread(URL)).toEqual({ access_state: "busy", url: URL, retry_after_seconds: 10 });
     expect((await records()).filter((record) => record.event === "start")).toHaveLength(1);
     await first;
     expect((await client.searchThreads({ query: "after completion" })).returned).toBe(7);
@@ -235,6 +251,22 @@ describe("Reddit stdio reader", () => {
     const end = (await first.records()).find((record) => record.event === "end");
     const start = (await second.records()).find((record) => record.event === "start");
     expect(start.at).toBeGreaterThanOrEqual(end.at);
+  });
+  it("counts a call's wait for its turn within its deadline, so it answers busy before a client gives up", async () => {
+    const holder = await fake("slow");
+    const waiting = await fake();
+    const holding = holder.client.readThread(URL);
+    await untilStarted(holder.records);
+    // The deadline is shorter than the line ahead: the call answers busy within it instead of waiting out the line.
+    const waiter = createRedditReaderClient({ ...settings, command: process.execPath,
+      args: [fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-server.mjs", import.meta.url)), "normal", waiting.log],
+      deadlineMs: 300, busyWaitMs: 10_000 });
+    clients.push(waiter);
+    const started = Date.now();
+    expect(await waiter.searchThreads({ query: "synthetic" })).toMatchObject({ access_state: "busy", returned: 0 });
+    expect(Date.now() - started).toBeLessThan(1_000);
+    await expect(readFile(waiting.log)).rejects.toMatchObject({ code: "ENOENT" });
+    await holding;
   });
   it("bounds calls with a deadline", async () => {
     const { client } = await fake("slow", { deadlineMs: 100 });
