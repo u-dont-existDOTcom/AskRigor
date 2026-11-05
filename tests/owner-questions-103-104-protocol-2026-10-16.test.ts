@@ -31,7 +31,7 @@ const APPROVED = {
 // This rule already existed in 20.6.25; its wording is locked independently of the fixture and prior bytes.
 const RULE_ID = "ProposeDiscriminatingTest";
 const APPROVED_RULE = "When the evidence found cannot answer the question but methods that exist could, describe the test that would answer it as soon as those methods come up, without being asked: what is compared, the control condition, and what each result would show. Say it appears not to have been done only after an adequate search; a narrow search does not show that nobody has done it, and supposed barriers are not documented reasons.";
-const CURRENT_HRP = {"version": "20.6.39", "sha256": "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5"};
+const CURRENT_HRP = {"version": "20.6.40", "sha256": "5903f41ae9a3166dc7f119b6bee4dc05f5aaf6e4701c0176f383ed151dc6a35a"};
 const PINS = {
   from: { version: "20.6.25", sha256: "f3f1d9d2f60eb0dd376d93a09910a7a26e3543b4cdb8f540298a977315d4beb5" },
   to: { version: "20.6.26", sha256: "e681ed981471a38ac93c1eb6c13fb86e70fc6e8cb55e07d517bfc715d97c6cfa" },

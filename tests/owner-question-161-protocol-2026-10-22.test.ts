@@ -171,8 +171,8 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: "20.6.39", revisionDate: "2026-11-05",
-      sha256: "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5",
+      name: "HRP", version: "20.6.40", revisionDate: "2026-11-05",
+      sha256: "5903f41ae9a3166dc7f119b6bee4dc05f5aaf6e4701c0176f383ed151dc6a35a",
     });
   });
 

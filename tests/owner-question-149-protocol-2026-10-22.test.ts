@@ -30,7 +30,7 @@ const PINS = {
 const REVISION_DATE = "2026-10-22";
 // The current file also includes owner answer 193a (HRP 20.6.32, 2026-10-29); the undo chain removes later layers.
 const CURRENT = {
-  version: "20.6.39", revisionDate: "2026-11-05", sha256: "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5",
+  version: "20.6.40", revisionDate: "2026-11-05", sha256: "5903f41ae9a3166dc7f119b6bee4dc05f5aaf6e4701c0176f383ed151dc6a35a",
 } as const;
 // Universal does not change.
 const UNIVERSAL = {

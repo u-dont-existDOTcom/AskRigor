@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner answers 249a and 250a of 5 November 2026: StudyMapForCombinedEvidence keeps the studies behind a conclusion that combines them as a small study map, and CommunityToFormalHypothesisTransfer counts one report of a cheap, low-risk option the answer doesn't yet cover as high-value.",
+  "hrp": {
+    "from": {
+      "version": "20.6.39",
+      "sha256": "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5"
+    },
+    "to": {
+      "version": "20.6.40",
+      "sha256": "5903f41ae9a3166dc7f119b6bee4dc05f5aaf6e4701c0176f383ed151dc6a35a"
+    },
+    "edits": [
+      [
+        "version=\"20.6.39\" revisionDate=\"2026-11-05\"",
+        "version=\"20.6.40\" revisionDate=\"2026-11-05\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.40\" priority=\"High\">\n   Owner answers 249a and 250a of 5 November 2026, outside the core, which is unchanged: StudyMapForCombinedEvidence,\n   after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that combines them as a small map in\n   finalize_research's later_inputs.study_map, counting groups of people, not papers; and\n   CommunityToFormalHypothesisTransfer counts one report of an option the answer doesn't yet cover, from someone who\n   tried it, cheap and low-risk to try, or an option a study or guideline the research read lists among its\n   interventions, as high-value: worth one study search.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"CommunityToFormalHypothesisTransfer\">\n   Turn repeated or high-value community observations into explicit formal-search hypotheses, transferring, as\n   applicable: vernacular and historical terminology; intervention and ingredient identity; diet or exercise pattern;\n   dose, route, formulation, timing, duration, and co-interventions; responder phenotype; baseline severity; rapid\n   versus delayed time course; dechallenge and rechallenge; objective or functional outcomes; recurrence patterns;\n   adverse effects; failure and discontinuation; and claimed mechanisms. Search indexed studies, trial registries,\n   cohorts, case series, conference materials, theses, practitioner datasets, books, regulatory records, and citation\n   chains with those leads. A new decision-relevant hypothesis reopens the relevant extended human-evidence source\n   classes; the earlier sweep is not final. Say in the answer which community leads changed the study search, and what\n   the studies then showed about them.\n  </Rule>\n",
+        "  <Rule name=\"CommunityToFormalHypothesisTransfer\">\n   Turn repeated or high-value community observations into explicit formal-search hypotheses, transferring, as\n   applicable: vernacular and historical terminology; intervention and ingredient identity; diet or exercise pattern;\n   dose, route, formulation, timing, duration, and co-interventions; responder phenotype; baseline severity; rapid\n   versus delayed time course; dechallenge and rechallenge; objective or functional outcomes; recurrence patterns;\n   adverse effects; failure and discontinuation; and claimed mechanisms. Search indexed studies, trial registries,\n   cohorts, case series, conference materials, theses, practitioner datasets, books, regulatory records, and citation\n   chains with those leads. A new decision-relevant hypothesis reopens the relevant extended human-evidence source\n   classes; the earlier sweep is not final. Say in the answer which community leads changed the study search, and what\n   the studies then showed about them. One report is high-value when it names an option the answer doesn't yet cover,\n   from someone who tried it, and the option is cheap and low-risk to try: search the studies for it once before the\n   answer is final. So is an option that a study or guideline the research read lists among its interventions. Say what\n   each such search found, including when it found nothing.\n  </Rule>\n"
+      ],
+      [
+        "  <Rule name=\"DuplicateAndDataLineageAudit\">\n   Identify duplicate publications, overlapping cohorts, abstracts later published in full, repeated registry analyses,\n   recycled case narratives, and practitioner datasets drawn from the same patients. Count underlying people or\n   datasets, not documents, when estimating signal breadth. Marketing copy, retailer listings, articles, and press\n   releases that repeat one trial are one lineage, not independent confirmation.\n  </Rule>\n",
+        "  <Rule name=\"DuplicateAndDataLineageAudit\">\n   Identify duplicate publications, overlapping cohorts, abstracts later published in full, repeated registry analyses,\n   recycled case narratives, and practitioner datasets drawn from the same patients. Count underlying people or\n   datasets, not documents, when estimating signal breadth. Marketing copy, retailer listings, articles, and press\n   releases that repeat one trial are one lineage, not independent confirmation.\n  </Rule>\n\n  <Rule name=\"StudyMapForCombinedEvidence\" priority=\"High\">\n   When a conclusion combines studies, or rests on something not found or not shown, keep the\n   DuplicateAndDataLineageAudit as a small study map in finalize_research's later_inputs.study_map, from what the\n   research read. Give each study its identifier, its trial registry number if any, and the group of people behind it:\n   where and when they were recruited, how many, and who ran or paid for it. Link a study that shares people with,\n   reanalyses, extends or is an abstract of another, and a review to the study it cites as evidence, each with the\n   sentence that shows the link. Count groups of people, not papers. Compare a registered trial's paper with its\n   registration from before the trial started: outcomes left out, added, or moved between primary and secondary without\n   a reason the paper gives. Say in the answer what the map finds. Whether two groups overlap stays your judgment.\n  </Rule>\n"
+      ]
+    ]
+  }
+}
