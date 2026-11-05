@@ -22,6 +22,7 @@ import type {
 } from "@askrigor/evidence-repository";
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
+import { shownCommunity } from "../forum-thread-links.js";
 import { passesPageGuard } from "./page-guard.js";
 import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
@@ -528,7 +529,7 @@ function researchShown(fields: ResearchFields, shownSource: (source: string) => 
   });
   const signal = fields.forumSignal;
   const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
-    communities: signal.communities.filter(passesPageGuard),
+    communities: signal.communities.map(shownCommunity).filter(passesPageGuard),
     threadsRead: signal.threads_read,
     threads: signal.threads.filter(passesPageGuard),
     people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,

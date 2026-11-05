@@ -149,7 +149,8 @@ under free contributor notice version 5 or a paid private user's yes to a save,
 are kept like a source's identifier: a pointer to the public thread AskRigor's
 reader read, rebuilt from the verified read in an id-only form (a Reddit post by
 its id; another forum's thread by its number, in phpBB's, vBulletin's,
-XenForo's or Discourse's own form; any other page is counted, never linked),
+XenForo's or Discourse's own form at the forum's own host; any other page is
+counted as "another website", never named or linked),
 never the thread's text, title, slug or a username; YouTube comments never enter
 a forum signal. An accepted finding's
 Atlas version keeps the same research as its publication shows, and an erasure

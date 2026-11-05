@@ -2138,6 +2138,21 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       );
       checks.push("atlas_versions_keep_the_research_behind_them_and_forum_read_and_erasure_removes_the_research_whole");
 
+      // The runbook's read-only rollback check (the review of #417, finding 2): what an earlier image can't parse. Here
+      // the two accept intents (one with the research behind it, one resting on forum_read) and the versions on forum_read.
+      const rollbackCounts = await admin.query<{ publications: string; intents: string; versions: string }>(
+        `SELECT (SELECT count(*) FROM ${schema}.atlas_publications
+                  WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3') AS publications,
+                (SELECT count(*) FROM ${schema}.atlas_finding_intents
+                  WHERE payload_json -> 'content' ? 'research'
+                     OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read') AS intents,
+                (SELECT count(*) FROM ${schema}.atlas_finding_versions WHERE verified_bases ? 'forum_read') AS versions`,
+      );
+      const counted = rollbackCounts.rows[0]!;
+      assert(Number(counted.intents) >= 2 && Number(counted.versions) >= 2 && Number(counted.publications) >= 0,
+        `ATLAS_ROLLBACK_CHECK_MISMATCH ${JSON.stringify(counted)}`);
+      checks.push("the_runbooks_rollback_check_counts_the_intents_and_versions_an_earlier_image_cannot_parse");
+
       // A second migrate on the populated database changes nothing.
       const before = await atlasMigrationSnapshot(admin, schema);
       const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });

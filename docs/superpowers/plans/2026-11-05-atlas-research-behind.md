@@ -276,8 +276,51 @@ decided each, and branch `claude/atlas-review-fixes-20261105` fixes them before 
    since #398 whose findings' declarations were left out without a `stored_without` entry: as stored, and with
    `draws_on_youtube_comments: false` on every finding.
 
-**Known limit, left as it is.** The source line's lookup matches a quote as a substring of the fetched text, live since
-#411; whether a match should also respect sentence or word boundaries is a separate design, not part of these fixes.
+## The review of #417 (head `16477f6e`), 5 November
+
+The independent review of #417 found eight more problems; the coordinator decided each, and the fixes are on
+`claude/atlas-review-fixes-20261105`, merged into `claude/atlas-owner-page-20261105`.
+
+1. **Backing lines matched by substring (serious).** `source-lines.ts`'s finder looked a quote up with `indexOf`, so
+   "decrease significantly after 12 weeks" was found in "Pain scores did not decrease significantly after 12 weeks." and
+   would have been published, negation gone, as the paper's own sentence. A quote is now found only where it starts and
+   ends at a clause boundary of the text: its start or end; a line break or a block's start where they are the text's
+   own; a sentence's end (Unicode `Sentence_Terminal`); a colon or a semicolon in any script (`:` `;` `：` `；` `؛` and
+   the like, the full-width ones as NFKC makes them). Between the quote and the boundary may sit only white space,
+   quotation marks and brackets, and a citation marker (numbers in brackets, or in superscript, which are bracketed in
+   the text and the quote alike so a unit such as kg/m² still matches). A mark joining two Latin letters or digits
+   (`12.5`, `1:2`, `e.g`) is no boundary, so a number is never cut short. A PDF's page text marks its blocks `wraps`:
+   its line breaks and page starts wrap sentences, so they are no boundary there. Structural and the same in any script;
+   no word list. The matcher serves both the source lines of the answer (owner answer 237a) and the backing lines, the
+   only places a match decides what a paper says (`quoteShown` decides only what the answer shows). #413's source-line
+   build carries its own copy of the finder, which takes this rule when the stacks meet. Its limit: a citation printed
+   as a bare number (a superscript the extractor flattened, "weeks 12.") is not passed over, so such a quote is not
+   found, the safe direction. The earlier known limit (substring matching, live since #411) is closed.
+2. **The rollback note missed the Atlas intents (serious).** The runbook now names them: an accept or revise intent
+   carries `content.research`, a forum-only one `verifiedBases: ["forum_read"]`, and the earlier image parses every
+   intent strictly where its review lists them and where promotion prepares one. Its read-only check counts v3
+   publications, such intents and versions resting on `forum_read`; the tolerant hotfix covers all three kinds of row.
+   The PostgreSQL acceptance runs the three queries.
+3. **Forum-only counts.** (a) A forum page is now bounded too: its reader counts no posts and signs none, so a page
+   holds at most one person for each 20 characters its reader read of it (`FORUM_PAGE_CHARACTERS_PER_PERSON`; the
+   reader keeps at most 60,000 characters of a page, so 3,000 people a page), and a signal with a page among its threads
+   keeps its Reddit part bound. (b) Each thread counts once: a Reddit read with `more` signs which part it continues
+   (`m`), a forum page's read the page it read (`w`); the final check takes the largest first read and each continuation
+   or page once, so reading a 10-comment thread three times holds 11 people, not 31.
+4. **Links and names.** A forum is named, and its thread linked, only for a thread in one of the four id-only forms at
+   the forum's registrable host or `www.` and it; any other page, a subdomain's (`janedoe.forumhost.example`), a
+   personal domain's (`www.janedoe.com`, `jane.doe.name`, `janedoe.id.au`) or Earth Clinic's for now, counts under the
+   generic "another website", with no name and no link. **A list of named sites is the owner's to approve later.**
+5. **Wrong links.** Only Reddit's own prefixes (`www`, `old`, `new`, `m`, `np`, `amp`) are set aside: any other site's
+   host is kept as read, so a link never points at another host than the one read. A link keeps the scheme it was read
+   with, and one with another port is counted only. A read the reader was sent on from (a bare host to its `www.`)
+   signs the link it was given too (`ur`), so a card may cite either.
+6. **The digest read.** The stored record's schema takes a finding's `draws_on_youtube_comments`, and the review tries
+   the stored form exactly as stored first, then every kept finding declared false, then none declaring. A stored finding
+   declared true is treated as drawn from YouTube comments: never published.
+7. **`search_query` kept.** The unsaved card's kept copy now leaves it out, as the privacy map says.
+8. **Punycode communities.** The pages and the owner's review show a forum's host in its Unicode form
+   (`xn--e1afmkfd.xn--p1ai` as `пример.рф`), escaped as every text; its link keeps the host as read.
 
 ## Merging the stack into main
 

@@ -513,6 +513,11 @@ export function isSafeReportedModel(value: string): boolean {
 export type StoredFinding = Omit<FindingsCard["findings"][number],
   "sources" | "draws_on_youtube_comments" | "backing" | "forum_signal"> & {
   sources: string[];
+  /**
+   * A finding's declaration of whether it draws on YouTube comments, which a card saved after #398 and before its record
+   * named them may still hold (the review of #417, finding 6); a save today stores none. True reads as drawn from them.
+   */
+  draws_on_youtube_comments?: boolean;
   /** Videos whose audited comments back this finding; their IDs are not stored. */
   youtube_videos?: number;
   /** The work a quick answer cannot do that this finding rests on, as the finalization receipt signed it. */
@@ -670,7 +675,8 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   const drawnFromComments = new Set(card.findings.flatMap((finding, index) =>
-    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ? [index] : []));
+    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ||
+      finding.draws_on_youtube_comments === true ? [index] : []));
   // withoutYouTubeData reads a checked card: a stored finding's sources hold no video ID, and its tags come with it.
   const checked = {
     ...card,

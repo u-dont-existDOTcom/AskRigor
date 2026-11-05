@@ -28,18 +28,20 @@ export const ATLAS_PUBLISHED_BACKING_PER_FINDING = 3;
 export const ATLAS_PUBLISHED_THREADS_PER_FINDING = 20;
 
 /**
- * The forms a forum thread is published in (the review of 5 November 2026, finding 1): its link only as a Reddit post by
- * its id (https://www.reddit.com/comments/<id>/), or on another forum's host as phpBB's viewtopic.php?t=<id>,
- * vBulletin's showthread.php?t=<id>, XenForo's /threads/<id>/ or Discourse's /t/<id>, with nothing else in the path or
- * query, so a link never carries a user, a title, a slug or a query value; its community as r/<subreddit>, never a
- * person's profile (u_), or a site's registrable host. Any other page is counted, never linked: a list of safe link
- * forms per site is the owner's to approve later.
+ * The forms a forum thread is published in (the reviews of 5 November 2026): its link only as a Reddit post by its id
+ * (https://www.reddit.com/comments/<id>/), or on a forum's own host as phpBB's viewtopic.php?t=<id>, vBulletin's
+ * showthread.php?t=<id>, XenForo's /threads/<id>/ or Discourse's /t/<id>, with nothing else in the path or query, so a
+ * link never carries a user, a title, a slug or a query value; its community as r/<subreddit>, never a person's
+ * profile (u_), as such a forum's registrable host, or, for any other page, ATLAS_OTHER_WEBSITE, which names none.
+ * A list of named sites and safe link forms per site is the owner's to approve later.
  */
 const THREAD_HOST = "(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})";
 export const ATLAS_THREAD_HOST = new RegExp(`^${THREAD_HOST}$`, "u");
-export const ATLAS_THREAD_LINK = new RegExp("^https://(?:www\\.reddit\\.com/comments/[a-z0-9]{1,12}/|" +
-  `${THREAD_HOST}/(?:viewtopic\\.php\\?t=[0-9]{1,12}|showthread\\.php\\?t=[0-9]{1,12}|threads/[0-9]{1,12}/|t/[0-9]{1,12}))$`, "u");
-export const ATLAS_THREAD_COMMUNITY = new RegExp(`^(?:r/(?!u_)[a-z0-9][a-z0-9_]{1,20}|${THREAD_HOST})$`, "u");
+export const ATLAS_THREAD_LINK = new RegExp("^(?:https://www\\.reddit\\.com/comments/[a-z0-9]{1,12}/|" +
+  `https?://${THREAD_HOST}/(?:viewtopic\\.php\\?t=[0-9]{1,12}|showthread\\.php\\?t=[0-9]{1,12}|threads/[0-9]{1,12}/|t/[0-9]{1,12}))$`, "u");
+/** The community a page counts under when its site may not be named: every page but Reddit's and the forums' own. */
+export const ATLAS_OTHER_WEBSITE = "another website";
+export const ATLAS_THREAD_COMMUNITY = new RegExp(`^(?:r/(?!u_)[a-z0-9][a-z0-9_]{1,20}|${THREAD_HOST}|${ATLAS_OTHER_WEBSITE})$`, "u");
 
 type TextCheck = (max: number) => z.ZodType<string>;
 const YOUTUBE_HOST = /^\s*https?:\/\/(?:[^/?#@]*\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)(?:[:/?#]|$)/iu;

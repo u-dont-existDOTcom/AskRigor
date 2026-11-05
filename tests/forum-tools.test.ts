@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { fileURLToPath } from "node:url";
@@ -97,6 +98,30 @@ describe("forum tools", () => {
     await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: "opaque" } });
     expect(thread).toHaveBeenCalledWith(URL, "opaque");
   });
+  // The review of #417 (finding 3): each part of a thread is counted once, so a Reddit continuation signs which part it
+  // continues and a forum page which page it read; a link the reader was sent on from is signed too.
+  it("signs a continuation's part, a page's own link, and the link a page was reached from", async () => {
+    const caller = await client();
+    const claimsOf = (result: Awaited<ReturnType<typeof caller.callTool>>) => {
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", comments: [], comments_read: 7 });
+    expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } }))).not.toHaveProperty("m");
+    expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: "opaque" } })))
+      .toMatchObject({ n: "7", m: digest("opaque") });
+    page.mockResolvedValue({ url: "https://forum.example/thread/1?page=2", access_state: "read", page_text: "a".repeat(1_500) });
+    const second = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/1?page=2" } }));
+    expect(second).toMatchObject({ u: forumThreadDigest("https://forum.example/thread/1"), w: digest("https://forum.example/thread/1?page=2") });
+    expect(second).not.toHaveProperty("ur");
+    // Sent on from a bare host to its www.: both links are the thread read.
+    page.mockResolvedValue({ url: "https://www.forum.example/thread/3", access_state: "read", page_text: "a".repeat(1_500) });
+    expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/3" } })))
+      .toMatchObject({ u: forumThreadDigest("https://www.forum.example/thread/3"), ur: forumThreadDigest("https://forum.example/thread/3") });
+  });
+
   // A post on a person's profile (a subreddit named u_ and the user's name) signs u_ alone, so no receipt names a user.
   it("signs a profile post's subreddit as u_ alone, and no subreddit that isn't one", async () => {
     const caller = await client();

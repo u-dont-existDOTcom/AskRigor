@@ -71,6 +71,7 @@ import {
   type VerifiedWork
 } from "./findings/card.js";
 import {
+  FORUM_PAGE_CHARACTERS_PER_PERSON,
   researchBehindProblems,
   signedBackingClaims,
   signedReadingClaims,
@@ -1887,19 +1888,30 @@ export function finalizeResearch(
 
   // Count declared forum reads only; review corpora and unread communities add no threads or communities.
   // Reports the user pasted are not a search of the community, so nothing there is left to read.
+  // A read signs the thread it read (`u`) and, when the reader was sent on from it, the link it was given (`ur`).
+  const readDigests = (claims: Readonly<Record<string, string | string[]>>) =>
+    [claims.u, claims.ur].flatMap((digest) => typeof digest === "string" ? [digest] : []);
   const forumReadUrls = new Set(verified.filter(({ kind }) => kind === "forum_thread_read")
-    .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
-  // What each thread's reads signed (the review of 5 November, findings 1 and 7), by the thread's digest: whether Reddit's
-  // reader read it, the subreddit it returned (u_ for a person's profile), and the comments read, over every part read.
-  const forumReads = new Map<string, { reddit: boolean; subreddit: string | undefined; comments: number }>();
+    .flatMap(({ claims }) => readDigests(claims)));
+  // What each thread's reads signed (the reviews of 5 November), by the thread's digest: whether Reddit's reader read it,
+  // the subreddit it returned (u_ for a person's profile), and what it read, each part once: on Reddit the largest
+  // first read and each continuation (`m`) once; on a forum, each page (`w`) once. Reading again adds nothing.
+  const forumReads = new Map<string, ForumThreadReads>();
   for (const { kind, claims } of verified) {
     if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
-    const reddit = text(claims.v) === "reddit";
-    const subreddit = reddit && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
-    const comments = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
-    const known = forumReads.get(claims.u);
-    forumReads.set(claims.u, known === undefined ? { reddit, subreddit, comments }
-      : { reddit: known.reddit && reddit, subreddit: known.subreddit ?? subreddit, comments: known.comments + comments });
+    const reader = text(claims.v) === "reddit" ? "reddit" as const : text(claims.v) === "page" ? "page" as const : undefined;
+    const subreddit = reader === "reddit" && isSignedSubreddit(text(claims.c)) ? text(claims.c) : undefined;
+    const read = /^[0-9]{1,9}$/u.test(text(claims.n)) ? Number(text(claims.n)) : 0;
+    for (const digest of readDigests(claims)) {
+      const known = forumReads.get(digest) ?? { reader, subreddit: undefined, first: 0, parts: new Map<string, number>() };
+      if (known.reader !== reader) known.reader = undefined;
+      known.subreddit ??= subreddit;
+      // A Reddit continuation, or a forum's page, by what it continues or which page it is; a Reddit first read alone.
+      const part = reader === "reddit" ? text(claims.m) : reader === "page" ? `page:${text(claims.w)}` : "";
+      if (part === "") known.first = Math.max(known.first, read);
+      else known.parts.set(part, Math.max(known.parts.get(part) ?? 0, read));
+      forumReads.set(digest, known);
+    }
   }
   const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
@@ -3431,10 +3443,7 @@ export function finalizeResearch(
           keySource: (source) => input.key_sources.some(({ id }) => normalizeIdentifier(id) === normalizeIdentifier(source)),
           threadRead: (url) => forumReadUrls.has(forumThreadDigest(url)),
           comparableThread: comparableUrl,
-          threadCapacity: (url) => {
-            const read = forumReads.get(forumThreadDigest(url));
-            return read?.reddit === true ? read.comments + 1 : undefined;
-          },
+          threadCapacity: (url) => threadCapacity(forumReads.get(forumThreadDigest(url))),
           literatureSearched: (query) => verified.some(({ kind, claims }) => kind === "literature_search" &&
             text(claims.q) === discoveryQueryDigest([query]))
         }
@@ -3956,7 +3965,7 @@ export function finalizeResearch(
   const threadCommunities = findingsCard.status === "checked" && input.findings_card !== undefined
     ? signedThreadCommunities(input.findings_card, (url) => {
       const read = forumReads.get(forumThreadDigest(url));
-      return read?.reddit === true ? read.subreddit : undefined;
+      return read?.reader === "reddit" ? read.subreddit : undefined;
     }) : [];
   if (passed) {
     output.finalization_receipt = issueResearchReceipt("finalization", {
@@ -4990,6 +4999,30 @@ function listOf(items: readonly string[], conjunction: "and" | "or"): string {
 }
 
 export { comparableUrl, forumThreadDigest };
+
+/** What a thread's verified reads signed, each part once (finalizeResearch's forumReads). */
+interface ForumThreadReads {
+  /** Which reader read it: Reddit's, a forum page's, or, for a read whose receipt says neither, none known. */
+  reader: "reddit" | "page" | undefined;
+  subreddit: string | undefined;
+  /** The largest first read of a Reddit thread: its comments read. */
+  first: number;
+  /** Each Reddit continuation's comments, or each forum page's characters, by the part or the page, its largest read. */
+  parts: Map<string, number>;
+}
+
+/**
+ * How many people a thread read here can hold (the reviews of 5 November, finding 7 and #417's finding 3): on Reddit,
+ * its comments read, each part once, and its poster; on a forum page, whose reader counts no posts, one person for each
+ * FORUM_PAGE_CHARACTERS_PER_PERSON characters of each page read, at most 3,000 a page at the reader's limit of 60,000.
+ * Undefined for a thread not read here, or read by a receipt that doesn't say which reader.
+ */
+function threadCapacity(reads: ForumThreadReads | undefined): number | undefined {
+  if (reads === undefined || reads.reader === undefined) return undefined;
+  const parts = [...reads.parts.values()];
+  return reads.reader === "reddit" ? reads.first + parts.reduce((sum, read) => sum + read, 0) + 1
+    : parts.reduce((sum, read) => sum + Math.floor(read / FORUM_PAGE_CHARACTERS_PER_PERSON), 0);
+}
 
 const REDDIT_HOST = /(?:^|\.)(?:reddit\.com|redd\.it)$/u;
 // A thread, not a subreddit's front page, wiki, search or share link:

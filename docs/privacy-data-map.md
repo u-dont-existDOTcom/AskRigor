@@ -494,7 +494,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Open publication full text and audit index | Requested DOI/optional PMCID; Europe PMC or Unpaywall discovery attempts (optional `http_status` and `retryable` for Europe PMC full-text failures: public provider status and retryability, no user data); public source URL, title, manuscript version and format; exact document and block SHA-256 values; extracted public JATS or PDF text with section/page location; opaque document handle and cursor; source-linked study or review audit submissions and bounded validation receipts | Attempts a lawful, identity-checked full-text method audit. Retrieval, open availability, randomization, peer review, journal status, or guideline status is not treated as proof of reliability. If no complete copy passes access and identity checks, only a possibly useful lead is returned and unseen contents are not evidence. |
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
-| `read_forum_thread` | Only the public page or thread link goes out, with an opaque continuation when supplied; no question, research account, or personal health detail. Public pages receive the AskRigor user agent and a robots.txt request. Reddit returns post text, comments, dates, counts and continuation state; other forums return visible page text and a same-host next-page link. | Request-local reading, nothing stored. Reddit usernames and provider author/name fields are dropped before the result; an eight-hex SHA-256 key of thread ID and author lets the AI count one person once within a thread. A signed receipt holds only a comparable-URL digest, read count and reader kind, and for Reddit the subreddit the reader returned, lower case (`c`), or `u_` alone for a post on a person's profile, never the user's name. Refused, challenged, short or unavailable pages return no text or read receipt. A failure the Reddit reader's host reports is passed on as its code's name, never its message. |
+| `read_forum_thread` | Only the public page or thread link goes out, with an opaque continuation when supplied; no question, research account, or personal health detail. Public pages receive the AskRigor user agent and a robots.txt request. Reddit returns post text, comments, dates, counts and continuation state; other forums return visible page text and a same-host next-page link. | Request-local reading, nothing stored. Reddit usernames and provider author/name fields are dropped before the result; an eight-hex SHA-256 key of thread ID and author lets the AI count one person once within a thread. A signed receipt holds only a comparable-URL digest, read count and reader kind, and for Reddit the subreddit the reader returned, lower case (`c`), or `u_` alone for a post on a person's profile, never the user's name; a 16-hex SHA-256 of a continuation's token for a Reddit read with `more` (`m`) or of the page's own link for a forum page (`w`), so each part counts once; and, when the reader was sent on from the link it was given, that link's digest (`ur`). Refused, challenged, short or unavailable pages return no text or read receipt. A failure the Reddit reader's host reports is passed on as its code's name, never its message. |
 | `search_reddit_threads` | Deidentified search words, an optional subreddit, sorting/time choices, a page size of 25 and an opaque page token go to the reader; no question, research account, or personal health detail. Returns public thread links, subreddits, titles, counts and a next token. | Request-local discovery, nothing stored. No usernames reach the result. A successful search signs only a query digest, up to 25 comparable-thread-URL digests and, when known, whether more pages exist; a refusal or failure earns no receipt, and a failure the host reports is named by its code alone. Personal search wording is screened before it leaves AskRigor and refused with its matched wording quoted to the caller. |
 | Public YouTube comment data | comment/reply IDs, parent/top-level IDs, public YouTube author/channel IDs, optional public display names, public comment text, likes, and publication/update timestamps; for empty text, found/read/verified markers, unknown modality and audio availability, and an unread-transcript marker | Requested API-visible comment and reply retrieval with completeness accounting. An empty-text record is found but its content is unread; it remains in retrieval counts, is excluded from analysis/evidence counts and source material, and is never evidence for its words. No audio or transcript is fetched for it. |
 | Public YouTube transcript data | public caption text, segment start/duration, selected and available caption languages, provider-reported automatic-caption status, public video/channel metadata, and canonical timestamp links | Custom GPT-only best-effort verification of what a video's selected public caption track says; not an efficacy, accuracy, or causality determination. |
@@ -1140,10 +1140,11 @@ What the model sends, and when:
   cites a study, and `support_not_located` names the query of a literature
   search of that call (`forum_signal.search_query`, compared with the
   literature-search receipt's query digest as `option_classes` is, then
-  dropped: never stored); and, on Reddit, no more people are counted than the
-  threads read could hold, each thread's comments read over every receipt for
-  it and its poster (a forum page's reader counts characters, not comments, so
-  a signal with a page among its threads has no person bound). Whether reports agree, a mechanism is plausible or studies
+  dropped: never stored); and no more people are counted than the threads read
+  could hold: on Reddit each thread's comments read, its largest first read and
+  each continuation once, and its poster; on a forum page, whose reader counts no
+  posts, one person for each 20 characters of each page read, each page once (at
+  most 3,000 a page at the reader's limit of 60,000 characters). Whether reports agree, a mechanism is plausible or studies
   measured what the reports did is the model's declaration. A problem refuses
   the card, never the answer. The AI's own words (`against`, the mechanism,
   what studies measured) pass the card's privacy screen; the paper's quotes do
@@ -1309,13 +1310,17 @@ AI's link (the review of 5 November 2026): a Reddit post's community is the
 subreddit its reader returned, which the reader's receipt signed and the
 finalization receipt signed again for the card's thread (`ft`), and its link is
 `https://www.reddit.com/comments/<id>/`; a post on a person's profile counts,
-with no community and no link. Another forum's community is its registrable
-host (`example.org` for `forum.example.org`, so a person's or a blog's subdomain
-is never named), and its link is kept only in a structural, id-only form at the
-root of its host: phpBB's `viewtopic.php?t=<id>`, vBulletin's
-`showthread.php?t=<id>`, XenForo's `/threads/<id>/` or Discourse's `/t/<id>`,
-never a title, slug or query value; any other page, Earth Clinic's included, is
-counted only, and a link holding contact details is left out. Links are kept only
+with no community and no link. A forum is named only for a thread in a
+structural, id-only form at the root of its registrable host or of `www.` and it:
+phpBB's `viewtopic.php?t=<id>`, vBulletin's `showthread.php?t=<id>`, XenForo's
+`/threads/<id>/` or Discourse's `/t/<id>`, with the scheme it was read with and no
+other port; its community is then that host (`example.org`) and its link that
+form, never a title, slug or query value. Any other page, a subdomain's
+(`janedoe.forumhost.example`), a personal domain's or Earth Clinic's included,
+counts under the generic "another website", with no name and no link, and a link
+holding contact details is left out. A forum's host is kept as read (only
+Reddit's own `www`, `old`, `new`, `m`, `np` and `amp` are set aside), and the
+pages show a punycode host in Unicode. Links are kept only
 for a free contributor who accepted notice version 5 or a paid private user's
 yes to the save, under the privacy page that says so; a card saved for an
 account still on version 4 keeps no link. The readable copy shows them under
@@ -1767,7 +1772,8 @@ The pages (section 4C) are built, not yet released, and switched off until
   work and how studies relate to the reports, in AskRigor's words; and, from a
   card whose saving account's consent covered them (owner answer 253a), the
   threads' links as the card stored them, each only in the forms above, and
-  communities only as `r/<subreddit>` or a registrable host. Never a YouTube
+  communities only as `r/<subreddit>`, a forum's registrable host (shown in
+  Unicode) or "another website". Never a YouTube
   link or video ID, a thread's title or slug, a username or anything a person
   wrote. Quotes, sections,
   communities and links are provider text: one the hold check

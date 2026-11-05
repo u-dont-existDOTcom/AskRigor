@@ -8,6 +8,7 @@ import type {
 } from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
+import { shownCommunity } from "../forum-thread-links.js";
 import { escapeHtml } from "./page-guard.js";
 import {
   ATLAS_FINDINGS_PER_PAGE,
@@ -1023,11 +1024,11 @@ const STUDIES_WORDS: Readonly<Record<AtlasForumSignalStudies, string>> = {
 
 const people = (count: number) => `${count} ${count === 1 ? "person" : "people"}`;
 
-/** The forum a published thread link is on, as a reader knows it. */
+/** The forum a published thread link is on, as a reader knows it: its host in Unicode, as its community shows. */
 function threadSite(link: string): string {
   try {
     const host = new URL(link).hostname.toLowerCase().replace(/^www\./u, "");
-    return host === "reddit.com" || host.endsWith(".reddit.com") ? "Reddit" : host;
+    return host === "reddit.com" || host.endsWith(".reddit.com") ? "Reddit" : shownCommunity(host);
   } catch {
     return "a forum";
   }

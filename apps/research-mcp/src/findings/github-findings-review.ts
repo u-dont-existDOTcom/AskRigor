@@ -116,6 +116,8 @@ const storedFindingSchema = z.object({
   backing: z.array(storedBackingSchema).min(1).max(BACKING_LIMITS.lines).optional(),
   source_reading: z.array(sourceReadingSchema).min(1).max(10).optional(),
   forum_signal: storedForumSignalSchema.optional(),
+  // A card a save stored with its findings' declarations (the review of #417, finding 6): read as it is.
+  draws_on_youtube_comments: z.boolean().optional(),
 }).strict();
 const storedRecordSchema = z.object({
   schema: z.literal("askrigor.findings-card.v1"),
@@ -220,12 +222,14 @@ export function parseFindingsRecordBody(
         }),
       })),
     };
-    // A card saved after #398 and before its record named the declarations it leaves out stored each kept finding
-    // without its draws_on_youtube_comments, which was false on every kept finding once comments were read: the review
-    // of 5 November (finding 8) reads that form too.
-    const declared = { ...checked, findings: checked.findings.map((finding) => ({ ...finding, draws_on_youtube_comments: false })) };
-    if (findingsCardDigest(checked as FindingsCard) !== stored.card_sha256 &&
-      findingsCardDigest(declared as FindingsCard) !== stored.card_sha256) return "tampered";
+    // The findings' declarations of whether they draw on YouTube comments (owner answer 219b), which a card saved after
+    // #398 and before its record named them may hold as the check had them, or without them: the stored form exactly as
+    // stored first, then each kept finding declared false, then none declaring (the reviews of 5 November).
+    const declarations = (declared: boolean | undefined) => ({ ...checked, findings: checked.findings.map(
+      ({ draws_on_youtube_comments: _declared, ...finding }) => declared === undefined ? finding
+        : { ...finding, draws_on_youtube_comments: declared }) });
+    if (![checked, declarations(false), declarations(undefined)]
+      .some((form) => findingsCardDigest(form as FindingsCard) === stored.card_sha256)) return "tampered";
   }
   return { record: stored, metadata };
 }

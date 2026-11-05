@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import { domainToUnicode } from "node:url";
 
-import { ATLAS_THREAD_HOST, ATLAS_THREAD_LINK } from "@askrigor/evidence-repository";
+import { ATLAS_OTHER_WEBSITE, ATLAS_THREAD_HOST, ATLAS_THREAD_LINK } from "@askrigor/evidence-repository";
 
 /**
  * Forum thread links: how two links to one thread compare (comparableUrl, which a forum_thread_read receipt signs by its
@@ -30,10 +31,17 @@ const THREAD_PAGE_SUFFIX = /\/(?:page[-/]?\d+|post-\d+)\/?$/iu;
 // A post number after a Discourse topic: /t/<slug>/<topic id>/<post number>.
 const DISCOURSE_POST = /^(\/t\/[^/]+\/\d+)\/\d+\/?$/iu;
 
+// The prefixes Reddit serves the same posts under, and only Reddit (the review of 5 November, finding 5): on any other
+// site a www, m or new host may be another site, so it stays as it was read.
+const REDDIT_PREFIX = /^(?:www|old|new|m|np|amp)\./u;
+
 /** A thread's link as two links to it compare, in parts. */
 interface ThreadParts {
-  /** The host without a www, old, new, m, np or amp prefix, lower case. */
+  /** The host, lower case; on Reddit without a www, old, new, m, np or amp prefix. */
   host: string;
+  /** The scheme and the port the link gives ("" for the scheme's own), which a published link keeps as read. */
+  scheme: string;
+  port: string;
   /** A Reddit post's id, for any of Reddit's links to it. */
   post?: string;
   /** The path without a session, a page or post within the thread, or a trailing slash, lower case. */
@@ -50,26 +58,31 @@ function threadParts(url: string): ThreadParts | undefined {
   } catch {
     return undefined;
   }
-  const host = link.hostname.toLowerCase().replace(/^(?:www|old|new|m|np|amp)\./u, "");
+  const hostname = link.hostname.toLowerCase();
+  const reddit = REDDIT_SITE.test(hostname);
+  const host = reddit ? hostname.replace(REDDIT_PREFIX, "") : hostname;
+  const scheme = link.protocol;
+  const port = link.port;
   const post = host === "redd.it"
     ? REDD_IT_POST_PATH.exec(link.pathname)?.[1]
     : /(?:^|\.)reddit\.com$/u.test(host) ? REDDIT_POST_PATH.exec(link.pathname)?.[1] : undefined;
-  if (post !== undefined) return { host: "reddit.com", post: post.toLowerCase(), path: "", query: [] };
+  if (post !== undefined) return { host: "reddit.com", scheme, port, post: post.toLowerCase(), path: "", query: [] };
   const threadId = [...link.searchParams.keys()].some((key) => THREAD_ID_PARAMETER.test(key));
   const query = [...link.searchParams]
     .filter(([key]) => !NON_THREAD_PARAMETER.test(key) && !(threadId && WITHIN_THREAD_PARAMETER.test(key)))
     .sort(([left], [right]) => left.localeCompare(right));
   const path = link.pathname.replace(/;jsessionid=[^/]*/iu, "").replace(THREAD_PAGE_SUFFIX, "")
     .replace(DISCOURSE_POST, "$1").replace(/\/+$/u, "").toLowerCase();
-  return { host, path, query };
+  return { host, scheme, port, path, query };
 }
 
 /**
- * A URL as two links to one thread compare: no scheme, subdomain prefix,
- * fragment, session, trailing slash or trailing punctuation, and no parameter
- * or path suffix that only tracks a click or picks a page, post or sort order.
- * A Reddit post is its id, which Reddit never reuses, whatever its subreddit,
- * title slug or comment permalink. Other query parameters stay: they may be
+ * A URL as two links to one thread compare: no scheme, port, fragment,
+ * session, trailing slash or trailing punctuation, and no parameter or path
+ * suffix that only tracks a click or picks a page, post or sort order. A
+ * Reddit post is its id, which Reddit never reuses, whatever its subreddit,
+ * title slug, comment permalink or prefix (www, old, new, m, np, amp); any
+ * other site's host is kept whole. Other query parameters stay: they may be
  * what names a forum's thread.
  */
 export function comparableUrl(url: string): string {
@@ -144,7 +157,8 @@ function threadNumber(parts: ThreadParts): string | undefined {
 
 /** The structural, id-only link of a forum page read here, in one of the four forms the Atlas publishes; or none. */
 function forumThreadLink(parts: ThreadParts): string | undefined {
-  const base = `https://${parts.host}`;
+  if ((parts.scheme !== "https:" && parts.scheme !== "http:") || parts.port !== "") return undefined;
+  const base = `${parts.scheme}//${parts.host}`;
   const number = parts.path === "/viewtopic.php" || parts.path === "/showthread.php" ? threadNumber(parts) : undefined;
   const xenforo = XENFORO_THREAD.exec(parts.path)?.[1];
   const discourse = DISCOURSE_TOPIC.exec(parts.path)?.[1];
@@ -158,21 +172,28 @@ function forumThreadLink(parts: ThreadParts): string | undefined {
 export interface PublishedThread {
   /** The thread's comparable link (comparableUrl), so a thread given twice counts once. */
   key: string;
-  /** r/<subreddit> on Reddit, from the reader's signed subreddit; the registrable host elsewhere. */
+  /**
+   * r/<subreddit> on Reddit, from the reader's signed subreddit; a forum's registrable host for a thread in one of its
+   * id-only forms at that host or at www. and it; ATLAS_OTHER_WEBSITE, with no name, for any other page.
+   */
   community?: string;
-  /** https://www.reddit.com/comments/<id>/ on Reddit, or a forum's structural, id-only form. */
+  /** https://www.reddit.com/comments/<id>/ on Reddit, or a forum's structural, id-only form at its community's host. */
   link?: string;
 }
 
 /**
- * What the Atlas may publish of a thread read here, rebuilt from the read's verified parts (the review of 5 November,
- * findings 1 and 2), never from the AI's link as given: the parts of its comparable link, which the thread's
- * forum_thread_read receipt signs by its digest, and for a Reddit post the subreddit the reader returned, as the
- * receipt signed it (`subreddit`). A Reddit post publishes r/<subreddit> and https://www.reddit.com/comments/<id>/, or
- * neither when it is on a person's profile or no subreddit was signed. Another forum publishes its registrable host,
- * and a link only as phpBB's viewtopic.php?t=<id>, vBulletin's showthread.php?t=<id>, XenForo's /threads/<id>/ or
- * Discourse's /t/<id>, at the root of its host, with nothing else in the path or query: never a title, a slug or a query
- * value; any other page (Earth Clinic's, for now) is counted only. Undefined for a value that isn't a link.
+ * What the Atlas may publish of a thread read here, rebuilt from the read's verified parts (the reviews of 5 November),
+ * never from the AI's link as given: the parts of its comparable link, which the thread's forum_thread_read receipt
+ * signs by its digest, and for a Reddit post the subreddit the reader returned, as the receipt signed it (`subreddit`).
+ * - A Reddit post publishes r/<subreddit> and https://www.reddit.com/comments/<id>/, or neither when it is on a person's
+ *   profile or no subreddit was signed.
+ * - A forum's thread in one of the four structural, id-only forms (phpBB's viewtopic.php?t=<id>, vBulletin's
+ *   showthread.php?t=<id>, XenForo's /threads/<id>/, Discourse's /t/<id>), at the root of its registrable host or of
+ *   www. and it, with the scheme it was read with and no other port, publishes that host as its community and the
+ *   thread in that form: never a title, a slug or a query value. The notice promises communities "without their posts
+ *   or names", so a host that may be a person's (a subdomain, janedoe.forumhost.example) is never named.
+ * - Any other page, Earth Clinic's included for now, counts as ATLAS_OTHER_WEBSITE, with no name and no link.
+ * Undefined for a value that isn't a link.
  */
 export function publishedThreadOf(url: string, subreddit?: string): PublishedThread | undefined {
   const parts = threadParts(url);
@@ -185,7 +206,19 @@ export function publishedThreadOf(url: string, subreddit?: string): PublishedThr
     return { key, community: `r/${name}`, ...(ATLAS_THREAD_LINK.test(link) ? { link } : {}) };
   }
   if (REDDIT_SITE.test(parts.host)) return { key };
-  const community = registrableHost(parts.host);
-  const link = forumThreadLink(parts);
-  return { key, ...(community === undefined ? {} : { community }), ...(link === undefined ? {} : { link }) };
+  const registrable = registrableHost(parts.host);
+  const atItsHost = registrable !== undefined && (parts.host === registrable || parts.host === `www.${registrable}`);
+  const link = atItsHost ? forumThreadLink(parts) : undefined;
+  return link === undefined ? { key, community: ATLAS_OTHER_WEBSITE } : { key, community: registrable!, link };
+}
+
+/**
+ * A community as the pages and the owner's review show it (the review of #417, finding 8): a forum's host in its Unicode
+ * form (xn--e1afmkfd.xn--p1ai as пример.рф), which the page then escapes as every text; r/<subreddit> and the generic
+ * community as they are.
+ */
+export function shownCommunity(community: string): string {
+  if (community.startsWith("r/") || community === ATLAS_OTHER_WEBSITE || !community.includes("xn--")) return community;
+  const unicode = domainToUnicode(community);
+  return unicode === "" ? community : unicode;
 }

@@ -1,5 +1,6 @@
 import {
   ATLAS_FORUM_SIGNAL_STUDIES,
+  ATLAS_OTHER_WEBSITE,
   ATLAS_QUOTE_TEXTS,
   ATLAS_SOURCE_FIGURES,
   ATLAS_SOURCE_READINGS,
@@ -34,6 +35,13 @@ import type { SourceLineLookup } from "../source-lines.js";
 
 export const BACKING_LIMITS = { lines: 3, quote: 300, against: 300, section: 80 } as const;
 export const FORUM_SIGNAL_LIMITS = { threads: 20, text: 300, count: 100_000, query: 500 } as const;
+/**
+ * A forum page's reader counts no posts, so the people a page can hold are bounded by its text (the review of #417,
+ * finding 3): one person for each 20 characters AskRigor's reader read of the page. Its reader keeps at most 60,000
+ * characters of a page (forum-page.ts), so a page holds at most 3,000 people; a post with a name and a few words of
+ * what happened takes more than 20.
+ */
+export const FORUM_PAGE_CHARACTERS_PER_PERSON = 20;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const count = z.number().int().nonnegative().max(FORUM_SIGNAL_LIMITS.count);
@@ -61,8 +69,9 @@ export const forumSignalSchema = z.object({
       "communities as its reader found them, and a link to each only in an id-only form (a Reddit post by its id, or " +
       "a forum's thread number), never a title or a person's page. Never a YouTube video or its comments."),
   people: z.object({ better: count, no_change: count, worse: count, mixed: count }).strict()
-    .describe("How many people, not comments, reported each outcome in those threads. On Reddit, no more than the " +
-      "threads hold: each thread's comments read and its poster."),
+    .describe("How many people, not comments, reported each outcome in those threads: no more than the threads hold, " +
+      "on Reddit each thread's comments read and its poster, on a forum page one person for each " +
+      `${FORUM_PAGE_CHARACTERS_PER_PERSON} characters read.`),
   report_quality: z.object({ detailed: count, measured: count, bare: count }).strict()
     .describe("How good the reports are (HRP ReportQualityBesideCounts): how many of those people gave the details " +
       "(what, how much, how long, what else changed at the same time), how many measured the change, and how many " +
@@ -176,7 +185,9 @@ export function storedForumSignalOf(signal: ForumSignal, text: (value: string) =
     return [published];
   }).slice(0, FORUM_SIGNAL_LIMITS.threads);
   if (threads.length === 0) return undefined;
-  const communities = [...new Set(threads.flatMap(({ community }) => community === undefined ? [] : [community]))];
+  // The named communities, then, once, the pages that may not be named.
+  const communities = [...new Set(threads.flatMap(({ community }) => community === undefined ? [] : [community]))]
+    .sort((left, right) => Number(left === ATLAS_OTHER_WEBSITE) - Number(right === ATLAS_OTHER_WEBSITE));
   const published = !links ? [] : [...new Set(threads.flatMap(({ link }) =>
     link === undefined || contactDetailKinds(link).length > 0 ? [] : [link]))];
   return {
@@ -389,9 +400,9 @@ export interface ResearchBehindContext {
   /** The thread's comparable link, so the same thread given twice is found. */
   comparableThread(url: string): string;
   /**
-   * How many people a thread read here can hold, when its reader counts comments (the review of 5 November, finding 7):
-   * on Reddit, the comments its receipts signed as read, and its poster. Undefined for a forum page, whose reader counts
-   * characters, not comments, so a page has no person bound, and for a thread not read here.
+   * How many people a thread read here can hold (the reviews of 5 November): on Reddit, the comments its receipts signed
+   * as read, each part once, and its poster; on a forum page, one person for each FORUM_PAGE_CHARACTERS_PER_PERSON
+   * characters of each page read. Undefined for a thread not read here, or read by a receipt that names no reader.
    */
   threadCapacity(url: string): number | undefined;
   /** Whether a verified literature_search receipt of this call signs this query, compared by its digest. */
@@ -473,15 +484,16 @@ function forumSignalProblems(signal: ForumSignal, at: string, citesStudies: bool
   const { better, no_change: same, worse, mixed } = signal.people;
   const people = better + same + worse + mixed;
   if (people === 0) problems.push(`${at}.people counts no one: count each person who reported an outcome once.`);
-  // The review of 5 November, finding 7: on Reddit, no more people than the threads read here hold, each its comments
-  // read and its poster. A forum page's reader counts no comments, so a signal with a page among its threads has no bound.
+  // The reviews of 5 November: no more people than the threads read here hold, on Reddit each thread's comments read,
+  // each part once, and its poster, on a forum page one person for each FORUM_PAGE_CHARACTERS_PER_PERSON characters read.
   const held: ReadonlyArray<number | undefined> | undefined = capacities;
   if (held !== undefined && held.length > 0 && held.every((capacity) => capacity !== undefined)) {
     const most = held.reduce<number>((sum, capacity) => sum + capacity!, 0);
     if (people > most) {
-      problems.push(`${at}.people counts ${people} people, more than the ${most} the Reddit threads read here can ` +
-        "hold (each thread's comments read, and its poster): count each person once, from the comments read, or read " +
-        "the rest of a thread with read_forum_thread's more and pass that research_receipt too.");
+      problems.push(`${at}.people counts ${people} people, more than the ${most} the threads read here can hold (on ` +
+        "Reddit each thread's comments read, once, and its poster; on a forum page one person for each " +
+        `${FORUM_PAGE_CHARACTERS_PER_PERSON} characters read): count each person once, from what was read, or read the ` +
+        "rest of a thread (read_forum_thread's more, or a forum's next page) and pass that research_receipt too.");
     }
   }
   const { detailed, measured, bare } = signal.report_quality;
