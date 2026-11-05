@@ -844,16 +844,41 @@ export function checkStudyMap(
         if (shared === undefined || together(a, b) || linked(a, b) || asked.has(pair)) continue;
         asked.add(pair);
         notes.push(`study_map: ${ids[a]} and ${ids[b]} give the same registration, ${shared.number.core}: if they report ` +
-          "the same people, give them one group or link them; if not, say how they differ.");
+          "the same people, give them one group or link them same_cohort; if one is a review or a pooled analysis, link " +
+          "it cites_as_evidence to the other; if not, say how they differ.");
       }
     }
   }
+  // A registry number an abstract names: one a study it links to gives is that study's, and asks nothing; one another
+  // study gives asks how the two relate; the rest, which no study gives, are asked about in one note.
+  const missing: Array<{ id: string; numbers: string[] }> = [];
   for (const [index, study] of map.studies.entries()) {
     const named = (looked ? lookup.studies[index]?.abstractNumbers ?? [] : [])
       .filter(({ key }) => !declared[index]!.some(({ number }) => number.key === key));
-    if (named.length === 0) continue;
-    notes.push(`study_map: ${study.id}'s abstract names ${names(named.map(({ core }) => core))}, which the map doesn't ` +
-      `give for ${study.id}: if ${named.length === 1 ? "it" : "one"} is ${study.id}'s registration, add it.`);
+    const rest: string[] = [];
+    for (const number of named) {
+      const giving = map.studies.flatMap((_, other) =>
+        other !== index && declared[other]!.some((given) => given.number.key === number.key) ? [other] : []);
+      if (giving.length === 0) {
+        rest.push(number.core);
+        continue;
+      }
+      if (giving.some((other) => linked(index, other) || together(index, other))) continue;
+      const them = names(giving.map((other) => ids[other]!));
+      const one = giving.length === 1;
+      notes.push(`study_map: ${study.id}'s abstract names ${number.core}, which ${them} ${one ? "gives as its" : "give as their"} ` +
+        `registration: if ${study.id} reports ${one ? `${them}'s` : "their"} people, link them same_cohort; if it cites ` +
+        `${one ? them : "them"}, link it cites_as_evidence.`);
+    }
+    if (rest.length > 0) missing.push({ id: study.id, numbers: rest });
+  }
+  if (missing.length > 0) {
+    const listed = names(missing.map(({ id, numbers }) => `${id} (${numbers.join(", ")})`));
+    const [only] = missing;
+    notes.push(missing.length === 1
+      ? `study_map: the abstract of ${listed} names ${only!.numbers.length === 1 ? "a registration" : "registrations"} the ` +
+        `map doesn't give: if ${only!.numbers.length === 1 ? "it is" : "one is"} ${only!.id}'s, add it.`
+      : `study_map: the abstracts of ${listed} name registrations the map doesn't give: if they are theirs, add them.`);
   }
   for (const record of lookup.records) {
     if (record.status !== "found") continue;
@@ -862,8 +887,10 @@ export function checkStudyMap(
     for (const [index, study] of map.studies.entries()) {
       if (giving.includes(index) || !requests[index]!.pmids.some((pmid) => record.record.pmids.includes(pmid))) continue;
       if (giving.some((other) => together(other, index) || linked(other, index))) continue;
+      const them = names(giving.map((other) => ids[other]!));
       notes.push(`study_map: the record of ${record.nct} lists ${study.id} among its results: if ${study.id} reports the ` +
-        `same trial, give it the same group as ${names(giving.map((other) => ids[other]!))} or link them.`);
+        `same trial's people, give it the same group as ${them} or link it same_cohort to ${them}; if it is a review or a ` +
+        `pooled analysis, link it cites_as_evidence to ${them}.`);
     }
   }
   for (const [a, mine] of context.figures.entries()) {

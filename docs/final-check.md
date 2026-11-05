@@ -153,7 +153,7 @@ than those declarations allow gets a note; a study holding several groups (a rev
 extension of two or more studies) joins none, and a claim resting on one isn't counted. Whether two studies share
 people is meaning, so what AskRigor finds (the same registration given twice, a registry number in an abstract, a
 registration listing another study's paper, identical figures) joins nothing: each is a hint, worded as a question for
-the AI. Every finding is a note naming each item by its place as given, beside the runtime `study_map` result, and
+the AI that names the link each answer calls for. Every finding is a note naming each item by its place as given, beside the runtime `study_map` result, and
 consumes no round; what the shared deadline allowed is kept.
 
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
