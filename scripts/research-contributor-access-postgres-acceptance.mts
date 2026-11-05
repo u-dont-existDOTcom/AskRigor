@@ -72,6 +72,7 @@ const EARLIER_NOTICES = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
+  "free-contributor-v4-2026-10-25",
 ] as const;
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
@@ -373,13 +374,14 @@ async function verify(
     ));
     checks.push("findings_save_stored_on_by_default_kept_by_save_and_only_account_columns_updatable");
 
-    // Owner answer 171: v4 joins the earlier three notices, each of which requires reacceptance before research.
+    // Owner answer 253a: v5 joins the earlier four notices (v4 from owner answer 171), each of which requires
+    // reacceptance before research.
     const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
-       WHERE migration_id = '0020_research_use_notice_v4'`,
+       WHERE migration_id IN ('0020_research_use_notice_v4', '0028_research_use_notice_v5')`,
     );
-    assert(noticeV4MigrationRows.rowCount === 1, "MIGRATION_0020_NOT_APPLIED");
-    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v4-2026-10-25", "NOTICE_V4_NOT_CURRENT");
+    assert(noticeV4MigrationRows.rowCount === 2, "MIGRATION_0020_OR_0028_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v5-2026-11-05", "NOTICE_V5_NOT_CURRENT");
     for (const earlier of EARLIER_NOTICES) {
       const subject = `auth0|synthetic-postgres-${earlier}-user`;
       await service.acceptFreeContributor(subject, FREE_AGREEMENT);
@@ -411,12 +413,12 @@ async function verify(
       );
       await expectPgErrorMessage(() => admin.query(
         `UPDATE ${SCHEMA}.research_use_accounts
-            SET notice_version = 'free-contributor-v5-2026-12-31'
+            SET notice_version = 'free-contributor-v6-2026-12-31'
           WHERE account_key = $1`,
         [earlierKey],
       ), "research_use_accounts_free_notice_check");
     }
-    checks.push("notice_v4_admitted_and_v1_v2_v3_accounts_accept_it_before_research");
+    checks.push("notice_v5_admitted_and_v1_v2_v3_v4_accounts_accept_it_before_research");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -2069,6 +2071,72 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       );
       assert(!leftover.rows[0]!.rows.includes("zentarine children"), "ATLAS_CARD_FIELDS_QUERY_LEFT_AFTER_ERASURE");
       checks.push("atlas_erasure_takes_the_subject_and_the_searches_queries_and_keeps_kind_type_direction_and_databases");
+
+      // Owner answers 254a and 255a: a version keeps the research behind it and admits forum_read; one resting on its
+      // forum signal alone has no source; and an erasure removes the research whole, from the version and its intent.
+      const sourced = "10.0000/synthetic-card-fields-c";
+      const research = {
+        backing: [{ source: sourced, sentence: "Tremor fell in 20 of 100 people on the invented dose at 12 weeks.",
+          sentence_section: "Results", text: "full_text", against: "The invented trial was small." }],
+        source_reading: [{ source: sourced, read: "full_text_audited", figures: "consistent" }],
+        forum_signal: { communities: ["r/InventedVelmor"], threads_read: 1, threads: ["https://www.reddit.com/comments/abc123/"],
+          people: { better: 3, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 1 },
+          mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
+      };
+      const researched = await decide(9003, {
+        ...atlasAccept({ wording: "In an invented trial, zentarine 5 mg eased the tremor of a few adults.",
+          bases: ["full_text_audit", "forum_read"], sources: [atlasSource(sourced, tick())] }),
+        content: { ...atlasContent("In an invented trial, zentarine 5 mg eased the tremor of a few adults.",
+          ["full_text_audit", "forum_read"]), ...effectFields, research },
+      });
+      const forumOnly = await decide(9004, {
+        ...atlasAccept({ wording: "People on invented forums report less tremor after a warm bath.", bases: ["forum_read"],
+          sources: [] }),
+        content: { ...atlasContent("People on invented forums report less tremor after a warm bath.", ["forum_read"]),
+          research: { forum_signal: research.forum_signal } },
+      });
+      const [researchedContent] = await contentOf(researched);
+      const [forumContent] = await contentOf(forumOnly);
+      assert(
+        isDeepStrictEqual(researchedContent?.research, research) &&
+          isDeepStrictEqual(researchedContent?.verifiedBases, ["full_text_audit", "forum_read"]) &&
+          isDeepStrictEqual(forumContent?.research, { forum_signal: research.forum_signal }),
+        `ATLAS_RESEARCH_READ_BACK_MISMATCH ${JSON.stringify({ researchedContent, forumContent })}`,
+      );
+      const recordFor = async (publicNumber: string, kind: "withdraw" | "erase", payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        await review.recordIntent({
+          intentId: deterministicUuid(`research-behind-${kind}:${schema}:${publicNumber}`), intentKind: kind, publicNumber,
+          payload: prepared.payload, payloadSha256: prepared.payloadSha256, ownerReason: null, createdAt: tick(),
+          retryOfIntentId: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted",
+          `ATLAS_RESEARCH_${kind}_NOT_PROMOTED ${JSON.stringify(promoted.failed)}`);
+      };
+      await recordFor(researched, "withdraw", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: researched, version: 1,
+        note: "Withdrawn: its wording named a person.", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      await recordFor(researched, "erase", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: researched, version: 2,
+        scope: "all_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      const afterErasure = await admin.query<{ research: unknown; rows: string }>(
+        `SELECT version.research,
+                concat_ws(' ', row_to_json(version)::text, (SELECT json_agg(intent.payload_json)::text
+                  FROM ${schema}.atlas_finding_intents intent WHERE intent.public_number = $1)) AS rows
+           FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+          WHERE finding.public_number = $1`,
+        [researched],
+      );
+      assert(
+        afterErasure.rows.length > 0 && afterErasure.rows.every((row) => row.research === null &&
+          !row.rows.includes("Tremor fell in 20 of 100") && !row.rows.includes("calm the invented pathway")),
+        `ATLAS_RESEARCH_LEFT_AFTER_ERASURE ${JSON.stringify(afterErasure.rows.map(({ research: left }) => left))}`,
+      );
+      checks.push("atlas_versions_keep_the_research_behind_them_and_forum_read_and_erasure_removes_the_research_whole");
 
       // A second migrate on the populated database changes nothing.
       const before = await atlasMigrationSnapshot(admin, schema);

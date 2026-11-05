@@ -8,13 +8,16 @@ import {
   ATLAS_VERIFIED_BASES,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
+  atlasResearchSchema,
   type AtlasDecisionView,
+  type AtlasNumberEntry,
   type AtlasIntentView,
   type AtlasPublicationDraft,
   type AtlasPublicationHoldReason,
   type AtlasPublicationStore,
   type AtlasPublicationView,
   type AtlasPublishedFinding,
+  type AtlasResearch,
 } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
@@ -293,6 +296,31 @@ function inCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
 }
 
 /**
+ * The research behind a finding as its accepted version keeps it (owner answer 255a), so that an accepted finding from
+ * any card, a paid private one's too, shows it: what a version 3 publication would show of it, with each figure's source
+ * by the figure's place in the version's numbers when those are the card's own figures. Undefined when the finding
+ * carries none, or when what it carries is not what the canonical Atlas keeps (its texts refuse a card's number and a
+ * YouTube link): the accept goes ahead without it.
+ */
+export function canonicalResearchOf(finding: StoredFinding, numbers: readonly AtlasNumberEntry[]): AtlasResearch | undefined {
+  const sources = finding.sources.filter((source) => !isYouTubeVideoId(source));
+  const research = researchBehindOf(finding, { sources, numbers: null });
+  const own = (finding.numbers ?? []).map(({ source: _source, ...figure }) => figure);
+  const figureSources = own.length === numbers.length && own.every((figure, index) =>
+    JSON.stringify(figure) === JSON.stringify(numbers[index]))
+    ? (finding.numbers ?? []).map(({ source }) => source === undefined
+      ? null : sources.find((named) => sourceIdKey(named) === sourceIdKey(source)) ?? null)
+    : [];
+  const parsed = atlasResearchSchema.safeParse({
+    ...(research?.backing === undefined ? {} : { backing: research.backing }),
+    ...(research?.source_reading === undefined ? {} : { source_reading: research.source_reading }),
+    ...(figureSources.some((source) => source !== null) ? { figure_sources: figureSources } : {}),
+    ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+  });
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
  * What version 3 adds of a stored finding (owner answer 252a), by the publication's own source strings: its backing
  * lines, their quotes and sections as the save kept them, each left out when it holds what the pages never show (it is
  * a paper's text, so it never holds the finding back) and a line with no quote left out, with the strongest thing
@@ -340,14 +368,14 @@ export function researchBehindOf(finding: StoredFinding, published: Pick<AtlasPu
       const source = figureSources[index];
       return source === undefined ? entry : { ...entry, source };
     });
-  // The stored signal holds its communities and how many threads were read, never the links (the free notice says a
-  // card's community summary has none); a link is published only from a signal that holds one.
+  // The stored signal holds its communities and how many threads were read, and the threads' links only when the saving
+  // account's notice covered them (owner answer 253a); each link is published as the pages show it.
   const signal = finding.forum_signal;
   const communities = signal === undefined ? [] : [...new Set(signal.communities.flatMap((community) => {
     const named = shown(community);
     return named === undefined ? [] : [named];
   }))].slice(0, ATLAS_PUBLISHED_THREADS_PER_FINDING);
-  const links = (signal as { threads?: readonly string[] } | undefined)?.threads ?? [];
+  const links = signal?.threads ?? [];
   const threads = [...new Set(links.flatMap((thread) => {
     const link = shown(publishedThreadLink(thread));
     return link === undefined ? [] : [link];

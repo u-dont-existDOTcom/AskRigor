@@ -316,6 +316,15 @@ describe("production living-evidence deployment", () => {
     expect(noticeV4.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
     expect(noticeV4).toContain("IF NOT EXISTS");
     expect(noticeV4).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
+    // Owner answer 253a: and now v1 to v5, under the same idempotence guard.
+    const noticeV5 = await read("packages/evidence-repository/migrations/0028_research_use_notice_v5.sql");
+    expect(noticeV5).toContain(
+      "notice_version IN ('free-contributor-v1-2026-09-01', 'free-contributor-v2-2026-09-30', 'free-contributor-v3-2026-10-22', 'free-contributor-v4-2026-10-25', 'free-contributor-v5-2026-11-05')",
+    );
+    expect(noticeV5).toContain("pg_get_constraintdef(oid) NOT LIKE '%free-contributor-v5-2026-11-05%'");
+    expect(noticeV5.match(/research_use_accounts_free_notice_check/gu)).toHaveLength(4);
+    expect(noticeV5).toContain("IF NOT EXISTS");
+    expect(noticeV5).not.toMatch(/CREATE TABLE|GRANT|DELETE|UPDATE/iu);
     expect(await read("packages/evidence-repository/src/postgres.ts"))
       .toContain('"0015_research_detailed_lesson_reports",\n      "0016_research_use_notice_v3",\n      "0017_atlas_findings",\n');
     expect(provision).not.toMatch(
@@ -326,6 +335,44 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toContain("analysis_versions");
     expect(provision).not.toContain("frontier_contributions");
     expect(provision).not.toContain("set -x");
+  });
+
+  it("ships the v5 hold/restore pair and its disposable PostgreSQL acceptance (owner answer 253a)", async () => {
+    const hold = await read("infra/living-evidence-production/research-use-notice-v5-hold.sql");
+    const restore = await read("infra/living-evidence-production/research-use-notice-v5-restore.sql");
+    expect(hold).toContain("CREATE TABLE IF NOT EXISTS research_use_notice_v5_hold");
+    expect(hold).toContain("REVOKE ALL ON TABLE research_use_notice_v5_hold FROM PUBLIC");
+    expect(hold).toContain("acl.grantee <> class.relowner");
+    expect(hold).toContain("ON CONFLICT (account_key) DO NOTHING");
+    expect(hold).toContain("WHERE notice_version = 'free-contributor-v5-2026-11-05'");
+    expect(hold).toContain("AND account.notice_version = 'free-contributor-v5-2026-11-05'");
+    expect(hold).toContain("GREATEST(now(), created_at, updated_at)");
+    expect(hold).not.toMatch(/DELETE FROM|UPDATE research_contribution_proposals|UPDATE atlas_/u);
+    for (const guard of [
+      "account.status = 'REVOKED'", "account.mode IS NULL", "account.notice_version IS NULL",
+      "account.revoked_at = hold.held_at", "account.updated_at = hold.held_at",
+    ]) expect(restore).toContain(guard);
+    expect(restore).toContain("DELETE FROM research_use_notice_v5_hold");
+    const runner = await read("scripts/run-research-use-notice-v5-rollback-acceptance.sh");
+    expect(runner).toContain("phase seed\nrun_sql \"$hold\"\nrun_sql \"$hold\"\nphase after-hold\nphase reenroll-v4\nrun_sql \"$restore\"\nrun_sql \"$restore\"\nphase after-restore");
+    const acceptance = await read("scripts/research-use-notice-v5-rollback-acceptance.mts");
+    expect(acceptance).toContain("[V1, V2, V3, V4]");
+    expect(acceptance).toContain('const V5 = "free-contributor-v5-2026-11-05"');
+    expect(await read("package.json")).toContain('"contributor-access:notice-v5-rollback-acceptance": "bash scripts/run-research-use-notice-v5-rollback-acceptance.sh"');
+  });
+
+  // Owner answers 254a and 255a: forum reading is a verified basis, and an Atlas version keeps the research behind it,
+  // which an erasure removes whole.
+  it("ships migration 0029, the research behind each finding, with its erasure", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0029_atlas_research_behind.sql");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS research jsonb");
+    expect(migration).toContain('verified_bases <@ \'["full_text_audit", "bounded_absence", "research_correction", "forum_read"]\'::jsonb');
+    expect(migration).toContain('"research_correction", "forum_read"]\'::jsonb');
+    expect(migration).toContain("research = NULL");
+    expect(migration).toContain("OR erased.research IS NOT NULL");
+    expect(migration).toContain("research_columns := ARRAY['research']");
+    expect(migration).not.toMatch(/CREATE TABLE|GRANT|DELETE FROM|SECURITY DEFINER/u);
+    expect(migration).toContain("Renumber this migration when the Atlas stack next takes");
   });
 
   it("ships the v4 hold/restore pair and its disposable PostgreSQL acceptance", async () => {
@@ -383,12 +430,14 @@ describe("production living-evidence deployment", () => {
     // Atlas migrations follow 0016; 0019 holds the findings drawn from YouTube comments (owner answer 173), 0020
     // widens the notice constraint for v4, 0021 adds the publications, 0022 the votes and comments, 0023 the
     // findings save switch (decision 171), 0024 the findings kept for research (owner answers 229a and 231a), 0025 the
-    // placements under Health, 0026 people's reports (owner answer 229a) and 0027 a problem's rows at a glance.
+    // placements under Health, 0026 people's reports (owner answer 229a), 0027 a problem's rows at a glance, 0028
+    // notice version 5 (owner answer 253a) and 0029 the research behind each finding (owner answers 254a and 255a).
     expect(repository).toContain(
       '"0016_research_use_notice_v3",\n      "0017_atlas_findings",\n      "0018_atlas_card_fields",\n      ' +
       '"0019_held_youtube_findings",\n      "0020_research_use_notice_v4",\n      "0021_atlas_publications",\n      ' +
       '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n      "0024_atlas_kept_for_research",\n      ' +
-      '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n    ]');
+      '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n      ' +
+      '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -488,9 +537,13 @@ describe("production living-evidence deployment", () => {
       for (const [name, ids] of defining) if (sql.includes(`CREATE OR REPLACE FUNCTION ${name}(`)) ids.push(id);
     }
     expect(redefining).toEqual(["0001_living_evidence", "0017_atlas_findings"]);
-    expect(defining.get("atlas_redaction_permits")).toEqual(["0017_atlas_findings", "0018_atlas_card_fields"]);
-    expect(defining.get("erase_atlas_wording")).toEqual(["0017_atlas_findings", "0018_atlas_card_fields"]);
-    const inForce = sources.get("0018_atlas_card_fields")!;
+    // Owner answer 255a: 0029 redefines both last, so its bodies are in force.
+    expect(defining.get("atlas_redaction_permits")).toEqual(["0017_atlas_findings", "0018_atlas_card_fields",
+      "0029_atlas_research_behind"]);
+    expect(defining.get("erase_atlas_wording")).toEqual(["0017_atlas_findings", "0018_atlas_card_fields",
+      "0029_atlas_research_behind"]);
+    const cardFields = sources.get("0018_atlas_card_fields")!;
+    const inForce = sources.get("0029_atlas_research_behind")!;
     const guard = migration.slice(migration.indexOf("CREATE OR REPLACE FUNCTION reject_living_evidence_mutation()"));
     const body = guard.slice(0, guard.indexOf("$$;"));
     // The tables erase_atlas_wording changes (Atlas phase 2 part D, decision 7): the version's own rows, the finding's
@@ -524,9 +577,11 @@ describe("production living-evidence deployment", () => {
       "accepted_wording_key", "card_wording_key", "numbers", "usual_answer", "what_it_changes", "what_would_change_it",
       "who_else", "why_not_usual",
     ];
-    for (const [sql, versionErased, scope] of [
-      [migration, versionColumns, false],
-      [inForce, [...versionColumns, "search_scope"].sort(), true],
+    for (const [sql, versionErased, scope, research] of [
+      [migration, versionColumns, false, false],
+      [cardFields, [...versionColumns, "search_scope"].sort(), true, false],
+      // Owner answer 255a: the research behind a finding is removed whole with the wording.
+      [inForce, [...versionColumns, "search_scope", "research"].sort(), true, true],
     ] as const) {
       const { permits, erase } = pairOf(sql);
       const permitted = (table: string) => {
@@ -560,11 +615,18 @@ describe("production living-evidence deployment", () => {
       expect(erase).toContain("PERFORM set_config('askrigor.atlas_erasing_redaction', '', true);");
       expect(permits).toContain("current_setting('askrigor.atlas_erasing_redaction', true)");
       expect(permits).toContain("SELECT * INTO redaction FROM atlas_redactions WHERE redaction_id = erasing::uuid;");
-      expect(permits).toContain(scope
+      expect(permits).toContain(research
+        ? "IF (old_row - text_columns - key_columns - label_columns - scope_columns - research_columns) IS DISTINCT FROM\n" +
+          "     (new_row - text_columns - key_columns - label_columns - scope_columns - research_columns) THEN"
+        : scope
         ? "IF (old_row - text_columns - key_columns - label_columns - scope_columns) IS DISTINCT FROM\n" +
           "     (new_row - text_columns - key_columns - label_columns - scope_columns) THEN"
         : "IF (old_row - text_columns - key_columns - label_columns) IS DISTINCT FROM\n" +
           "     (new_row - text_columns - key_columns - label_columns) THEN");
+      if (research) {
+        expect(permits).toContain("AND new_row -> column_name IS DISTINCT FROM 'null'::jsonb THEN");
+        expect(erase).toContain("research = NULL");
+      }
       expect(permits).toContain("OR new_row -> column_name IS DISTINCT FROM to_jsonb('[wording removed]'::text)) THEN");
       expect(permits).toContain(
         "AND new_row -> column_name IS DISTINCT FROM atlas_numbers_without_labels(old_row -> column_name) THEN",
@@ -740,10 +802,11 @@ describe("production living-evidence deployment", () => {
     expect(order.indexOf("0021_atlas_publications")).toBeGreaterThan(order.indexOf("0018_atlas_card_fields"));
     // Decision 171: 0022, the votes and comments, comes right after it, then 0023, the findings save switch, then
     // 0024, the findings kept for research (owner answers 229a and 231a), then 0025, the placements under Health, 0026,
-    // people's reports (owner answer 229a), and 0027, a problem's rows at a glance.
-    expect(order.slice(-7)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
+    // 253a), and 0029, the research behind each finding (owner answers 254a and 255a).
+    expect(order.slice(-9)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
-      "0027_atlas_glance_rows"]);
+      "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");

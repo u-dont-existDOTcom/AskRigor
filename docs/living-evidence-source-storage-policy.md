@@ -142,6 +142,14 @@ the owner can unpublish a finding or erase its wording at any time, which
 removes its quotes with it. The strongest thing against each finding is
 AskRigor's own words, not a quotation.
 
+Owner answers 253a and 255a (5 November 2026): a forum signal's thread links,
+under free contributor notice version 5 or a paid private user's yes to a save,
+are kept like a source's identifier: a pointer to the public thread AskRigor's
+reader read (a Reddit post by its id), never the thread's text, title or a
+username; YouTube comments never enter a forum signal. An accepted finding's
+Atlas version keeps the same research as its publication shows, and an erasure
+removes it whole.
+
 ## Rubric and disagreement policy
 
 The AskRigor-native study and review audit profiles are the initial rubrics:

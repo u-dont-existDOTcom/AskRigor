@@ -1463,6 +1463,8 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "forrt_response_invalid",
   "forrt_upstream_unavailable",
   "forum",
+  "forum_only",
+  "forum_read",
   "forum_search",
   "forum_thread_read",
   "found",

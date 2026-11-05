@@ -107,6 +107,8 @@ const BASIS_WORDS = {
   full_text_audit: "a full-text audit of a study",
   bounded_absence: "a documented search that found nothing",
   research_correction: "research correcting a common claim",
+  // Owner answer 254a: forum threads AskRigor's own reader read.
+  forum_read: "forum threads read in full by AskRigor",
 } as const;
 const DATABASE_WORDS = { pubmed: "PubMed", europepmc: "Europe PMC", ctgov: "ClinicalTrials.gov" } as const;
 // Owner answer 252a: how AskRigor read a source, whether its printed figures match its own data, its retraction status,
@@ -544,7 +546,7 @@ ${model.contested.map(contestedItem)}</ul>
 // A topic page ----------------------------------------------------------------------------------------------------------
 
 const SECTION_NOTES: Partial<Record<AtlasTopicModel["sections"][number]["id"], string>> = {
-  leads: "AskRigor’s owner kept these as leads: no full-text audit, documented search or research correction backs them yet.",
+  leads: "AskRigor’s owner kept these as leads: no full-text audit, documented search, research correction or forum reading backs them yet.",
   earlier: "Newer findings replace these.",
 };
 

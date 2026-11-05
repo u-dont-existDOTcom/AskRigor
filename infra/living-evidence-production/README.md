@@ -286,6 +286,33 @@ the account fields already held, and only the migrator can read it.
 with real PostgreSQL in Docker, including v1, v2 and v3 accounts, changed
 accounts, settings and every other table. It is not part of the hermetic gate.
 
+Owner answer 253a (2026-11-05; built, not yet released): the free contributor
+notice's fifth version, `free-contributor-v5-2026-11-05`, says a findings card's
+summary of what communities reported holds the communities, counts of what
+people reported and links to the forum threads AskRigor read, never their posts
+or names, YouTube comments or video IDs. Migration `0028_research_use_notice_v5`
+admits v1 to v5 under the same `research_use_accounts_free_notice_check`,
+without new columns or grants, and is safe to run again; renumber it when the
+Atlas stack next takes in main. Run the one-shot admin `migrate` before an image
+offering v5 serves. Earlier accounts, v4's included, accept v5 before free
+research, and a card saved for an account still on v4 stores no thread link.
+For an image rollback below v5, follow the v4 order above with
+`research-use-notice-v5-hold.sql` and `research-use-notice-v5-restore.sql`
+(`research_use_notice_v5_hold`; held accounts may accept v4 on the earlier
+image). Undo no migration: 0028 stays and widens only the notice check.
+`npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
+real PostgreSQL in Docker, including v1 to v4 accounts.
+
+Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
+`0029_atlas_research_behind` admits `forum_read` among the verified bases of
+`atlas_finding_versions` and `held_youtube_findings`, adds the nullable
+`atlas_finding_versions.research` jsonb column (the research behind an accepted
+finding), and redefines `atlas_redaction_permits()` and `erase_atlas_wording()`
+so that an erasure removes that column whole. No role, grant or table is added,
+and no row is changed; an earlier image ignores the column. Renumber it when the
+Atlas stack next takes in main.
+
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
 accepts findings from saved findings cards into this database. Migration

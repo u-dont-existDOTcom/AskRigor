@@ -15,6 +15,7 @@ import {
   atlasPool,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
+import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
@@ -119,29 +120,11 @@ export const ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS = 400;
  * could work and how studies relate to the reports. A version 3 finding may rest on its forum signal alone.
  */
 export const ATLAS_PUBLICATION_SCHEMA_V3 = "askrigor.atlas-publication.v3";
-/** How AskRigor read a source, from the final check's receipts or the depth the AI declared. */
-export const ATLAS_SOURCE_READINGS = [
-  "full_text_audited", "search_copy_audited", "full_text_read", "partial_text", "abstract_only", "atlas_checked",
-  "secondary_only", "not_read",
-] as const;
-export type AtlasSourceReading = typeof ATLAS_SOURCE_READINGS[number];
-/** A study audit's check of its printed figures against its own data. */
-export const ATLAS_SOURCE_FIGURES = ["consistent", "internally_inconsistent"] as const;
-export type AtlasSourceFigures = typeof ATLAS_SOURCE_FIGURES[number];
-/** The texts a published quote was found in: a full text AskRigor fetched itself, or a PubMed abstract. */
-export const ATLAS_QUOTE_TEXTS = ["full_text", "abstract"] as const;
-export type AtlasQuoteText = typeof ATLAS_QUOTE_TEXTS[number];
-/** HRP FormalAbsenceCannotEraseCommunitySignal's four formal relationships. */
-export const ATLAS_FORUM_SIGNAL_STUDIES = ["corroborated", "contradicted", "support_not_located", "outcome_mismatch"] as const;
-export type AtlasForumSignalStudies = typeof ATLAS_FORUM_SIGNAL_STUDIES[number];
 /** A source's retraction status as published: one a provider read (a status none could read is left out). */
 export const ATLAS_PUBLISHED_RETRACTIONS = [
   "none_found", "corrected_or_updated", "expression_of_concern", "retracted", "not_applicable",
 ] as const;
 export type AtlasPublishedRetraction = typeof ATLAS_PUBLISHED_RETRACTIONS[number];
-export const ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS = 300;
-export const ATLAS_PUBLISHED_BACKING_PER_FINDING = 3;
-export const ATLAS_PUBLISHED_THREADS_PER_FINDING = 20;
 
 /** A source's title and year from its public record (Crossref, PubMed, Europe PMC or ClinicalTrials.gov). */
 export const atlasPublishedSourceDetailSchema = z.object({
@@ -154,54 +137,13 @@ export const atlasPublishedSourceDetailSchema = z.object({
 }).strict();
 export type AtlasPublishedSourceDetail = z.infer<typeof atlasPublishedSourceDetailSchema>;
 
+// The research behind a finding as a publication holds it (atlas-research.ts), under the publication's text check.
+const publishedResearch = atlasResearchSchemas(publishedText);
 /** One backing line as published: at least one quote, each with the section it was found in when known. */
-export const atlasPublishedBackingSchema = z.object({
-  source: publishedText(300),
-  sentence: publishedText(ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS).optional(),
-  sentence_section: publishedText(80).optional(),
-  conclusion: publishedText(ATLAS_PUBLISHED_QUOTE_MAX_CHARACTERS).optional(),
-  conclusion_section: publishedText(80).optional(),
-  text: z.enum(ATLAS_QUOTE_TEXTS),
-  against: publishedText(300),
-}).strict().superRefine((line, context) => {
-  if (line.sentence === undefined && line.conclusion === undefined) {
-    context.addIssue({ code: "custom", path: ["sentence"], message: "a line holds a quote" });
-  }
-  if ((line.sentence_section !== undefined && line.sentence === undefined) ||
-    (line.conclusion_section !== undefined && line.conclusion === undefined)) {
-    context.addIssue({ code: "custom", path: ["sentence_section"], message: "a section goes with its quote" });
-  }
-});
+export const atlasPublishedBackingSchema = publishedResearch.backing;
 export type AtlasPublishedBacking = z.infer<typeof atlasPublishedBackingSchema>;
-
-const peopleCount = z.number().int().nonnegative().max(100_000);
-
 /** What people report, as published: AskRigor's counts and words and the threads' links, never a forum text or name. */
-export const atlasPublishedForumSignalSchema = z.object({
-  /** The communities the threads read belong to: r/<name> on Reddit, or a forum's site name. */
-  communities: z.array(publishedText(120)).min(1).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
-  /** How many threads AskRigor's reader read for it, each by a verified receipt. */
-  threads_read: z.number().int().min(1).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
-  /** The threads' links as published (a Reddit post by its id); a link the pages can't show is left out. */
-  threads: z.array(z.string().url().max(2_048)).max(ATLAS_PUBLISHED_THREADS_PER_FINDING),
-  people: z.object({ better: peopleCount, no_change: peopleCount, worse: peopleCount, mixed: peopleCount }).strict(),
-  report_quality: z.object({ detailed: peopleCount, measured: peopleCount, bare: peopleCount }).strict(),
-  mechanism: publishedText(300).optional(),
-  studies: z.enum(ATLAS_FORUM_SIGNAL_STUDIES),
-  studies_measured: publishedText(300).optional(),
-}).strict().superRefine((signal, context) => {
-  const people = signal.people.better + signal.people.no_change + signal.people.worse + signal.people.mixed;
-  const { detailed, measured, bare } = signal.report_quality;
-  if (people === 0 || detailed > people || measured > people || bare > people || detailed + bare > people) {
-    context.addIssue({ code: "custom", path: ["report_quality"], message: "people counted, and report quality within them" });
-  }
-  if ((signal.studies === "outcome_mismatch") !== (signal.studies_measured !== undefined)) {
-    context.addIssue({ code: "custom", path: ["studies_measured"], message: "what studies measured goes with outcome_mismatch" });
-  }
-  if (signal.threads.length > signal.threads_read) {
-    context.addIssue({ code: "custom", path: ["threads"], message: "no more links than threads read" });
-  }
-});
+export const atlasPublishedForumSignalSchema = publishedResearch.forumSignal;
 export type AtlasPublishedForumSignal = z.infer<typeof atlasPublishedForumSignalSchema>;
 
 /**
@@ -248,11 +190,7 @@ export const atlasPublishedFindingSchema = z.object({
   source_details: z.array(atlasPublishedSourceDetailSchema).max(10).optional(),
   // Version 3 (owner answer 252a).
   backing: z.array(atlasPublishedBackingSchema).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
-  source_reading: z.array(z.object({
-    source: publishedText(300),
-    read: z.enum(ATLAS_SOURCE_READINGS),
-    figures: z.enum(ATLAS_SOURCE_FIGURES).optional(),
-  }).strict()).min(1).max(10).optional(),
+  source_reading: z.array(publishedResearch.reading).min(1).max(10).optional(),
   forum_signal: atlasPublishedForumSignalSchema.optional(),
 }).strict().superRefine((published, context) => {
   // Versions 2 and 3 always have the card's question and usual answer; version 1 has none of version 2's fields, and

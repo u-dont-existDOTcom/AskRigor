@@ -3,7 +3,7 @@ import { atlasBasisFromReceipt,
 } from "./card.js";
 import { createHash, createHmac } from "node:crypto";
 
-import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+import { RESEARCH_USE_NOTICE_VERSION, type HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
 
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
@@ -303,7 +303,12 @@ export class FindingsSaveService {
         ...(bases ?? []).flatMap((signed, index) => signed.includes("comment_audit") ? [index] : []),
         ...heldFindingsFromReceipt(receipt.claims.held, input.findings_card.findings.length),
       ]);
-      const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
+      // Owner answer 253a: a forum signal keeps its threads' links only for an account whose consent covers them: a
+      // free contributor who accepted notice version 5, or a paid private user's yes to this save, under the privacy page
+      // that says so. A free contributor still on an earlier notice keeps none.
+      const threadLinks = context.account?.mode === "PAID_PRIVATE" ||
+        (context.account?.mode === "FREE_CONTRIBUTOR" && context.account.noticeVersion === RESEARCH_USE_NOTICE_VERSION);
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments, { threadLinks });
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {

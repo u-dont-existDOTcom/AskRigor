@@ -46,7 +46,7 @@ import {
  */
 
 export type AtlasCertainty = "high" | "moderate" | "low" | "very_low";
-export type AtlasVerifiedBasis = "full_text_audit" | "bounded_absence" | "research_correction";
+export type AtlasVerifiedBasis = "full_text_audit" | "bounded_absence" | "research_correction" | "forum_read";
 export type AtlasSearchDatabase = "pubmed" | "europepmc" | "ctgov";
 
 /** The exact label an unreviewed finding carries, the approved notice's words. */
@@ -478,13 +478,38 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
 function researchBehind(published: AtlasPublishedFinding | null, shownSource: (source: string) => ShownSource | null):
   Pick<ShownFinding, "research" | "forumSignal"> {
   if (published === null || published.schema !== "askrigor.atlas-publication.v3") return { research: [], forumSignal: null };
+  return researchShown({
+    sources: published.sources,
+    backing: published.backing ?? [],
+    reading: published.source_reading ?? [],
+    retractionOf: (source) => (published.source_details ?? []).find((detail) => detail.source === source)?.retraction ?? null,
+    forumSignal: published.forum_signal,
+  }, shownSource);
+}
+
+/** The research behind a finding in the shape both a publication and an accepted version give it (owner answer 255a). */
+interface ResearchFields {
+  /** The sources in the order the page lists them. */
+  sources: readonly string[];
+  backing: NonNullable<AtlasPublishedFinding["backing"]>;
+  reading: NonNullable<AtlasPublishedFinding["source_reading"]>;
+  retractionOf: (source: string) => string | null;
+  forumSignal: AtlasPublishedFinding["forum_signal"];
+}
+
+const SHOWN_RETRACTIONS: readonly string[] = ["none_found", "corrected_or_updated", "expression_of_concern", "retracted",
+  "not_applicable"];
+
+function researchShown(fields: ResearchFields, shownSource: (source: string) => ShownSource | null):
+  Pick<ShownFinding, "research" | "forumSignal"> {
   const guarded = (text: string | undefined) => text === undefined || !passesPageGuard(text) ? null : text;
-  const research = published.sources.flatMap((source): ShownResearchSource[] => {
+  const research = fields.sources.flatMap((source): ShownResearchSource[] => {
     const shown = shownSource(source);
     if (shown === null) return [];
-    const reading = (published.source_reading ?? []).find((entry) => entry.source === source);
-    const retraction = (published.source_details ?? []).find((detail) => detail.source === source)?.retraction ?? null;
-    const lines = (published.backing ?? []).filter((line) => line.source === source).flatMap((line): ShownQuoteLine[] => {
+    const reading = fields.reading.find((entry) => entry.source === source);
+    const status = fields.retractionOf(source);
+    const retraction = status !== null && SHOWN_RETRACTIONS.includes(status) ? status as ShownResearchSource["retraction"] : null;
+    const lines = fields.backing.filter((line) => line.source === source).flatMap((line): ShownQuoteLine[] => {
       const sentence = guarded(line.sentence);
       const conclusion = guarded(line.conclusion);
       const against = guarded(line.against);
@@ -501,7 +526,7 @@ function researchBehind(published: AtlasPublishedFinding | null, shownSource: (s
     return reading === undefined && retraction === null && lines.length === 0 ? []
       : [{ source: shown, retraction, read: reading?.read ?? null, figures: reading?.figures ?? null, lines }];
   });
-  const signal = published.forum_signal;
+  const signal = fields.forumSignal;
   const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
     communities: signal.communities.filter(passesPageGuard),
     threadsRead: signal.threads_read,
@@ -514,6 +539,28 @@ function researchBehind(published: AtlasPublishedFinding | null, shownSource: (s
     studiesMeasured: guarded(signal.studies_measured),
   };
   return { research, forumSignal };
+}
+
+/**
+ * An accepted finding's research behind it: its own version's (owner answer 255a), else its publication's version 3
+ * fields (owner answer 252a), each erased with its F number's wording. Sources are named by the canonical sources with
+ * the same identifier, with their newest check's retraction status.
+ */
+function canonicalResearch(content: AtlasPageFinding["content"], publication: AtlasPagePublication,
+  sources: readonly ShownSource[], canonicalSources: AtlasPageFinding["sources"]): Pick<ShownFinding, "research" | "forumSignal"> {
+  const research = content.research;
+  const named = (source: string) => canonicalSourceOf(source, sources, publication.published);
+  if (research === undefined) return researchBehind(publication.published, named);
+  const listed = [...new Set([...(research.source_reading ?? []).map(({ source }) => source),
+    ...(research.backing ?? []).map(({ source }) => source)])];
+  const retractionOf = (source: string) => {
+    const identifier = sourceIdentifierOf(source);
+    const same = identifier === undefined ? undefined : canonicalSources.find(({ identifiers }) =>
+      identifiers.some(({ scheme, value }) => scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase()));
+    return same?.retraction ?? null;
+  };
+  return researchShown({ sources: listed, backing: research.backing ?? [], reading: research.source_reading ?? [],
+    retractionOf, forumSignal: research.forum_signal }, named);
 }
 
 function fromCanonical(
@@ -544,7 +591,7 @@ function fromCanonical(
     subject: content.subject ?? null,
     subjectType: content.subjectType ?? null,
     direction: content.direction ?? null,
-    numbers: content.numbers.map((entry) => ({
+    numbers: content.numbers.map((entry, index) => ({
       outcome: entry.outcome,
       better: entry.better,
       option: entry.option,
@@ -555,7 +602,7 @@ function fromCanonical(
       comparatorTotal: entry.comparator_total,
       followUp: entry.follow_up,
       harmsNoneFound: entry.harms_none_found === true,
-      source: canonicalFigureSource(entry, publication.published, sources),
+      source: canonicalFigureSource(entry, index, content.research?.figure_sources, publication.published, sources),
     })),
     searches: (content.searchScope ?? []).map((search) => ({
       database: search.database,
@@ -580,9 +627,9 @@ function fromCanonical(
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
-    // Owner answer 252a: an accepted or edited finding shows the research behind it from its publication's fields,
-    // which are erased with its F number's wording.
-    ...researchBehind(publication.published, (source) => canonicalSourceOf(source, sources, publication.published)),
+    // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
+    // from its publication's fields; both are erased with its F number's wording.
+    ...canonicalResearch(content, publication, sources, finding.sources),
   };
 }
 
@@ -598,13 +645,22 @@ function canonicalSourceOf(source: string, sources: readonly ShownSource[], publ
   return { identifiers: [identifier], title: detail?.title ?? null, year: detail?.year ?? null };
 }
 
-/** The study an accepted finding's figure comes from: its publication's same figure's source, when it names one. */
+/**
+ * The study an accepted finding's figure comes from: its version's own figure source at the figure's place (owner
+ * answer 255a), else its publication's same figure's source, when it names one.
+ */
 function canonicalFigureSource(
   entry: { outcome: string; option: string; comparator: string; option_events: number; option_total: number;
     comparator_events: number; comparator_total: number; follow_up: string },
+  index: number,
+  figureSources: ReadonlyArray<string | null> | undefined,
   published: AtlasPublishedFinding | null,
   sources: readonly ShownSource[],
 ): ShownSource | null {
+  if (figureSources !== undefined) {
+    const own = figureSources[index];
+    return own === undefined || own === null ? null : canonicalSourceOf(own, sources, published);
+  }
   if (published === null || published.schema !== "askrigor.atlas-publication.v3") return null;
   const same = (published.numbers ?? []).find((figure) => figure.outcome === entry.outcome &&
     figure.option === entry.option && figure.comparator === entry.comparator && figure.follow_up === entry.follow_up &&

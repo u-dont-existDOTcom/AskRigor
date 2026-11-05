@@ -63,6 +63,7 @@ import {
   type AtlasStateFinding,
   type AtlasStateReader,
   type AtlasSubjectType,
+  type AtlasResearch,
   type AtlasVersionContent,
   type HeldYouTubeFinding,
   type HeldYouTubeFindingsStore,
@@ -81,7 +82,7 @@ import {
   type AtlasPublicationAction,
   type AtlasPublications,
 } from "../atlas/publication-review.js";
-import { reconcileCardPublications } from "../atlas/publication.js";
+import { canonicalResearchOf, reconcileCardPublications } from "../atlas/publication.js";
 import {
   ATLAS_PARTICIPATION_ACTIONS,
   ATLAS_PARTICIPATION_ERROR_CODES,
@@ -2090,7 +2091,7 @@ export class AtlasReview {
       ? emptySourcePlan()
       : planFamilySources(sourceChecks, keptFamilies, request.confirm === true);
     problems.push(...plan.problems);
-    const content: AtlasVersionContent = {
+    const content: AtlasVersionContent = revisedResearch({
       ...withoutDeclaredFields(latest.content),
       wording: request.wording ?? latest.content.wording,
       appliesTo: request.appliesTo ?? latest.content.appliesTo,
@@ -2098,7 +2099,7 @@ export class AtlasReview {
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
       ...storedFields,
-    };
+    }, latest.content);
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
     if (unchanged) {
@@ -3120,7 +3121,26 @@ function contentOf(
     verifiedBases: item.entryKind === "finding" ? item.bases : [],
     numbers,
     ...(open ? {} : definedFields(fields)),
+    // Owner answer 255a: the research behind it, kept with the version, so an accepted finding from any card shows it.
+    ...(open || item.finding === null ? {} : researchField(canonicalResearchOf(item.finding, numbers))),
   };
+}
+
+/** The research behind a finding as a version's content takes it: left out when there is none. */
+function researchField(research: AtlasResearch | undefined): Pick<AtlasVersionContent, "research"> {
+  return research === undefined ? {} : { research };
+}
+
+/**
+ * A revised version's research behind it (owner answer 255a): the latest version's, whose figures' sources stay only
+ * while the figures do, since each names a figure by its place.
+ */
+function revisedResearch(content: AtlasVersionContent, latest: AtlasVersionContent): AtlasVersionContent {
+  const research = content.research;
+  if (research?.figure_sources === undefined || stableJson(content.numbers) === stableJson(latest.numbers)) return content;
+  const { figure_sources: _figures, ...rest } = research;
+  const { research: _research, ...withoutResearch } = content;
+  return Object.keys(rest).length === 0 ? withoutResearch : { ...withoutResearch, research: rest };
 }
 
 /** Every text of an item as an accept would store it, for the dry run's privacy screen. */

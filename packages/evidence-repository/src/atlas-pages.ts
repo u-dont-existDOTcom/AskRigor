@@ -115,6 +115,8 @@ export interface AtlasPageFindingSource {
   identifiers: AtlasPageSourceIdentifiers;
   title: string | null;
   year: number | null;
+  /** Owner answers 252a and 255a: the retraction status that check read; null when none is known. */
+  retraction: string | null;
 }
 
 /** Another publication the pages show from the same card as a named one, by number only. */
@@ -312,7 +314,7 @@ export function atlasPageFindingsOf(
   state: AtlasState,
   atlasNumbers: readonly string[],
   dates: ReadonlyMap<string, { acceptedOn: string | null; recheckedOn: string | null }>,
-  checks: ReadonlyMap<string, { title: string | null; year: number | null }> = new Map(),
+  checks: ReadonlyMap<string, { title: string | null; year: number | null; retraction?: string | null }> = new Map(),
 ): AtlasPageFinding[] {
   const wanted = new Set(atlasNumbers);
   const seeds = state.findings.filter((finding) => wanted.has(finding.publicNumber) && finding.versions.length > 0);
@@ -333,7 +335,7 @@ export function atlasPageFindingsOf(
           left.value.localeCompare(right.value));
       const checked = checks.get(familyId);
       return identifiers.length === 0 ? []
-        : [{ identifiers, title: checked?.title ?? null, year: checked?.year ?? null }];
+        : [{ identifiers, title: checked?.title ?? null, year: checked?.year ?? null, retraction: checked?.retraction ?? null }];
     });
     const live = state.links.filter((link) => !link.withdrawn);
     const contradicts = live
@@ -419,7 +421,7 @@ function publicationsSql(order: "published" | "changed"): string {
 
 // The title and year each source family's newest public-record check read.
 const SOURCE_CHECKS_SQL = `SELECT DISTINCT ON (checked.source_family_id) checked.source_family_id, checked.title,
-       checked.published_year
+       checked.published_year, checked.retraction_status
   FROM atlas_source_checks checked
  WHERE checked.source_family_id = ANY($1::uuid[])
  ORDER BY checked.source_family_id, checked.checked_at DESC, checked.inserted_at DESC`;
@@ -588,14 +590,16 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         }));
         const familyIds = [...new Set(state.findings.flatMap(({ versions }) =>
           (versions.at(-1)?.bindings ?? []).map(({ familyId }) => familyId)))];
-        const checks = new Map<string, { title: string | null; year: number | null }>();
+        const checks = new Map<string, { title: string | null; year: number | null; retraction: string | null }>();
         if (familyIds.length > 0) {
-          const checked = await client.query<{ source_family_id: string; title: string | null; published_year: number | null }>(
+          const checked = await client.query<{ source_family_id: string; title: string | null; published_year: number | null;
+            retraction_status: string | null }>(
             SOURCE_CHECKS_SQL,
             [familyIds],
           );
           for (const row of checked.rows) {
-            checks.set(row.source_family_id, { title: row.title, year: row.published_year === null ? null : Number(row.published_year) });
+            checks.set(row.source_family_id, { title: row.title, year: row.published_year === null ? null : Number(row.published_year),
+              retraction: row.retraction_status });
           }
         }
         findings.push(...atlasPageFindingsOf(state, chunk, dates, checks));
@@ -901,11 +905,11 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           dates.set(number, dated);
         }
         // Each family's newest check, as the PostgreSQL read orders them.
-        const checks = new Map<string, { title: string | null; year: number | null; at: number }>();
+        const checks = new Map<string, { title: string | null; year: number | null; retraction: string | null; at: number }>();
         for (const { familyId, check } of rows?.sourceChecks ?? []) {
           const at = Date.parse(check.checkedAt);
           if ((checks.get(familyId)?.at ?? -Infinity) <= at) {
-            checks.set(familyId, { title: check.title, year: check.publishedYear, at });
+            checks.set(familyId, { title: check.title, year: check.publishedYear, retraction: check.retractionStatus, at });
           }
         }
         return atlasPageFindingsOf(state, atlasNumbers, dates, checks);

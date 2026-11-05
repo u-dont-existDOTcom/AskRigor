@@ -10,6 +10,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
+import { contactDetailKinds } from "../atlas/contact-check.js";
 import type { SourceLineLookup } from "../source-lines.js";
 
 /**
@@ -124,16 +125,18 @@ export const storedBackingSchema = z.object({
     (line.conclusion_section === undefined || line.conclusion !== undefined), { message: "a section goes with its quote" });
 
 /**
- * A forum signal as the library stores it. The free contributor notice (version 4) and the privacy page say a findings
- * card holds what communities reported "summarized without their posts, names, links or video IDs", so the save keeps
- * the communities the verified threads belong to and how many were read, never the threads' links; publishing the links
- * waits for the owner's yes to notice wording that covers them (plan docs/superpowers/plans/2026-11-05-atlas-research-behind.md).
+ * A forum signal as the library stores it: the communities the verified threads belong to, how many were read, and,
+ * since the free contributor notice's version 5 (owner answer 253a, 5 November 2026: "links to the forum threads
+ * AskRigor read"), the threads' links as the Atlas publishes them (publishedThreadLink: a Reddit post by its id, never
+ * a person's page, a session or a tracking parameter). A card saved under an earlier notice keeps no link.
  */
 export interface StoredForumSignal {
   /** The communities of the threads read, from their links: r/<name> on Reddit, a forum's site name elsewhere. */
   communities: string[];
   /** How many threads AskRigor's reader read for it, each by a verified receipt. */
   threads_read: number;
+  /** The threads' links as published; only when the saving account's consent covers them. */
+  threads?: string[];
   people: ForumSignal["people"];
   report_quality: ForumSignal["report_quality"];
   mechanism?: string;
@@ -141,18 +144,26 @@ export interface StoredForumSignal {
   studies_measured?: string;
 }
 
-/** A card's forum signal as the library stores it: its communities and how many threads, never the links. */
-export function storedForumSignalOf(signal: ForumSignal, text: (value: string) => string = (value) => value):
-  StoredForumSignal | undefined {
+/**
+ * A card's forum signal as the library stores it: its communities and how many threads, and, with `links` (the saving
+ * account's consent covers them), each thread's link as published, one that holds contact details left out.
+ */
+export function storedForumSignalOf(signal: ForumSignal, text: (value: string) => string = (value) => value,
+  links = false): StoredForumSignal | undefined {
   const threads = signal.threads.filter((thread) => isWebLink(thread) && !isYouTubeLink(thread));
   const communities = [...new Set(threads.flatMap((thread) => {
     const community = forumCommunityOf(thread);
     return community === undefined ? [] : [community];
   }))].slice(0, FORUM_SIGNAL_LIMITS.threads);
   if (communities.length === 0) return undefined;
+  const published = !links ? [] : [...new Set(threads.flatMap((thread) => {
+    const link = publishedThreadLink(thread);
+    return link === undefined || contactDetailKinds(link).length > 0 ? [] : [link];
+  }))];
   return {
     communities,
     threads_read: threads.length,
+    ...(published.length === 0 ? {} : { threads: published }),
     people: { ...signal.people },
     report_quality: { ...signal.report_quality },
     ...(signal.mechanism === undefined ? {} : { mechanism: text(signal.mechanism) }),
@@ -165,6 +176,7 @@ export function storedForumSignalOf(signal: ForumSignal, text: (value: string) =
 export const storedForumSignalSchema = z.object({
   communities: z.array(text(120)).min(1).max(FORUM_SIGNAL_LIMITS.threads),
   threads_read: z.number().int().min(1).max(FORUM_SIGNAL_LIMITS.threads),
+  threads: z.array(z.string().url().max(2_048)).min(1).max(FORUM_SIGNAL_LIMITS.threads).optional(),
   people: forumSignalSchema.shape.people,
   report_quality: forumSignalSchema.shape.report_quality,
   mechanism: text(FORUM_SIGNAL_LIMITS.text).optional(),

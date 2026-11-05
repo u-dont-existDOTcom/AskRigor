@@ -295,6 +295,49 @@ describe("the findings actions' calls", () => {
     expect((await h.promote()).result.status).toBe("promoted");
   });
 
+  // Owner answers 254a and 255a: the version keeps the research behind the finding, and a finding resting on its forum
+  // signal alone, the threads AskRigor's reader read, is accepted as a finding, not a lead, with no study source.
+  it("keeps the research behind a finding with its version, and accepts a forum-only finding as a finding", async () => {
+    await stubProviders();
+    const h = harness();
+    const source = "10.0000/synthetic-velmor-c";
+    const sentence = "Tremor scores halved in 20 of 100 people on the invented low dose.";
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, numbers: [{ ...LOW_DOSE, source }],
+      backing: [{ source, sentence, against: "The invented trial was small." }] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:consistent"], bl: ["1.1:fu:full_text"] });
+    const quoted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await inspected(h, "ARF-0042", 1) });
+    expect(quoted.structured.outcome, quoted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect((intent!.payload as { content: { research: unknown } }).content.research).toEqual({
+      backing: [{ source, sentence, text: "full_text", against: "The invented trial was small." }],
+      source_reading: [{ source, read: "full_text_audited", figures: "consistent" }],
+      figure_sources: [source],
+    });
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect(h.canonical.snapshot().versions.map(({ content }) => content.research?.figure_sources)).toEqual([[source]]);
+
+    const forum = { threads: ["https://www.reddit.com/r/InventedVelmor/comments/xyz789/a_title/"],
+      people: { better: 4, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 2 },
+      mechanism: "It may calm the invented pathway.", studies: "support_not_located" };
+    await h.save({ ...DOI_CARD, question: "Do people with Velmor syndrome report less tremor on a warm bath?",
+      findings: [{ ...DOI_CARD.findings[0]!, claim: "People with Velmor syndrome on invented forums report less tremor " +
+        "after a warm bath.", answer_quote: "People on invented forums report less tremor after a warm bath.", sources: [],
+      tags: [], kind: "overlooked_option", subject: "warm bath", subject_type: "practice", direction: "benefit", numbers: [],
+      forum_signal: forum }] }, ["forum_read"]);
+    const check = await h.call({ action: "inspect_finding", card: "ARF-0043", finding: 1 });
+    expect(check.structured, check.text).toMatchObject({ checks: { community: "forum_only", wouldBecome: "checked" } });
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
+      cardSha256: check.structured.card.cardSha256 });
+    expect(accepted.structured, accepted.text).toMatchObject({ outcome: "finding_queued",
+      atlas: { atlasNumber: "F-1002", entryKind: "finding", labelAfter: "checked" } });
+    const [forumIntent] = await h.review.inspectIntents(["F-1002"]);
+    expect(forumIntent!.payload).toMatchObject({ entryKind: "finding", sources: [],
+      content: { verifiedBases: ["forum_read"], research: { forum_signal: { communities: ["r/InventedVelmor"],
+        threads_read: 1, threads: [], people: forum.people, studies: "support_not_located" } } } });
+    expect((await h.promote()).result.status).toBe("promoted");
+  });
+
   it("refuses a call without cardSha256, a topicLabel without its key, and any field its action does not take", async () => {
     const h = harness();
     const base = { action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256: "a".repeat(64),

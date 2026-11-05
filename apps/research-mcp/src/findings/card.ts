@@ -309,10 +309,14 @@ export const FINDINGS_ATLAS_SENTENCE = "Saved findings that AskRigor's owner acc
 /**
  * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
  * receipts and declarations (owner answer 139c, 2026-10-20): a source audited in full text, a video whose comments
- * were read, a sentence that is a checked absence claim, or a correction the research itself found. It shows depth,
- * not that a finding is better; why_not_usual stays the model's, for the owner's review.
+ * were read, a sentence that is a checked absence claim, or a correction the research itself found; and, owner answer
+ * 254a (5 November 2026), forum threads AskRigor's own reader read for the finding's forum signal, shown by their
+ * forum_thread_read receipts, the same as studies AskRigor read. It shows depth, not that a finding is better;
+ * why_not_usual stays the model's, for the owner's review.
  */
-export const VERIFIED_BASES = ["full_text_audit", "comment_audit", "bounded_absence", "research_correction"] as const;
+export const VERIFIED_BASES = [
+  "full_text_audit", "comment_audit", "bounded_absence", "research_correction", "forum_read",
+] as const;
 export type VerifiedBasis = typeof VERIFIED_BASES[number];
 
 /** What the bases of a card's findings rest on, counted once each across the card. */
@@ -325,6 +329,8 @@ export interface VerifiedWork {
   absences: number;
   /** Corrections the research found that a finding's sentence states. */
   corrections: number;
+  /** Forum threads AskRigor's reader read for a finding's forum signal, each once (owner answer 254a). */
+  threads?: number;
 }
 
 /** The work, in the words the answer shows: "full-text audits of 2 studies and audited comments on 3 videos". */
@@ -336,7 +342,9 @@ export function verifiedWorkPhrase(work: VerifiedWork): string {
     ...(work.absences === 0 ? [] : [counted(work.absences, "a check of what the evidence does not show",
       "# checks of what the evidence does not show")]),
     ...(work.corrections === 0 ? [] : [counted(work.corrections, "a correction the research made to an earlier statement",
-      "# corrections the research made to earlier statements")])
+      "# corrections the research made to earlier statements")]),
+    ...((work.threads ?? 0) === 0 ? [] : [counted(work.threads!, "1 forum thread read in full",
+      "# forum threads read in full")])
   ];
   return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
@@ -571,7 +579,8 @@ export function holdsYouTubeReference(value: string): boolean {
  * were left out; a card left with no finding is not saved as a card, and its
  * findings are held with its question and topic.
  */
-export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
+export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set(),
+  options: { threadLinks?: boolean } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   let omitted = false;
@@ -588,9 +597,10 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
   }): StoredFinding => {
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
-    // Owner answer 252a: stored with its communities and how many threads were read, never the links; a thread link to
-    // YouTube is never a forum thread (the final check refuses one), and a signal left with no forum is not kept.
-    const stored = signal === undefined ? undefined : storedForumSignalOf(signal, text);
+    // Owner answer 252a: stored with its communities and how many threads were read, and, owner answer 253a, the
+    // threads' links when the saving account's notice covers them; a thread link to YouTube is never a forum thread (the
+    // final check refuses one), and a signal left with no forum is not kept.
+    const stored = signal === undefined ? undefined : storedForumSignalOf(signal, text, options.threadLinks === true);
     return {
       ...finding,
       claim: text(finding.claim),

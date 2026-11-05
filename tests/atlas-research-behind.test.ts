@@ -4,6 +4,8 @@ import {
   ATLAS_PUBLICATION_SCHEMA_V2,
   ATLAS_PUBLICATION_SCHEMA_V3,
   InMemoryAtlasPageSource,
+  atlasErasedContent,
+  atlasVersionContentSchema,
   InMemoryAtlasPublicationStore,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
@@ -20,6 +22,7 @@ import { atlasSearchQuery } from "../apps/research-mcp/src/atlas/search.js";
 import { atlasPageProblems, escapeHtml, renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
 
 import {
+  canonicalResearchOf,
   planCardPublication,
   publicationHoldReasons,
   researchBehindOf,
@@ -44,7 +47,7 @@ import {
   type ResearchBehindContext,
 } from "../apps/research-mcp/src/findings/research-behind.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
-import { FindingsSaveService, type FindingsRecord } from "../apps/research-mcp/src/findings/service.js";
+import { FindingsSaveService, type FindingsRecord, type FindingsSaveAccount } from "../apps/research-mcp/src/findings/service.js";
 import {
   RESEARCH_BEHIND_NOTE,
   backingRequestsOf,
@@ -281,6 +284,23 @@ describe("the final check signs the research behind each finding", () => {
     expect(signedClaims(first.finalization_receipt)).not.toHaveProperty("bl");
   });
 
+  // Owner answer 254a: the threads AskRigor's reader read count as work a quick answer can't do, as studies it read do.
+  it("counts the forum threads read for a forum signal as a verified basis, and names them in a paid save's offer", () => {
+    const free = finalizeResearch(fixture({ findings_card: laterFindingsCardSchema.parse(card()) }), OPTIONS);
+    expect(free.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 2 });
+    expect(signedClaims(free.finalization_receipt).bases).toEqual(["full_text_audit", "forum_read"]);
+    const paid = finalizeResearch(fixture({ findings_card: laterFindingsCardSchema.parse(card({ quote: { sources: [] ,
+      backing: undefined }, forum: {} })) }), { ...OPTIONS, findings: "offer" as const });
+    // A finding with no source that cites nothing is refused; one resting on its forum signal alone is offered.
+    expect(paid.findings_card?.problems.join(" ")).toMatch(/findings\[0\]\.sources is empty/u);
+    const forumOnly = finalizeResearch(fixture({ findings_card: laterFindingsCardSchema.parse({ ...card(),
+      findings: [card().findings[1]] }) }), { ...OPTIONS, findings: "offer" as const });
+    expect(forumOnly.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1 });
+    expect(forumOnly.caveats.join(" ")).toContain("These findings rest on 2 forum threads read in full, work a quick " +
+      "answer does not do.");
+    expect(signedClaims(forumOnly.finalization_receipt).bases).toEqual(["forum_read"]);
+  });
+
   it("signs what the lookups found, and the sections, once they ran; a lookup never holds the answer back", () => {
     const input = fixture({ findings_card: laterFindingsCardSchema.parse(card()) });
     const found = finalizeResearch(input, { ...OPTIONS, backingLookups: [{ finding: 0, line: 0, lookup: FOUND }] });
@@ -412,7 +432,7 @@ function saveHarness() {
   });
   return {
     github,
-    async save(given: object, claims: Record<string, unknown>) {
+    async save(given: object, claims: Record<string, unknown>, account?: FindingsSaveAccount) {
       const parsed = laterFindingsCardSchema.parse(given);
       return library.save({
         findings_card: given,
@@ -420,7 +440,7 @@ function saveHarness() {
         finalization_receipt: issueResearchReceipt("finalization", { status: "ready", depth: "deep",
           target: "0123456789ab", findings: findingsCardDigest(parsed), bases: ["full_text_audit", "none"], ...claims } as never,
         { secret: SECRET, now: () => new Date("2026-11-05T11:59:00.000Z") }),
-      }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) });
+      }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
     },
   };
 }
@@ -486,6 +506,31 @@ describe("the save stores the research behind each finding", () => {
       against: "A video, (YouTube video), shows people who stopped." }]);
     expect(record.stored_without).toEqual(["youtube_video_ids_and_links", "backing_quotes_not_kept"]);
     expect(h.github.issue(42).body).not.toMatch(/youtube\.com|youtu\.be/u);
+  });
+
+  // Owner answer 253a: notice version 5 covers the forum threads' links; an account still on version 4 gets none stored.
+  it("stores each thread's link as the Atlas publishes it, only for an account whose notice covers it", async () => {
+    const accounts: Array<[FindingsSaveAccount, boolean]> = [
+      [{ mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION }, true],
+      [{ mode: "PAID_PRIVATE", noticeVersion: null }, true],
+      [{ mode: "FREE_CONTRIBUTOR", noticeVersion: "free-contributor-v4-2026-10-25" }, false],
+    ];
+    for (const [account, links] of accounts) {
+      const h = saveHarness();
+      await h.save(card(), {}, account);
+      const body = h.github.issue(42).body;
+      const signal = (storedRecordOf(body) as FindingsRecord).card.findings[1]!.forum_signal!;
+      if (links) {
+        expect(signal.threads).toEqual(["https://www.reddit.com/comments/abc123/", "https://forum.example.org/t/knee-squats/4512"]);
+        expect(body).toContain("forum\\.example\\.org/t/knee\\-squats/4512");
+      } else {
+        expect(signal).not.toHaveProperty("threads");
+        expect(body).not.toContain("abc123");
+      }
+      // Never the title's words, a username or a tracking parameter.
+      expect(body).not.toMatch(/my_knee_after|utm_source|post-7/u);
+      expect(parseFindingsRecordBody(body, "card")).not.toBe("tampered");
+    }
   });
 
   it("treats the forum signal's words as card text, and leaves a YouTube thread out", () => {
@@ -728,6 +773,79 @@ describe("the finding page (owner answer 252a)", () => {
     expect(page).toContain("<h3><cite>The canonical record’s title</cite> (2021)</h3>".replace("’", "&#39;"));
     expect(page).toContain(`<blockquote class="quote"><p>${escapeHtml(SENTENCE)}</p>`);
     expect(page).toContain('<p class="meta">From <cite>The canonical record&#39;s title</cite> (2021).</p>');
+  });
+});
+
+// Owner answer 255a: an accepted finding keeps the research behind it with its version, so one from a paid private card,
+// whose publication keeps version 1's fields, shows it like any other; an erasure removes it whole.
+describe("the research behind an accepted finding (owner answer 255a)", () => {
+  const CARD_FIGURE = { outcome: "pain halved", better: "more" as const, option: "exercise", option_events: 30,
+    option_total: 100, comparator: "usual care", comparator_events: 20, comparator_total: 100, follow_up: "6 months" };
+
+  it("keeps what the publication would show, with each figure's source by its place while the figures are the card's", () => {
+    const research = canonicalResearchOf(STORED_QUOTED as never, [CARD_FIGURE]);
+    expect(research).toEqual({
+      backing: [{ source: STUDY, sentence: SENTENCE, sentence_section: "Results", conclusion: CONCLUSION,
+        conclusion_section: "Discussion", text: "full_text", against: AGAINST }],
+      source_reading: [{ source: STUDY, read: "full_text_audited", figures: "consistent" }],
+      figure_sources: [STUDY],
+    });
+    expect(canonicalResearchOf(STORED_QUOTED as never, [{ ...CARD_FIGURE, option_events: 31 }])).not.toHaveProperty("figure_sources");
+    expect(canonicalResearchOf(STORED_FORUM as never, [])?.forum_signal).toMatchObject({ communities: ["r/KneePain",
+      "forum.example.org"], threads_read: 2, threads: [], studies: "support_not_located" });
+    const { backing: _b, source_reading: _r, numbers: _n, ...older } = STORED_QUOTED as never as Record<string, unknown>;
+    expect(canonicalResearchOf({ ...older, numbers: [] } as never, [])).toBeUndefined();
+  });
+
+  it("is a version's optional content, its figures' sources one a figure, and an erasure removes it whole", () => {
+    const content = { wording: "Exercise eased knee pain a little.", appliesTo: "Adults with knee pain", certainty: "moderate",
+      usualAnswer: null, whyNotUsual: "Quick answers lead with painkillers.", whatWouldChangeIt: "A larger trial.",
+      whoElse: null, whatItChanges: null, tags: [], verifiedBases: ["full_text_audit"], numbers: [CARD_FIGURE],
+      research: canonicalResearchOf(STORED_QUOTED as never, [CARD_FIGURE]) };
+    const parsed = atlasVersionContentSchema.parse(content);
+    expect(parsed.research?.figure_sources).toEqual([STUDY]);
+    expect(atlasVersionContentSchema.safeParse({ ...content, numbers: [] }).success).toBe(false);
+    expect(atlasVersionContentSchema.safeParse({ ...content, research: { backing: [{ source: STUDY,
+      sentence: "Shared as ARF-0042 in the queue.", text: "full_text", against: AGAINST }] } }).success).toBe(false);
+    expect(atlasErasedContent(parsed)).not.toHaveProperty("research");
+    // A version stored before has none, and reads as it did.
+    const { research: _research, ...before } = content;
+    expect(atlasVersionContentSchema.parse(before)).not.toHaveProperty("research");
+  });
+
+  it("shows an accepted finding's own research, a paid private card's too, whose publication keeps version 1", async () => {
+    const figure = CARD_FIGURE;
+    const research = { ...canonicalResearchOf(STORED_QUOTED as never, [figure])!,
+      forum_signal: canonicalResearchOf(STORED_FORUM as never, [])!.forum_signal };
+    const publication: AtlasPagePublication = { publicationNumber: "P-1001", state: "accepted", atlasNumber: "F-1001",
+      published: { ...planCardPublication({ record: record([STORED_QUOTED]), setAside: false,
+        route: { route: "owner", paidPrivate: false } }).drafts[0]!.published, schema: "askrigor.atlas-publication.v1" } as never,
+      publishedAt: "2026-11-05T12:00:00.000Z", stateChangedAt: "2026-11-06T09:00:00.000Z", kept: false };
+    const canonicalFinding = {
+      atlasNumber: "F-1001", question: "Does exercise help adults with knee pain?", links: [], entryKind: "finding",
+      label: "checked", topic: { key: "knee-pain", label: "Knee pain" }, versionNumber: 1,
+      content: { wording: "The owner's wording of the finding.", appliesTo: "Adults with knee pain", certainty: "moderate",
+        usualAnswer: null, whyNotUsual: null, whatWouldChangeIt: null, whoElse: null, whatItChanges: null, tags: [],
+        verifiedBases: ["full_text_audit", "forum_read"], numbers: [figure], research },
+      erased: false, acceptedOn: "2026-11-06", researchCheckedOn: "2026-11-05", askrigorVersion: "0.1.0",
+      sources: [{ identifiers: [{ scheme: "doi", value: STUDY }], title: "The canonical record's title", year: 2021,
+        retraction: "retracted" }],
+      contradicts: [], replacedBy: [],
+    } as unknown as AtlasPageFinding;
+    const source: AtlasPageSource = {
+      read: async (work) => await work({
+        listPublications: async () => [publication],
+        readFindings: async () => [canonicalFinding],
+        listCardSiblings: async () => [],
+      } as unknown as AtlasPageReads),
+    } as AtlasPageSource;
+    const page = renderAtlasFinding((await loadAtlasFinding(source, "P-1001"))!);
+    expect(page).toContain('<h2 id="research">The research behind it</h2>');
+    expect(page).toContain(`<blockquote class="quote"><p>${escapeHtml(SENTENCE)}</p>`);
+    expect(page).toContain("This paper has been retracted.");
+    expect(page).toContain('<p class="meta">From <cite>The canonical record&#39;s title</cite> (2021).</p>');
+    expect(page).toContain('<h2 id="people">What people report</h2>');
+    expect(page).toContain("forum threads read in full by AskRigor");
   });
 });
 

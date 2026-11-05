@@ -3294,26 +3294,34 @@ export function finalizeResearch(
   // states a correction the research found. Whether the finding is better than a quick answer stays the model's
   // why_not_usual, for the owner's review.
   const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
-  const verifiedWork = (sources: readonly string[], quote: string | undefined) => ({
+  // Owner answer 254a: the forum threads a finding's forum signal names that AskRigor's reader read here, each by its
+  // verified forum_thread_read receipt, count as studies AskRigor read do.
+  const verifiedWork = (sources: readonly string[], quote: string | undefined, threads: readonly string[] = []) => ({
     studies: new Set(sources.filter(auditedStudy).map(paperKey)),
     videos: new Set(sources.filter((source) => commentVideos.has(source))),
     absences: new Set(quote === undefined ? [] : absenceClaims.flatMap(({ quote: claimed }, index) =>
       acceptedAbsences.has(index) && sameQuote(quote, claimed) ? [index] : [])),
     corrections: new Set(quote === undefined ? [] : (input.corrections ?? []).flatMap(({ change, by_user }, index) =>
-      by_user === false && sameQuote(quote, change) ? [index] : []))
+      by_user === false && sameQuote(quote, change) ? [index] : [])),
+    threads: new Set(threads.flatMap((thread) => {
+      const digest = forumThreadDigest(thread);
+      return forumReadUrls.has(digest) ? [digest] : [];
+    }))
   });
   type Work = ReturnType<typeof verifiedWork>;
   const basesOf = (work: Work): VerifiedBasis[] => [
     ...(work.studies.size > 0 ? ["full_text_audit" as const] : []),
     ...(work.videos.size > 0 ? ["comment_audit" as const] : []),
     ...(work.absences.size > 0 ? ["bounded_absence" as const] : []),
-    ...(work.corrections.size > 0 ? ["research_correction" as const] : [])
+    ...(work.corrections.size > 0 ? ["research_correction" as const] : []),
+    ...(work.threads.size > 0 ? ["forum_read" as const] : [])
   ];
   const countWork = (works: readonly Work[]) => ({
     studies: new Set(works.flatMap(({ studies }) => [...studies])).size,
     videos: new Set(works.flatMap(({ videos }) => [...videos])).size,
     absences: new Set(works.flatMap(({ absences }) => [...absences])).size,
-    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size
+    corrections: new Set(works.flatMap(({ corrections }) => [...corrections])).size,
+    threads: new Set(works.flatMap(({ threads }) => [...threads])).size
   });
   let cardBases: VerifiedBasis[][] | undefined;
   // The places of a checked card's findings held apart as drawn from YouTube comments (owner answer 219b).
@@ -3337,7 +3345,8 @@ export function finalizeResearch(
     studies: new Set([...validatedIds].map(paperKey)).size,
     videos: commentVideos.size,
     absences: acceptedAbsences.size,
-    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length
+    corrections: (input.corrections ?? []).filter(({ by_user }) => by_user === false).length,
+    threads: forumReadUrls.size
   };
   // Owner answer 140b (2026-10-20): an active research account registers, before research, the short answer it
   // would give without AskRigor's tools. The latest one signed for this research target before every research receipt
@@ -3411,7 +3420,8 @@ export function finalizeResearch(
         }
       });
       if (findingsCard.status === "checked") {
-        const work = input.findings_card.findings.map(({ sources, answer_quote: quote }) => verifiedWork(sources, quote));
+        const work = input.findings_card.findings.map(({ sources, answer_quote: quote, forum_signal: signal }) =>
+          verifiedWork(sources, quote, signal?.threads));
         cardBases = work.map(basesOf);
         // Owner answer 219b: a finding drawn from YouTube comments is held privately for the owner's review and never
         // published. Beside what the card itself shows (a video among its sources, community_checked, audited comments

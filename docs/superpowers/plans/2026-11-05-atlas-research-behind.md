@@ -187,16 +187,46 @@ audit domain prose; prohibited key names.
 7. **4a's community sentence stays unbuilt.** The forum signal is AskRigor's counts and words about threads its own
    reader read, not the community-written sentence of the phase 3 design's section 7.
 
-## Owner questions
+## Owner questions, answered the same day: 253a, 254a, 255a
 
-- Thread links on the Atlas (decision 5): publish the links of the forum threads behind a forum signal? It needs new
-  notice wording and the privacy page's. A draft for the notice's second sentence: "... the public studies behind them,
-  and what public online communities reported, summarized without their posts or names: the communities, counts of
-  what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs."
-- Whether reading forum threads with AskRigor's reader should count as work a quick answer can't do (a verified basis):
-  today a finding resting on a forum signal alone has none, so a paid private answer offers no save for it, and an
-  accepted one is a lead.
-- Whether a paid private card's accepted findings should show the research behind them (they need the canonical copy).
+The owner answered "253a 254a 255a" (5 November), and left the old commit `1e2f1b7d` as it is (256a). Built on this
+branch:
+
+- **253a, thread links.** Free contributor notice version 5 (`free-contributor-v5-2026-11-05`), with the second sentence
+  as drafted: "... and what public online communities reported, summarized without their posts or names: the
+  communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or
+  video IDs." Every free account accepts it again, as for earlier versions (migration `0028_research_use_notice_v5`, the
+  v5 hold and restore scripts, `npm run contributor-access:notice-v5-rollback-acceptance`); the privacy page's and the
+  terms' matching sentences say the same, and their exclusion of links now names YouTube links. The save keeps each
+  thread's link as the Atlas publishes it (a Reddit post by its id; never a person's page, a session or tracking
+  parameter, or a link holding contact details) only for a free contributor on version 5 or a paid private user's yes to
+  the save; an account still on version 4 gets none. Each link was verified against its `forum_thread_read` receipt at
+  the final check. Kept copies of unsaved cards still hold no link. Decision 5 above is replaced.
+- **254a, forum reading as a verified basis.** `forum_read` joins the verified bases (139c's other four stay as they
+  are): a finding whose forum signal names threads read here, by their verified receipts. It counts in the paid save's
+  offer ("2 forum threads read in full"), the beyond-quick-answer label and the free reminder to file the map; the
+  Atlas's bases admit it (migration 0029 widens the checks on `atlas_finding_versions` and `held_youtube_findings`); and
+  the owner's acceptance makes such a finding a finding, not a lead. A finding resting on its forum signal alone, with no
+  study source, is accepted (community state `forum_only`), where 4a refused one resting on YouTube comments.
+- **255a, research for paid private cards' accepted findings.** Migration `0029_atlas_research_behind` adds the nullable
+  `atlas_finding_versions.research` jsonb column; acceptance copies the research behind a finding into the version
+  (`canonicalResearchOf`: what a v3 publication would show, with each figure's source by its place while the figures are
+  the card's); a revision keeps it, dropping figures' sources when the figures change; the pages show an accepted
+  finding's own research first, its publication's otherwise, with canonical sources' retraction status from
+  `atlas_source_checks`; and decision 7's erasure removes it whole, from the version (`erase_atlas_wording()` and
+  `atlas_redaction_permits()` redefined) and from the intents' payloads. Decision 2 above is replaced.
+
+Both migrations are numbered after this stack's 0025 to 0027 and must be renumbered when the stack next takes in main
+(main's last is 0024).
+
+## Merging the stack into main
+
+Checked 5 November against today's `origin/main` (`bf3581aa`, #412): this branch already holds it, so a merge of main
+into this branch is "already up to date", with no conflict, and one pull request from this branch to main would carry
+#396, #397, #403, #405, #409 and this build together; the stacked draft pull requests would then be closed by hand. The
+next build's branch (`claude/next-build-20261105`, `486fc5ce`), if it reaches main first, would conflict on
+`atlas/pages-http.ts`, `atlas/pages.ts`, `check-report-vocabulary.ts` (regenerate it), `register-tools.ts`,
+`research-finalization-gate.ts` and `source-lines.ts`.
 
 ## Tests
 

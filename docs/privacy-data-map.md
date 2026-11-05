@@ -972,9 +972,19 @@ and research tools refused it (`RESEARCH_ACCESS_REQUIRED`), until it accepted
 v2. Migration `0011_research_use_notice_v2` let the account table hold either
 version.
 
-The notice is now version `free-contributor-v4-2026-10-25` (owner answer 171,
-2026-10-25; exact wording approved, built, not yet released). All other v3
-sentences stay, and the three changed sentences are:
+The notice is now version `free-contributor-v5-2026-11-05` (owner answer 253a,
+2026-11-05; the owner's wording, built, not yet released). All other v4
+sentences stay, and the second sentence's community summary now reads "...and
+what public online communities reported, summarized without their posts or
+names: the communities, counts of what people reported, and links to the forum
+threads AskRigor read, never YouTube comments or video IDs." Accounts that
+accepted v1 to v4 accept v5 before free research continues (migration
+`0028_research_use_notice_v5`, renumbered when the Atlas stack next takes in
+main; the v5 hold and restore scripts support an image rollback, as for v4).
+A card saved for an account still on v4 stores no thread link.
+
+Version 4 (`free-contributor-v4-2026-10-25`, owner answer 171, 2026-10-25)
+kept all other v3 sentences, and its three changed sentences are:
 
 > Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.
 
@@ -1156,7 +1166,13 @@ call, with no new input: its verified bases, work a quick answer cannot do.
 receipt in that call. `comment_audit`: one of its sources is a video whose
 comments that call's audits read. `bounded_absence`: its sentence is an
 `absence_claims` entry the check accepted. `research_correction`: its sentence
-is a `corrections[].change` that the research found (`by_user: false`). Each is
+is a `corrections[].change` that the research found (`by_user: false`).
+`forum_read` (owner answer 254a, 5 November 2026): its forum signal names
+threads AskRigor's own reader read in that call, shown by their verified
+`forum_thread_read` receipts, which count as studies AskRigor read do; the
+offer names them ("2 forum threads read in full"), the card gets the
+`beyond-quick-answer` label, and the owner's acceptance makes such a finding a
+finding, not a lead, even with no study source. Each is
 an exact comparison, the same in any language; they show depth, not that a
 finding is better, which stays the model's `why_not_usual` for the owner's
 review. The finalization receipt signs them with the card's digest, one list
@@ -1283,10 +1299,15 @@ for the owner's own research only), or failing the privacy screen is not stored,
 nor a line left with no quote, and nothing is stored from a receipt that signed
 no lookup. A forum signal is stored with its counts, its words, the communities
 its threads belong to (`r/<name>` on Reddit, a forum's site name elsewhere,
-worked out from the links) and how many threads were read, never the threads'
-links: the free contributor notice says a card's community summary has no
-links, so publishing them waits for the owner's word on new wording. The
-readable copy shows them under each finding. `stored_without` then names
+worked out from the links), how many threads were read, and, owner answer 253a,
+each thread's link as the Atlas publishes it (a Reddit post as
+`https://www.reddit.com/comments/<id>/`, so that no link names a user or carries
+a title's words; another forum's without its fragment, a session or tracking
+parameter; never a person's page or a link holding contact details), but only
+for a free contributor who accepted notice version 5 or a paid private user's
+yes to the save, under the privacy page that says so; a card saved for an
+account still on version 4 keeps no link. The readable copy shows them under
+each finding. `stored_without` then names
 `backing_quotes_not_kept` and `forum_thread_links`, and, since owner answer 219b,
 `youtube_comment_declarations` when a finding's declaration is not stored, and
 the owner's review reads such a card by its fields, as for a replaced YouTube
@@ -1484,7 +1505,9 @@ memory for 10 minutes, so the accept binds what the inspect showed; nothing else
 from the call is kept beyond what follows. The checks are exact: which save of
 a card a finding comes from and whether it has a verified basis, community
 evidence under decision 4a (a finding with no DOI, PMID, PMCID or NCT source is
-refused, and one that also rested on audited comments needs the owner's confirm),
+refused, unless it rests on its forum signal alone with forum threads AskRigor's
+reader read, owner answers 252a and 254a; and one that also rested on audited
+comments needs the owner's confirm),
 the numbers the AI declares against the wording, the providers' records and
 retraction notices (a retracted source is bound as context only, after the
 owner's confirm), the privacy screen and a guard against any card reference
@@ -1494,7 +1517,17 @@ read as words as at the final check), the exact re-check key, and the rules for
 links. The topic, the numbers and the links are the AI's declarations; the owner
 accepts or rejects. From Atlas phase 3 (built, not yet released) a card's topic,
 numbers block, kind, subject, subject type and direction are used by default,
-and the owner changes any of them in the call; a card saved before them needs
+and, owner answer 255a (built, not yet released), each accepted version keeps
+the research behind it as its publication would show it (its quotes found word
+for word with their sections, the strongest thing against each in AskRigor's
+words, how each source was read, each figure's source by its place, and the
+forum signal with its communities, counts and the links its card stored), in the
+nullable `atlas_finding_versions.research` column of migration
+`0029_atlas_research_behind` (renumbered when the Atlas stack next takes in
+main), so an accepted finding from a paid private card shows it too; decision
+7's erasure removes it whole, from the version and from its intents' payloads;
+a revision keeps it, and keeps a figure's source only while the figures stay.
+The owner changes any of the declared fields in the call; a card saved before them needs
 the AI to declare them at acceptance (the kind, subject, subject type and
 direction as flat `kind`, `subject`, `subjectType` and `direction` fields). The
 code checks only what is exact: all four are present on an accepted finding,
@@ -1717,17 +1750,17 @@ The pages (section 4C) are built, not yet released, and switched off until
   markers and PubMed's publication types (one no provider could read is left
   out); and the forum signal: its communities, how many threads were read,
   people's outcomes counted by person, how good the reports are, a way it could
-  work and how studies relate to the reports, in AskRigor's words. Never a
-  thread's link while the notice says a community summary has none (the
-  publication can carry links, as `https://www.reddit.com/comments/<id>/` for
-  a Reddit post so that no link names a user or carries a title, once the owner
-  approves wording that covers them), a thread's title, a username or anything
-  a person wrote. Quotes and sections are a paper's text: one the hold check
+  work and how studies relate to the reports, in AskRigor's words; and, from a
+  card whose saving account's consent covered them (owner answer 253a), the
+  threads' links as the card stored them. Never a YouTube link or video ID, a
+  thread's title, a username or anything a person wrote. Quotes, sections,
+  communities and links are provider text: one the hold check
   flags is left out rather than holding the finding; the AI's words go through
   the hold check as every other published text. A finding resting on its forum
   signal alone may have no source. An accepted or edited finding's page shows
-  the research behind it from its publication's fields, which an erasure of its
-  F number's wording erases with the rest. A
+  the research behind it from its own Atlas version (owner answer 255a, below),
+  else from its publication's fields; an erasure of its F number's wording
+  erases both. A
   decided finding's publication, and so a paid private card's, keeps the earlier
   fields without them: its page shows its F number's version. Then its state
   (`unreviewed`, `accepted` with its F number, `edited`, `rejected`,
@@ -2112,8 +2145,9 @@ people's own reports of what they tried for a health problem and what happened, 
   comparison with the checked answer: they reach only the calls that carry them and the answer, and the
   client-carried receipt holds only their digests. The account row keeps only whether the note comparing them is on.
 - A findings card's backing quotes not found word for word in a text AskRigor fetched itself, found only in the AI's
-  search copy or the owner's library copy, or failing the privacy screen; a forum signal's thread links (the card keeps
-  their communities and how many were read); and the source line's lookups (owner answer 237a), of which only a
+  search copy or the owner's library copy, or failing the privacy screen; a forum signal's thread links as the AI gave
+  them (a card under notice version 5 or a paid private save keeps each as published; one under version 4, and every
+  kept copy of an unsaved card, keeps none); and the source line's lookups (owner answer 237a), of which only a
   checked card's backing results are signed into its finalization receipt (owner answer 252a).
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
