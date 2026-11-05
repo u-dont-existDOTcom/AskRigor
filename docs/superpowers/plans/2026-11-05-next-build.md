@@ -186,8 +186,10 @@ owner's; the release needs the owner's explicit yes, as always.
       source the draft doesn't cite needs nothing; an entry naming no key source, or a second one for a source, is a
       note. Which words say how it was read stays the model's declaration. Each step names the reading the check
       verified: a checked Atlas finding, "from a checked Atlas finding"; an audit receipt, "full text read, methods
-      audited by AskRigor"; a completed reading, "full text read"; a lead read through another tool, "read through
-      another tool, not checked by AskRigor"; otherwise the declared lower depth ("part of the text read", "abstract
+      audited by AskRigor" (of the AI's search copy, "full text read from a copy the AI found, methods audited by
+      AskRigor", as the Atlas reads a card's sources); a completed reading, "full text read"; a lead read through
+      another tool, "read through another tool, not checked by AskRigor"; otherwise the declared lower depth ("part of
+      the text read", "abstract
       only" for an abstract or a conference abstract, "only another source's description of it read", "only its title
       and record read", "not read, no access to it", "not read, it could not be fetched"). A declared audit with only a
       completed reading behind it reads as "full text read"; any other refused full-text or Atlas declaration has no
@@ -197,6 +199,11 @@ owner's; the release needs the owner's explicit yes, as always.
       the answer can say it before a check blocks; under a passing check the panel lists "What AskRigor read: …", so
       the reader sees it even when the answer is reworded. The runtime tool description says the read-depth check now
       covers the answer's words.
+    - **Merged with #416's Atlas (5 Nov):** the Atlas's own reading of a card's sources (`ATLAS_SOURCE_READINGS`,
+      signed into the finalization receipt) stays as it is; this module's names were changed (`ANSWER_READINGS`,
+      `AnswerReading`) so the two no longer share `SourceReading` and `SOURCE_READINGS`. A library copy reads as any
+      full text; card backing lines need nothing from `source_reading`, since the Atlas words each source's reading
+      itself.
     - **Waits for figure reading:** "full text and figures analyzed", the owner's third example, waits for item 2
       (figures as images); no receipt yet shows a figure was read, so no label says so. When item 2 is built, its
       receipt can earn a reading of its own.

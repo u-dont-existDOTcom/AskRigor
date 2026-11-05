@@ -213,7 +213,9 @@ say how it was read is the AI's declaration, since no word list can judge that i
 draft doesn't cite needs nothing (its link is asked for under rule 1 already); an entry naming no key source, or a
 second entry for one, is a note, and only the first entry for a source is checked. Each step gives the reading the
 check verified, for the AI to put in its own words: a checked Atlas finding the call uses, "from a checked Atlas
-finding"; an audit receipt, "full text read, methods audited by AskRigor"; a completed reading, "full text read"; a lead
+finding"; an audit receipt, "full text read, methods audited by AskRigor" ("full text read from a copy the AI found,
+methods audited by AskRigor" when every audit was of the AI's search copy, as the Atlas reads a card's sources; a copy
+from the owner's library is one AskRigor fetched, so it reads as any full text); a completed reading, "full text read"; a lead
 read through another tool, "read through another tool, not checked by AskRigor"; otherwise the declared lower depth:
 "part of the text read", "abstract only" (for a conference abstract too), "only another source's description of it
 read", "only its title and record read", "not read, no access to it" or "not read, it could not be fetched". A declared

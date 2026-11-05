@@ -148,6 +148,11 @@ approval"), none of it drawn from comments:
 - the channel registry's names, links and AskRigor's own notes. Its channel IDs came through the API, so they are
   re-checked through it every 30 days (1 unit each), or removed.
 
+**Status (2 Nov):** the first is built, as the Atlas page `/atlas/comment-maps`; the second and fourth wait for owner
+question 227, and the third is research output, not code (`2026-11-02-atlas-comment-maps-public-without-approval.md`).
+The 31 Oct email told YouTube the counts "would appear only in users' research answers, never on public pages", so a
+yes to it would not cover maps in the Atlas either: that takes another question to YouTube.
+
 ## Forum depth (the owner, 31 Oct)
 
 "a lot of times it's giving me like a couple reddit posts checked ... and it only checks a couple comments on them

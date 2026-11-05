@@ -19,18 +19,22 @@ import { rule, type CheckRule } from "./check-rules.js";
  */
 
 /** How a key source was read, as its verified receipts and accepted read_depth show it. */
-export const SOURCE_READINGS = [
-  "full_text_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract", "secondary_only",
-  "metadata_only", "inaccessible", "route_error", "atlas_checked", "other_tool"
+export const ANSWER_READINGS = [
+  "full_text_audited", "search_copy_audited", "full_text_read", "partial_text", "abstract_only", "conference_abstract",
+  "secondary_only", "metadata_only", "inaccessible", "route_error", "atlas_checked", "other_tool"
 ] as const;
-export type SourceReading = typeof SOURCE_READINGS[number];
+export type AnswerReading = typeof ANSWER_READINGS[number];
 
 // The words the answer gives in its own language, as rules so a stopped check's report keeps them. None holds a
 // semicolon, which separates the sources in the result's list and the panel's line.
 // "Full text and figures analyzed", the owner's third example, waits for AskRigor's figure reading (the next build's
 // item 2, a page returned as an image), which isn't built yet: no receipt shows a figure was read, so no label says so.
-const SOURCE_READING_RULES: Readonly<Record<SourceReading, CheckRule>> = {
+// An audit of a copy the AI found, which AskRigor didn't fetch itself, says so, as the Atlas's reading of a card's
+// sources does (owner answer 252a, ATLAS_SOURCE_READINGS); a copy from the owner's library is one AskRigor fetched, so
+// it reads as any full text.
+const ANSWER_READING_RULES: Readonly<Record<AnswerReading, CheckRule>> = {
   full_text_audited: rule`full text read, methods audited by AskRigor`,
+  search_copy_audited: rule`full text read from a copy the AI found, methods audited by AskRigor`,
   full_text_read: rule`full text read`,
   partial_text: rule`part of the text read`,
   abstract_only: rule`abstract only`,
@@ -42,58 +46,58 @@ const SOURCE_READING_RULES: Readonly<Record<SourceReading, CheckRule>> = {
   atlas_checked: rule`from a checked Atlas finding`,
   other_tool: rule`read through another tool, not checked by AskRigor`
 };
-export const SOURCE_READING_LABELS: Readonly<Record<SourceReading, string>> = Object.freeze(Object.fromEntries(
-  SOURCE_READINGS.map((reading) => [reading, SOURCE_READING_RULES[reading].text])) as Record<SourceReading, string>);
+export const ANSWER_READING_LABELS: Readonly<Record<AnswerReading, string>> = Object.freeze(Object.fromEntries(
+  ANSWER_READINGS.map((reading) => [reading, ANSWER_READING_RULES[reading].text])) as Record<AnswerReading, string>);
 
 export const SOURCE_READING_LIMITS = { entries: 60, sourceCharacters: 300, quoteCharacters: 1_000 } as const;
 
-export const sourceReadingEntrySchema = z.object({
+export const sourceReadingQuoteSchema = z.object({
   source: z.string().trim().min(1).max(SOURCE_READING_LIMITS.sourceCharacters)
     .describe("The key source's id, as key_sources gives it."),
   quote: z.string().trim().min(1).max(SOURCE_READING_LIMITS.quoteCharacters)
     .describe("The answer's own words saying how that source was read, beside or in the sentence citing it, in the " +
       "answer's language, copied from answer_draft.")
 }).strict();
-export type SourceReadingEntry = z.output<typeof sourceReadingEntrySchema>;
-export const sourceReadingSchema = z.array(sourceReadingEntrySchema).max(SOURCE_READING_LIMITS.entries);
+export type SourceReadingQuote = z.output<typeof sourceReadingQuoteSchema>;
+export const sourceReadingInputSchema = z.array(sourceReadingQuoteSchema).max(SOURCE_READING_LIMITS.entries);
 
 /** Each key source's reading in the result, as the panel lists it: its id, how a limit names it, and how it was read. */
 export const sourceReadingCheckSchema = z.object({
   source: z.string(),
   name: z.string(),
-  reading: z.enum(SOURCE_READINGS)
+  reading: z.enum(ANSWER_READINGS)
 }).strict();
 export type SourceReadingCheck = z.output<typeof sourceReadingCheckSchema>;
 
 /**
- * How a key source was read, from what the check verified: a checked Atlas finding the call uses, an audit or a
- * completed reading its receipts sign, and otherwise the lower read_depth the call declares, which no receipt can
- * contradict. A declared full-text reading or Atlas finding with nothing of the kind behind it is refused under
- * read_depth already, so it has no reading until the declaration matches. A lead read through another tool is set apart
- * by the caller, where the check says to cite it so.
+ * How a key source was read, from what the check verified: a checked Atlas finding the call uses, an audit (of a copy
+ * the AI found, when every audit was: searchCopy) or a completed reading its receipts sign, and otherwise the lower
+ * read_depth the call declares, which no receipt can contradict. A declared full-text reading or Atlas finding with
+ * nothing of the kind behind it is refused under read_depth already, so it has no reading until the declaration
+ * matches. A lead read through another tool is set apart by the caller, where the check says to cite it so.
  */
-export function verifiedSourceReading(
+export function verifiedAnswerReading(
   declared: string | undefined,
-  shown: { audited: boolean; read: boolean; atlasChecked: boolean }
-): SourceReading | undefined {
+  shown: { audited: boolean; searchCopy?: boolean; read: boolean; atlasChecked: boolean }
+): AnswerReading | undefined {
   if (declared === "atlas_checked" && shown.atlasChecked) return "atlas_checked";
-  if (shown.audited) return "full_text_audited";
+  if (shown.audited) return shown.searchCopy === true ? "search_copy_audited" : "full_text_audited";
   if (shown.read) return "full_text_read";
   if (declared === undefined || declared === "atlas_checked" || declared === "full_text_audited" ||
     declared === "full_text_read") return undefined;
-  return (SOURCE_READINGS as readonly string[]).includes(declared) ? declared as SourceReading : undefined;
+  return (ANSWER_READINGS as readonly string[]).includes(declared) ? declared as AnswerReading : undefined;
 }
 
 /** A reading's words, as a rule nested in a step. */
-export function sourceReadingRule(reading: SourceReading): CheckRule {
-  return SOURCE_READING_RULES[reading];
+export function answerReadingRule(reading: AnswerReading): CheckRule {
+  return ANSWER_READING_RULES[reading];
 }
 
 /** The result's line naming each key source's reading up front, so the answer can say it before a check blocks. */
 export function sourceReadingGuidance(readings: readonly SourceReadingCheck[]): string {
   return "Say beside each study how it was read, in the answer's language, and copy those words into " +
     "later_inputs.source_reading as {source, quote}, with source the study's id as key_sources gives it: " +
-    `${readings.map(({ name, reading }) => `${name}, ${SOURCE_READING_LABELS[reading]}`).join("; ")}.`;
+    `${readings.map(({ name, reading }) => `${name}, ${ANSWER_READING_LABELS[reading]}`).join("; ")}.`;
 }
 
 // What carries an identifier on: a letter or digit, or the punctuation a DOI holds followed by one. So "10.1000/abc."

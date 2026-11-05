@@ -13,8 +13,8 @@ import {
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  SOURCE_READINGS, SOURCE_READING_LABELS, identifierShown, sourceReadingGuidance, verifiedSourceReading,
-  type SourceReading
+  ANSWER_READINGS, ANSWER_READING_LABELS, identifierShown, sourceReadingGuidance, verifiedAnswerReading,
+  type AnswerReading
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -54,26 +54,29 @@ const check = (overrides: Record<string, unknown> = {}) =>
 const readingSteps = (result: FinalizeResearchOutput) => result.next_steps.filter((step) => step.includes("how it was read"));
 
 // Each step, word for word.
-const missing = (id: string, reading?: SourceReading) => reading === undefined
+const missing = (id: string, reading?: AnswerReading) => reading === undefined
   ? `Key source ${id} is cited in the answer without saying how it was read: give it a read_depth its receipts ` +
     "support, say beside it how it was read, in the answer's language, and give later_inputs.source_reading an entry " +
     `for it, with source ${id} and quote those words copied from answer_draft.`
-  : `Key source ${id} is cited in the answer without saying how it was read (${SOURCE_READING_LABELS[reading]}): say ` +
+  : `Key source ${id} is cited in the answer without saying how it was read (${ANSWER_READING_LABELS[reading]}): say ` +
     "so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with source " +
     `${id} and quote those words copied from answer_draft.`;
-const unshown = (id: string, reading: SourceReading) => `source_reading's quote for ${id} is not in the answer: say ` +
-  `beside it how it was read (${SOURCE_READING_LABELS[reading]}), in the answer's language, and copy those words ` +
+const unshown = (id: string, reading: AnswerReading) => `source_reading's quote for ${id} is not in the answer: say ` +
+  `beside it how it was read (${ANSWER_READING_LABELS[reading]}), in the answer's language, and copy those words ` +
   "exactly from answer_draft.";
 
 describe("source_reading: its shape and words", () => {
-  it("is a later input of finalize_research, with a reading for each read_depth and one for another tool", () => {
+  it("is a later input of finalize_research, with a reading for each read_depth, a search copy and another tool", () => {
     expect(laterInputNames("finalize_research")).toContain("source_reading");
-    expect([...SOURCE_READINGS].sort()).toEqual([...READ_DEPTH_VALUES, "other_tool"].sort());
+    expect([...ANSWER_READINGS].sort())
+      .toEqual([...READ_DEPTH_VALUES, "search_copy_audited", "other_tool"].sort());
   });
 
   it("words each reading as the owner's examples do, with no semicolon to blur the list", () => {
-    expect(SOURCE_READING_LABELS).toMatchObject({
+    expect(ANSWER_READING_LABELS).toMatchObject({
       full_text_audited: "full text read, methods audited by AskRigor",
+      // As the Atlas reads a card's sources (owner answer 252a): an audit of a copy AskRigor didn't fetch says so.
+      search_copy_audited: "full text read from a copy the AI found, methods audited by AskRigor",
       full_text_read: "full text read",
       partial_text: "part of the text read",
       abstract_only: "abstract only",
@@ -81,24 +84,26 @@ describe("source_reading: its shape and words", () => {
       atlas_checked: "from a checked Atlas finding",
       other_tool: "read through another tool, not checked by AskRigor"
     });
-    for (const label of Object.values(SOURCE_READING_LABELS)) expect(label).not.toMatch(/[;；]/u);
+    for (const label of Object.values(ANSWER_READING_LABELS)) expect(label).not.toMatch(/[;；]/u);
     // "Full text and figures analyzed" waits for AskRigor's figure reading, which isn't built: no label claims it.
-    expect(Object.values(SOURCE_READING_LABELS).join(" ")).not.toMatch(/figure|image/iu);
+    expect(Object.values(ANSWER_READING_LABELS).join(" ")).not.toMatch(/figure|image/iu);
   });
 
   it("reads what the check verified first, then a lower declaration no receipt can contradict", () => {
     const none = { audited: false, read: false, atlasChecked: false };
-    expect(verifiedSourceReading("atlas_checked", { ...none, atlasChecked: true })).toBe("atlas_checked");
-    expect(verifiedSourceReading("atlas_checked", none)).toBeUndefined();
-    expect(verifiedSourceReading("atlas_checked", { ...none, audited: true, read: true })).toBe("full_text_audited");
-    expect(verifiedSourceReading("partial_text", { ...none, audited: true, read: true })).toBe("full_text_audited");
-    expect(verifiedSourceReading("full_text_audited", { ...none, read: true })).toBe("full_text_read");
-    expect(verifiedSourceReading("full_text_audited", none)).toBeUndefined();
-    expect(verifiedSourceReading("full_text_read", none)).toBeUndefined();
-    expect(verifiedSourceReading(undefined, none)).toBeUndefined();
+    expect(verifiedAnswerReading("atlas_checked", { ...none, atlasChecked: true })).toBe("atlas_checked");
+    expect(verifiedAnswerReading("atlas_checked", none)).toBeUndefined();
+    expect(verifiedAnswerReading("atlas_checked", { ...none, audited: true, read: true })).toBe("full_text_audited");
+    expect(verifiedAnswerReading("partial_text", { ...none, audited: true, read: true })).toBe("full_text_audited");
+    expect(verifiedAnswerReading("full_text_audited", { ...none, audited: true, searchCopy: true, read: true }))
+      .toBe("search_copy_audited");
+    expect(verifiedAnswerReading("full_text_audited", { ...none, read: true })).toBe("full_text_read");
+    expect(verifiedAnswerReading("full_text_audited", none)).toBeUndefined();
+    expect(verifiedAnswerReading("full_text_read", none)).toBeUndefined();
+    expect(verifiedAnswerReading(undefined, none)).toBeUndefined();
     for (const declared of ["partial_text", "abstract_only", "conference_abstract", "secondary_only", "metadata_only",
       "inaccessible", "route_error"] as const) {
-      expect(verifiedSourceReading(declared, { ...none, atlasChecked: true })).toBe(declared);
+      expect(verifiedAnswerReading(declared, { ...none, atlasChecked: true })).toBe(declared);
     }
   });
 
@@ -130,12 +135,15 @@ const atlasLookup = issueResearchReceipt("atlas_lookup", {
   words: ["synthetic"], target: researchTargetDigest(TARGET), origin: "https://askrigor.com",
   found: [`P-1001|F-1001|c|${atlasSourceDigest({ scheme: "doi", value: DOI })}`]
 }, { secret: SECRET });
-const CASES: ReadonlyArray<[SourceReading, Record<string, unknown>, Record<string, unknown>]> = [
+const CASES: ReadonlyArray<[AnswerReading, Record<string, unknown>, Record<string, unknown>]> = [
   ["full_text_audited", { receipts: [audit] }, { status: "validated", read_depth: "full_text_audited" }],
+  ["search_copy_audited", { receipts: [sign("study_audit", { doi: DOI, content: "c".repeat(16),
+    retrieval_provider: "client_search_index", host: "copies.example.org" })] },
+  { status: "validated", read_depth: "full_text_audited" }],
   ["full_text_read", { receipts: [sign("full_text_read", { doi: DOI, content: "b".repeat(16) })] },
     { status: "validated", read_depth: "full_text_read" }],
   ...(["partial_text", "abstract_only", "conference_abstract", "secondary_only", "metadata_only", "inaccessible",
-    "route_error"] as const).map((read_depth): [SourceReading, Record<string, unknown>, Record<string, unknown>] =>
+    "route_error"] as const).map((read_depth): [AnswerReading, Record<string, unknown>, Record<string, unknown>] =>
     [read_depth, { receipts: [PUBMED] }, { status: "lead_only", read_depth }]),
   ["other_tool", { receipts: [LEAD] }, { status: "lead_only", read_depth: "abstract_only", other_route: "read" }],
   ["atlas_checked", {
@@ -146,7 +154,7 @@ const CASES: ReadonlyArray<[SourceReading, Record<string, unknown>, Record<strin
 
 describe("each reading, as the check verified it", () => {
   it.each(CASES)("%s: named up front, asked for beside a cited study, and met by the answer's words", (reading, extra, source) => {
-    const label = SOURCE_READING_LABELS[reading];
+    const label = ANSWER_READING_LABELS[reading];
     const keySources = [{ id: DOI, answer_marker: "Trial", ...source }];
     const atlas = reading === "atlas_checked" ? [ATLAS_QUOTE] : [];
     const cited = `[Trial](https://doi.org/${DOI}) compared two routines`;

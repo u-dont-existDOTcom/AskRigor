@@ -1,14 +1,14 @@
 import { normalizeIdentifier } from "../../apps/research-mcp/src/research-finalization-gate.js";
-import { SOURCE_READING_LABELS, type SourceReading } from "../../apps/research-mcp/src/source-reading.js";
+import { ANSWER_READING_LABELS, type AnswerReading } from "../../apps/research-mcp/src/source-reading.js";
 
 type Entry = { source: string; quote: string };
 type KeySource = { id: string; read_depth?: string; other_route?: string };
 
 /** The words a fixture's answer gives for a key source: its declared reading's, or plain words when it declares none. */
 export function fixtureReadingWords({ read_depth, other_route }: KeySource): string {
-  return other_route === "read" ? SOURCE_READING_LABELS.other_tool
-    : read_depth !== undefined && Object.hasOwn(SOURCE_READING_LABELS, read_depth)
-      ? SOURCE_READING_LABELS[read_depth as SourceReading] : "read for this answer";
+  return other_route === "read" ? ANSWER_READING_LABELS.other_tool
+    : read_depth !== undefined && Object.hasOwn(ANSWER_READING_LABELS, read_depth)
+      ? ANSWER_READING_LABELS[read_depth as AnswerReading] : "read for this answer";
 }
 
 /**

@@ -58,7 +58,7 @@ import {
   type RegisterToolsOptions,
 } from "../apps/research-mcp/src/register-tools.js";
 import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
-import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
@@ -723,6 +723,29 @@ describe("finalize_research, save_research_findings and the findings library", (
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);
+  });
+
+  // Owner answer 252a: the tool looks a checked card's backing lines up with the source lines once the check passes, and
+  // the receipt the save gets signs what was found, where, and how each source was read.
+  it("looks a card's backing lines up in the text AskRigor fetched, and signs what was found for the save", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const handle = `aft1_${"c".repeat(32)}`;
+    const sentence = "Clearance halved in the oldest group of this invented study at twelve weeks.";
+    const fullText = vi.fn(() => ({ kind: "full_text" as const, blocks: [{ text: sentence, section: "Results" }] }));
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true,
+      findingsSave, sourceLineTexts: { fullText, abstract: async () => undefined } });
+    const card = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0]!, backing: [{ source: "PMC10518852",
+      sentence, against: "The invented study was small." }] }] };
+    const { findings_card: _card, ...rest } = request({ receipts: [issueResearchReceipt("study_audit", { id: "PMC10518852",
+      doi: "10.1002/art.41142", status: "complete_no_unresolved_fields", handle }, { secret: SECRET })] });
+    const result = await finalize({ ...rest, later_inputs: { findings_card: card } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({ findings_card: { status: "checked", saved: { status: "saved" } } });
+    expect(fullText).toHaveBeenCalledWith(handle);
+    const signed = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims).toMatchObject({ bl: ["1.1:fu:full_text"], bs: ["1.1.s:Results"],
+      rd: ["1.1:full_text_audited:-"] });
   });
 
   // Owner answer 221 (2 November 2026): the meaning judge, a Claude API call, reads a passing check for the owner's dev

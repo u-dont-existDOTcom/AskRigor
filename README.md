@@ -499,6 +499,17 @@ and restore scripts support image rollback; the runbook gives their order.
 This slice changes wording and consent; publications, votes and comments are
 built separately under `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
 
+Owner answer 253a (2026-11-05; the owner's wording, built, not yet released):
+the free contributor notice moves to `free-contributor-v5-2026-11-05`, whose
+findings card summarizes what public online communities reported "without their
+posts or names: the communities, counts of what people reported, and links to
+the forum threads AskRigor read, never YouTube comments or video IDs." Accounts
+accepting v1 to v4 accept v5 before free research continues (migration
+`0028_research_use_notice_v5`), and a card saved for an account still on v4
+stores no thread link. The privacy page and terms say the same; the v5 hold and
+restore scripts support image rollback. See
+`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`.
+
 Decision 171, section 4C (built, not yet released): the research server renders
 the public Atlas pages under `/atlas` (home, topic, finding and what changed),
 which the apex site's Caddy proxies at `askrigor.com/atlas`. An unreviewed

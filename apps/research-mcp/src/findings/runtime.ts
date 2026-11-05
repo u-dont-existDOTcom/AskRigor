@@ -1,5 +1,8 @@
 import {
   PostgresAtlasModerationStore,
+  PostgresAtlasPlacementStore,
+  PostgresAtlasReportReviewStore,
+  PostgresAtlasGlanceStore,
   PostgresAtlasPublicationStore,
   PostgresAtlasReader,
   PostgresAtlasReviewStore,
@@ -8,6 +11,9 @@ import { getProtocolManifest } from "@askrigor/protocol";
 
 import {
   announcingModerationStore,
+  announcingPlacementStore,
+  announcingReportReviewStore,
+  announcingGlanceStore,
   announcingPublicationStore,
   announcingReviewStore,
 } from "../atlas/change-signal.js";
@@ -15,8 +21,10 @@ import { AtlasCardPublisher } from "../atlas/publication.js";
 import {
   askrigorBuildCommitFromEnv,
   atlasReviewEnabledFromEnv,
+  crossrefConfigFromEnv,
   findingsLibraryEnabledFromEnv,
   livingEvidenceReuseConfigFromEnv,
+  ncbiConfigFromEnv,
   researchContributionReviewConfigFromEnv,
   SERVICE_VERSION,
 } from "../config.js";
@@ -42,6 +50,7 @@ import {
   type UnsavedCardInput,
   type UnsavedCardResult,
 } from "./service.js";
+import { atlasSourceTitleLookup } from "./source-checks.js";
 
 const CONFIGURATION_ERROR = "Findings library configuration unavailable";
 
@@ -130,9 +139,14 @@ function createFindingsServiceFromEnv(): FindingsSaveService {
       version: SERVICE_VERSION,
       build: askrigorBuildCommitFromEnv(),
       now,
-      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C).
+      // Each publication it writes drops the Atlas pages' cache in this process (decision 171, section 4C); its sources'
+      // titles come from their public records, through the provider settings the connector's own tools use.
       ...(publications === undefined ? {} : {
-        publisher: new AtlasCardPublisher({ store: announcingPublicationStore(publications), now }),
+        publisher: new AtlasCardPublisher({
+          store: announcingPublicationStore(publications),
+          now,
+          sourceTitles: atlasSourceTitleLookup({ crossref: crossrefConfigFromEnv(), pubmed: ncbiConfigFromEnv(), now }),
+        }),
       }),
       // Owner answer 173: the findings a saved card leaves out are held for the owner's review, through the
       // research-access role.
@@ -200,6 +214,24 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
         schema: review.schema,
         ssl: review.ssl,
       })),
+      // Owner answer 229a: where items sit under Health, through the same role's two placement functions.
+      placements: announcingPlacementStore(new PostgresAtlasPlacementStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // Owner answer 229a: people's reports, through the same role's two report functions.
+      reports: announcingReportReviewStore(new PostgresAtlasReportReviewStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
+      // The owner, 3 Nov: a problem's rows at a glance, through the same role's three glance functions.
+      glance: announcingGlanceStore(new PostgresAtlasGlanceStore({
+        connectionString: review.connectionString,
+        schema: review.schema,
+        ssl: review.ssl,
+      })),
       reader: new PostgresAtlasReader({
         connectionString: reader.connectionString,
         schema: reader.schema,
@@ -227,6 +259,8 @@ export function createAtlasReviewFromEnv(env: NodeJS.ProcessEnv = process.env): 
       // Owner answer 173: the held YouTube findings, through the review role: listed on the card view, deleted early,
       // moved out of cards stored before, and deleted with a forgotten card.
       held: heldYouTubeFindingsStoresFromEnv(env).review,
+      // publish_cards looks a card's sources up for their titles and years, with the call's provider settings.
+      sourceTitles: (providers) => atlasSourceTitleLookup({ ...providers, now }),
     });
   } catch {
     return undefined;

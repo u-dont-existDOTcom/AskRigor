@@ -36,7 +36,9 @@ export const sourceLineSchema = z.object({
 export type SourceLine = z.output<typeof sourceLineSchema>;
 
 export const SOURCE_LINE_OUTCOMES = ["found", "not_found", "not_checked"] as const;
-export const SOURCE_LINE_TEXTS = ["full_text", "abstract", "search_copy"] as const;
+// Owner answer 252a: a copy from the owner's library is its own kind, which, like the AI's search copy, the Atlas never
+// quotes (owner-library papers are for the owner's own research only).
+export const SOURCE_LINE_TEXTS = ["full_text", "abstract", "search_copy", "library_copy"] as const;
 export const SOURCE_LINE_REASONS = [
   "not_a_key_source", "no_text", "text_expired", "text_unavailable", "too_short", "same_quote"
 ] as const;
@@ -80,10 +82,12 @@ export interface SourceLineTexts {
   abstract(pmid: string): Promise<SourceLineDocument | undefined | null>;
 }
 
-/** A fetched paper as the source line reads it. A copy the AI supplied is said to be one. */
+/** A fetched paper as the source line reads it. A copy the AI supplied, or one from the owner's library, is said to be one. */
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
   return {
-    kind: index.source.provider === "client_supplied" ? "search_copy" : "full_text",
+    kind: index.source.provider === "client_supplied" ? "search_copy"
+      : index.source.provider === "owner_library" || index.source.retrieval_provider === "owner_library" ? "library_copy"
+      : "full_text",
     blocks: index.blocks.map(({ text, section_path: path, kind }) => ({
       text,
       ...(path.length === 0 ? {} : { section: path[path.length - 1]!.slice(0, SOURCE_LINE_LIMITS.section) }),
@@ -220,9 +224,12 @@ export async function lookUpQuotes(
   };
 }
 
+/** A line whose quotes are looked up: a source line, or a findings card's backing line, whose conclusion is optional. */
+export type QuotedLine = Pick<SourceLine, "source" | "sentence"> & { conclusion?: string | undefined };
+
 /** Looks each line's two quotes up in the text its key source's receipts name. A failed read leaves a line unchecked. */
 export async function lookUpSourceLines(
-  lines: readonly SourceLine[],
+  lines: readonly QuotedLine[],
   requests: readonly SourceLineRequest[],
   texts: SourceLineTexts,
   cache: QuoteCache = quoteCache()
@@ -236,22 +243,23 @@ export async function lookUpSourceLines(
       lookups.push(unchecked("not_a_key_source"));
       continue;
     }
-    if (!longEnough(sentence) && !longEnough(conclusion)) {
+    if (!longEnough(sentence) && (conclusion === undefined || !longEnough(conclusion))) {
       lookups.push(unchecked("too_short"));
       continue;
     }
     // One passage given as both quotes is one passage found, never both (#412's run: 9 of 15 lines in one part, and
     // the answers still showed that both were found).
-    const same = quoteForm(sentence) === quoteForm(conclusion);
-    const { document, reason, quotes } =
-      await lookUpQuotes({ handles, pmids }, same ? [sentence] : [sentence, conclusion], texts, cache);
+    const same = conclusion !== undefined && quoteForm(sentence) === quoteForm(conclusion);
+    // A backing line may give no conclusion, which is then simply not looked up.
+    const { document, reason, quotes } = await lookUpQuotes({ handles, pmids },
+      same || conclusion === undefined ? [sentence] : [sentence, conclusion], texts, cache);
     if (document === undefined) {
       lookups.push(unchecked(reason ?? "no_text"));
       continue;
     }
     const expired = reason === "text_expired";
-    const [first, second] = [quotes[0]!, same ? { outcome: "not_checked" as const, section: undefined } : quotes[1]!];
-    const unfound = first.outcome === "not_checked" || second.outcome === "not_checked";
+    const [first, second] = [quotes[0]!, quotes[1] ?? { outcome: "not_checked" as const, section: undefined }];
+    const unfound = first.outcome === "not_checked" || (conclusion !== undefined && second.outcome === "not_checked");
     lookups.push({
       source,
       sentence: first.outcome,
@@ -274,7 +282,8 @@ export function quoteShown(answer: string, quote: string): boolean {
 const TEXT_NAMES: Readonly<Record<TextKind, string>> = {
   full_text: "the full text",
   abstract: "the abstract",
-  search_copy: "the copy the AI supplied"
+  search_copy: "the copy the AI supplied",
+  library_copy: "the copy from the owner's library"
 };
 
 /** What the AI should do about one checked line, as notes. None of them holds the answer back. */

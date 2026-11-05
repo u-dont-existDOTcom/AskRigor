@@ -15,7 +15,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { AtlasReview, ATLAS_FAILURE_EXPLANATIONS } from "../apps/research-mcp/src/findings/atlas-review.js";
-import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
+import { findingsCardDigest, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
@@ -45,12 +45,12 @@ const PROVIDERS = {
 const fixture = (path: string) => readFile(new URL(`fixtures/${path}`, import.meta.url), "utf8");
 
 const TREMOR = {
-  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-  comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10,
+  outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+  comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10,
 };
 const NAUSEA = {
-  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12, option_total: 120,
-  comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20,
+  outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24, option_total: 240,
+  comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20,
 };
 const LOW_DOSE = {
   outcome: "tremor score halved", better: "more", option: "zentarine 5 mg", option_events: 20, option_total: 100,
@@ -180,9 +180,11 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         structured,
       };
     },
-    async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = []) {
+    async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = [],
+      claims: Record<string, string[]> = {}) {
       contributor += 1;
-      const parsed = findingsCardSchema.parse(card);
+      // The card's later shape, which takes the research behind each finding (owner answer 252a).
+      const parsed = laterFindingsCardSchema.parse(card);
       // Each save is another person's research thread.
       const key = contributor.toString(16).padStart(64, "0");
       return library.save({
@@ -190,6 +192,7 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         contributor: key,
         finalization_receipt: issueResearchReceipt("finalization", {
           status: "ready", depth: "standard", target: key.slice(0, 12), findings: findingsCardDigest(parsed), bases, ...(atlas.length === 0 ? {} : { atlas }),
+          ...claims,
         }, { secret: SECRET, now: clock }),
       }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) });
     },
@@ -273,6 +276,66 @@ describe("the findings actions' calls", () => {
     expect(again.structured.atlas).toMatchObject({ version: null, ...LOW_DOSE_FIELDS });
     expect(again.text).toMatch(/^ARF-0042 finding 1 was already accepted as F-1001, a checked finding, on 4 Nov 2026; nothing new was recorded\./u);
     expect(await h.review.inspectIntents(null)).toHaveLength(1);
+  });
+
+  // Owner answer 252a: the card names each figure's source and the research behind it; the Atlas's figure is the figure.
+  it("accepts a finding whose card names its figures' sources and the research behind it, taking each figure alone", async () => {
+    await stubProviders();
+    const h = harness();
+    const source = "10.0000/synthetic-velmor-c";
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, numbers: [{ ...LOW_DOSE, source }],
+      backing: [{ source, sentence: "Tremor scores halved in 20 of 100 people on the invented low dose.",
+        against: "The invented trial was small." }] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:-"], bl: ["1.1:fu:full_text"] });
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect((intent!.payload as { content: { numbers: unknown[] } }).content.numbers).toEqual([LOW_DOSE]);
+    expect((await h.promote()).result.status).toBe("promoted");
+  });
+
+  // Owner answers 254a and 255a: the version keeps the research behind the finding, and a finding resting on its forum
+  // signal alone, the threads AskRigor's reader read, is accepted as a finding, not a lead, with no study source.
+  it("keeps the research behind a finding with its version, and accepts a forum-only finding as a finding", async () => {
+    await stubProviders();
+    const h = harness();
+    const source = "10.0000/synthetic-velmor-c";
+    const sentence = "Tremor scores halved in 20 of 100 people on the invented low dose.";
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, numbers: [{ ...LOW_DOSE, source }],
+      backing: [{ source, sentence, against: "The invented trial was small." }] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:consistent"], bl: ["1.1:fu:full_text"] });
+    const quoted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1,
+      cardSha256: await inspected(h, "ARF-0042", 1) });
+    expect(quoted.structured.outcome, quoted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect((intent!.payload as { content: { research: unknown } }).content.research).toEqual({
+      backing: [{ source, sentence, text: "full_text", against: "The invented trial was small." }],
+      source_reading: [{ source, read: "full_text_audited", figures: "consistent" }],
+      figure_sources: [source],
+    });
+    expect((await h.promote()).result.status).toBe("promoted");
+    expect(h.canonical.snapshot().versions.map(({ content }) => content.research?.figure_sources)).toEqual([[source]]);
+
+    const forum = { threads: ["https://www.reddit.com/r/InventedVelmor/comments/xyz789/a_title/"],
+      people: { better: 4, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 2 },
+      mechanism: "It may calm the invented pathway.", studies: "support_not_located" };
+    await h.save({ ...DOI_CARD, question: "Do people with Velmor syndrome report less tremor on a warm bath?",
+      findings: [{ ...DOI_CARD.findings[0]!, claim: "People with Velmor syndrome on invented forums report less tremor " +
+        "after a warm bath.", answer_quote: "People on invented forums report less tremor after a warm bath.", sources: [],
+      tags: [], kind: "overlooked_option", subject: "warm bath", subject_type: "practice", direction: "benefit", numbers: [],
+      forum_signal: forum }] }, ["forum_read"]);
+    const check = await h.call({ action: "inspect_finding", card: "ARF-0043", finding: 1 });
+    expect(check.structured, check.text).toMatchObject({ checks: { community: "forum_only", wouldBecome: "checked" } });
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0043", finding: 1,
+      cardSha256: check.structured.card.cardSha256 });
+    expect(accepted.structured, accepted.text).toMatchObject({ outcome: "finding_queued",
+      atlas: { atlasNumber: "F-1002", entryKind: "finding", labelAfter: "checked" } });
+    const [forumIntent] = await h.review.inspectIntents(["F-1002"]);
+    expect(forumIntent!.payload).toMatchObject({ entryKind: "finding", sources: [],
+      content: { verifiedBases: ["forum_read"], research: { forum_signal: { communities: ["r/InventedVelmor"],
+        threads_read: 1, threads: [], people: forum.people, studies: "support_not_located" } } } });
+    expect((await h.promote()).result.status).toBe("promoted");
   });
 
   it("refuses a call without cardSha256, a topicLabel without its key, and any field its action does not take", async () => {
@@ -888,7 +951,7 @@ describe("the card's Atlas fields at acceptance (phase 3 design, section 5)", ()
       schema: "askrigor.atlas-finding-intent.v1", kind: "accept", entryKind: "finding", leadOrigin: null,
       editedAtAcceptance: false, topic: { key: "velmor-syndrome", label: null },
       question: "Does zentarine cause nausea in Velmor syndrome?",
-      content: { wording: "Nausea affected 12 of 120 adults on zentarine 20 mg against 6 of 120 on placebo over 12 weeks.",
+      content: { wording: "Nausea affected 24 of 240 adults on zentarine 20 mg against 12 of 240 on placebo over 12 weeks.",
         appliesTo: "Adults with Velmor syndrome", certainty: "low", usualAnswer: "It is well tolerated.",
         whyNotUsual: "Quick answers call it well tolerated.", whatWouldChangeIt: "A longer trial.", whoElse: null,
         whatItChanges: null, tags: [], verifiedBases: ["full_text_audit"], numbers: [] },

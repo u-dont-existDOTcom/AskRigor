@@ -7,7 +7,9 @@ import { expect } from "vitest";
 import {
   InMemoryAtlasPageSource,
   InMemoryAtlasParticipation,
+  InMemoryAtlasPlacements,
   InMemoryAtlasPublicationStore,
+  InMemoryAtlasReports,
   RESEARCH_USE_NOTICE_VERSION,
   type AtlasParticipationStore,
   type AtlasPublicationDraft,
@@ -133,6 +135,9 @@ export interface Fixture {
   tenant: Awaited<ReturnType<typeof fakeTenant>>;
   store: InMemoryAtlasParticipation;
   publications: InMemoryAtlasPublicationStore;
+  /** People's reports and where they sit (owner answer 229a). */
+  reports: InMemoryAtlasReports;
+  placements: InMemoryAtlasPlacements;
   signal: AtlasChangeSignal;
   /** Signs in as a subject through the fake tenant; returns the session cookie's header value. */
   signIn(subject?: string): Promise<string>;
@@ -155,6 +160,8 @@ export async function fixture(options: {
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
+  const placements = new InMemoryAtlasPlacements();
+  const reports = new InMemoryAtlasReports(placements);
   const tenant = await fakeTenant();
   const settings: AtlasParticipationSettings = {
     publicOrigin: "https://askrigor.example", sessionKey: bytes(7), participantSecret: bytes(9), identitySecret: bytes(11),
@@ -165,7 +172,7 @@ export async function fixture(options: {
     return createAtlasPagesHandler({
       enabled: true,
       publicOrigin: origin,
-      source: new InMemoryAtlasPageSource({ publications: published, participation: store }),
+      source: new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports }),
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
@@ -174,6 +181,7 @@ export async function fixture(options: {
         participation: {
           settings,
           store: (options.wrapStore ?? ((inner) => inner))(announcingParticipationStore(store, signal)),
+          reports,
           signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
             fetch: tenant.fetch },
           ...(options.limiters === undefined ? {} : { limiters: options.limiters }),
@@ -208,7 +216,7 @@ export async function fixture(options: {
     expect(callback.response.status, callback.body).toBe(303);
     return cookiePart(callback.response, ATLAS_SESSION_COOKIE)!;
   };
-  return { base, settings, tenant, store, publications: published, signal, signIn, get, post };
+  return { base, settings, tenant, store, publications: published, reports, placements, signal, signIn, get, post };
 }
 
 /** A raw request with headers fetch() cannot set, such as Host. */

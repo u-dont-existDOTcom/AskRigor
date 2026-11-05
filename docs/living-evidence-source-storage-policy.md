@@ -41,7 +41,7 @@ report.
 | Formal candidate decision | Allowed | Public formal identifiers/title/date, relevance summary, selected/excluded/deferred/unresolved decision and reason, observed pass, and append-only correction lineage |
 | Research trail | Allowed and required when work remains | Unresolved/unattempted/blocked/discriminator/coverage-gap/delta kind, priority, state, target lane/window, and either an executable next capability or terminal reason |
 | Later clarification/correction/reassessment | Allowed | Append a new version linked as `clarifies`, `corrects`, `supersedes`, or `invalidates`; retain the earlier version |
-| Short source quotation | Conditional | Only when necessary to audit the exact claim and permitted by license/law; identify source and locator; otherwise paraphrase |
+| Short source quotation | Conditional | Only when necessary to audit the exact claim and permitted by license/law; identify source and locator; otherwise paraphrase. Atlas finding pages (owner answer 252a): see "Quotations and licensing" |
 | Raw article, book, guideline, or database body | Prohibited by default | Requires a separate source-specific license, privacy, retention, deletion, and owner approval |
 | Raw transcript, video description, comment, reply, creator/commenter identity, or person-linked episode | Prohibited | Zero durable YouTube/community records in this pilot |
 | Raw chat, prompt, private research material, or personal health narrative | Prohibited | The pilot accepts public formal-evidence fixtures only |
@@ -126,6 +126,29 @@ Open access means accessible, not automatically unrestricted reuse. A DOI,
 PMID, PMCID, NCT identifier, hash, page/table/section locator, and original
 AskRigor analysis may usually be stored without retaining the source body, but
 provider and source terms must still be checked before production activation.
+
+Owner answer 252a (5 November 2026, option a, "quotes included"; plan
+`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`) applies this to
+the public Atlas: a findings card may store, and a finding page show, the
+paper's own sentence behind a finding and its conclusion, so that people can
+inspect what the finding rests on. Each is kept only when AskRigor's own lookup
+found it word for word in a text AskRigor fetched itself (an open full text or
+a PubMed abstract), never from the AI's search copy or a copy from the owner's
+library; each is at most 300 characters, at most three lines a finding, with
+the source's identifier and the section it was found in as its locator, and
+the kind of text as its class; it never assembles a substitute copy. A quote
+that fails the privacy screen or the publication's hold check is left out, and
+the owner can unpublish a finding or erase its wording at any time, which
+removes its quotes with it. The strongest thing against each finding is
+AskRigor's own words, not a quotation.
+
+Owner answers 253a and 255a (5 November 2026): a forum signal's thread links,
+under free contributor notice version 5 or a paid private user's yes to a save,
+are kept like a source's identifier: a pointer to the public thread AskRigor's
+reader read (a Reddit post by its id), never the thread's text, title or a
+username; YouTube comments never enter a forum signal. An accepted finding's
+Atlas version keeps the same research as its publication shows, and an erasure
+removes it whole.
 
 ## Rubric and disagreement policy
 

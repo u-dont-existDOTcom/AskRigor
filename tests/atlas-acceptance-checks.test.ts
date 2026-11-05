@@ -7,7 +7,7 @@ import {
   type AtlasNumberEntry as AtlasNumber
 } from "@askrigor/evidence-repository";
 
-import { atlasNumbersProblems, binaryContrast, figureShown } from "../apps/research-mcp/src/binary-results.js";
+import { atlasNumbersProblems, binaryContrast, differenceRange, figureShown } from "../apps/research-mcp/src/binary-results.js";
 import {
   atlasBasesOf,
   atlasLinkProblems,
@@ -25,7 +25,7 @@ import type { FindingsRecord } from "../apps/research-mcp/src/findings/service.j
 // invented example: Velmor syndrome, zentarine, its trials and every number are synthetic, and 10.0000/ marks synthetic
 // identifiers. None of it is evidence about a treatment.
 const QUESTION = "Does zentarine help the hand tremor of Velmor syndrome in adults, and what are its side effects?";
-const CLAIM = "In one trial of 240 adults with Velmor syndrome, zentarine halved the tremor score in more people than " +
+const CLAIM = "In one trial of 480 adults with Velmor syndrome, zentarine halved the tremor score in more people than " +
   "placebo over 12 weeks.";
 
 const finding = (overrides: Partial<StoredFinding> = {}): StoredFinding => ({
@@ -144,18 +144,18 @@ describe("community evidence under owner decision 4a", () => {
 });
 
 describe("numbers against the wording (owner answers 149a and 153b)", () => {
-  // The draft's worked example: tremor halved in 30 of 120 on zentarine and 18 of 120 on placebo, and nausea in 12 of
-  // 120 and 6 of 120, at 12 weeks.
+  // The draft's worked example: tremor halved in 60 of 240 on zentarine and 36 of 240 on placebo, and nausea in 12 of
+  // 120 and 12 of 240, at 12 weeks.
   const tremor: AtlasNumber = {
-    outcome: "tremor score halved", better: "more", option: "zentarine", option_events: 30, option_total: 120,
-    comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks", nnt: 10
+    outcome: "tremor score halved", better: "more", option: "zentarine", option_events: 60, option_total: 240,
+    comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks", nnt: 10
   };
   const nausea: AtlasNumber = {
-    outcome: "nausea", better: "fewer", option: "zentarine", option_events: 12, option_total: 120,
-    comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks", nnh: 20
+    outcome: "nausea", better: "fewer", option: "zentarine", option_events: 24, option_total: 240,
+    comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks", nnh: 20
   };
-  const WORDING = "Over 12 weeks, the tremor score halved in 30 of 120 adults on zentarine and 18 of 120 on placebo, " +
-    "a number needed to treat of 10; nausea affected 12 of 120 and 6 of 120, a number needed to harm of 20.";
+  const WORDING = "Over 12 weeks, the tremor score halved in 60 of 240 adults on zentarine and 36 of 240 on placebo, " +
+    "a number needed to treat of 10; nausea affected 24 of 240 and 12 of 240, a number needed to harm of 20.";
   const codes = (numbers: AtlasNumber[], wording = WORDING) =>
     atlasNumbersProblems(numbers, wording).map(({ at, code }) => `${at} ${code}`);
 
@@ -163,13 +163,13 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     expect(figureShown(tremor, WORDING)).toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: true });
     expect(figureShown({ ...tremor, nnt: 9 }, "Over 12 weeks, the tremor score halved in more on zentarine.")).toEqual({
       groupsNotShown: [
-        { field: "option", name: "zentarine", events: 30, total: 120, rate: 25 },
-        { field: "comparator", name: "placebo", events: 18, total: 120, rate: 15 },
+        { field: "option", name: "zentarine", events: 60, total: 240, rate: 25 },
+        { field: "comparator", name: "placebo", events: 36, total: 240, rate: 15 },
       ],
       numbersNeededNotShown: ["nnt"],
       followUpShown: true,
     });
-    expect(figureShown(tremor, "The tremor score halved in 30 of 120 and 18 of 120, a number needed to treat of 10."))
+    expect(figureShown(tremor, "The tremor score halved in 60 of 240 and 36 of 240, a number needed to treat of 10."))
       .toEqual({ groupsNotShown: [], numbersNeededNotShown: [], followUpShown: false });
   });
 
@@ -192,8 +192,8 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     // 1 / (0.3 - 0.1) is 5.000000000000001 in floating point.
     const counts = { ...tremor, option_events: 30, option_total: 100, comparator_events: 10, comparator_total: 100 };
     expect(binaryContrast(counts)?.roundedUp).toBe(5);
-    const wording = "At 12 weeks, 30 of 100 against 10 of 100, a number needed to treat of 5; nausea in 12 of 120 " +
-      "and 6 of 120, a number needed to harm of 20.";
+    const wording = "At 12 weeks, 30 of 100 against 10 of 100, a number needed to treat of 5; nausea in 24 of 240 " +
+      "and 12 of 240, a number needed to harm of 20.";
     expect(codes([{ ...counts, nnt: 5 }, nausea], wording)).toEqual([]);
     expect(codes([{ ...counts, nnt: 6 }, nausea], wording.replace("of 5", "of 6")))
       .toEqual(["numbers[0] not_reciprocal_rounded_up"]);
@@ -203,7 +203,7 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     // 25 of 100 against 13 of 100: 1 / 0.12 is 8.3, so 9.
     const counts = { ...tremor, option_events: 25, option_total: 100, comparator_events: 13, comparator_total: 100 };
     const wording = (nnt: string) => `At 12 weeks, 25 of 100 against 13 of 100, a number needed to treat of ${nnt}; ` +
-      "nausea in 12 of 120 and 6 of 120, a number needed to harm of 20.";
+      "nausea in 24 of 240 and 12 of 240, a number needed to harm of 20.";
     expect(codes([{ ...counts, nnt: 9 }, nausea], wording("9"))).toEqual([]);
     expect(codes([{ ...counts, nnt: 8 }, nausea], wording("8"))).toEqual(["numbers[0] not_reciprocal_rounded_up"]);
     const [problem] = atlasNumbersProblems([{ ...counts, nnt: 8.33 }, nausea], wording("8.33"));
@@ -213,19 +213,19 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
 
   it("refuses events above the group's total, and the arithmetic that would follow from them", () => {
     // 130 of 120: the option's figure has no rate to show, and its nnt has no difference in rates to check.
-    const problems = atlasNumbersProblems([{ ...tremor, option_events: 130 }, nausea], WORDING);
+    const problems = atlasNumbersProblems([{ ...tremor, option_events: 250 }, nausea], WORDING);
     expect(problems.map(({ at, code }) => `${at} ${code}`)).toEqual(["numbers[0] events_exceed_total"]);
     expect(problems[0]?.message).toContain("more events than people for zentarine");
   });
 
   it("refuses a number in the wrong direction, both numbers at once, or one where the rates are the same", () => {
-    const worse = { ...tremor, option_events: 18, comparator_events: 30 };
-    expect(codes([worse, nausea], WORDING.replace("30 of 120 adults on zentarine and 18 of 120",
-      "18 of 120 adults on zentarine and 30 of 120"))).toEqual(["numbers[0] wrong_direction"]);
+    const worse = { ...tremor, option_events: 36, comparator_events: 60 };
+    expect(codes([worse, nausea], WORDING.replace("60 of 240 adults on zentarine and 36 of 240",
+      "36 of 240 adults on zentarine and 60 of 240"))).toEqual(["numbers[0] wrong_direction"]);
     expect(atlasNumbersProblems([worse, nausea], WORDING)[0]?.message).toContain("give it as nnh");
     expect(codes([{ ...tremor, nnh: 10 }, nausea])).toEqual(["numbers[0] nnt_and_nnh"]);
-    expect(codes([{ ...tremor, comparator_events: 30, nnt: 10 }, nausea],
-      WORDING.replace("18 of 120 on placebo", "30 of 120 on placebo"))).toEqual(["numbers[0] same_rates"]);
+    expect(codes([{ ...tremor, comparator_events: 60, nnt: 10 }, nausea],
+      WORDING.replace("36 of 240 on placebo", "60 of 240 on placebo"))).toEqual(["numbers[0] same_rates"]);
   });
 
   it("reads each group's figure in the wording, as events and total or as a rate, in digits of any script", () => {
@@ -233,22 +233,22 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
       "needed to treat of 10; nausea affected 10% and 5%, a number needed to harm of 20.";
     expect(codes([tremor, nausea], rates)).toEqual([]);
     // Arabic-Indic digits.
-    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٣٠ من ١٢٠ بالغًا تناولوا زنتارين و١٨ من ١٢٠ " +
-      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ١٢ من ١٢٠ و٦ من ١٢٠، أي أن عدد من يلزم " +
+    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٦٠ من ٢٤٠ بالغًا تناولوا زنتارين و٣٦ من ٢٤٠ " +
+      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ٢٤ من ٢٤٠ و١٢ من ٢٤٠، أي أن عدد من يلزم " +
       "لحدوث ضرر ٢٠.";
     const inArabic = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "١٢ أسبوعًا" });
     expect(codes([inArabic(tremor), inArabic(nausea)], arabic)).toEqual([]);
     // Devanagari digits.
-    const hindi = "१२ सप्ताह में, ज़ेंटारिन लेने वाले १२० में से ३० और प्लेसीबो लेने वाले १२० में से १८ लोगों में कंपन " +
-      "आधा हुआ, यानी उपचार के लिए आवश्यक संख्या १०; मतली १२० में से १२ और १२० में से ६ लोगों को हुई, यानी " +
+    const hindi = "१२ सप्ताह में, ज़ेंटारिन लेने वाले २४० में से ६० और प्लेसीबो लेने वाले २४० में से ३६ लोगों में कंपन " +
+      "आधा हुआ, यानी उपचार के लिए आवश्यक संख्या १०; मतली २४० में से २४ और २४० में से १२ लोगों को हुई, यानी " +
       "नुकसान के लिए आवश्यक संख्या २०।";
     const inHindi = (entry: AtlasNumber): AtlasNumber => ({ ...entry, follow_up: "१२ सप्ताह" });
     expect(codes([inHindi(tremor), inHindi(nausea)], hindi)).toEqual([]);
     // A figure the wording does not show, in any script.
-    expect(codes([inHindi(tremor), inHindi(nausea)], hindi.replace("१२० में से ३०", "१२० में से ३१")))
+    expect(codes([inHindi(tremor), inHindi(nausea)], hindi.replace("२४० में से ६०", "२४० में से ६१")))
       .toEqual(["numbers[0] group_figure_not_shown"]);
-    expect(atlasNumbersProblems([tremor, nausea], WORDING.replace("18 of 120 on placebo", "some on placebo"))[0]?.message)
-      .toContain("for placebo: the wording contains neither its events and total (18 and 120) nor its rate (15%)");
+    expect(atlasNumbersProblems([tremor, nausea], WORDING.replace("36 of 240 on placebo", "some on placebo"))[0]?.message)
+      .toContain("for placebo: the wording contains neither its events and total (36 and 240) nor its rate (15%)");
   });
 
   it("shows a number needed to treat or harm with its follow-up", () => {
@@ -266,8 +266,8 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
   });
 
   it("compares the follow-up in digits of any script (review finding 9)", () => {
-    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٣٠ من ١٢٠ بالغًا تناولوا زنتارين و١٨ من ١٢٠ " +
-      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ١٢ من ١٢٠ و٦ من ١٢٠، أي أن عدد من يلزم " +
+    const arabic = "على مدى ١٢ أسبوعًا، انخفض الرعاش إلى النصف لدى ٦٠ من ٢٤٠ بالغًا تناولوا زنتارين و٣٦ من ٢٤٠ " +
+      "تناولوا دواءً وهميًا، أي أن عدد من يلزم علاجهم ١٠؛ وأصاب الغثيان ٢٤ من ٢٤٠ و١٢ من ٢٤٠، أي أن عدد من يلزم " +
       "لحدوث ضرر ٢٠.";
     // Declared in ASCII digits and shown in Arabic-Indic ones, or declared in Arabic-Indic and Devanagari digits and
     // shown in ASCII ones; the harm beside the number needed to treat is then over the same follow-up too.
@@ -337,15 +337,39 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
       .toEqual(["numbers[0] group_figure_not_shown"]);
   });
 
+  it("refuses a number needed to treat or harm when the difference is not clear (owner answer 225a)", () => {
+    // 30 of 120 against 18 of 120: Newcombe's 95% range runs from -0.2 to 20 points, which includes no difference.
+    const unclear = { ...tremor, option_events: 30, option_total: 120, comparator_events: 18, comparator_total: 120 };
+    const wording = "Over 12 weeks, the tremor score halved in 30 of 120 adults on zentarine and 18 of 120 on placebo, " +
+      "a number needed to treat of 10.";
+    expect(codes([unclear], wording)).toEqual(["numbers[0] difference_not_clear"]);
+    expect(atlasNumbersProblems([unclear], wording)[0]!.message).toBe("numbers[0] gives nnt, but the difference between " +
+      "the groups is not clear: its 95% range runs from -0.2 to 20 percentage points, which includes no difference. " +
+      "Leave nnt out and say there was no clear difference.");
+    // Left out, the figure stands, and no harms are asked for beside it.
+    expect(codes([{ ...unclear, nnt: undefined }], wording.replace(", a number needed to treat of 10", ""))).toEqual([]);
+    // Newcombe's published examples (Statistics in Medicine 1998, method 10).
+    for (const [counts, lower, upper] of [
+      [[56, 70, 48, 80], 0.0524, 0.3339], [[9, 10, 3, 10], 0.1705, 0.809], [[5, 56, 0, 29], -0.0381, 0.1926],
+      [[0, 10, 0, 20], -0.1611, 0.2775], [[10, 10, 0, 20], 0.6791, 1],
+    ] as const) {
+      const [optionEvents, optionTotal, comparatorEvents, comparatorTotal] = counts;
+      const range = differenceRange({ option: "a", option_events: optionEvents, option_total: optionTotal,
+        comparator: "b", comparator_events: comparatorEvents, comparator_total: comparatorTotal });
+      expect([Number(range.lower.toFixed(4)), Number(range.upper.toFixed(4))], counts.join("/")).toEqual([lower, upper]);
+      expect(range.clear).toBe(lower > 0 || upper < 0);
+    }
+  });
+
   it("puts beside a number needed to treat the harms over the same follow-up, or that none were found", () => {
     expect(codes([tremor])).toEqual(["numbers[0] harms_missing"]);
     expect(codes([tremor, { ...nausea, follow_up: "6 weeks", nnh: undefined }])).toEqual(["numbers[0] harms_missing"]);
     // The harm entry is matched by its follow-up, folded as the wording is.
     expect(codes([tremor, { ...nausea, follow_up: "12 Weeks" }])).toEqual([]);
     // A harm entry with no number needed to harm still counts: its rates may be the same.
-    const sameRates = { ...nausea, option_events: 6, nnh: undefined };
-    expect(codes([tremor, sameRates], WORDING.replace("12 of 120 and 6 of 120, a number needed to harm of 20",
-      "6 of 120 and 6 of 120"))).toEqual([]);
+    const sameRates = { ...nausea, option_events: 12, nnh: undefined };
+    expect(codes([tremor, sameRates], WORDING.replace("24 of 240 and 12 of 240, a number needed to harm of 20",
+      "12 of 240 and 12 of 240"))).toEqual([]);
     expect(codes([{ ...tremor, harms_none_found: true }],
       WORDING.replace(/; nausea.*$/u, "; no harms were found."))).toEqual([]);
     expect(codes([tremor, { ...nausea, harms_none_found: true }])).toEqual(["numbers[1] harms_none_found_without_nnt"]);
@@ -357,12 +381,12 @@ describe("numbers against the wording (owner answers 149a and 153b)", () => {
     const relapses = "Over 12 weeks, 10 of 100 on zentarine relapsed against 20 of 100 on placebo, a number needed " +
       "to treat of 10.";
     expect(codes([relapse], relapses)).toEqual(["numbers[0] harms_missing"]);
-    expect(codes([relapse, nausea], `${relapses} Nausea affected 12 of 120 and 6 of 120, a number needed to harm of ` +
+    expect(codes([relapse, nausea], `${relapses} Nausea affected 24 of 240 and 12 of 240, a number needed to harm of ` +
       "20.")).toEqual([]);
     // A number whose counts make it one needed to harm is not asked for harms: its own problem changes it first.
-    const worse = { ...tremor, option_events: 18, comparator_events: 30 };
-    expect(codes([worse], WORDING.replace("30 of 120 adults on zentarine and 18 of 120",
-      "18 of 120 adults on zentarine and 30 of 120"))).toEqual(["numbers[0] wrong_direction"]);
+    const worse = { ...tremor, option_events: 36, comparator_events: 60 };
+    expect(codes([worse], WORDING.replace("60 of 240 adults on zentarine and 36 of 240",
+      "36 of 240 adults on zentarine and 60 of 240"))).toEqual(["numbers[0] wrong_direction"]);
   });
 });
 
