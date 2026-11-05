@@ -65,6 +65,8 @@ describe("ClinicalTrials.gov v2", () => {
       }]
     });
     expect(result.data.every(({ nct_id }) => /^NCT\d{8}$/.test(nct_id))).toBe(true);
+    // What a record registered is kept for one record fetched, never for a search's (the study map, owner answer 249a).
+    expect(result.data[0]).not.toHaveProperty("registration");
     expect(requests.map(({ pathname }) => pathname)).toEqual([
       "/api/v2/studies",
       "/api/v2/version"
@@ -74,6 +76,46 @@ describe("ClinicalTrials.gov v2", () => {
       pageSize: "1",
       pageToken: "previous+provider/token"
     });
+  });
+
+  // The study map (owner answer 249a) checks a registration's dates and the papers it lists; the AI reads its outcomes.
+  it("keeps what one fetched record registered, without its sites' contacts", async () => {
+    const [studyBody, versionBody] = await Promise.all([
+      fixture("study-NCT01234567.json"),
+      fixture("version.json")
+    ]);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      return new Response(request.pathname === "/api/v2/version" ? versionBody : studyBody, { status: 200 });
+    }));
+
+    const result = await fetchClinicalTrial("NCT01234567");
+
+    expect(result.access_status).toBe("api_visible_complete");
+    expect(result.data).toMatchObject({ nct_id: "NCT01234567", start_date: "2025-01-15",
+      references: [{ pmid: "40123456", type: "DERIVED", citation: "Recorded source citation" }] });
+    expect(result.data.registration).toEqual({
+      first_submitted: "2024-12-02",
+      first_posted: "2024-12-09",
+      start_date_type: "ACTUAL",
+      primary_outcomes: [{ measure: "Change in the example score", time_frame: "12 weeks",
+        description: "The example score from baseline to week 12" }],
+      // An outcome without its measure is left out, not the record.
+      secondary_outcomes: [{ measure: "Participants with an adverse event", time_frame: "12 weeks" }],
+      secondary_ids: [{ id: "RRI-EX-001", type: "OTHER", domain: "Recorded Research Institute" }],
+      sites: {
+        count: 2,
+        countries: ["Exampleland", "Sampleland"],
+        listed: [
+          { facility: "Example University Hospital", city: "Exampleton", country: "Exampleland" },
+          { facility: "Recorded Research Clinic", city: "Sampleville", country: "Sampleland" }
+        ]
+      }
+    });
+    const returned = JSON.stringify(result);
+    for (const contact of ["Site Contact Person", "000-0000", "site.contact@example.org"]) {
+      expect(returned).not.toContain(contact);
+    }
   });
 
   it("returns an explicit not_found envelope for a 404 study response", async () => {

@@ -52,6 +52,10 @@ import {
   quoteShown, sourceLineCheckSchema, sourceLineNotes,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
+import {
+  checkStudyMap, cleanStudyMap, studyMapCheckSchema,
+  type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
+} from "./study-map.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -1565,6 +1569,11 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   source_lines: z.array(sourceLineCheckSchema).optional()
     .describe("For a passing check with source_lines, in their order: whether each quote is in the text AskRigor " +
       "fetched, and where. Only a line with both found in a paper AskRigor fetched may be marked as found."),
+  // Owner answer 249a, runtime only (owner answer 189a): what the check of the study map found.
+  study_map: studyMapCheckSchema.optional()
+    .describe("For a passing check with study_map: each study's receipt, text, group of people and registry numbers, " +
+      "each link's passage, and for each claim whether the answer shows it, the groups it counts and those AskRigor " +
+      "counts, and its passages. What it finds are notes; none of it holds the answer back."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1586,6 +1595,8 @@ export interface FinalizeResearchOptions {
   meaningJudgment?: MeaningJudgment;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
+  /** The study map's texts and registry records as looked up after this check's earlier pass (owner answer 249a). */
+  studyMapLookup?: StudyMapLookup;
   /** Told whether this research read YouTube comments, for a kept copy of a card that wasn't saved to leave them out. */
   onCommentsRead?: (read: boolean) => void;
   now?: () => Date;
@@ -3703,6 +3714,40 @@ export function finalizeResearch(
       shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
   }) : [];
   for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
+  // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
+  // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
+  // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
+  const studyMap = input.study_map === undefined ? undefined : cleanStudyMap(input.study_map);
+  const studyMapRequests: StudyMapRequest[] = (studyMap?.map.studies ?? []).map(({ source }) => {
+    const links = sourceLinks(source);
+    const receipts = paperReceipts(links);
+    return {
+      tied: receipts.length > 0,
+      ids: links.linkIds,
+      handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
+        SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
+      pmids: [...new Set([...(isPmid(links.id) ? [links.id] : []),
+        ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
+    };
+  });
+  let studyMapCheck: StudyMapCheck | undefined;
+  if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup !== undefined) {
+    const showing = quoteLocator(displayedProse(draft));
+    const checked = checkStudyMap(studyMap.map, options.studyMapLookup, {
+      requests: studyMapRequests,
+      // The identical-results test of the key studies' audited figures, for any study of the map.
+      figures: studyMapRequests.map(({ ids }) =>
+        ids.map((id) => studyFigures.get(id)?.values).find((values) => values !== undefined) ?? []),
+      shown: (quote) => showing(quote).length > 0,
+      absenceClaims: absenceClaims.flatMap(({ quote, studies }, index) => {
+        const resting = new Set((studies ?? []).map(normalizeIdentifier)).size;
+        return resting >= 2 ? [{ index, quote, studies: resting }] : [];
+      }),
+      sameQuote
+    });
+    studyMapCheck = checked.check;
+    for (const note of [...studyMap.notes, ...checked.notes]) if (!notes.includes(note)) notes.push(note);
+  }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
@@ -3828,6 +3873,7 @@ export function finalizeResearch(
     if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
   }
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
+  if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
   // None of them holds back the answer.
@@ -3891,6 +3937,9 @@ export function finalizeResearch(
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
   }
+  if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup === undefined) {
+    STUDY_MAP_REQUESTS.set(parsedOutput, { map: studyMap.map, requests: studyMapRequests });
+  }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
     MEANING_JUDGE_SOURCES.set(parsedOutput, {
@@ -3933,6 +3982,14 @@ const SOURCE_LINE_REQUESTS = new WeakMap<FinalizeResearchOutput, SourceLineReque
 /** Where this result's source lines may be looked up: a passing check whose lines haven't been yet. */
 export function sourceLineRequestsOf(result: FinalizeResearchOutput): readonly SourceLineRequest[] | undefined {
   return SOURCE_LINE_REQUESTS.get(result);
+}
+
+// What a passing check asks to have looked up of its study map, by the result it returned (owner answer 249a).
+const STUDY_MAP_REQUESTS = new WeakMap<FinalizeResearchOutput, StudyMapRequests>();
+
+/** The study map of a passing check that hasn't been looked up yet, as checked, and where each study's text may be. */
+export function studyMapRequestsOf(result: FinalizeResearchOutput): StudyMapRequests | undefined {
+  return STUDY_MAP_REQUESTS.get(result);
 }
 
 // Why the meaning judge did not run, as its note says it.

@@ -11,8 +11,11 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import {
-  lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+  lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
+import {
+  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
+} from "./study-map.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -262,6 +265,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
+  studyMapRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -605,6 +609,34 @@ const clinicalTrialEnvelopeSchema = z.object({
   error: errorSchema.optional(),
   data: clinicalTrialRecordSchema.or(z.object({}).strict())
 }).strict();
+// Owner answer 249a, runtime only (owner answer 189a): what one fetched record registered, for comparing a trial's
+// paper with its registration; the study map's check fetches the record again itself.
+const clinicalTrialOutcomeSchema = z.object({
+  measure: z.string(),
+  time_frame: z.string().optional(),
+  description: z.string().optional()
+}).strict();
+const CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE = {
+  registration: z.object({
+    first_submitted: z.string().optional().describe("When the record was first submitted to ClinicalTrials.gov."),
+    first_posted: z.string().optional().describe("When ClinicalTrials.gov first posted it."),
+    start_date_type: z.string().optional().describe("Whether data.start_date is the actual start or an estimate."),
+    primary_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    secondary_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    other_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    secondary_ids: z.array(z.object({
+      id: z.string(), type: z.string().optional(), domain: z.string().optional()
+    }).strict()).optional().describe("The trial's other identifiers, such as another registry's number."),
+    sites: z.object({
+      count: z.number().int().nonnegative(),
+      countries: z.array(z.string()),
+      listed: z.array(z.object({
+        facility: z.string().optional(), city: z.string().optional(), country: z.string().optional()
+      }).strict())
+    }).strict().optional().describe("How many sites it lists, their countries and the first 25, without contacts.")
+  }).strict().optional()
+    .describe("What the record registered, as it stands now: ClinicalTrials.gov serves no earlier version here.")
+};
 const crossrefCandidateSchema = z.object({
   doi: z.string(),
   title: z.string().optional(),
@@ -829,6 +861,11 @@ export interface RegisterToolsOptions {
   meaningJudge?: MeaningJudge;
   /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
   sourceLineTexts?: SourceLineTexts;
+  /**
+   * Where a study map is looked up (owner answer 249a): texts as for source lines, and ClinicalTrials.gov records;
+   * AskRigor's held full texts, PubMed and ClinicalTrials.gov otherwise.
+   */
+  studyMapTexts?: StudyMapTexts;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -1406,9 +1443,12 @@ function defineResearchOperations(
     async ({ nct_id }) => {
       try {
         const result = await fetchClinicalTrial(nct_id);
+        // Owner answer 249a, runtime only (owner answer 189a): what the record registered, beside the published data.
+        const { registration, ...trial } = result.data;
+        const content = { ...result, data: trial, ...(registration === undefined ? {} : { registration }) };
         return clinicalTrialsToolResult(
           `ClinicalTrials.gov study ${nct_id} retrieval finished with access status ${result.access_status}.`,
-          result
+          content
         );
       } catch (error) {
         return clinicalTrialsToolResult(
@@ -2469,14 +2509,34 @@ function defineResearchOperations(
       let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
-      // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
+      // no model. Owner answer 249a: so is its study map, with its studies' ClinicalTrials.gov records, under the same
+      // deadline. Whatever happens, the check stands: what couldn't be looked up says so in a note.
       const lookups = sourceLineRequestsOf(result);
-      if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
-        const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
+      const mapRequests = studyMapRequestsOf(result);
+      const sourceLines = lookups === undefined ? undefined : checkedInput?.source_lines;
+      if (sourceLines !== undefined || mapRequests !== undefined) {
+        const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
+        const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
+        // One paper's text is read once when both look in the same texts.
+        const lineCache = quoteCache();
+        const mapCache = mapTexts.fullText === lineTexts.fullText && mapTexts.abstract === lineTexts.abstract
+          ? lineCache : quoteCache();
+        const late = (lookups ?? []).map(({ line }) => ({ source: sourceLines?.[line]?.source ?? "",
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
-        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
-          .catch(() => late);
-        gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
+        const [sourceLineLookups, studyMapLookup] = await Promise.all([
+          sourceLines === undefined || lookups === undefined ? undefined : withinDeadline(
+            lookUpSourceLines(sourceLines, lookups, lineTexts, lineCache).catch(() => late),
+            SOURCE_LINE_DEADLINE_MILLISECONDS, late),
+          mapRequests === undefined ? undefined : withinDeadline(
+            lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts, mapCache)
+              .catch(() => lateStudyMapLookup(mapRequests.map)),
+            SOURCE_LINE_DEADLINE_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
+        ]);
+        gateOptions = {
+          ...gateOptions,
+          ...(sourceLineLookups === undefined ? {} : { sourceLineLookups }),
+          ...(studyMapLookup === undefined ? {} : { studyMapLookup })
+        };
         result = finalizeResearch(input, gateOptions);
       }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
@@ -2613,6 +2673,9 @@ function defineResearchOperations(
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
               "when the answer is not in English.") +
+          // Owner answer 249a: the study map's shape, only where an answer combines studies, not in every result.
+          (checkedInput === undefined || checkedInput.study_map !== undefined || checkedInput.key_sources.length < 2
+            ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -3551,6 +3614,16 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
     return abstract === undefined || abstract === "" ? undefined : { kind: "abstract", blocks: [{ text: abstract }] };
   }
 };
+// Owner answer 249a: a study map's texts are the source lines', and its registry records are fetched again at check
+// time, by NCT number alone.
+const AskRigorStudyMapTexts: StudyMapTexts = {
+  ...AskRigorSourceLineTexts,
+  async registry(nct) {
+    const result = await fetchClinicalTrial(nct);
+    if (result.access_status === "not_found") return undefined;
+    return result.error === undefined && result.data.nct_id === nct ? registryRecordOf(result.data) : null;
+  }
+};
 
 function hasFailedFullTextSource(body: unknown): boolean {
   return hasFailedFullTextAcquisition(body as Parameters<typeof hasFailedFullTextAcquisition>[0]);
@@ -3720,6 +3793,7 @@ function collectResearchOperations(
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+        : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);

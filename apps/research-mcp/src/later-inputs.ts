@@ -8,6 +8,7 @@ import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
+import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 
 /**
@@ -35,7 +36,13 @@ const LATER_INPUT_SHAPES = Object.freeze({
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +
         "conclusion, each copied whole and exactly, and the strongest thing against the claim. AskRigor looks both " +
-        "quotes up in the text it fetched; a quote not found is a note, and the panel says so.")
+        "quotes up in the text it fetched; a quote not found is a note, and the panel says so."),
+    // Owner answer 249a: the study map, for a conclusion that combines studies.
+    study_map: studyMapSchema.optional()
+      .describe("Optional, when a conclusion combines studies: the studies, the group of people behind each, the " +
+        "links between them and, for each claim, how many independent groups of people it counts, with each study's " +
+        "passage it rests on. AskRigor checks what is exact against the research receipts, the texts it fetched and " +
+        "ClinicalTrials.gov; what it finds are notes.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

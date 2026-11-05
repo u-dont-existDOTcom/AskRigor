@@ -69,7 +69,8 @@ export interface SourceLineRequest extends QuoteSource {
 
 export interface SourceLineDocument {
   kind: TextKind;
-  blocks: ReadonlyArray<{ text: string; section?: string | undefined }>;
+  /** A block of a full text's abstract says so (the study map reads registry numbers there). */
+  blocks: ReadonlyArray<{ text: string; section?: string | undefined; abstract?: boolean | undefined }>;
 }
 
 export interface SourceLineTexts {
@@ -83,9 +84,10 @@ export interface SourceLineTexts {
 export function sourceLineDocument(index: AuditableDocumentIndex): SourceLineDocument {
   return {
     kind: index.source.provider === "client_supplied" ? "search_copy" : "full_text",
-    blocks: index.blocks.map(({ text, section_path: path }) => ({
+    blocks: index.blocks.map(({ text, section_path: path, kind }) => ({
       text,
-      ...(path.length === 0 ? {} : { section: path[path.length - 1]!.slice(0, SOURCE_LINE_LIMITS.section) })
+      ...(path.length === 0 ? {} : { section: path[path.length - 1]!.slice(0, SOURCE_LINE_LIMITS.section) }),
+      ...(kind === "abstract" ? { abstract: true } : {})
     }))
   };
 }
