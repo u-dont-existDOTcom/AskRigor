@@ -12,6 +12,16 @@ owner's; the release needs the owner's explicit yes, as always.
   `PopulationAverageVsSubgroup`, but that rule sits in `PublicHealthInterventionAudit`, which a trial question doesn't
   load; the owner was told of the move. Edit record `tests/fixtures/protocol-edits/2026-11-05-response-spread-hrp.json`,
   test `tests/response-spread-protocol-2026-11-05.test.ts`.
+- **Owner answers 249a, 250a and 251a: HRP 20.6.40** (on `claude/next-build-20261105`, draft #414; SHA-256
+  `afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1`). Besides the study map and single leads, 251a's two
+  rules go in the same version, as its option a said, right after `ContextExtraction` in
+  `CrowdSourcedAndClinicalSignalAudit`, outside the core: `ReportQualityBesideCounts` (how good people's reports are,
+  beside how many said an option worked) and `SharedMechanismSearch` (each way an option could work, searched in studies
+  and people's reports, with the options that work the same way). Edit record
+  `tests/fixtures/protocol-edits/2026-11-05-study-map-single-leads-hrp.json` (five edits), test
+  `tests/study-map-single-leads-protocol-2026-11-05.test.ts`. The owner's consilience point with 252a (a forum signal
+  stands without studies, and a study contradicts it only if it measured the way the reports did) is already HRP's
+  `FormalAbsenceCannotEraseCommunitySignal` and `MatchedContradictionAndOutcomeAlignment`, so it needed no edit.
 
 ## To build
 

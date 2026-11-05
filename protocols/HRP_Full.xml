@@ -52,12 +52,14 @@
 
  <RevisionHistory>
   <Revision version="20.6.40" priority="High">
-   Owner answers 249a and 250a of 5 November 2026, outside the core, which is unchanged: StudyMapForCombinedEvidence,
-   after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that combines them as a small map in
-   finalize_research's later_inputs.study_map, counting groups of people, not papers; and
+   Owner answers 249a, 250a and 251a of 5 November 2026, outside the core, which is unchanged:
+   StudyMapForCombinedEvidence, after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that combines
+   them as a small map in finalize_research's later_inputs.study_map, counting groups of people, not papers;
    CommunityToFormalHypothesisTransfer counts one report of an option the answer doesn't yet cover, from someone who
    tried it, cheap and low-risk to try, or an option a study or guideline the research read lists among its
-   interventions, as high-value: worth one study search.
+   interventions, as high-value: worth one study search; and, after ContextExtraction, ReportQualityBesideCounts says
+   how good people's reports are beside how many said an option worked, and SharedMechanismSearch searches each way an
+   option could work, in studies and in people's reports, with the options that work the same way.
   </Revision>
   <Revision version="20.6.39" priority="High">
    Owner answer 244a of 5 November 2026, from the owner's reading of the didgeridoo trial (some people improved much,
@@ -4482,6 +4484,20 @@
    after concurrent standard care from changes temporally attributable to the intervention under review. For a brief
    symptom, record when it began and whether it ended without treatment, and keep a change in the target symptom apart
    from a change in a symptom that comes with it.
+  </Rule>
+
+  <Rule name="ReportQualityBesideCounts" priority="High">
+   Beside how many people said an option worked, say how good their reports are: how many gave the details
+   ContextExtraction lists, how many measured the change, and how many are bare one-liners. When the only plausible way
+   an option works is expectation, such as soap under the pillow, say so, after naming any other way it could work, such
+   as its scent.
+  </Rule>
+
+  <Rule name="SharedMechanismSearch" priority="High">
+   For an option the research finds, name the ways it could work, and search each in studies and in people's reports,
+   with the other options that work the same way: for the didgeridoo, the muscle tone of the upper airway, which mouth
+   and throat exercises and singing also train, and humming, which raises the nitric oxide in the nose. A shared
+   mechanism says what to search next; it never stands in for the option's own results (MechanismIsNotOutcome).
   </Rule>
 
   <Rule name="DoseUnknownReportsCannotDefineThreshold" priority="Critical">

@@ -9,7 +9,7 @@ const FIXTURE = "./fixtures/protocol-edits/2026-11-05-study-map-single-leads-hrp
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 
-// The wording the owner approved (owner answers 249a and 250a of 5 November 2026), independent of the edit record.
+// The wording the owner approved (owner answers 249a, 250a and 251a of 5 November 2026), independent of the edit record.
 const APPROVED = {
   studyMap: "When a conclusion combines studies, or rests on something not found or not shown, keep the " +
     "DuplicateAndDataLineageAudit as a small study map in finalize_research's later_inputs.study_map, from what the " +
@@ -24,12 +24,23 @@ const APPROVED = {
     "it, and the option is cheap and low-risk to try: search the studies for it once before the answer is final. So " +
     "is an option that a study or guideline the research read lists among its interventions. Say what each such " +
     "search found, including when it found nothing.",
-  revision: "Owner answers 249a and 250a of 5 November 2026, outside the core, which is unchanged: " +
+  reportQuality: "Beside how many people said an option worked, say how good their reports are: how many gave the " +
+    "details ContextExtraction lists, how many measured the change, and how many are bare one-liners. When the only " +
+    "plausible way an option works is expectation, such as soap under the pillow, say so, after naming any other way it " +
+    "could work, such as its scent.",
+  sharedMechanism: "For an option the research finds, name the ways it could work, and search each in studies and in " +
+    "people's reports, with the other options that work the same way: for the didgeridoo, the muscle tone of the upper " +
+    "airway, which mouth and throat exercises and singing also train, and humming, which raises the nitric oxide in the " +
+    "nose. A shared mechanism says what to search next; it never stands in for the option's own results " +
+    "(MechanismIsNotOutcome).",
+  revision: "Owner answers 249a, 250a and 251a of 5 November 2026, outside the core, which is unchanged: " +
     "StudyMapForCombinedEvidence, after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that " +
     "combines them as a small map in finalize_research's later_inputs.study_map, counting groups of people, not " +
-    "papers; and CommunityToFormalHypothesisTransfer counts one report of an option the answer doesn't yet cover, " +
-    "from someone who tried it, cheap and low-risk to try, or an option a study or guideline the research read lists " +
-    "among its interventions, as high-value: worth one study search.",
+    "papers; CommunityToFormalHypothesisTransfer counts one report of an option the answer doesn't yet cover, from " +
+    "someone who tried it, cheap and low-risk to try, or an option a study or guideline the research read lists among " +
+    "its interventions, as high-value: worth one study search; and, after ContextExtraction, ReportQualityBesideCounts " +
+    "says how good people's reports are beside how many said an option worked, and SharedMechanismSearch searches each " +
+    "way an option could work, in studies and in people's reports, with the options that work the same way.",
 } as const;
 // CommunityToFormalHypothesisTransfer's last sentence before owner answer 250a.
 const COMMUNITY_LAST = "Say in the answer which community leads changed the study search, and what the studies then " +
@@ -48,7 +59,24 @@ function wrapped(body: string): void {
   }
 }
 
-describe("owner answers 249a and 250a: HRP 20.6.40", () => {
+describe("owner answers 249a, 250a and 251a: HRP 20.6.40", () => {
+  it("says how good people's reports are, and searches each way an option could work, right after ContextExtraction", async () => {
+    const text = await loadProtocol("hrp");
+    for (const [name, wording] of [["ReportQualityBesideCounts", APPROVED.reportQuality],
+      ["SharedMechanismSearch", APPROVED.sharedMechanism]] as const) {
+      const rule = element(text, name);
+      expect(rule.section).toBe("CrowdSourcedAndClinicalSignalAudit");
+      expect(normalize(rule.body)).toBe(`<Rule name="${name}" priority="High"> ${wording} </Rule>`);
+      wrapped(rule.body);
+      expect(normalize(text).split(wording)).toHaveLength(2);
+    }
+    const names = [...text.matchAll(/<Rule name="([^"]+)"/gu)].map((match) => match[1]);
+    const at = names.indexOf("ReportQualityBesideCounts");
+    expect(names.slice(at - 1, at + 3)).toEqual([
+      "ContextExtraction", "ReportQualityBesideCounts", "SharedMechanismSearch", "DoseUnknownReportsCannotDefineThreshold",
+    ]);
+  });
+
   it("keeps the studies behind a combined conclusion as a study map, right after DuplicateAndDataLineageAudit", async () => {
     const text = await loadProtocol("hrp");
     const rule = element(text, "StudyMapForCombinedEvidence");
@@ -103,8 +131,10 @@ describe("owner answers 249a and 250a: HRP 20.6.40", () => {
     expect(hrp.from.version).toBe("20.6.39");
     expect(prior).toContain('version="20.6.39" revisionDate="2026-11-05"');
     expect(prior).not.toContain("StudyMapForCombinedEvidence");
+    expect(prior).not.toContain("ReportQualityBesideCounts");
+    expect(prior).not.toContain("SharedMechanismSearch");
     expect(normalize(prior)).not.toContain(APPROVED.singleLeads);
-    expect(hrp.edits).toHaveLength(4);
+    expect(hrp.edits).toHaveLength(5);
     expect(hrp.edits[0]).toEqual(['version="20.6.39" revisionDate="2026-11-05"', 'version="20.6.40" revisionDate="2026-11-05"']);
     expect(hrp.edits.reduce((value, [before, after]) => value.replace(before, () => after), prior)).toBe(text);
     expect(await undoResponseSpreadHrp(text)).toBe(await undoResponseSpreadHrp(prior));
