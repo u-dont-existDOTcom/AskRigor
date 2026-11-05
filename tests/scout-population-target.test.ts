@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isPopulationLevelResearchTarget, isPublicLeadTerm, RESEARCH_TARGET_SCREEN_PARTS, researchTargetScreenFailures,
-  researchTargetScreenRefusal
+  isDeidentifiedResearchTarget, isPopulationLevelResearchTarget, isPublicLeadTerm, RESEARCH_TARGET_SCREEN_PARTS,
+  researchTargetScreenFailures, researchTargetScreenRefusal
 } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
 import { CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET } from "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 
@@ -94,6 +94,17 @@ describe("population-level scout targets", () => {
     expect(researchTargetScreenRefusal(target)).toBe(
       `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]} (matched ${JSON.stringify(fragment)}).`
     );
+  });
+
+  it("reads quoted first-person phrases only for a forum query, never for a scout target", () => {
+    const target = 'Adults who say "I can\'t sleep" after shift work';
+    expect(researchTargetScreenFailures(target)).toEqual(["first_person"]);
+    expect(isDeidentifiedResearchTarget(target)).toBe(false);
+    expect(isDeidentifiedResearchTarget(target, { quotedFirstPerson: true })).toBe(true);
+    expect(isDeidentifiedResearchTarget('"copper(I)" and my hip', { quotedFirstPerson: true })).toBe(false);
+    expect(researchTargetScreenRefusal('"copper(I)" and my hip', { quotedFirstPerson: true })).toBe(
+      `This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS.first_person} outside double ` +
+        'quotes (matched "my").');
   });
 
   it("names a secret or contact detail without quoting it", () => {

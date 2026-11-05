@@ -239,6 +239,36 @@ describe("forum tools", () => {
     expect(search).not.toHaveBeenCalled();
     expect(result.structuredContent).not.toHaveProperty("research_receipt");
   });
+  it.each([
+    ['"copper(I)"', "a term in quotes (l30 on #412's build)"],
+    ['magnesium "makes me sleepy"', "a phrase others write"],
+    ['\u201Cworked for me\u201D tinnitus', "curly quotes"],
+  ])("searches %s: a first-person word inside double quotes is %s", async (query) => {
+    search.mockResolvedValue({ access_state: "searched", threads: [], returned: 0 });
+    const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query } });
+    expect(result.structuredContent).not.toMatchObject({ data: { access_state: "refused" } });
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["copper(I) forms", "I"],
+    ['"copper" for my hip', "my"],
+    ['"worked for me tinnitus', "me"],
+  ])("refuses %s: a first-person word outside a closed pair of quotes", async (query, matched) => {
+    const result = await (await client()).callTool({ name: "search_reddit_threads", arguments: { query } });
+    expect(result.structuredContent).toMatchObject({ data: { access_state: "refused" } });
+    const text = JSON.stringify(result.content);
+    expect(text).toContain(`outside double quotes (matched ${JSON.stringify(JSON.stringify(matched)).slice(1, -1)})`);
+    expect(text).toContain("A first-person word may stand only inside double quotes");
+    expect(search).not.toHaveBeenCalled();
+  });
+  it("still refuses contact details inside quotes", async () => {
+    const result = await (await client()).callTool({ name: "search_reddit_threads",
+      arguments: { query: '"write to me at a@b.com"' } });
+    expect(result.structuredContent).toMatchObject({ data: { access_state: "refused" } });
+    expect(JSON.stringify(result.content)).toContain("(not quoted)");
+    expect(JSON.stringify(result.content)).not.toContain("a@b.com");
+    expect(search).not.toHaveBeenCalled();
+  });
   it.each(["robots_disallowed", "blocked", "needs_a_browser", "not_found", "unavailable"])("does not issue a receipt for %s", async (access_state) => {
     page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state });
     const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/1" } });
