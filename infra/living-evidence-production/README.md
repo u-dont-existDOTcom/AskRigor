@@ -829,6 +829,44 @@ change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every
 such reader would share one address hash: install the current packet before
 relying on anonymous reports.
 
+The owner's private page (the owner, 5 November 2026; built, not yet released;
+plan `../../docs/superpowers/plans/2026-11-05-atlas-owner-page.md`):
+`/atlas/account/private`, there only while participation is on, shows the
+signed-in owner the comment maps and links to the owner's pages on GitHub; a
+reader who isn't signed in is asked to sign in, and anyone else signed in gets
+404. The owner is the connector's owner subject (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`,
+already in `runtime.env`): the Atlas checks ID tokens from the same tenant and
+takes their subject as it is, so the owner signing in to the Atlas with that
+same login is recognised with no new setting. If the owner signs in to the
+Atlas with another login, add `ASKRIGOR_ATLAS_OWNER_SUBJECT` with that login's
+exact Auth0 user ID (the tenant's user list shows it); both then count. Its
+release step, by the operator, never with the maps in chat, Git or a receipt:
+
+1. On the host, as root, create `/opt/askrigor/state/private-comment-maps`
+   owned by the service user (UID and GID 1000), mode `0700`.
+2. Copy the owner-pages repository's `askrigor/comment-maps.json` there as
+   `comment-maps.json`, owned by UID and GID 1000, mode `0600` (copy to a
+   temporary name in the same folder, then rename, so a reader never sees half
+   a file). Check it parses as `askrigor.comment-maps.v1` with
+   `npx tsx scripts/render-private-comment-maps.mts <file> <page outside the
+   repository>` on the owner's computer first.
+3. Add to the `research-mcp` service a read-only bind mount of that folder at
+   `/var/lib/askrigor-private-comment-maps`, and to `runtime.env`
+   `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE=/var/lib/askrigor-private-comment-maps/comment-maps.json`;
+   recreate `research-mcp` with both Compose files.
+4. Check: `/atlas/account/private` signed out shows the sign-in prompt and
+   `X-Robots-Tag: noindex, nofollow`; signed in as another account, 404; signed
+   in as the owner, the maps and the three GitHub links, `Cache-Control:
+   private, no-store` and `Referrer-Policy: no-referrer`, and the header's "Your
+   private pages" link on every page. A public page must still hold no YouTube
+   text.
+
+To update the maps, repeat step 2: the page reads the file for each request. A
+missing file shows "No comment maps are installed", one that doesn't parse
+"can't be read". Rollback: remove the line and the mount and recreate
+`research-mcp`; delete the folder only on the owner's word. An image rollback
+needs no step: an earlier image has no such route and ignores both settings.
+
 Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
 `research-mcp`; the forms, the sign-in link and the routes go, and the pages
 show no votes or comments, while the rows stay in the database unread. An image

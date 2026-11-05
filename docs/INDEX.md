@@ -156,6 +156,9 @@ complete XML protocol.
   answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
   AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
   practitioner scorecard.
+- `superpowers/plans/2026-11-05-atlas-owner-page.md`: the owner's private page on the Atlas (`/atlas/account/private`,
+  the owner, 5 Nov: "i don't see my private pages"): the comment maps read from a file on the server, with their video
+  links, and links to the owner's pages on GitHub, for the signed-in owner alone.
 - `superpowers/plans/2026-11-05-atlas-research-behind.md`: "The research behind it" and "What people report" on each
   finding page (owner answer 252a): the papers' own sentences found word for word, how each source was read, the
   strongest thing against it, which study each figure comes from, and the forum signal with its counts, report quality,
