@@ -171,6 +171,9 @@ complete XML protocol.
 - `superpowers/plans/2026-11-05-next-build.md`: the build after #412: HRP 20.6.39 (owner answer 244a, the spread of
   individual results in a trial); then the YouTube scout's budget and failures, figures as images, the features on the
   account page, two final-check faults from the CPAP test, and the meaning judge's revision.
+- `superpowers/plans/2026-11-05-study-map.md`: the study map (UDA item of 31 Oct, owner request): a small map of the
+  studies behind a conclusion that combines them, checked only where the check is exact, as notes; waits for the
+  owner's yes to its HRP wording (question 249).
 - `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
   Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
   saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
