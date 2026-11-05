@@ -1,10 +1,11 @@
 import { jwtVerify, type JWTVerifyGetKey } from "jose";
+import { researchAccountKeyForSubject } from "@askrigor/evidence-repository";
 
 import {
   type AtlasParticipationSettings,
   type AtlasSignInState,
   newSignInState,
-  participantKeyFor,
+  participantKeyForAccount,
   pkceChallenge,
 } from "./participation.js";
 
@@ -14,7 +15,8 @@ import {
  * the same Auth0 tenant, as a regular web application with the authorization code flow and PKCE. Only the openid scope
  * is asked for, so no email address or profile claim is ever requested. The callback exchanges the code with the
  * client secret and the PKCE verifier, verifies the ID token against the tenant's keys (issuer, audience, nonce,
- * expiry), and derives from its subject the participant key; nothing else of the token is kept.
+ * expiry), and derives from its subject the research account key the connector derives and, from that, the
+ * participant key; nothing else of the token is kept, and the account key goes only into the sealed session cookie.
  */
 
 export interface AtlasSignInSettings {
@@ -87,7 +89,8 @@ const CODE = /^[A-Za-z0-9._~-]{1,1024}$/u;
 
 /**
  * The end of a sign-in: the callback's code and state against the sign-in cookie's, the code exchanged for an ID token
- * with the client secret and the PKCE verifier, the token verified, and the participant key derived from its subject.
+ * with the client secret and the PKCE verifier, the token verified, and the account key and participant key derived
+ * from its subject.
  */
 export async function finishSignIn(input: {
   settings: AtlasParticipationSettings;
@@ -97,7 +100,7 @@ export async function finishSignIn(input: {
   /** The sign-in cookie's state; undefined when it is missing, altered or expired. */
   state: AtlasSignInState | undefined;
   now: Date;
-}): Promise<{ participantKey: string; returnPath: string }> {
+}): Promise<{ participantKey: string; accountKey: string; returnPath: string }> {
   const { settings, signIn, query, state } = input;
   if (state === undefined) throw new AtlasSignInError("sign_in_expired");
   if (query.get("state") !== state.state) throw new AtlasSignInError("state_mismatch");
@@ -144,13 +147,13 @@ export async function finishSignIn(input: {
   } catch {
     throw new AtlasSignInError("token_invalid");
   }
-  let participantKey: string;
+  let accountKey: string;
   try {
-    participantKey = participantKeyFor(settings, subject);
+    accountKey = researchAccountKeyForSubject(settings.identitySecret, subject);
   } catch {
     throw new AtlasSignInError("token_invalid");
   }
-  return { participantKey, returnPath: state.returnPath };
+  return { participantKey: participantKeyForAccount(settings, accountKey), accountKey, returnPath: state.returnPath };
 }
 
 /** Auth0's issuer ends with a slash; the tenant's endpoints sit under it. */

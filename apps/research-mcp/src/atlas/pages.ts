@@ -1,6 +1,7 @@
 import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
+import type { AtlasAccountFeatures } from "./account-features.js";
 import { escapeHtml } from "./page-guard.js";
 import {
   NOT_CHECKED_LABEL,
@@ -804,6 +805,33 @@ export function renderAtlasUnavailable(reader?: AtlasPageReader): string {
 export interface AtlasAccountView {
   reader: AtlasPageReader;
   tokens: null | { name: string; signOut: string; signOutEverywhere: string; forget: string };
+  /** The signed-in reader's AskRigor features, or why they are not shown; null or absent shows no section. */
+  features?: AtlasAccountFeatures | null;
+}
+
+/**
+ * The signed-in reader's AskRigor features (owner, 5 Nov 2026): each feature with whether it is on for them, who pays
+ * for it and its limit, as account-features.ts words them; or a line saying why they are not shown.
+ */
+function featuresSection(features: AtlasAccountFeatures, signInHref: string): SafeHtml {
+  return html`<h2 id="features">Your AskRigor features</h2>
+${features.state === "sign-in-again" ? html`<p>To see your AskRigor features here, sign in again.</p>
+<p><a href="${signInHref}">Sign in again</a></p>` : features.state === "unavailable"
+    ? html`<p>AskRigor couldn't read your features just now. Reload the page to try again.</p>`
+    : html`<p>How AskRigor stands for the account you signed in with: whether each feature is on for you, who pays
+for it and its limit. Your AI app uses this same account when you connect it to AskRigor with the same sign-in.
+AskRigor reads these each time you open this page and keeps no copy.</p>
+<ul class="finding-list">
+${features.rows.map((row) => html`<li class="finding feature" id="feature-${row.id}">
+<h3>${row.name}</h3>
+<p class="badge ${row.on ? "badge-on" : "badge-off"}">${row.on ? "On" : "Off"}</p>
+<dl class="facts">
+<dt>For you</dt><dd>${row.forYou}</dd>
+<dt>Who pays</dt><dd>${row.whoPays}</dd>
+<dt>Limit</dt><dd>${row.limit}</dd>
+</dl>
+</li>
+`)}</ul>`}`;
 }
 
 /** Account controls have one home, even before any finding has been published. */
@@ -850,7 +878,8 @@ ${hiddenFields(tokens.forget, ACCOUNT_PATH)}
 <label for="forget-confirm">Delete everything I hold in the Atlas: my votes, my comments and my reports</label></p>
 <button type="submit" class="quiet">Delete them all</button>
 </form>
-</div>`}`,
+</div>
+${view.features ? featuresSection(view.features, view.reader.signInHref) : ""}`}`,
   });
 }
 
@@ -1080,6 +1109,10 @@ p, li, dd { max-width: 72ch; }
 .badge-checked { background: var(--checked-surface); color: var(--checked); }
 .badge-contested { background: var(--contested-surface); color: var(--contested); }
 .badge-lead, .badge-superseded { background: var(--quiet-surface); color: var(--quiet); }
+.badge-on { background: var(--checked-surface); color: var(--checked); }
+.badge-off { background: var(--quiet-surface); color: var(--quiet); }
+.feature h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.feature .facts { margin: 0.75rem 0 0; }
 
 .status {
   margin: 0 0 1.25rem;

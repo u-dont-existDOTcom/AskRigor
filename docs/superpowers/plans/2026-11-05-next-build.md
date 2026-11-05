@@ -35,9 +35,13 @@ owner's; the release needs the owner's explicit yes, as always.
    and axis labels. A new input (sent in `later_inputs`, so the frozen tool lists don't change) returns a named page as
    an image for the AI to read. Test in Claude and in the ChatGPT app before release: whether ChatGPT passes images in
    tool results to its model is not confirmed.
-3. **The account page lists the features in use** (the owner, 5 Nov: "i should be able to see all of the features i'm
-   using on the askrigor accounts page"): `/atlas/account` shows only the Atlas name, comments and deletion. Add each
-   feature, on or off for this account, who pays and its daily cap.
+3. **The account page lists the features in use (built)** (the owner, 5 Nov: "i should be able to see all of the
+   features i'm using on the askrigor accounts page"). `/atlas/account` now shows, to the signed-in reader only, each
+   feature: on or off for them, who pays and its limit, in plain words, read at each view from their research account
+   (through the research access service, on the access role the Atlas already uses: no new grant, migration or tool)
+   and from which server settings are present (never a value). **Privacy change for the owner's sign-off:** the sealed
+   Atlas session cookie now also carries the reader's research account key, so the page can read that one account;
+   before, the sign-in dropped it at once. Sessions sealed before then ask the reader to sign in again to see the list.
 4. **From the 4 Nov CPAP test through this account's connector:** the final check's round counter stayed at 1 over four
    calls; notes asking to cite two leads came back after the answer did.
 5. **The meaning judge (owner answer 221).** Its validation on #394's run (`docs/audits/2026-11-04-meaning-judge-validation.md`)

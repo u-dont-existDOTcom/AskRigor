@@ -1777,9 +1777,11 @@ While it is off, the pages show no participation form or sign-in link and keep n
   PKCE, asking only for `openid`: no email address, name or profile is
   requested. The callback exchanges the code with the application's secret and
   the PKCE verifier, verifies the ID token (signature against the tenant's
-  keys, issuer, audience, nonce and expiry) and keeps nothing of it but the
-  participant key derived from its subject; the token, the subject, the account
-  key and every other claim are dropped at once. Signing out of the Atlas
+  keys, issuer, audience, nonce and expiry) and keeps nothing of it but two
+  keys derived from its subject: the participant key, and the research account
+  key the connector derives, which goes only into the sealed session cookie
+  (below); the token, the subject and every other claim are dropped at once.
+  Signing out of the Atlas
   clears its cookie; the page then offers a plain link that also signs out of
   the tenant's own login in that browser, which the Atlas does not do by itself.
 - **The login cookie** (`__Host-askrigor-atlas-login`, path `/`, 10 minutes,
@@ -1794,15 +1796,21 @@ While it is off, the pages show no participation form or sign-in link and keep n
 - **The session cookie** (`__Host-askrigor-atlas`, path `/`, 30 days,
   HttpOnly, Secure, SameSite=Lax), set only at sign-in: the participant key, a
   random session ID that the forms' tokens are bound to, when the reader signed
-  in, and its expiry, encrypted and authenticated. Signing out clears it; an
+  in, its expiry and, since 5 November 2026, the reader's research account key
+  (the one the connector derives from the same subject), encrypted and
+  authenticated; the reader's browser holds it but cannot read it. A cookie
+  whose account key is not the one its participant key was derived from is read
+  as no session; one sealed before 5 November has no account key, and its
+  account page asks the reader to sign in again to see their features. Signing out clears it; an
   altered or expired one, or a request carrying two of them, is read as no
   session, and the cookie is cleared; changing the session key
   (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs everyone out. A signed-in
   reader's home, changes, topic and finding pages read it for the header and
   are rendered for them with `Cache-Control: private, no-store` and
   `Vary: Cookie`. `/atlas/account` also reads it and is never cached, whether
-  signed in or out; it holds the account controls and links to their own votes
-  and comments. Known action notices also bypass the shared page cache.
+  signed in or out; it holds the account controls, links to their own votes
+  and comments, and lists their AskRigor features (below). Known action notices
+  also bypass the shared page cache.
 - **Ended sessions** (`atlas_session_ends`): "Sign out everywhere", and
   deleting everything one holds, end every session signed in before them, in
   every browser. The server keeps, for each participant who did, a SHA-256 hash
@@ -1817,7 +1825,32 @@ While it is off, the pages show no participation form or sign-in link and keep n
   review names a commenter only by a tag (`U-` and 12 hexadecimal characters of
   a SHA-256 of the key). The same person in the apps and the Atlas is one
   participant, but the Atlas tables never hold their research account's key,
-  and the research tables hold nothing of the Atlas.
+  and the research tables hold nothing of the Atlas; only the reader's own
+  sealed session cookie carries the account key, for the account page's
+  features.
+- **Your AskRigor features** (`/atlas/account`, owner request of 5 November
+  2026): shown only to the signed-in reader, on their own account page, which
+  is never cached. For each AskRigor feature it says whether the feature is on
+  for their account, who pays for it and its limit, in words only. At each view
+  the page reads one research account, by the account key the session carries,
+  through the research access service the connector uses, on the access role
+  the Atlas already uses (`askrigor_research_access`: no new grant, migration or
+  tool): its status, mode and the current notice version, as
+  `manage_research_access` with action inspect reports them, an active
+  account's switches (the plain-answer note, detailed lesson reports and
+  findings-card saving) and whether a paid private entitlement is still active.
+  In memory it compares the key with the dev accounts' references
+  (`ASKRIGOR_DEV_ACCOUNT_KEYS`) and with the owner's account key, derived from
+  the owner subject (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`), only to say whether the
+  reader is a dev account or the owner. It reads which server features are set
+  up (the forum reader, YouTube, Gemini with its no-billing declaration, the
+  meaning judge, the owner library, shared answers, the findings library), as
+  whether each setting is present, never its value, and whether this month's
+  AI budget and today's Gemini video time are used up, from their ledgers,
+  without writing to them. The page writes no account key, account reference or
+  other identifier; nothing is stored or logged, and no other account is read.
+  A reader who is not signed in gets no features; when the account cannot be
+  read, the page says so and shows none.
 - **A participant's row** (`atlas_participants`, migration
   `0022_atlas_votes_comments`): the key, the tag, the random salt of their
   comments' marks, the display name chosen with the first comment, whether and

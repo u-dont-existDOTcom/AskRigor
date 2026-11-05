@@ -54,6 +54,25 @@ function fixture() {
 }
 
 describe("research contributor access", () => {
+  it("reads an account by the key derived from its subject, as the Atlas account page does", async () => {
+    const { store, service } = fixture();
+    const accountKey = service.accountKeyForSubject(SUBJECT);
+    await expect(service.inspectByAccountKey(accountKey)).resolves.toEqual(await service.inspect(SUBJECT));
+    await service.acceptFreeContributor(SUBJECT, agreement());
+    await service.setDetailedLessonReports(SUBJECT, true);
+    await expect(service.inspectByAccountKey(accountKey)).resolves.toEqual(await service.inspect(SUBJECT));
+    await expect(service.activeAccountByKey(accountKey)).resolves.toEqual(await service.activeAccount(SUBJECT));
+    await expect(service.activeAccountByKey(accountKey)).resolves.toMatchObject({
+      mode: "FREE_CONTRIBUTOR", detailedLessonReports: true, noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+    });
+    // Only a key AskRigor derives is read: never a subject, nor a key in another form.
+    for (const refused of [SUBJECT, accountKey.toUpperCase(), accountKey.slice(1), `${accountKey} `]) {
+      await expect(service.inspectByAccountKey(refused)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+      await expect(service.activeAccountByKey(refused)).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    }
+    expect(store.allAccounts()).toHaveLength(1);
+  });
+
   it("publishes the exact choice before enrollment and stores only a keyed identity", async () => {
     const { store, service } = fixture();
 
