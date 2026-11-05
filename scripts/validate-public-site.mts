@@ -123,8 +123,28 @@ const expectedFiles = new Set([
   // Openly licensed photos for the free ChatGPT page, credited on it (Wikimedia Commons, CC BY-SA 4.0 and CC BY 4.0).
   "assets/piliostigma/shrub-senegal.jpg",
   "assets/piliostigma/dried-leaves-nigeria.jpg",
-  "assets/piliostigma/sign-senegal.jpg"
+  "assets/piliostigma/sign-senegal.jpg",
+  "robots.txt"
 ]);
+
+/**
+ * robots.txt (owner answer 224a): the sitemap of reviewed findings, and no rule that keeps crawlers from a finding or
+ * topic page, whose noindex they must read to keep an unreviewed one out of search results.
+ */
+export function validateRobots(text: string): string[] {
+  const errors: string[] = [];
+  const lines = text.split("\n").map((line) => line.replace(/#.*$/u, "").trim()).filter(Boolean);
+  for (const required of ["User-agent: *", "Sitemap: https://askrigor.com/atlas/sitemap.xml", "Disallow: /atlas/search"]) {
+    if (!lines.includes(required)) errors.push(pathError("robots.txt", `is missing: ${required}`));
+  }
+  for (const line of lines.filter((entry) => /^disallow:/iu.test(entry))) {
+    const path = line.replace(/^disallow:\s*/iu, "");
+    if (path === "/" || path === "/atlas" || path === "/atlas/" || /^\/atlas\/(?:findings|topics|map|changes)/u.test(path)) {
+      errors.push(pathError("robots.txt", `must not keep crawlers from ${path}: its noindex has to be read`));
+    }
+  }
+  return errors;
+}
 
 const commonFragments = [
   "joel@askrigor.com",
@@ -296,6 +316,12 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     const result = validateHtml(requirement.path, html, requirement);
     internalLinks += result.internalLinks;
     errors.push(...result.errors);
+  }
+
+  try {
+    errors.push(...validateRobots(await readFile(resolve(rootPath, "robots.txt"), "utf8")));
+  } catch {
+    // Missing: reported with the expected files above.
   }
 
   try {

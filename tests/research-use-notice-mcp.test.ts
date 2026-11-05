@@ -28,6 +28,7 @@ const issuerUrl = new URL("https://identity.askrigor.example/");
 const V2 = "free-contributor-v2-2026-09-30";
 const V3 = "free-contributor-v3-2026-10-22";
 const V4 = "free-contributor-v4-2026-10-25";
+const V5 = "free-contributor-v5-2026-11-05";
 const clients: Client[] = [];
 const servers: HttpServer[] = [];
 
@@ -46,7 +47,7 @@ const agreement = (noticeVersion: string) => ({
 
 async function start() {
   const { publicKey, privateKey } = await generateKeyPair("RS256");
-  const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "notice-v4-test-key" };
+  const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "notice-v5-test-key" };
   const jwks = createLocalJWKSet({ keys: [jwk] });
   const store = new InMemoryResearchContributorAccessStore();
   const service = new ResearchContributorAccessService({ store, identitySecret: Buffer.alloc(32, 11) });
@@ -72,7 +73,7 @@ async function start() {
       scope: RESEARCH_USE_SCOPE,
       sub: subject,
     }).setProtectedHeader({ alg: "RS256", kid: jwk.kid }).sign(privateKey);
-    const client = new Client({ name: "notice-v4-test", version: "1.0.0" });
+    const client = new Client({ name: "notice-v5-test", version: "1.0.0" });
     clients.push(client);
     await client.connect(new StreamableHTTPClientTransport(new URL(surface, base), {
       requestInit: { headers: { authorization: `Bearer ${token}` } },
@@ -105,14 +106,16 @@ async function seedEarlierAccount(
 
 const research = { name: "load_protocol", arguments: { protocol: "universal", section: "index" } };
 
-describe("free contributor notice v4 on both connector surfaces", () => {
-  it("is the current notice, after v1, v2 and v3", () => {
-    expect(RESEARCH_USE_NOTICE_VERSION).toBe(V4);
-    expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual(["free-contributor-v1-2026-09-01", V2, V3]);
+// Owner answer 253a (2026-11-05): version 5, whose card summary of what communities reported holds the forum threads'
+// links; every earlier account, v4's included, accepts it before free research continues.
+describe("free contributor notice v5 on both connector surfaces", () => {
+  it("is the current notice, after v1, v2, v3 and v4", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe(V5);
+    expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual(["free-contributor-v1-2026-09-01", V2, V3, V4]);
   });
 
   it.each(SURFACES.flatMap((surface) => EARLIER_RESEARCH_USE_NOTICE_VERSIONS.map((earlier) => [surface, earlier] as const)))(
-    "on %s, an account that accepted %s is shown v4 and accepts it before research continues", async (surface, earlier) => {
+    "on %s, an account that accepted %s is shown v5 and accepts it before research continues", async (surface, earlier) => {
       const { store, service, connect } = await start();
       const subject = `${earlier}-on-${surface}`;
       await seedEarlierAccount(store, service, subject, earlier);
@@ -122,8 +125,9 @@ describe("free contributor notice v4 on both connector surfaces", () => {
       expect(inspected.isError).not.toBe(true);
       expect(inspected.structuredContent).toMatchObject({
         ok: true,
-        access: { status: "UNENROLLED", mode: null, noticeVersion: V4, notice: RESEARCH_USE_NOTICE },
+        access: { status: "UNENROLLED", mode: null, noticeVersion: V5, notice: RESEARCH_USE_NOTICE },
       });
+      expect(RESEARCH_USE_NOTICE).toContain("links to the forum threads AskRigor read, never YouTube comments or video IDs.");
       expect(RESEARCH_USE_NOTICE).toContain(
         "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
       );
@@ -140,20 +144,20 @@ describe("free contributor notice v4 on both connector surfaces", () => {
       });
       expect(stale.isError).toBe(true);
       expect(stale.structuredContent).toMatchObject({ ok: false, error: { code: "research_access_required" } });
-      expect((stale.content as Array<{ text: string }>)[0]!.text).toContain(`The current free-use notice is ${V4}, not ${earlier}.`);
+      expect((stale.content as Array<{ text: string }>)[0]!.text).toContain(`The current free-use notice is ${V5}, not ${earlier}.`);
       expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: earlier })]);
 
       const accepted = await client.callTool({
         name: "manage_research_access",
-        arguments: { action: "accept_free_contributor", agreement: agreement(V4) },
+        arguments: { action: "accept_free_contributor", agreement: agreement(V5) },
       });
       expect(accepted.isError).not.toBe(true);
       expect(accepted.structuredContent).toMatchObject({
         ok: true,
-        access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V4, contributionRequired: true },
+        access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5, contributionRequired: true },
       });
       expect(store.allAccounts()).toEqual([
-        expect.objectContaining({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V4, agreement: agreement(V4) }),
+        expect.objectContaining({ status: "ACTIVE", mode: "FREE_CONTRIBUTOR", noticeVersion: V5, agreement: agreement(V5) }),
       ]);
       const permitted = await client.callTool(research);
       expect(permitted.isError).not.toBe(true);

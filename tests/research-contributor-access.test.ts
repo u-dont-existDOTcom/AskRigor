@@ -295,21 +295,24 @@ describe("research contributor access", () => {
     expect(store.allProposals()).toHaveLength(1);
   });
 
-  // Owner answer 171 (2026-10-25): the three approved changes to the free notice, word for word.
-  // All other sentences stay as in v3, and every earlier account accepts v4 before free research.
-  it("pins the fourth free contributor notice, word for word, after the three earlier versions", () => {
-    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v4-2026-10-25");
+  // Owner answer 253a (2026-11-05): the second sentence, word for word as the owner chose it, names the communities, the
+  // counts and the forum threads' links. All other sentences stay as in v4 (owner answer 171), and every earlier
+  // account accepts v5 before free research.
+  it("pins the fifth free contributor notice, word for word, after the four earlier versions", () => {
+    expect(RESEARCH_USE_NOTICE_VERSION).toBe("free-contributor-v5-2026-11-05");
     expect(EARLIER_RESEARCH_USE_NOTICE_VERSIONS).toEqual([
       "free-contributor-v1-2026-09-01",
       "free-contributor-v2-2026-09-30",
       "free-contributor-v3-2026-10-22",
+      "free-contributor-v4-2026-10-25",
     ]);
     expect(RESEARCH_USE_NOTICE).toBe([
       "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
       "That includes deidentified structured research progress and, for each finished research answer whose " +
         "findings would help other people, a findings card: the question in general terms, the main findings and " +
         "how certain they are, the public studies behind them, and what public online communities reported, " +
-        "summarized without their posts, names, links or video IDs.",
+        "summarized without their posts or names: the communities, counts of what people reported, and links to the " +
+        "forum threads AskRigor read, never YouTube comments or video IDs.",
       "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or " +
         "raw source or provider bodies.",
       "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because " +

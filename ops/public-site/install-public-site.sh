@@ -521,6 +521,7 @@ for required_member in \
   site/compare/free-chatgpt/index.html \
   site/assets/site.css \
   site/assets/compare.css \
+  site/robots.txt \
   ops/public-site/Caddyfile.site \
   ops/public-site/compose.site.yaml \
   ops/public-site/install-public-site.sh

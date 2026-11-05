@@ -25,7 +25,7 @@ export function atlasPageUrl(number: string, origin: string): string { return `$
 export function atlasReceiptFinding(finding: ShownFinding): string {
   return [finding.publicationNumber, finding.status.kind === "unreviewed" ? "" : finding.status.atlasNumber,
     finding.status.kind === "unreviewed" ? "u" : "c",
-    finding.sources.flat().map(atlasSourceDigest).join(".")].join("|");
+    finding.sources.flatMap(({ identifiers }) => identifiers).map(atlasSourceDigest).join(".")].join("|");
 }
 /** The limit an answer states when every Atlas lookup it passed could not run. */
 export const ATLAS_LOOKUP_FAILED_CAVEAT = "AskRigor could not search its Atlas for this question this time, so " +

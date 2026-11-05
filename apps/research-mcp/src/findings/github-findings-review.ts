@@ -29,11 +29,13 @@ import {
   PUBLIC_VALUE_SCOPES,
   VERIFIED_BASES,
   canonicalJson,
-  findingNumberEntrySchema,
   findingSearchSchema,
   findingsCardDigest,
   findingsCardFingerprint,
+  laterFindingNumberEntrySchema,
+  type FindingsCard,
 } from "./card.js";
+import { BACKING_LIMITS, storedBackingSchema, storedForumSignalSchema, sourceReadingSchema } from "./research-behind.js";
 import {
   BEYOND_QUICK_ANSWER_LABEL,
   CARD_MARKER,
@@ -106,10 +108,14 @@ const storedFindingSchema = z.object({
   subject: text(ATLAS_SUBJECT_MAX_CHARACTERS).optional(),
   subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional(),
   direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
-  numbers: z.array(findingNumberEntrySchema).max(20).optional(),
+  numbers: z.array(laterFindingNumberEntrySchema).max(20).optional(),
   searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional(),
   youtube_videos: z.number().int().min(1).max(10).optional(),
   verified_bases: z.array(z.enum(VERIFIED_BASES)).min(1).max(VERIFIED_BASES.length).optional(),
+  // Owner answer 252a: the research behind the finding, as the save stored it.
+  backing: z.array(storedBackingSchema).min(1).max(BACKING_LIMITS.lines).optional(),
+  source_reading: z.array(sourceReadingSchema).min(1).max(10).optional(),
+  forum_signal: storedForumSignalSchema.optional(),
 }).strict();
 const storedRecordSchema = z.object({
   schema: z.literal("askrigor.findings-card.v1"),
@@ -203,11 +209,18 @@ export function parseFindingsRecordBody(
   if (!linkReplaced && !findingsLeftOut && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
   if (stored.stored_without === undefined) {
     const { atlas_basis: _atlas, ...checkedCard } = stored.card;
+    // What the save adds is set aside: the signed bases and readings, and where each kept quote was found (owner answer
+    // 252a); a card whose backing quotes were not all kept names that in stored_without, so this reads only a whole one.
     const checked = {
       ...checkedCard,
-      findings: stored.card.findings.map(({ verified_bases: _bases, ...finding }) => finding),
+      findings: stored.card.findings.map(({ verified_bases: _bases, source_reading: _reading, backing, ...finding }) => ({
+        ...finding,
+        ...(backing === undefined ? {} : {
+          backing: backing.map(({ text: _text, sentence_section: _sentence, conclusion_section: _conclusion, ...line }) => line),
+        }),
+      })),
     };
-    if (findingsCardDigest(checked) !== stored.card_sha256) return "tampered";
+    if (findingsCardDigest(checked as FindingsCard) !== stored.card_sha256) return "tampered";
   }
   return { record: stored, metadata };
 }

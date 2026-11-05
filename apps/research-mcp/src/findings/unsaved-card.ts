@@ -16,8 +16,9 @@ import {
  * The copy goes to the same private repository as saved cards, under a label of its own, so no card list, publisher or
  * page reads it. It stays inside what the free contributor notice covers, with the same exact screens a saved card
  * passes: each text goes through the privacy screen and one that fails is left out, a source that isn't a public
- * paper's identifier is left out (a link to a forum or a video is never stored), and a finding resting on YouTube
- * comments stays out of the copy, as it stays out of a saved card. A card declared personal only is not kept.
+ * paper's identifier is left out (a link to a forum or a video is never stored, nor a forum signal's thread links), and a
+ * finding resting on YouTube comments stays out of the copy, as it stays out of a saved card. A card declared personal
+ * only is not kept.
  *
  * It works on whatever the call gave, since a card that doesn't read is one of the cases: only field names and values
  * of the expected kinds are copied, within limits.
@@ -109,6 +110,12 @@ class CopyWalk {
     for (const [name, field] of Object.entries(value).slice(0, MOST_FIELDS)) {
       if (!FIELD_NAME.test(name)) continue;
       const at = path === "" ? name : `${path}.${name}`;
+      // Owner answer 252a: a forum signal's thread links stay out, as a saved card leaves them out (the free notice's
+      // community summary holds no links); its counts and words are copied as any other field.
+      if (name === "threads" && path.endsWith(".forum_signal")) {
+        if (Array.isArray(field) && field.length > 0) this.leftOut.push(`${at}: forum thread links, which stay out of this copy`);
+        continue;
+      }
       const copied = name === "sources" ? this.sources(field, at) : this.value(field, at, depth + 1);
       if (copied !== undefined) copy[name] = copied;
     }
