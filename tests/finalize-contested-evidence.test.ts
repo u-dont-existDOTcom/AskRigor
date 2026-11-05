@@ -111,11 +111,19 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     const receipts = [...base().receipts, sign("literature_search", { src: "pubmed", q: "a".repeat(12), ret: 0, n: 0 })];
     const result = check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"] });
     expect(result.status).toBe("ready_with_limits");
+    // Journals outside PubMed and Europe PMC stay uncovered until a search beyond them is declared (search_coverage's
+    // newer form, other_journals: the free Claude test of 5 Nov 2026).
+    const indexesOnly = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
+      "not find it, and they did not cover journals outside PubMed and Europe PMC; that is not evidence that it does " +
+      "not exist.";
+    expect(result.limits).toEqual([communitySkipCaveat(base().not_relevant_reason!), indexesOnly]);
+    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!)]);
     const notFound = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
       "not find it; that is not evidence that it does not exist.";
-    expect(result.limits).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
-    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!)]);
-    expect(check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"],
+    const all = ["historical_terms", "citation_chains", "grey_literature", "other_journals"];
+    expect(check({ ...notLocated, receipts, search_coverage: all }).limits)
+      .toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
+    expect(check({ ...notLocated, receipts, search_coverage: all,
       answer_draft: `${base().answer_draft} ${notFound}` }).status).toBe("ready_with_limits");
   });
   it("publishes the new state and descriptive evidence-strength declaration in the generated catalog", () => {

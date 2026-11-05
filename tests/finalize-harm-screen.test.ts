@@ -109,9 +109,10 @@ const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, 
 const NO_DRAFT = "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered.";
 const NOT_CHECKED = "A serious harm this answer did not check: anaphylaxis.";
 const NOT_CHECKED_LIMIT = "A serious harm, anaphylaxis, was not checked: say so in the answer, as the caveat does.";
+// The free Claude test of 5 Nov 2026: what the searches left uncovered includes journals outside PubMed and Europe PMC.
 const BOUNDED = (names: string) => `Where this answer says something was not found, it means the searches made here ` +
-  `(${names}) did not find it, and they did not cover older or variant terms, citation chains and grey literature; ` +
-  "that is not evidence that it does not exist.";
+  `(${names}) did not find it, and they did not cover older or variant terms, citation chains, grey literature and ` +
+  "journals outside PubMed and Europe PMC; that is not evidence that it does not exist.";
 const BOUNDED_LIMIT = "The answer says something was not found: bound that to the searches made here, as the caveat does.";
 const unshown = (...at: string[]) => `${at.join(", ")} ${at.length === 1 ? "gives" : "give"} text the answer does not ` +
   "show: copy each sentence exactly from answer_draft.";
@@ -343,11 +344,11 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."
       ],
       status: "ready_with_limits"
     });
-    expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."]);
+    expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."]);
     expect(check({ ...passed, answer_draft: `${base().answer_draft}\n\n${bounded}` }))
       .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded], caveats: [] });
   });
@@ -405,7 +406,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."
       ],
       status: "ready_with_limits"
     });

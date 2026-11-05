@@ -55,7 +55,7 @@ Load Universal first: `load_protocol` with `section: "index"`, then core section
 
 For HRP repeat the sequence with `protocol: "hrp"`, loading each section whose purpose or activation applies before the step that uses it. HRP wins conflicts; Universal supplies compatible rules. Use one orchestration/approval and applicability ledger. Execute every triggered module; claim compliance only after all checks pass, otherwise use an authorized bounded path.
 
-Internally preserve exact `access_status`: `complete`,`api_visible_complete`,`partial`,`abstract_only`,`metadata_only`,`comments_disabled`,`inaccessible`,`rate_limited`,`not_found`,`error`. Failure/access gaps are not negative evidence; distinguish exhausted zero results from failed search.
+Internally preserve exact `access_status`: `complete`,`api_visible_complete`,`partial`,`abstract_only`,`metadata_only`,`comments_disabled`,`inaccessible`,`rate_limited`,`not_found`,`error`. Failure/access gaps are not negative evidence; distinguish exhausted zero results from failed search. Before saying studies don't exist, search the name's other spellings, older names and synonyms, and a source beyond PubMed and Europe PMC.
 
 Without a trusted frontier/question/topic selector, call `search_research_frontiers` with deidentified wording, then use only its selector in `get_research_frontier`; never guess. Both return control, not evidence. Inspect windows/gaps/trails and recheck currentness before deltas. `no_match`/`not_indexed` is not negative evidence. Disclose failures.
 

@@ -1780,10 +1780,11 @@ describe("finalize_research gate", () => {
       ...base, receipts: [pubmedSearch, europePmcSearch, study], answer_draft: answer,
       absence_claims: [{ quote: notFound, state: "support_not_located" }], ...input
     }, options);
-    // Not located: the answer bounds it to the searches made, naming what they did not cover.
+    // Not located: the answer bounds it to the searches made, naming what they did not cover, journals outside PubMed and
+    // Europe PMC included (the free Claude test of 5 Nov 2026).
     const bounded = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
-      "PMC) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that " +
-      "is not evidence that it does not exist.";
+      "PMC) did not find it, and they did not cover older or variant terms, citation chains, grey literature and " +
+      "journals outside PubMed and Europe PMC; that is not evidence that it does not exist.";
     // The first caveat is the community search skipped for no real-world outcome (owner question 125).
     const skip = communitySkipCaveat(base.not_relevant_reason);
     expect(check({}).limits).toEqual([skip, bounded]);
@@ -1792,8 +1793,14 @@ describe("finalize_research gate", () => {
     expect(check({ answer_draft: `${answer} ${bounded}` })).toMatchObject({ status: "ready_with_limits", next_steps: [] });
     const covered = "Where this answer says something was not found, it means the searches made here (PubMed and Europe " +
       "PMC) did not find it; that is not evidence that it does not exist.";
-    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).limits).toEqual([skip, covered]);
-    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).caveats).toEqual([skip]);
+    const indexesOnly = "Where this answer says something was not found, it means the searches made here (PubMed and " +
+      "Europe PMC) did not find it, and they did not cover journals outside PubMed and Europe PMC; that is not evidence " +
+      "that it does not exist.";
+    expect(check({ search_coverage: ["historical_terms", "citation_chains", "grey_literature"] }).limits).toEqual([skip, indexesOnly]);
+    // search_coverage's newer form adds other_journals, here at the top level, which the runtime reads too.
+    const all = ["historical_terms", "citation_chains", "grey_literature", "other_journals"];
+    expect(check({ search_coverage: all }).limits).toEqual([skip, covered]);
+    expect(check({ search_coverage: all }).caveats).toEqual([skip]);
     expect(advisoryNotes(check({ receipts: [study] })).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toContain(
       "The answer says something was not found, but no literature search receipt was passed: search with " +
         "search_pubmed or search_europe_pmc (and search_clinical_trials for trials) and pass their research receipts."
@@ -1811,10 +1818,13 @@ describe("finalize_research gate", () => {
       .toContain("absence_claims[0] gives text the answer does not show: copy each sentence exactly from answer_draft.");
     // A null result or an exclusion rests on studies whose methods were audited, and gives its numbers.
     const nullResult = "The trial found no difference in pain (mean difference 0.1 points, 95% CI -0.4 to 0.6).";
+    // The not-located claim beside it also gets the note asking for the searches before a not-found claim
+    // (tests/not-found-sweep.test.ts), set aside here.
     const withNull = (claim: Record<string, unknown>, text = nullResult) =>
       advisoryNotes(check({ answer_draft: `${answer} ${bounded} ${text}`, absence_claims: [
         { quote: notFound, state: "support_not_located" }, { quote: text, state: "direct_null_evidence", ...claim }
-      ] })).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+      ] })).filter((step) => step !== TOOL_LIST_REFRESH_HINT &&
+        !step.startsWith("The answer says something was not found: before saying so,"));
     expect(withNull({ studies: ["10.1002/art.41142"] })).toEqual([]);
     expect(withNull({ studies: ["PMC10518852"] })).toEqual([]);
     expect(withNull({})).toEqual([

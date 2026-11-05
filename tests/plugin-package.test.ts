@@ -210,6 +210,9 @@ describe("AskRigor plugin package", () => {
     expect(accessParagraph).toContain(
       "distinguish exhausted zero results from failed search"
     );
+    // The free Claude test of 5 Nov 2026: a not-found claim missed a variant spelling and a journal outside the indexes.
+    expect(accessParagraph).toContain("Before saying studies don't exist, search the name's other spellings, older " +
+      "names and synonyms, and a source beyond PubMed and Europe PMC.");
 
     expect(skill).toContain("`survey_youtube_community`");
     expect(skill).toContain("`audit_youtube_video_community`");

@@ -11,6 +11,7 @@ import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
+import { ABSENCE_SWEEP_RULES, nameFormInQuery } from "./absence-searches.js";
 import {
   answerReadingRule, identifierShown, sourceReadingCheckSchema, verifiedAnswerReading,
   type AnswerReading, type SourceReadingCheck, type SourceReadingQuote
@@ -2040,6 +2041,38 @@ export function finalizeResearch(
       addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}.${searchDepth} Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): find them with search_reddit_threads, open each one in full with read_forum_thread, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
     }
   }
+  // The free Claude test of 5 Nov 2026: the answer declared a subreddit, r/herbalism, it never searched or read. An entry
+  // of community_searches rests on the AI's word, made for its own web search, which AskRigor can't see, and community
+  // checks are notes (owner answers 193a and 195a), so nothing asked for a receipt. Where AskRigor's own tools reach a
+  // community, one declared searched or read now needs this call's receipt for it, matched exactly: a Reddit community, a
+  // thread of it read with read_forum_thread or listed by search_reddit_threads, or a search limited to its subreddit;
+  // another forum, one of its threads read with read_forum_thread. A note, not a step: the sources check holds key
+  // sources, whose threads already need their read receipts there, and an entry of community_searches is not one.
+  // Facebook, Telegram, Discord and review sites, which the reader can't read, and entries whose site refused access, keep
+  // their own-web-search limit alone.
+  const searchedSubreddits = new Set(forumSearchReceipts.map(({ claims }) => text(claims.sr).toLowerCase())
+    .filter((subreddit) => subreddit !== ""));
+  for (const search of input.community_searches ?? []) {
+    if (!READER_PLATFORMS.has(search.platform) || (search.access_boundary !== undefined &&
+        !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary))) continue;
+    const subreddit = search.platform === "reddit" ? SUBREDDIT_NAME.exec(search.community)?.[1]?.toLowerCase() : undefined;
+    const declared = search.threads_read.length > 0 ||
+      (subreddit !== undefined && search.access_boundary === "no_relevant_results");
+    if (!declared) continue;
+    const threadReceipt = search.threads_read.some(({ url }) => {
+      const thread = forumThreadDigest(url);
+      return forumReadUrls.has(thread) || forumFound.has(thread);
+    });
+    if (threadReceipt || (subreddit !== undefined && searchedSubreddits.has(subreddit))) continue;
+    addStep("research", subreddit === undefined
+      ? joinRules(rule`community_searches for ${search.community} declares threads read, but no receipt in this call `,
+        "shows AskRigor read any of them: read them with read_forum_thread and pass their research_receipts, or leave ",
+        "the community out of community_searches and don't present it as read.")
+      : joinRules(rule`community_searches for ${search.community} declares it searched, but no receipt in this call shows `,
+        rule`AskRigor searched or read it: search it with search_reddit_threads (subreddit ${subreddit}) and read its `,
+        "threads with read_forum_thread, passing their research_receipts, or leave it out of community_searches and ",
+        "don't present it as searched."));
+  }
   const youtubeCommunityReceipts = verified.filter(({ kind }) => kind === "youtube_scout" ||
     kind === "youtube_survey" || kind === "youtube_community_audit" || kind === "youtube_video_audit");
   if (youtubeCommunityReceipts.length > 0) {
@@ -3520,6 +3553,23 @@ export function finalizeResearch(
     }
     if (accepted) acceptedAbsences.add(index);
   }
+  // The free Claude test of 5 Nov 2026 (absence-searches.ts): each other spelling, older name or synonym of the key
+  // name the call declares searched is checked exactly, against a literature search's receipt and its own query.
+  // Which forms a name has stays the model's judgment, in any language. Every finding is a note.
+  const literatureQueries = new Set(verified.filter(({ kind }) => kind === "literature_search")
+    .map(({ claims }) => text(claims.q)));
+  let nameFormsSearched = 0;
+  for (const [index, entry] of (input.name_forms ?? []).entries()) {
+    if (!literatureQueries.has(discoveryQueryDigest([entry.query]))) {
+      addStep("research", joinRules(rule`name_forms[${index}].query is not the query of any literature search passed `,
+        rule`here: search ${entry.form} with search_pubmed, search_europe_pmc or search_clinical_trials, give that `,
+        "exact query, and pass its research_receipt."));
+    } else if (!nameFormInQuery(entry)) {
+      addStep("declaration", rule`name_forms[${index}].form is not in its query: give the query that searched ${entry.form}, copied exactly.`);
+    } else {
+      nameFormsSearched += 1;
+    }
+  }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
   // to the searches made here; its own step above names a search receipt it lacks.
   const notLocated = absenceClaims.some(({ state }) => state === "support_not_located");
@@ -3547,7 +3597,24 @@ export function finalizeResearch(
         );
       }
     } else {
-      const covered = new Set(input.search_coverage ?? []);
+      // A name form searched here covers older or variant terms, as a declared historical_terms does.
+      const covered = new Set<string>([...(input.search_coverage ?? []), ...(nameFormsSearched > 0 ? ["historical_terms"] : [])]);
+      // Before something is called not found, the sweep HRP already asks for (absence-searches.ts): the key name's other
+      // forms, searched here, and a source beyond PubMed and Europe PMC. A note: no seventh blocking check.
+      if (notLocated) {
+        const asks = [
+          ...(nameFormsSearched > 0 ? [] : [joinRules("search the key name's other spellings, older names and synonyms, ",
+            "each with search_pubmed or search_europe_pmc, and give each in later_inputs.name_forms as {form, query}, ",
+            "with that search's exact query")]),
+          ...(covered.has("other_journals") ? [] : [joinRules("search a source beyond PubMed and Europe PMC: your own ",
+            "web search finds journals they don't index (then give other_journals in later_inputs.search_coverage), and ",
+            "search_clinical_trials covers trial registries")])
+        ];
+        if (asks.length > 0) {
+          addStep("research", joinRules(`The answer says something was not found: before saying so, ${ABSENCE_SWEEP_RULES} `,
+            "ask you to ", ...(asks.length === 1 ? asks : [asks[0]!, "; and ", asks[1]!]), "."));
+        }
+      }
       const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
       requireLimit(
         rule`The answer says something was not found: bound that to the searches made here, as the caveat does.`,
@@ -5499,6 +5566,8 @@ function communityOf(platform: string, url: string, thread: boolean): string | u
   return undefined;
 }
 const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
+// The platforms AskRigor's forum tools reach: Reddit, with its search and reader, and public forum pages, with the reader.
+const READER_PLATFORMS: ReadonlySet<string> = new Set(["reddit", "forum", "patient_organization", "other"]);
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
 function redditPostOf(url: string): string | undefined {
@@ -6266,7 +6335,9 @@ const LITERATURE_SOURCES = [
 const SEARCH_COVERAGE = [
   { id: "historical_terms", phrase: "older or variant terms" },
   { id: "citation_chains", phrase: "citation chains" },
-  { id: "grey_literature", phrase: "grey literature" }
+  { id: "grey_literature", phrase: "grey literature" },
+  // The free Claude test of 5 Nov 2026: a 2022 study in a journal neither index covers.
+  { id: "other_journals", phrase: "journals outside PubMed and Europe PMC" }
 ] as const;
 
 /** "a", "a and b", "a, b and c". */

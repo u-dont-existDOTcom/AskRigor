@@ -164,7 +164,8 @@ describe("forum tools", () => {
     for (const expected of [[forumThreadDigest(URL)], []]) {
       const result = await caller.callTool({ name: "search_reddit_threads", arguments: { query: "exercise outcomes", subreddit: "example" } });
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
-      expect(verified).toMatchObject({ ok: true, kind: "forum_search", claims: { u: expected } });
+      // The subreddit a search was limited to, so a subreddit declared searched ties to it (5 Nov 2026).
+      expect(verified).toMatchObject({ ok: true, kind: "forum_search", claims: { u: expected, sr: "example" } });
       expect(JSON.stringify(verified)).not.toContain("exercise outcomes");
       expect((result.content[0] as { text: string }).text).toMatch(/and why you stopped\.$/u);
     }
@@ -193,6 +194,8 @@ describe("forum tools", () => {
         "after for a next page only when Reddit offers one, so a short page is not all there is");
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
       expect(verified.ok && verified.claims.more).toBe(more);
+      // A search of all of Reddit names no subreddit.
+      expect(verified.ok && verified.claims).not.toHaveProperty("sr");
     }
   });
   // #394's run: q128-oral-liver sent seven reads at once, and all came back busy with nothing to say when to try again.

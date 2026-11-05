@@ -10,6 +10,7 @@ import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
 import { sourceReadingInputSchema } from "./source-reading.js";
+import { nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
 import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
@@ -73,7 +74,22 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "the answer's own words saying how it was read (as this check's result names it, such as abstract only or " +
         "full text read), beside or in the sentence citing it, in the answer's language, copied from answer_draft. " +
         "A cited key source without an entry, or whose quote the answer doesn't show, holds the answer back under the " +
-        "reading-depth check.")
+        "reading-depth check."),
+    // The free Claude test of 5 Nov 2026 (absence-searches.ts): before saying something was not found, the key name's
+    // other spellings, older names and synonyms, each searched, and a source beyond PubMed and Europe PMC.
+    name_forms: nameFormsSchema.optional()
+      .describe("Before saying something was not found: each other spelling, older name or synonym of the key name " +
+        "that was searched, with the exact query of the search_pubmed, search_europe_pmc or search_clinical_trials " +
+        "call that searched it. AskRigor checks each query against this call's literature-search receipts and that the " +
+        "form is in it; what it finds are notes."),
+    search_coverage: searchCoverageSchema.optional()
+      .describe("search_coverage's newer form, given here or at the top level, not both: what the searches covered " +
+        "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
+        "PMC don't index, which AskRigor can't see."),
+    // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
+    findings_save: z.literal("off").optional()
+      .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
+        "cannot turn saving on.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

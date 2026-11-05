@@ -79,15 +79,20 @@ export const copiedLimitsNote = (count: number): string => `The draft repeats ${
   "should believe or do, in your own words, and call finalize_research again with the changed draft.";
 
 /**
- * Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes, and
- * tests/community-leads.test.ts the note asking for the leads people's reports raised (5 Nov 2026).
+ * Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes,
+ * tests/community-leads.test.ts the note asking for the leads people's reports raised, and
+ * tests/community-receipts.test.ts the note on a community declared searched or read without this call's receipt for
+ * it (5 Nov 2026).
  */
 export function notesApartFromCommunityReminders(result: FinalizeResearchOutput): string[] {
   return advisoryNotes(result).filter((note) => !note.startsWith("Forum evidence rests on ") && !note.startsWith("No forum thread was read.") &&
     !note.startsWith("No study search came after the community research.") &&
-    !note.startsWith(COMMUNITY_LEADS_MISSING) &&
+    !note.startsWith(COMMUNITY_LEADS_MISSING) && !COMMUNITY_WITHOUT_RECEIPT.test(note) &&
     !note.startsWith("Research went past the emergency warning, so community evidence applies:"));
 }
+
+/** The note on a community declared searched or read that no receipt of this call shows (5 Nov 2026). */
+export const COMMUNITY_WITHOUT_RECEIPT = /^community_searches for .+ declares (?:it searched|threads read), but no receipt in this call /u;
 
 /** The start of the note asking for later_inputs.community_leads after people's reports were read. */
 export const COMMUNITY_LEADS_MISSING = "community_leads is missing: this research read ";

@@ -1198,6 +1198,57 @@ describe("finalize_research, save_research_findings and the findings library", (
     };
   }
 
+  // The free Claude test of 5 Nov 2026: the regression harness and the owner's own research share one account and its one
+  // saving switch, which the owner's research turned on mid-run, so test cases saved ARF-0297 and ARF-0300. A call
+  // marked later_inputs.findings_save "off" saves no card and keeps no copy, whatever the switch says.
+  it("saves and keeps nothing from a call marked findings_save off, whatever the account's switch", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const marked = { ...request(), later_inputs: { findings_save: "off" } };
+    const result = await finalize(marked, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits", findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+    });
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(result)).toContain("\nFindings card: checked; not saved: this call turned card saving off.");
+    // A marked call whose answer hasn't passed keeps no copy either.
+    const open = await finalize({ ...marked, receipts: [] }, "auth0|free");
+    expect(open.structuredContent).toMatchObject({ status: "not_ready" });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  it("can't turn saving on: another value is dropped with a note, and the account's switch decides", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave,
+    });
+    await service.setFindingsSave("auth0|free", false);
+    for (const findings_save of ["on", true, "yes"]) {
+      const result = await finalize({ ...request(), later_inputs: { findings_save } }, "auth0|free");
+      expect(result.structuredContent, String(findings_save)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+      });
+      expect(((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n"))
+        .toContain("findings_save: dropped");
+    }
+    expect(calls).toEqual([]);
+    // With the switch on, a call whose marker was dropped saves as any other; "OFF", only cased otherwise, is off.
+    await service.setFindingsSave("auth0|free", true);
+    const saved = await finalize({ ...request(), later_inputs: { findings_save: "on" } }, "auth0|free");
+    expect(saved.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    const cased = await finalize({ ...request(), later_inputs: { findings_save: "OFF" } }, "auth0|free");
+    expect(cased.structuredContent).toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(calls).toHaveLength(1);
+  });
+
   it("keeps a private copy of a refused card, tells the AI, and says so at the end of a passing answer", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();

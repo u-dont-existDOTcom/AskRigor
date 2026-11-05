@@ -15,6 +15,7 @@ import {
   lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
 } from "./source-lines.js";
 import { READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance } from "./source-reading.js";
+import { SMALL_LITERATURE_SEARCH_NOTE } from "./absence-searches.js";
 import {
   lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
 } from "./study-map.js";
@@ -1318,7 +1319,7 @@ function defineResearchOperations(
         const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total) + literatureOutageNote("pubmed", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error),
           result
         ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
@@ -1395,7 +1396,7 @@ function defineResearchOperations(
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
           { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
@@ -2595,7 +2596,15 @@ function defineResearchOperations(
           result = finalizeResearch(input, { ...gateOptions, meaningJudgment: judgment });
         }
       }
-      if (
+      // The free Claude test of 5 Nov 2026: test runs and the owner's own research share one account and its one saving
+      // switch, which the owner's research turned on mid-run, so test cases saved cards ARF-0297 and ARF-0300. A call
+      // marked later_inputs.findings_save "off" saves no card and keeps no copy, whatever the switch says; the value can
+      // only turn saving off. The harness reaches AskRigor through the ChatGPT app inside Codex, whose connection
+      // OpenAI's platform makes, so the marker rides in the call, not in a header (docs/owner-regressions.md).
+      const callSavingOff = checkedInput?.findings_save === "off";
+      if (account?.mode === "FREE_CONTRIBUTOR" && callSavingOff && result.findings_card.status === "checked") {
+        result.findings_card.saved = { status: "not_saved", reason: "call_saving_off" };
+      } else if (
         account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"
       ) {
         // Owner answer 171, default 5: regression runs still pass the same final check, but save no findings card.
@@ -2634,9 +2643,8 @@ function defineResearchOperations(
       }
       // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
       // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
-      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && checkedInput !== undefined
-        ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard)
-        : undefined;
+      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && !callSavingOff &&
+        checkedInput !== undefined ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard) : undefined;
       let keptCardId: string | undefined;
       if (unsaved !== undefined) {
         const kept = await withinDeadline((options.findingsKeep ?? keepUnsavedFindingsCard)({
@@ -2749,6 +2757,7 @@ function defineResearchOperations(
                         ? `not saved, and a private copy is kept for review${card.problems.length === 0 ? ""
                           : `: ${card.problems.join(" ")}`}`
                       : card.saved.reason === "dev_account_saving_off" ? "not saved: this dev account's card saving is off"
+                      : card.saved.reason === "call_saving_off" ? "not saved: this call turned card saving off"
                       : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
@@ -2892,7 +2901,8 @@ async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T
 
 /** What finalize_research reports of a findings save: its public id, or that it was not saved. */
 // The saves' own refusals of what is meant to stay out of the library: nothing about them is a technicality.
-const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "youtube_findings_only"]);
+const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "call_saving_off",
+  "youtube_findings_only"]);
 
 /** Why a free contributor's card wasn't saved, or undefined when it was, may yet be, or there was none to save. */
 function unsavedCardWhy(check: FinalizeResearchOutput["findings_card"], dropped: boolean): UnsavedCardWhy | undefined {
@@ -3046,13 +3056,18 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
 
 // A search that finds little is where a narrow vocabulary misses most (owner
 // report, 2026-09-30: geosmin and humic acid searched under modern terms only),
-// so its result says what to try before calling anything not found.
+// so its result says what to try before calling anything not found. ClinicalTrials.gov's, a registry's, keeps this;
+// PubMed's and Europe PMC's name the key name's other forms and a source beyond them (absence-searches.ts).
 const SPARSE_SEARCH_RECORDS = 10;
 function sparseSearchNote(total: number | undefined): string {
   return total === undefined || total > SPARSE_SEARCH_RECORDS
     ? ""
     : " Few records: before saying anything was not found, try synonyms, older or variant terms, the components of " +
       "a mixed exposure, and citation chains.";
+}
+// The free Claude test of 5 Nov 2026: a small search is one read whole (WHOLE_SEARCH_RECORDS, 50 or fewer records).
+function smallLiteratureSearchNote(total: number | undefined): string {
+  return total === undefined || total > WHOLE_SEARCH_RECORDS ? "" : SMALL_LITERATURE_SEARCH_NOTE;
 }
 
 // The owner regression run of 5 Nov 2026: from 03:49 UTC NCBI's PubMed search failed for everyone (HTTP 500 at

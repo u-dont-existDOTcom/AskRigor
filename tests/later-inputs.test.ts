@@ -41,8 +41,10 @@ describe("later_inputs (owner answer 189a)", () => {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
         // Owner answer 219b: the findings card's newer form, with each finding's YouTube-comments declaration.
         // Owner answer 237a: the source lines. Owner answer 249a: the study map. 5 Nov 2026: user_observations' newer form,
-        // the leads people's reports raised, with the study search that followed each, and how each key source was read.
-        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading"]
+        // the leads people's reports raised, with the study search that followed each, and how each key source was read;
+        // from the free Claude test of 5 Nov 2026, the name forms searched before a not-found claim, search_coverage's
+        // newer form with other_journals, and the marker that turns a test run's card saving off.
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "search_coverage", "findings_save"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           : operation.name === "validate_study_method_audit" ? ["audit"]
             // Owner answer 200a: the shared answer's copy, its deletion code, and the owner's review of it.

@@ -220,6 +220,34 @@ owner's; the release needs the owner's explicit yes, as always.
       read; where the words sit isn't checked; a key source with no `read_depth` and no receipt showing a reading has
       no reading, so the result's list and the panel leave it out.
 
+14. **Three lessons from the free Claude test (built)** (5 Nov; Claude Sonnet with AskRigor, on Piliostigma reticulatum
+    leaves). The answer passed the final check but missed PMID 11372139, whose title spells the plant "Pilostigma", and
+    a 2022 study neither PubMed nor Europe PMC indexes, so it said no mammal toxicity study exists; and it declared a
+    community, r/herbalism, it never read. HRP already has the rules (`UserNamedInterventionSweep`,
+    `HistoricalVocabularyAndCitationBackchain`, `NoHumanEvidenceAbsenceClaimBeforeSweep`): no protocol edit, no new
+    blocking rule, and the frozen tool lists don't change.
+    - **Other spellings and a source beyond the indexes, before a not-found claim** (`absence-searches.ts`): a PubMed or
+      Europe PMC result with 50 records or fewer names both searches and the three rules once in its text; 50 is the
+      small search already read whole before anything is called not found, and the test's own searches had 11 (PubMed,
+      the plant's name) and 23 (Europe PMC, with "toxicity"), which the old threshold of 10 missed. Beside a
+      `support_not_located` absence claim, a note asks for what is missing. `name_forms` (a later input) declares each form
+      searched with its query, checked exactly against the call's literature-search receipts and for the form inside it,
+      in any script; a form searched covers "older or variant terms" in the limit. `search_coverage`'s newer form adds
+      `other_journals`; without it the not-found limit names "journals outside PubMed and Europe PMC". One sentence in
+      the AskRigor skill, within its 1,250-word cap.
+    - **A community may not be declared unread:** the placeholder fits `community_searches`, which takes the AI's word
+      for its own web search and whose checks are notes, so an entry like r/herbalism with no thread and
+      `no_relevant_results` passed with a limit. Where AskRigor's forum tools reach a community, one declared searched or
+      read now needs this call's receipt for it (a thread read or listed, or a search limited to the subreddit, whose
+      receipt now signs it as `sr`). A note: the sources check holds key sources, whose threads already block without
+      their read receipt, and `community_searches` entries are not key sources.
+    - **Test runs never save cards:** a `later_inputs.findings_save` `"off"` marker on `finalize_research` saves no card
+      and keeps no copy, whatever the account's switch; it can only turn saving off. The harness reaches AskRigor
+      through the ChatGPT app in Codex (`codex_apps`), whose connection OpenAI makes, so it can't send a header; the
+      runbook (`docs/owner-regressions.md`) says how the harness marks every call and checks for the marker. The
+      harness files are the coordinator's to change. Not covered: validated analyses still go to the review inbox at a
+      free contributor's passing check, as before.
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy

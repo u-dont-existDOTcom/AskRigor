@@ -236,6 +236,37 @@ no receipt yet shows that a figure was read. Limits: the words are the AI's, so 
 doesn't say how the source was read; where they sit is not checked; and a key source with no `read_depth` and no
 receipt showing a reading has no reading, so the result and the panel leave it out.
 
+Three lessons from the free Claude test of 5 November 2026 (Claude Sonnet with AskRigor, on Piliostigma reticulatum
+leaves; not yet released) add notes, two later inputs, a marker and no blocking rule. The answer passed the check saying
+no mammal toxicity study exists: it had missed a paper whose title spells the plant "Pilostigma" and a 2022 study in a
+journal neither PubMed nor Europe PMC indexes. HRP already asks for those searches (`UserNamedInterventionSweep`,
+`HistoricalVocabularyAndCitationBackchain`, `NoHumanEvidenceAbsenceClaimBeforeSweep`), so the work is delivering and
+checking them (`apps/research-mcp/src/absence-searches.ts`):
+
+- A `search_pubmed` or `search_europe_pmc` result with 50 records or fewer (the small search already read whole before
+  anything is called not found; the test's searches had 11 and 23, which the old threshold of 10 missed) says once, in
+  its text: before saying studies don't exist, search the key name's other spellings, older names and synonyms, and a
+  source beyond PubMed and Europe PMC (the app's own web search for journals they don't index, `search_clinical_trials`
+  for registries), naming the three rules. ClinicalTrials.gov's result keeps its earlier note.
+- Beside an absence claim declared `support_not_located`, a note asks for what is missing of those searches. The
+  `name_forms` later input lists each form searched with the exact query of a literature search; each is checked exactly
+  (its query against this call's literature-search receipts by digest, and the form inside the query, in Unicode's
+  compatibility form and lower case, so in any script), and a form searched counts as "older or variant terms" covered.
+  `search_coverage`'s newer form, a later input too, adds `other_journals` for journals the AI's own web search covered,
+  which AskRigor can't see. The not-found limit now names "journals outside PubMed and Europe PMC" among what the
+  searches didn't cover unless that is declared. The AskRigor skill says the same in one sentence.
+- A community declared searched or read needs this call's receipt for it where AskRigor's forum tools reach it: a
+  subreddit, a thread of it read with `read_forum_thread` or listed by `search_reddit_threads`, or a search limited to it
+  (whose receipt now signs the subreddit, `sr`); another forum, one of its threads read with `read_forum_thread`. The
+  placeholder in the test fits `community_searches`, which rests on the AI's word for its own web search, so no receipt
+  was asked for and community checks are notes: an entry like `r/herbalism` with no thread and `no_relevant_results`
+  passes with a limit. This is a note, not a step: the sources check (rule 1) holds key sources, whose forum threads
+  already need their `forum_thread_read` receipts there, and an entry of `community_searches` is not one. Facebook,
+  Telegram, Discord, review sites and entries whose site refused access keep their own-web-search limit alone.
+- A call marked `later_inputs.findings_save` `"off"` saves no findings card and keeps no private copy, whatever the
+  account's switch says (reason `call_saving_off`); the marker can only turn saving off. The regression harness marks
+  every call ([the runbook](owner-regressions.md)), since its runs share the owner's account and switch.
+
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
 (owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in

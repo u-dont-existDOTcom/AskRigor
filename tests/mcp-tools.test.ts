@@ -35,6 +35,7 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
+import { SMALL_LITERATURE_SEARCH_NOTE } from "../apps/research-mcp/src/absence-searches.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -118,9 +119,8 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
-// What a literature search with few records adds to its result.
-const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
-  "the components of a mixed exposure, and citation chains.";
+// What a PubMed or Europe PMC search with few records adds to its result (the free Claude test of 5 Nov 2026).
+const SPARSE_SEARCH_NOTE = SMALL_LITERATURE_SEARCH_NOTE;
 
 describe("AskRigor MCP tools", () => {
   it("registers the exact thirty-five-tool catalog with six declared writes", async () => {
@@ -2525,7 +2525,8 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      // Few records: the result says what to try before calling anything not found (owner report, 2026-09-30).
+      // Few records: the result says what to search before calling anything not found (owner report, 2026-09-30, and
+      // the free Claude test of 5 Nov 2026: the key name's other forms and a source beyond PubMed and Europe PMC).
       expect(result.content).toEqual([{
         type: "text",
         text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}`

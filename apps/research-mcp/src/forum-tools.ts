@@ -200,9 +200,12 @@ export function registerForumTools(
       // host returns what Reddit's search page shows first (#412's run: 7 threads in 132 of 144 searches), so the
       // receipt then says nothing and the final check counts the threads the pages listed, never a total.
       const more = data.after ? "1" : undefined;
+      // The subreddit a search was limited to (sr), so the final check can tie a subreddit declared searched to this
+      // search when it found nothing there (the free Claude test of 5 Nov 2026: r/herbalism, declared, never searched).
       return result("forum_search", data, SEARCH_GUIDANCE, searched.note,
         (data.access_state === "read" || data.access_state === "searched") ? receipt("forum_search", {
         q: discoveryQueryDigest([input.query]), u: data.threads.slice(0, 25).map(({ url }) => forumThreadDigest(url)),
+        ...(input.subreddit === undefined ? {} : { sr: input.subreddit.toLowerCase() }),
         ...(more === undefined ? {} : { more })
       }) : undefined);
     } catch {
