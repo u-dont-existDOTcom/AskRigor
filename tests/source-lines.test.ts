@@ -137,6 +137,10 @@ describe("looking a source line's quotes up", () => {
         .toBe("found");
       // A superscript that isn't digits stays as it is, inline.
       expect(extractHtmlText("<p>The 1<sup>st</sup> visit</p>").text).toBe("The 1st visit");
+      // CodeQL's incomplete multi-character sanitization (#417): split markup can't reassemble a tag, and an unclosed tag
+      // at the end goes, as a browser drops it, so the text never holds the start of a tag.
+      expect(extractHtmlText("<p>a <scr<b>ipt>b</p><p>c <script</p>").text).not.toMatch(/<[A-Za-z!/?]/u);
+      expect(extractHtmlText("<p>p &lt; 0.05 and a<b>b</b> &lt;i&gt;</p>").text).toBe("p < 0.05 and ab <i>");
     });
 
     it("doesn't end a sentence at an abbreviation before a small letter", async () => {
