@@ -1,7 +1,7 @@
 import {
   ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   ATLAS_PUBLICATION_HOLD_REASONS,
-  ATLAS_PUBLICATION_SCHEMA_V2,
+  ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_STATES,
   ATLAS_PUBLICATION_WITHDRAWN_REASONS,
   atlasPublicationOrder,
@@ -409,7 +409,7 @@ export class AtlasPublicationReview {
     titles: AtlasSourceTitles, skip: ReadonlySet<string>):
     Promise<{ added: string[]; kept: Array<{ publicationNumber: string; holds: AtlasPublicationHoldReason[] }> }> {
     const rows = (await this.deps.publications.inspect({ cardNumbers: [cardNumber], limit: 500 })).filter((row) =>
-      row.cardSha256 === record.card_sha256 && row.published !== null && row.published.schema !== ATLAS_PUBLICATION_SCHEMA_V2 &&
+      row.cardSha256 === record.card_sha256 && row.published !== null && row.published.schema === ATLAS_PUBLICATION_SCHEMA &&
       !skip.has(row.publicationNumber) && (row.state === "unreviewed" ||
         (row.state === "withdrawn" && row.withdrawnBecause === "owner_unpublished" && row.ownerReason === CONTEXT_REASON)));
     const added: string[] = [];
@@ -418,8 +418,9 @@ export class AtlasPublicationReview {
     for (const row of rows) {
       const at = drafts.findIndex(({ findingNumber }) => findingNumber === row.findingNumber);
       if (at === -1 || (drafts[at]!.state !== "unreviewed" && drafts[at]!.state !== "held")) continue;
-      const shown = withCardContext(row.published!, record, titles);
-      if (shown.schema !== ATLAS_PUBLICATION_SCHEMA_V2) continue;
+      // In its card's context, with the research behind it when its stored finding carries it (owner answer 252a).
+      const shown = withCardContext(row.published!, record, titles, row.findingNumber);
+      if (shown.schema === ATLAS_PUBLICATION_SCHEMA) continue;
       const holds = publicationHoldReasons(shown);
       if (holds.length > 0) {
         kept.push({ publicationNumber: row.publicationNumber, holds });

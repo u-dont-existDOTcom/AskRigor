@@ -9,17 +9,26 @@ import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
 import { researchTargetDigest, verifyResearchReceipt } from "../research-receipts.js";
 import {
+  findingBackingFromReceipt,
+  findingReadingFromReceipt,
+  type FindingBacking,
+  type StoredBacking,
+} from "./research-behind.js";
+import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
   heldFindingsFromReceipt,
   heldYouTubeCardTextsOf,
   heldYouTubeFindingOf,
+  holdsYouTubeReference,
   isSafeReportedModel,
   isYouTubeVideoId,
   laterFindingsCardSchema,
   screenFindingsCard,
+  screenFindingsText,
   withoutYouTubeData,
+  withoutYouTubeLinks,
   type FindingsCard,
   type StoredFindingsCard,
   type VerifiedBasis
@@ -301,16 +310,44 @@ export class FindingsSaveService {
         this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
         return result({ status: "youtube_findings_only", retryable: false });
       }
-      const card: StoredFindingsCard = bases === undefined ? stored.card : {
+      // Owner answer 252a: the research behind each finding, as the receipt signed it: the backing lines' quotes found
+      // word for word in a full text AskRigor fetched itself or a PubMed abstract (one that fails the privacy screen is
+      // left out, never refusing the card), and how each source was read. A receipt that signed none adds none.
+      // A quote naming YouTube is left out like one failing the screen; the AI's words lose a YouTube link's address, as
+      // every card text does (owner answer 170).
+      const backing = findingBackingFromReceipt(receipt.claims.bl, receipt.claims.bs, input.findings_card,
+        (value) => screenFindingsText(value) ?? (holdsYouTubeReference(value) ? "youtube_reference" : undefined),
+        withoutYouTubeLinks);
+      const readings = findingReadingFromReceipt(receipt.claims.rd, input.findings_card);
+      const card: StoredFindingsCard = {
         ...stored.card,
         findings: stored.card.findings.map((finding, index) => {
-          const signed = bases[stored.kept[index]!]!;
-          return signed.length === 0 ? finding : { ...finding, verified_bases: signed };
+          const original = stored.kept[index]!;
+          const signed = bases?.[original] ?? [];
+          const lines = backing.get(original) ?? [];
+          const reading = readings.get(original) ?? [];
+          return {
+            ...finding,
+            ...(signed.length === 0 ? {} : { verified_bases: signed }),
+            ...(lines.length === 0 ? {} : { backing: lines }),
+            ...(reading.length === 0 ? {} : { source_reading: reading }),
+          };
         }),
       };
+      const kept = stored.kept.map((index) => input.findings_card.findings[index]!);
+      // The AI's words against a finding lose a YouTube link's address, which the record then names (owner answer 170).
+      const linkReplaced = kept.some((finding) => (finding.backing ?? []).some((line) =>
+        withoutYouTubeLinks(line.against) !== line.against));
       const without: StoredWithout[] = [
-        ...(stored.omitted ? ["youtube_video_ids_and_links" as const] : []),
+        ...(stored.omitted || linkReplaced ? ["youtube_video_ids_and_links" as const] : []),
         ...(stored.findingsLeftOut > 0 ? ["youtube_comment_findings" as const] : []),
+        // Owner answer 219b: the declarations decided only whether a finding was held, so they are not stored.
+        ...(kept.some((finding) => finding.draws_on_youtube_comments !== undefined)
+          ? ["youtube_comment_declarations" as const] : []),
+        ...(kept.some((finding, index) => !backingKeptWhole(finding.backing ?? [], card.findings[index]!.backing ?? []))
+          ? ["backing_quotes_not_kept" as const] : []),
+        // Owner answer 252a: a forum signal is stored with its communities and how many threads, never the links.
+        ...(kept.some((finding) => finding.forum_signal !== undefined) ? ["forum_thread_links" as const] : []),
       ];
       const atlasBasis = atlasBasisFromReceipt(receipt.claims.atlas);
       if (atlasBasis.length > 0) card.atlas_basis = atlasBasis;
@@ -485,4 +522,16 @@ function result(value: FindingsSaveResult): FindingsSaveResult {
   return parsed.success
     ? parsed.data
     : { status: "queue_unavailable", retryable: false, reason_code: "queue_service_unavailable" };
+}
+
+/**
+ * Whether the stored backing lines are the card's as it gave them, each with every quote it gave (owner answer 252a):
+ * then the owner's review can still check the stored card against the digest the final check signed.
+ */
+function backingKeptWhole(given: readonly FindingBacking[], kept: readonly StoredBacking[]): boolean {
+  return given.length === kept.length && given.every((line, index) => {
+    const stored = kept[index]!;
+    return stored.source === line.source && stored.sentence === line.sentence && stored.conclusion === line.conclusion &&
+      stored.against === line.against;
+  });
 }

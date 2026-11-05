@@ -2,6 +2,9 @@ import {
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
+  ATLAS_PUBLICATION_SCHEMA_V3,
+  ATLAS_PUBLISHED_RETRACTIONS,
+  ATLAS_PUBLISHED_THREADS_PER_FINDING,
   ATLAS_VERIFIED_BASES,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
@@ -16,6 +19,7 @@ import {
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
 import { isYouTubeVideoId, topicKeyText, type StoredFinding } from "../findings/card.js";
+import { publishedThreadLink, sourceIdKey } from "../findings/research-behind.js";
 import type {
   FindingsCardPublisher,
   FindingsRecord,
@@ -116,11 +120,20 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
  */
 export function publishedFindingOf(record: FindingsRecord, findingNumber: number,
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
+  const base = publishedFieldsOf(record, findingNumber, ownerTopic);
+  if (base === undefined) return undefined;
+  const parsed = atlasPublishedFindingSchema.safeParse(base);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** A finding's version 1 fields, unchecked: what publishedFindingOf reads, and what a version 3 builds on. */
+function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
   const finding = record.card.findings[findingNumber - 1];
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
   const topic = record.card.topic ?? ownerTopic;
   const plain = withoutDirectionControls;
-  const parsed = atlasPublishedFindingSchema.safeParse({
+  return {
     schema: ATLAS_PUBLICATION_SCHEMA,
     topic: topic === undefined ? null : { key: topic.key, label: plain(topic.label) },
     claim: plain(finding.claim),
@@ -155,8 +168,7 @@ export function publishedFindingOf(record: FindingsRecord, findingNumber: number
     askrigor_version: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u.test(record.stamp.askrigor_version)
       ? record.stamp.askrigor_version
       : "unknown",
-  });
-  return parsed.success ? parsed.data : undefined;
+  };
 }
 
 // The Atlas's own guard against a YouTube link in a text it keeps (atlasText in @askrigor/evidence-repository).
@@ -189,6 +201,24 @@ export function publishedTexts(published: AtlasPublishedFinding): Array<[string,
     ...(published.question === undefined ? [] : [["question", published.question] as [string, string]]),
     ...(published.usual_answer === undefined ? [] : [["usual_answer", published.usual_answer] as [string, string]]),
     ...(published.source_details ?? []).map(({ title }, at): [string, string] => [`source_details[${at}].title`, title]),
+    // Version 3 (owner answer 252a): the quotes and where they were found, the strongest thing against each, and the
+    // forum signal's communities, links and words.
+    ...(published.backing ?? []).flatMap((line, at): Array<[string, string]> => [
+      ...(line.sentence === undefined ? [] : [[`backing[${at}].sentence`, line.sentence] as [string, string]]),
+      ...(line.sentence_section === undefined ? [] : [[`backing[${at}].sentence_section`, line.sentence_section] as [string, string]]),
+      ...(line.conclusion === undefined ? [] : [[`backing[${at}].conclusion`, line.conclusion] as [string, string]]),
+      ...(line.conclusion_section === undefined ? []
+        : [[`backing[${at}].conclusion_section`, line.conclusion_section] as [string, string]]),
+      [`backing[${at}].against`, line.against],
+    ]),
+    ...(published.forum_signal === undefined ? [] : [
+      ...published.forum_signal.communities.map((community, at): [string, string] => [`forum_signal.communities[${at}]`, community]),
+      ...published.forum_signal.threads.map((thread, at): [string, string] => [`forum_signal.threads[${at}]`, thread]),
+      ...(published.forum_signal.mechanism === undefined ? []
+        : [["forum_signal.mechanism", published.forum_signal.mechanism] as [string, string]]),
+      ...(published.forum_signal.studies_measured === undefined ? []
+        : [["forum_signal.studies_measured", published.forum_signal.studies_measured] as [string, string]]),
+    ]),
   ];
 }
 
@@ -219,23 +249,126 @@ function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
  * they are when the context does not make a publication (a card text longer than the publication takes, say).
  */
 export function withCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
-  titles: AtlasSourceTitles = new Map()): AtlasPublishedFinding {
+  titles: AtlasSourceTitles = new Map(), findingNumber?: number): AtlasPublishedFinding {
+  return inCardContext(published, record, titles, findingNumber) ?? published;
+}
+
+/**
+ * The finding in its card's context, as version 2, or as version 3 when its stored finding carries the research behind
+ * it (owner answer 252a: researchBehindOf): undefined when neither makes a publication. A version 3 that doesn't make one
+ * falls back to version 2.
+ */
+function inCardContext(published: AtlasPublishedFinding, record: FindingsRecord, titles: AtlasSourceTitles,
+  findingNumber: number | undefined): AtlasPublishedFinding | undefined {
   const plain = withoutDirectionControls;
-  const details = published.sources.flatMap((source) => {
+  const finding = findingNumber === undefined ? undefined : record.card.findings[findingNumber - 1];
+  const research = finding === undefined ? undefined : researchBehindOf(finding, published);
+  const details = (v3: boolean) => published.sources.flatMap((source) => {
     const found = titles.get(source);
     const title = found === undefined ? "" : plain(found.title).replace(/[\s\p{Cc}]+/gu, " ").trim();
     const year = found?.year ?? null;
+    const retraction = v3 && found?.retraction !== undefined &&
+      (ATLAS_PUBLISHED_RETRACTIONS as readonly string[]).includes(found.retraction) ? found.retraction : undefined;
     return title === "" || title.length > 500 || textHoldReasons(title).length > 0 ? []
-      : [{ source, title, year: year !== null && Number.isInteger(year) && year >= 1500 && year <= 2200 ? year : null }];
+      : [{ source, title, year: year !== null && Number.isInteger(year) && year >= 1500 && year <= 2200 ? year : null,
+        ...(retraction === undefined ? {} : { retraction }) }];
   });
-  const parsed = atlasPublishedFindingSchema.safeParse({
-    ...published,
-    schema: ATLAS_PUBLICATION_SCHEMA_V2,
-    question: plain(record.card.question),
-    usual_answer: plain(record.card.usual_answer),
-    ...(details.length === 0 ? {} : { source_details: details }),
+  const context = (v3: boolean) => {
+    const shown = details(v3);
+    return {
+      ...published,
+      schema: v3 ? ATLAS_PUBLICATION_SCHEMA_V3 : ATLAS_PUBLICATION_SCHEMA_V2,
+      question: plain(record.card.question),
+      usual_answer: plain(record.card.usual_answer),
+      ...(shown.length === 0 ? {} : { source_details: shown }),
+      ...(v3 ? research : {}),
+    };
+  };
+  if (research !== undefined) {
+    const parsed = atlasPublishedFindingSchema.safeParse(context(true));
+    if (parsed.success) return parsed.data;
+  }
+  const parsed = atlasPublishedFindingSchema.safeParse(context(false));
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * What version 3 adds of a stored finding (owner answer 252a), by the publication's own source strings: its backing
+ * lines, their quotes and sections as the save kept them, each left out when it holds what the pages never show (it is
+ * a paper's text, so it never holds the finding back) and a line with no quote left out, with the strongest thing
+ * against it in AskRigor's words; how each source was read; which source each figure comes from; and the forum signal,
+ * with the communities and the number of threads the save kept, and a link only from a signal that holds one, as the
+ * pages show it (a Reddit post by its id). Undefined when the finding carries none of them, so an older card stays
+ * version 2.
+ */
+export function researchBehindOf(finding: StoredFinding, published: Pick<AtlasPublishedFinding, "sources" | "numbers">): Partial<
+  Pick<AtlasPublishedFinding, "backing" | "source_reading" | "numbers" | "forum_signal">> | undefined {
+  const plain = withoutDirectionControls;
+  const sourceOf = (named: string) => published.sources.find((source) => sourceIdKey(source) === sourceIdKey(named));
+  const shown = (value: string | undefined) => {
+    if (value === undefined) return undefined;
+    const text = plain(value).trim();
+    return text === "" || textHoldReasons(text).length > 0 ? undefined : text;
+  };
+  const backing = (finding.backing ?? []).flatMap((line) => {
+    const source = sourceOf(line.source);
+    const sentence = shown(line.sentence);
+    const conclusion = shown(line.conclusion);
+    if (source === undefined || (sentence === undefined && conclusion === undefined)) return [];
+    const sentenceSection = sentence === undefined ? undefined : shown(line.sentence_section);
+    const conclusionSection = conclusion === undefined ? undefined : shown(line.conclusion_section);
+    return [{
+      source,
+      ...(sentence === undefined ? {} : { sentence }),
+      ...(sentenceSection === undefined ? {} : { sentence_section: sentenceSection }),
+      ...(conclusion === undefined ? {} : { conclusion }),
+      ...(conclusionSection === undefined ? {} : { conclusion_section: conclusionSection }),
+      text: line.text,
+      against: plain(line.against),
+    }];
   });
-  return parsed.success ? parsed.data : published;
+  const read = new Set<string>();
+  const reading = (finding.source_reading ?? []).flatMap((entry) => {
+    const source = sourceOf(entry.source);
+    if (source === undefined || read.has(source)) return [];
+    read.add(source);
+    return [{ source, read: entry.read, ...(entry.figures === undefined ? {} : { figures: entry.figures }) }];
+  });
+  const figureSources = (finding.numbers ?? []).map(({ source }) => source === undefined ? undefined : sourceOf(source));
+  const numbers = published.numbers === null || figureSources.every((source) => source === undefined) ? undefined
+    : published.numbers.map((entry, index) => {
+      const source = figureSources[index];
+      return source === undefined ? entry : { ...entry, source };
+    });
+  // The stored signal holds its communities and how many threads were read, never the links (the free notice says a
+  // card's community summary has none); a link is published only from a signal that holds one.
+  const signal = finding.forum_signal;
+  const communities = signal === undefined ? [] : [...new Set(signal.communities.flatMap((community) => {
+    const named = shown(community);
+    return named === undefined ? [] : [named];
+  }))].slice(0, ATLAS_PUBLISHED_THREADS_PER_FINDING);
+  const links = (signal as { threads?: readonly string[] } | undefined)?.threads ?? [];
+  const threads = [...new Set(links.flatMap((thread) => {
+    const link = shown(publishedThreadLink(thread));
+    return link === undefined ? [] : [link];
+  }))].slice(0, signal?.threads_read ?? 0);
+  const forum = signal === undefined || communities.length === 0 ? undefined : {
+    communities,
+    threads_read: signal.threads_read,
+    threads,
+    people: { ...signal.people },
+    report_quality: { ...signal.report_quality },
+    ...(signal.mechanism === undefined ? {} : { mechanism: plain(signal.mechanism) }),
+    studies: signal.studies,
+    ...(signal.studies_measured === undefined ? {} : { studies_measured: plain(signal.studies_measured) }),
+  };
+  if (backing.length === 0 && reading.length === 0 && numbers === undefined && forum === undefined) return undefined;
+  return {
+    ...(backing.length === 0 ? {} : { backing: backing.slice(0, 3) }),
+    ...(reading.length === 0 ? {} : { source_reading: reading }),
+    ...(numbers === undefined ? {} : { numbers }),
+    ...(forum === undefined ? {} : { forum_signal: forum }),
+  };
 }
 
 /**
@@ -318,17 +451,26 @@ export function planCardPublication(input: {
       return;
     }
     const published = publishedFindingOf(input.record, findingNumber, input.ownerTopic);
-    if (published === undefined) {
+    // Owner answer 252a: a finding resting on its forum signal alone has no source, so it makes no version 1 and is
+    // published in its card's context only, as version 3.
+    const base = published ?? publishedFieldsOf(input.record, findingNumber, input.ownerTopic);
+    const inContext = base === undefined || (published === undefined && decided !== undefined) ? undefined
+      : inCardContext(base, input.record, input.sourceTitles ?? new Map(), findingNumber);
+    if (published === undefined && inContext === undefined) {
       leftOut.push({ findingNumber, reason: "not_publishable" });
       return;
     }
-    const held = publicationHoldReasons(published);
+    const held = publicationHoldReasons((published ?? inContext)!);
     if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
+      if (published === undefined) {
+        leftOut.push({ findingNumber, reason: "not_publishable" });
+        return;
+      }
       // A decided finding's page shows its F number's latest version, so its publication keeps version 1's fields.
       drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null, published });
       return;
     }
-    const shown = withCardContext(published, input.record, input.sourceTitles);
+    const shown = inContext ?? published!;
     const holds = publicationHoldReasons(shown);
     drafts.push(holds.length === 0
       ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: shown }

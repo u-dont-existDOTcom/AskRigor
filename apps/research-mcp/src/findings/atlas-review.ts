@@ -1586,7 +1586,7 @@ export class AtlasReview {
     const plan = sourceChecks === undefined ? emptySourcePlan() : planSources(sourceChecks, state, false);
     const accepted = acceptedTexts(focus, {});
     const declared = cardFieldsOf(focus);
-    const privacy = screenTexts(itemTexts(focus, accepted, focus.finding?.numbers ?? [], declared));
+    const privacy = screenTexts(itemTexts(focus, accepted, atlasFiguresOf(focus.finding?.numbers), declared));
     const problems = [...plan.problems];
     if (community?.refused === true) problems.push(communityOnlyProblem(focus.name));
     if (madeWithOf(focus.record.stamp).protocols.length === 0) problems.push(stampProblem());
@@ -1843,7 +1843,8 @@ export class AtlasReview {
       if (request.numbers !== undefined || item.finding === null) {
         numbers = request.numbers ?? [];
       } else if (!olderCard) {
-        numbers = item.finding.numbers ?? [];
+        // A figure's source (owner answer 252a) is the card's: the Atlas's figure is the figure alone.
+        numbers = atlasFiguresOf(item.finding.numbers);
       } else {
         problems.push({ code: "numbers_missing", message: `${item.name} is from a card saved before the Atlas ` +
           "fields, which declares no numbers: give numbers, each two-group yes-or-no figure the wording gives, or " +
@@ -4280,4 +4281,9 @@ function decodeCursor(cursor: string): CursorKey | null {
   } catch {
     return null;
   }
+}
+
+/** A card's figures as the Atlas takes them: each without the source the card names for it (owner answer 252a). */
+function atlasFiguresOf(numbers: ReadonlyArray<AtlasNumberEntry & { source?: string }> | undefined): AtlasNumberEntry[] {
+  return (numbers ?? []).map(({ source: _source, ...figure }) => figure);
 }

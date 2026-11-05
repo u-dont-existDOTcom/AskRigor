@@ -15,7 +15,7 @@ import {
 } from "@askrigor/evidence-repository";
 
 import { AtlasReview, ATLAS_FAILURE_EXPLANATIONS } from "../apps/research-mcp/src/findings/atlas-review.js";
-import { findingsCardDigest, findingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
+import { findingsCardDigest, laterFindingsCardSchema } from "../apps/research-mcp/src/findings/card.js";
 import { GitHubFindingsReview } from "../apps/research-mcp/src/findings/github-findings-review.js";
 import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-findings.js";
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
@@ -180,9 +180,11 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         structured,
       };
     },
-    async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = []) {
+    async save(card: object, bases: string[] = ["full_text_audit"], atlas: string[] = [],
+      claims: Record<string, string[]> = {}) {
       contributor += 1;
-      const parsed = findingsCardSchema.parse(card);
+      // The card's later shape, which takes the research behind each finding (owner answer 252a).
+      const parsed = laterFindingsCardSchema.parse(card);
       // Each save is another person's research thread.
       const key = contributor.toString(16).padStart(64, "0");
       return library.save({
@@ -190,6 +192,7 @@ function harness(options: { enabled?: boolean; configured?: boolean } = {}) {
         contributor: key,
         finalization_receipt: issueResearchReceipt("finalization", {
           status: "ready", depth: "standard", target: key.slice(0, 12), findings: findingsCardDigest(parsed), bases, ...(atlas.length === 0 ? {} : { atlas }),
+          ...claims,
         }, { secret: SECRET, now: clock }),
       }, { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) });
     },
@@ -273,6 +276,23 @@ describe("the findings actions' calls", () => {
     expect(again.structured.atlas).toMatchObject({ version: null, ...LOW_DOSE_FIELDS });
     expect(again.text).toMatch(/^ARF-0042 finding 1 was already accepted as F-1001, a checked finding, on 4 Nov 2026; nothing new was recorded\./u);
     expect(await h.review.inspectIntents(null)).toHaveLength(1);
+  });
+
+  // Owner answer 252a: the card names each figure's source and the research behind it; the Atlas's figure is the figure.
+  it("accepts a finding whose card names its figures' sources and the research behind it, taking each figure alone", async () => {
+    await stubProviders();
+    const h = harness();
+    const source = "10.0000/synthetic-velmor-c";
+    await h.save({ ...DOI_CARD, findings: [{ ...DOI_CARD.findings[0]!, numbers: [{ ...LOW_DOSE, source }],
+      backing: [{ source, sentence: "Tremor scores halved in 20 of 100 people on the invented low dose.",
+        against: "The invented trial was small." }] }] }, ["full_text_audit"], [],
+    { rd: ["1.1:full_text_audited:-"], bl: ["1.1:fu:full_text"] });
+    const cardSha256 = await inspected(h, "ARF-0042", 1);
+    const accepted = await h.call({ action: "accept_finding", card: "ARF-0042", finding: 1, cardSha256 });
+    expect(accepted.structured.outcome, accepted.text).toBe("finding_queued");
+    const [intent] = await h.review.inspectIntents(["F-1001"]);
+    expect((intent!.payload as { content: { numbers: unknown[] } }).content.numbers).toEqual([LOW_DOSE]);
+    expect((await h.promote()).result.status).toBe("promoted");
   });
 
   it("refuses a call without cardSha256, a topicLabel without its key, and any field its action does not take", async () => {

@@ -36,7 +36,7 @@ export function atlasSearchQuery(raw: string | null): { query: AtlasSearchQuery 
 
 /** The parts of a finding's page that search reads, in the page's order; the wording is the title a list shows. */
 export const ATLAS_SEARCH_FIELDS = ["wording", "question", "usual_answer", "applies_to", "subject", "topic", "why_not_usual",
-  "what_would_change_it", "numbers", "searches", "sources", "number"] as const;
+  "what_would_change_it", "numbers", "research", "people", "searches", "sources", "number"] as const;
 export type AtlasSearchField = typeof ATLAS_SEARCH_FIELDS[number];
 export interface AtlasSearchText { field: AtlasSearchField; text: string }
 

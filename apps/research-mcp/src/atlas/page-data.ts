@@ -1,4 +1,9 @@
 import type {
+  AtlasForumSignalStudies,
+  AtlasPublishedRetraction,
+  AtlasQuoteText,
+  AtlasSourceFigures,
+  AtlasSourceReading,
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
@@ -69,6 +74,8 @@ export interface ShownNumber {
   comparatorTotal: number;
   followUp: string;
   harmsNoneFound: boolean;
+  /** Owner answer 252a: the study the figure comes from, when its publication names one. */
+  source: ShownSource | null;
 }
 
 export interface ShownSearch {
@@ -88,6 +95,40 @@ export interface ShownSource {
   identifiers: AtlasPageSourceIdentifiers;
   title: string | null;
   year: number | null;
+}
+
+/** One backing line of the research behind a finding: the paper's own words, found word for word (owner answer 252a). */
+export interface ShownQuoteLine {
+  sentence: string | null;
+  sentenceSection: string | null;
+  conclusion: string | null;
+  conclusionSection: string | null;
+  /** Where AskRigor found them: a full text it fetched itself, or the PubMed abstract. */
+  text: AtlasQuoteText;
+  /** The strongest thing against the finding from this source, in AskRigor's words. */
+  against: string;
+}
+
+/** One source of the research behind a finding, with how AskRigor read it and its retraction status (owner answer 252a). */
+export interface ShownResearchSource {
+  source: ShownSource;
+  retraction: AtlasPublishedRetraction | null;
+  read: AtlasSourceReading | null;
+  figures: AtlasSourceFigures | null;
+  lines: ShownQuoteLine[];
+}
+
+/** What people report in the forum threads read for a finding: AskRigor's counts and words, and the links (252a). */
+export interface ShownForumSignal {
+  communities: string[];
+  /** How many threads AskRigor's reader read for it; the links shown may be fewer. */
+  threadsRead: number;
+  threads: string[];
+  people: { better: number; noChange: number; worse: number; mixed: number };
+  quality: { detailed: number; measured: number; bare: number };
+  mechanism: string | null;
+  studies: AtlasForumSignalStudies;
+  studiesMeasured: string | null;
 }
 
 export interface ShownFinding {
@@ -132,6 +173,13 @@ export interface ShownFinding {
    * topic, home page, search, map or sitemap does.
    */
   kept: boolean;
+  /**
+   * Owner answer 252a: the research behind it, source by source, from its publication's version 3 fields (an accepted or
+   * edited finding's too, which an erasure of its wording erases); empty for an older publication.
+   */
+  research: ShownResearchSource[];
+  /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
+  forumSignal: ShownForumSignal | null;
 }
 
 /** The owner's "most important now" pick with its reason (decision 2a). */
@@ -365,6 +413,11 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
 
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
   const details = new Map((published.source_details ?? []).map(({ source, title, year }) => [source, { title, year }]));
+  const shownSource = (source: string): ShownSource | null => {
+    const identifier = sourceIdentifierOf(source);
+    return identifier === undefined ? null
+      : { identifiers: [identifier], title: details.get(source)?.title ?? null, year: details.get(source)?.year ?? null };
+  };
   return {
     publicationNumber: publication.publicationNumber,
     question: published.question ?? null,
@@ -390,6 +443,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
       comparatorTotal: entry.comparator_total,
       followUp: entry.follow_up,
       harmsNoneFound: entry.harms_none_found === true,
+      source: entry.source === undefined ? null : shownSource(entry.source),
     })),
     searches: (published.searches ?? []).map((search) => ({
       database: search.database,
@@ -397,9 +451,8 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
       dateRange: search.date_range === undefined ? null : { start: search.date_range.start, end: search.date_range.end },
     })),
     sources: published.sources.flatMap((source) => {
-      const identifier = sourceIdentifierOf(source);
-      return identifier === undefined ? []
-        : [{ identifiers: [identifier], title: details.get(source)?.title ?? null, year: details.get(source)?.year ?? null }];
+      const shown = shownSource(source);
+      return shown === null ? [] : [shown];
     }),
     whyNotUsual: published.why_not_usual,
     whatWouldChangeIt: published.what_would_change_it,
@@ -412,7 +465,55 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    ...researchBehind(published, shownSource),
   };
+}
+
+/**
+ * The research behind a finding and what people report, from a version 3 publication's fields (owner answer 252a):
+ * each source with a reading, a retraction status or a backing line, in the publication's order, named as the page names
+ * its sources; and the forum signal. A text the page guard would refuse is left out, so it never stops a page. Nothing
+ * for a version 1 or 2 publication.
+ */
+function researchBehind(published: AtlasPublishedFinding | null, shownSource: (source: string) => ShownSource | null):
+  Pick<ShownFinding, "research" | "forumSignal"> {
+  if (published === null || published.schema !== "askrigor.atlas-publication.v3") return { research: [], forumSignal: null };
+  const guarded = (text: string | undefined) => text === undefined || !passesPageGuard(text) ? null : text;
+  const research = published.sources.flatMap((source): ShownResearchSource[] => {
+    const shown = shownSource(source);
+    if (shown === null) return [];
+    const reading = (published.source_reading ?? []).find((entry) => entry.source === source);
+    const retraction = (published.source_details ?? []).find((detail) => detail.source === source)?.retraction ?? null;
+    const lines = (published.backing ?? []).filter((line) => line.source === source).flatMap((line): ShownQuoteLine[] => {
+      const sentence = guarded(line.sentence);
+      const conclusion = guarded(line.conclusion);
+      const against = guarded(line.against);
+      if ((sentence === null && conclusion === null) || against === null) return [];
+      return [{
+        sentence,
+        sentenceSection: sentence === null ? null : guarded(line.sentence_section),
+        conclusion,
+        conclusionSection: conclusion === null ? null : guarded(line.conclusion_section),
+        text: line.text,
+        against,
+      }];
+    });
+    return reading === undefined && retraction === null && lines.length === 0 ? []
+      : [{ source: shown, retraction, read: reading?.read ?? null, figures: reading?.figures ?? null, lines }];
+  });
+  const signal = published.forum_signal;
+  const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
+    communities: signal.communities.filter(passesPageGuard),
+    threadsRead: signal.threads_read,
+    threads: signal.threads.filter(passesPageGuard),
+    people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,
+      mixed: signal.people.mixed },
+    quality: { ...signal.report_quality },
+    mechanism: guarded(signal.mechanism),
+    studies: signal.studies,
+    studiesMeasured: guarded(signal.studies_measured),
+  };
+  return { research, forumSignal };
 }
 
 function fromCanonical(
@@ -422,6 +523,9 @@ function fromCanonical(
 ): ShownFinding {
   const content = finding.content;
   const label = finding.label as Exclude<AtlasLabel, "withdrawn">;
+  const sources = finding.sources
+    .map((source) => ({ ...source, identifiers: source.identifiers.filter(canonicalIdentifier) }))
+    .filter(({ identifiers }) => identifiers.length > 0);
   return {
     publicationNumber: publication.publicationNumber,
     question: finding.question,
@@ -451,15 +555,14 @@ function fromCanonical(
       comparatorTotal: entry.comparator_total,
       followUp: entry.follow_up,
       harmsNoneFound: entry.harms_none_found === true,
+      source: canonicalFigureSource(entry, publication.published, sources),
     })),
     searches: (content.searchScope ?? []).map((search) => ({
       database: search.database,
       query: search.query,
       dateRange: search.dateRange === undefined ? null : { start: search.dateRange.start, end: search.dateRange.end },
     })),
-    sources: finding.sources
-      .map((source) => ({ ...source, identifiers: source.identifiers.filter(canonicalIdentifier) }))
-      .filter(({ identifiers }) => identifiers.length > 0),
+    sources,
     whyNotUsual: content.whyNotUsual,
     whatWouldChangeIt: content.whatWouldChangeIt,
     verifiedBases: [...content.verifiedBases],
@@ -477,7 +580,37 @@ function fromCanonical(
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    // Owner answer 252a: an accepted or edited finding shows the research behind it from its publication's fields,
+    // which are erased with its F number's wording.
+    ...researchBehind(publication.published, (source) => canonicalSourceOf(source, sources, publication.published)),
   };
+}
+
+/** A publication's source as an accepted finding's page names it: by the canonical source with the same identifier. */
+function canonicalSourceOf(source: string, sources: readonly ShownSource[], published: AtlasPublishedFinding | null):
+  ShownSource | null {
+  const identifier = sourceIdentifierOf(source);
+  if (identifier === undefined) return null;
+  const same = sources.find(({ identifiers }) => identifiers.some(({ scheme, value }) =>
+    scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase()));
+  if (same !== undefined) return same;
+  const detail = published?.source_details?.find((entry) => entry.source === source);
+  return { identifiers: [identifier], title: detail?.title ?? null, year: detail?.year ?? null };
+}
+
+/** The study an accepted finding's figure comes from: its publication's same figure's source, when it names one. */
+function canonicalFigureSource(
+  entry: { outcome: string; option: string; comparator: string; option_events: number; option_total: number;
+    comparator_events: number; comparator_total: number; follow_up: string },
+  published: AtlasPublishedFinding | null,
+  sources: readonly ShownSource[],
+): ShownSource | null {
+  if (published === null || published.schema !== "askrigor.atlas-publication.v3") return null;
+  const same = (published.numbers ?? []).find((figure) => figure.outcome === entry.outcome &&
+    figure.option === entry.option && figure.comparator === entry.comparator && figure.follow_up === entry.follow_up &&
+    figure.option_events === entry.option_events && figure.option_total === entry.option_total &&
+    figure.comparator_events === entry.comparator_events && figure.comparator_total === entry.comparator_total);
+  return same?.source === undefined ? null : canonicalSourceOf(same.source, sources, published);
 }
 
 /** What a publication shows, or undefined when it shows nowhere. */
@@ -739,6 +872,11 @@ export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
     ["why_not_usual", [finding.whyNotUsual]],
     ["what_would_change_it", [finding.whatWouldChangeIt]],
     ["numbers", finding.numbers.flatMap((entry) => [entry.outcome, entry.followUp, entry.option, entry.comparator])],
+    // Owner answer 252a: the research behind it and what people report, as the page shows them.
+    ["research", finding.research.flatMap(({ lines }) => lines.flatMap(({ sentence, conclusion, against }) =>
+      [sentence, conclusion, against]))],
+    ["people", finding.forumSignal === null ? []
+      : [...finding.forumSignal.communities, finding.forumSignal.mechanism, finding.forumSignal.studiesMeasured]],
     ["searches", finding.searches.map(({ query }) => query)],
     ["sources", finding.sources.flatMap(({ identifiers, title }) => [
       ...(title === null ? [] : [title]),

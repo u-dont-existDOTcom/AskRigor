@@ -1085,7 +1085,9 @@ What the model sends, and when:
   no other number) is set aside as `PMID 40123456` is in any text, so a search
   for records by their numbers is not read as a phone number. The sentence on what
   communities reported that the pages may one day show (owner decision 4a) is
-  not collected: no schema accepts it, and nothing stores it.
+  not collected: no schema accepts it, and nothing stores it. Owner answer 252a's
+  forum signal (below) is not that sentence: it is AskRigor's counts and words
+  about forum threads its own reader read, with no community-written text.
 - Owner answer 219b (2 November 2026; built, not yet released), in the same
   card's later shape, sent in `later_inputs.findings_card` (or at the top level
   where the app lets it through; the published card stays fixed): each finding
@@ -1105,6 +1107,42 @@ What the model sends, and when:
   digest, which covers the declarations, and the result lists them
   (`findings_card.held`); the save holds those findings apart and stores no
   declaration. The declaration is otherwise request-local, never logged or stored.
+- Owner answer 252a (5 November 2026; built, not yet released; plan
+  `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`), in the same
+  card's later shape: for each finding, up to three backing lines (`backing`:
+  one of its key sources, the paper's sentence the finding rests on and the
+  paper's own conclusion, each copied exactly, at most 300 characters, and the
+  strongest thing against it in the AI's words, at most 300), which of its
+  sources each figure comes from (`numbers[].source`), and what people report
+  in the forum threads AskRigor's reader read (`forum_signal`: the threads'
+  links, how many people, not comments, reported better, no change, worse or
+  mixed, how many gave the details, measured the change or wrote a bare
+  one-liner, a way it could work in the AI's words, how studies relate to the
+  reports, one of HRP's four relationships, and with `outcome_mismatch` what
+  the studies measured instead, at most 300 characters each). A finding may
+  give no source when it rests on its forum signal alone. The final check
+  checks only what is exact: a line's source is one of the finding's key
+  sources, and a figure's one of its sources; each thread is a web link, not
+  YouTube, given once, and read in that call (a verified `forum_thread_read`
+  receipt signs its comparable link); at least one person is counted and each
+  quality count is within the people counted; `studies_measured` goes with
+  `outcome_mismatch` only; a relationship other than `support_not_located`
+  cites a study, and `support_not_located` rests on a literature search of
+  that call. Whether reports agree, a mechanism is plausible or studies
+  measured what the reports did is the model's declaration. A problem refuses
+  the card, never the answer. The AI's own words (`against`, the mechanism,
+  what studies measured) pass the card's privacy screen; the paper's quotes do
+  not, since one that fails is left out at the save. Once the check passes,
+  the quotes are looked up, with no model, in the text AskRigor fetched (the
+  source line's lookup, owner answer 237a, in the same eight seconds), and the
+  finalization receipt signs, by finding: whether each quote was found and in
+  what kind of text (`bl`: a full text AskRigor fetched, a PubMed abstract, the
+  AI's search copy or a copy from the owner's library), the section each found
+  quote is in, at most 80 characters (`bs`), and how each source was read and
+  whether an audit found its printed figures match its own data, from that
+  call's receipts (`rd`). A public card citing a study with no backing line,
+  or a research that read forum threads with no finding giving a forum signal,
+  gets one note naming the fields.
 - In `save_research_findings`, only after a paid-private user says yes to that
   offer, or to a save they asked for: the same card (its findings' declarations
   included, at the top level or in `later_inputs.findings_card`), that
@@ -1233,7 +1271,27 @@ them; none from a receipt that signed none). From Atlas phase 3 the stored card
 also keeps its topic and each finding's kind, subject, subject type, direction,
 numbers block and searches as the checked card gave them, each text through the
 same YouTube stripping as the others, and the readable copy shows them under
-each finding and the topic at the top; a card saved before them has none. The
+each finding and the topic at the top; a card saved before them has none. Owner
+answer 252a: each stored finding also keeps the research behind it as the
+receipt signed it: each backing line's quotes found word for word in a full text
+AskRigor fetched itself (from Europe PMC, an open copy or a candidate page it
+fetched) or in a PubMed abstract, each with the section and the kind of text it
+was found in, and the line's strongest thing against it; how each source was
+read (`source_reading`); and each figure's source. A quote not found, found only
+in the AI's search copy or in a copy from the owner's library (whose papers are
+for the owner's own research only), or failing the privacy screen is not stored,
+nor a line left with no quote, and nothing is stored from a receipt that signed
+no lookup. A forum signal is stored with its counts, its words, the communities
+its threads belong to (`r/<name>` on Reddit, a forum's site name elsewhere,
+worked out from the links) and how many threads were read, never the threads'
+links: the free contributor notice says a card's community summary has no
+links, so publishing them waits for the owner's word on new wording. The
+readable copy shows them under each finding. `stored_without` then names
+`backing_quotes_not_kept` and `forum_thread_links`, and, since owner answer 219b,
+`youtube_comment_declarations` when a finding's declaration is not stored, and
+the owner's review reads such a card by its fields, as for a replaced YouTube
+link. A kept copy of a card that wasn't saved leaves a forum signal's thread
+links out too. The
 stored card holds no YouTube video
 ID or link: a link keeps its text. It also holds no finding drawn from YouTube
 comments (a YouTube video among its sources, `community_checked`, a comment
@@ -1646,7 +1704,30 @@ The pages (section 4C) are built, not yet released, and switched off until
   identifier alone): `askrigor.atlas-publication.v2`, plan
   `docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`. The
   question and usual answer go through the same hold check as every other
-  published text; a title that fails it, or does not fit, is left out. A
+  published text; a title that fails it, or does not fit, is left out. Owner
+  answer 252a (`askrigor.atlas-publication.v3`, plan
+  `docs/superpowers/plans/2026-11-05-atlas-research-behind.md`), for a finding
+  whose stored card holds the research behind it: each backing line's quotes,
+  found word for word in a full text AskRigor fetched itself or a PubMed
+  abstract (at most three lines, each quote at most 300 characters), with the
+  section they were found in and the strongest thing against the finding in
+  AskRigor's words; how each source was read and whether its printed figures
+  match its own data; which source each figure comes from; each source's
+  retraction status, as the title lookup reads it from Crossref's update
+  markers and PubMed's publication types (one no provider could read is left
+  out); and the forum signal: its communities, how many threads were read,
+  people's outcomes counted by person, how good the reports are, a way it could
+  work and how studies relate to the reports, in AskRigor's words. Never a
+  thread's link while the notice says a community summary has none (the
+  publication can carry links, as `https://www.reddit.com/comments/<id>/` for
+  a Reddit post so that no link names a user or carries a title, once the owner
+  approves wording that covers them), a thread's title, a username or anything
+  a person wrote. Quotes and sections are a paper's text: one the hold check
+  flags is left out rather than holding the finding; the AI's words go through
+  the hold check as every other published text. A finding resting on its forum
+  signal alone may have no source. An accepted or edited finding's page shows
+  the research behind it from its publication's fields, which an erasure of its
+  F number's wording erases with the rest. A
   decided finding's publication, and so a paid private card's, keeps the earlier
   fields without them: its page shows its F number's version. Then its state
   (`unreviewed`, `accepted` with its F number, `edited`, `rejected`,
@@ -1802,6 +1883,8 @@ Full-text search and the findings map (plan
 search matches the text each shown finding's page shows (its wording, question,
 usual answer, whom it applies to, subject, topic, why it isn't the usual answer,
 what would change it, its figures' outcome, follow-up, option and comparator,
+the research behind it (each quote shown and the strongest thing against it) and
+what people report (its communities and AskRigor's words; owner answer 252a),
 its searches, its sources' titles and identifiers, and its P and F numbers), never
 a label the pages add, a
 vote, a comment, or a card's or version's text the pages leave out; its paging
@@ -2028,6 +2111,10 @@ people's own reports of what they tried for a health problem and what happened, 
 - The plain answer any active research account registers before research (owner answers 140b and 190a), and its
   comparison with the checked answer: they reach only the calls that carry them and the answer, and the
   client-carried receipt holds only their digests. The account row keeps only whether the note comparing them is on.
+- A findings card's backing quotes not found word for word in a text AskRigor fetched itself, found only in the AI's
+  search copy or the owner's library copy, or failing the privacy screen; a forum signal's thread links (the card keeps
+  their communities and how many were read); and the source line's lookups (owner answer 237a), of which only a
+  checked card's backing results are signed into its finalization receipt (owner answer 252a).
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 

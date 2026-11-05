@@ -34,7 +34,11 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_card: laterFindingsCardSchema.optional()
       .describe("The findings card, as published, with each finding's draws_on_youtube_comments: true when any part " +
         "of it rests on YouTube comments read in this research, false otherwise. A finding drawing on them is held " +
-        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared."),
+        "privately for AskRigor's owner and never published; after comments were read, so is one left undeclared. " +
+        "For the Atlas's research behind each finding (owner answer 252a), each finding may also give backing (the " +
+        "paper's sentence and conclusion, copied exactly, and the strongest thing against it), each figure's source, " +
+        "and forum_signal (what people report in the forum threads read here); one resting on its forum_signal alone " +
+        "may have no sources."),
     // Owner answer 237a: the one optional field the source line adds.
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +

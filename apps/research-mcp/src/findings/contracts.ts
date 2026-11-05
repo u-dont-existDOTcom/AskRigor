@@ -34,8 +34,17 @@ export const findingsSaveInputSchema = z.object({
 
 export type FindingsSaveInput = z.output<typeof findingsSaveInputSchema>;
 
-/** YouTube video IDs and links, and findings drawn from YouTube comments (owner answer 170). */
-export const STORED_WITHOUT = ["youtube_video_ids_and_links", "youtube_comment_findings"] as const;
+/**
+ * What a stored card leaves out of the checked card: YouTube video IDs and links, and findings drawn from YouTube
+ * comments (owner answer 170); the findings' declarations of whether they draw on YouTube comments, which decided only
+ * whether they were held (owner answer 219b); and, owner answer 252a, the backing lines' quotes not kept (not found word
+ * for word in a text AskRigor fetched itself, or failing the privacy screen) and the forum threads' links, of which a
+ * forum signal keeps the communities and how many were read (the free notice's community summary has no links).
+ */
+export const STORED_WITHOUT = [
+  "youtube_video_ids_and_links", "youtube_comment_findings", "youtube_comment_declarations", "backing_quotes_not_kept",
+  "forum_thread_links",
+] as const;
 export type StoredWithout = typeof STORED_WITHOUT[number];
 
 export const FINDINGS_SAVE_STATUSES = [

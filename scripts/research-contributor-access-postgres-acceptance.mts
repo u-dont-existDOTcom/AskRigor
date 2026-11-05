@@ -9,6 +9,7 @@ import { Pool } from "pg";
 import {
   ATLAS_PUBLICATION_SCHEMA,
   ATLAS_PUBLICATION_SCHEMA_V2,
+  ATLAS_PUBLICATION_SCHEMA_V3,
   AtlasFindingPromotionRunner,
   AtlasParticipationError,
   AtlasPublicationError,
@@ -2446,6 +2447,41 @@ export async function verifyAtlasPublications(context: {
       "ATLAS_PUBLICATIONS_NOT_IDEMPOTENT_BY_DIGEST_AND_FINDING",
     );
     checks.push("atlas_publications_are_numbered_from_their_own_sequence_and_idempotent_by_card_digest_and_finding");
+
+    // Owner answer 252a: version 3, the research behind a finding and what people report, round trips as it was
+    // published; one resting on its forum signal alone has no source. Withdrawn at once, so no later list counts them.
+    const question = { question: "Does an invented option help?", usual_answer: "A quick answer says it helps." };
+    const researched: AtlasPublishedFinding = {
+      ...published("Version 3: zentarine 20 mg cut relapse in an invented trial."), ...question,
+      schema: ATLAS_PUBLICATION_SCHEMA_V3,
+      numbers: [{ ...published("x").numbers![0]!, source: "10.0000/synthetic-velmor-publication" }],
+      source_details: [{ source: "10.0000/synthetic-velmor-publication", title: "An invented trial", year: 2024,
+        retraction: "none_found" }],
+      backing: [{ source: "10.0000/synthetic-velmor-publication",
+        sentence: "Relapse fell from 30 of 120 to 18 of 120 with zentarine 20 mg over 52 weeks.", sentence_section: "Results",
+        text: "full_text", against: "The invented trial was the only one at this dose." }],
+      source_reading: [{ source: "10.0000/synthetic-velmor-publication", read: "full_text_audited", figures: "consistent" }],
+    };
+    const forumOnly: AtlasPublishedFinding = {
+      ...published("Version 3: people on invented forums report fewer relapses."), ...question,
+      schema: ATLAS_PUBLICATION_SCHEMA_V3, sources: [], numbers: [], verified_bases: [],
+      forum_signal: { communities: ["r/InventedVelmor"], threads_read: 2, threads: [],
+        people: { better: 5, no_change: 1, worse: 0, mixed: 1 }, report_quality: { detailed: 3, measured: 1, bare: 2 },
+        mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
+    };
+    const third = await store.publish({ cardNumber: 7006, cardSha256: atlasHex("synthetic-publication-card-v3"),
+      findings: [draft(1, { published: researched }), draft(2, { published: forumOnly })], publishedAt: tick(),
+      revive: false });
+    const readBack = await store.inspect({ cardNumbers: [7006] });
+    const thirdWithdrawn = await store.withdraw({ reason: "card_set_aside", cardNumbers: [7006], withdrawnAt: tick() });
+    assert(
+      third.every(({ outcome, state }) => outcome === "published" && state === "unreviewed") &&
+        isDeepStrictEqual(readBack.map(({ published: row }) => row).sort((left, right) =>
+          (left?.claim ?? "").localeCompare(right?.claim ?? "")), [forumOnly, researched]) &&
+        thirdWithdrawn.length === 2,
+      `ATLAS_PUBLICATION_VERSION_3_MISMATCH ${JSON.stringify(readBack.map(({ published: row }) => row))}`,
+    );
+    checks.push("atlas_publications_of_version_3_round_trip_with_the_research_behind_them_and_what_people_report");
 
     const [accepted] = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
       decidedAt: tick() });

@@ -1,4 +1,11 @@
-import type { AtlasLabel } from "@askrigor/evidence-repository";
+import type {
+  AtlasForumSignalStudies,
+  AtlasLabel,
+  AtlasPublishedRetraction,
+  AtlasQuoteText,
+  AtlasSourceFigures,
+  AtlasSourceReading,
+} from "@askrigor/evidence-repository";
 
 import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
 import { escapeHtml } from "./page-guard.js";
@@ -26,8 +33,11 @@ import {
   type AtlasTopicModel,
   type AtlasTopicsModel,
   type ShownFinding,
+  type ShownForumSignal,
   type ShownNumber,
+  type ShownQuoteLine,
   type ShownRelated,
+  type ShownResearchSource,
   type ShownSearch,
   type ShownSource,
 } from "./page-data.js";
@@ -99,6 +109,32 @@ const BASIS_WORDS = {
   research_correction: "research correcting a common claim",
 } as const;
 const DATABASE_WORDS = { pubmed: "PubMed", europepmc: "Europe PMC", ctgov: "ClinicalTrials.gov" } as const;
+// Owner answer 252a: how AskRigor read a source, whether its printed figures match its own data, its retraction status,
+// where a quote was found, and how studies relate to what people report (HRP FormalAbsenceCannotEraseCommunitySignal's
+// four relationships, in plain words).
+const READ_WORDS: Readonly<Record<AtlasSourceReading, string>> = {
+  full_text_audited: "Full text, with its methods audited by AskRigor",
+  search_copy_audited: "Full text, with its methods audited by AskRigor in a copy the AI found, which AskRigor didn’t fetch itself",
+  full_text_read: "Full text read; its methods weren’t audited",
+  partial_text: "Part of the full text read; its methods weren’t audited",
+  abstract_only: "Abstract only",
+  atlas_checked: "Read for an earlier finding checked in the Atlas",
+  secondary_only: "Known only through other papers’ accounts of it",
+  not_read: "Not read here; its public record only",
+};
+const FIGURES_WORDS: Readonly<Record<AtlasSourceFigures, string>> = {
+  consistent: "Its printed figures match its own data.",
+  internally_inconsistent: "Some of its printed figures don’t match its own data.",
+};
+const RETRACTION_WORDS: Readonly<Partial<Record<AtlasPublishedRetraction, string>>> = {
+  retracted: "This paper has been retracted.",
+  expression_of_concern: "This paper carries an expression of concern from its journal.",
+  corrected_or_updated: "This paper has been corrected or updated since it was published.",
+};
+const QUOTE_TEXT_WORDS: Readonly<Record<AtlasQuoteText, string>> = {
+  full_text: "the full text AskRigor fetched",
+  abstract: "its PubMed abstract",
+};
 const DISAGREEMENT_WORDS: Record<string, string> = {
   dose: "the dose",
   population: "who was studied",
@@ -338,6 +374,8 @@ const FOUND_IN_WORDS: Record<AtlasSearchField, string> = {
   why_not_usual: "why it isn’t the usual answer",
   what_would_change_it: "what would change it",
   numbers: "the numbers",
+  research: "the research behind it",
+  people: "what people report",
   searches: "what was searched",
   sources: "the sources",
   number: "its number",
@@ -920,8 +958,108 @@ ${[option, comparator].map(({ name, events, total }) => html`<tr><th scope="row"
 `)}</tbody>
 </table>
 ${difference}<p>${needed}</p>
-${entry.harmsNoneFound ? html`<p>No harms were found over the same follow-up.</p>` : ""}
-</figure>
+${entry.harmsNoneFound ? html`<p>No harms were found over the same follow-up.</p>` : ""}${entry.source === null ? ""
+    : html`<p class="meta">From ${sourceName(entry.source)}.</p>
+`}</figure>
+`;
+}
+
+/** A source by its title and year, or its first identifier when no public record gave a title. */
+function sourceName(entry: ShownSource): SafeHtml {
+  if (entry.title !== null) return html`<cite>${entry.title}</cite>${entry.year === null ? "" : html` (${entry.year})`}`;
+  const link = entry.identifiers.map(sourceLink).find((found) => found !== undefined);
+  return html`${link?.text ?? "a study"}`;
+}
+
+/**
+ * The research behind a finding (owner answer 252a), source by source: its title and links, a retraction or concern
+ * notice, how AskRigor read it and whether its printed figures match its own data, the paper's own sentence and
+ * conclusion found word for word, and the strongest thing against the finding, in AskRigor's words.
+ */
+function researchSection(research: readonly ShownResearchSource[]): SafeHtml | "" {
+  if (research.length === 0) return "";
+  return html`<section aria-labelledby="research">
+<h2 id="research">The research behind it</h2>
+<p>Each source this finding rests on, with how AskRigor read it. Words in quotation blocks are the paper’s own, which AskRigor found word for word in a text it fetched itself; the strongest thing against the finding is in AskRigor’s words.</p>
+${research.map(researchSource)}</section>
+`;
+}
+
+function researchSource(entry: ShownResearchSource): SafeHtml {
+  const links = entry.source.identifiers.flatMap((identifier) => {
+    const link = sourceLink(identifier);
+    return link === undefined ? [] : [html`<a href="${link.href}">${link.text}</a>`];
+  });
+  const retraction = entry.retraction === null ? undefined : RETRACTION_WORDS[entry.retraction];
+  return html`<article class="research-source">
+<h3>${sourceName(entry.source)}</h3>
+${links.length === 0 ? "" : html`<p class="meta">${joined(links, " · ")}</p>
+`}${retraction === undefined ? "" : html`<p class="error-line" role="note">${retraction}</p>
+`}${entry.read === null ? "" : html`<p><strong>How AskRigor read it:</strong> ${READ_WORDS[entry.read]}.${entry.figures === null ? ""
+    : html` ${FIGURES_WORDS[entry.figures]}`}</p>
+`}${entry.lines.map(quoteLine)}</article>
+`;
+}
+
+function quoteLine(line: ShownQuoteLine): SafeHtml {
+  const found = (section: string | null) =>
+    html`Found word for word in ${QUOTE_TEXT_WORDS[line.text]}${section === null ? "" : html`, in ${section}`}.`;
+  return html`${line.sentence === null ? "" : html`<blockquote class="quote"><p>${line.sentence}</p>
+<footer>The paper’s sentence behind this finding. ${found(line.sentenceSection)}</footer></blockquote>
+`}${line.conclusion === null ? "" : html`<blockquote class="quote"><p>${line.conclusion}</p>
+<footer>The paper’s own conclusion. ${found(line.conclusionSection)}</footer></blockquote>
+`}<p><strong>The strongest thing against it</strong> (AskRigor’s words): ${line.against}</p>
+`;
+}
+
+const STUDIES_WORDS: Readonly<Record<AtlasForumSignalStudies, string>> = {
+  corroborated: "Studies agree with these reports.",
+  contradicted: "Studies that measured it the way these reports did found otherwise.",
+  support_not_located: "No studies on this were found in the searches made for this research. That doesn’t count against these reports.",
+  outcome_mismatch: "",
+};
+
+const people = (count: number) => `${count} ${count === 1 ? "person" : "people"}`;
+
+/** The forum a published thread link is on, as a reader knows it. */
+function threadSite(link: string): string {
+  try {
+    const host = new URL(link).hostname.toLowerCase().replace(/^www\./u, "");
+    return host === "reddit.com" || host.endsWith(".reddit.com") ? "Reddit" : host;
+  } catch {
+    return "a forum";
+  }
+}
+
+/**
+ * What people report (owner answer 252a): AskRigor's counts of people by outcome and how good their reports are, a way it
+ * could work, labelled as a mechanism, how studies relate to the reports in plain words, and the threads read, as links
+ * with their communities. Never a username or anything a person wrote.
+ */
+function peopleSection(signal: ShownForumSignal | null): SafeHtml | "" {
+  if (signal === null) return "";
+  const { better, noChange, worse, mixed } = signal.people;
+  const total = better + noChange + worse + mixed;
+  const studies = signal.studies === "outcome_mismatch"
+    ? html`The studies found measured something else: ${signal.studiesMeasured ?? "not the outcome these reports describe"}. They don’t count against these reports.`
+    : html`${STUDIES_WORDS[signal.studies]}`;
+  return html`<section aria-labelledby="people">
+<h2 id="people">What people report</h2>
+<p>From ${signal.threadsRead} forum ${signal.threadsRead === 1 ? "thread" : "threads"} AskRigor’s own reader read${signal.communities.length === 0 ? ""
+    : html`, in ${joined(signal.communities.map((community) => html`${community}`), ", ")}`}. AskRigor counts people, not comments, and quotes no one.</p>
+<dl class="facts">
+<dt>Better</dt><dd>${people(better)}</dd>
+<dt>No change</dt><dd>${people(noChange)}</dd>
+<dt>Worse</dt><dd>${people(worse)}</dd>
+<dt>Mixed</dt><dd>${people(mixed)}</dd>
+</dl>
+<p><strong>How good the reports are:</strong> of ${people(total)}, ${signal.quality.detailed} gave the details (what, how much, how long, and what else changed at the same time), ${signal.quality.measured} measured the change, and ${signal.quality.bare} wrote a bare one-liner.</p>
+${signal.mechanism === null ? "" : html`<p><strong>A way it could work</strong> (a mechanism, in AskRigor’s words: it makes the reports plausible, but it isn’t a result): ${signal.mechanism}</p>
+`}<p><strong>Studies:</strong> ${studies}</p>
+${signal.threads.length === 0 ? "" : html`<ul class="thread-list">
+${signal.threads.map((link, index) => html`<li><a href="${link}" rel="nofollow noopener noreferrer">Thread ${index + 1}</a> on ${threadSite(link)}</li>
+`)}</ul>
+`}</section>
 `;
 }
 
@@ -1088,7 +1226,7 @@ ${usual}${cardFindings(finding, model.siblings)}${finding.numbers.length === 0 ?
 <h2 id="numbers">The numbers</h2>
 <p>Each group is shown as how many out of 100 had the outcome. The 95% range of the difference is worked out from the two groups’ counts by Newcombe’s method; it treats the groups as independent, so it does not allow for a crossover or clustered design. A number needed to treat or harm, 1 divided by the difference rounded up, is shown only when that range leaves out no difference. AskRigor works all of them out from the counts.</p>
 ${finding.numbers.map(figure)}</section>
-`}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
+`}${researchSection(finding.research)}${peopleSection(finding.forumSignal)}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
 <h2 id="searches">What was searched, and found nothing</h2>
 <ul class="search-list">
 ${finding.searches.map(search)}</ul>
@@ -1560,6 +1698,17 @@ thead th { font-size: 0.9rem; color: var(--muted); }
 td:last-child, th:last-child { text-align: right; }
 
 .search-list li, .source-list li { margin: 0.5rem 0; }
+.research-source { margin: 1.25rem 0; padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.research-source h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.quote {
+  margin: 0.9rem 0;
+  padding: 0.6rem 1rem;
+  border-left: 0.3rem solid var(--line);
+  background: var(--surface);
+}
+.quote p { margin: 0 0 0.35rem; }
+.quote footer { color: var(--muted); font-size: 0.9rem; }
+.thread-list { margin: 0.5rem 0; padding-left: 1.25rem; }
 code {
   padding: 0.1em 0.3em;
   background: color-mix(in srgb, var(--line) 45%, transparent);

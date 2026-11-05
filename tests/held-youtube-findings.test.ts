@@ -485,7 +485,8 @@ describe("the save path holds the findings a saved card leaves out", () => {
     expect(record.card.findings.map(({ claim }) => claim)).toEqual([STUDY.claim]);
     expect(record.card.findings[0]).not.toHaveProperty("draws_on_youtube_comments");
     expect(record.card_sha256).toBe(findingsCardDigest(laterFindingsCardSchema.parse(card)));
-    expect(record.stored_without).toEqual(["youtube_comment_findings"]);
+    // The declaration decided only whether a finding was held, so the record names it as left out (owner answer 219b).
+    expect(record.stored_without).toEqual(["youtube_comment_findings", "youtube_comment_declarations"]);
     expect(body).not.toContain("draws_on_youtube_comments");
     expect(body).not.toContain(declared.claim);
     expect(h.store.snapshot().map(({ findingNumber, claim, cardNumber }) => [cardNumber, findingNumber, claim])).toEqual([

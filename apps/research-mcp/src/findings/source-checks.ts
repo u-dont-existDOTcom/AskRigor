@@ -253,7 +253,12 @@ export async function checkAtlasSources(
 }
 
 /** Sources' titles and years from their public records, by the source as a card gives it. */
-export type AtlasSourceTitles = ReadonlyMap<string, { title: string; year: number | null }>;
+export type AtlasSourceTitles = ReadonlyMap<string, {
+  title: string;
+  year: number | null;
+  /** The retraction status the same check read (owner answer 252a), shown with the research behind a finding. */
+  retraction?: AtlasRetractionStatus;
+}>;
 /** Looks sources up; a source with no title is left out of the answer. */
 export type AtlasSourceTitleLookup = (sources: readonly string[]) => Promise<AtlasSourceTitles>;
 
@@ -265,10 +270,11 @@ export type AtlasSourceTitleLookup = (sources: readonly string[]) => Promise<Atl
  */
 export function atlasSourceTitleLookup(options: AtlasSourceCheckOptions): AtlasSourceTitleLookup {
   return async (sources) => {
-    const titles = new Map<string, { title: string; year: number | null }>();
+    const titles = new Map<string, { title: string; year: number | null; retraction?: AtlasRetractionStatus }>();
     for (const check of (await checkAtlasSources(sources, options)).sources) {
       if (check.outcome !== "checked" || check.record.title === undefined) continue;
-      titles.set(check.source, { title: check.record.title, year: check.record.year === undefined ? null : Number(check.record.year) });
+      titles.set(check.source, { title: check.record.title, year: check.record.year === undefined ? null : Number(check.record.year),
+        retraction: check.retraction.status });
     }
     return titles;
   };

@@ -264,6 +264,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
+  backingRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
 } from "./research-finalization-gate.js";
@@ -2475,13 +2476,28 @@ function defineResearchOperations(
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
       // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
-      const lookups = sourceLineRequestsOf(result);
-      if (lookups !== undefined && checkedInput?.source_lines !== undefined) {
-        const late = lookups.map(({ line }) => ({ source: checkedInput.source_lines![line]!.source,
+      // Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same texts, and
+      // what came of them is signed into the finalization receipt.
+      const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
+      const backing = backingRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined) {
+        const given = lookups === undefined ? [] : checkedInput!.source_lines!;
+        const lines = [...given, ...(backing?.lines ?? [])];
+        const requests = [...(lookups ?? []),
+          ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
+        const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
-        const lines = lookUpSourceLines(checkedInput.source_lines, lookups, options.sourceLineTexts ?? AskRigorSourceLineTexts)
-          .catch(() => late);
-        gateOptions = { ...gateOptions, sourceLineLookups: await withinDeadline(lines, SOURCE_LINE_DEADLINE_MILLISECONDS, late) };
+        const looked = await withinDeadline(lookUpSourceLines(lines, requests, options.sourceLineTexts ?? AskRigorSourceLineTexts)
+          .catch(() => late), SOURCE_LINE_DEADLINE_MILLISECONDS, late);
+        const fromLines = lookups?.length ?? 0;
+        gateOptions = {
+          ...gateOptions,
+          ...(lookups === undefined ? {} : { sourceLineLookups: looked.slice(0, fromLines) }),
+          ...(backing === undefined ? {} : {
+            backingLookups: backing.lines.map(({ finding, line }, place) =>
+              ({ finding, line, lookup: looked[fromLines + place] ?? late[fromLines + place]! }))
+          })
+        };
         result = finalizeResearch(input, gateOptions);
       }
       const reader = options.secondReader ?? { enabled: secondReaderEnabled, readAnswer };
