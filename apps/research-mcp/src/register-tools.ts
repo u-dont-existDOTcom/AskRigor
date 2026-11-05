@@ -2509,8 +2509,9 @@ function defineResearchOperations(
       let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
-      // no model. Owner answer 249a: so is its study map, with its studies' ClinicalTrials.gov records, under the same
-      // deadline. Whatever happens, the check stands: what couldn't be looked up says so in a note.
+      // no model. Owner answer 249a: so is its study map, with its studies' ClinicalTrials.gov records, within the same
+      // deadline; the map's PubMed reads come after the source lines', so they never delay them, and what the map read
+      // in time is kept. Whatever happens, the check stands: what couldn't be looked up says so in a note.
       const lookups = sourceLineRequestsOf(result);
       const mapRequests = studyMapRequestsOf(result);
       const sourceLines = lookups === undefined ? undefined : checkedInput?.source_lines;
@@ -2523,14 +2524,17 @@ function defineResearchOperations(
           ? lineCache : quoteCache();
         const late = (lookups ?? []).map(({ line }) => ({ source: sourceLines?.[line]?.source ?? "",
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
+        const lines = sourceLines === undefined || lookups === undefined ? undefined : withinDeadline(
+          lookUpSourceLines(sourceLines, lookups, lineTexts, lineCache).catch(() => late),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, late);
         const [sourceLineLookups, studyMapLookup] = await Promise.all([
-          sourceLines === undefined || lookups === undefined ? undefined : withinDeadline(
-            lookUpSourceLines(sourceLines, lookups, lineTexts, lineCache).catch(() => late),
-            SOURCE_LINE_DEADLINE_MILLISECONDS, late),
+          lines,
+          // The map keeps its own deadline; this one only guards against a lookup that never settles.
           mapRequests === undefined ? undefined : withinDeadline(
-            lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts, mapCache)
+            lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts,
+              { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(lines === undefined ? {} : { after: lines }) })
               .catch(() => lateStudyMapLookup(mapRequests.map)),
-            SOURCE_LINE_DEADLINE_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
+            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
         ]);
         gateOptions = {
           ...gateOptions,
@@ -2673,9 +2677,9 @@ function defineResearchOperations(
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
               "when the answer is not in English.") +
-          // Owner answer 249a: the study map's shape, only where an answer combines studies, not in every result.
-          (checkedInput === undefined || checkedInput.study_map !== undefined || checkedInput.key_sources.length < 2
-            ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
+          // Owner answer 249a: the study map's shape, only with a passing check of an answer combining studies.
+          (!passing || checkedInput === undefined || checkedInput.study_map !== undefined ||
+            checkedInput.key_sources.length < 2 ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -3599,6 +3603,8 @@ const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
 // How long a passing check may wait to look its source lines up; the held texts are in memory, PubMed's are one call.
 const SOURCE_LINE_DEADLINE_MILLISECONDS = 8_000;
+// Past the study map's own deadline, which keeps what it read, a lookup that never settles is given up.
+const STUDY_MAP_GUARD_MILLISECONDS = 1_000;
 const AskRigorSourceLineTexts: SourceLineTexts = {
   fullText(handle) {
     try {

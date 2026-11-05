@@ -136,6 +136,9 @@ function finder(document: SourceLineDocument): Finder {
 
 const longEnough = (quote: string): boolean => quoteForm(quote).replace(/[^\p{L}\p{N}]/gu, "").length >= SHORTEST_QUOTE;
 
+/** Whether a quote is too short to look up: one too short to mean much is never called found or missing. */
+export const quoteTooShort = (quote: string): boolean => !longEnough(quote);
+
 /** What one check has read so far, so each text is read once: a PubMed abstract, and each text's finder. */
 export interface QuoteCache {
   readonly abstracts: Map<string, Promise<SourceLineDocument | undefined | null>>;

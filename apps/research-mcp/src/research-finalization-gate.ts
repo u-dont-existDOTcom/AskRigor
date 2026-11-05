@@ -53,8 +53,8 @@ import {
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
-  checkStudyMap, cleanStudyMap, studyMapCheckSchema,
-  type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
+  checkStudyMap, readStudyMap, studyMapCheckSchema,
+  type CheckedStudyMap, type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
 } from "./study-map.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
@@ -1108,6 +1108,8 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
 export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
+  /** The study map as checked (owner answer 249a): each item at its place as given. */
+  studyMap?: CheckedStudyMap;
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
   const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
@@ -1135,8 +1137,19 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
       droppedFindingsCard = true;
     }
   }
+  // Owner answer 249a: the study map is read an item at a time, so an item left out never moves the others' places in
+  // its notes and result; the map as accepted then passes through the parser unchanged.
+  let studyMap: CheckedStudyMap | undefined;
+  if (normalized.study_map !== undefined) {
+    const read = readStudyMap(normalized.study_map);
+    notes.push(...read.notes);
+    studyMap = read.map;
+    if (read.given === undefined) delete normalized.study_map;
+    else normalized.study_map = read.given;
+  }
   const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
-  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}) };
+  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}),
+    ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }) };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -3717,13 +3730,12 @@ export function finalizeResearch(
   // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
   // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
   // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
-  const studyMap = input.study_map === undefined ? undefined : cleanStudyMap(input.study_map);
-  const studyMapRequests: StudyMapRequest[] = (studyMap?.map.studies ?? []).map(({ source }) => {
-    const links = sourceLinks(source);
+  const studyMap = parsed.studyMap;
+  const studyMapLinks = (studyMap?.studies ?? []).map(({ source }) => sourceLinks(source));
+  const studyMapRequests: StudyMapRequest[] = studyMapLinks.map((links) => {
     const receipts = paperReceipts(links);
     return {
       tied: receipts.length > 0,
-      ids: links.linkIds,
       handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
         SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
       pmids: [...new Set([...(isPmid(links.id) ? [links.id] : []),
@@ -3733,11 +3745,11 @@ export function finalizeResearch(
   let studyMapCheck: StudyMapCheck | undefined;
   if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup !== undefined) {
     const showing = quoteLocator(displayedProse(draft));
-    const checked = checkStudyMap(studyMap.map, options.studyMapLookup, {
+    const checked = checkStudyMap(studyMap, options.studyMapLookup, {
       requests: studyMapRequests,
       // The identical-results test of the key studies' audited figures, for any study of the map.
-      figures: studyMapRequests.map(({ ids }) =>
-        ids.map((id) => studyFigures.get(id)?.values).find((values) => values !== undefined) ?? []),
+      figures: studyMapLinks.map(({ linkIds }) =>
+        linkIds.map((id) => studyFigures.get(id)?.values).find((values) => values !== undefined) ?? []),
       shown: (quote) => showing(quote).length > 0,
       absenceClaims: absenceClaims.flatMap(({ quote, studies }, index) => {
         const resting = new Set((studies ?? []).map(normalizeIdentifier)).size;
@@ -3746,7 +3758,7 @@ export function finalizeResearch(
       sameQuote
     });
     studyMapCheck = checked.check;
-    for (const note of [...studyMap.notes, ...checked.notes]) if (!notes.includes(note)) notes.push(note);
+    for (const note of checked.notes) if (!notes.includes(note)) notes.push(note);
   }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
@@ -3938,7 +3950,7 @@ export function finalizeResearch(
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
   }
   if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup === undefined) {
-    STUDY_MAP_REQUESTS.set(parsedOutput, { map: studyMap.map, requests: studyMapRequests });
+    STUDY_MAP_REQUESTS.set(parsedOutput, { map: studyMap, requests: studyMapRequests });
   }
   // Owner answer 221: what the meaning judge may read of a passing check with a draft, for the tool's dev accounts.
   if (passed && draft !== undefined) {
