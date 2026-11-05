@@ -15,15 +15,22 @@ owner's; the release needs the owner's explicit yes, as always.
 
 ## To build
 
-1. **The YouTube scout's budget (question 246).** November's $50 was used by 22:21 UTC on 1 Nov, in one evening of
-   the regression run on #393's build: 33 scout requests ended as `gemini_youtube_scout_request_failed`, each charged
-   the full $1 reservation, beside about 30 that finished at roughly $0.60 each. Two causes to fix:
-   - why half the requests fail: a background interaction that is still running after the bounded number of polls is
-     deleted, so a client that polls quickly may stop jobs that would have finished. Measure the poll timing in the
-     #393 logs, then bound the wait by elapsed time rather than by the number of calls, or wait inside one call;
-   - test runs spend the production budget: give regression and trial runs their own small allowance.
-   A refund of the failed requests' charges was not made: they were Gemini jobs that ran until stopped and probably
-   cost real money (question 245).
+1. **The YouTube scout's refusals (done, below) and budget.** November's $50 was used by 22:21 UTC on 1 Nov: all 50
+   charges were `gemini_youtube_scout_request_failed` from the catch-all of `scoutFailureEnvelope`, non-retryable, so
+   Google answered the request that creates the background job with a 4xx (not 401, 402, 403 or 429) before any polling
+   (11 just after midnight in the run on #389's build, 6 rerun and 33 in the run on #393's build; none was resumed, and the
+   AI started 15 new scouts after a failure). Each forfeited the full $1, though Google most likely billed nothing. The
+   scout has completed nothing since about 04:38 UTC on 28 Oct, while `extract_youtube_video_claims`, with the same key,
+   endpoint, model and background mode, completed 21 times in that run: the refusal is about something only the scout
+   sends (its search tool, response schema or instructions), still to be read from Google's reason.
+   - **Done:** a never-started refusal commits $0, carries the HTTP status and Google's message (one line, the key
+     removed, at most 300 characters) and tells the AI not to call the scout again in that research and to use
+     `survey_youtube_community`. Everything else still forfeits the full reservation.
+   - **At the release (the owner's yes):** set November's ledger to what the scout really cost (owner answer 245a's
+     condition holds), then one scout call reads Google's reason, and the request is fixed.
+   - **Still to build:** test runs get their own small allowance, so a regression run can't use the production budget.
+   - **Not changed:** the Custom GPT Action's one-call route still forfeits on a refusal (its receipt schema would change);
+     a failed repair still surfaces as an unclassified failure and is charged in full.
 2. **Figures as images.** `acquire_open_full_text` turns a PDF into text page by page, so a figure arrives as its caption
    and axis labels. A new input (sent in `later_inputs`, so the frozen tool lists don't change) returns a named page as
    an image for the AI to read. Test in Claude and in the ChatGPT app before release: whether ChatGPT passes images in

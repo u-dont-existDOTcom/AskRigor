@@ -232,7 +232,8 @@ export {
   type GeminiYoutubeScoutBackgroundCheckpoint,
   type GeminiYoutubeScoutConfig,
   type GeminiYoutubeScoutData,
-  type GeminiYoutubeScoutInput
+  type GeminiYoutubeScoutInput,
+  type GeminiYoutubeScoutNeverStarted
 } from "./gemini-youtube-scout.js";
 export {
   GEMINI_VIDEO_BOUNDARY_CODES,

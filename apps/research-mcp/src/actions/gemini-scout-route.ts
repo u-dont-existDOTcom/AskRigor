@@ -20,7 +20,8 @@ import {
   type GeminiYoutubeCandidateValidationReceipt,
   type GeminiYoutubeScoutBackgroundAdvance,
   type GeminiYoutubeScoutBackgroundCheckpoint,
-  type GeminiYoutubeScoutData
+  type GeminiYoutubeScoutData,
+  type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -191,6 +192,8 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_boundary: {
         code: z.output<typeof automatedScoutBoundarySchema>["code"];
         retryable: boolean;
+        // Google refused to start the scout: its HTTP status and reason. Nothing ran, so nothing is charged.
+        never_started?: GeminiYoutubeScoutNeverStarted;
       };
     };
 
@@ -432,6 +435,7 @@ export async function executeAutomatedGeminiScout(
  * checkpoint without reserving again. A scout unfinished after its first call
  * keeps its whole reservation charged as a hold, and the call that completes
  * it settles the real cost against that hold, as a one-call scout commits it.
+ * A scout Google refuses to start is charged nothing.
  */
 export async function executeResumableAutomatedGeminiScout(
   input: z.output<typeof automatedScoutInputSchema>,
@@ -578,10 +582,16 @@ export async function executeResumableAutomatedGeminiScout(
     };
   }
   if (advance.kind === "boundary") {
-    if (reservation !== undefined) await reservation.forfeit();
+    if (reservation !== undefined) {
+      // Google refused the request that creates the job, so nothing ran and nothing is charged (the regression logs
+      // of 1-2 Nov 2026: 50 such refusals each forfeited $1). If the ledger cannot record that, all stays charged.
+      if (advance.never_started !== undefined) await reservation.commit(0).catch(() => undefined);
+      else await reservation.forfeit();
+    }
     return controllerBoundary(
       knownBoundaryCode(advance.frontier.error?.code),
-      advance.frontier.error?.retryable === true
+      advance.frontier.error?.retryable === true,
+      advance.never_started
     );
   }
 
@@ -638,9 +648,16 @@ const MAXIMUM_DEADLINE_ADVANCES = 12;
 
 function controllerBoundary(
   code: z.output<typeof automatedScoutBoundarySchema>["code"],
-  retryable: boolean
+  retryable: boolean,
+  neverStarted?: GeminiYoutubeScoutNeverStarted
 ): ResumableAutomatedGeminiScoutExecution {
-  return { controller_boundary: { code, retryable } };
+  return {
+    controller_boundary: {
+      code,
+      retryable,
+      ...(neverStarted === undefined ? {} : { never_started: neverStarted })
+    }
+  };
 }
 
 function heldResume(

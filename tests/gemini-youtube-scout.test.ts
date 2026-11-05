@@ -528,6 +528,52 @@ describe("Gemini YouTube scout adapter", () => {
     });
   });
 
+  // The regression logs of 1-2 Nov 2026: Google answered 50 scouts' start requests with a 4xx, and the scout kept
+  // neither the status nor Google's message.
+  it("marks a background start Google refuses with a 400 as never started, with its status and Google's reason", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: { code: 400, message: "User location is not supported for the API use.", status: "FAILED_PRECONDITION" }
+    }), { status: 400 })));
+
+    expect(await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG)).toMatchObject({
+      kind: "boundary",
+      frontier: {
+        access_status: "error",
+        error: { code: "gemini_youtube_scout_request_failed", http_status: 400, retryable: false }
+      },
+      never_started: { http_status: 400, google_reason: "User location is not supported for the API use." }
+    });
+
+    // Gemini may wrap its error in an array. Its message is kept on one line, without the key, at most 300 characters.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{
+      error: { code: 400, message: `Invalid argument\nfor key ${CONFIG.apiKey}:\t${"x".repeat(400)}` }
+    }]), { status: 400 })));
+    const wrapped = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG);
+    const kept = "Invalid argument for key [redacted]: ";
+    expect(wrapped).toMatchObject({
+      kind: "boundary",
+      never_started: { http_status: 400, google_reason: kept + "x".repeat(300 - kept.length) }
+    });
+    expect(JSON.stringify(wrapped)).not.toContain(CONFIG.apiKey);
+  });
+
+  it("keeps the codes of a rate-limited or forbidden background start, which is not marked never started", async () => {
+    for (const [status, code] of [
+      [429, "gemini_youtube_scout_rate_limited"],
+      [403, "gemini_youtube_scout_inaccessible"]
+    ] as const) {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+        error: { code: status, message: "private provider message" }
+      }), { status })));
+
+      const result = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG);
+
+      expect(result).toMatchObject({ kind: "boundary", frontier: { error: { code, http_status: status } } });
+      expect(result).not.toHaveProperty("never_started");
+      expect(JSON.stringify(result)).not.toContain("private provider message");
+    }
+  });
+
   it("starts a temporarily stored background interaction and returns only an opaque checkpoint", async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({
       id: "interaction-background-1",

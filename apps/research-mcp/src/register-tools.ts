@@ -73,7 +73,8 @@ import {
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   GEMINI_MODEL_TRIAL_ARMS,
   geminiModelTrialSetting,
-  type GeminiModelTrialArm
+  type GeminiModelTrialArm,
+  type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
@@ -2196,14 +2197,14 @@ function defineResearchOperations(
         ? undefined
         : { arm, model: trialSetting.model, thinking: trialSetting.thinking };
       if ("controller_boundary" in execution) {
-        const { code, retryable } = execution.controller_boundary;
+        const { code, retryable, never_started: neverStarted } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
           ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
             researchTargetScreenRefusal(target.research_target)}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."
-            : undefined);
+            : neverStarted === undefined ? undefined : scoutNeverStartedGuidance(neverStarted));
       }
       if ("controller_progress" in execution) {
         const budgetHold = execution.controller_progress.budget_hold;
@@ -3060,6 +3061,12 @@ const SCOUT_SPEND_GUIDANCE =
   "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.";
 const SCOUT_DELETION_RETRY =
   "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it.";
+// Google refused the request that would start the scout, so no search ran; the same request would be refused again.
+function scoutNeverStartedGuidance(refusal: GeminiYoutubeScoutNeverStarted): string {
+  const reason = refusal.google_reason === undefined ? "" : `, Google's reason: ${JSON.stringify(refusal.google_reason)}`;
+  return `Google refused to start the scout (HTTP ${refusal.http_status}${reason}), so no search ran. Do not call ` +
+    "scout_gemini_youtube_candidates again in this research; find videos with survey_youtube_community instead.";
+}
 // How to fix a target the population screen refused. The screen reads
 // English, so the target is written in English and the language goes apart.
 const SCOUT_TARGET_GUIDANCE =

@@ -31,11 +31,15 @@ export function isTransientTransportError(error: unknown): boolean {
 export class UpstreamHttpError extends Error {
   public readonly status: number;
   public readonly reason: string | undefined;
+  // The provider's own error message as it wrote it (Google's error.message): unbounded
+  // provider text, which a caller bounds before passing it on.
+  public readonly providerMessage: string | undefined;
 
-  constructor(status: number, reason?: string) {
+  constructor(status: number, reason?: string, providerMessage?: string) {
     super(`Upstream request failed with status ${status}`);
     this.status = status;
     this.reason = reason;
+    this.providerMessage = providerMessage;
   }
 }
 
@@ -194,6 +198,21 @@ const providerErrorReason = (body: string): string | undefined => {
   }
 };
 
+// A Gemini error can come as a one-element array (the scout's 402 fixture of 2026-10-06).
+const providerErrorMessage = (body: string): string | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    const wrapper: unknown = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (typeof wrapper !== "object" || wrapper === null) return undefined;
+    const error = (wrapper as Record<string, unknown>).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const message = (error as Record<string, unknown>).message;
+    return typeof message === "string" ? message : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const fetchText = async (
   url: string,
   { timeoutMs, maxRetries, beforeAttempt, ...init }: UpstreamFetchOptions = {},
@@ -218,12 +237,15 @@ export const fetchText = async (
 
     if (!response.ok) {
       let reason: string | undefined;
+      let message: string | undefined;
       try {
-        reason = providerErrorReason(await responseText(response));
+        const body = await responseText(response);
+        reason = providerErrorReason(body);
+        message = providerErrorMessage(body);
       } catch {
         await response.body?.cancel();
       }
-      throw new UpstreamHttpError(response.status, reason);
+      throw new UpstreamHttpError(response.status, reason, message);
     }
 
     return responseText(response);
