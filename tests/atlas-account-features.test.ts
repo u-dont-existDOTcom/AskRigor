@@ -76,7 +76,14 @@ const agreement = (noticeVersion: string = RESEARCH_USE_NOTICE_VERSION) => ({
 
 /** A page's text as a reader sees it: no markup, entities read back, blank lines dropped. */
 function textOf(html: string): string {
-  return html.replace(/<[^>]+>/gu, "").replace(/&#39;/gu, "'").replace(/&quot;/gu, "\"").replace(/&lt;/gu, "<")
+  // Markup comes off until none is left, so a tag split by another can't survive one pass (CodeQL's
+  // js/incomplete-multi-character-sanitization); entities are read back only after.
+  let text = html;
+  for (let before = ""; before !== text;) {
+    before = text;
+    text = text.replace(/<[^>]*>/gu, "");
+  }
+  return text.replace(/&#39;/gu, "'").replace(/&quot;/gu, "\"").replace(/&lt;/gu, "<")
     .replace(/&gt;/gu, ">").replace(/&amp;/gu, "&").split("\n").map((line) => line.trim()).filter(Boolean).join("\n");
 }
 

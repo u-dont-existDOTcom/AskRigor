@@ -48,6 +48,17 @@ owner's; the release needs the owner's explicit yes, as always.
    found comparison backing at 68 of 90; revise the near-miss and guidance rules on #394's run, now development data,
    freeze, and validate on the regression run on #412's build. It stays off until the owner says otherwise.
 
+6. **A literature index's own failure is named (built).** In the regression run on #412's build (5 Nov), NCBI's PubMed
+   search failed for everyone from 03:49 UTC (HTTP 500 at NCBI's end, and 200s with unreadable bodies; still about 85%
+   of requests from the laptop at 10:06 UTC), and from about 04:26 to 09:48 UTC Europe PMC often failed from the server
+   (503, or no answer). Each result said only "access status error", and some answers never said a source could not be
+   searched. Now, when the provider's own service fails (5xx, an unreadable body, its rate limit, no answer), the result
+   says it is the provider's side, so nothing is shown about whether studies exist; names the other index (Europe PMC
+   holds PubMed's records); and asks the answer to say so if the failure lasts. A refusal of the query (4xx) or of
+   access keeps the old text. Result text only: the frozen tool lists don't change. Test
+   `tests/literature-outage-note.test.ts`. The run's 61 cases with a failed literature search wait for a rerun (owner
+   question 248).
+
 ## Measures waiting
 
 - **How much the scout adds** (the owner, 5 Nov): the regression run on #412's build has the scout off; its YouTube-heavy

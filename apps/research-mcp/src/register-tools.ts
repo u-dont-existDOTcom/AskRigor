@@ -1273,7 +1273,7 @@ function defineResearchOperations(
         const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total),
+            sparseSearchNote(total) + literatureOutageNote("pubmed", result.error),
           result
         ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
@@ -1346,7 +1346,7 @@ function defineResearchOperations(
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total),
+            sparseSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
           { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
@@ -2957,6 +2957,33 @@ function sparseSearchNote(total: number | undefined): string {
     ? ""
     : " Few records: before saying anything was not found, try synonyms, older or variant terms, the components of " +
       "a mixed exposure, and citation chains.";
+}
+
+// The owner regression run of 5 Nov 2026: from 03:49 UTC NCBI's PubMed search failed for everyone (HTTP 500 at
+// NCBI's end), and Europe PMC often failed from AskRigor's server, while each result said only "access status error";
+// some answers then never said a source could not be searched. When the provider's own service fails, the result says
+// so, names the other index, and asks the answer to say so if the failure lasts. A refusal of the query itself (a 4xx)
+// or of access gets no such note.
+export const PUBMED_OUTAGE_NOTE = " PubMed's search did not work (NCBI's side, not this query), so this search shows " +
+  "nothing about whether studies exist. Search Europe PMC instead: its records include PubMed's (source MED), and " +
+  "fetch_pubmed_record may still read a record by its PMID. If PubMed stays unavailable, say in the answer that PubMed " +
+  "itself could not be searched.";
+export const EUROPE_PMC_OUTAGE_NOTE = " Europe PMC's search did not work (its side, not this query), so this search " +
+  "shows nothing about whether studies exist. Search PubMed instead with search_pubmed; a search within full-text " +
+  "sections needs Europe PMC, so try that later. If Europe PMC stays unavailable, say in the answer that it could not " +
+  "be searched.";
+
+export function literatureOutageNote(
+  provider: "pubmed" | "europe_pmc",
+  error: { code: string; http_status?: number } | undefined
+): string {
+  if (error === undefined) {
+    return "";
+  }
+  const providerSide = ["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
+    .some((kind) => error.code === `${provider}_${kind}`) ||
+    (error.code === `${provider}_request_failed` && error.http_status === undefined);
+  return !providerSide ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
 }
 
 // Claude clients abandon a tool call after 60 seconds. Provider polling ends
