@@ -95,6 +95,22 @@ describe("forum tools", () => {
     await caller.callTool({ name: "read_forum_thread", arguments: { url: URL, more: "opaque" } });
     expect(thread).toHaveBeenCalledWith(URL, "opaque");
   });
+  it("signs the link as asked too when the site sent the reader to another (5 Nov 2026, l34)", async () => {
+    const asked = "https://forum.example/forum/topic/63977-synthetic-topic/page-2";
+    const landed = "https://forum.example/forum/viewtopic.php?t=1063977&start=30";
+    page.mockResolvedValue({ url: landed, access_state: "read", page_text: "a".repeat(1_500), truncated: false });
+    const caller = await client();
+    const moved = await caller.callTool({ name: "read_forum_thread", arguments: { url: asked } });
+    expect(verifyResearchReceipt(moved.structuredContent!.research_receipt as string, { secret: SECRET })).toMatchObject({
+      ok: true, kind: "forum_thread_read", claims: { u: forumThreadDigest(landed), a: forumThreadDigest(asked) }
+    });
+    page.mockResolvedValue({ url: landed, access_state: "read", page_text: "a".repeat(1_500), truncated: false });
+    const same = await caller.callTool({ name: "read_forum_thread", arguments: { url: landed } });
+    const claims = (verifyResearchReceipt(same.structuredContent!.research_receipt as string, { secret: SECRET }) as
+      { claims: Record<string, unknown> }).claims;
+    expect(claims.u).toBe(forumThreadDigest(landed));
+    expect(claims).not.toHaveProperty("a");
+  });
   it("returns a long thread only in structured content, with a summary and guidance in text", async () => {
     const post = "SYNTHETIC_LONG_PUBLIC_THREAD_".repeat(3_000);
     thread.mockResolvedValue({ access_state: "read", url: URL, post_text: post, comments: [], comments_read: 0 });
@@ -203,6 +219,10 @@ describe("forum tools", () => {
       "and why."],
     ["NOT_PUBLIC", "blocked", "Reddit shows this as a private community, which AskRigor's Reddit reader doesn't read: leave it out."],
     ["WEBSITE_READ_FAILED", "unavailable", "The Reddit reader's host answered WEBSITE_READ_FAILED."],
+    ["WEBSITE_FORMAT_CHANGED", "unavailable", "The Reddit reader's host answered WEBSITE_FORMAT_CHANGED: it couldn't " +
+      "read Reddit's page in the form it knows. On a search, that has also come back when Reddit found nothing for the " +
+      "words, so it doesn't show that the community can't be reached: search again with other words, and say in the " +
+      "answer what the searches found."],
     ["THREAD_NOT_RENDERED", "not_found", undefined]
   ] as const)("tells the AI what the host's %s means", async (code, access_state, note) => {
     thread.mockResolvedValue({ access_state, url: URL, host_code: code });

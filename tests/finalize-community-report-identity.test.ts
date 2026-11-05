@@ -277,6 +277,22 @@ describe("communities named by the user and the visible check line", () => {
     expect(declared.limits).toContain("A community whose pages could not be retrieved: Mineral Forum. Reports there are not included.");
     expect(declared.limits).toContain("A community that blocked access: Longevity Forum. Reports there are not included.");
   });
+  // 5 Nov 2026, l34 on #412's build: the declared link was the one asked for, and the reader landed on another.
+  it("matches a thread declared by the link asked for, and counts it once", () => {
+    const plain = base();
+    const asked = plain.community_searches!.map(({ threads_read }) => threads_read[0]!.url);
+    const landed = asked.map((_, index) => `https://landed${index}.example/viewtopic.php?t=10${index}`);
+    const reads = asked.map((url, index) => sign("forum_thread_read",
+      { u: forumThreadDigest(landed[index]!), a: forumThreadDigest(url), n: 1_500, v: "page" }));
+    const result = checked({ ...plain, receipts: [...plain.receipts, ...reads] });
+    expect(result.limits.join(" ")).not.toContain("come from my own web search");
+    const forumNote = advisoryNotes(result).find((note) => note.startsWith("Forum evidence rests on"));
+    const declaredThreads = new Set(plain.community_searches!.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
+    if (forumNote !== undefined) expect(forumNote).toContain(`rests on ${declaredThreads.size} thread`);
+    // Without the asked link, the same declarations are the AI's own web search.
+    const unsigned = asked.map((_, index) => sign("forum_thread_read", { u: forumThreadDigest(landed[index]!), n: 1_500, v: "page" }));
+    expect(checked({ ...plain, receipts: [...plain.receipts, ...unsigned] }).limits.join(" ")).toContain("come from my own web search");
+  });
   it("records a named community that cannot be found without an address, as no discussion pool (22 Oct, book cases)", () => {
     const ghost: Search = { community: "Ghost Forum", platform: "forum", queries: ["Ghost Forum form A"], threads_read: [],
       access_boundary: "not_found" };

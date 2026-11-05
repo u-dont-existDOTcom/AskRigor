@@ -1813,6 +1813,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "not_saved",
   "not_searched",
   "not_started",
+  "not_tried",
   "not_triggered",
   "not_verified",
   "note_off",

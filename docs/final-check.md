@@ -31,7 +31,10 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
 landscape coverage, Atlas lookups, community reports and their counts, omitted carried lists and tool-list
-currency. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
+currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
+note its turn's checks gave, and a later check of that turn leaves those out, with one line saying how many and that a
+note asks nothing more when the draft already meets it in its own words; a note whose words changed is new, and the
+next turn gives notes again. Three come from counts and signed times (the owner, 30 and 31 October 2026, plan
 `docs/superpowers/plans/2026-10-31-video-comment-maps.md`): forum evidence resting on fewer than five threads read, or
 on one community (each thread once by its comparable link, counting those the reader's verified receipts show read
 as well as those declared); no study search issued after the first YouTube community receipt (the loop); and the emergency

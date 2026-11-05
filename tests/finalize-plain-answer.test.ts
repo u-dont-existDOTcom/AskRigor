@@ -23,7 +23,7 @@ import {
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch, meaningJudgeSourceOf,
-  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, type FinalizeResearchInput
+  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, repeatedNotesLine, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
   discoveryQueryDigest, issueResearchReceipt, plainAnswerAccountBinding, researchTargetDigest, verifyResearchReceipt
@@ -361,7 +361,9 @@ describe("finalize_research compares the answer with the plain answer registered
     const withinTurn = check({ ...correction, carried_state: result.carry_forward, round_token: result.round_token });
     expect(withinTurn.round?.number).toBe(1);
     expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
-    expect(advisoryNotes(withinTurn)).toContain(problem);
+    // The same notes, the problem among them, come back within the turn only as their count (5 Nov 2026).
+    expect(advisoryNotes(withinTurn)).not.toContain(problem);
+    expect(advisoryNotes(withinTurn)).toContain(repeatedNotesLine(advisoryNotes(result).length));
     // A new turn passes the earlier state's token without the round token: that claim may have been shown.
     const later = check({ ...correction, carried_state: result.carry_forward });
     expect(later.status).toBe("ready_with_limits");

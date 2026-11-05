@@ -86,17 +86,34 @@ owner's; the release needs the owner's explicit yes, as always.
     (reason `same_quote`): it can't be marked as both found, the panel says so, and a note asks for the paper's own
     conclusion as the second quote. Exact text comparison, in any language.
 
-11. **Still to design, from the judging of #412's run (recurring classes, not local fixes):**
-    - **Notes repeat at every check, with a cost.** A note like "Cite X as read through another tool, not audited by
-      AskRigor" comes back on every call while the declaration stands, although the limit already says it and the
-      drafts said it in their own words; runs removed the study from the answer to quiet it. `docs/final-check.md`
-      says other diagnostics "return once in notes". Decide what once means: a note given in this turn and unchanged
-      could come back as a one-line reminder, with the round token's carried step counts telling which.
-    - **The de-identification screen** refuses research text for "I" and "me" ("copper(I)", a quoted "makes me
-      sleepy"), in every run since #389's. It is a word list judging meaning; the fix is a different mechanism, not
-      another exception.
+11. **From the judging of #412's run (recurring classes, not local fixes).** Built on `claude/next-build-20261105`:
+    - **Notes repeat at every check, with a cost** (runs removed a study to quiet "Cite X as read through another
+      tool", which their drafts met in their own words). Once now means once per turn: the carried state keeps a
+      12-character digest of each note its turn's checks gave, and a later check of that turn leaves those out, with
+      one line saying how many and that a note asks nothing more when the draft meets it in its own words. A note
+      whose words changed is new; the next turn gives notes again. Source-line and study-map notes, added after the
+      check, still repeat.
+    - **The de-identification screen** refused "copper(I)" and "makes me sleepy" in forum searches, each in quotes,
+      in every run since #389's: a word list judging whether words are the person's. For a forum query, a first-person
+      word now passes inside a closed pair of double quotes, the model's declared phrase others write or term; every
+      other part of the screen reads quoted text too, and scout targets and leads are unchanged.
+    - **`user_observations`:** a check may now reword or drop what an earlier check of its own turn declared (the
+      carried state marks those places), so a reworded entry is no longer called left out and declared twice; an
+      earlier turn's entry is still asked for, in its exact words, as the note now says. Its newer form in
+      `later_inputs` adds `not_tried`, with the limit "A report from someone who never tried it".
+
+    - **A page the reader read drew the web-search limit** (l34): the declared link was the one asked for
+      (LongeCity's `/forum/topic/63977-…/page-2`) and the reader landed on another (`viewtopic.php?t=1063977&start=30`),
+      a site's own mapping no link rule can know. The read receipt now also signs the asked link when it differs, the
+      check matches either, and the forum note counts the read once.
+
+    - **A zero-hit Reddit search came back as a host failure** ("WEBSITE_FORMAT_CHANGED"; all six in the run were
+      searches for made-up names, and one run then called the community's pages unretrievable). The host doesn't say
+      which, so the guidance now says both: the host couldn't read the page in its known form, which has also come
+      back when Reddit found nothing, so it doesn't show the community can't be reached.
+
+    **Still to design:**
     - **Nothing checks the delivered answer:** post-check rewording replaced the plain-answer note in 5 of 48 turns.
-    - **`user_observations`** has no value for a report whose writer never tried the method.
     - **Misfit limits and holds:** the self-test limit for any unblinded test; the harm-screen hold for distress
       reported from a writing exercise; the web-search limit for a page the reader read under another link form;
       a zero-hit Reddit search reported as a host failure ("WEBSITE_FORMAT_CHANGED").

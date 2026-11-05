@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
-import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { laterUserObservationSchema, openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
@@ -42,7 +42,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
       .describe("Optional, when a conclusion combines studies: the studies, the group of people behind each, the " +
         "links between them and, for each claim, how many independent groups of people it counts, with each study's " +
         "passage it rests on. AskRigor checks what is exact against the research receipts, the texts it fetched and " +
-        "ClinicalTrials.gov; what it finds are notes.")
+        "ClinicalTrials.gov; what it finds are notes."),
+    // 5 Nov 2026: user_observations' newer form, with not_tried.
+    user_observations: z.array(laterUserObservationSchema).max(30).optional()
+      .describe("user_observations' newer form, given here or at the top level, not both: as the top-level input, " +
+        "and not_tried for a report whose writer never tried what it describes, such as a review of a book whose " +
+        "exercises the reviewer didn't do.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {

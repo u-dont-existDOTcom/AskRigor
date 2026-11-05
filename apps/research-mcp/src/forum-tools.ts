@@ -43,7 +43,13 @@ const HOST_GUIDANCE: ReadonlyMap<string, string> = new Map([
   // Sites that refuse stay refused, as the tool's description says: each call while Reddit blocks the reader is one
   // more request it refuses.
   ["ACCESS_DENIED", `Reddit's network security blocked AskRigor's Reddit reader${STOPPED_GUIDANCE}`],
-  ["NOT_PUBLIC", "Reddit shows this as a private community, which AskRigor's Reddit reader doesn't read: leave it out."]
+  ["NOT_PUBLIC", "Reddit shows this as a private community, which AskRigor's Reddit reader doesn't read: leave it out."],
+  // #412's run (5 Nov): all six searches answered this were for made-up names, while others minutes apart worked, and
+  // one run then called the community's pages unretrievable. The host doesn't say which, so the guidance says both.
+  ["WEBSITE_FORMAT_CHANGED", "The Reddit reader's host answered WEBSITE_FORMAT_CHANGED: it couldn't read Reddit's " +
+    "page in the form it knows. On a search, that has also come back when Reddit found nothing for the words, so it " +
+    "doesn't show that the community can't be reached: search again with other words, and say in the answer what the " +
+    "searches found."]
 ]);
 // Reddit limiting the reader's requests is a wait, not a block (#412's run: runs called communities blocked after it).
 const rateLimitedGuidance = (seconds: number | undefined): string => "Reddit is limiting how often AskRigor's Reddit " +
@@ -143,9 +149,13 @@ export function registerForumTools(
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
       const data = readData.parse({ ...base, ...read.fields });
+      // The link as asked too, when the site sent the reader to another, so the final check matches either form
+      // (5 Nov 2026: LongeCity's /forum/topic/63977-…/page-2 landed on viewtopic.php?t=1063977&start=30).
+      const landed = forumThreadDigest(data.url);
+      const asked = forumThreadDigest(url);
       const signed = data.access_state === "read" ? receipt("forum_thread_read", {
-        u: forumThreadDigest(data.url), n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
-        v: reddit ? "reddit" : "page"
+        u: landed, n: reddit ? data.comments_read ?? 0 : data.page_text?.length ?? 0,
+        v: reddit ? "reddit" : "page", ...(asked === landed ? {} : { a: asked })
       }) : undefined;
       return result("forum_thread", data, READ_GUIDANCE + (data.more || data.next_page ? UNFINISHED_GUIDANCE : ""), read.note, signed);
     } catch {

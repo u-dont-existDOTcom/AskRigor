@@ -21,7 +21,8 @@ import {
   USE_ROUTE_WORDS
 } from "./administration-routes.js";
 import {
-  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, researchPlanSchema,
+  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, publishedCarriedStateSchema, researchPlanSchema,
+  TURN_NOTES_KEPT,
   userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
@@ -1260,6 +1261,30 @@ const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
 /** Earlier turns are enforced; the current turn's latest declaration is still revisable. */
+/**
+ * The carried observations from earlier turns. Those a check of the call's own turn first declared are that turn's
+ * drafts, which its later checks may reword or drop (5 Nov 2026: a reworded entry was called left out, and runs then
+ * declared it twice); a token without turn_observations counts all as earlier.
+ */
+function earlierObservations(carried: CarriedState | undefined, turn: string): CarriedState["observations"] {
+  if (carried === undefined) return [];
+  if (carried.turn !== turn) return carried.observations;
+  const own = new Set(carried.turn_observations ?? []);
+  return carried.observations.filter((_, index) => !own.has(index));
+}
+
+/** The line that stands for the notes an earlier check of this turn gave, which this check does not repeat. */
+export function repeatedNotesLine(count: number): string {
+  return `${count === 1 ? "One note" : `${count} notes`} an earlier check of this turn gave ${count === 1 ? "is" : "are"} ` +
+    "not repeated. A note asks nothing more when the draft already meets it in its own words; never remove a source " +
+    "or claim only to quiet one.";
+}
+
+/** A short digest of a note, so a carried state can say which notes its turn has given. */
+function noteDigest(note: string): string {
+  return createHash("sha256").update(note).digest("hex").slice(0, 12);
+}
+
 function earlierNamedCommunities(carried: CarriedState | undefined, turn: string): string[] {
   return [...new Set([...(carried?.named_communities ?? []),
     ...(carried?.turn === turn ? [] : carried?.current_turn_named_communities ?? [])])];
@@ -1291,8 +1316,8 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
     const observations = new Set(declared.map(({ observation }) => observation));
     const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
       ? []
-      : carried.observations.filter(({ observation }) => !observations.has(observation));
-    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(rule`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
+      : earlierObservations(carried, turn).filter(({ observation }) => !observations.has(observation));
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(rule`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(rule`and ${dropped.length - 10} more earlier observations.`);
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
@@ -1338,7 +1363,7 @@ function researchPlan(input: FinalizeResearchInput): CarriedState["research_plan
 
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
   check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
-    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
+    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[]; notes: readonly string[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -1349,8 +1374,13 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
   const declared = input.user_observations ?? [];
   const kept = new Set(declared.map(({ observation }) => observation));
-  const observations = [...declared, ...(carried?.observations ?? []).filter(({ observation }) => !kept.has(observation))]
+  const earlier = earlierObservations(carried, check.turn);
+  const observations = [...declared, ...earlier.filter(({ observation }) => !kept.has(observation))]
     .slice(0, MAX_CARRIED_OBSERVATIONS);
+  const earlierTexts = new Set(earlier.map(({ observation }) => observation));
+  const turnObservations = observations.flatMap(({ observation }, index) => earlierTexts.has(observation) ? [] : [index]);
+  const turnNotes = [...new Set([...(carried?.turn === check.turn ? carried.turn_notes ?? [] : []),
+    ...check.notes.map(noteDigest)])].slice(-TURN_NOTES_KEPT);
   const rejectedKeys = new Set<string>();
   const rejected = [...(input.rejected_options ?? []), ...(carried?.rejected ?? [])].filter((option) => {
     const key = optionKey(option);
@@ -1383,7 +1413,9 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     ...(check.status === "not_ready" ? { open_kinds: check.open } : {}),
     turn: check.turn,
     first_turn: check.firstTurn,
-    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen })
+    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen }),
+    ...(turnObservations.length === 0 ? {} : { turn_observations: turnObservations }),
+    ...(turnNotes.length === 0 ? {} : { turn_notes: turnNotes })
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -1594,7 +1626,7 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
-  .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
+  .extend({ carried: publishedCarriedStateSchema.omit({ research_plan: true }).optional() });
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
 
@@ -1827,7 +1859,7 @@ export function finalizeResearch(
     }
   }
   if (input.answer_draft !== undefined && input.user_observations === undefined) {
-    requireDeclaration(rule`user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).`);
+    requireDeclaration(rule`user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn, or, in later_inputs.user_observations, not_tried for a report whose writer never tried what it describes (an empty list means none).`);
   }
   if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
     requireDeclaration(rule`proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).`);
@@ -1839,6 +1871,9 @@ export function finalizeResearch(
     if (response === "withdrawn") caveatOnce(
       rule`The report of ${observation} was withdrawn; say it counts neither for nor against an effect.`,
       `${completedCaveat("A report its source has taken back:", observation)} It counts neither for nor against an effect.`);
+    if (response === "not_tried") caveatOnce(
+      rule`The report of ${observation} comes from someone who never tried it; say it counts neither for nor against an effect.`,
+      `${completedCaveat("A report from someone who never tried it:", observation)} It counts neither for nor against an effect.`);
   }
   for (const [index, test] of (input.proposed_tests ?? []).entries()) {
     if (test.repeats !== undefined) {
@@ -1893,8 +1928,16 @@ export function finalizeResearch(
 
   // Count declared forum reads only; review corpora and unread communities add no threads or communities.
   // Reports the user pasted are not a search of the community, so nothing there is left to read.
-  const forumReadUrls = new Set(verified.filter(({ kind }) => kind === "forum_thread_read")
-    .flatMap(({ claims }) => typeof claims.u === "string" ? [claims.u] : []));
+  // Each read signs the link the reader landed on (u) and, when the site sent it to another, the link as asked (a):
+  // either form matches, and both stand for one thread (5 Nov 2026: l34 on #412's build declared LongeCity's
+  // /forum/topic/63977-…/page-2, which the reader read as viewtopic.php?t=1063977&start=30).
+  const landedRead = new Map<string, string>();
+  for (const { claims } of verified.filter(({ kind }) => kind === "forum_thread_read")) {
+    if (typeof claims.u !== "string") continue;
+    landedRead.set(claims.u, claims.u);
+    if (typeof claims.a === "string" && !landedRead.has(claims.a)) landedRead.set(claims.a, claims.u);
+  }
+  const forumReadUrls: ReadonlySet<string> = new Set(landedRead.keys());
   const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
   // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
@@ -1913,7 +1956,8 @@ export function finalizeResearch(
     // Each thread once, by its comparable link, whether declared or read by the reader with a verified receipt: in #394's
     // run, l49-b-label declared the 3 threads it classified of the 9 the reader read, and the note counted 3.
     const threads = new Set([...forumSearches.flatMap(({ threads_read }) =>
-      threads_read.map(({ url }) => forumThreadDigest(url))), ...forumReadUrls]);
+      threads_read.map(({ url }) => landedRead.get(forumThreadDigest(url)) ?? forumThreadDigest(url))),
+      ...landedRead.values()]);
     const communities = new Set(forumSearches.filter(({ threads_read }) => threads_read.length > 0)
       .map(({ community }) => community));
     if (threads.size === 0) {
@@ -3801,10 +3845,17 @@ export function finalizeResearch(
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
+  // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
+  // from an earlier turn, repeats nothing.
+  const givenNotes = [...notes];
+  const givenThisTurn = new Set(carried?.turn === callRound.turn ? carried.turn_notes ?? [] : []);
+  const newNotes = notes.filter((note) => !givenThisTurn.has(noteDigest(note)));
+  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length));
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
-    ...(notes.length === 0 ? {} : { notes }),
+    ...(newNotes.length === 0 ? {} : { notes: newNotes }),
     ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
@@ -3937,7 +3988,7 @@ export function finalizeResearch(
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
     status: status === "stopped" ? "not_ready" : status,
     open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
-    caveats, turn: callRound.turn, firstTurn,
+    caveats, turn: callRound.turn, firstTurn, notes: givenNotes,
     ...(previousOpen === undefined ? {} : { previousOpen })
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
