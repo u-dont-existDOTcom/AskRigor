@@ -10,7 +10,7 @@ import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./act
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { redditReaderFromEnv } from "./reddit-reader-client.js";
 import {
-  forumLinkDigest, forumPageDigest, forumReadLink, forumThreadDigest, sameThreadAtSite, signedSubreddit
+  forumLinkDigest, forumPageDigest, forumReadLink, forumThreadDigest, sameSiteRedirect, sameThreadAtSite, signedSubreddit
 } from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
@@ -160,8 +160,9 @@ export function registerForumTools(
       // So the final check counts each thread once (the review of #417, finding 3, and its recheck): a Reddit read with
       // more signs which part it continues (`m`), and a forum page's read the page it read (`w`: its thread's comparable
       // link and the page it picks), so reading a part or a page again, by any of its links, adds nothing. A link the
-      // reader was sent on from to the same thread at the same site (a bare host to a forum's subdomain, say) is signed
-      // too (`ur`), as that one thread. A forum page read at a link already in an id-only form signs it (`l`), the only
+      // reader was sent on from to the same thread at the same site (a bare host to a forum's subdomain, say), or by the
+      // site's own redirect to another of its pages short of its front page (sameSiteRedirect), is signed too (`ur`), as
+      // that one thread. A forum page read at a link already in an id-only form signs it (`l`), the only
       // link the Atlas may publish for it, so a published link is always one the reader fetched.
       const digest = (value: string) => createHash("sha256").update(value, "utf8").digest("hex").slice(0, 16);
       const readThread = forumThreadDigest(data.url);
@@ -174,7 +175,8 @@ export function registerForumTools(
         ...(reddit && more !== undefined ? { m: digest(more) } : {}),
         ...(reddit ? {} : { w: forumPageDigest(data.url) }),
         ...(readLink === undefined ? {} : { l: forumLinkDigest(readLink) }),
-        ...(requestedThread !== readThread && sameThreadAtSite(url, data.url) ? { ur: requestedThread } : {}),
+        ...(requestedThread !== readThread && (sameThreadAtSite(url, data.url) || (!reddit && sameSiteRedirect(url, data.url)))
+          ? { ur: requestedThread } : {}),
         // Whether this read reached the thread's end (e): no more comments or pages after it, and nothing cut, so the
         // final check reads a thread read to its end as fully read, and one left part-way as part read (the third
         // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is

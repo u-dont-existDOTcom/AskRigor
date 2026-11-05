@@ -148,6 +148,31 @@ export function sameThreadAtSite(given: string, read: string): boolean {
     JSON.stringify(left.query) === JSON.stringify(right.query);
 }
 
+// A site's front page by its path, with no query: its root, or an index file (index.php, index.html).
+const FRONT_PAGE_PATH = /^\/?(?:index\.(?:php|html?|aspx?|jsp))?$/iu;
+
+/**
+ * Whether the site itself sent the reader on from the link it was given to another of its own pages: the same
+ * registrable host, ignoring www, and a page other than its front page. A server's own redirect within its site is its
+ * statement that the link given is that page, so a forum page's read signs the link it was given (`ur`) as another name
+ * for the thread it read (l34 on #412's build: LongeCity's /forum/topic/63977-…/page-2 is sent on to
+ * viewtopic.php?t=1063977&start=30). A redirect to another site, or to the front page (as a removed thread may give),
+ * vouches for nothing but where it landed (the review of #417 and its follow-up, 5 Nov 2026).
+ */
+export function sameSiteRedirect(given: string, read: string): boolean {
+  let from: URL;
+  let to: URL;
+  try {
+    from = new globalThis.URL(given.trim());
+    to = new globalThis.URL(read.trim());
+  } catch {
+    return false;
+  }
+  const site = registrableHost(from.hostname);
+  if (site === undefined || site !== registrableHost(to.hostname)) return false;
+  return !(FRONT_PAGE_PATH.test(to.pathname.replace(/\/+$/u, "")) && to.search === "");
+}
+
 /** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form
  * (`l`), so only the link as the reader read it is published (the recheck of #417). */
 export function forumLinkDigest(link: string): string {

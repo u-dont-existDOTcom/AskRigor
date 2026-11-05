@@ -212,9 +212,14 @@ showed, stay the AI's judgment, in any language. The results of `read_forum_thre
 `get_youtube_comments`, `search_youtube_comments` and the two comment audits ask for the loop where the reports are
 read. Limits: a study search made before the reports were read still counts, since the lead was searched; read and
 search receipts sign no research target, so a read or search made for another question within the receipts' 24 hours
-counts too. A link the reader was sent on from counts as the thread it read only when it names the same thread at the
-same site (#417's rule, `ur`), so a redirect to a login or index page, or to another page, vouches for nothing but where
-it landed. The other direction, a study's finding followed up in the communities, is next.
+counts too. A link the reader was sent on from counts as the thread it read (`ur`) when it names the same thread at
+another host of the same site (#417's rule), or when the site's own redirect kept the reader on the same registrable
+host (ignoring `www.`) short of its front page, as LongeCity's topic link is sent on to viewtopic.php (the follow-up of 5
+November 2026, l34 on #412's build): a server's redirect within its site says the link given is that page. Either way the
+two links are one thread, so a card giving both lists it twice. A redirect to another site, or to the front page,
+vouches for nothing but where it landed; a same-site redirect to a login page could still sign the link given (the
+reader's own access states are the guard). The other direction, a study's finding followed up in the communities, is
+next.
 
 How each study was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing that the AI tells
 people what it actually read, like 'In this study (abstract read/full text read/full text and images analyzed)' that will

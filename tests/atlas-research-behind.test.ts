@@ -482,12 +482,13 @@ describe("the final check signs the research behind each finding", () => {
     expect(signedClaims(result.finalization_receipt)).not.toHaveProperty("findings");
   });
 
-  // 5 Nov 2026: a read receipt also signs the link it was given when the reader was sent on to the same thread at the
-  // same site (`ur`, #417's rule: here the site's other host). A forum signal may give either link, and each thread
-  // counts once, by the link the reader read.
+  // 5 Nov 2026: a read receipt also signs the link it was given (`ur`) when the site's own redirect sent the reader on to
+  // another of its pages short of its front page (l34 on #412's build: LongeCity's topic link to viewtopic.php), or to the
+  // same thread at the site's other host. A forum signal may give either link, and each thread counts once, by the link
+  // the reader read: both links on one card are one thread listed twice.
   it("takes a thread by the link asked for when the site sent the reader to another, and counts it once", () => {
-    const asked = "https://forum.example.org/viewtopic.php?t=104512";
-    const landed = "https://talk.forum.example.org/viewtopic.php?t=104512";
+    const asked = "https://www.longecity.org/forum/topic/4512-knee-squats/page-2";
+    const landed = "https://www.longecity.org/forum/viewtopic.php?t=104512&start=30";
     const redirected = receipt("forum_thread_read",
       { u: forumThreadDigest(landed), ur: forumThreadDigest(asked), n: 900, v: "page" });
     const receipts = [...fixture().receipts.slice(0, 2), threadRead(THREAD), redirected];

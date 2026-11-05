@@ -186,6 +186,27 @@ describe("a community declared searched or read needs this call's receipt for it
       "read_depth full_text_audited with these receipts; give read_depth full_text_read, or pass its matching research_receipt."]);
   });
 
+  // The follow-up of 5 Nov 2026 (l34 on #412's build): a thread the site sent the reader on from to another of its pages
+  // is that thread, by the link given (`ur`), so an answer citing the link given has its receipt.
+  it("takes a key source thread by the link the site sent the reader on from", () => {
+    const asked = "https://www.longecity.org/forum/topic/63977-synthetic-topic/page-2";
+    const landed = "https://www.longecity.org/forum/viewtopic.php?t=1063977&start=30";
+    const redirected = sign("forum_thread_read", { u: forumThreadDigest(landed), ur: forumThreadDigest(asked), n: 1_500,
+      v: "page", e: "1" });
+    const cite = (receipts: string[]) => assertNextStepsContract(finalizeResearch({ ...input([], receipts),
+      key_sources: [...input([]).key_sources, { id: asked, status: "lead_only", read_depth: "full_text_read",
+        answer_marker: "Thread" }],
+      answer_draft: `${input([]).answer_draft}\n\n[Thread](${asked}) (full text read) describes the tea.`,
+      later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED },
+        { source: asked, reading: "full_text_read", quote: "full text read" }] }
+    }, { secret: SECRET }));
+    expect(cite([redirected]).next_steps).toEqual([]);
+    // Without the link given in its receipt, the asked link has no receipt (and so no reading either).
+    const unsigned = sign("forum_thread_read", { u: forumThreadDigest(landed), n: 1_500, v: "page", e: "1" });
+    expect(cite([unsigned]).next_steps[0]).toMatch(new RegExp(
+      `^Key source ${asked.replace(/[.?]/gu, "\\$&")} has no receipt showing it was found or looked up`));
+  });
+
   it("still holds a thread given as a key source to its read receipt, under the sources check", () => {
     const result = check([]);
     const asSource = assertNextStepsContract(finalizeResearch({ ...input([]), key_sources: [

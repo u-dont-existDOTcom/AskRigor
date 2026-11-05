@@ -185,14 +185,27 @@ describe("forum tools", () => {
     expect(claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/viewtopic.php?t=4" } })))
       .toMatchObject({ u: forumThreadDigest("https://talk.forum.example/viewtopic.php?t=4"),
         ur: forumThreadDigest("https://forum.example/viewtopic.php?t=4") });
-    // Sent on to another site, or to another page of the site: the link given is vouched for by nothing.
+    // Sent on to another site, or to the site's front page (as a removed thread may give): the link given is vouched
+    // for by nothing.
     for (const [given, read] of [["https://forum.example/viewtopic.php?t=5", "https://elsewhere.example/viewtopic.php?t=5"],
-      ["https://forum.example/viewtopic.php?t=6", "https://forum.example/login"],
-      ["https://forum.example/viewtopic.php?t=7", "https://forum.example/viewtopic.php?t=8"]]) {
+      ["https://forum-a.example/viewtopic.php?t=9", "https://forum-b.example/viewtopic.php?t=9"],
+      ["https://forum.example/viewtopic.php?t=6", "https://forum.example/"],
+      ["https://forum.example/viewtopic.php?t=7", "https://www.forum.example/index.php"]]) {
       page.mockResolvedValue({ url: read, access_state: "read", page_text: "a".repeat(1_500) });
       const claims = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: given } }));
       expect(claims, given).toMatchObject({ u: forumThreadDigest(read) });
       expect(claims, given).not.toHaveProperty("ur");
+    }
+    // The follow-up of 5 Nov 2026 (l34 on #412's build): the site's own redirect to another of its pages, short of its
+    // front page, is its statement that the link given is that page, so the read signs it, as another name for the
+    // thread it read: LongeCity's topic link sent on to viewtopic.php, with or without www.
+    for (const [given, read] of [
+      ["https://www.longecity.org/forum/topic/63977-synthetic-topic/page-2", "https://www.longecity.org/forum/viewtopic.php?t=1063977&start=30"],
+      ["https://longecity.org/forum/topic/63977-synthetic-topic/", "https://www.longecity.org/forum/viewtopic.php?t=1063977"],
+      ["https://forum.example/viewtopic.php?t=8", "https://forum.example/viewtopic.php?t=80"]]) {
+      page.mockResolvedValue({ url: read, access_state: "read", page_text: "a".repeat(1_500) });
+      const claims = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: given } }));
+      expect(claims, given).toMatchObject({ u: forumThreadDigest(read), ur: forumThreadDigest(given) });
     }
   });
 
