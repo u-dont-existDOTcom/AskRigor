@@ -111,6 +111,10 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
+  260a): HRP 20.6.40 (how each study was read, the study map, community leads), the owner's private page with its
+  read-only maps mount and settings line, the site's Atlas referrer policy, and the plugin reinstall; 35 tools unchanged,
+  so no app refresh; acceptance and the rollback.
 - `audits/2026-11-06-owner-answers-247a-259a-production-release.md`: release of #413 and the Atlas stack (owner answers
   247a and 259a): migrations 0025 to 0029, notice v5, HRP 20.6.39, the site's privacy page, terms and robots.txt; 35 tools
   unchanged, so no app refresh; acceptance, what waits for the owner (notice v5, the scout counter), why the cards'
