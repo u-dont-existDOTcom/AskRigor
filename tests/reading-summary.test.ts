@@ -16,7 +16,7 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  ANSWER_READING_LABELS, LINKED_READING_LABELS, linkedReadingGuidance, STUDY_READING_DISCLOSURE
+  ANSWER_READING_LABELS, LINKED_READING_LABELS, linkedReadingGuidance, STUDY_LINK_GUIDANCE, STUDY_READING_DISCLOSURE
 } from "../apps/research-mcp/src/source-reading.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -109,7 +109,7 @@ describe("the research-wide reading, counted exactly from the receipts", () => {
       search("ctgov", ["NCT01234567"]));
     expect(counted).toMatchObject({ audited: 1, abstract_only: 1, listed_not_read: 3 });
     expect(counted?.sentence).toBe("AskRigor read 1 study in full and checked its methods, and 1 more only as an " +
-      "abstract; its searches listed 3 others it didn't read.");
+      "abstract; its searches listed 3 other records it didn't read.");
   });
 
   it("leaves the listed count out when a Europe PMC search names its records only as one list", () => {
@@ -134,25 +134,27 @@ describe("the research-wide reading, counted exactly from the receipts", () => {
       sign("full_text_read", { doi: TRIAL, content: "b".repeat(16) }))).toMatchObject({ full_text: 1,
       full_text_from_ai_copies: 0 });
     expect(summary(search("pubmed", [COHORT_PMID, "11235813"]))?.sentence)
-      .toBe("AskRigor read no studies; its searches listed 2 studies it didn't read.");
+      .toBe("AskRigor read no studies; its searches listed 2 records it didn't read.");
     expect(summary(sign("youtube_search", { q: "abc" }))?.sentence).toBe("AskRigor read no studies.");
     // A plain answer or a research map is no research.
     expect(summary(sign("plain_answer", { a: "b" }))).toBeUndefined();
     expect(summary()).toBeUndefined();
   });
 
-  it("words each count in the singular and the plural", () => {
+  // The review of #422: a search lists books, theses and patents as well as studies, and no record's identifiers tell
+  // them apart, so the searches' count is of records.
+  it("words each count in the singular and the plural, and names what the searches listed records", () => {
     const none = { audited: 0, audited_from_ai_copies: 0, full_text: 0, full_text_from_ai_copies: 0, part_text: 0,
       abstract_only: 0, record_only: 0 };
     expect(readingSummarySentence({ ...none, audited: 3, abstract_only: 3, listed_not_read: 41 })).toBe("AskRigor " +
-      "read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 others it " +
-      "didn't read.");
+      "read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 other " +
+      "records it didn't read.");
     expect(readingSummarySentence({ ...none, audited: 2, audited_from_ai_copies: 2, listed_not_read: 1 })).toBe(
       "AskRigor read 2 studies in full and checked their methods (all from copies the AI found); its searches listed 1 " +
-      "other it didn't read.");
+      "other record it didn't read.");
     expect(readingSummarySentence({ ...none, record_only: 1 })).toBe("AskRigor read 1 study only by its title and record.");
     expect(readingSummarySentence({ ...none, listed_not_read: 1 })).toBe("AskRigor read no studies; its searches listed " +
-      "1 study it didn't read.");
+      "1 record it didn't read.");
   });
 });
 
@@ -211,8 +213,11 @@ describe("the studies an answer links that aren't key sources", () => {
       "read, in the answer's language; studies that aren't key sources need no source_reading entry: \"a cohort\" " +
       `(${COHORT_PMID}), "abstract only".`);
     expect(LINKED_READING_LABELS.not_looked_up).toBe("not looked up by AskRigor");
-    expect(STUDY_READING_DISCLOSURE).toContain("HRP StudyReadDepthDisclosure");
-    expect(STUDY_READING_DISCLOSURE).toContain("who paid");
+    // Worded as HRP words it (the review of #422): the reading beside each claim a study supports, and who paid for each
+    // key study.
+    expect(STUDY_READING_DISCLOSURE).toBe("HRP StudyReadDepthDisclosure requires, beside each claim a study supports, " +
+      "what was read of that study, and, for each key study, who paid for it (or that the paper doesn't say), so these " +
+      "are not among the limits the answer may choose to leave out.");
   });
 });
 
@@ -305,7 +310,9 @@ describe("through the tool", () => {
       expect(text).toContain(`\n${STUDY_READING_DISCLOSURE}`);
       expect(text).toContain("\nGive this sentence in the answer, as written (translated when the answer is not in " +
         "English), so the reader sees how much AskRigor read: AskRigor read 1 study in full and checked its methods; " +
-        "its searches listed 2 others it didn't read.");
+        "its searches listed 2 other records it didn't read.\nIts counts are of every research receipt passed to this " +
+        "check, earlier research in this chat included.");
+      expect(text).toContain(`\n${STUDY_LINK_GUIDANCE}`);
     } finally { await client.close(); await server.close(); }
   });
 
@@ -330,6 +337,7 @@ describe("through the tool", () => {
         answer_draft: draft("A synthetic answer without studies.") }));
       expect(none.output.reading_summary).toBeUndefined();
       expect(none.text).not.toContain(STUDY_READING_DISCLOSURE);
+      expect(none.text).not.toContain(STUDY_LINK_GUIDANCE);
       expect(none.text).not.toContain("how much AskRigor read");
     } finally { await client.close(); await server.close(); }
   });

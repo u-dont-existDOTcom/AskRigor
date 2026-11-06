@@ -19,7 +19,7 @@ import {
 } from "./source-lines.js";
 import {
   linkedReadingGuidance, READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance,
-  STUDY_READING_DISCLOSURE
+  STUDY_LINK_GUIDANCE, STUDY_READING_DISCLOSURE
 } from "./source-reading.js";
 import { europePmcRecordGroups } from "./reading-summary.js";
 import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
@@ -2748,8 +2748,11 @@ function defineResearchOperations(
             `\n${linkedReadingGuidance(result.linked_reading, result.source_reading !== undefined)}`) +
           (result.source_reading === undefined && result.linked_reading === undefined ? "" :
             `\n${STUDY_READING_DISCLOSURE}`) +
+          (result.source_reading === undefined && result.linked_reading === undefined &&
+            result.reading_summary === undefined ? "" : `\n${STUDY_LINK_GUIDANCE}`) +
           (result.reading_summary === undefined ? "" : "\nGive this sentence in the answer, as written (translated when " +
-            `the answer is not in English), so the reader sees how much AskRigor read: ${result.reading_summary.sentence}`) +
+            `the answer is not in English), so the reader sees how much AskRigor read: ${result.reading_summary.sentence}` +
+            "\nIts counts are of every research receipt passed to this check, earlier research in this chat included.") +
           (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +

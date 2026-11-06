@@ -341,11 +341,24 @@ its abstract, and never said who paid for it. HRP's `StudyReadDepthDisclosure` a
 a study supports. Everything below is exact and computed from the verified receipts, the same in any language:
 identifiers and links are forms, not meanings.
 
-- The studies the draft links that aren't key sources (`linked_reading`). A link names a paper by its form (a doi.org
-  link's DOI, read as acquisition reads it; a PubMed page's PMID, at pubmed.ncbi.nlm.nih.gov, ncbi.nlm.nih.gov/pubmed
-  or Europe PMC's MED pages; a PMCID that is a whole segment of its path), as a page a receipt ties to a paper (a DOI's
-  registered landing page, a copy AskRigor fetched), or by a DOI a receipt names, whole in its path or query; any other
-  link whose path or query holds a DOI names a paper no receipt shows was looked up. A link to a key source is that
+- One matcher reads the paper a link names (`paperNamedByLink`, the review of #422), for a key source's link under rule
+  1 and for the studies the draft links, as one whole identifier: a doi.org or dx.doi.org link's path, decoded, without
+  its query or fragment, read as acquisition reads a DOI; a PubMed, PubMed Central or Europe PMC page's PMID or PMCID,
+  from those sites' own address forms only; a page receipts sign for one paper (a DOI's registered landing page, a copy
+  AskRigor fetched), never one that receipts of two papers sign, which ties neither; and otherwise a DOI the check knows
+  (its receipts', its key sources' and the draft's own doi.org links'), found whole in a publisher's path or query,
+  decoded and in any case: after the address's start, a "/" or a "=", and before its end, a "/", "?", "#", "&", ";" or
+  a fixed list of view and file endings (`.pdf`, `.full`, `.abstract`, `.html`, `.epdf` and the like), the longest when
+  several are found. A DOI's suffix alone counts too, as a whole segment, when it holds a letter and a digit, no "/"
+  and at least five characters and no other known DOI shares it (BMJ's `/content/372/bmj.n71` for 10.1136/bmj.n71, or
+  Nature's `/articles/s41586-…`), so no bare number, which sites use for their own pages, reads as a DOI. A Markdown
+  link's destination is read as its own text, so the words after it never run into it, even with no space between
+  them, as in Japanese; a bare address ends at white space, and before the Latin, full-width or ideographic punctuation
+  that ends a sentence. Before it, a publisher's "/full" or ".pdf" was read as part of the DOI, a doi.org link kept its
+  query or fragment, and a key source's DOI matched a longer DOI that begins with it (10.1001/jama.2020.2276 in
+  10.1001/jama.2020.22760, bmj.n71 in bmj.n712).
+- The studies the draft links that aren't key sources (`linked_reading`), each a paper the matcher names; any other link
+  whose path or query holds a DOI names a paper no receipt shows was looked up. A link to a key source is that
   source's, checked under rules 1 and 2 as before; forum threads, videos and registrations are not papers. Each paper is
   listed once, up to 30, in the draft's order, named by its link's words and its identifier (or its link), with the
   deepest reading its verified receipts show, in the words an answer gives it ("abstract only" for a PubMed record,
@@ -359,9 +372,12 @@ identifiers and links are forms, not meanings.
   review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
   and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose
   abstract alone was readable); a count of copies the AI found is named within its own; and, only when every search
-  receipt names its records exactly, the studies the searches listed that AskRigor didn't read. For example: "AskRigor
-  read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 others it
-  didn't read." A study is one by its identifiers as the receipts tie them, counted once at its deepest reading. A
+  receipt names its records exactly, the records the searches listed that AskRigor didn't read. For example: "AskRigor
+  read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 other records
+  it didn't read." Those are named records, not studies (the review of #422): a search lists books, theses and patents
+  too, which no record's identifiers tell apart. A study is one by its identifiers as the receipts tie them, counted
+  once at its deepest reading. Every research receipt the call passes counts, earlier research in the same chat that
+  the AI passes again included, and the result says so beside the sentence and in its field's description. A
   PubMed search's identifiers are its records' PMIDs, one each; a Europe PMC search's receipt now groups each record's
   identifiers (`rg`: their places in its `ids`, or, for a record with no DOI, PMID or PMCID, its source and its own id's
   place), which also ties them for the links above, as a PubMed record does. An older Europe PMC receipt that listed
@@ -369,16 +385,21 @@ identifiers and links are forms, not meanings.
   since nothing ties a registration to its paper exactly. The result gives the sentence for the answer as written,
   translated when the answer is not in English, under every status with a research receipt; the panel shows it
   unfolded, as the line right after the status line, under the same statuses.
-- Beside the readings, the result says that `StudyReadDepthDisclosure` requires each of them, and who paid for the study
-  (or that the paper, or the part read, doesn't say), beside the claim the study supports, so they are not among the
-  limits `LimitsNote` lets the answer choose to leave out. The limits themselves are unchanged.
+- Beside the readings, the result says, as `StudyReadDepthDisclosure` words it, that it requires, beside each claim a
+  study supports, what was read of that study, and, for each key study, who paid for it (or that the paper doesn't say),
+  so these are not among the limits `LimitsNote` lets the answer choose to leave out. The limits themselves are
+  unchanged. With any reading or research receipt, the result also asks: "Link each study by its DOI or its PubMed page
+  when you can, so AskRigor can show how it was read; for a study linked otherwise, say its reading yourself."
 
 No published tool definition changes: both results are runtime-only, and the search receipt's `rg` is a claim of a token
-the AI carries. Limits: a paper listed under one identifier and read under another that no receipt ties counts in both
-(a PubMed search lists PMIDs alone, so a study read by its DOI with no PubMed record fetched); a receipt the AI leaves
-out counts for nothing; and a text `continue_open_full_text` left unfinished has no receipt, since the reader signs one
-only for a text read to its end, so it is neither counted nor sized: "part of the text read" can't yet say how much,
-though the reader knows how many of a document's parts it delivered.
+the AI carries. Limits: a study linked by a page with no identifier in its address that no receipt signs (an OUP
+article page, a JAMA `/fullarticle/` number, a Lancet PII) gets no reading and no note, since code can't tell that such
+a page is a study, which is why the result asks for DOI or PubMed links; a paper listed under one identifier and read
+under another that no receipt ties counts in both (a PubMed search lists PMIDs alone, so a study read by its DOI with no
+PubMed record fetched); a receipt the AI leaves out counts for nothing; and a text `continue_open_full_text` left
+unfinished has no receipt, since the reader signs one only for a text read to its end, so it is neither counted nor
+sized: "part of the text read" can't yet say how much, though the reader knows how many of a document's parts it
+delivered.
 
 Three lessons from the free Claude test of 5 November 2026 (Claude Sonnet with AskRigor, on Piliostigma reticulatum
 leaves; not yet released) add notes, two later inputs, a marker and no blocking rule. The answer passed the check saying

@@ -11,12 +11,14 @@ import { z } from "zod";
  * full-text reading or audit ties the copy's identifiers; a Europe PMC search's record ties its own (the receipt's
  * record groups, rg, since 6 November 2026). Each study counts once, at the deepest reading its receipts show: its
  * methods audited, its full text read, part of it readable, its abstract, or its record alone. A study only a search
- * listed counts among those listed and not read, and only when every search receipt names its records exactly: a
+ * listed counts among the records listed and not read, and only when every search receipt names its records exactly: a
  * PubMed search's identifiers are its records' PMIDs, one each, and a Europe PMC search's records are grouped from
  * 6 November 2026 on; an older Europe PMC receipt that listed records leaves that count out, rather than estimate it.
- * ClinicalTrials.gov's registrations are not counted: nothing ties a registration to its paper exactly. Exact, the
- * same in any language: identifiers are forms, not meanings. A paper listed under one identifier and read under
- * another that no receipt ties counts in both.
+ * They are named records, not studies (the review of #422): a search lists books, theses and patents too, which no
+ * record's identifiers tell apart. ClinicalTrials.gov's registrations are not counted: nothing ties a registration to
+ * its paper exactly. Every research receipt passed counts, earlier research in the same chat included. Exact, the same
+ * in any language: identifiers are forms, not meanings. A paper listed under one identifier and read under another that
+ * no receipt ties counts in both.
  */
 
 /** A verified research receipt, as the counts read it. */
@@ -36,8 +38,8 @@ export const readingSummarySchema = z.object({
   abstract_only: z.number().int().nonnegative(),
   record_only: z.number().int().nonnegative(),
   listed_not_read: z.number().int().nonnegative().optional()
-    .describe("Studies the searches listed that no receipt shows read; left out when a search receipt doesn't name " +
-      "its records exactly."),
+    .describe("Records the searches listed that no receipt shows read (books, theses and patents among them, which " +
+      "the records don't tell apart); left out when a search receipt doesn't name its records exactly."),
   sentence: z.string()
 }).strict();
 export type ReadingSummary = z.output<typeof readingSummarySchema>;
@@ -210,7 +212,7 @@ const studies = (count: number) => count === 1 ? "study" : "studies";
 
 /**
  * The sentence, from the counts: "AskRigor read 3 studies in full and checked their methods, and 3 more only as
- * abstracts; its searches listed 41 others it didn't read." Each count is exact; one left out stays out.
+ * abstracts; its searches listed 41 other records it didn't read." Each count is exact; one left out stays out.
  */
 export function readingSummarySentence(counts: Omit<ReadingSummary, "sentence">): string {
   const parts: string[] = [];
@@ -236,7 +238,7 @@ export function readingSummarySentence(counts: Omit<ReadingSummary, "sentence">)
   const read = parts.length === 0 ? "AskRigor read no studies"
     : `AskRigor read ${parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`}`;
   const listed = counts.listed_not_read ?? 0;
+  const records = listed === 1 ? "record" : "records";
   return listed === 0 ? `${read}.`
-    : `${read}; its searches listed ${listed} ${parts.length === 0 ? studies(listed) : listed === 1 ? "other" : "others"} ` +
-      "it didn't read.";
+    : `${read}; its searches listed ${listed} ${parts.length === 0 ? records : `other ${records}`} it didn't read.`;
 }

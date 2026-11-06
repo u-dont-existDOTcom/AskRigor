@@ -341,12 +341,21 @@ export function linkedReadingGuidance(readings: readonly LinkedReadingCheck[], a
 }
 
 /**
- * Beside the readings (the owner, 6 November 2026): HRP StudyReadDepthDisclosure asks for each reading and who paid,
- * beside the claim the study supports, so neither is a limit the answer may choose to leave out under LimitsNote.
+ * Beside the readings (the owner, 6 November 2026), worded as HRP StudyReadDepthDisclosure words it (the review of #422):
+ * beside each claim a study supports, what was read of it; and for each key study, who paid for it, or that the paper
+ * doesn't say. Neither is a limit the answer may choose to leave out under LimitsNote.
  */
-export const STUDY_READING_DISCLOSURE = "HRP StudyReadDepthDisclosure requires each of these readings, and who paid for " +
-  "the study (or that the paper, or the part read, doesn't say), beside the claim the study supports, so they are not " +
-  "among the limits the answer may choose to leave out.";
+export const STUDY_READING_DISCLOSURE = "HRP StudyReadDepthDisclosure requires, beside each claim a study supports, " +
+  "what was read of that study, and, for each key study, who paid for it (or that the paper doesn't say), so these " +
+  "are not among the limits the answer may choose to leave out.";
+
+/**
+ * A study linked by a page with no identifier in its address that no receipt signs (a JAMA /fullarticle/ page, a Lancet
+ * PII) is one the check can't name (the review of #422): code can't tell that such a page is a study. So the result asks
+ * for links it can read, and for the answer's own words otherwise.
+ */
+export const STUDY_LINK_GUIDANCE = "Link each study by its DOI or its PubMed page when you can, so AskRigor can show " +
+  "how it was read; for a study linked otherwise, say its reading yourself.";
 
 /**
  * The result's line naming each key source's reading up front, so the answer can say it before a check blocks, with
