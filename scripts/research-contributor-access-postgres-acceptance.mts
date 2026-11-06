@@ -8,6 +8,8 @@ import { Pool } from "pg";
 
 import {
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V2,
+  ATLAS_PUBLICATION_SCHEMA_V3,
   AtlasFindingPromotionRunner,
   AtlasParticipationError,
   AtlasPublicationError,
@@ -70,6 +72,7 @@ const EARLIER_NOTICES = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
+  "free-contributor-v4-2026-10-25",
 ] as const;
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
@@ -371,13 +374,14 @@ async function verify(
     ));
     checks.push("findings_save_stored_on_by_default_kept_by_save_and_only_account_columns_updatable");
 
-    // Owner answer 171: v4 joins the earlier three notices, each of which requires reacceptance before research.
+    // Owner answer 253a: v5 joins the earlier four notices (v4 from owner answer 171), each of which requires
+    // reacceptance before research.
     const noticeV4MigrationRows = await admin.query<{ migration_id: string }>(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
-       WHERE migration_id = '0020_research_use_notice_v4'`,
+       WHERE migration_id IN ('0020_research_use_notice_v4', '0028_research_use_notice_v5')`,
     );
-    assert(noticeV4MigrationRows.rowCount === 1, "MIGRATION_0020_NOT_APPLIED");
-    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v4-2026-10-25", "NOTICE_V4_NOT_CURRENT");
+    assert(noticeV4MigrationRows.rowCount === 2, "MIGRATION_0020_OR_0028_NOT_APPLIED");
+    assert(RESEARCH_USE_NOTICE_VERSION === "free-contributor-v5-2026-11-05", "NOTICE_V5_NOT_CURRENT");
     for (const earlier of EARLIER_NOTICES) {
       const subject = `auth0|synthetic-postgres-${earlier}-user`;
       await service.acceptFreeContributor(subject, FREE_AGREEMENT);
@@ -409,12 +413,12 @@ async function verify(
       );
       await expectPgErrorMessage(() => admin.query(
         `UPDATE ${SCHEMA}.research_use_accounts
-            SET notice_version = 'free-contributor-v5-2026-12-31'
+            SET notice_version = 'free-contributor-v6-2026-12-31'
           WHERE account_key = $1`,
         [earlierKey],
       ), "research_use_accounts_free_notice_check");
     }
-    checks.push("notice_v4_admitted_and_v1_v2_v3_accounts_accept_it_before_research");
+    checks.push("notice_v5_admitted_and_v1_v2_v3_v4_accounts_accept_it_before_research");
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -1428,6 +1432,19 @@ const ATLAS_MODERATION_FUNCTIONS = [
   "inspect_atlas_comments", "inspect_atlas_home_picks", "moderate_atlas_comment", "set_atlas_commenter_stopped",
   "set_atlas_home_picks",
 ] as const;
+// Owner answers 229a and 231a: migration 0024's two functions for findings kept for research.
+const ATLAS_KEPT_FUNCTIONS = ["inspect_atlas_kept_publications", "keep_atlas_publications"] as const;
+// Owner answer 229a: migration 0025's two placement functions, for the review role.
+const ATLAS_PLACEMENT_FUNCTIONS = ["inspect_atlas_placements", "set_atlas_placements"] as const;
+// Owner answer 229a: migration 0026's report functions, four for the access role and two for the review role.
+const ATLAS_REPORT_ACCESS_FUNCTIONS = [
+  "forget_atlas_reports", "set_atlas_report_answer", "submit_atlas_report", "take_down_atlas_report",
+] as const;
+const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_reports"] as const;
+// The owner, 3 Nov: migration 0027's three functions for a problem's rows at a glance.
+const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
+// The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
+const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -2057,6 +2074,104 @@ export async function verifyAtlasCardFields(context: { adminUrl: string; schema:
       assert(!leftover.rows[0]!.rows.includes("zentarine children"), "ATLAS_CARD_FIELDS_QUERY_LEFT_AFTER_ERASURE");
       checks.push("atlas_erasure_takes_the_subject_and_the_searches_queries_and_keeps_kind_type_direction_and_databases");
 
+      // Owner answers 254a and 255a: a version keeps the research behind it and admits forum_read; one resting on its
+      // forum signal alone has no source; and an erasure removes the research whole, from the version and its intent.
+      const sourced = "10.0000/synthetic-card-fields-c";
+      const research = {
+        backing: [{ source: sourced, sentence: "Tremor fell in 20 of 100 people on the invented dose at 12 weeks.",
+          sentence_section: "Results", text: "full_text", against: "The invented trial was small." }],
+        source_reading: [{ source: sourced, read: "full_text_audited", figures: "consistent" }],
+        forum_signal: { communities: ["r/inventedvelmor"], threads_read: 1, threads: ["https://www.reddit.com/comments/abc123/"],
+          people: { better: 3, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 2, measured: 1, bare: 1 },
+          mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
+      };
+      const researched = await decide(9003, {
+        ...atlasAccept({ wording: "In an invented trial, zentarine 5 mg eased the tremor of a few adults.",
+          bases: ["full_text_audit", "forum_read"], sources: [atlasSource(sourced, tick())] }),
+        content: { ...atlasContent("In an invented trial, zentarine 5 mg eased the tremor of a few adults.",
+          ["full_text_audit", "forum_read"]), ...effectFields, research },
+      });
+      const forumOnly = await decide(9004, {
+        ...atlasAccept({ wording: "People on invented forums report less tremor after a warm bath.", bases: ["forum_read"],
+          sources: [] }),
+        content: { ...atlasContent("People on invented forums report less tremor after a warm bath.", ["forum_read"]),
+          research: { forum_signal: research.forum_signal } },
+      });
+      const [researchedContent] = await contentOf(researched);
+      const [forumContent] = await contentOf(forumOnly);
+      assert(
+        isDeepStrictEqual(researchedContent?.research, research) &&
+          isDeepStrictEqual(researchedContent?.verifiedBases, ["full_text_audit", "forum_read"]) &&
+          isDeepStrictEqual(forumContent?.research, { forum_signal: research.forum_signal }),
+        `ATLAS_RESEARCH_READ_BACK_MISMATCH ${JSON.stringify({ researchedContent, forumContent })}`,
+      );
+      const recordFor = async (publicNumber: string, kind: "withdraw" | "erase", payload: unknown) => {
+        const prepared = prepareAtlasFindingIntent(payload);
+        await review.recordIntent({
+          intentId: deterministicUuid(`research-behind-${kind}:${schema}:${publicNumber}`), intentKind: kind, publicNumber,
+          payload: prepared.payload, payloadSha256: prepared.payloadSha256, ownerReason: null, createdAt: tick(),
+          retryOfIntentId: null,
+        });
+        const promoted = await runner.promoteAccepted();
+        assert(promoted.failed.length === 0 && promoted.result.status === "promoted",
+          `ATLAS_RESEARCH_${kind}_NOT_PROMOTED ${JSON.stringify(promoted.failed)}`);
+      };
+      await recordFor(researched, "withdraw", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "withdraw", publicNumber: researched, version: 1,
+        note: "Withdrawn: its wording named a person.", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      await recordFor(researched, "erase", {
+        schema: "askrigor.atlas-finding-intent.v1", kind: "erase", publicNumber: researched, version: 2,
+        scope: "all_versions", reasonCode: "could_identify_a_person", decidedWith: ATLAS_DECIDED_WITH,
+      });
+      const afterErasure = await admin.query<{ research: unknown; rows: string }>(
+        `SELECT version.research,
+                concat_ws(' ', row_to_json(version)::text, (SELECT json_agg(intent.payload_json)::text
+                  FROM ${schema}.atlas_finding_intents intent WHERE intent.public_number = $1)) AS rows
+           FROM ${schema}.atlas_finding_versions version
+           JOIN ${schema}.atlas_findings finding ON finding.finding_id = version.finding_id
+          WHERE finding.public_number = $1`,
+        [researched],
+      );
+      assert(
+        afterErasure.rows.length > 0 && afterErasure.rows.every((row) => row.research === null &&
+          !row.rows.includes("Tremor fell in 20 of 100") && !row.rows.includes("calm the invented pathway")),
+        `ATLAS_RESEARCH_LEFT_AFTER_ERASURE ${JSON.stringify(afterErasure.rows.map(({ research: left }) => left))}`,
+      );
+      checks.push("atlas_versions_keep_the_research_behind_them_and_forum_read_and_erasure_removes_the_research_whole");
+
+      // The runbook's read-only rollback check (the review of #417, finding 2, and its recheck): what an earlier image
+      // can't parse. Here the two accept intents (one with the research behind it, one resting on forum_read), then a
+      // re-check intent resting on forum_read, whose bases sit at its payload's top level, and the versions on forum_read.
+      // verifyAtlasPublications counts the version 3 publications.
+      const rollbackCounts = async () => (await admin.query<{ intents: string; versions: string }>(
+        `SELECT (SELECT count(*) FROM ${schema}.atlas_finding_intents
+                  WHERE payload_json -> 'content' ? 'research'
+                     OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read'
+                     OR payload_json -> 'verifiedBases' ? 'forum_read') AS intents,
+                (SELECT count(*) FROM ${schema}.atlas_finding_versions WHERE verified_bases ? 'forum_read') AS versions`,
+      )).rows[0]!;
+      const accepts = await rollbackCounts();
+      const forumWording = "People on invented forums report less tremor after a warm bath.";
+      const recheck = prepareAtlasFindingIntent({
+        schema: "askrigor.atlas-finding-intent.v1", kind: "recheck", publicNumber: forumOnly,
+        cardWordingKey: atlasWordingKey(ATLAS_QUESTION, forumWording), verifiedBases: ["forum_read"], sources: [],
+        researchCheckedOn: "2026-11-05", madeWith: ATLAS_MADE_WITH,
+      });
+      await review.decide({
+        cardNumber: 9005, itemKind: "finding", itemNumber: 1, decision: "rechecked", cardSha256: atlasCardSha256(9005),
+        ownerReason: null, decidedAt: tick(),
+        intent: { intentId: deterministicUuid(`card-fields-intent:${schema}:9005`), ...recheck },
+        recheckedPublicNumber: forumOnly,
+      });
+      const rechecked = await runner.promoteAccepted();
+      assert(rechecked.failed.length === 0 && rechecked.result.status === "promoted",
+        `ATLAS_FORUM_RECHECK_NOT_PROMOTED ${JSON.stringify(rechecked.failed)}`);
+      const counted = await rollbackCounts();
+      assert(Number(accepts.intents) >= 2 && Number(counted.intents) === Number(accepts.intents) + 1 &&
+        Number(counted.versions) >= 2, `ATLAS_ROLLBACK_CHECK_MISMATCH ${JSON.stringify({ accepts, counted })}`);
+      checks.push("the_runbooks_rollback_check_counts_the_accept_and_recheck_intents_and_versions_an_earlier_image_cannot_parse");
+
       // A second migrate on the populated database changes nothing.
       const before = await atlasMigrationSnapshot(admin, schema);
       const again = new PostgresEvidenceRepository({ connectionString: adminUrl, schema });
@@ -2371,7 +2486,7 @@ export async function verifyAtlasPublications(context: {
   schema: string;
   checks: string[];
 }): Promise<void> {
-  const { adminUrl, reviewUrl, schema, checks } = context;
+  const { adminUrl, reviewUrl, readerUrl, schema, checks } = context;
   const admin = new Pool({ connectionString: adminUrl, max: 2 });
   const store = new PostgresAtlasPublicationStore({ connectionString: reviewUrl, schema });
   let instant = Date.parse("2026-11-04T09:00:00.000Z");
@@ -2435,6 +2550,51 @@ export async function verifyAtlasPublications(context: {
     );
     checks.push("atlas_publications_are_numbered_from_their_own_sequence_and_idempotent_by_card_digest_and_finding");
 
+    // Owner answer 252a: version 3, the research behind a finding and what people report, round trips as it was
+    // published; one resting on its forum signal alone has no source. Withdrawn at once, so no later list counts them.
+    const question = { question: "Does an invented option help?", usual_answer: "A quick answer says it helps." };
+    const researched: AtlasPublishedFinding = {
+      ...published("Version 3: zentarine 20 mg cut relapse in an invented trial."), ...question,
+      schema: ATLAS_PUBLICATION_SCHEMA_V3,
+      numbers: [{ ...published("x").numbers![0]!, source: "10.0000/synthetic-velmor-publication" }],
+      source_details: [{ source: "10.0000/synthetic-velmor-publication", title: "An invented trial", year: 2024,
+        retraction: "none_found" }],
+      backing: [{ source: "10.0000/synthetic-velmor-publication",
+        sentence: "Relapse fell from 30 of 120 to 18 of 120 with zentarine 20 mg over 52 weeks.", sentence_section: "Results",
+        text: "full_text", against: "The invented trial was the only one at this dose." }],
+      source_reading: [{ source: "10.0000/synthetic-velmor-publication", read: "full_text_audited", figures: "consistent" }],
+    };
+    const forumOnly: AtlasPublishedFinding = {
+      ...published("Version 3: people on invented forums report fewer relapses."), ...question,
+      schema: ATLAS_PUBLICATION_SCHEMA_V3, sources: [], numbers: [], verified_bases: [],
+      forum_signal: { communities: ["r/inventedvelmor"], threads_read: 2, threads: [],
+        people: { better: 5, no_change: 1, worse: 0, mixed: 1 }, report_quality: { detailed: 3, measured: 1, bare: 2 },
+        mechanism: "It may calm the invented pathway.", studies: "support_not_located" },
+    };
+    // The runbook's read-only rollback check (the recheck of #417) counts the version 3 rows, withdrawn or not.
+    const versionThree = async () => Number((await admin.query<{ count: string }>(
+      `SELECT count(*) FROM ${schema}.atlas_publications WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3'`,
+    )).rows[0]!.count);
+    const versionThreeBefore = await versionThree();
+    const third = await store.publish({ cardNumber: 7006, cardSha256: atlasHex("synthetic-publication-card-v3"),
+      findings: [draft(1, { published: researched }), draft(2, { published: forumOnly })], publishedAt: tick(),
+      revive: false });
+    const readBack = await store.inspect({ cardNumbers: [7006] });
+    const thirdWithdrawn = await store.withdraw({ reason: "card_set_aside", cardNumbers: [7006], withdrawnAt: tick() });
+    assert(
+      third.every(({ outcome, state }) => outcome === "published" && state === "unreviewed") &&
+        isDeepStrictEqual(readBack.map(({ published: row }) => row).sort((left, right) =>
+          (left?.claim ?? "").localeCompare(right?.claim ?? "")), [forumOnly, researched]) &&
+        thirdWithdrawn.length === 2,
+      `ATLAS_PUBLICATION_VERSION_3_MISMATCH ${JSON.stringify(readBack.map(({ published: row }) => row))}`,
+    );
+    checks.push("atlas_publications_of_version_3_round_trip_with_the_research_behind_them_and_what_people_report");
+    // Both version 3 rows count, withdrawn as they now are, since a withdrawn row keeps its published fields.
+    const versionThreeAfter = await versionThree();
+    assert(versionThreeAfter === versionThreeBefore + 2,
+      `ATLAS_ROLLBACK_PUBLICATION_COUNT ${JSON.stringify({ versionThreeBefore, versionThreeAfter })}`);
+    checks.push("the_runbooks_rollback_check_counts_the_version_3_publications_withdrawn_or_not");
+
     const [accepted] = await store.decide({ cardNumber: 7001, findingNumber: 1, state: "accepted", atlasNumber: "F-1001",
       decidedAt: tick() });
     const [edited] = await store.decide({ cardNumber: 7001, findingNumber: 2, state: "edited", atlasNumber: "F-1002",
@@ -2467,6 +2627,120 @@ export async function verifyAtlasPublications(context: {
       "ATLAS_PUBLICATION_WITHDRAWALS_MISMATCH",
     );
     checks.push("atlas_publications_are_withdrawn_by_replacement_unpublishing_and_set_aside_and_revived_on_the_owners_choice");
+
+    // Owner answers 229a and 231a (migration 0024): the unpublished card comes back kept for research only. The pages'
+    // lists leave it out; its own read and the lookup's keep it. A set-aside one can't be kept, and showing it again
+    // lists it.
+    const pages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    try {
+      const keptNumber = unpublished!.publicationNumber;
+      const [kept] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: true,
+        reason: "owner answer 229a", at: tick() });
+      const listed = async (includeKept: boolean) => (await pages.read((reads) => reads.listPublications({ limit: 50,
+        includeKept }))).map(({ publicationNumber, kept: isKept }) => `${publicationNumber}:${isKept}`);
+      const [reasons, without, withKept] = [await store.inspectKept(), await listed(false), await listed(true)];
+      let refused = false;
+      try {
+        await store.keep({ publicationNumbers: [setAside[0]!.publicationNumber], atlasNumbers: [], keep: true, reason: "x",
+          at: tick() });
+      } catch (error) {
+        refused = error instanceof AtlasPublicationError && error.code === "NOT_KEEPABLE";
+      }
+      const [shownAgain] = await store.keep({ publicationNumbers: [keptNumber], atlasNumbers: [], keep: false, reason: null,
+        at: tick() });
+      assert(kept?.state === "unreviewed" && kept.kept && reasons.map(({ publicationNumber, reason }) =>
+        `${publicationNumber}:${reason}`).join() === `${keptNumber}:owner answer 229a` &&
+        !without.some((entry) => entry.startsWith(`${keptNumber}:`)) && withKept.includes(`${keptNumber}:true`) &&
+        refused && shownAgain?.kept === false && (await listed(false)).includes(`${keptNumber}:false`),
+      `ATLAS_KEPT_FOR_RESEARCH_MISMATCH ${JSON.stringify({ kept, without, withKept, refused })}`);
+    } finally {
+      await pages.close();
+    }
+    checks.push("atlas_publications_kept_for_research_stay_off_the_lists_and_in_the_lookup");
+
+    // The owner, 6 Nov 2026 (migration 0030): a challenge mark on a shown publication, read by the pages with its usual
+    // view, source and verdict but never who marked it; one that isn't shown can't be marked; a fail's mark stays while
+    // it shows, and a pass's is cleared whole; the table's check and the function refuse a mark that isn't one, written
+    // past the store's checks.
+    // The unpublished card's finding, kept and then shown again above, is the one shown publication here.
+    const challengePages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    try {
+      const target = unpublished!.publicationNumber;
+      const mark = { usualView: "Most invented guidelines advise zentarine at 40 mg a day for everyone.",
+        sourceUrl: "https://guidelines.example.org/velmor-syndrome/2025", sourceLabel: "Invented Velmor guideline (2025)",
+        verdict: "fail" as const };
+      const marker = `reviewer:${atlasHex("synthetic-reviewer").slice(0, 16)}`;
+      const [view] = await store.markChallenges({ publicationNumbers: [target], mark, markedBy: marker, at: tick() });
+      const listedMarks = await store.inspectChallenges();
+      const read = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      let notMarkable = false;
+      try {
+        await store.markChallenges({ publicationNumbers: [setAside[0]!.publicationNumber], mark, markedBy: marker,
+          at: tick() });
+      } catch (error) {
+        notMarkable = error instanceof AtlasPublicationError && error.code === "NOT_MARKABLE";
+      }
+      const refusedBy = async (statement: () => Promise<unknown>, message: string) => {
+        try {
+          await statement();
+          return false;
+        } catch (error) {
+          return error instanceof Error && error.message.includes(message);
+        }
+      };
+      // Past the store's own checks, the table's check refuses a link that isn't https and a text-direction control or a
+      // zero-width character (the review of #422), and the review role's function refuses the same.
+      const update = (usualView: string, url: string, label: string) => () => admin.query(
+        `UPDATE ${schema}.atlas_publications SET challenge_usual_view = $3, challenge_source_url = $4, ` +
+        "challenge_source_label = $5, challenge_verdict = 'fail', challenge_marked_by = $1, challenge_marked_at = now() " +
+        "WHERE publication_number = $2", [marker, target, usualView, url, label]);
+      const constrained = await refusedBy(update("x", "http://example.org", "x"), "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("Guidelines \u202Egro.elpmaxe@namrevo\u202C", mark.sourceUrl, "x"),
+          "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("x", mark.sourceUrl, "Invented\u200Bguideline"), "atlas_publications_v1_challenge_check");
+      const functionRefuses = await asRole("askrigor_research_review", async (client) => refusedBy(() => client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, "Guidelines \u2066moc.ebutuoy\u2069 advise it.", mark.sourceUrl, mark.sourceLabel, marker]),
+      "ATLAS_PUBLICATION_INPUT_INVALID"));
+      // The zero-width non-joiner and joiner that Persian, the Indian scripts and emoji sequences need are taken in the
+      // usual view and its label, by the store, the table's check and the function, and read back as written; a link
+      // still holds neither (the review of #422, third round).
+      const joined = { ...mark, usualView: "بیشتر راهنماها می\u200Cگویند زنتارین ۴۰ میلی\u200Cگرم در روز.",
+        sourceLabel: "भारतीय दिशानिर्देश क्\u200Dष (2025) \u{1F469}\u200D\u2695\uFE0F" };
+      const [joinedView] = await store.markChallenges({ publicationNumbers: [target], mark: joined, markedBy: marker,
+        at: tick() });
+      const joinedRead = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      const joinedByFunction = await asRole("askrigor_research_review", async (client) => (await client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, joined.usualView, mark.sourceUrl, joined.sourceLabel, marker])).rows.length === 1);
+      const joinersTaken = joinedView?.mark?.usualView === joined.usualView &&
+        joinedView.mark.sourceLabel === joined.sourceLabel && isDeepStrictEqual(joinedRead[0]?.challenge, joined) &&
+        joinedByFunction &&
+        await refusedBy(update("x", "https://guidelines.example.org/a\u200Db", "x"), "atlas_publications_v1_challenge_check");
+      // Shown only for its challenge (a fail), its mark stays while it shows; a pass's clears.
+      let notClearable = false;
+      try {
+        await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
+      } catch (error) {
+        notClearable = error instanceof AtlasPublicationError && error.code === "NOT_CLEARABLE";
+      }
+      await store.markChallenges({ publicationNumbers: [target], mark: { ...mark, verdict: "pass" }, markedBy: marker,
+        at: tick() });
+      const [cleared] = await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
+      const afterClear = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      assert(view?.mark?.verdict === "fail" && view.mark.markedBy === marker &&
+        listedMarks.map(({ publicationNumber }) => publicationNumber).join() === target &&
+        read.length === 1 && read[0]!.publicationNumber === target && isDeepStrictEqual(read[0]!.challenge, mark) &&
+        !JSON.stringify(read).includes(marker) && notMarkable && constrained && functionRefuses && joinersTaken &&
+        notClearable &&
+        cleared?.mark === null && afterClear.length === 0 && (await store.inspectChallenges()).length === 0,
+      `ATLAS_CHALLENGE_MARK_MISMATCH ${JSON.stringify({ view, read, notMarkable, constrained, functionRefuses,
+        joinersTaken, notClearable, cleared })}`);
+    } finally {
+      await challengePages.close();
+    }
+    checks.push("atlas_challenge_marks_are_kept_read_by_the_pages_without_who_marked_them_and_cleared_whole");
+    checks.push("atlas_challenge_marks_take_the_joiners_scripts_need_and_refuse_other_format_characters");
 
     await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
       findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
@@ -2650,11 +2924,17 @@ export async function verifyAtlasPages(context: {
       ({ findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: published(claim) });
     const card = 7201;
     const digest = atlasHex("synthetic-pages-card");
+    // The first with its card's context (version 2): the question, the usual answer and a source's title and year.
+    const withContext: AtlasPublicationDraft = { ...unreviewedDraft(1, "PAGES-UNREVIEWED claim."), published: {
+      ...published("PAGES-UNREVIEWED claim."), schema: ATLAS_PUBLICATION_SCHEMA_V2,
+      question: "PAGES-QUESTION Does an invented option help?", usual_answer: "PAGES-USUAL A quick answer says it helps.",
+      source_details: [{ source: "10.0000/synthetic-pages", title: "PAGES-TITLE A synthetic paper", year: 2023 }],
+    } };
     const rows = await store.publish({
       cardNumber: card,
       cardSha256: digest,
       findings: [
-        unreviewedDraft(1, "PAGES-UNREVIEWED claim."),
+        withContext,
         unreviewedDraft(2, "PAGES-CARD-WORDING claim."),
         { findingNumber: 3, state: "held", atlasNumber: null, heldBecause: ["email_address"],
           published: published("PAGES-HELD claim.") },
@@ -2672,6 +2952,7 @@ export async function verifyAtlasPages(context: {
     await store.decide({ cardNumber: card, findingNumber: 5, state: "accepted", atlasNumber: withdrawn.public_number,
       decidedAt: tick() });
 
+    const columns = (row: object) => Object.keys(row).sort().join();
     const read = await source.read(async (reads) => ({
       listed: await reads.listPublications({ publicationNumbers: rows.map(({ publicationNumber }) => publicationNumber),
         limit: 10 }),
@@ -2681,12 +2962,23 @@ export async function verifyAtlasPages(context: {
       findings: await reads.readFindings([checked.public_number, withdrawn.public_number]),
       contradictions: await reads.listContradictions(50),
       changes: await reads.listChanges(50),
+      siblings: await reads.listCardSiblings([unreviewed!]),
     }));
-    const columns = (row: object) => Object.keys(row).sort().join();
+    // The card's other publications in a state the pages show, by number only; never the held or rejected one.
+    assert(
+      read.siblings.map(({ publicationNumber, siblingNumber }) => `${publicationNumber}:${siblingNumber}`).join() ===
+        [accepted, withdrawnAfter].map((number) => `${unreviewed}:${number}`).join() &&
+        read.siblings.every((row) => columns(row) === "publicationNumber,siblingNumber"),
+      `ATLAS_PAGES_SIBLINGS_MISMATCH ${JSON.stringify(read.siblings)}`,
+    );
     assert(
       read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
-        read.listed.every((row) => columns(row) === "atlasNumber,publicationNumber,published,publishedAt,state,stateChangedAt"),
+        // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
+        // challenge (the owner, 6 Nov 2026) is its challenge mark's usual view, source and verdict; never who marked it.
+        read.listed.every((row) => columns(row) ===
+          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,state,stateChangedAt") &&
+        read.listed.every((row) => row.challenge === null),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -2700,7 +2992,9 @@ export async function verifyAtlasPages(context: {
     assert(
       checkedFinding?.label === "checked" && findingOf(withdrawn.public_number)?.label === "withdrawn" &&
         checkedFinding.acceptedOn !== null && /^\d{4}-\d{2}-\d{2}$/u.test(checkedFinding.researchCheckedOn) &&
-        checkedFinding.sources.length > 0 && !checkedFinding.erased,
+        checkedFinding.sources.length > 0 && !checkedFinding.erased &&
+        // Each source with its newest public-record check's title and year.
+        checkedFinding.sources.every(({ title, year }) => title?.startsWith("Synthetic zentarine trial") === true && year === 2024),
       "ATLAS_PAGES_FINDINGS_MISMATCH",
     );
     assert(
@@ -2718,7 +3012,10 @@ export async function verifyAtlasPages(context: {
     const home = renderAtlasHome(await loadAtlasHome(source));
     assert(
       acceptedHtml.includes(escapeHtml(checkedFinding.content.wording)) && !acceptedHtml.includes("PAGES-CARD-WORDING") &&
-        acceptedHtml.includes(`Atlas number ${checked.public_number}`) && !acceptedHtml.includes(NOT_CHECKED_LABEL) &&
+        // Its own label is not the unreviewed one; its card's unreviewed sibling, listed on it, keeps its own.
+        acceptedHtml.includes(`Atlas number ${checked.public_number}`) &&
+        !acceptedHtml.includes(`<p class="status-label">${NOT_CHECKED_LABEL}</p>`) &&
+        acceptedHtml.includes(`<p class="badge badge-unreviewed">${NOT_CHECKED_LABEL}</p>`) &&
         unreviewedHtml.includes(NOT_CHECKED_LABEL) && unreviewedHtml.includes("PAGES-UNREVIEWED claim.") &&
         home.includes("PAGES-UNREVIEWED claim.") &&
         (await loadAtlasFinding(source, held!)) === undefined &&
@@ -2726,6 +3023,16 @@ export async function verifyAtlasPages(context: {
         (await loadAtlasFinding(source, withdrawnAfter!)) === undefined,
       "ATLAS_PAGES_RENDERED_MISMATCH",
     );
+    // Its card's context, and its card's shown sibling by its accepted wording (plan 2026-11-02-atlas-finding-pages-in-context.md).
+    const context = {
+      question: unreviewedHtml.includes("PAGES-QUESTION Does an invented option help?"),
+      usual: unreviewedHtml.includes("What a quick, ordinary answer would say: PAGES-USUAL A quick answer says it helps."),
+      title: unreviewedHtml.includes("<cite>PAGES-TITLE A synthetic paper</cite> (2023)."),
+      research: unreviewedHtml.includes("What this research found"),
+      sibling: unreviewedHtml.includes(`href="/atlas/findings/${accepted}">${escapeHtml(checkedFinding.content.wording)}</a>`),
+      canonicalTitle: acceptedHtml.includes("<cite>Synthetic zentarine trial"),
+    };
+    assert(Object.values(context).every(Boolean), `ATLAS_PAGES_CONTEXT_MISMATCH ${JSON.stringify(context)}`);
     for (const page of [acceptedHtml, unreviewedHtml, home]) {
       assert(
         atlasPageProblems(page).length === 0 && !page.includes("ARF-") && !page.includes(digest) &&
@@ -3114,7 +3421,7 @@ export async function verifyAtlasParticipation(context: {
     // With the pending-withdrawal function and migration 0019's hold (owner answer 173).
     assert(
       accessFunctions.join() === [...ATLAS_PARTICIPATION_FUNCTIONS, ...HELD_ACCESS_FUNCTIONS,
-        "withdraw_pending_research_contribution_proposals"].sort().join(),
+        ...ATLAS_REPORT_ACCESS_FUNCTIONS, "withdraw_pending_research_contribution_proposals"].sort().join(),
       `ATLAS_ACCESS_ROLE_FUNCTIONS_MISMATCH ${accessFunctions.join()}`,
     );
     const migration0022Functions: readonly string[] = [...ATLAS_PARTICIPATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
@@ -3864,6 +4171,8 @@ export async function verifyAtlasStorage(context: {
     assert(
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
+          ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );
@@ -3878,6 +4187,97 @@ export async function verifyAtlasStorage(context: {
       );
       await client.query("SELECT * FROM forget_atlas_cards(ARRAY[9010], $1::timestamptz)", [now]);
     });
+    // Owner answer 229a (migration 0025): the review role sets, moves and removes placements and lists them; a
+    // malformed entry changes nothing; the reader reads the table for the pages.
+    await asRole("askrigor_research_review", async (client) => {
+      const set = await client.query<{ changed: number }>(
+        `SELECT set_atlas_placements('[{"item":"P-9001","category":"health","subcategory":"sleep"},` +
+        `{"item":"F-9002","category":"health","subcategory":"eyes"}]'::jsonb, $1::timestamptz) AS changed`, [now]);
+      assert(set.rows[0]?.changed === 2, "ATLAS_PLACEMENTS_NOT_SET");
+      await client.query(`SELECT set_atlas_placements('[{"item":"F-9002","category":null,"subcategory":null}]'::jsonb,
+        $1::timestamptz)`, [now]);
+      const listed = await client.query<{ placement_item: string }>("SELECT * FROM inspect_atlas_placements()");
+      assert(listed.rows.map(({ placement_item }) => placement_item).join() === "P-9001", "ATLAS_PLACEMENTS_NOT_LISTED");
+      // In the same transaction (asRole rolls back), the reader sees the row the pages read.
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const read = await client.query<{ item_number: string }>("SELECT item_number FROM atlas_placements");
+      assert(read.rows.map(({ item_number }) => item_number).join() === "P-9001", "ATLAS_PLACEMENTS_NOT_READABLE");
+    });
+    await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
+      `SELECT set_atlas_placements('[{"item":"P-9001","category":"Health","subcategory":"sleep"}]'::jsonb, now())`,
+    )), "ATLAS_PLACEMENT_INPUT_INVALID");
+    checks.push("atlas_placements_set_by_the_review_role_and_read_by_the_reader");
+
+    // Owner answer 229a (migration 0026): a report through the access role, the check's verdict through the review
+    // role, an answer from someone else and never from its author, its take-down; a refused report keeps no text.
+    await asRole("askrigor_research_access", async (client) => {
+      const author = "a".repeat(64);
+      const other = "b".repeat(64);
+      const report = JSON.stringify({ problem: "Synthetic itch", tried: "A synthetic cream", whatHappened: "It eased." });
+      const [submitted] = (await client.query<{ report_public_id: string }>(
+        "SELECT report_public_id FROM submit_atlas_report($1, 'form', $2::jsonb, $3::timestamptz)",
+        [author, report, now])).rows;
+      const spam = (await client.query<{ report_public_id: string }>(
+        "SELECT report_public_id FROM submit_atlas_report($1, 'ai_app', $2::jsonb, $3::timestamptz)",
+        [author, report, now])).rows[0]!.report_public_id;
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      const queued = await client.query<{ report_number: string }>("SELECT * FROM inspect_atlas_reports('received', NULL, 20)");
+      assert(queued.rows.length === 2, "ATLAS_REPORTS_NOT_QUEUED");
+      const decided = await client.query<{ report_state: string }>(
+        `SELECT report_state FROM decide_atlas_report($1, 'publish_with_warning', 'Synthetic caution.', NULL, NULL,
+           'health', 'skin-hair-and-nails', $2::timestamptz)`, [submitted!.report_public_id, now]);
+      assert(decided.rows[0]?.report_state === "published", "ATLAS_REPORT_NOT_PUBLISHED");
+      await client.query(`SELECT * FROM decide_atlas_report($1, 'refuse', NULL, 'spam', NULL, NULL, NULL, $2::timestamptz)`,
+        [spam, now]);
+      await client.query("SET LOCAL ROLE askrigor_research_access");
+      const totals = await client.query<{ worked: string }>(
+        "SELECT * FROM set_atlas_report_answer($1, $2, 'worked', $3::timestamptz)", [other, submitted!.report_public_id, now]);
+      assert(Number(totals.rows[0]?.worked) === 1, "ATLAS_REPORT_ANSWER_NOT_COUNTED");
+      await client.query("SAVEPOINT own_answer");
+      await expectMessage(() => client.query("SELECT * FROM set_atlas_report_answer($1, $2, 'worked', $3::timestamptz)",
+        [author, submitted!.report_public_id, now]), "ATLAS_REPORT_OWN");
+      await client.query("ROLLBACK TO SAVEPOINT own_answer");
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const read = await client.query<{ state: string; problem: string | null; placed: number }>(
+        `SELECT stored.state, stored.problem,
+                (SELECT count(*)::int FROM atlas_placements place WHERE place.item_number = 'R-' || stored.report_number) AS placed
+           FROM atlas_reports stored ORDER BY stored.report_number`);
+      assert(read.rows.map(({ state, problem, placed }) => `${state}:${problem ?? "-"}:${placed}`).join() ===
+        "published:Synthetic itch:1,refused:-:0", `ATLAS_REPORTS_NOT_AS_DECIDED ${JSON.stringify(read.rows)}`);
+      await client.query("SET LOCAL ROLE askrigor_research_access");
+      const down = await client.query<{ removed: boolean }>("SELECT take_down_atlas_report($1, $2) AS removed",
+        [author, submitted!.report_public_id]);
+      assert(down.rows[0]?.removed === true, "ATLAS_REPORT_NOT_TAKEN_DOWN");
+      const forgot = await client.query<{ reports_deleted: string }>("SELECT * FROM forget_atlas_reports($1)", [author]);
+      assert(Number(forgot.rows[0]?.reports_deleted) === 1, "ATLAS_REPORTS_NOT_FORGOTTEN");
+    });
+    checks.push("atlas_reports_submitted_checked_answered_and_taken_down_through_their_roles");
+
+    // The owner, 3 Nov (migration 0027): a row at a glance is proposed privately, shown on the owner's yes, read by
+    // the reader only once shown, and withdrawn for good.
+    await asRole("askrigor_research_review", async (client) => {
+      const row = JSON.stringify({ category: "health", subcategory: "gut-health", rowClass: "lead",
+        what: "An invented historical lead", result: "9 of 10 reported better", comparison: null, followUp: "1 year",
+        limits: "Selected cases; no comparison.", sources: ["PMID: 12345678"], namesAPerson: false });
+      const [proposed] = (await client.query<{ row_public_id: string }>(
+        "SELECT row_public_id FROM propose_atlas_glance_row($1::jsonb, $2::timestamptz)", [row, now])).rows;
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const hidden = await client.query("SELECT 1 FROM atlas_glance_rows WHERE state = 'shown'");
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      const shown = await client.query<{ row_state: string }>(
+        "SELECT row_state FROM set_atlas_glance_row_state($1, 'shown', $2::timestamptz)", [proposed!.row_public_id, now]);
+      await client.query("SET LOCAL ROLE askrigor_reader");
+      const visible = await client.query("SELECT 1 FROM atlas_glance_rows WHERE state = 'shown'");
+      await client.query("SET LOCAL ROLE askrigor_research_review");
+      await client.query("SELECT * FROM set_atlas_glance_row_state($1, 'withdrawn', $2::timestamptz)", [proposed!.row_public_id, now]);
+      await client.query("SAVEPOINT withdrawn_row");
+      await expectMessage(() => client.query("SELECT * FROM set_atlas_glance_row_state($1, 'shown', $2::timestamptz)",
+        [proposed!.row_public_id, now]), "ATLAS_GLANCE_WITHDRAWN");
+      await client.query("ROLLBACK TO SAVEPOINT withdrawn_row");
+      assert(hidden.rows.length === 0 && shown.rows[0]?.row_state === "shown" && visible.rows.length === 1,
+        "ATLAS_GLANCE_ROWS_MISMATCH");
+    });
+    checks.push("atlas_glance_rows_proposed_shown_on_the_owners_yes_and_withdrawn");
     await expectMessage(() => asRole("askrigor_research_review", (client) => client.query(
       `SELECT * FROM record_atlas_finding_intent($1::uuid, 'withdraw', 'F-1001', '{}'::jsonb, $2, NULL,
          $3::timestamptz, NULL)`,

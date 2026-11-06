@@ -83,16 +83,23 @@ cannot substitute for an authenticated Mission Control runtime admission when
 the active workflow requires it.
 
 The active AskRigor policy is `governance/chat-work-authority-policy.json`.
-While its zero-spend owner decision is current:
+Its zero-spend owner decision stays current on every path that a newer
+recorded owner decision does not name:
 
-- paid model API inference is forbidden;
-- the maximum model API spend is USD 0;
-- Codex/Work may not author a paid smoke proposal or pilot ceiling;
+- outside those paths, paid model API inference is forbidden and the maximum
+  model API spend is USD 0;
+- owner answer 221 (2 November 2026) allows Claude API inference for the
+  meaning judge on the owner's dev accounts and for trying an AskRigor web app,
+  funded by the owner's monthly Claude API credits, with the credit as the
+  ceiling; the policy records its date, scope, funding and ceiling with the
+  owner's words, and never the key or where it is kept;
+- Codex/Work may not author a paid smoke proposal, a pilot ceiling or any
+  other paid proposal or ceiling;
 - an older or hypothetical paid manifest cannot revive the path;
 - for GPT workers, ChatGPT consumer Extra High/Pro is the default
   reasoning/evaluation surface; a Claude session reasons on the owner's Claude
   plan;
-- any later nonzero-spend proposal must come from a reasoning surface (a
+- any other nonzero-spend proposal must come from a reasoning surface (a
   source-bound ChatGPT reasoning chat or a Claude session) and still requires a
   newer explicit owner decision before execution.
 
@@ -126,6 +133,21 @@ capability after all nonblocked work is complete, or a safety/security/privacy/
 irreversible external-action boundary. Any stop must identify the exact unmet
 outcome, blocker, actor who can clear it, and next executable action.
 
+## Final-check blocking scope
+
+Owner answers 193a and 195a limit `finalize_research` to five blocking checks:
+source receipts and links, declared read depth, binary arithmetic and shown
+figures, a named-harm screen when safety claims are declared, and retractions.
+Owner answer 217b (2 November 2026) adds a sixth: a plain answer registered
+before the research and passed in receipts is compared claim by claim.
+Other diagnostics are notes and consume no rounds. Material limits stay in the
+result for the AI to include in its own words; the panel also lists every
+limit, folded, beneath a passing answer, with the checked answer's figures
+(owner answer 220a), so a figure written after the check shows. Missing or
+reworded limit text creates no step.
+See `docs/final-check.md` for the exact scope. This does not remove the AI's
+responsibility to follow HRP or complete research it judges necessary.
+
 ## Validation
 
 - Runtime: Node 24.18.0 (`.nvmrc`)
@@ -143,6 +165,13 @@ separate from live checks. Run the complete applicable gate, inspect results,
 review the final diff, update release/privacy documentation when affected, and
 complete lesson closeout before reporting completion.
 
+Before redesigning anything, read `docs/design-decisions.md`: what was chosen,
+why, what wasn't, and when. When the owner decides something a later change
+could undo, add or edit its entry. Every production release record in
+`docs/audits/` gets its line in the roadmap's "What's new"
+(`site/roadmap/index.html`), or its date in the comment for releases people
+wouldn't notice; `npm run test:run` checks it.
+
 ### Release completion and plugin synchronization
 
 For an authorized product change, source merge is an intermediate state. Keep
@@ -152,7 +181,7 @@ surfaces are technically accessible and no genuine consequential boundary
 intervenes.
 
 At every backend or Custom GPT release, also verify the installed AskRigor
-plugin against the release: exact 33-tool MCP catalog, live HRP/Universal
+plugin against the release: exact 35-tool MCP catalog, live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
 receipt covering `.codex-plugin/plugin.json`, every file under the
 manifest-declared `skills/` tree (including `skills/askrigor/SKILL.md`), and
@@ -233,6 +262,18 @@ unrestricted provider output. Preserve explicit inaccessible, partial, deferred,
 and error states. Health/research policy and substantive protocol changes require
 owner judgment: through the ChatGPT reasoning surface for GPT workers, or as a
 question on the owner questions page from a Claude session.
+
+Numbers and IDs from the owner's private comment maps (per-video counts, comment totals, video IDs) never go into this
+repository, test fixtures and judgment drafts included. `scripts/check-private-map-leaks.mts` compares what a push adds
+with those pages exactly (`docs/private-map-leak-check.md`); `.githooks/pre-push` runs it once the owner sets
+`core.hooksPath`. Invent fixture numbers that match no private map, and check a branch by hand with
+`npm run check:private-maps -- range origin/main..HEAD`.
+
+The production server is the SSH alias `mission-control-secondary`. It serves
+mcp.askrigor.com and askrigor.com, and other projects too. Treat every command
+on it as a production action. In `ssh -n mission-control-secondary ...`, `-n`
+only closes standard input; it is not a Kubernetes namespace (Claude Code's
+`/auto-mode-setup` read it as one on 30 Oct 2026).
 
 ## Code review rules
 

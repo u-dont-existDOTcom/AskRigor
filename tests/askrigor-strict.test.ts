@@ -18,13 +18,14 @@ const mcp = (server: string, tool: string, args: unknown = {}, result: unknown =
 function check(status = "ready", options: {
   draft?: string; carriedState?: string; nextSteps?: string[]; carryForward?: string;
   textOnly?: boolean; error?: unknown; declarations?: Record<string, unknown>;
-  plainAnswerNote?: string; savedLine?: string;
+  plainAnswerNote?: string; savedLine?: string; shareLine?: string;
 } = {}) {
   const receipt = {
     status, next_steps: options.nextSteps ?? [], caveats: ["A declared limit."], check_line: "Checked.",
     ...(options.carryForward === undefined ? {} : { carry_forward: options.carryForward }),
     ...(options.plainAnswerNote === undefined ? {} : { plain_answer_note: options.plainAnswerNote }),
     ...(options.savedLine === undefined ? {} : { saved_line: options.savedLine }),
+    ...(options.shareLine === undefined ? {} : { share_offer: { line: options.shareLine, on_yes: "Show the copy first." } }),
   };
   return mcp("codex_apps", "askrigor_new_slug.finalize_research", {
     ...options.declarations, answer_draft: options.draft ?? answer,
@@ -122,6 +123,17 @@ describe("strict runner gate and bounded fixes", () => {
     const { result } = await fixtures([log(check(), final(`${answer}\n\nChecked.`))]);
     expect(result.output).toBe(`${answer}\n\nChecked.\n\n— Checked by AskRigor's final check (ready). The answer above is ` +
       "the checked draft, word for word, then the check's own closing lines (strict runner).");
+  });
+
+  // Owner answer 200a: the offer to share a de-identified copy ends the answer, after the check line.
+  it("accepts the share offer as the last closing line, and only there", () => {
+    const share = "Send this de-identified question & answer to AskRigor for improvements? If yes, optionally specify what should be improved.";
+    const passing = gate(parseEventLog(log(check("ready", { shareLine: share }), final(`${answer}\n\nChecked.\n\n${share}`))));
+    expect(passing).toMatchObject({ kind: "passed", closingLines: 2 });
+    expect(gate(parseEventLog(log(check("ready", { shareLine: share }), final(`${answer}\n\n${share}\n\nChecked.`)))))
+      .toMatchObject({ kind: "fix", prompt: DRAFT_PROMPT });
+    expect(gate(parseEventLog(log(check("ready"), final(`${answer}\n\nChecked.\n\n${share}`)))))
+      .toMatchObject({ kind: "fix", prompt: DRAFT_PROMPT });
   });
 
   it.each([

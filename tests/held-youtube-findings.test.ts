@@ -28,6 +28,7 @@ import {
   findingsCardSchema,
   heldYouTubeFindingOf,
   isYouTubeVideoId,
+  laterFindingsCardSchema,
   withoutYouTubeData,
   type FindingsCard,
   type VerifiedBasis,
@@ -68,7 +69,7 @@ const SECRET = "held-youtube-findings-test-secret-0123456789";
 const OWNER = "auth0|held-youtube-findings-owner";
 const ALICE = "1".repeat(64);
 const BOB = "2".repeat(64);
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },
@@ -212,13 +213,14 @@ function harness(options: {
         structured,
       };
     },
-    async save(card: object, bases: string[], contributor = ALICE) {
-      const parsed = findingsCardSchema.parse(card);
+    async save(card: object, bases: string[], contributor = ALICE, claims: Record<string, string | string[]> = {}) {
+      // The card's later shape: a finding may declare whether it draws on YouTube comments (owner answer 219b).
+      const parsed = laterFindingsCardSchema.parse(card);
       return library.save({
         findings_card: card,
         contributor,
         finalization_receipt: issueResearchReceipt("finalization", {
-          status: "ready", depth: "standard", target: "0123456789ab", findings: findingsCardDigest(parsed), bases,
+          status: "ready", depth: "standard", target: "0123456789ab", findings: findingsCardDigest(parsed), bases, ...claims,
         }, { secret: SECRET, now: clock }),
       }, {
         surface: "/mcp/claude",
@@ -465,6 +467,54 @@ describe("the save path holds the findings a saved card leaves out", () => {
       YOUTUBE_FINDING.answer_quote]) {
       expect(stored).not.toContain(never);
     }
+  });
+
+  // Owner answer 219b: the findings the finalization receipt signs as held, by their declaration, the lack of one after
+  // comments were read, or the meaning judge, are held like any other finding drawn from YouTube comments.
+  it("holds the findings the receipt signs as held, and stores no finding's declaration", async () => {
+    const h = harness({ start: "2026-11-02T12:00:00.000Z" });
+    const declared = { ...STUDY, claim: "People commenting on exercise videos reported less pain after several months.",
+      draws_on_youtube_comments: true };
+    const undeclared = { ...STUDY, claim: "Home programs were kept up longer when people could see others' progress." };
+    const card = { ...CARD, findings: [{ ...STUDY, draws_on_youtube_comments: false }, declared, undeclared] };
+    await expect(h.save(card, ["full_text_audit", "full_text_audit", "full_text_audit"], ALICE, { held: ["2", "3"] }))
+      .resolves.toMatchObject({ status: "saved", card_id: "ARF-0042" });
+    await h.library.heldSettled();
+    const body = h.github.issue(42).body;
+    const record = storedRecordOf(body) as FindingsRecord;
+    expect(record.card.findings.map(({ claim }) => claim)).toEqual([STUDY.claim]);
+    expect(record.card.findings[0]).not.toHaveProperty("draws_on_youtube_comments");
+    expect(record.card_sha256).toBe(findingsCardDigest(laterFindingsCardSchema.parse(card)));
+    // The declaration decided only whether a finding was held, so the record names it as left out (owner answer 219b).
+    expect(record.stored_without).toEqual(["youtube_comment_findings", "youtube_comment_declarations"]);
+    expect(body).not.toContain("draws_on_youtube_comments");
+    expect(body).not.toContain(declared.claim);
+    expect(h.store.snapshot().map(({ findingNumber, claim, cardNumber }) => [cardNumber, findingNumber, claim])).toEqual([
+      [42, 2, declared.claim], [42, 3, undeclared.claim],
+    ]);
+    // Places past the card, or not places at all, hold nothing; every finding held saves no card.
+    const other = harness();
+    await expect(other.save(card, ["full_text_audit", "full_text_audit", "full_text_audit"], ALICE, { held: ["0", "4", "x", "12"] }))
+      .resolves.toMatchObject({ status: "saved" });
+    expect((storedRecordOf(other.github.issue(42).body) as FindingsRecord).card.findings).toHaveLength(3);
+    const all = harness();
+    await expect(all.save(card, ["none", "none", "none"], ALICE, { held: ["1", "2", "3"] }))
+      .resolves.toEqual({ status: "youtube_findings_only", retryable: false });
+    await all.library.heldSettled();
+    expect(all.store.snapshot().map(({ findingNumber }) => findingNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("saves only the card exactly as checked, its findings' declarations included", async () => {
+    const h = harness();
+    const card = { ...CARD, findings: [{ ...STUDY, draws_on_youtube_comments: false }] };
+    const signed = issueResearchReceipt("finalization", {
+      status: "ready", depth: "standard", target: "0123456789ab",
+      findings: findingsCardDigest(laterFindingsCardSchema.parse(card)), bases: ["full_text_audit"],
+    }, { secret: SECRET, now: h.clock });
+    await expect(h.library.save({ findings_card: CARD, contributor: ALICE, finalization_receipt: signed },
+      { surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64) }))
+      .resolves.toEqual({ status: "card_not_checked", retryable: false, reason_code: "card_changed" });
+    expect(h.github.writes).toEqual([]);
   });
 
   it("holds nothing when no finding is left out", async () => {
@@ -1370,7 +1420,7 @@ describe("move_youtube_findings: cards stored before findings were left out", ()
 // YouTube comments it leaves out and publishes only those it keeps, and forgetting the card both deletes its held
 // findings and withdraws its publications that are not accepted.
 describe("with the Atlas publications (decision 171)", () => {
-  const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+  const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 
   it("holds the finding drawn from YouTube comments and publishes only the finding the stored card keeps", async () => {
     const publications = new InMemoryAtlasPublicationStore();

@@ -56,11 +56,63 @@ function checkReceipt(page: Awaited<ReturnType<typeof call>>, index: AuditableDo
     url: index.source.canonical_url
   } });
   if (!verified.ok) throw new Error("Receipt not verified");
-  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "id", "pmcid", "pmid", "t", "url"]);
+  expect(Object.keys(verified.claims).sort()).toEqual(["content", "doi", "handle", "id", "pmcid", "pmid", "t", "url"]);
   expect(JSON.stringify(verified)).not.toContain(index.blocks[0]!.text);
   expect(verifyResearchReceipt(page.research_receipt!, { secret: `${SECRET}other` })).toEqual({ ok: false, reason: "signature_invalid" });
 }
 describe("full_text_read receipts through the MCP endpoint", () => {
+  it.each([{ pmcid: "PMC9876543" }, { pmid: "9876543" }])("signs the existing paper identifiers without a DOI (%j)", async (input) => {
+    const index = documentIndex("Synthetic methods, results and conclusions for identifier receipt checks.");
+    delete index.source.doi;
+    index.source.primary_identifier = input.pmcid ?? input.pmid!;
+    const result = acquisition(index);
+    delete result.data.requested_doi;
+    Object.assign(result.data, "pmcid" in input ? { requested_pmcid: input.pmcid } : { requested_pmid: input.pmid });
+    acquire.mockResolvedValueOnce(result);
+    const page = await call("acquire_open_full_text", input);
+    const verified = verifyResearchReceipt(page.research_receipt!, { secret: SECRET });
+    expect(verified).toMatchObject({ ok: true, kind: "full_text_read", claims: {
+      id: index.source.primary_identifier, pmid: "9876543", pmcid: "PMC9876543",
+      content: index.source.content_sha256.slice(0, 16)
+    } });
+    if (!verified.ok) throw new Error("Receipt not verified");
+    expect(verified.claims).not.toHaveProperty("doi");
+  });
+
+  it("returns a missing-identifier refusal as ordinary content without a receipt", async () => {
+    const actual = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    acquire.mockImplementationOnce((input) => actual.acquireOpenFullText(input, undefined));
+    const result = await call("acquire_open_full_text", {});
+    expect(result).toMatchObject({ status: "possibly_useful_lead",
+      access_boundary: "Give at least one paper identifier: doi, pmcid or pmid." });
+    expect(result.research_receipt).toBeUndefined();
+  });
+
+  // 5 Nov 2026: the result that finishes the reading names its words for the answer and source_reading, before the
+  // first final check; a page before the end names nothing.
+  it("names the reading's words once the full text is read to its end", async () => {
+    const sentence = "With this study's full text read to its end, say \"full text read\" beside it in the answer, in " +
+      "the answer's language, and give those words in finalize_research's later_inputs.source_reading, with reading " +
+      "full_text_read.";
+    const text = async (name: string, input: Record<string, unknown>) =>
+      ((await client.callTool({ name, arguments: input })).content as Array<{ text: string }>)[0]!.text;
+    acquire.mockResolvedValueOnce(acquisition(documentIndex("Synthetic methods, results and conclusions, read at once.")));
+    expect(await text("acquire_open_full_text", { doi: DOI })).toContain(sentence);
+    const index = documentIndex("Synthetic method-rich source paragraph. ".repeat(4_000));
+    acquire.mockResolvedValueOnce(acquisition(index));
+    const first = await call("acquire_open_full_text", { doi: DOI });
+    expect(first.coverage_receipt.exhausted).toBe(false);
+    const handle = first.coverage_receipt.document_handle;
+    let last = "";
+    for (let page = 0; page < 100; page += 1) {
+      const response = await client.callTool({ name: "continue_open_full_text", arguments: { document_handle: handle } });
+      last = (response.content as Array<{ text: string }>)[0]!.text;
+      if ((response.structuredContent as { coverage_receipt: { exhausted: boolean } }).coverage_receipt.exhausted) break;
+      expect(last).not.toContain(sentence);
+    }
+    expect(last).toContain(sentence);
+  });
+
   it("issues a text-free receipt when acquisition exhausts the first page", async () => {
     const index = documentIndex("Synthetic methods, results and conclusions for reading receipt checks.");
     acquire.mockResolvedValueOnce(acquisition(index));

@@ -27,8 +27,14 @@ import {
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 import { getProtocolManifest, protocolNamedElements, protocolSections } from "../packages/protocol/src/index.js";
 import { pageKey, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
-import { COMMUNITY_SKIP_LIMIT, communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { communitySkipCaveat } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { TOOL_LIST_REFRESH_SENTENCE } from "../apps/research-mcp/src/tool-list-currency.js";
+import { mcpYoutubeCommunityAuditOutputSchema, mcpYoutubeVideoCommunityAuditOutputSchema }
+  from "../apps/research-mcp/src/youtube-mcp-sample.js";
+import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/youtube-community-survey.js";
+import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
+  from "./helpers/community-result-reminders.js";
+import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -63,7 +69,9 @@ const TOOL_NAMES = [
   "extract_youtube_video_claims",
   "finalize_research",
   "submit_lesson_candidate",
-  "save_research_findings"
+  "save_research_findings",
+  "read_forum_thread",
+  "search_reddit_threads"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
@@ -78,6 +86,8 @@ const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
     "finalize_research",
     "submit_lesson_candidate",
     "save_research_findings",
+    "read_forum_thread",
+    "search_reddit_threads",
   ].includes(name)
 );
 
@@ -108,12 +118,17 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
-// What a literature search with few records adds to its result.
+// What a literature search with few records adds to its result: the owner's words (owner report, 2026-09-30), and,
+// for PubMed and Europe PMC, the not-found searches after them (the free Claude test of 5 Nov 2026).
 const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
   "the components of a mixed exposure, and citation chains.";
+const NOT_FOUND_SEARCHES_NOTE = " Before saying studies don't exist, also search the key name's other spellings and " +
+  "older names, and a source beyond PubMed and Europe PMC: your own web search finds journals they don't index, and " +
+  "search_clinical_trials covers trial registries (HRP UserNamedInterventionSweep, " +
+  "HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).";
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact thirty-three-tool catalog with six declared writes", async () => {
+  it("registers the exact thirty-five-tool catalog with six declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -290,7 +305,7 @@ describe("AskRigor MCP tools", () => {
       );
 
       expect(descriptions.acquire_open_full_text).toBe(
-        "Acquires one DOI through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
+        "Acquires one paper identified by at least one of doi, pmcid or pmid. Without a DOI, uses Europe PMC by PMCID or resolves the PMID there; no Unpaywall or owner library. With a DOI, tries Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index, with an optional PMCID. When none of these is admitted, the configured owner library serves the signed-in owner, or an active free-contributor or paid-private account whose paper shows a verified public basis: a public page with the paper's own text beyond its abstract, or an open license. Library copies cite the public basis URL and expose no library link. Supplied texts receive the same identity, admission and embedded-block checks plus an exact abstract cross-check when available; audits carry a search-copy caveat. Records expanded public-copy searches with public_copy_search; lead receipts require exact DOI and known-title queries without technical failures. Reports identity, structural completeness, source class and its basis, and route failures. Full text has a handle and content hash for contiguous reading and source-linked audit; reusable repository audits include a version ID."
       );
       expect(descriptions.continue_open_full_text).toBe(
         "Retrieves the next contiguous page of an existing document_handle from its server-owned cursor. Coverage binds the handle and content hash; exhausted, expired, or invalid handles cannot advance. Pages preserve the exact document chain for source-linked audit."
@@ -563,10 +578,12 @@ describe("AskRigor MCP tools", () => {
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
         text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
-          "pass (these videos only). This lock covers retrieving these YouTube comments only; other communities and the " +
+          `pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} This lock covers retrieving these YouTube comments only; other communities and the ` +
           "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
-          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
+          `give it to finalize_research as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       });
+      expectCommunityRemindersInTextOnly(result);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeCommunityAuditOutputSchema.parse(result.structuredContent));
       // MCP gets compact records: a per-video pseudonymous author key, never
       // the commenter's display name or channel ID.
       const comments = (result.structuredContent as {
@@ -667,6 +684,8 @@ describe("AskRigor MCP tools", () => {
         records_retrieved_cumulative: 250,
         receipt: { comment_retrieval_state: "api_visible_complete", video_comments_lock: "pass" }
       });
+      expectCommunityRemindersInTextOnly(result, true);
+      expect(result.structuredContent).toStrictEqual(mcpYoutubeVideoCommunityAuditOutputSchema.parse(result.structuredContent));
       expect((result.structuredContent as { research_receipt?: string }).research_receipt).toEqual(expect.any(String));
       // Cut to fit, and filled close to the budget.
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
@@ -739,7 +758,7 @@ describe("AskRigor MCP tools", () => {
       expect(view.sample.comments).toEqual([]);
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). No comment fitted in this " +
+        text: `YouTube video audit retrieved 1 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} No comment fitted in this ` +
           "view, so none was returned; say in the answer that this video's comments could not be shown."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -835,7 +854,7 @@ describe("AskRigor MCP tools", () => {
       // receipt asks finalize_research for no findings on them.
       expect((result.content as unknown[])[0]).toEqual({
         type: "text",
-        text: "YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). " +
+        text: `YouTube community audit selected 3 video(s); comment retrieval api_visible_complete; YouTube comments lock pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} ` +
           "No comment fitted in this view; read each video's comments with audit_youtube_video_community."
       });
       expect(verifyResearchReceipt(view.research_receipt, { secret: "mcp-continuation-secret-value-32-bytes" }))
@@ -873,8 +892,11 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube community survey returned 1 deduplicated candidate video(s)."
+        text: `YouTube community survey returned 1 deduplicated candidate video(s). ${COMMUNITY_RESEARCH_REMINDER}`
       }]);
+      expectCommunityRemindersInTextOnly(result);
+      const { research_receipt: _receipt, ...surveyContent } = result.structuredContent!;
+      expect(surveyContent).toStrictEqual(youtubeCommunitySurveyOutputSchema.parse(surveyContent));
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
         record_type: "youtube_community_survey",
@@ -908,6 +930,7 @@ describe("AskRigor MCP tools", () => {
           community_evidence: "researched",
           treatment_choice: "not_compared",
           research_target: "Adults with hip osteoarthritis comparing treatment programs",
+          answer_draft: "Synthetic answer awaiting receipt verification.",
           intervention_identity: { status: "not_applicable", reason: "These key studies do not concern a coded or multi-ingredient product." },
           key_sources: [{ read_depth: "partial_text" as const, answer_marker: "Study", id: "10.1000/forged", status: "validated" }]
         }
@@ -919,8 +942,10 @@ describe("AskRigor MCP tools", () => {
         receipts_rejected: [{ index: 0, reason: "signature_invalid" }]
       });
       const steps = (unsupported.structuredContent as { next_steps: string[] }).next_steps.join(" ");
-      expect(steps).toContain("survey_youtube_community");
-      expect(steps).toContain("For 10.1000/forged: acquire_open_full_text");
+      expect(steps).toContain("Key source 10.1000/forged has no receipt");
+      const notes = (unsupported.structuredContent as { notes: string[] }).notes.join(" ");
+      expect(notes).toContain("survey_youtube_community");
+      expect(notes).toContain("For 10.1000/forged: acquire_open_full_text");
 
       const dosing = {
         receipts: [],
@@ -944,15 +969,9 @@ describe("AskRigor MCP tools", () => {
         arguments: { ...dosing, answer_draft: "Multiply the dose per kilogram by the body weight: 5 mg/kg for 20 kg is 100 mg." }
       });
       expect(uncaveated.structuredContent).toMatchObject({
-        status: "not_ready",
-        caveats: [skip, noStudy],
-        next_steps: [
-          "The answer leaves out these caveats; include each as its own sentence, as written (a link's text may " +
-            "change), or, in an answer not in English, in the answer's language with the same links, given in " +
-            `caveat_renderings: "${skip}" "${noStudy}"`
-        ]
+        status: "ready_with_limits", caveats: [skip], limits: [skip, noStudy], next_steps: []
       });
-      expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
+      expect((uncaveated.structuredContent as { finalization_receipt?: string }).finalization_receipt).toEqual(expect.any(String));
       const declined = await client.callTool({
         name: "finalize_research",
         arguments: {
@@ -965,8 +984,8 @@ describe("AskRigor MCP tools", () => {
         status: "ready_with_limits",
         answer_checked: true,
         limits: [
-          COMMUNITY_SKIP_LIMIT,
-          "No study was declared decision-critical; say that no study's methods were checked in full text."
+          skip,
+          noStudy
         ]
       });
       // An answer in another language states each caveat in that language and says which sentence it is.
@@ -1000,14 +1019,14 @@ describe("AskRigor MCP tools", () => {
         }
       });
       expect(leaky.structuredContent).toMatchObject({
-        status: "not_ready",
+        status: "ready_with_limits",
         answer_checked: true,
-        next_steps: [
+        next_steps: [], notes: [
           "The answer shows internal labels (DeepForumAuditActivationPrompt, LimitsNote): say what each means in " +
             "plain words, or leave it out."
         ]
       });
-      expect((leaky.structuredContent as { finalization_receipt?: string }).finalization_receipt).toBeUndefined();
+      expect((leaky.structuredContent as { finalization_receipt?: string }).finalization_receipt).toEqual(expect.any(String));
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousFinalizationSecret);
@@ -1092,10 +1111,10 @@ describe("AskRigor MCP tools", () => {
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
       expect(second.content).toEqual([{
         type: "text",
-        text: "YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). " +
+        text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
           "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
-          "as community_findings, even if the signal is weak or neutral."
+          `as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
@@ -1103,7 +1122,7 @@ describe("AskRigor MCP tools", () => {
         // Owner question 86: every research result reminds the AI of the final check, in any turn.
         type: "text",
         text: "Answers that use this research are checked with finalize_research before they are given, in this " +
-          "turn or a later one."
+          "turn or a later one; HRP's OutputFormatting section sets a health answer's shape."
       }]);
       // Only the completed audit carries a receipt; it binds the video and its terminal state.
       expect((first.structuredContent as { research_receipt?: string }).research_receipt).toBeUndefined();
@@ -1242,7 +1261,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("preserves prior counts when identifier ambiguity closes a bounded terminal frontier", async () => {
+  it("counts a repeat-filter match the exact sample cannot settle, states it and keeps the sample", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
     const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
@@ -1280,6 +1299,10 @@ describe("AskRigor MCP tools", () => {
       if (url.pathname.endsWith("/videos")) {
         return new Response(await youtubeFixture("video-found.json"), { status: 200 });
       }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({ pageInfo: { totalResults: 0, resultsPerPage: 0 }, items: [] });
+      }
       return Response.json({
         pageInfo: { totalResults: 1, resultsPerPage: 1 },
         items: [{
@@ -1314,18 +1337,15 @@ describe("AskRigor MCP tools", () => {
 
       expect(result.structuredContent).toMatchObject({
         video_id: "XpZHKGGCK-o",
-        segment_index: 6,
+        segment_index: 7,
         access_status: "partial",
         extraction_coverage: "completed_with_access_boundary",
-        error: {
-          code: "youtube_video_audit_identifier_membership_boundary",
-          retryable: false
-        },
-        top_level_comments_retrieved_cumulative: 501,
-        records_retrieved_cumulative: 501,
-        comment_thread_pages_cumulative: 26,
-        corpus_rolling_sha256: "b".repeat(64),
-        limitations: [expect.stringMatching(/cannot prove.*already accepted/i)],
+        top_level_comments_retrieved_cumulative: 502,
+        records_retrieved_cumulative: 502,
+        comment_thread_pages_cumulative: 27,
+        limitations: expect.arrayContaining([
+          expect.stringMatching(/^1 record\(s\) matched the audit's repeat filter but not its exact sample\..*counted as new.*too high\.$/)
+        ]),
         continuation_recommended: false,
         receipt: {
           comment_retrieval_state: "completed_with_access_boundary",
@@ -1333,16 +1353,17 @@ describe("AskRigor MCP tools", () => {
           blockers: []
         }
       });
-      // A terminal boundary may remain an error for clients that consume its diagnostic, but it delivers its receipt.
-      const researchReceipt = (result.structuredContent as { research_receipt: string }).research_receipt;
-      expect(researchReceipt).toBeTypeOf("string");
-      expect(result.content).toContainEqual({ type: "text", text: `research_receipt: ${researchReceipt}` });
-      expect(verifyResearchReceipt(researchReceipt, { secret })).toMatchObject({
+      // The audit goes on instead of stopping, so it has no error and returns its sample.
+      expect(result.structuredContent).not.toHaveProperty("error");
+      const content = result.structuredContent as { records_returned_for_analysis: number; research_receipt: string };
+      expect(content.records_returned_for_analysis).toBeGreaterThan(0);
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).toMatchObject({
         ok: true, kind: "youtube_video_audit", claims: {
-          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass",
-          boundary: "identifier_membership", records: "501", top: "501", rep: "0", shown: "0",
-          cr: "0", tx: "0", rr: "0", ch: "UC0123456789abcdefghijkl", ms: "api_visible_complete"
+          video: "XpZHKGGCK-o", state: "completed_with_access_boundary", lock: "pass", records: "502", top: "502"
         }
+      });
+      expect(verifyResearchReceipt(content.research_receipt, { secret })).not.toMatchObject({
+        claims: { boundary: "identifier_membership" }
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -1642,6 +1663,82 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("signs a successful video metadata lookup for later scout settlement", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    const secret = "metadata-receipt-secret-0123456789abcdef";
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = secret;
+    const body = await youtubeFixture("video-found.json");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    try {
+      const result = await client.callTool({ name: "get_youtube_video", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(result.isError).not.toBe(true);
+      expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret })).toMatchObject({
+        ok: true, kind: "youtube_video_metadata", claims: { video: "XpZHKGGCK-o", access: "api_visible_complete" }
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
+  // Owner answer 219b: comments returned outside an audit leave a receipt, for the findings card's hold.
+  it.each([
+    ["get_youtube_comments", { video_id_or_url: "XpZHKGGCK-o" }, "6"],
+    ["search_youtube_comments", { video_id_or_url: "XpZHKGGCK-o", query: "recorded episode" }, "2"]
+  ])("%s signs that it returned comments, and never what they say", async (name, input, records) => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    const secret = "comments-receipt-secret-0123456789abcdef";
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = secret;
+    vi.stubGlobal("fetch", vi.fn(async (request: URL | RequestInfo) => {
+      const url = new URL(String(request));
+      if (name === "get_youtube_comments") return mcpCompleteCommentResponse(url);
+      return new Response(await youtubeFixture(url.pathname.endsWith("/commentThreads")
+        ? "comment-threads-query.json" : "comments-query-parent.json"), { status: 200 });
+    }));
+    try {
+      const result = await client.callTool({ name, arguments: input });
+      expect(result.isError).not.toBe(true);
+      const receipt = result.structuredContent!.research_receipt as string;
+      expect(verifyResearchReceipt(receipt, { secret })).toMatchObject({
+        ok: true, kind: "youtube_comments_read", claims: { video: "XpZHKGGCK-o", records }
+      });
+      expect(Object.keys((verifyResearchReceipt(receipt, { secret }) as { claims: object }).claims).sort())
+        .toEqual(["records", "t", "video"]);
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
+  it("gives no comment receipt when no comments came back", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousKey = process.env.YOUTUBE_API_KEY;
+    const previousSecret = process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET;
+    process.env.YOUTUBE_API_KEY = "synthetic-youtube-key";
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = "comments-receipt-secret-0123456789abcdef";
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ pageInfo: { totalResults: 0, resultsPerPage: 0 }, items: [] })));
+    try {
+      const result = await client.callTool({ name: "get_youtube_comments", arguments: { video_id_or_url: "XpZHKGGCK-o" } });
+      expect(result.structuredContent).toMatchObject({ pagination: { returned: 0 } });
+      expect(result.structuredContent).not.toHaveProperty("research_receipt");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousKey);
+      restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("returns deterministic structured YouTube search and video successes through MCP", async () => {
     const { client, server } = await createInMemoryClient();
     const previous = process.env.YOUTUBE_API_KEY;
@@ -1913,7 +2010,8 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete."
+        // 5 Nov 2026: comments that came back raise leads for studies, so the result asks for the loop.
+        text: `YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -2013,7 +2111,7 @@ describe("AskRigor MCP tools", () => {
         text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial. " +
           "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence " +
           "that commenters do not report something; read the full comments with audit_youtube_video_community before " +
-          "saying so."
+          `saying so. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       // No count from a query-bounded search, zero included, may be read as absence.
       expect(result.structuredContent).toMatchObject({
@@ -2432,10 +2530,12 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      // Few records: the result says what to try before calling anything not found (owner report, 2026-09-30).
+      // Few records: the result says what to try before calling anything not found, in the owner's words (owner report,
+      // 2026-09-30), then what to search (the free Claude test of 5 Nov 2026: the key name's other forms and a source
+      // beyond PubMed and Europe PMC).
       expect(result.content).toEqual([{
         type: "text",
-        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "pubmed",
@@ -2476,8 +2576,14 @@ describe("AskRigor MCP tools", () => {
       expect(verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" })).toMatchObject({
         ok: true,
         kind: "pubmed_record",
-        claims: { pmid: "40123456", doi: "10.1234/recorded.example" }
+        // The review of 5 Nov 2026: whether the record had an abstract, so the final check shows one read only then.
+        claims: { pmid: "40123456", doi: "10.1234/recorded.example", abs: "1" }
       });
+      // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
+      expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
+        "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
+        "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
+        "finalize_research's later_inputs.source_reading, with reading abstract_only.");
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);
@@ -2504,7 +2610,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "europe_pmc",
@@ -2533,7 +2639,8 @@ describe("AskRigor MCP tools", () => {
         expect(verifyResearchReceipt(receipt, { secret: "literature-search-secret-value-32-bytes" })).toMatchObject({
           ok: true, kind: "literature_search", claims: { src: "europepmc", ret: "2", n: "3" }
         });
-        expect(receipt).not.toContain("example");
+        expect(receipt).not.toContain("example%20intervention");
+        expect(receipt).not.toContain("example intervention");
       } finally {
         restoreEnvironment("ASKRIGOR_FINALIZATION_SIGNING_SECRET", previousSecret);
       }
@@ -2639,6 +2746,7 @@ describe("AskRigor MCP tools", () => {
       expect(content.data).toHaveLength(35);
       expect(content.pagination).toMatchObject({ returned: 35, exhausted: true });
       expect(receipt).toMatchObject({ ok: true, kind: "literature_search", claims: { src: "pubmed", ret: "35", n: "35" } });
+      expect(receipt.ok && receipt.claims.ids).toEqual((content.data as Array<{ pmid: string }>).map(({ pmid }) => pmid));
     });
 
     it("pages PubMed as asked past 50 records and after the first page", async () => {
@@ -3013,15 +3121,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.31",
-          revisionDate: "2026-10-22",
-          sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5"
+          version: "20.6.40",
+          revisionDate: "2026-11-05",
+          sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5"
+        scope_sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

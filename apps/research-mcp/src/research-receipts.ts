@@ -32,8 +32,12 @@ export const RESEARCH_RECEIPT_KINDS = [
   "youtube_survey",
   "youtube_search",
   "youtube_scout",
+  "youtube_video_metadata",
   "youtube_video_audit",
   "youtube_community_audit",
+  // Comments get_youtube_comments or search_youtube_comments returned, read outside an audit (owner answer 219b). Only
+  // the findings card's hold reads it: it is no audit, so nothing else about community evidence changes.
+  "youtube_comments_read",
   "youtube_video_claims",
   // AskRigor#359: a video extract_youtube_video_claims identified but did not read, with its refusal's code. Never a
   // read video: youtube_video_claims alone says that.
@@ -44,6 +48,12 @@ export const RESEARCH_RECEIPT_KINDS = [
   "pubmed_record",
   "doi_resolution",
   "literature_search",
+  "forum_thread_read",
+  // A forum page (not Reddit) the reader couldn't read, by what stopped it, and its site (the owner regressions on #412's
+  // build, judged 6 Nov 2026): the final check ties a community's declared access boundary to an attempt at its site.
+  // Never a read: nothing else counts it.
+  "forum_page_unread",
+  "forum_search",
   "full_text_lead",
   "full_text_route_failure",
   "full_text_read",
@@ -89,8 +99,10 @@ export interface VerifyResearchReceiptOptions extends ResearchReceiptOptions {
  * themselves never enter the receipt.
  */
 export function discoveryQueryDigest(queries: readonly string[]): string {
+  // Unicode's composed form first (the review of 5 Nov 2026), so a query typed with decomposed accents digests as the
+  // same query typed composed, when a search's receipt signs it and when the final check compares a declared one.
   const normalized = [...new Set(queries.map((query) =>
-    query.trim().toLowerCase().replace(/\s+/gu, " ")
+    query.normalize("NFC").trim().toLowerCase().replace(/\s+/gu, " ")
   ))].sort();
   return createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 12);
 }
@@ -183,11 +195,25 @@ export function researchMapAccountBinding(secret: string, accountKey: string): s
     .update(accountKey, "utf8").digest("hex").slice(0, 16);
 }
 
+/**
+ * A text as a receipt may sign it: whole characters only, at most `max` UTF-16 code units, with any unpaired surrogate
+ * written as U+FFFD, so encodeURIComponent never meets half a character (the review of 5 November 2026, finding 6: a
+ * section heading cut through a character outside the Basic Multilingual Plane, such as 𝛽, stopped the final check).
+ */
+export function receiptText(value: string, max: number): string {
+  let cut = "";
+  for (const character of value.toWellFormed()) {
+    if (cut.length + character.length > max) break;
+    cut += character;
+  }
+  return cut;
+}
+
 export const RESEARCH_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Atlas lookups carry bounded normalized words and public finding/source fingerprints, in any script.
 export const RESEARCH_RECEIPT_MAX_CHARACTERS = 32_768;
 const ORDINARY_RECEIPT_MAX_CHARACTERS = 2_048;
-const receiptLimit = (kind: string) => kind === "atlas_lookup" || kind === "finalization"
+const receiptLimit = (kind: string) => kind === "atlas_lookup" || kind === "finalization" || kind === "literature_search"
   ? RESEARCH_RECEIPT_MAX_CHARACTERS : ORDINARY_RECEIPT_MAX_CHARACTERS;
 
 const PREFIX = "rr1";

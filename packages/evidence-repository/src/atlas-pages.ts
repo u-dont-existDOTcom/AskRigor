@@ -25,9 +25,28 @@ import {
   type AtlasPageParticipation,
   type InMemoryAtlasParticipation,
 } from "./atlas-participation.js";
+import type { InMemoryAtlasPlacements } from "./atlas-placements.js";
+import {
+  ATLAS_GLANCE_PAGE_SQL,
+  atlasGlanceRowOf,
+  type AtlasGlanceRow,
+  type AtlasGlanceRowRecord,
+  type InMemoryAtlasGlanceRows,
+} from "./atlas-glance.js";
+import {
+  atlasReportTextOf,
+  type AtlasOwnReport,
+  type AtlasPageReport,
+  type AtlasReportHoldReason,
+  type AtlasReportRefuseReason,
+  type AtlasReportState,
+  type InMemoryAtlasReports,
+} from "./atlas-reports.js";
 import {
   atlasPublicationOrder,
   atlasPublishedFindingSchema,
+  validChallengeMark,
+  type AtlasChallengeMark,
   type AtlasPublishedFinding,
   type InMemoryAtlasPublicationStore,
 } from "./atlas-publications.js";
@@ -38,7 +57,9 @@ import {
 // accepted or edited (its F number's latest version, as the owner accepted it); held, rejected and withdrawn ones are
 // never read. The pages read through the public runtime's SELECT-only reader role, in one read-only snapshot, and
 // select only a publication's public number, state, F number, published fields and dates: never its card number or
-// digest, its finding's place on the card, the owner's private reason, or why it was held or withdrawn.
+// digest, its finding's place on the card, the owner's private reason, or why it was held or withdrawn. A finding page
+// lists its card's other findings (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md) by a read
+// that matches the card's digest inside the query and returns only the other publications' numbers.
 
 /** The publication states a page shows. */
 export const ATLAS_PAGE_STATES = ["unreviewed", "accepted", "edited"] as const;
@@ -68,7 +89,17 @@ export interface AtlasPagePublication {
   published: AtlasPublishedFinding | null;
   publishedAt: string;
   stateChangedAt: string;
+  /** Kept for AskRigor's research only (owner answers 229a and 231a): its page shows; no list does. */
+  kept: boolean;
+  /**
+   * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict; null when
+   * it carries no challenge mark. Never who marked it.
+   */
+  challenge: AtlasPageChallenge | null;
 }
+
+/** A publication's challenge mark, as the pages read it (migration 0030). */
+export type AtlasPageChallenge = AtlasChallengeMark;
 
 export interface AtlasPagePublicationQuery {
   /** Keyset cursor: older than this publication in the requested order, including equal-time ties. */
@@ -80,12 +111,31 @@ export interface AtlasPagePublicationQuery {
   states?: readonly AtlasPageState[];
   /** published (the default): newest published first; changed: newest state change first. */
   order?: "published" | "changed";
+  /** Owner answers 229a and 231a: true reads the publications kept for research too (a page, the lookup). */
+  includeKept?: boolean;
+  /** The owner, 6 Nov 2026: true reads only the publications that carry a challenge mark. */
+  challengedOnly?: boolean;
   /** 1 to ATLAS_PAGE_PUBLICATIONS_PER_READ. */
   limit: number;
 }
 
 /** One source of an accepted finding, by its identifiers in canonical form. */
 export type AtlasPageSourceIdentifiers = Array<{ scheme: AtlasPageSourceScheme; value: string }>;
+
+/** One source of an accepted finding: its identifiers, and the title and year its newest public-record check read. */
+export interface AtlasPageFindingSource {
+  identifiers: AtlasPageSourceIdentifiers;
+  title: string | null;
+  year: number | null;
+  /** Owner answers 252a and 255a: the retraction status that check read; null when none is known. */
+  retraction: string | null;
+}
+
+/** Another publication the pages show from the same card as a named one, by number only. */
+export interface AtlasPageSibling {
+  publicationNumber: string;
+  siblingNumber: string;
+}
 
 /** An accepted finding as its pages read it: its F number's latest version, and what its label and dates need. */
 export interface AtlasPageFinding {
@@ -104,8 +154,8 @@ export interface AtlasPageFinding {
   /** The newest research day: the latest version's, or a later re-check's. */
   researchCheckedOn: string;
   askrigorVersion: string;
-  /** The latest version's sources, each by the identifiers its source family holds. */
-  sources: AtlasPageSourceIdentifiers[];
+  /** The latest version's sources, each by the identifiers its source family holds, with its newest check's title and year. */
+  sources: AtlasPageFindingSource[];
   /** The unwithdrawn contradicts links that join it to another finding, with what the two disagree on. */
   contradicts: Array<{ atlasNumber: string; disagreement: string | null }>;
   /** The findings an unwithdrawn replaces link names as replacing it. */
@@ -138,12 +188,25 @@ export interface AtlasPageHomePick {
   reason: string;
 }
 
+/** Where an item sits in the categories (owner answer 229a, migration 0025). */
+export interface AtlasPagePlacement {
+  itemNumber: string;
+  categoryKey: string;
+  subcategoryKey: string;
+}
+
 /** The reads one page makes, inside one snapshot. */
 export interface AtlasPageReads {
   /** Publications in a state the pages show: unreviewed with its published fields, accepted or edited. */
   listPublications(query: AtlasPagePublicationQuery): Promise<AtlasPagePublication[]>;
   /** The accepted findings these F numbers name; an F number the canonical writer has not written yet is absent. */
   readFindings(atlasNumbers: readonly string[]): Promise<AtlasPageFinding[]>;
+  /**
+   * The other publications the pages show from the same card as each named one, by their numbers, in number order. The
+   * card is matched inside the read; its digest and number are never returned, and a forgotten card's publications,
+   * which keep no digest, have none.
+   */
+  listCardSiblings(publicationNumbers: readonly string[]): Promise<AtlasPageSibling[]>;
   /** Unwithdrawn contradicts links, newest first. */
   listContradictions(limit: number): Promise<AtlasPageContradiction[]>;
   /** Change records of the kinds the pages list, newest first. */
@@ -161,6 +224,16 @@ export interface AtlasPageReads {
   listOwnVotes(participantKey: string, before: number | undefined, limit: number): Promise<AtlasPageOwnVote[]>;
   /** The owner's picks for the home page, in order. */
   listHomePicks(): Promise<AtlasPageHomePick[]>;
+  /** Where each item sits in the categories (owner answer 229a), by item number. */
+  listPlacements(): Promise<AtlasPagePlacement[]>;
+  /** A published report (owner answer 229a), with the signed-in viewer's own answer when a key is given; else null. */
+  readReport(publicId: string, viewerKey: string | null): Promise<AtlasPageReport | null>;
+  /** Every published report, newest first. */
+  listReports(): Promise<AtlasPageReport[]>;
+  /** A signed-in reader's own reports in every state, newest first. */
+  listOwnReports(participantKey: string): Promise<AtlasOwnReport[]>;
+  /** The rows the owner said yes to showing at a glance (owner, 3 Nov: "make that prominent"), oldest first. */
+  listGlanceRows(): Promise<AtlasGlanceRow[]>;
 }
 
 /** Where the pages read from: each page's reads run in one read-only snapshot. */
@@ -187,10 +260,20 @@ function validatePublicationQuery(query: AtlasPagePublicationQuery): Required<Pi
     (query.atlasNumbers !== undefined && !query.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) ||
     (query.topicKey !== undefined && !TOPIC_KEY.test(query.topicKey)) ||
     (query.states !== undefined && !query.states.every((state) => (ATLAS_PAGE_STATES as readonly string[]).includes(state))) ||
-    (query.order !== undefined && query.order !== "published" && query.order !== "changed")) {
+    (query.order !== undefined && query.order !== "published" && query.order !== "changed") ||
+    (query.includeKept !== undefined && typeof query.includeKept !== "boolean") ||
+    (query.challengedOnly !== undefined && typeof query.challengedOnly !== "boolean")) {
     throw new AtlasPageQueryError();
   }
   return { ...query, order: query.order ?? "published" };
+}
+
+function validatePublicationNumbers(publicationNumbers: readonly string[]): string[] {
+  const unique = [...new Set(publicationNumbers)];
+  if (unique.length > ATLAS_PAGE_PUBLICATIONS_PER_READ || !unique.every((number) => PUBLICATION_NUMBER.test(number))) {
+    throw new AtlasPageQueryError();
+  }
+  return unique;
 }
 
 function validateAtlasNumbers(atlasNumbers: readonly string[]): string[] {
@@ -213,6 +296,8 @@ function pagePublicationOf(row: {
   published: unknown;
   publishedAt: string;
   stateChangedAt: string;
+  kept: boolean;
+  challenge?: Partial<Record<keyof AtlasChallengeMark, unknown>> | null;
 }): AtlasPagePublication | undefined {
   const state = (ATLAS_PAGE_STATES as readonly string[]).includes(row.state) ? row.state as AtlasPageState : undefined;
   if (state === undefined || !PUBLICATION_NUMBER.test(row.publicationNumber)) return undefined;
@@ -227,7 +312,17 @@ function pagePublicationOf(row: {
     published,
     publishedAt: row.publishedAt,
     stateChangedAt: row.stateChangedAt,
+    kept: row.kept,
+    challenge: pageChallengeOf(row.challenge),
   };
+}
+
+/** A challenge mark as the pages read it, or null for none, or one that does not read as migration 0030 holds it. */
+function pageChallengeOf(raw: Partial<Record<keyof AtlasChallengeMark, unknown>> | null | undefined): AtlasPageChallenge | null {
+  if (raw === null || raw === undefined || raw.usualView === null || raw.usualView === undefined) return null;
+  const mark = { usualView: raw.usualView, sourceUrl: raw.sourceUrl, sourceLabel: raw.sourceLabel,
+    verdict: raw.verdict } as AtlasChallengeMark;
+  return validChallengeMark(mark) ? mark : null;
 }
 
 const laterDay = (left: string, right: string | null) => right !== null && right > left ? right : left;
@@ -235,12 +330,14 @@ const laterDay = (left: string, right: string | null) => right !== null && right
 /**
  * The accepted findings an Atlas state holds for these F numbers, assembled the same way for PostgreSQL and memory:
  * each one's latest version, its label (atlasLabelOf, from the state's links and partners), its topic, its latest
- * version's sources by their families' identifiers, its contradicts partners and what replaces it, and its dates.
+ * version's sources by their families' identifiers with the title and year of each family's newest check, its
+ * contradicts partners and what replaces it, and its dates.
  */
 export function atlasPageFindingsOf(
   state: AtlasState,
   atlasNumbers: readonly string[],
   dates: ReadonlyMap<string, { acceptedOn: string | null; recheckedOn: string | null }>,
+  checks: ReadonlyMap<string, { title: string | null; year: number | null; retraction?: string | null }> = new Map(),
 ): AtlasPageFinding[] {
   const wanted = new Set(atlasNumbers);
   const seeds = state.findings.filter((finding) => wanted.has(finding.publicNumber) && finding.versions.length > 0);
@@ -252,14 +349,16 @@ export function atlasPageFindingsOf(
     const latest = finding.versions.at(-1)!;
     const topic = topics.get(finding.topicId);
     const familyIds = [...new Set(latest.bindings.map(({ familyId }) => familyId))];
-    const sources = familyIds.flatMap((familyId): AtlasPageSourceIdentifiers[] => {
+    const sources = familyIds.flatMap((familyId): AtlasPageFindingSource[] => {
       const identifiers = (families.get(familyId)?.identifiers ?? [])
         .filter((identifier): identifier is { scheme: AtlasPageSourceScheme; value: string } =>
           (ATLAS_PAGE_SOURCE_SCHEMES as readonly string[]).includes(identifier.scheme))
         .map(({ scheme, value }) => ({ scheme, value }))
         .sort((left, right) => ATLAS_PAGE_SOURCE_SCHEMES.indexOf(left.scheme) - ATLAS_PAGE_SOURCE_SCHEMES.indexOf(right.scheme) ||
           left.value.localeCompare(right.value));
-      return identifiers.length === 0 ? [] : [identifiers];
+      const checked = checks.get(familyId);
+      return identifiers.length === 0 ? []
+        : [{ identifiers, title: checked?.title ?? null, year: checked?.year ?? null, retraction: checked?.retraction ?? null }];
     });
     const live = state.links.filter((link) => !link.withdrawn);
     const contradicts = live
@@ -309,9 +408,11 @@ const changeKindSchema = z.enum(ATLAS_PAGE_CHANGE_KINDS);
 
 // PostgreSQL ---------------------------------------------------------------------------------------------------------
 
-// The only columns of atlas_publications a page reads.
+// The only columns of atlas_publications a page reads: since migration 0030, a challenge mark's usual view, source and
+// verdict too, never who marked it.
 const PAGE_PUBLICATION_COLUMNS = "listed.publication_number, listed.state, listed.atlas_number, listed.published_json, " +
-  "listed.published_at, listed.state_changed_at";
+  "listed.published_at, listed.state_changed_at, listed.kept_for_research_at IS NOT NULL AS kept, " +
+  "listed.challenge_usual_view, listed.challenge_source_url, listed.challenge_source_label, listed.challenge_verdict";
 
 function publicationsSql(order: "published" | "changed"): string {
   return `SELECT ${PAGE_PUBLICATION_COLUMNS}
@@ -321,6 +422,8 @@ function publicationsSql(order: "published" | "changed"): string {
      AND ($1::text[] IS NULL OR listed.state = ANY($1::text[]))
      AND ($2::text[] IS NULL OR listed.publication_number = ANY($2::text[]))
      AND ($3::text[] IS NULL OR listed.atlas_number = ANY($3::text[]))
+     AND ($7::boolean OR listed.kept_for_research_at IS NULL)
+     AND (NOT $8::boolean OR listed.challenge_marked_at IS NOT NULL)
      AND ($4::text IS NULL
           OR (listed.state = 'unreviewed' AND listed.published_json -> 'topic' ->> 'key' = $4::text)
           OR (listed.state IN ('accepted', 'edited') AND EXISTS (
@@ -341,6 +444,24 @@ function publicationsSql(order: "published" | "changed"): string {
             substring(listed.publication_number FROM 3)::bigint DESC
    LIMIT $5`;
 }
+
+// The title and year each source family's newest public-record check read.
+const SOURCE_CHECKS_SQL = `SELECT DISTINCT ON (checked.source_family_id) checked.source_family_id, checked.title,
+       checked.published_year, checked.retraction_status
+  FROM atlas_source_checks checked
+ WHERE checked.source_family_id = ANY($1::uuid[])
+ ORDER BY checked.source_family_id, checked.checked_at DESC, checked.inserted_at DESC`;
+
+// The other shown publications of each named one's card. The card's digest is matched here and never selected.
+const CARD_SIBLINGS_SQL = `SELECT listed.publication_number, sibling.publication_number AS sibling_number
+  FROM atlas_publications listed
+  JOIN atlas_publications sibling
+    ON sibling.card_sha256 = listed.card_sha256
+   AND sibling.publication_number <> listed.publication_number
+ WHERE listed.publication_number = ANY($1::text[])
+   AND listed.card_sha256 IS NOT NULL
+   AND ((sibling.state = 'unreviewed' AND sibling.published_json IS NOT NULL) OR sibling.state IN ('accepted', 'edited'))
+ ORDER BY substring(listed.publication_number FROM 3)::bigint, substring(sibling.publication_number FROM 3)::bigint`;
 
 const DATES_SQL = `SELECT finding.public_number,
        min(recorded.decided_at) FILTER (WHERE recorded.change_kind = 'accepted') AS accepted_at,
@@ -440,6 +561,11 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         published_json: unknown;
         published_at: Date | string;
         state_changed_at: Date | string;
+        kept: boolean;
+        challenge_usual_view?: string | null;
+        challenge_source_url?: string | null;
+        challenge_source_label?: string | null;
+        challenge_verdict?: string | null;
       }>(publicationsSql(query.order), [
         query.states === undefined ? null : [...query.states],
         query.publicationNumbers === undefined ? null : [...query.publicationNumbers],
@@ -447,6 +573,8 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         query.topicKey ?? null,
         query.limit,
         query.before ?? null,
+        query.includeKept === true,
+        query.challengedOnly === true,
       ]);
       return result.rows.flatMap((row) => {
         const publication = pagePublicationOf({
@@ -456,6 +584,9 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           published: row.published_json,
           publishedAt: instant(row.published_at),
           stateChangedAt: instant(row.state_changed_at),
+          kept: row.kept === true,
+          challenge: { usualView: row.challenge_usual_view ?? null, sourceUrl: row.challenge_source_url ?? null,
+            sourceLabel: row.challenge_source_label ?? null, verdict: row.challenge_verdict ?? null },
         });
         return publication === undefined ? [] : [publication];
       });
@@ -490,9 +621,31 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           topicId: state.findings.find(({ questionId }) => questionId === row.question_id)!.topicId,
           normalizedQuestion: row.normalized_question,
         }));
-        findings.push(...atlasPageFindingsOf(state, chunk, dates));
+        const familyIds = [...new Set(state.findings.flatMap(({ versions }) =>
+          (versions.at(-1)?.bindings ?? []).map(({ familyId }) => familyId)))];
+        const checks = new Map<string, { title: string | null; year: number | null; retraction: string | null }>();
+        if (familyIds.length > 0) {
+          const checked = await client.query<{ source_family_id: string; title: string | null; published_year: number | null;
+            retraction_status: string | null }>(
+            SOURCE_CHECKS_SQL,
+            [familyIds],
+          );
+          for (const row of checked.rows) {
+            checks.set(row.source_family_id, { title: row.title, year: row.published_year === null ? null : Number(row.published_year),
+              retraction: row.retraction_status });
+          }
+        }
+        findings.push(...atlasPageFindingsOf(state, chunk, dates, checks));
       }
       return findings;
+    },
+
+    async listCardSiblings(raw) {
+      const numbers = validatePublicationNumbers(raw);
+      if (numbers.length === 0) return [];
+      const result = await client.query<{ publication_number: string; sibling_number: string }>(CARD_SIBLINGS_SQL, [numbers]);
+      return result.rows.flatMap((row) => PUBLICATION_NUMBER.test(row.sibling_number)
+        ? [{ publicationNumber: row.publication_number, siblingNumber: row.sibling_number }] : []);
     },
 
     async listContradictions(limit) {
@@ -596,6 +749,69 @@ function postgresReads(client: PoolClient): AtlasPageReads {
       return (await client.query<{ slot: number; publication_number: string; reason: string }>(HOME_PICKS_SQL)).rows
         .map((row) => ({ slot: Number(row.slot), publicationNumber: row.publication_number, reason: row.reason }));
     },
+
+    async readReport(publicId, viewerKey) {
+      if (!/^R-[1-9][0-9]{3,}$/u.test(publicId) || (viewerKey !== null && !/^[a-f0-9]{64}$/u.test(viewerKey))) return null;
+      const [row] = (await client.query(reportPageSql("$2", " AND stored.report_number = $1::bigint"),
+        [Number(publicId.slice(2)), viewerKey])).rows;
+      return row === undefined ? null : pageReportOf(row, viewerKey !== null);
+    },
+
+    async listReports() {
+      return (await client.query(`${reportPageSql("$1")} ORDER BY stored.report_number DESC`, [null])).rows
+        .map((row) => pageReportOf(row, false));
+    },
+
+    async listOwnReports(participantKey) {
+      if (!/^[a-f0-9]{64}$/u.test(participantKey)) return [];
+      return (await client.query<{ report_number: string; problem: string | null; tried: string | null;
+        state: AtlasReportState; hold_reason: AtlasReportHoldReason | null; refuse_reason: AtlasReportRefuseReason | null;
+        received_at: Date | string }>(
+        `SELECT report_number, problem, tried, state, hold_reason, refuse_reason, received_at FROM atlas_reports
+          WHERE participant_key = $1 ORDER BY report_number DESC`, [participantKey])).rows
+        .map((row) => ({ publicId: `R-${Number(row.report_number)}`, problem: row.problem, tried: row.tried,
+          state: row.state, holdReason: row.hold_reason, refuseReason: row.refuse_reason,
+          receivedAt: instant(row.received_at) }));
+    },
+
+    async listGlanceRows() {
+      return (await client.query<AtlasGlanceRowRecord>(ATLAS_GLANCE_PAGE_SQL)).rows.map(atlasGlanceRowOf);
+    },
+
+    async listPlacements() {
+      return (await client.query<{ item_number: string; category_key: string; subcategory_key: string }>(
+        "SELECT item_number, category_key, subcategory_key FROM atlas_placements ORDER BY item_number")).rows
+        .map((row) => ({ itemNumber: row.item_number, categoryKey: row.category_key, subcategoryKey: row.subcategory_key }));
+    },
+  };
+}
+
+/** Published reports and their totals, with the viewer's key as the parameter named; callers add the order. */
+const reportPageSql = (viewer: string, condition = "") => `SELECT stored.report_number, stored.display_name, stored.problem, stored.tried, stored.dose,
+       stored.how_used, stored.how_long, stored.what_happened, stored.how_long_lasted, stored.side_effects,
+       stored.other_changes, stored.research, stored.ai_warning, stored.checked_at,
+       (SELECT count(*) FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.answer = 'worked') AS worked,
+       (SELECT count(*) FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.answer = 'did_not') AS did_not,
+       stored.participant_key = ${viewer}::text AS own,
+       (SELECT answer.answer FROM atlas_report_answers answer
+         WHERE answer.report_number = stored.report_number AND answer.participant_key = ${viewer}::text) AS viewer_answer
+  FROM atlas_reports stored
+ WHERE stored.state = 'published'${condition}`;
+
+function pageReportOf(row: Record<string, unknown>, withViewer: boolean): AtlasPageReport {
+  const checkedAt = row.checked_at as Date | string;
+  return {
+    publicId: `R-${Number(row.report_number)}`,
+    displayName: typeof row.display_name === "string" ? row.display_name : null,
+    text: atlasReportTextOf(row),
+    research: (row.research as Record<string, unknown> | null) ?? null,
+    aiWarning: typeof row.ai_warning === "string" ? row.ai_warning : null,
+    publishedAt: (checkedAt instanceof Date ? checkedAt : new Date(checkedAt)).toISOString(),
+    answers: { worked: Number(row.worked), didNot: Number(row.did_not) },
+    viewer: withViewer ? { own: row.own === true,
+      answer: row.viewer_answer === "worked" || row.viewer_answer === "did_not" ? row.viewer_answer : null } : null,
   };
 }
 
@@ -647,6 +863,12 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
     canonical?: InMemoryAtlasCanonicalStore;
     /** Votes, comments and picks (section 4E); none without it. */
     participation?: InMemoryAtlasParticipation;
+    /** Where items sit in the categories (owner answer 229a); none without it. */
+    placements?: InMemoryAtlasPlacements;
+    /** People's reports (owner answer 229a); none without it. */
+    reports?: InMemoryAtlasReports;
+    /** The rows shown at a glance on the owner's yes; none without it. */
+    glance?: InMemoryAtlasGlanceRows;
   }) {}
 
   async read<T>(work: (reads: AtlasPageReads) => Promise<T>): Promise<T> {
@@ -680,6 +902,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
               atlasPublicationOrder(row.publicationNumber) < atlasPublicationOrder(cursor.publicationNumber)))))
           .filter((row) => (row.state === "unreviewed" && row.published !== null) ||
             row.state === "accepted" || row.state === "edited")
+          .filter((row) => query.includeKept === true || !this.stores.publications.isKept(row.publicationNumber))
+          .filter((row) => query.challengedOnly !== true || this.stores.publications.challengeOf(row.publicationNumber) !== null)
           .filter((row) => (query.states === undefined || (query.states as readonly string[]).includes(row.state)) &&
             (query.publicationNumbers === undefined || query.publicationNumbers.includes(row.publicationNumber)) &&
             (query.atlasNumbers === undefined || (row.atlasNumber !== null && query.atlasNumbers.includes(row.atlasNumber))) &&
@@ -689,7 +913,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           .sort((left, right) => time(right) - time(left) ||
             atlasPublicationOrder(right.publicationNumber) - atlasPublicationOrder(left.publicationNumber))
           .flatMap((row) => {
-            const publication = pagePublicationOf(row);
+            const publication = pagePublicationOf({ ...row, kept: this.stores.publications.isKept(row.publicationNumber),
+              challenge: this.stores.publications.challengeOf(row.publicationNumber) });
             return publication === undefined ? [] : [publication];
           })
           .slice(0, query.limit);
@@ -714,7 +939,30 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           }
           dates.set(number, dated);
         }
-        return atlasPageFindingsOf(state, atlasNumbers, dates);
+        // Each family's newest check, as the PostgreSQL read orders them.
+        const checks = new Map<string, { title: string | null; year: number | null; retraction: string | null; at: number }>();
+        for (const { familyId, check } of rows?.sourceChecks ?? []) {
+          const at = Date.parse(check.checkedAt);
+          if ((checks.get(familyId)?.at ?? -Infinity) <= at) {
+            checks.set(familyId, { title: check.title, year: check.publishedYear, retraction: check.retractionStatus, at });
+          }
+        }
+        return atlasPageFindingsOf(state, atlasNumbers, dates, checks);
+      },
+
+      listCardSiblings: async (raw) => {
+        const numbers = validatePublicationNumbers(raw);
+        const rows = this.stores.publications.allRows();
+        const shown = (row: (typeof rows)[number]) =>
+          (row.state === "unreviewed" && row.published !== null) || row.state === "accepted" || row.state === "edited";
+        return rows
+          .filter((row) => numbers.includes(row.publicationNumber) && row.cardSha256 !== null)
+          .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+          .flatMap((listed) => rows
+            .filter((sibling) => sibling.cardSha256 === listed.cardSha256 &&
+              sibling.publicationNumber !== listed.publicationNumber && shown(sibling))
+            .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+            .map((sibling) => ({ publicationNumber: listed.publicationNumber, siblingNumber: sibling.publicationNumber })));
       },
 
       listContradictions: async (limit) => {
@@ -777,6 +1025,15 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
 
       listHomePicks: async () => (await this.stores.participation?.inspectHomePicks() ?? [])
         .map(({ slot, publicationNumber, reason }) => ({ slot, publicationNumber, reason })),
+
+      readReport: async (publicId, viewerKey) => await this.stores.reports?.pageReport(publicId, viewerKey) ?? null,
+      listReports: async () => await this.stores.reports?.publishedReports() ?? [],
+      listOwnReports: async (participantKey) => await this.stores.reports?.ownReports(participantKey) ?? [],
+
+      listGlanceRows: async () => this.stores.glance?.shownRows() ?? [],
+
+      listPlacements: async () => (await this.stores.placements?.listPlacements() ?? [])
+        .map(({ itemNumber, categoryKey, subcategoryKey }) => ({ itemNumber, categoryKey, subcategoryKey })),
     };
   }
 }

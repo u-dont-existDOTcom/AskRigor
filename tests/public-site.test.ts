@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { validatePublicSite } from "../scripts/validate-public-site.mts";
+import { validatePublicSite, validateRobots, validateWhatsNew } from "../scripts/validate-public-site.mts";
 
 const rootFile = (file: string) =>
   pathToFileURL(resolve(fileURLToPath(new URL("../", import.meta.url)), file));
@@ -17,16 +17,35 @@ const pages = [
 const pageHtml = async (file: string) => readFile(rootFile(file), "utf8");
 
 describe("AskRigor public site", () => {
-  it("ships exactly four complete public pages", async () => {
+  it("ships exactly eight complete public pages", async () => {
     const result = await validatePublicSite(rootFile("site/"));
     expect(result.errors).toEqual([]);
-    expect(result.pages).toBe(4);
+    expect(result.pages).toBe(8);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
+  });
+
+  it("needs a What's new fold for every production release record (the owner, 6 Nov 2026)", () => {
+    const roadmap = [
+      '<section id="whats-new">',
+      "<details open><summary>4 November 2026</summary><ul><li>A change people notice.</li></ul></details>",
+      "<!-- Releases people wouldn't notice: 2026-10-11 -->",
+      "</section>"
+    ].join("");
+    expect(validateWhatsNew(roadmap, [
+      "2026-11-04-owner-answer-240a-production-release.md",
+      "2026-10-11-maintenance-production-release.md",
+      "2026-11-03-owner-regressions-394-judgment.md"
+    ])).toEqual([]);
+    const missing = validateWhatsNew(roadmap, ["2026-11-06-next-build-production-release.md"]);
+    expect(missing).toHaveLength(1);
+    expect(missing[0]).toContain("docs/audits/2026-11-06-next-build-production-release.md");
+    expect(missing[0]).toContain("<summary>6 November 2026</summary>");
+    expect(validateWhatsNew("<main></main>", [])[0]).toContain("is missing its \"What's new\" section");
   });
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    expect(result.internalLinks).toBe(35);
+    expect(result.internalLinks).toBe(101);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
@@ -158,13 +177,14 @@ describe("AskRigor public site", () => {
     expect(privacy.split(paragraph)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective October 25, 2026");
+    expect(privacy).toContain("Effective November 6, 2026");
+    expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective October 25, 2026",
+      "Effective November 6, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -208,7 +228,7 @@ describe("AskRigor public site", () => {
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
-      "Effective October 25, 2026",
+      "Effective November 6, 2026",
       "for each finished research answer a findings card",
       "or a findings card saved under it",
       "saves an answer’s findings card or lesson feedback only when you accept saving it for that answer",
@@ -227,15 +247,34 @@ describe("AskRigor public site", () => {
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective October 25, 2026",
+      "Effective November 6, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [
       "rather than silently rewritten. Findings cards saved in free contributor mode are published in AskRigor’s public Atlas as soon as they are saved, written without you and marked “Not checked by supervisors yet” until AskRigor’s owner has reviewed them. Findings from a paid private card are published only after AskRigor’s owner accepts them. If you ask to delete a findings card, everything that ties it to you is removed, and the card leaves the Atlas unless AskRigor’s owner has already accepted its findings; no reason is needed. An accepted finding stays while it is valid: it is corrected or taken down when someone shows it is wrong, and rewritten or removed if it could identify anyone.</p></section>",
       "<section><h2>Comments in the Atlas</h2><p>Comments in the Atlas must be about the finding. Your own experiences are welcome, and comments are not medical advice. Don’t post contact details, personal information about anyone else, advertising or harassment. AskRigor may hide or remove any comment and stop an account from commenting. By posting a comment you let AskRigor show it in the Atlas, and you can delete it at any time.</p></section>",
       "does not promise attribution, publication, compensation, or a particular outcome",
-      "Effective October 25, 2026",
+      "Effective November 6, 2026",
     ]) expect(terms).toContain(fragment);
+  });
+
+  // Owner answer 200a (2026-10-30): a de-identified copy, sent only on the person's confirmation, kept apart from the
+  // account, read only by the owner, deleted after 90 days or sooner with its code.
+  it("says how a shared question and answer is sent, kept and deleted", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "<section><h2>Shared questions and answers</h2>",
+      "Nothing is sent unless you say yes and then confirm the exact copy the AI shows you.",
+      "AskRigor’s server checks it only for contact details and access tokens, not that it is de-identified, so read it before you confirm.",
+      "apart from your account: it does not store which account sent it.",
+      "It is never published, and only AskRigor’s owner reads it, to make test cases and fixes.",
+      "It is deleted after 90 days, or sooner when you ask AskRigor to delete it with the code it gives you when you send it.",
+      "To delete a shared question and answer sooner, ask AskRigor to delete it with the code it gave you when you sent it",
+    ]) expect(privacy).toContain(fragment);
+    const support = await pageHtml("site/support/index.html");
+    expect(support).toContain("<section><h2>Shared questions and answers</h2><p>If you sent AskRigor a de-identified " +
+      "copy of a question and its answer, ask AskRigor in the same app to delete it, with the code it gave you when " +
+      "you sent it.");
   });
 
   it("says what Gemini receives when a video is checked, and what the daily ledger holds", async () => {
@@ -291,6 +330,17 @@ describe("AskRigor public site", () => {
       "accessibility", "security", "Do not email API keys", "emergency", "local emergency services",
       "joel@askrigor.com"
     ]) expect(html).toContain(fragment);
+  });
+
+  it("points crawlers to the sitemap of reviewed findings and lets them read every finding page's noindex", async () => {
+    const robots = await readFile(rootFile("site/robots.txt"), "utf8");
+    expect(validateRobots(robots)).toEqual([]);
+    expect(robots).toContain("Sitemap: https://askrigor.com/atlas/sitemap.xml");
+    for (const blocked of ["Disallow: /", "Disallow: /atlas/findings", "Disallow: /atlas/topics/", "Disallow: /atlas"]) {
+      expect(validateRobots(`User-agent: *\n${blocked}\nDisallow: /atlas/search\nSitemap: https://askrigor.com/atlas/sitemap.xml\n`),
+        blocked).toHaveLength(1);
+    }
+    expect(validateRobots("User-agent: *\n")).toHaveLength(2);
   });
 
   it("ships accessible responsive styles", async () => {

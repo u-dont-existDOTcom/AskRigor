@@ -14,6 +14,7 @@ import {
 // The package the tools import, so a refusal it throws is the class the tools recognize.
 } from "@askrigor/evidence-repository";
 
+import { accountPublicationProblems } from "../apps/research-mcp/src/atlas/publication.js";
 import { askrigorBuildCommitFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   FINDINGS_AND_MAP_SAVE_OFFER,
@@ -43,7 +44,10 @@ import {
   findingsThreadKey,
   type FindingsRecord,
   type FindingsSaveContext,
+  type UnsavedCardInput,
+  type UnsavedCardResult,
 } from "../apps/research-mcp/src/findings/service.js";
+import { unsavedCardNote } from "../apps/research-mcp/src/findings/unsaved-card.js";
 import type { LessonAttemptLimiter } from "../apps/research-mcp/src/lessons/rate-limit.js";
 import {
   OTHER_TOOLS_SENTENCE,
@@ -53,15 +57,18 @@ import {
   registerTools,
   type RegisterToolsOptions,
 } from "../apps/research-mcp/src/register-tools.js";
-import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
+import type { MeaningJudge, MeaningJudgeBundle } from "../apps/research-mcp/src/meaning-judge.js";
+import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import {
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
   TOOL_LIST_REFRESH_HINT,
+  type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
 const NOW = new Date("2026-09-30T12:00:00.000Z");
@@ -197,6 +204,21 @@ describe("findings library save", () => {
     await expect(service(github).save(saveInput({ findings_card: unsafe, finalization_receipt: receipt }), CONTEXT))
       .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });
     expect(github.writes).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: a test run's check signs its mark, and the save refuses its card, whoever asks.
+  it("refuses a card whose check was marked findings_save off, before the limit or the queue", async () => {
+    const github = new FakeGitHub();
+    let consumed = 0;
+    const counting: LessonAttemptLimiter = {
+      consume: () => { consumed += 1; return { allowed: true }; },
+      lastBlockingReason: () => "hourly_limit",
+    };
+    const receipt = finalization({ findings: findingsCardDigest(findingsCardSchema.parse(CARD)), fs: "off" });
+    await expect(service(github, { limiter: counting }).save(saveInput({ findings_card: CARD, finalization_receipt: receipt }), CONTEXT))
+      .resolves.toEqual({ status: "call_saving_off", retryable: false });
+    expect(github.writes).toEqual([]);
+    expect(consumed).toBe(0);
   });
 
   // Owner answer 156a (2026-10-22): the library keeps only findings that would help other people.
@@ -489,6 +511,31 @@ describe("findings library save", () => {
     ]);
   });
 
+  // Owner answer 240a: a research lane keeps one target across passes, and each pass's card was withdrawing the last.
+  it("leaves an earlier card alone when a later card on the same research target asks another question", async () => {
+    const github = new FakeGitHub();
+    const save = service(github);
+    await save.save(saveInput(), CONTEXT);
+    const knee = {
+      ...CARD,
+      question: "Does a walking program help adults with knee osteoarthritis?",
+      findings: [{ ...CARD.findings[0], claim: "Walking programs eased knee pain over three months." }],
+    };
+    await expect(save.save(saveInput({ findings_card: knee, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(knee)),
+    }) }), CONTEXT)).resolves.toEqual({
+      status: "saved", retryable: false, card_id: "ARF-0043", occurrence_count: 1,
+    });
+    expect(github.issues.map(({ number, state }) => [number, state])).toEqual([[42, "open"], [43, "open"]]);
+    // The same question, differently spaced and cased, is the same thread.
+    const reworded = { ...CARD, question: `  ${CARD.question.toUpperCase()} `,
+      findings: [{ ...CARD.findings[0], claim: "A corrected claim on the first question." }] };
+    await expect(save.save(saveInput({ findings_card: reworded, finalization_receipt: finalization({
+      findings: findingsCardDigest(findingsCardSchema.parse(reworded)), receipts: 8,
+    }) }), CONTEXT)).resolves.toMatchObject({ status: "saved", card_id: "ARF-0044", replaced_count: 1 });
+    expect(github.issues.map(({ number, state }) => [number, state])).toEqual([[42, "closed"], [43, "open"], [44, "open"]]);
+  });
+
   it("keeps an earlier card open when it also holds someone else's save", async () => {
     const github = new FakeGitHub();
     const save = service(github);
@@ -599,10 +646,12 @@ describe("finalize_research, save_research_findings and the findings library", (
     return async (input: Record<string, unknown>, subject?: string) => {
       const { finalizeResearchInputSchema } = await import("../apps/research-mcp/src/research-finalization-gate.js");
       // The contribution tool accepts any call and checks it itself; the access tool's input is plain.
-      const parsed = name === "finalize_research"
+      const parsed = name === "finalize_research" && !("later_inputs" in input)
         ? finalizeResearchInputSchema.parse(input)
         : name === "save_research_findings" ? saveResearchFindingsInputSchema.parse(input) : input;
-      return await handler!(parsed, subject === undefined ? {} : {
+      // A checked answer says how each key study it cites was read (the owner, 5 Nov 2026); the shared helper gives
+      // these fixtures its words after the published schema has read the call.
+      return await handler!(name === "finalize_research" ? withSourceReading(parsed) : parsed, subject === undefined ? {} : {
         authInfo: {
           token: "synthetic-token",
           clientId: "synthetic-client",
@@ -668,7 +717,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const saved = "\nJust before the check line, end the answer with this line, as written (in the answer's language " +
       "when the answer is not in English): Saved to AskRigor's findings library for review as ARF-0042.";
     const ending = "\nEnd the answer with this line, as written (in the answer's language when the answer is not in " +
-      "English): Checked with AskRigor's final check, with the limits above.";
+      "English): Checked with AskRigor's final check, with the limits it found.";
     expect(text).toContain(saved);
     expect(text.indexOf(saved)).toBeLessThan(text.indexOf(ending));
     expect(findingsSavedLine("ARF-0042")).toBe("Saved to AskRigor's findings library for review as ARF-0042.");
@@ -685,11 +734,84 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(context).toEqual({
       surface: "/mcp/claude",
       toolCatalogSha256: createHash("sha256").update(names).digest("hex"),
-      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false },
+      account: { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION },
     });
     // The receipt binds the research target the thread key is made from.
     expect((result.structuredContent as { finalization_receipt: string }).finalization_receipt)
       .toContain(`target=${researchTargetDigest(TARGET)}`);
+  });
+
+  // Owner answer 252a: the tool looks a checked card's backing lines up with the source lines once the check passes, and
+  // the receipt the save gets signs what was found, where, and how each source was read.
+  it("looks a card's backing lines up in the text AskRigor fetched, and signs what was found for the save", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const handle = `aft1_${"c".repeat(32)}`;
+    const sentence = "Clearance halved in the oldest group of this invented study at twelve weeks.";
+    const fullText = vi.fn(() => ({ kind: "full_text" as const, blocks: [{ text: sentence, section: "Results" }] }));
+    const finalize = connectorTool("finalize_research", { researchContributorAccessService: service, findingsLibrary: true,
+      findingsSave, sourceLineTexts: { fullText, abstract: async () => undefined } });
+    const card = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0]!, backing: [{ source: "PMC10518852",
+      sentence, against: "The invented study was small." }] }] };
+    const { findings_card: _card, ...rest } = request({ receipts: [issueResearchReceipt("study_audit", { id: "PMC10518852",
+      doi: "10.1002/art.41142", status: "complete_no_unresolved_fields", handle }, { secret: SECRET })] });
+    const result = await finalize({ ...rest, later_inputs: { findings_card: card } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({ findings_card: { status: "checked", saved: { status: "saved" } } });
+    expect(fullText).toHaveBeenCalledWith(handle);
+    const signed = verifyResearchReceipt(calls[0]![0].finalization_receipt as string, { secret: SECRET });
+    expect(signed.ok && signed.claims).toMatchObject({ bl: ["1.1:fu:full_text"], bs: ["1.1.s:Results"],
+      rd: ["1.1:full_text_audited:-"] });
+  });
+
+  // Owner answer 221 (2 November 2026): the meaning judge, a Claude API call, reads a passing check for the owner's dev
+  // accounts only, once per check. Its notes go to the AI; it never blocks, and a failure leaves one note.
+  it("asks the meaning judge only for a dev account's passing check, and never lets it hold the answer back", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const bundles: MeaningJudgeBundle[] = [];
+    const meaningJudge: MeaningJudge = {
+      enabled: true,
+      judge: async (bundle) => {
+        bundles.push(bundle);
+        return { cached: false, costUsd: 0.03, milliseconds: 5, judgment: { status: "ran", youtube: [], comparison: [], sourceLines: [],
+          limits: [], standalone: [{ finding: 1, standsAlone: false, why: "It leans on this research." }] } };
+      },
+    };
+    const { findingsSave } = recorder();
+    const tool = (judge: MeaningJudge) => connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, meaningJudge: judge,
+    });
+    // A research account that is not a dev account: no call.
+    const plain = await tool(meaningJudge)(request(), "auth0|free");
+    expect(plain.structuredContent).toMatchObject({ status: "ready_with_limits" });
+    expect(plain.structuredContent).not.toHaveProperty("meaning_judge");
+    expect(bundles).toEqual([]);
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", service.accountKeyForSubject("auth0|free"));
+    const judged = await tool(meaningJudge)(request(), "auth0|free");
+    expect(bundles).toHaveLength(1);
+    expect(bundles[0]).toMatchObject({ comments_read: false, comparison: [],
+      card: { findings: [expect.objectContaining({ number: 1, answer_quote: QUOTE, sources: ["PMC10518852"] })] } });
+    expect(bundles[0]!.answer).toContain(QUOTE);
+    const before = plain.structuredContent as Record<string, unknown>;
+    expect(judged.structuredContent).toMatchObject({ status: before.status, next_steps: before.next_steps,
+      limits: before.limits, caveats: before.caveats, findings_card: before.findings_card,
+      finalization_receipt: expect.any(String), meaning_judge: { status: "ran", held: 0, notes: 1 } });
+    const text = (result: CallToolResult) => (result.content as Array<{ text: string }>)[0]!.text;
+    expect(text(judged)).toContain("- The meaning judge reads findings_card.findings[0] as not making sense on its own to " +
+      "a reader of the public Atlas who never saw the question (It leans on this research).");
+    // A check that has not passed is never read.
+    const notReady = await tool(meaningJudge)(request({ receipts: [] }), "auth0|free");
+    expect(notReady.structuredContent).toMatchObject({ status: "not_ready" });
+    expect(bundles).toHaveLength(1);
+    // A judge that fails leaves the check as it was, with one note; one that is off is never asked.
+    const failing = await tool({ enabled: true, judge: async () => { throw new Error("synthetic failure"); } })(
+      request(), "auth0|free");
+    expect(failing.structuredContent).toMatchObject({ status: "ready_with_limits",
+      meaning_judge: { status: "skipped", reason: "error", held: 0, notes: 1 } });
+    expect(text(failing)).toContain("- The meaning judge did not run (the call failed); this check is as it would be without it.");
+    const off = await tool({ enabled: false, judge: async () => { throw new Error("never called"); } })(request(), "auth0|free");
+    expect(off.structuredContent).not.toHaveProperty("meaning_judge");
   });
 
   it("shows findings-card saving to dev accounts only, and only they can switch their own setting", async () => {
@@ -763,12 +885,14 @@ describe("finalize_research, save_research_findings and the findings library", (
     // Turning saving off never relaxes the card requirement or a failing check.
     const { findings_card: _card, ...withoutCard } = request();
     expect((await finalize(withoutCard, "auth0|free")).structuredContent)
-      .toMatchObject({ status: "not_ready", findings_card: { status: "absent" } });
+      .toMatchObject({ status: "ready_with_limits", findings_card: { status: "absent" } });
     expect(calls).toEqual([]);
     await manage({ action: "set_findings_save", findingsSave: true }, "auth0|free");
     const on = await finalize(request(), "auth0|free");
     expect(calls).toHaveLength(1);
     expect(on.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    // Owner answer 196a: a dev account's saved card publishes like everyone's.
+    expect(accountPublicationProblems(calls[0]![1].account)).toEqual([]);
   });
 
   it("needs a card from a free contributor's answer, and saves nothing until it has one", async () => {
@@ -778,8 +902,8 @@ describe("finalize_research, save_research_findings and the findings library", (
     const { findings_card: _card, ...withoutCard } = request();
     const result = await finalize(withoutCard, "auth0|free");
     expect(result.structuredContent).toMatchObject({
-      status: "not_ready",
-      next_steps: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
+      status: "ready_with_limits",
+      next_steps: [], notes: [expect.stringMatching(/^Give findings_card with answer_draft/u), TOOL_LIST_REFRESH_HINT],
       findings_card: { status: "absent" },
     });
     expect(calls).toEqual([]);
@@ -837,7 +961,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       "AskRigor's shared research repository for review, say yes; nothing is saved or filed otherwise.");
     // The answer must carry the offer before the card is signed; nothing is saved at the final check.
     expect((await finalize(request(), "auth0|paid")).structuredContent).toMatchObject({
-      status: "not_ready", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
+      status: "ready_with_limits", caveats: [SKIP, offer], findings_card: { status: "checked", beyond_quick_answer: 1 },
     });
     const offered = await finalize(request({ answer_draft: `${QUOTE} ${offer}` }), "auth0|paid");
     expect(offered.structuredContent).toMatchObject({
@@ -1076,6 +1200,316 @@ describe("finalize_research, save_research_findings and the findings library", (
     expect(resultText(result)).toContain("\nFindings card: rejected: findings_card.public_value is missing: ");
     expect(resultText(result)).toContain("\nEnd the answer with this line, as written");
     expect(calls).toEqual([]);
+  });
+
+  /** Records the copies finalize_research keeps of cards that weren't saved. */
+  function keeper(reply: UnsavedCardResult = { status: "kept", card_id: "ARF-0077" }) {
+    const kept: UnsavedCardInput[] = [];
+    return {
+      kept,
+      findingsKeep: async (input: UnsavedCardInput) => {
+        kept.push(input);
+        return reply;
+      },
+    };
+  }
+
+  // The free Claude test of 5 Nov 2026: the regression harness and the owner's own research share one account and its one
+  // saving switch, which the owner's research turned on mid-run, so test cases saved ARF-0297 and ARF-0300. A call
+  // marked later_inputs.findings_save "off" saves no card and keeps no copy, whatever the switch says.
+  it("saves and keeps nothing from a call marked findings_save off, whatever the account's switch", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const marked = { ...request(), later_inputs: { findings_save: "off" } };
+    const result = await finalize(marked, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits", findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+    });
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(result)).toContain("\nFindings card: checked; not saved: this call turned card saving off.");
+    // A marked call whose answer hasn't passed keeps no copy either.
+    const open = await finalize({ ...marked, receipts: [] }, "auth0|free");
+    expect(open.structuredContent).toMatchObject({ status: "not_ready" });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: one misspelt later input beside the marker once dropped every later input, the marker too,
+  // and a test run's card was saved. The marker is read from the raw call on its own.
+  it("keeps the marker beside a misspelt, misplaced or doubled later input", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    for (const later of [{ findings_save: "off", name_form: [] }, { findings_save: "off", absence_claims: [] },
+      { findings_save: "off", search_coverage: ["other_journals"] }]) {
+      const result = await finalize({ ...request(), search_coverage: ["historical_terms"], later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+      });
+      // A marked call whose answer hasn't passed keeps no copy either.
+      await finalize({ ...request(), receipts: [], later_inputs: later }, "auth0|free");
+    }
+    // At the top level, where an older app may put it, the marker is read too.
+    expect((await finalize({ ...request(), findings_save: "off", later_inputs: {} }, "auth0|free")).structuredContent)
+      .toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: the marker reached neither the paid flow nor save_research_findings.
+  it("offers no save from a marked call, for every account, and its receipt makes save_research_findings refuse it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    const save = connectorTool("save_research_findings", options);
+    const marked = (subject: string) => finalize({ ...request(), later_inputs: { findings_save: "off" } }, subject);
+    const paid = (await marked("auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(paid).toMatchObject({ status: "ready_with_limits", caveats: [SKIP], findings_card: { status: "checked" } });
+    expect(paid.findings_card).not.toHaveProperty("saved");
+    expect(paid).not.toHaveProperty("research_map");
+    const free = (await marked("auth0|free")).structuredContent as FinalizeResearchOutput;
+    expect(free).not.toHaveProperty("research_map");
+    for (const [result, subject] of [[paid, "auth0|paid"], [free, "auth0|free"]] as const) {
+      expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET }))
+        .toMatchObject({ ok: true, kind: "finalization", claims: { fs: "off" } });
+      const refused = await save({ findings_card: CHECKED_CARD, finalization_receipt: result.finalization_receipt,
+        user_consent: "yes_to_this_save" }, subject);
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toEqual({ status: "call_saving_off", retryable: false });
+      expect(refused.content).toEqual([{ type: "text", text: "Not saved: the finalize_research call that checked " +
+        "this card was marked findings_save \"off\", as a test run is, so its card is never saved." }]);
+    }
+    expect(calls).toEqual([]);
+    // An unmarked check's receipt signs no mark, and its card is saved after the user's yes.
+    const unmarked = (await finalize(request(), "auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(verifyResearchReceipt(unmarked.finalization_receipt!, { secret: SECRET }).claims).not.toHaveProperty("fs");
+    expect((await save({ findings_card: CHECKED_CARD, finalization_receipt: unmarked.finalization_receipt,
+      user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
+  });
+
+  // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. Its
+  // third check: true, "on" and stray text read as off would cost the owner's own research a card, when a model meant
+  // true as "save", as set_findings_save's true does. Only an explicit off is off; any other value leaves the account's
+  // setting to decide, with a note.
+  it("reads only an explicit off as the marker, and leaves any other value to the account's setting, with a note", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const notes = (result: CallToolResult) => ((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n");
+    // Sent as text, later_inputs holds no source_reading the check can read, so the call gives it at the top level.
+    const asText = { ...withSourceReading(request(), { topLevel: true, check: { secret: SECRET } }),
+      later_inputs: JSON.stringify({ findings_save: "off" }) };
+    for (const [later, note] of [[{ findings_save: ["off"] }, 'findings_save: read as "off"; give "off", its value.'],
+      [{ findings_save: false }, 'findings_save: read as "off"; give "off", its value.'],
+      [asText.later_inputs, "findings_save: read as \"off\" from later_inputs given as text"]] as const) {
+      const result = await finalize(typeof later === "string" ? asText : { ...request(), later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } },
+      });
+      expect(notes(result)).toContain(note);
+      expect(verifyResearchReceipt((result.structuredContent as FinalizeResearchOutput).finalization_receipt!,
+        { secret: SECRET }).claims).toMatchObject({ fs: "off" });
+    }
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+    // Any other value is no marker: the account's switch decides, off or on, and a note says why.
+    const notOff = "findings_save: not read as off. It only turns card saving off, with \"off\"; any other value leaves " +
+      "the account's setting to decide.";
+    await service.setFindingsSave("auth0|free", false);
+    for (const value of [true, "on", "yes"]) {
+      const result = await finalize({ ...request(), later_inputs: { findings_save: value } }, "auth0|free");
+      expect(result.structuredContent, String(value)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+      });
+      expect(notes(result)).toContain(notOff);
+    }
+    expect(calls).toEqual([]);
+    await service.setFindingsSave("auth0|free", true);
+    const meantSave = await finalize({ ...request(), later_inputs: { findings_save: true } }, "auth0|free");
+    expect(meantSave.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // Absent, or given as null, nothing is said; "OFF", only cased otherwise, is off with no note.
+    const saved = await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free");
+    expect(saved.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(notes(saved)).not.toContain("findings_save");
+    expect(calls).toHaveLength(2);
+    const cased = await finalize({ ...request(), later_inputs: { findings_save: "OFF" } }, "auth0|free");
+    expect(cased.structuredContent).toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(notes(cased)).not.toContain("findings_save");
+    // Text that isn't JSON is no marker either: its envelope is dropped with its note, as any other.
+    const textual = await finalize({ ...asText, later_inputs: "findings_save is not needed here" }, "auth0|free");
+    expect(textual.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved" } } });
+    expect(notes(textual)).toContain("later_inputs: dropped.");
+    expect(calls).toHaveLength(3);
+  });
+
+  it("keeps a private copy of a refused card, tells the AI, and says so at the end of a passing answer", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const { public_value: _declared, ...undeclared } = CHECKED_CARD;
+    const result = await finalize(request({ findings_card: undeclared }), "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits",
+      findings_card: {
+        status: "rejected",
+        problems: [expect.stringMatching(/^findings_card\.public_value is missing: /u)],
+        saved: { status: "not_saved", reason: "kept_for_review" },
+      },
+      saved_line: "A private copy of this research's findings card was kept for review as ARF-0077.",
+    });
+    const text = resultText(result);
+    expect(text).toContain("\nFindings card: rejected; not saved, and a private copy is kept for review: " +
+      "findings_card.public_value is missing: ");
+    expect(text).toContain(unsavedCardNote("ARF-0077"));
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([{
+      card: findingsCardSchema.omit({ public_value: true }).parse(undeclared),
+      researchTarget: TARGET,
+      contributor: service.accountKeyForSubject("auth0|free"),
+      why: "refused",
+      problems: [expect.stringMatching(/^findings_card\.public_value is missing: /u)],
+      commentsRead: false,
+    }]);
+  });
+
+  it("keeps a card that doesn't read, as the call gave it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave: recorder().findingsSave,
+      findingsKeep,
+    });
+    const tooLong = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0], claim: "An invented claim. ".repeat(60) }] };
+    const { findings_card: _card, ...withoutCard } = request();
+    const result = await finalize({ ...withoutCard, later_inputs: { findings_card: tooLong } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      findings_card: { status: "rejected", saved: { status: "not_saved", reason: "kept_for_review" } },
+    });
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({ why: "malformed", card: tooLong });
+  });
+
+  // The third check of 5 Nov 2026: a corrected card sent in later_inputs that doesn't read gave way to the out-of-date
+  // top-level card, which was saved. A findings card never falls back: its later form is read, and kept privately.
+  it("never saves the top-level card beside a corrected later card that doesn't read, and keeps the correction", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const corrected = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0],
+      claim: "A corrected claim the AI meant to save instead.",
+      backing: [{ source: "PMC10518852", sentence: "x".repeat(400), against: "Too long a sentence for the later shape." }] }] };
+    const result = await finalize({ ...request(), later_inputs: { findings_card: corrected } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      findings_card: { status: "rejected", saved: { status: "not_saved", reason: "kept_for_review" } },
+    });
+    expect(calls).toEqual([]);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({ why: "malformed", card: corrected });
+  });
+
+  it("keeps a checked card whose answer hasn't passed, with no line for an answer that isn't finished", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    // A key source with no receipt holds the answer back, and the card, which rests on the other, still checks.
+    const result = await finalize(request({ key_sources: [...request().key_sources,
+      { read_depth: "partial_text" as const, answer_marker: "Other", id: "PMC7654321", status: "validated" }] }), "auth0|free");
+    const output = result.structuredContent as { status: string; next_step_kinds: string[]; findings_card: { status: string } };
+    expect(output.status).toBe("not_ready");
+    expect(calls).toEqual([]);
+    expect(output.findings_card.status).toBe("checked");
+    // The answer is never stored, and a step can quote it, so only the steps' kinds go with the copy.
+    expect(kept[0]).toMatchObject({ why: "answer_not_ready", problems: [...new Set(output.next_step_kinds)] });
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(result)).toContain(unsavedCardNote("ARF-0077"));
+  });
+
+  it("keeps a card whose save failed, and nothing when the save worked or may have", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const access = await accessService();
+    const failed = keeper();
+    const failing = connectorTool("finalize_research", {
+      researchContributorAccessService: access, findingsLibrary: true, findingsKeep: failed.findingsKeep,
+      findingsSave: recorder({ status: "queue_unavailable", retryable: true, reason_code: "github_service_unavailable" }).findingsSave,
+    });
+    await failing(request(), "auth0|free");
+    expect(failed.kept).toEqual([expect.objectContaining({ why: "save_failed", problems: ["github_service_unavailable"] })]);
+
+    const worked = keeper();
+    await connectorTool("finalize_research", {
+      researchContributorAccessService: access, findingsLibrary: true, findingsKeep: worked.findingsKeep,
+      findingsSave: recorder().findingsSave,
+    })(request(), "auth0|free");
+    expect(worked.kept).toEqual([]);
+
+    const slow = keeper();
+    await connectorTool("finalize_research", {
+      researchContributorAccessService: access, findingsLibrary: true, findingsKeep: slow.findingsKeep,
+      findingsSave: () => new Promise(() => undefined), findingsSaveDeadlineMilliseconds: 1,
+    })(request(), "auth0|free");
+    expect(slow.kept).toEqual([]);
+  });
+
+  it("keeps nothing of a paid private account, a personal-only card or a dev account with saving off", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { public_value: _declared, ...undeclared } = CHECKED_CARD;
+    const access = await accessService();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: access, findingsLibrary: true, findingsSave: recorder().findingsSave, findingsKeep,
+    });
+    await finalize(request({ findings_card: undeclared }), "auth0|paid");
+    await finalize(request({ findings_card: { ...CHECKED_CARD, public_value: { scope: "personal_only" } } }), "auth0|free");
+    expect(kept).toEqual([]);
+
+    vi.stubEnv("ASKRIGOR_DEV_ACCOUNT_KEYS", access.accountKeyForSubject("auth0|free"));
+    const set = connectorTool("manage_research_access", { researchContributorAccessService: access });
+    await set({ action: "set_findings_save", findingsSave: false }, "auth0|free");
+    await finalize(request({ findings_card: undeclared }), "auth0|free");
+    expect(kept).toEqual([]);
+  });
+
+  it("reports a refused card as before when no copy could be kept", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { public_value: _declared, ...undeclared } = CHECKED_CARD;
+    const access = await accessService();
+    for (const findingsKeep of [
+      keeper({ status: "not_kept", reason: "rate_limited" }).findingsKeep,
+      async () => { throw new Error("private upstream detail"); },
+    ]) {
+      const finalize = connectorTool("finalize_research", {
+        researchContributorAccessService: access, findingsLibrary: true, findingsSave: recorder().findingsSave, findingsKeep,
+      });
+      const result = await finalize(request({ findings_card: undeclared }), "auth0|free");
+      expect((result.structuredContent as { findings_card: object }).findings_card).not.toHaveProperty("saved");
+      expect(result.structuredContent).not.toHaveProperty("saved_line");
+      expect(resultText(result)).toContain("\nFindings card: rejected: findings_card.public_value is missing: ");
+      expect(resultText(result)).not.toContain("private upstream detail");
+    }
   });
 
   it("offers a paid private save only for a public card, and save_research_findings refuses a personal-only one", async () => {

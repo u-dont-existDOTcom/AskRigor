@@ -1,4 +1,7 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +9,6 @@ import { finalizeResearch, type FinalizeResearchInput, type FinalizeResearchOutp
 import { issueResearchReceipt, researchTargetDigest } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
 const SECRET = "finalize-product-identity-test-secret-0123456789";
 const TARGET = "Lisheng Nan Bao experiences";
@@ -127,17 +129,17 @@ const cases: Case[] = [
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 async function exercise(c: Case, call: (input: FinalizeResearchInput) => Promise<FinalizeResearchOutput>) {
-  const input = c.input();
+  const input = withSourceReading(c.input());
   const first = assertNextStepsContract(await call(input));
   if (c.caveat) {
-    expect(first.caveats).toContain(c.caveat);
-    expect(first.status).toBe("not_ready");
+    expect(first.limits).toContain(c.caveat);
+    expect(first.status).toBe("ready_with_limits");
   }
   const result = assertNextStepsContract(await call({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` }));
   if (c.step) {
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.join(" ")).toContain(c.step);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).join(" ")).toContain(c.step);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   } else {
     expect(result.next_steps).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
@@ -154,7 +156,7 @@ describe("finalize product identity and destination shopping declarations", () =
 
   it("checks buy-option links only once an answer draft is given", () => {
     const input = packageFor({ shopping: shopping("live_destination_orderable"), answer_draft: undefined });
-    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join(" ")).not.toContain("missing from answer_draft");
+    expect(advisoryNotes(finalizeResearch(input, { secret: SECRET })).join(" ")).not.toContain("missing from answer_draft");
   });
 
   it("checks every declaration rule through the real MCP endpoint", async () => {

@@ -8,9 +8,13 @@ export {
   type UpstreamFetchOptions,
 } from "./http.js";
 export { decodeCursor, encodeCursor } from "./cursor.js";
+export { FORUM_READER_USER_AGENT, pagePickedAfterFirst, readForumPage, type ForumPage, type ForumPageRuntime } from "./forum-page.js";
+export { parseRobotsTxt, robotsTxtAllows, robotsResponseAllows, type RobotsGroup, type RobotsRule } from "./robots-txt.js";
 export {
   fetchPubmedRecord,
+  pubmedAbstractSections,
   searchPubmed,
+  type PubmedAbstractSection,
   type PubmedConfig,
   type PubmedDateRange,
   type PubmedRecord,
@@ -68,7 +72,11 @@ export {
   type ClinicalTrial,
   type ClinicalTrialEnrollment,
   type ClinicalTrialIntervention,
+  type ClinicalTrialOutcome,
   type ClinicalTrialReference,
+  type ClinicalTrialRegistration,
+  type ClinicalTrialSecondaryId,
+  type ClinicalTrialSite,
   type SearchClinicalTrialsInput
 } from "./clinical-trials.js";
 export {
@@ -83,7 +91,7 @@ export {
   type RetractionStatus,
   type RetractionStatusData
 } from "./crossref.js";
-export { normalizeDoiIdentifier } from "./doi.js";
+export { decodedDoi, DOI_PATTERN, doiFromInput, doiUrl, escapedDoi, normalizeDoiIdentifier } from "./doi.js";
 export {
   lookupForrtReplicationRelationships,
   type ForrtReplicationLookupData,
@@ -230,7 +238,8 @@ export {
   type GeminiYoutubeScoutBackgroundCheckpoint,
   type GeminiYoutubeScoutConfig,
   type GeminiYoutubeScoutData,
-  type GeminiYoutubeScoutInput
+  type GeminiYoutubeScoutInput,
+  type GeminiYoutubeScoutNeverStarted
 } from "./gemini-youtube-scout.js";
 export {
   GEMINI_VIDEO_BOUNDARY_CODES,
@@ -292,5 +301,5 @@ export {
   type YoutubeTranscriptRuntime
 } from "./youtube-transcript.js";
 
-export { publicBasisSchema, type PublicBasis, acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, failedPrimaryRoutes, admitFullText, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
+export { publicBasisSchema, type PublicBasis, acquisitionStateSchema, candidateUrlsSchema, candidateTextsSchema, fullTextCandidateSchema, publicCopySearchSchema, publicCopySearchResultSchema, hasFailedFullTextAcquisition, canSignFullTextLead, failedPrimaryRoutes, admitFullText, sectionKind, FULL_TEXT_BODY_MIN_CHARACTERS, type AcquisitionState, type CandidateText, type FullTextCandidate, type FrozenArticleIdentity } from "./full-text-admission.js";
 export * from "./product-identity.js";

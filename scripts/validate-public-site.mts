@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
 
 export interface SiteValidationResult {
-  pages: 4;
+  pages: 8;
   internalLinks: number;
   errors: string[];
 }
@@ -78,14 +78,87 @@ const pageRequirements = [
       "emergency",
       "local emergency services"
     ]
+  },
+  {
+    path: "add/index.html",
+    title: "Add AskRigor | AskRigor",
+    canonical: "https://askrigor.com/add",
+    fragments: [
+      "https://mcp.askrigor.com/mcp",
+      "Add custom connector",
+      "coming to ChatGPT's app directory",
+      "doesn't diagnose, treat or prescribe"
+    ]
+  },
+  {
+    path: "roadmap/index.html",
+    title: "Roadmap | AskRigor",
+    canonical: "https://askrigor.com/roadmap",
+    fragments: [
+      "What we're building.",
+      '<section id="why">',
+      "Why it works this way",
+      '<section id="whats-new">',
+      "What's new",
+      "Tell us what you think",
+      "doesn't diagnose, treat or prescribe"
+    ]
+  },
+  {
+    path: "compare/index.html",
+    title: "Compare: the same AI, with and without AskRigor | AskRigor",
+    canonical: "https://askrigor.com/compare",
+    fragments: [
+      "doesn't diagnose, treat or prescribe",
+      "isn't a substitute for professional advice",
+      'href="/compare/free-chatgpt"',
+      '<link rel="stylesheet" href="/assets/compare.css">'
+    ]
+  },
+  {
+    path: "compare/free-chatgpt/index.html",
+    title: "ChatGPT Instant, with the research done | AskRigor",
+    canonical: "https://askrigor.com/compare/free-chatgpt",
+    fragments: [
+      "doesn't diagnose, treat or prescribe",
+      "isn't a substitute for professional advice",
+      "Worked for 5 min 50 s",
+      "Neither answer is medical advice",
+      '<link rel="stylesheet" href="/assets/compare.css">'
+    ]
   }
 ] as const;
 
 const expectedFiles = new Set([
   ...pageRequirements.map(({ path }) => path),
   "assets/askrigor-mark.svg",
-  "assets/site.css"
+  "assets/site.css",
+  "assets/compare.css",
+  // Openly licensed photos for the free ChatGPT page, credited on it (Wikimedia Commons, CC BY-SA 4.0 and CC BY 4.0).
+  "assets/piliostigma/shrub-senegal.jpg",
+  "assets/piliostigma/dried-leaves-nigeria.jpg",
+  "assets/piliostigma/sign-senegal.jpg",
+  "robots.txt"
 ]);
+
+/**
+ * robots.txt (owner answer 224a): the sitemap of reviewed findings, and no rule that keeps crawlers from a finding or
+ * topic page, whose noindex they must read to keep an unreviewed one out of search results.
+ */
+export function validateRobots(text: string): string[] {
+  const errors: string[] = [];
+  const lines = text.split("\n").map((line) => line.replace(/#.*$/u, "").trim()).filter(Boolean);
+  for (const required of ["User-agent: *", "Sitemap: https://askrigor.com/atlas/sitemap.xml", "Disallow: /atlas/search"]) {
+    if (!lines.includes(required)) errors.push(pathError("robots.txt", `is missing: ${required}`));
+  }
+  for (const line of lines.filter((entry) => /^disallow:/iu.test(entry))) {
+    const path = line.replace(/^disallow:\s*/iu, "");
+    if (path === "/" || path === "/atlas" || path === "/atlas/" || /^\/atlas\/(?:findings|topics|map|changes)/u.test(path)) {
+      errors.push(pathError("robots.txt", `must not keep crawlers from ${path}: its noindex has to be read`));
+    }
+  }
+  return errors;
+}
 
 const commonFragments = [
   "joel@askrigor.com",
@@ -97,6 +170,10 @@ const commonFragments = [
   'rel="icon" href="/assets/askrigor-mark.svg" type="image/svg+xml"',
   'class="brand-mark" src="/assets/askrigor-mark.svg"',
   'aria-label="Primary navigation"',
+  // The menu item for the benefit comparisons (the owner, 5 Nov 2026).
+  '<li><a href="/compare">Compare</a></li>',
+  '<li><a href="/add">Add AskRigor</a></li>',
+  '<li><a href="/roadmap">Roadmap</a></li>',
   'aria-label="Footer navigation"'
 ] as const;
 
@@ -191,6 +268,49 @@ function validateHtml(path: string, html: string, requirement: (typeof pageRequi
   return { errors, internalLinks };
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+] as const;
+
+const RELEASE_RECORD = /^(\d{4})-(\d{2})-(\d{2})-.+-production-release\.md$/u;
+
+/**
+ * Every production release record has its line in the roadmap's "What's new" (the owner, 6 Nov 2026: release notes
+ * people will notice, kept with the roadmap). A record in docs/audits named YYYY-MM-DD-...-production-release.md needs a
+ * fold in the roadmap's whats-new section whose summary is that day, written "4 November 2026". An exact check of
+ * dates and names only: what the notes say is the author's call.
+ */
+export function validateWhatsNew(roadmapHtml: string, releaseRecords: readonly string[]): string[] {
+  const section = /<section id="whats-new">([\s\S]*?)<\/section>/u.exec(roadmapHtml)?.[1];
+  if (section === undefined) return [pathError("roadmap/index.html", 'is missing its "What\'s new" section (<section id="whats-new">)')];
+  const summaries = new Set([...section.matchAll(/<summary>([^<]+)<\/summary>/gu)].map((match) => match[1].trim()));
+  // A release with nothing people would notice (dependency updates, internal fixes) is named in one comment instead:
+  // <!-- Releases people wouldn't notice: 2026-10-11, ... -->
+  const quiet = new Set(
+    [...section.matchAll(/<!-- Releases people wouldn't notice: ([0-9, -]+) -->/gu)]
+      .flatMap((match) => match[1].split(",").map((date) => date.trim()))
+      .filter((date) => date !== "")
+  );
+  const errors: string[] = [];
+  for (const record of [...releaseRecords].sort()) {
+    const match = RELEASE_RECORD.exec(record);
+    if (!match) continue;
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      errors.push(pathError(`docs/audits/${record}`, "has an impossible date in its name"));
+      continue;
+    }
+    const expected = `${day} ${MONTH_NAMES[month - 1]} ${match[1]}`;
+    if (quiet.has(`${match[1]}-${match[2]}-${match[3]}`)) continue;
+    if (!summaries.has(expected)) {
+      errors.push(pathError("roadmap/index.html", `"What's new" has no fold for the release recorded in docs/audits/${record}: add <summary>${expected}</summary> with what people will notice`));
+    }
+  }
+  return errors;
+}
+
 function validateBrandMark(svg: string): string[] {
   const errors: string[] = [];
   const required = [
@@ -227,10 +347,10 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   try {
     rootStatus = await lstat(rootPath);
   } catch {
-    return { pages: 4, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
+    return { pages: 8, internalLinks: 0, errors: [pathError(".", "site root is missing or unreadable")] };
   }
   if (!rootStatus.isDirectory() || rootStatus.isSymbolicLink()) {
-    return { pages: 4, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
+    return { pages: 8, internalLinks: 0, errors: [pathError(".", "site root must be a real directory")] };
   }
 
   const { files, errors: fileErrors } = await collectFiles(rootPath);
@@ -257,6 +377,12 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
   }
 
   try {
+    errors.push(...validateRobots(await readFile(resolve(rootPath, "robots.txt"), "utf8")));
+  } catch {
+    // Missing: reported with the expected files above.
+  }
+
+  try {
     errors.push(...validateBrandMark(await readFile(resolve(rootPath, "assets/askrigor-mark.svg"), "utf8")));
   } catch {
     // The required-file error above is the stable diagnostic for a missing mark.
@@ -268,7 +394,23 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     // The required-file error above is the stable diagnostic for a missing stylesheet.
   }
 
-  return { pages: 4, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
+  // Release notes: checked when the repository's release records sit beside the site (always in the repository and
+  // CI; a site folder copied elsewhere has none to compare).
+  let releaseRecords: string[] | undefined;
+  try {
+    releaseRecords = await readdir(resolve(rootPath, "../docs/audits"));
+  } catch {
+    releaseRecords = undefined;
+  }
+  if (releaseRecords !== undefined) {
+    try {
+      errors.push(...validateWhatsNew(await readFile(resolve(rootPath, "roadmap/index.html"), "utf8"), releaseRecords));
+    } catch {
+      // A missing roadmap is reported with the expected files above.
+    }
+  }
+
+  return { pages: 8, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -277,6 +419,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const error of result.errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log("Validated AskRigor public site: 4 pages");
+    console.log("Validated AskRigor public site: 8 pages");
   }
 }

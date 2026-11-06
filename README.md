@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.6.31` (2026-10-22), SHA-256
-`29269d656e73c70b541226023b58b294e583188c721481c043d53f900ee0a8b5`,
+The current canonical files identify HRP `20.6.40` (2026-11-05), SHA-256
+`afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1`,
 and Universal Instructions `20.5.46` (2026-10-21), SHA-256
 `e313306b09da7e359ea326a44c3850af020acbb2550c30bb2cddf46dc6074d9e`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -498,6 +498,17 @@ may be published in AskRigor's public Atlas, written without you." The v4 hold
 and restore scripts support image rollback; the runbook gives their order.
 This slice changes wording and consent; publications, votes and comments are
 built separately under `docs/superpowers/plans/2026-10-25-171-atlas-publishing-votes-comments.md`.
+
+Owner answer 253a (2026-11-05; the owner's wording, built, not yet released):
+the free contributor notice moves to `free-contributor-v5-2026-11-05`, whose
+findings card summarizes what public online communities reported "without their
+posts or names: the communities, counts of what people reported, and links to
+the forum threads AskRigor read, never YouTube comments or video IDs." Accounts
+accepting v1 to v4 accept v5 before free research continues (migration
+`0028_research_use_notice_v5`), and a card saved for an account still on v4
+stores no thread link. The privacy page and terms say the same; the v5 hold and
+restore scripts support image rollback. See
+`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`.
 
 Decision 171, section 4C (built, not yet released): the research server renders
 the public Atlas pages under `/atlas` (home, topic, finding and what changed),

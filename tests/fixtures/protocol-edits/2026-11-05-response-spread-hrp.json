@@ -1,0 +1,27 @@
+{
+  "purpose": "Owner answer 244a of 5 November 2026: SpreadOfIndividualResults compares how much individual results varied in each arm of a trial.",
+  "hrp": {
+    "from": {
+      "version": "20.6.38",
+      "sha256": "1c3e56fa6f73845f00c1bba00ed74eb67860b34dc98a05b3892360c8b98e8f5e"
+    },
+    "to": {
+      "version": "20.6.39",
+      "sha256": "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5"
+    },
+    "edits": [
+      [
+        "version=\"20.6.38\" revisionDate=\"2026-11-04\"",
+        "version=\"20.6.39\" revisionDate=\"2026-11-05\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.39\" priority=\"High\">\n   Owner answer 244a of 5 November 2026, from the owner's reading of the didgeridoo trial (some people improved much,\n   others little), outside the core, which is unchanged: SpreadOfIndividualResults, in\n   StatisticalAndClinicalInterpretation, compares how much individual results varied in each arm and says when a split\n   shows only in a figure the research could not read.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"Heterogeneity\" priority=\"High\">\n   When heterogeneity is substantial, inspect population, burden, dose, formulation, endpoint definition, study quality,\n   surveillance, model choice, and prediction intervals before pooling.\n  </Rule>\n",
+        "  <Rule name=\"Heterogeneity\" priority=\"High\">\n   When heterogeneity is substantial, inspect population, burden, dose, formulation, endpoint definition, study quality,\n   surveillance, model choice, and prediction intervals before pooling.\n  </Rule>\n\n  <Rule name=\"SpreadOfIndividualResults\" priority=\"High\">\n   When a trial reports how much individual results varied in each arm, such as the standard deviation of each arm's\n   change or individual results in a table, compare the arms. A clearly wider spread in the treated arm suggests people\n   respond differently, some much and some little or not at all; a similar spread suggests the average fits most people.\n   Say which, with the arms' sizes, and that chance and ordinary variation, which the control arm also shows, can make a\n   small trial look split. When individual results appear only in a figure the research could not read, say so rather\n   than infer a split.\n  </Rule>\n"
+      ]
+    ]
+  }
+}

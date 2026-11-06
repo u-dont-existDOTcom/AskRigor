@@ -1,7 +1,13 @@
 import type {
+  AtlasForumSignalStudies,
+  AtlasPublishedRetraction,
+  AtlasQuoteText,
+  AtlasSourceFigures,
+  AtlasSourceReading,
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasPageChallenge,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
   AtlasPageParticipation,
@@ -17,8 +23,17 @@ import type {
 } from "@askrigor/evidence-repository";
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
-import { passesPageGuard } from "./page-guard.js";
-import { atlasSearchWords, type AtlasSearchQuery } from "./search.js";
+import { shownCommunity } from "../forum-thread-links.js";
+import { opensYouTube, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
+import { claimStrength, type ClaimStrength } from "./strength.js";
+import {
+  foldAtlasSearchTexts,
+  matchFoldedAtlasSearch,
+  prepareAtlasSearch,
+  type AtlasSearchField,
+  type AtlasSearchQuery,
+  type AtlasSearchText,
+} from "./search.js";
 
 /**
  * What the public Atlas pages show (decision 171, section 4C; plan
@@ -33,7 +48,7 @@ import { atlasSearchWords, type AtlasSearchQuery } from "./search.js";
  */
 
 export type AtlasCertainty = "high" | "moderate" | "low" | "very_low";
-export type AtlasVerifiedBasis = "full_text_audit" | "bounded_absence" | "research_correction";
+export type AtlasVerifiedBasis = "full_text_audit" | "bounded_absence" | "research_correction" | "forum_read";
 export type AtlasSearchDatabase = "pubmed" | "europepmc" | "ctgov";
 
 /** The exact label an unreviewed finding carries, the approved notice's words. */
@@ -61,6 +76,8 @@ export interface ShownNumber {
   comparatorTotal: number;
   followUp: string;
   harmsNoneFound: boolean;
+  /** Owner answer 252a: the study the figure comes from, when its publication names one. */
+  source: ShownSource | null;
 }
 
 export interface ShownSearch {
@@ -75,10 +92,56 @@ export interface ShownRelated {
   publicationNumber: string | null;
 }
 
+/** A source: its identifiers in canonical form, with the title and year its public record gives, when known. */
+export interface ShownSource {
+  identifiers: AtlasPageSourceIdentifiers;
+  title: string | null;
+  year: number | null;
+}
+
+/** One backing line of the research behind a finding: the paper's own words, found word for word (owner answer 252a). */
+export interface ShownQuoteLine {
+  sentence: string | null;
+  sentenceSection: string | null;
+  conclusion: string | null;
+  conclusionSection: string | null;
+  /** Where AskRigor found them: a full text it fetched itself, or the PubMed abstract. */
+  text: AtlasQuoteText;
+  /** The strongest thing against the finding from this source, in AskRigor's words. */
+  against: string;
+}
+
+/** One source of the research behind a finding, with how AskRigor read it and its retraction status (owner answer 252a). */
+export interface ShownResearchSource {
+  source: ShownSource;
+  retraction: AtlasPublishedRetraction | null;
+  read: AtlasSourceReading | null;
+  figures: AtlasSourceFigures | null;
+  lines: ShownQuoteLine[];
+}
+
+/** What people report in the forum threads read for a finding: AskRigor's counts and words, and the links (252a). */
+export interface ShownForumSignal {
+  communities: string[];
+  /** How many threads AskRigor's reader read for it; the links shown may be fewer. */
+  threadsRead: number;
+  threads: string[];
+  people: { better: number; noChange: number; worse: number; mixed: number };
+  quality: { detailed: number; measured: number; bare: number };
+  mechanism: string | null;
+  studies: AtlasForumSignalStudies;
+  studiesMeasured: string | null;
+}
+
 export interface ShownFinding {
   publicationNumber: string;
-  /** Only the canonical public question; older/unreviewed publications have no published question. */
+  /**
+   * The question its research answered: an accepted finding's canonical public question, or the card's question an
+   * unreviewed publication carries (version 2); null for a publication published without it.
+   */
   question: string | null;
+  /** What a quick, ordinary answer would say: the canonical version's, or the card's (version 2); null when not known. */
+  usualAnswer: string | null;
   links: AtlasPageFinding["links"];
   status: ShownStatus;
   topic: { key: string; label: string } | null;
@@ -91,8 +154,8 @@ export interface ShownFinding {
   direction: AtlasFindingDirection | null;
   numbers: ShownNumber[];
   searches: ShownSearch[];
-  /** Each source by its identifiers, parsed by exact patterns; anything else is left out. */
-  sources: AtlasPageSourceIdentifiers[];
+  /** Each source by its identifiers, parsed by exact patterns (anything else is left out), with its title and year. */
+  sources: ShownSource[];
   whyNotUsual: string | null;
   whatWouldChangeIt: string | null;
   verifiedBases: AtlasVerifiedBasis[];
@@ -107,6 +170,37 @@ export interface ShownFinding {
   replacedBy: ShownRelated[];
   publishedAt: string;
   stateChangedAt: string;
+  /**
+   * Kept for AskRigor's research only (owner answers 229a and 231a): its page and the research lookup show it; no list,
+   * topic, home page, search, map or sitemap does.
+   */
+  kept: boolean;
+  /**
+   * Owner answer 252a: the research behind it, source by source, from its publication's version 3 fields (an accepted or
+   * edited finding's too, which an erasure of its wording erases); empty for an older publication.
+   */
+  research: ShownResearchSource[];
+  /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
+  forumSignal: ShownForumSignal | null;
+  /**
+   * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict, from its
+   * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
+   */
+  challenge: ShownChallenge | null;
+}
+
+/** A finding's challenge mark as its pages show it: never who marked it. */
+export type ShownChallenge = AtlasPageChallenge;
+
+/**
+ * A publication's challenge mark, or null when it has none, or one of its texts would stop a page (page-guard.ts) or its
+ * link opens YouTube by its host, as a browser reads it (the review of #422).
+ */
+function shownChallenge(publication: AtlasPagePublication): ShownChallenge | null {
+  const mark = publication.challenge ?? null;
+  return mark === null || ![mark.usualView, mark.sourceLabel, mark.sourceUrl].every(passesPageGuard) ||
+    opensYouTube(mark.sourceUrl) ? null
+    : { usualView: mark.usualView, sourceUrl: mark.sourceUrl, sourceLabel: mark.sourceLabel, verdict: mark.verdict };
 }
 
 /** The owner's "most important now" pick with its reason (decision 2a). */
@@ -129,6 +223,11 @@ export interface AtlasHomeModel {
   picks: readonly AtlasOwnerPick[];
   recentlyPublished: ShownFinding[];
   recentlyChecked: ShownFinding[];
+  /**
+   * The home page's top places (the owner, 2 Nov 2026): reviewed findings only, the strongest claims first
+   * (strength.ts), so an unreviewed finding never leads the page.
+   */
+  strongestChecked: ShownFinding[];
   contested: AtlasContestedPair[];
 }
 
@@ -152,6 +251,8 @@ export interface AtlasTopicModel {
 
 export interface AtlasFindingModel {
   finding: ShownFinding;
+  /** The other findings the pages show from the same card, in number order. */
+  siblings: ShownFinding[];
   /**
    * Votes and comments (decision 171, section 4E): the totals, the comments that show and the signed-in viewer's own;
    * null when votes and comments are switched off, and then nothing of them renders.
@@ -213,7 +314,13 @@ export interface AtlasChangesModel {
 }
 
 /** How many findings each home lane shows, and how many publications it reads to fill itself. */
-export const ATLAS_LANE_SIZES = { published: 20, checked: 10, contested: 10 } as const;
+export const ATLAS_LANE_SIZES = { published: 20, checked: 10, contested: 10, strongest: 10 } as const;
+
+/** A shown finding's claim strength (strength.ts), from its declared fields alone. */
+export const strengthOf = (finding: ShownFinding): ClaimStrength => claimStrength(finding);
+
+/** Stronger claims first; findings of equal strength keep the order they had. */
+export const byStrength = (left: ShownFinding, right: ShownFinding) => strengthOf(right).total - strengthOf(left).total;
 const LANE_READ = 60;
 const CONTRADICTIONS_READ = 50;
 /** The most findings a topic page shows. */
@@ -261,6 +368,11 @@ export function canonicalIdentifier(identifier: { scheme: string; value: string 
   return pattern !== undefined && pattern.test(identifier.value);
 }
 
+/** The words a source's link shows before its identifier. */
+export const SOURCE_SCHEME_WORDS: Record<AtlasPageSourceScheme, string> = {
+  doi: "DOI", pmid: "PMID", pmcid: "PMCID", nct: "ClinicalTrials.gov",
+};
+
 // Resolving publications ----------------------------------------------------------------------------------------------
 
 const unique = <T>(values: readonly T[]) => [...new Set(values)];
@@ -302,7 +414,7 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
     for (;;) {
       const page = await reads.listPublications({
         atlasNumbers: numbers.slice(start, start + READ_CHUNK), states: ["accepted", "edited"], limit: READ_CHUNK,
-        ...(before === undefined ? {} : { before }),
+        includeKept: true, ...(before === undefined ? {} : { before }),
       });
       publications.push(...page);
       if (page.length < READ_CHUNK) break;
@@ -321,9 +433,16 @@ async function relatedFindings(reads: AtlasPageReads, atlasNumbers: readonly str
 }
 
 function fromPublished(publication: AtlasPagePublication, published: AtlasPublishedFinding): ShownFinding {
+  const details = new Map((published.source_details ?? []).map(({ source, title, year }) => [source, { title, year }]));
+  const shownSource = (source: string): ShownSource | null => {
+    const identifier = sourceIdentifierOf(source);
+    return identifier === undefined ? null
+      : { identifiers: [identifier], title: details.get(source)?.title ?? null, year: details.get(source)?.year ?? null };
+  };
   return {
     publicationNumber: publication.publicationNumber,
-    question: null,
+    question: published.question ?? null,
+    usualAnswer: published.usual_answer ?? null,
     links: [],
     status: { kind: "unreviewed" },
     topic: published.topic === null ? null : { key: published.topic.key, label: published.topic.label },
@@ -345,6 +464,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
       comparatorTotal: entry.comparator_total,
       followUp: entry.follow_up,
       harmsNoneFound: entry.harms_none_found === true,
+      source: entry.source === undefined ? null : shownSource(entry.source),
     })),
     searches: (published.searches ?? []).map((search) => ({
       database: search.database,
@@ -352,8 +472,8 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
       dateRange: search.date_range === undefined ? null : { start: search.date_range.start, end: search.date_range.end },
     })),
     sources: published.sources.flatMap((source) => {
-      const identifier = sourceIdentifierOf(source);
-      return identifier === undefined ? [] : [[identifier]];
+      const shown = shownSource(source);
+      return shown === null ? [] : [shown];
     }),
     whyNotUsual: published.why_not_usual,
     whatWouldChangeIt: published.what_would_change_it,
@@ -365,7 +485,112 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     replacedBy: [],
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
+    kept: publication.kept,
+    challenge: shownChallenge(publication),
+    ...researchBehind(published, shownSource),
   };
+}
+
+/**
+ * The research behind a finding and what people report, from a version 3 publication's fields (owner answer 252a):
+ * each source with a reading, a retraction status or a backing line, in the publication's order, named as the page names
+ * its sources; and the forum signal. A text the page guard would refuse is left out, so it never stops a page. Nothing
+ * for a version 1 or 2 publication.
+ */
+function researchBehind(published: AtlasPublishedFinding | null, shownSource: (source: string) => ShownSource | null):
+  Pick<ShownFinding, "research" | "forumSignal"> {
+  if (published === null || published.schema !== "askrigor.atlas-publication.v3") return { research: [], forumSignal: null };
+  return researchShown({
+    sources: published.sources,
+    backing: published.backing ?? [],
+    reading: published.source_reading ?? [],
+    retractionOf: (source) => (published.source_details ?? []).find((detail) => detail.source === source)?.retraction ?? null,
+    forumSignal: published.forum_signal,
+  }, shownSource);
+}
+
+/** The research behind a finding in the shape both a publication and an accepted version give it (owner answer 255a). */
+interface ResearchFields {
+  /** The sources in the order the page lists them. */
+  sources: readonly string[];
+  backing: NonNullable<AtlasPublishedFinding["backing"]>;
+  reading: NonNullable<AtlasPublishedFinding["source_reading"]>;
+  retractionOf: (source: string) => string | null;
+  forumSignal: AtlasPublishedFinding["forum_signal"];
+}
+
+const SHOWN_RETRACTIONS: readonly string[] = ["none_found", "corrected_or_updated", "expression_of_concern", "retracted",
+  "not_applicable"];
+
+function researchShown(fields: ResearchFields, shownSource: (source: string) => ShownSource | null):
+  Pick<ShownFinding, "research" | "forumSignal"> {
+  const guarded = (text: string | undefined) => text === undefined || !passesPageGuard(text) ? null : text;
+  const research = fields.sources.flatMap((source): ShownResearchSource[] => {
+    const shown = shownSource(source);
+    if (shown === null) return [];
+    const reading = fields.reading.find((entry) => entry.source === source);
+    const status = fields.retractionOf(source);
+    const retraction = status !== null && SHOWN_RETRACTIONS.includes(status) ? status as ShownResearchSource["retraction"] : null;
+    const lines = fields.backing.filter((line) => line.source === source).flatMap((line): ShownQuoteLine[] => {
+      const sentence = guarded(line.sentence);
+      const conclusion = guarded(line.conclusion);
+      const against = guarded(line.against);
+      if ((sentence === null && conclusion === null) || against === null) return [];
+      return [{
+        sentence,
+        sentenceSection: sentence === null ? null : guarded(line.sentence_section),
+        conclusion,
+        conclusionSection: conclusion === null ? null : guarded(line.conclusion_section),
+        text: line.text,
+        against,
+      }];
+    });
+    return reading === undefined && retraction === null && lines.length === 0 ? []
+      : [{ source: shown, retraction, read: reading?.read ?? null, figures: reading?.figures ?? null, lines }];
+  });
+  const signal = fields.forumSignal;
+  const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
+    communities: signal.communities.map(shownCommunity).filter(passesPageGuard),
+    threadsRead: signal.threads_read,
+    // Each thread link the page writes, left out when its words or the host a browser opens would stop the page (the
+    // review of #422, third round), so that no one stored link stops a whole page; the page's last check stays.
+    threads: signal.threads.filter((link) => passesPageGuard(link) && !opensYouTube(link)),
+    people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,
+      mixed: signal.people.mixed },
+    quality: { ...signal.report_quality },
+    mechanism: guarded(signal.mechanism),
+    studies: signal.studies,
+    studiesMeasured: guarded(signal.studies_measured),
+  };
+  return { research, forumSignal };
+}
+
+/**
+ * An accepted finding's research behind it: its own version's (owner answer 255a), else its publication's version 3
+ * fields (owner answer 252a), each erased with its F number's wording. Only the finding's canonical sources show, named
+ * as the page names them, each with its newest check's retraction status (the review of 5 November, finding 4): a source
+ * the owner dropped at acceptance never shows, whatever the research or the publication holds of it.
+ */
+function canonicalResearch(content: AtlasPageFinding["content"], publication: AtlasPagePublication,
+  sources: readonly ShownSource[], canonicalSources: AtlasPageFinding["sources"]): Pick<ShownFinding, "research" | "forumSignal"> {
+  const research = content.research;
+  const named = (source: string) => canonicalSourceOnly(source, sources);
+  const retractionOf = (source: string) => {
+    const identifier = sourceIdentifierOf(source);
+    const same = identifier === undefined ? undefined : canonicalSources.find(({ identifiers }) =>
+      identifiers.some(({ scheme, value }) => scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase()));
+    return same?.retraction ?? null;
+  };
+  if (research === undefined) {
+    const published = publication.published;
+    if (published === null || published.schema !== "askrigor.atlas-publication.v3") return { research: [], forumSignal: null };
+    return researchShown({ sources: published.sources, backing: published.backing ?? [],
+      reading: published.source_reading ?? [], retractionOf, forumSignal: published.forum_signal }, named);
+  }
+  const listed = [...new Set([...(research.source_reading ?? []).map(({ source }) => source),
+    ...(research.backing ?? []).map(({ source }) => source)])];
+  return researchShown({ sources: listed, backing: research.backing ?? [], reading: research.source_reading ?? [],
+    retractionOf, forumSignal: research.forum_signal }, named);
 }
 
 function fromCanonical(
@@ -375,9 +600,13 @@ function fromCanonical(
 ): ShownFinding {
   const content = finding.content;
   const label = finding.label as Exclude<AtlasLabel, "withdrawn">;
+  const sources = finding.sources
+    .map((source) => ({ ...source, identifiers: source.identifiers.filter(canonicalIdentifier) }))
+    .filter(({ identifiers }) => identifiers.length > 0);
   return {
     publicationNumber: publication.publicationNumber,
     question: finding.question,
+    usualAnswer: content.usualAnswer ?? null,
     links: finding.links,
     status: {
       kind: label,
@@ -392,7 +621,7 @@ function fromCanonical(
     subject: content.subject ?? null,
     subjectType: content.subjectType ?? null,
     direction: content.direction ?? null,
-    numbers: content.numbers.map((entry) => ({
+    numbers: content.numbers.map((entry, index) => ({
       outcome: entry.outcome,
       better: entry.better,
       option: entry.option,
@@ -403,15 +632,14 @@ function fromCanonical(
       comparatorTotal: entry.comparator_total,
       followUp: entry.follow_up,
       harmsNoneFound: entry.harms_none_found === true,
+      source: canonicalFigureSource(entry, index, content.research?.figure_sources, publication.published, sources),
     })),
     searches: (content.searchScope ?? []).map((search) => ({
       database: search.database,
       query: search.query,
       dateRange: search.dateRange === undefined ? null : { start: search.dateRange.start, end: search.dateRange.end },
     })),
-    sources: finding.sources
-      .map((identifiers) => identifiers.filter(canonicalIdentifier))
-      .filter((identifiers) => identifiers.length > 0),
+    sources,
     whyNotUsual: content.whyNotUsual,
     whatWouldChangeIt: content.whatWouldChangeIt,
     verifiedBases: [...content.verifiedBases],
@@ -428,20 +656,64 @@ function fromCanonical(
       ({ atlasNumber, publicationNumber: related.get(atlasNumber)?.publicationNumber ?? null })),
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
+    kept: publication.kept,
+    challenge: shownChallenge(publication),
+    // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
+    // from its publication's fields; both are erased with its F number's wording.
+    ...canonicalResearch(content, publication, sources, finding.sources),
   };
 }
 
-/** What a publication shows, or undefined when it shows nowhere. */
+/**
+ * A source of an accepted finding's research as its page names it: the canonical source with the same identifier, or
+ * none, so that only the sources the owner accepted show (the review of 5 November, finding 4).
+ */
+function canonicalSourceOnly(source: string, sources: readonly ShownSource[]): ShownSource | null {
+  const identifier = sourceIdentifierOf(source);
+  if (identifier === undefined) return null;
+  return sources.find(({ identifiers }) => identifiers.some(({ scheme, value }) =>
+    scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase())) ?? null;
+}
+
+/**
+ * The study an accepted finding's figure comes from: its version's own figure source at the figure's place (owner
+ * answer 255a), else its publication's same figure's source, when it names one.
+ */
+function canonicalFigureSource(
+  entry: { outcome: string; option: string; comparator: string; option_events: number; option_total: number;
+    comparator_events: number; comparator_total: number; follow_up: string },
+  index: number,
+  figureSources: ReadonlyArray<string | null> | undefined,
+  published: AtlasPublishedFinding | null,
+  sources: readonly ShownSource[],
+): ShownSource | null {
+  if (figureSources !== undefined) {
+    const own = figureSources[index];
+    return own === undefined || own === null ? null : canonicalSourceOnly(own, sources);
+  }
+  if (published === null || published.schema !== "askrigor.atlas-publication.v3") return null;
+  const same = (published.numbers ?? []).find((figure) => figure.outcome === entry.outcome &&
+    figure.option === entry.option && figure.comparator === entry.comparator && figure.follow_up === entry.follow_up &&
+    figure.option_events === entry.option_events && figure.option_total === entry.option_total &&
+    figure.comparator_events === entry.comparator_events && figure.comparator_total === entry.comparator_total);
+  return same?.source === undefined ? null : canonicalSourceOnly(same.source, sources);
+}
+
+/**
+ * What a publication shows, or undefined when it shows nowhere: a finding with a text a page would refuse is left out
+ * of every page, its own included (the review of #422, fourth round: one stored text made every page listing it answer
+ * 503), as a comment, a thread link, a glance row or a pick is.
+ */
 function shownFindingOf(
   publication: AtlasPagePublication,
   findings: ReadonlyMap<string, AtlasPageFinding>,
   related: ReadonlyMap<string, RelatedFinding> = new Map(),
 ): ShownFinding | undefined {
-  if (publication.state === "unreviewed") {
-    return publication.published === null ? undefined : fromPublished(publication, publication.published);
-  }
   const finding = publication.atlasNumber === null ? undefined : findings.get(publication.atlasNumber);
-  return canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  const shown = publication.state === "unreviewed"
+    ? publication.published === null ? undefined : fromPublished(publication, publication.published)
+    : canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  return shown === undefined || !rowPassesPageGuard(shown) ? undefined : shown;
 }
 
 async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {
@@ -453,7 +725,7 @@ async function shownFindings(reads: AtlasPageReads, publications: readonly Atlas
 }
 
 /** One entry per accepted finding (two publications can show one F number after a re-check): the first in order. */
-function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
+export function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
   const seen = new Set<string>();
   return findings.filter((finding) => {
     if (finding.status.kind === "unreviewed") return true;
@@ -467,9 +739,6 @@ function oncePerFinding(findings: readonly ShownFinding[]): ShownFinding[] {
 const inLanes = (finding: ShownFinding) => finding.status.kind !== "lead" && finding.status.kind !== "superseded";
 /** The same link-derived canonical label defines the home lane and the all-findings contested filter. */
 const isContested = (finding: ShownFinding) => finding.status.kind === "contested";
-
-const CERTAINTY_RANK: Record<AtlasCertainty, number> = { high: 0, moderate: 1, low: 2, very_low: 3 };
-const certaintyRank = (finding: ShownFinding) => finding.certainty === null ? 4 : CERTAINTY_RANK[finding.certainty];
 
 // The pages' models ---------------------------------------------------------------------------------------------------
 
@@ -502,7 +771,14 @@ export async function loadAtlasHome(source: AtlasPageSource): Promise<AtlasHomeM
         Date.parse(right.stateChangedAt) - Date.parse(left.stateChangedAt)))
       .slice(0, ATLAS_LANE_SIZES.checked);
 
-    return { picks, recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
+    // Every reviewed finding the lanes show, the strongest claims first.
+    const reviewed: ShownFinding[] = [];
+    for await (const finding of allShown(reads)) {
+      if (finding.status.kind !== "unreviewed" && inLanes(finding)) reviewed.push(finding);
+    }
+    const strongestChecked = oncePerFinding(reviewed).sort(byStrength).slice(0, ATLAS_LANE_SIZES.strongest);
+
+    return { picks, strongestChecked, recentlyPublished, recentlyChecked, contested: await contestedPairs(reads) };
   });
 }
 
@@ -536,18 +812,20 @@ async function contestedPairs(reads: AtlasPageReads): Promise<AtlasContestedPair
 }
 
 /** A topic page: the findings on the topic, by section; undefined when none shows. */
-export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string): Promise<AtlasTopicModel | undefined> {
+export async function loadAtlasTopic(source: AtlasPageSource, topicKey: string, options: { includeKept?: boolean } = {}):
+  Promise<AtlasTopicModel | undefined> {
   return await source.read(async (reads) => {
     const shown = oncePerFinding(await shownFindings(reads,
-      await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS })))
+      await reads.listPublications({ topicKey, limit: ATLAS_TOPIC_FINDINGS, includeKept: options.includeKept === true })))
       // A finding shows on the page of the topic it shows with.
       .filter((finding) => finding.topic?.key === topicKey);
     if (shown.length === 0) return undefined;
     const label = shown.find((finding) => finding.status.kind !== "unreviewed")?.topic?.label ??
       shown[0]!.topic!.label;
+    // Checked findings first; then the stronger claims (strength.ts), then the newest.
     const order = (left: ShownFinding, right: ShownFinding) =>
       Number(left.status.kind === "unreviewed") - Number(right.status.kind === "unreviewed") ||
-      certaintyRank(left) - certaintyRank(right) ||
+      byStrength(left, right) ||
       Date.parse(right.publishedAt) - Date.parse(left.publishedAt);
     const sections = TOPIC_SECTIONS.map(({ id, heading }) => ({
       id,
@@ -593,10 +871,11 @@ export interface AtlasTopicsModel {
 }
 
 /** Exhaust the public reader in bounded chunks in the same snapshot; never silently stop at its 500-row limit. */
-async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator<ShownFinding> {
+export async function* allShown(reads: AtlasPageReads, before?: string, includeKept = false): AsyncGenerator<ShownFinding> {
   let cursor = before;
   for (;;) {
-    const publications = await reads.listPublications({ limit: READ_CHUNK, ...(cursor === undefined ? {} : { before: cursor }) });
+    const publications = await reads.listPublications({ limit: READ_CHUNK, includeKept,
+      ...(cursor === undefined ? {} : { before: cursor }) });
     for (const finding of await shownFindings(reads, publications)) yield finding;
     if (publications.length < READ_CHUNK) return;
     const next = publications.at(-1)!.publicationNumber;
@@ -605,23 +884,58 @@ async function* allShown(reads: AtlasPageReads, before?: string): AsyncGenerator
   }
 }
 
+/** One page of the sitemap: its path on the public origin, and the day it last changed when known. */
+export interface AtlasSitemapEntry {
+  path: string;
+  lastModified: string | null;
+}
+
+/**
+ * The sitemap (owner answer 224a, 2 Nov 2026): only reviewed findings, and the pages that hold them. Unreviewed findings
+ * are kept out of search engines, so their pages carry noindex and are never listed here. The topics index, which shows
+ * no finding's text, is always listed.
+ */
+export async function loadAtlasSitemap(source: AtlasPageSource): Promise<AtlasSitemapEntry[]> {
+  return await source.read(async (reads) => {
+    const reviewed: Array<ShownFinding & { status: Exclude<ShownStatus, { kind: "unreviewed" }> }> = [];
+    for await (const finding of allShown(reads)) {
+      if (finding.status.kind !== "unreviewed") reviewed.push(finding as typeof reviewed[number]);
+    }
+    const once = oncePerFinding(reviewed) as typeof reviewed;
+    const entries: AtlasSitemapEntry[] = [{ path: "/atlas/topics", lastModified: null }];
+    if (once.length === 0) return entries;
+    const newest = once.reduce((day, { status }) => status.checkedOn > day ? status.checkedOn : day, "");
+    entries.push({ path: "/atlas", lastModified: newest }, { path: "/atlas/changes", lastModified: newest });
+    const topics = new Map<string, string>();
+    for (const finding of once) {
+      if (finding.topic === null) continue;
+      const day = topics.get(finding.topic.key) ?? "";
+      if (finding.status.checkedOn > day) topics.set(finding.topic.key, finding.status.checkedOn);
+    }
+    for (const [key, day] of [...topics].sort(([left], [right]) => left.localeCompare(right))) {
+      entries.push({ path: `/atlas/topics/${key}`, lastModified: day });
+    }
+    for (const finding of once.sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber))) {
+      entries.push({ path: `/atlas/findings/${finding.publicationNumber}`, lastModified: finding.status.checkedOn });
+    }
+    return entries;
+  });
+}
+
 /** Every shown publication, including leads and earlier findings; filters never use private or stale card wording. */
 export async function loadAtlasFindings(source: AtlasPageSource, options: {
-  before?: string; filter?: AtlasFindingFilter; search?: AtlasSearchQuery; topicKey?: string;
+  before?: string; filter?: AtlasFindingFilter; topicKey?: string;
+  /** The research lookup reads the findings kept for research too (owner answers 229a and 231a); the pages never do. */
+  includeKept?: boolean;
 } = {}): Promise<AtlasFindingsModel> {
   return await source.read(async (reads) => {
     const filter = options.filter ?? "all";
     const findings: ShownFinding[] = [];
-    for await (const finding of allShown(reads, options.before)) {
+    for await (const finding of allShown(reads, options.before, options.includeKept === true)) {
       if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
       if ((filter === "checked" && finding.status.kind === "unreviewed") ||
         (filter === "unreviewed" && finding.status.kind !== "unreviewed") ||
         (filter === "contested" && !isContested(finding))) continue;
-      if (options.search !== undefined) {
-        const words = new Set([finding.question, finding.claim, finding.appliesTo, finding.subject, finding.topic?.label]
-          .flatMap((field) => field == null ? [] : atlasSearchWords(field)));
-        if (!options.search.words.every((word) => words.has(word))) continue;
-      }
       findings.push(finding);
       if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
     }
@@ -629,6 +943,154 @@ export async function loadAtlasFindings(source: AtlasPageSource, options: {
     const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
     return { findings: visible, filter, before: more ? visible.at(-1)!.publicationNumber : null };
   });
+}
+
+/** The findings that challenge the usual view (the owner, 6 Nov 2026), newest first, a page at a time. */
+export interface AtlasChallengesModel {
+  findings: ShownFinding[];
+  before: string | null;
+}
+
+/**
+ * The shown findings that carry a challenge mark (the owner, 6 Nov 2026: "we should also have a section for results
+ * that challenge mainstream consensus even if it's available with a standard ai answer"): never one kept for research,
+ * which no list shows, nor one whose mark a page would refuse.
+ */
+export async function loadAtlasChallenges(source: AtlasPageSource, options: { before?: string } = {}):
+  Promise<AtlasChallengesModel> {
+  return await source.read(async (reads) => {
+    const findings: ShownFinding[] = [];
+    let cursor = options.before;
+    for (;;) {
+      const publications = await reads.listPublications({ limit: READ_CHUNK, challengedOnly: true,
+        ...(cursor === undefined ? {} : { before: cursor }) });
+      for (const finding of await shownFindings(reads, publications)) {
+        if (finding.challenge === null) continue;
+        findings.push(finding);
+        if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
+      }
+      if (findings.length > ATLAS_FINDINGS_PER_PAGE || publications.length < READ_CHUNK) break;
+      const next = publications.at(-1)!.publicationNumber;
+      if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
+      cursor = next;
+    }
+    const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
+    const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
+    return { findings: visible, before: more ? visible.at(-1)!.publicationNumber : null };
+  });
+}
+
+// Search (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md) ----------------------------
+
+/**
+ * What search reads of a finding: the text its page shows, part by part. Never a label the pages add (kind, direction,
+ * certainty), a vote or a comment, or a card's or version's text the pages leave out.
+ */
+export function searchTextsOf(finding: ShownFinding): AtlasSearchText[] {
+  const parts: Array<[AtlasSearchField, ReadonlyArray<string | null | undefined>]> = [
+    ["wording", [finding.claim]],
+    ["question", [finding.question]],
+    ["usual_answer", [finding.usualAnswer]],
+    ["applies_to", [finding.appliesTo]],
+    ["subject", [finding.subject]],
+    ["topic", [finding.topic?.label]],
+    ["why_not_usual", [finding.whyNotUsual]],
+    ["what_would_change_it", [finding.whatWouldChangeIt]],
+    ["numbers", finding.numbers.flatMap((entry) => [entry.outcome, entry.followUp, entry.option, entry.comparator])],
+    // Owner answer 252a: the research behind it and what people report, as the page shows them.
+    ["research", finding.research.flatMap(({ lines }) => lines.flatMap(({ sentence, conclusion, against }) =>
+      [sentence, conclusion, against]))],
+    ["people", finding.forumSignal === null ? []
+      : [...finding.forumSignal.communities, finding.forumSignal.mechanism, finding.forumSignal.studiesMeasured]],
+    ["searches", finding.searches.map(({ query }) => query)],
+    ["sources", finding.sources.flatMap(({ identifiers, title }) => [
+      ...(title === null ? [] : [title]),
+      ...identifiers.filter(canonicalIdentifier).map(({ scheme, value }) => `${SOURCE_SCHEME_WORDS[scheme]} ${value}`),
+    ])],
+    ["number", [finding.publicationNumber, finding.status.kind === "unreviewed" ? null : finding.status.atlasNumber]],
+  ];
+  return parts.flatMap(([field, values]) => {
+    const text = values.filter((value): value is string => typeof value === "string" && value !== "").join("\n");
+    return text === "" ? [] : [{ field, text }];
+  });
+}
+
+/** The deepest results page a search answers: the first 2,000 matches are listed, and a narrower search finds the rest. */
+export const ATLAS_SEARCH_MAX_PAGE = 100;
+export interface AtlasSearchResult { finding: ShownFinding; foundIn: AtlasSearchField[] }
+export interface AtlasSearchModel {
+  results: AtlasSearchResult[];
+  /** How many findings match in all. */
+  total: number;
+  /** This page, from 1, and how many pages the listed matches fill: at least 1, at most ATLAS_SEARCH_MAX_PAGE. */
+  page: number;
+  pages: number;
+}
+
+/**
+ * What a search matches against: every shown publication, newest first, with the text its page shows folded once, and
+ * roughly how much memory that takes (two bytes a character, for the folded text and the finding's own).
+ */
+export interface AtlasSearchIndex {
+  entries: Array<{ finding: ShownFinding; texts: AtlasSearchText[] }>;
+  bytes: number;
+}
+
+export async function loadAtlasSearchIndex(source: AtlasPageSource, includeKept = false): Promise<AtlasSearchIndex> {
+  return await source.read(async (reads) => {
+    const entries: AtlasSearchIndex["entries"] = [];
+    let bytes = 0;
+    for await (const finding of allShown(reads, undefined, includeKept)) {
+      const texts = foldAtlasSearchTexts(searchTextsOf(finding));
+      bytes += 1_024 + texts.reduce((sum, { text }) => sum + 4 * text.length, 0);
+      entries.push({ finding, texts });
+    }
+    return { entries, bytes };
+  });
+}
+
+function searchPageOf(page: number | undefined): number {
+  const value = page ?? 1;
+  if (!Number.isSafeInteger(value) || value < 1 || value > ATLAS_SEARCH_MAX_PAGE) throw new Error("ATLAS_SEARCH_PAGE_INVALID");
+  return value;
+}
+
+/**
+ * The publications whose text holds the query's words (search.ts): by rank, those holding the query as typed first
+ * within a rank, and the newest first among equals, a page of ATLAS_FINDINGS_PER_PAGE at a time. Each group keeps only
+ * the matches the page can reach.
+ */
+export function searchAtlasIndex(index: AtlasSearchIndex, options: {
+  search: AtlasSearchQuery; topicKey?: string; page?: number;
+}): AtlasSearchModel {
+  const page = searchPageOf(options.page);
+  const search = prepareAtlasSearch(options.search);
+  const reach = page * ATLAS_FINDINGS_PER_PAGE;
+  const groups: AtlasSearchResult[][] = Array.from({ length: 8 }, () => []);
+  let total = 0;
+  for (const { finding, texts } of index.entries) {
+    if (options.topicKey !== undefined && finding.topic?.key !== options.topicKey) continue;
+    const match = matchFoldedAtlasSearch(search, texts);
+    if (match === undefined) continue;
+    total += 1;
+    groups[match.rank * 2 + (match.asTyped ? 0 : 1)]!.push({ finding, foundIn: match.foundIn });
+  }
+  // Within a group of equal matches, the stronger claims first (strength.ts), then the newest, as the index holds them.
+  for (const group of groups) group.sort((left, right) => byStrength(left.finding, right.finding));
+  return {
+    results: groups.flat().slice(reach - ATLAS_FINDINGS_PER_PAGE, reach),
+    total,
+    page,
+    pages: Math.min(ATLAS_SEARCH_MAX_PAGE, Math.max(1, Math.ceil(total / ATLAS_FINDINGS_PER_PAGE))),
+  };
+}
+
+/** A search read afresh, in one snapshot. The research lookup reads the findings kept for research too; the pages never do. */
+export async function loadAtlasSearch(source: AtlasPageSource, options: {
+  search: AtlasSearchQuery; topicKey?: string; page?: number; includeKept?: boolean;
+}): Promise<AtlasSearchModel> {
+  searchPageOf(options.page);
+  return searchAtlasIndex(await loadAtlasSearchIndex(source, options.includeKept === true), options);
 }
 
 export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTopicsModel> {
@@ -647,6 +1109,102 @@ export async function loadAtlasTopics(source: AtlasPageSource): Promise<AtlasTop
     }
     return { topics: [...topics.values()].sort((a, b) => a.label.localeCompare(b.label, "en") || a.key.localeCompare(b.key)),
       withoutTopic };
+  });
+}
+
+// The findings map (plan docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md) ---------------
+
+/** The most circles one topic shows on the map; its page lists the rest. */
+export const ATLAS_MAP_TOPIC_FINDINGS = 60;
+/** A finding published or checked within this many days gets the map's point for being new. */
+export const ATLAS_MAP_NEW_DAYS = 30;
+
+/**
+ * A finding's points on the map, the rule the page states: 2 if supervisors checked it (checked or contested); 2 for
+ * AskRigor's high certainty, 1 for moderate; 1 for counted results; 1 for two or more linked sources; 1 for being new.
+ * None depends on what the finding says.
+ */
+export interface AtlasMapPoints {
+  checked: 0 | 2;
+  certainty: 0 | 1 | 2;
+  numbers: 0 | 1;
+  sources: 0 | 1;
+  recent: 0 | 1;
+  total: number;
+}
+
+export interface AtlasMapFinding { finding: ShownFinding; points: AtlasMapPoints }
+
+export interface AtlasMapTopic {
+  /** null for the findings with no topic (older cards). */
+  topic: { key: string; label: string } | null;
+  /** How many of its findings belong on the map; at most ATLAS_MAP_TOPIC_FINDINGS of them are drawn. */
+  count: number;
+  findings: AtlasMapFinding[];
+}
+
+export interface AtlasMapModel {
+  topics: AtlasMapTopic[];
+  /** The first day that counts as new, YYYY-MM-DD. */
+  newSince: string;
+}
+
+/** The sources a finding's page links to: those with an identifier in canonical form. */
+export const linkedSources = (finding: ShownFinding) =>
+  finding.sources.filter(({ identifiers }) => identifiers.some(canonicalIdentifier)).length;
+
+/** The newest of the day a finding was published and the day supervisors checked it, YYYY-MM-DD. */
+const latestDay = (finding: ShownFinding) => {
+  const published = finding.publishedAt.slice(0, 10);
+  const checked = finding.status.kind === "unreviewed" ? "" : finding.status.checkedOn;
+  return checked > published ? checked : published;
+};
+
+export function atlasMapPoints(finding: ShownFinding, newSince: string): AtlasMapPoints {
+  const checked = finding.status.kind === "checked" || finding.status.kind === "contested" ? 2 : 0;
+  const certainty = finding.certainty === "high" ? 2 : finding.certainty === "moderate" ? 1 : 0;
+  const numbers = finding.numbers.length > 0 ? 1 : 0;
+  const sources = linkedSources(finding) >= 2 ? 1 : 0;
+  const recent = latestDay(finding) >= newSince ? 1 : 0;
+  return { checked, certainty, numbers, sources, recent, total: checked + certainty + numbers + sources + recent };
+}
+
+/**
+ * The findings map: every shown finding but leads and superseded ones (as the home lanes), once per F number, by topic.
+ * Within a topic, more points first, then the newest published; topics with more findings first, then by label, and
+ * the findings with no topic last.
+ */
+export async function loadAtlasMap(source: AtlasPageSource, now: Date): Promise<AtlasMapModel> {
+  return await source.read(async (reads) => {
+    const newSince = new Date(now.getTime() - ATLAS_MAP_NEW_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const shown: ShownFinding[] = [];
+    for await (const finding of allShown(reads)) shown.push(finding);
+    const groups = new Map<string, { topic: AtlasMapTopic["topic"]; findings: AtlasMapFinding[] }>();
+    for (const finding of oncePerFinding(shown).filter(inLanes)) {
+      const key = finding.topic?.key ?? "";
+      let group = groups.get(key);
+      if (group === undefined) {
+        group = { topic: finding.topic === null ? null : { ...finding.topic }, findings: [] };
+        groups.set(key, group);
+      } else if (group.topic !== null && finding.topic !== null && finding.status.kind !== "unreviewed") {
+        // As on the topic page, prefer the canonical topic label over a card's earlier spelling.
+        group.topic.label = finding.topic.label;
+      }
+      group.findings.push({ finding, points: atlasMapPoints(finding, newSince) });
+    }
+    const topics = [...groups.values()].map(({ topic, findings }) => ({
+      topic,
+      count: findings.length,
+      // Stable: findings arrive newest published first.
+      // The stronger claims first (strength.ts), then more points, then the newest.
+      findings: findings.sort((left, right) => byStrength(left.finding, right.finding) ||
+        right.points.total - left.points.total).slice(0, ATLAS_MAP_TOPIC_FINDINGS),
+    }));
+    topics.sort((left, right) => Number(left.topic === null) - Number(right.topic === null) ||
+      right.count - left.count ||
+      (left.topic?.label ?? "").localeCompare(right.topic?.label ?? "", "en") ||
+      (left.topic?.key ?? "").localeCompare(right.topic?.key ?? ""));
+    return { topics, newSince };
   });
 }
 
@@ -681,7 +1239,8 @@ export async function loadAtlasFinding(
   options: { participation?: { participantKey: string | null; before?: number } } = {},
 ): Promise<AtlasFindingModel | undefined> {
   return await source.read(async (reads) => {
-    const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1 });
+    // A finding kept for research keeps its own page (owner answers 229a and 231a).
+    const [publication] = await reads.listPublications({ publicationNumbers: [publicationNumber], limit: 1, includeKept: true });
     if (publication === undefined) return undefined;
     const findings = publication.atlasNumber === null ? new Map<string, AtlasPageFinding>()
       : await readFindings(reads, [publication.atlasNumber]);
@@ -691,9 +1250,14 @@ export async function loadAtlasFinding(
     const related = await relatedFindings(reads, partners);
     const shown = shownFindingOf(publication, findings, related);
     if (shown === undefined) return undefined;
+    const siblingNumbers = (await reads.listCardSiblings([publicationNumber])).map(({ siblingNumber }) => siblingNumber);
+    const siblings = siblingNumbers.length === 0 ? []
+      : (await shownFindings(reads, await reads.listPublications({ publicationNumbers: siblingNumbers,
+        limit: Math.min(siblingNumbers.length, READ_CHUNK) })))
+        .sort((left, right) => numberOf(left.publicationNumber) - numberOf(right.publicationNumber));
     const participation = options.participation === undefined ? null
       : await reads.readParticipation(publicationNumber, options.participation.participantKey, options.participation.before);
-    return { finding: shown, participation };
+    return { finding: shown, siblings, participation };
   });
 }
 
@@ -765,6 +1329,8 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       });
     }
     for (const change of changes) {
+      // A change whose public note a page would refuse is left out, so it can't stop the page (the review of #422).
+      if (change.publicNote !== null && !passesPageGuard(change.publicNote)) continue;
       if (change.kind === "withdrawn") {
         // Withdrawn after acceptance: listed only if a publication had put it on the pages.
         if (onPages.has(change.atlasNumber)) {

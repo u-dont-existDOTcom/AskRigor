@@ -59,13 +59,14 @@ export function permissiveConnectorInputSchema(published: ConnectorJsonSchema) {
 }
 
 /** A retained output schema accepts later fields and values; its server-side parser stays unchanged (189a). */
-export function openToolOutputSchema(schema: unknown): z.ZodObject {
+export function openToolOutputSchema(schema: unknown, publishedSchema: unknown = schema): z.ZodObject {
   const original = schema instanceof z.ZodObject ? schema : z.object(schema as z.ZodRawShape);
+  const published = publishedSchema instanceof z.ZodObject ? publishedSchema : z.object(publishedSchema as z.ZodRawShape);
   const open = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(open);
     if (value === null || typeof value !== "object") return value;
     return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "enum" && key !== "const").map(([key, child]) =>
       [key, key === "additionalProperties" && child === false ? true : open(child)]));
   };
-  return original.meta(open(z.toJSONSchema(original, { target: "draft-7" })) as Record<string, unknown>);
+  return original.meta(open(z.toJSONSchema(published, { target: "draft-7" })) as Record<string, unknown>);
 }

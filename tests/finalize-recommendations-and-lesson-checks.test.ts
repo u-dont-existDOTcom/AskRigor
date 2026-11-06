@@ -1,11 +1,18 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
-  CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  CORRECTION_REPORT_OFFER, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner question 90 (lesson #23): what the answer puts forward for this person, with its safety check and, for long
 // use, its follow-up and stopping. Owner question 92 (lessons #25, #27, #28, #29): a share of selected reports, how
@@ -41,7 +48,7 @@ const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks."
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
   assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type Recommendation = NonNullable<FinalizeResearchInput["recommendations"]>[number];
 
 describe("finalize_research recommendations (owner question 90, lesson #23)", () => {
@@ -62,13 +69,17 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const unresolved = "An option that needs a clinician's review before it could be recommended for you: the " +
       "medicine. What the review covers: a past severe reaction to a nerve-acting medicine.";
     const open = recommend({ safety_check: "unresolved", open_inputs: "a past severe reaction to a nerve-acting medicine" });
-    expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([SKIP, unresolved]);
+    expect(check({ answer_draft: draft(), recommendations: [open] }).limits).toEqual([SKIP, unresolved]);
+    expect(check({ answer_draft: draft(), recommendations: [open] }).caveats).toEqual([SKIP]);
     expect(check({ answer_draft: draft(unresolved), recommendations: [open] }).status).toBe("ready_with_limits");
     const conditional = "An option that depends on something a clinician should confirm first: the medicine. What to " +
       "confirm: normal kidney function.";
     expect(check({
       answer_draft: draft(), recommendations: [recommend({ safety_check: "conditional", open_inputs: "normal kidney function." })]
-    }).caveats).toEqual([SKIP, conditional]);
+    }).limits).toEqual([SKIP, conditional]);
+    expect(check({
+      answer_draft: draft(), recommendations: [recommend({ safety_check: "conditional", open_inputs: "normal kidney function." })]
+    }).caveats).toEqual([SKIP]);
     expect(steps({ answer_draft: draft(), recommendations: [recommend({ safety_check: "unresolved" })] })).toEqual([
       "recommendations[0] is unresolved without open_inputs: name the conflicts or safety inputs still open, in a few words."
     ]);
@@ -82,8 +93,9 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const shorter = "An option for long-term use whose evidence followed people for less time: the medicine. Longest " +
       "follow-up in that evidence: 12 weeks. Its benefits and harms over years of use, and how easily people stop it, " +
       "aren't established.";
-    expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).caveats)
-      .toEqual([SKIP, shorter]);
+    expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).limits)
+      .toEqual([SKIP, "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked.", shorter]);
+    expect(check({ answer_draft: draft(), recommendations: [longTerm({ follow_up_matches_use: false })] }).caveats).toEqual([SKIP]);
     expect(check({ answer_draft: draft(shorter), recommendations: [longTerm({ follow_up_matches_use: false })] }).status)
       .toBe("ready_with_limits");
     expect(steps({ answer_draft: draft(), recommendations: [longTerm({ stopping_covered: false })] })).toEqual([
@@ -101,9 +113,9 @@ describe("finalize_research recommendations (owner question 90, lesson #23)", ()
     const input = base();
     delete input.recommendations;
     const result = assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.startsWith("recommendations is missing:"))).toBe(true);
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.startsWith("recommendations is missing:"))).toBe(true);
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
   });
 });
 
@@ -114,15 +126,20 @@ describe("finalize_research safety_claims: a share of selected reports (owner qu
   const CAVEAT = "That figure is a share of selected reports, not of people, so how often this happens isn't known.";
 
   it("has the answer say that the share is not of people, without a study behind it", () => {
-    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).caveats).toEqual([SKIP, CAVEAT]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).limits).toEqual([SKIP, CAVEAT, "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [claim] }).caveats).toEqual([SKIP]);
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, safety_claims: [claim] }).status)
       .toBe("ready_with_limits");
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [{ ...claim, direction: "safety" }]
-    }).caveats).toEqual([
+    }).limits).toEqual([
       SKIP, "That figure is a share of selected reports, not of people, so it doesn't show how safe this exposure is: " +
-        "compound A."
+        "compound A.",
+      "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."
     ]);
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`, safety_claims: [{ ...claim, direction: "safety" }]
+    }).caveats).toEqual([SKIP]);
   });
 
   it("needs the share in its sentence", () => {
@@ -145,7 +162,8 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
 
   it("has an animal finding say it was not tested in people", () => {
     const caveat = "This finding comes from animal experiments; it was not tested in people. Source: Rat study.";
-    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([SKIP, caveat]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).limits).toEqual([SKIP, caveat]);
+    expect(check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] }).caveats).toEqual([SKIP]);
     expect(check({ answer_draft: `${LINKS}\n\n${QUOTE} ${caveat}`, mechanism_claims: [mechanism] }).status)
       .toBe("ready_with_limits");
   });
@@ -153,15 +171,22 @@ describe("finalize_research mechanism_claims: species and tissue (owner question
   it("leaves a dish test to the route caveat, and has a finding from another tissue say where it was measured", () => {
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [{ ...mechanism, evidence_route: "in_vitro" }]
-    }).caveats).toEqual([
+    }).limits).toEqual([
       SKIP, "This finding comes from test-tube experiments; use by mouth was not tested for it. Source: Rat study."
     ]);
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [{ ...mechanism, evidence_route: "in_vitro" }]
+    }).caveats).toEqual([SKIP]);
     const tissue = "This finding was measured in a different tissue from the one this answer applies it to. Measured " +
       "in: the brain's cortex. Applied here to: the skin. Source: Rat study.";
     expect(check({
       answer_draft: `${LINKS}\n\n${QUOTE}`,
       mechanism_claims: [{ ...mechanism, evidence_in: "people", tissue: { measured: "the brain's cortex", claimed: "the skin." } }]
-    }).caveats).toEqual([SKIP, tissue]);
+    }).limits).toEqual([SKIP, tissue]);
+    expect(check({
+      answer_draft: `${LINKS}\n\n${QUOTE}`,
+      mechanism_claims: [{ ...mechanism, evidence_in: "people", tissue: { measured: "the brain's cortex", claimed: "the skin." } }]
+    }).caveats).toEqual([SKIP]);
   });
 
   it("needs whom the evidence came from", () => {
@@ -184,7 +209,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     const problem = "corrections[0]'s wrong statement still appears in the answer outside its change sentence: " +
       "correct it everywhere, including headings, tables and summaries.";
     for (const leftover of [`## ${WRONG}`, `| Effect | Note |\n|---|---|\n| Cold | ${WRONG} |`]) {
-      expect(steps({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] })).toEqual([problem]);
+      expect(check({ answer_draft: `${LINKS}\n\n${leftover}\n\n${CHANGE}`, corrections: [found] }).next_steps).toEqual([problem]);
     }
   });
 
@@ -197,7 +222,7 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
   // Universal's correction-report rule (owner question 78; the owner's 16 Oct lemon conversation said "You're right"
   // and offered no report): after a correction the user pointed out, the answer asks whether to send a bug report.
   it("asks who pointed the error out, once", () => {
-    expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] }).next_steps)
+    expect(advisoryNotes(check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [{ retracted: WRONG, change: CHANGE }] })))
       .toEqual([
         "Give corrections[0].by_user: true when the user pointed out the error and a recheck showed the user was " +
           "right, false when the research found it.",
@@ -209,8 +234,9 @@ describe("finalize_research corrections (owner question 92, lesson #29)", () => 
     const byUser = { ...found, by_user: true, report: CHANGE, preventing_rule: "no_rule", missing_rule: "Carry corrections through all rendered forms." };
     const ruleLine = `Missing rule: ${byUser.missing_rule}`;
     const asked = check({ answer_draft: `${LINKS}\n\n${CHANGE}`, corrections: [byUser] });
-    expect(asked.status).toBe("not_ready");
-    expect(asked.caveats).toEqual([ruleLine, CORRECTION_REPORT_OFFER, SKIP]);
+    expect(asked.status).toBe("ready_with_limits");
+    expect(asked.limits).toEqual([ruleLine, CORRECTION_REPORT_OFFER, SKIP]);
+    expect(asked.caveats).toEqual([CORRECTION_REPORT_OFFER, SKIP]);
     expect(check({ answer_draft: `${LINKS}\n\n${CHANGE}\n\n${ruleLine}\n\n${CORRECTION_REPORT_OFFER}`, corrections: [byUser] }).status)
       .toBe("ready_with_limits");
     const rendering = "AskRigor peut-il envoyer un rapport de bogue sur cette correction, ou voulez-vous d'abord préciser quelque chose ?";
@@ -226,7 +252,7 @@ describe("finalize_research key-source links (the 2026-10-15 owner regressions)"
   const PMID = "25959135";
   const pubmed = issueResearchReceipt("pubmed_record", { pmid: PMID, doi: DOI }, { secret: SECRET });
   const VIA_PUBMED = `[Trial](https://pubmed.ncbi.nlm.nih.gov/${PMID}/) and [Rat study](https://doi.org/${RAT}) were read.`;
-  const linkSteps = (receipts: string[]) => steps({ answer_draft: VIA_PUBMED, receipts })
+  const linkSteps = (receipts: string[]) => check({ answer_draft: VIA_PUBMED, receipts }).next_steps
     .filter((step) => step.startsWith(`Key study ${DOI} `) || step.startsWith(`Key source ${DOI} has no answer_marker`));
 
   it("accepts a DOI key source's PubMed page once a PubMed receipt matched the two", () => {

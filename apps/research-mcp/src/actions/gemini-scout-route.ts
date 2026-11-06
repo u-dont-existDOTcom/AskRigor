@@ -20,7 +20,8 @@ import {
   type GeminiYoutubeCandidateValidationReceipt,
   type GeminiYoutubeScoutBackgroundAdvance,
   type GeminiYoutubeScoutBackgroundCheckpoint,
-  type GeminiYoutubeScoutData
+  type GeminiYoutubeScoutData,
+  type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -29,7 +30,8 @@ import {
   createSharedFileAiBudget,
   MONTHLY_AI_BUDGET_NANO_USD,
   type AiBudget,
-  type BudgetHold
+  type BudgetHold,
+  type ReadableAiBudget
 } from "../lessons/ai-budget.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
@@ -191,6 +193,8 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_boundary: {
         code: z.output<typeof automatedScoutBoundarySchema>["code"];
         retryable: boolean;
+        // Google refused to start the scout: its HTTP status and reason. Nothing ran, so nothing is charged.
+        never_started?: GeminiYoutubeScoutNeverStarted;
       };
     };
 
@@ -232,8 +236,8 @@ export function createAutomatedGeminiScoutActionRoute(
  * The owner's zero-spend policy (governance/chat-work-authority-policy.json):
  * Gemini runs only with a key the deployment declares has no billing.
  */
-export function geminiKeyDeclaredUnbilled(): boolean {
-  return process.env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
+export function geminiKeyDeclaredUnbilled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
 }
 
 /**
@@ -432,6 +436,7 @@ export async function executeAutomatedGeminiScout(
  * checkpoint without reserving again. A scout unfinished after its first call
  * keeps its whole reservation charged as a hold, and the call that completes
  * it settles the real cost against that hold, as a one-call scout commits it.
+ * A scout Google refuses to start is charged nothing.
  */
 export async function executeResumableAutomatedGeminiScout(
   input: z.output<typeof automatedScoutInputSchema>,
@@ -578,10 +583,16 @@ export async function executeResumableAutomatedGeminiScout(
     };
   }
   if (advance.kind === "boundary") {
-    if (reservation !== undefined) await reservation.forfeit();
+    if (reservation !== undefined) {
+      // Google refused the request that creates the job, so nothing ran and nothing is charged (the regression logs
+      // of 1-2 Nov 2026: 50 such refusals each forfeited $1). If the ledger cannot record that, all stays charged.
+      if (advance.never_started !== undefined) await reservation.commit(0).catch(() => undefined);
+      else await reservation.forfeit();
+    }
     return controllerBoundary(
       knownBoundaryCode(advance.frontier.error?.code),
-      advance.frontier.error?.retryable === true
+      advance.frontier.error?.retryable === true,
+      advance.never_started
     );
   }
 
@@ -638,9 +649,16 @@ const MAXIMUM_DEADLINE_ADVANCES = 12;
 
 function controllerBoundary(
   code: z.output<typeof automatedScoutBoundarySchema>["code"],
-  retryable: boolean
+  retryable: boolean,
+  neverStarted?: GeminiYoutubeScoutNeverStarted
 ): ResumableAutomatedGeminiScoutExecution {
-  return { controller_boundary: { code, retryable } };
+  return {
+    controller_boundary: {
+      code,
+      retryable,
+      ...(neverStarted === undefined ? {} : { never_started: neverStarted })
+    }
+  };
 }
 
 function heldResume(
@@ -719,10 +737,11 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
 }
 
 /**
- * Stricter screen for a scout target, which goes to an external provider. It
- * fails closed: the target must describe a group of people ("adults with hip
- * osteoarthritis trying to avoid a replacement"). It is refused if it
- * contains any of:
+ * Stricter screen for a scout target, which goes to an external provider. The
+ * tool contract asks for a group of people and their goal ("adults with hip
+ * osteoarthritis trying to avoid a replacement"); owner answer 201a
+ * (2026-10-30) dropped the check for a group word, which judged that meaning
+ * with a fixed English word list. A target is refused if it contains any of:
  * - third-person singular pronouns;
  * - a single person's age;
  * - a title before a name;
@@ -731,17 +750,75 @@ async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
  *   unless it names a group;
  * - an identity or example marker ("named", "like …", "such as", "e.g.").
  * A name no dictionary knows ("Xiomara Garcia") is still refused. No pattern
- * check can catch every name (a lowercase name with no marker passes), so the
- * tool contract still asks the calling model for a population-level target.
+ * check can catch every name (a lowercase name with no marker passes), and the
+ * markers read English only, which is why the tool contract asks the calling
+ * model for an English, population-level target.
  */
 export function isPopulationLevelResearchTarget(value: string): boolean {
-  if (!isDeidentifiedResearchTarget(value)) return false;
+  return researchTargetScreenFailures(value).length === 0;
+}
+
+/**
+ * The parts of the scout's target screen a research target fails, in the
+ * screen's own words, so a refusal can say which part failed and the caller can
+ * fix the target in one try. A target that fails the de-identification screen
+ * reports that part alone; otherwise every person marker found is reported.
+ * Empty when the target passes.
+ */
+export function researchTargetScreenFailures(
+  value: string, caught?: TargetMatchRecorder, options: DeidentificationOptions = {}
+): ResearchTargetScreenPart[] {
+  const deidentification = deidentificationFailure(value, caught, options);
+  if (deidentification !== undefined) return [deidentification];
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
-  const text = value.replace(/\s+/gu, " ");
-  const words = text.toLowerCase().split(/[^\p{L}\p{N}]+/u);
-  if (!words.some((word) => POPULATION_WORDS.has(word))) return false;
-  return !mayDescribeAPerson(text);
+  return personMarkers(value.replace(/\s+/gu, " "), caught === undefined ? undefined : (part, fragment) => {
+    // Recover the exact original whitespace too; this locates a known match, without another screening decision.
+    const pattern = fragment.split(" ").map(escapePattern).join("\\s+");
+    caught(part, new RegExp(pattern, "u").exec(value)![0]);
+  });
+}
+
+/** What each part of the screen refuses, as a refusal states it after "it has". */
+export const RESEARCH_TARGET_SCREEN_PARTS = {
+  hidden_characters: "control or invisible characters",
+  first_person: "a first-person word (I, my, me, we or our)",
+  contact_details: "an email address, or a run of digits that could be a phone number",
+  secret: "something shaped like an API key or a private key",
+  link: "a link",
+  chat_roles: "a chat role tag or line",
+  record_field: "a record field label (name:, address:, date of birth: and the like)",
+  instructions: "an instruction to ignore earlier instructions",
+  pronoun: "he, she, him, his or her",
+  title: "a title before a capitalized word (Dr, Mr, Mrs, Ms or Prof)",
+  age: "one person's age",
+  example_marker: "an identity or example marker (named, called, aka, including, such as, e.g., i.e., or like, unless " +
+    "like comes before a word for a group of people, as in like runners)",
+  name_like_pair: "two capitalized words in a row that are not a condition, test or method name, which could be a name",
+  named_subject: "a capitalized word before has, is, wants or a similar verb, which could be a name"
+} as const;
+
+export type ResearchTargetScreenPart = keyof typeof RESEARCH_TARGET_SCREEN_PARTS;
+type TargetMatchRecorder = (part: ResearchTargetScreenPart, fragment: string) => void;
+const escapePattern = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
+/** The refusal names the existing screen's parts and quotes their exact matches; it never changes acceptance. */
+export function researchTargetScreenRefusal(value: string, options: DeidentificationOptions = {}): string {
+  const matches = new Map<ResearchTargetScreenPart, Set<string>>();
+  const failures = researchTargetScreenFailures(value, (part, fragment) => {
+    const words = matches.get(part) ?? new Set<string>();
+    words.add(fragment);
+    matches.set(part, words);
+  }, options);
+  if (failures.length === 0) return "";
+  const partText = (part: ResearchTargetScreenPart): string =>
+    part === "first_person" && options.quotedFirstPerson === true
+      ? `${RESEARCH_TARGET_SCREEN_PARTS.first_person} outside double quotes` : RESEARCH_TARGET_SCREEN_PARTS[part];
+  // A secret or contact detail is named, never echoed back.
+  return `This research_target was refused because it has ${
+    failures.map((part) => `${partText(part)} (${part === "secret" || part === "contact_details"
+      ? "not quoted" : `matched ${[...matches.get(part)!].map((fragment) => JSON.stringify(fragment)).join(", ")}`})`)
+      .join("; and ")}.`;
 }
 
 /**
@@ -756,42 +833,82 @@ export function isPublicLeadTerm(value: string): boolean {
   if (!isDeidentifiedResearchTarget(value)) return false;
   const text = value.replace(/\s+/gu, " ").trim();
   if (text.split(" ").length > MAXIMUM_LEAD_WORDS) return false;
-  if (/\b(?:says|said|tells|told|claims|claimed|cured|healed)\b/iu.test(text)) return false;
+  if (LEAD_REPORT_VERB.test(text)) return false;
   return !mayDescribeAPerson(text);
 }
 
 const MAXIMUM_LEAD_WORDS = 8;
+const LEAD_REPORT_VERB = /\b(?:says|said|tells|told|claims|claimed|cured|healed)\b/iu;
+
+/**
+ * Why rediscovery_leads[index] fails isPublicLeadTerm, quoting the lead and each match as the target's refusal does
+ * (the 31 Oct regression run: a refused lead was not named, so the retry guessed); a lead with a secret or contact
+ * detail is named by its position only. It explains the screen and never changes acceptance.
+ */
+export function publicLeadTermRefusal(value: string, index: number): string {
+  const matches = new Map<ResearchTargetScreenPart, Set<string>>();
+  const failures = researchTargetScreenFailures(value, (part, fragment) => {
+    const words = matches.get(part) ?? new Set<string>();
+    words.add(fragment);
+    matches.set(part, words);
+  });
+  const hidden = failures.some((part) => part === "secret" || part === "contact_details");
+  const reasons = failures.map((part) => `${RESEARCH_TARGET_SCREEN_PARTS[part]} (${part === "secret" ||
+    part === "contact_details" ? "not quoted" : `matched ${[...matches.get(part) ?? []].map((fragment) =>
+      JSON.stringify(fragment)).join(", ")}`})`);
+  const text = value.replace(/\s+/gu, " ").trim();
+  if (!hidden) {
+    const words = text.split(" ").length;
+    if (words > MAXIMUM_LEAD_WORDS) reasons.push(`${words} words, more than ${MAXIMUM_LEAD_WORDS}`);
+    const verbs = new Set([...text.matchAll(new RegExp(LEAD_REPORT_VERB.source, "giu"))].map(([verb]) => verb));
+    if (verbs.size > 0) {
+      reasons.push(`a report verb (matched ${[...verbs].map((verb) => JSON.stringify(verb)).join(", ")})`);
+    }
+  }
+  return `rediscovery_leads[${index}]${hidden ? "" : ` ${JSON.stringify(text)}`} was refused because it has ` +
+    `${reasons.join("; and ")}.`;
+}
 
 /** Person markers shared by the target and lead screens; text has single spaces. */
 function mayDescribeAPerson(text: string): boolean {
-  if (/\b(?:he|she|him|his|her|hers|himself|herself)\b/iu.test(text)) return true;
-  if (/\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u.test(text)) return true;
-  if (
-    /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu
-      .test(text)
-  ) return true;
-  if (/\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu.test(text)) return true;
-  if (/\b\d{1,3} ?(?:y\/o|yo)\b/iu.test(text)) return true;
+  return personMarkers(text).length > 0;
+}
+
+/** Every kind of person marker in text, in the screen's order; text has single spaces. */
+function personMarkers(text: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart[] {
+  const found = new Set<ResearchTargetScreenPart>();
+  const add = (part: ResearchTargetScreenPart, fragment: string): void => {
+    found.add(part);
+    caught?.(part, fragment);
+  };
+  const match = (part: ResearchTargetScreenPart, pattern: RegExp): void => {
+    for (const hit of text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))) add(part, hit[0]);
+  };
+  match("pronoun", /\b(?:he|she|him|his|her|hers|himself|herself)\b/iu);
+  match("title", /\b(?:[Mm]rs?|[Mm]s|[Mm]iss|[Mm]x|[Dd]r|[Pp]rof)\.? [A-Z]/u);
+  match("age", /(?<!\b(?:over|under|above|below|past|beyond|from) )\baged? \d{1,3}\b(?! ?(?:\+|-|–|to\b|and\b|or\b|through\b|plus\b))/iu);
+  match("age", /\b\d{1,3} ?-? ?(?:years?|yrs?) ?-? ?old\b(?!s)/iu);
+  match("age", /\b\d{1,3} ?(?:y\/o|yo)\b/iu);
   // Identity and example markers work in any capitalization: a target names a
   // group, not an example person ("adults like xiomara garcia") or a list.
-  if (/\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu.test(text)) return true;
-  for (const [, next] of text.matchAll(/\blike (\p{L}+)/giu)) {
-    if (!POPULATION_WORDS.has(next!.toLowerCase())) return true;
+  match("example_marker", /\b(?:named|called|nicknamed|aka|including)\b|\bsuch as\b|\be\.g\.|\bi\.e\./iu);
+  for (const hit of text.matchAll(/\blike (\p{L}+)/giu)) {
+    if (!POPULATION_WORDS.has(hit[1]!.toLowerCase())) add("example_marker", hit[0]);
   }
   for (const [, first, second] of text.matchAll(/(?=\b([A-Z][a-z'’-]+) ([A-Z][a-z'’-]+)\b)/gu)) {
     const [head, tail] = [first!.toLowerCase(), second!.toLowerCase()];
     const eponym = /['’]s$/u.test(head) || CAPITALIZED_TERM_WORDS.has(tail);
     const styling = TITLE_CASE_FUNCTION_WORDS.has(head) || TITLE_CASE_FUNCTION_WORDS.has(tail) ||
       POPULATION_WORDS.has(head);
-    if (!eponym && !styling) return true;
+    if (!eponym && !styling) add("name_like_pair", `${first} ${second}`);
   }
-  for (const [, subject] of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
-    if (!POPULATION_WORDS.has(subject!.toLowerCase())) return true;
+  for (const hit of text.matchAll(/\b([A-Z][a-z'’-]+) (?:has|is|was|wants|needs|takes|tries|gets|got|had|tried|took)\b/gu)) {
+    if (!POPULATION_WORDS.has(hit[1]!.toLowerCase())) add("named_subject", hit[0]);
   }
-  return false;
+  return [...found];
 }
 
-// Words that describe a group of people rather than one person.
+// Words that describe a group of people rather than one person; the person markers above let them pass.
 const POPULATION_WORDS: ReadonlySet<string> = new Set([
   "people", "persons", "adults", "patients", "women", "men", "children", "kids", "teens", "teenagers",
   "adolescents", "seniors", "elders", "elderly", "athletes", "runners", "users", "individuals", "those",
@@ -819,37 +936,87 @@ const TITLE_CASE_FUNCTION_WORDS: ReadonlySet<string> = new Set([
   "why", "when", "after", "before", "from", "by", "at", "into", "over", "under", "vs", "versus", "not"
 ]);
 
-export function isDeidentifiedResearchTarget(value: string): boolean {
-  if (/[\u0000-\u001F\u007F]/u.test(value)) return false;
-  if (/[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u.test(value)) {
-    return false;
+/** How the de-identification screen reads a text. */
+export interface DeidentificationOptions {
+  /**
+   * For a forum search query only: a first-person word inside a double-quoted phrase passes, since the quotes are
+   * the calling model's declaration that the phrase is what others write ("worked for me") or a term ("copper(I)"),
+   * never the person's own words (5 Nov 2026: the runs on #389's to #412's builds were refused "copper(I)" and
+   * "makes me sleepy", each in quotes, as first-person words). Whether words are the person's is a judgment of
+   * meaning, so the screen reads the model's quotes, an exact form, rather than another word list. Every other part
+   * of the screen still reads the whole text, quoted phrases included.
+   */
+  readonly quotedFirstPerson?: boolean;
+}
+
+export function isDeidentifiedResearchTarget(value: string, options: DeidentificationOptions = {}): boolean {
+  return deidentificationFailure(value, undefined, options) === undefined;
+}
+
+/**
+ * value with each double-quoted phrase replaced by a space: straight quotes, only when they come in pairs and each
+ * opens at the start, after a space or bracket, and closes before a space, punctuation or the end, so inch marks
+ * ("a 5" tube") and a stray quote never hide words; curly quotes and guillemets, only when every opening one is
+ * closed. Anything else is read whole (review of 5 Nov).
+ */
+function withoutQuotedPhrases(value: string): string {
+  const count = (pattern: RegExp): number => value.match(pattern)?.length ?? 0;
+  let text = value;
+  if (count(/"/gu) % 2 === 0) {
+    text = text.replace(/(?<=^|[\s([{])"[^"\s][^"\n]*?(?<=\S)"(?=$|[\s.,;:!?)\]}])|(?<=^|[\s([{])"[^"\s]"(?=$|[\s.,;:!?)\]}])/gu, " ");
   }
-  if (/\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu.test(value)) return false;
-  if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu.test(value)) return false;
-  if (/(?:\+?\d[\d .()-]{6,}\d)/u.test(value)) return false;
-  if (/\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u.test(value)) {
-    return false;
+  if (count(/\u201C/gu) === count(/\u201D/gu)) text = text.replace(/\u201C[^\u201C\u201D\n]*\u201D/gu, " ");
+  if (count(/\u00AB/gu) === count(/\u00BB/gu)) text = text.replace(/\u00AB[^\u00AB\u00BB\n]*\u00BB/gu, " ");
+  return text;
+}
+
+/** The first part of the de-identification screen value fails, or undefined when it passes. */
+function deidentificationFailure(
+  value: string, caught?: TargetMatchRecorder, options: DeidentificationOptions = {}
+): ResearchTargetScreenPart | undefined {
+  const match = (part: ResearchTargetScreenPart, pattern: RegExp, text = value): boolean => {
+    const hits = [...text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))];
+    for (const hit of hits) caught?.(part, hit[0]);
+    return hits.length > 0;
+  };
+  if (match("hidden_characters", /[\u0000-\u001F\u007F]/u)) return "hidden_characters";
+  if (match("hidden_characters", /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u)) {
+    return "hidden_characters";
   }
-  if (/https?:\/\//iu.test(value)) return false;
+  if (match("first_person", /\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu,
+    options.quotedFirstPerson === true ? withoutQuotedPhrases(value) : value)) return "first_person";
+  if (match("contact_details", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu)) return "contact_details";
+  if (match("contact_details", /(?:\+?\d[\d .()-]{6,}\d)/u)) return "contact_details";
+  if (match("secret", /\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u)) {
+    return "secret";
+  }
+  if (match("link", /https?:\/\//iu)) return "link";
   const lowerValue = value.toLocaleLowerCase("en-US");
   const compactValue = lowerValue.replace(/\s/gu, "");
-  const hasChatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
-    .some((tag) => compactValue.includes(tag));
+  const chatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
+    .find((tag) => compactValue.includes(tag));
   const hasChatRoleLine = lowerValue.split("\n").some((line) => {
     const trimmed = line.trimStart();
     return ["user:", "assistant:", "system:", "tool:"]
       .some((prefix) => trimmed.startsWith(prefix));
   });
-  if (hasChatTag || hasChatRoleLine) {
-    return false;
+  if (chatTag !== undefined || hasChatRoleLine) {
+    if (chatTag !== undefined) {
+      caught?.("chat_roles", new RegExp([...chatTag].map(escapePattern).join("\\s*"), "iu").exec(value)![0]);
+    } else {
+      const line = value.split("\n").map((text) => text.trimStart()).find((text) =>
+        /^(?:user|assistant|system|tool):/iu.test(text))!;
+      caught?.("chat_roles", line.slice(0, line.indexOf(":") + 1));
+    }
+    return "chat_roles";
   }
-  if (/\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu.test(value)) {
-    return false;
+  if (match("record_field", /\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu)) {
+    return "record_field";
   }
-  if (/\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/iu.test(value)) {
-    return false;
+  if (match("instructions", /\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b/iu)) {
+    return "instructions";
   }
-  return true;
+  return undefined;
 }
 
 /**
@@ -920,12 +1087,20 @@ export function geminiScoutReservationNanoUsd(
   return Math.ceil(searches + (GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD - searches) * ratio);
 }
 
-function productionAiBudget(): AiBudget {
-  const ledgerPath = process.env.ASKRIGOR_AI_BUDGET_LEDGER ?? "";
+/**
+ * What is left of this UTC month's AI budget, read from the scouts' own ledger without changing it: the Atlas account
+ * page says whether a scout still fits. Throws when the budget's settings or its ledger are unavailable.
+ */
+export async function geminiScoutBudgetLeftNanoUsd(env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  return await productionAiBudget(env).remaining();
+}
+
+function productionAiBudget(env: NodeJS.ProcessEnv = process.env): ReadableAiBudget {
+  const ledgerPath = env.ASKRIGOR_AI_BUDGET_LEDGER ?? "";
   if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
     throw new Error("Gemini scout budget unavailable");
   }
-  const budgetUsd = process.env.ASKRIGOR_AI_MONTHLY_BUDGET_USD;
+  const budgetUsd = env.ASKRIGOR_AI_MONTHLY_BUDGET_USD;
   if (budgetUsd !== "50" && budgetUsd !== "50.00") {
     throw new Error("Gemini scout budget unavailable");
   }

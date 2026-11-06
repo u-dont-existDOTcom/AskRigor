@@ -1,5 +1,9 @@
 # The final check's panel (owner question 100)
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 ## Authority and scope
 
 - Owner question 100, approved "100a" on 2026-10-16: after the 16 Oct release, show `finalize_research`'s result in a

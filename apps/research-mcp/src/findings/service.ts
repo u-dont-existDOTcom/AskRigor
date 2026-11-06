@@ -1,21 +1,36 @@
-import { atlasBasisFromReceipt } from "./card.js";
+import { atlasBasisFromReceipt,
+  normalizedFindingsText
+} from "./card.js";
 import { createHash, createHmac } from "node:crypto";
 
-import type { HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+import { RESEARCH_USE_NOTICE_VERSION, type HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
 
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
-import { verifyResearchReceipt } from "../research-receipts.js";
+import { researchTargetDigest, verifyResearchReceipt } from "../research-receipts.js";
+import {
+  findingBackingFromReceipt,
+  findingReadingFromReceipt,
+  threadCommunitiesFromReceipt,
+  threadLinksFromReceipt,
+  type FindingBacking,
+  type StoredBacking,
+} from "./research-behind.js";
 import {
   findingBasesFromReceipt,
   findingsCardDigest,
   findingsCardFingerprint,
+  heldFindingsFromReceipt,
   heldYouTubeCardTextsOf,
   heldYouTubeFindingOf,
+  holdsYouTubeReference,
   isSafeReportedModel,
   isYouTubeVideoId,
+  laterFindingsCardSchema,
   screenFindingsCard,
+  screenFindingsText,
   withoutYouTubeData,
+  withoutYouTubeLinks,
   type FindingsCard,
   type StoredFindingsCard,
   type VerifiedBasis
@@ -28,6 +43,13 @@ import {
   type StoredWithout
 } from "./contracts.js";
 import { publicFindingsCardId, type GitHubFindingsQueue } from "./github-findings.js";
+import {
+  declaredPersonalOnly,
+  UNSAVED_CARD_WHY_SENTENCES,
+  unsavedCardCopy,
+  unsavedCardProblems,
+  type UnsavedCardWhy,
+} from "./unsaved-card.js";
 
 /** Where and with what the save was made, known to the server at registration. */
 export interface FindingsSaveContext {
@@ -37,18 +59,16 @@ export interface FindingsSaveContext {
   toolCatalogSha256: string;
   /**
    * The saving account, for the Atlas (decision 171, section 4B): a free contributor's card is published as soon as it
-   * is saved when the account accepted the current notice and is not a dev account. Never stored with the card.
+   * is saved when the account accepted the current notice. Never stored with the card.
    */
   account?: FindingsSaveAccount;
 }
 
-/** What the Atlas reads of the saving account, all exact: its mode, the notice it accepted, and its dev listing. */
+/** What the Atlas reads of the saving account, all exact: its mode and the notice it accepted. */
 export interface FindingsSaveAccount {
   mode: "FREE_CONTRIBUTOR" | "PAID_PRIVATE";
   /** The free contributor notice the account accepted; null for a paid private account. */
   noticeVersion: string | null;
-  /** Whether the account is listed in ASKRIGOR_DEV_ACCOUNT_KEYS. */
-  devAccount: boolean;
 }
 
 /** A confirmed save, as the Atlas publisher reads it. */
@@ -112,11 +132,30 @@ export interface FindingsRecord {
   stamp: FindingsStamp;
 }
 
+/** A card that wasn't saved, as finalize_research gives it. */
+export interface UnsavedCardInput {
+  /** The card as the call gave it, whatever its shape. */
+  card: unknown;
+  researchTarget: string;
+  contributor: string;
+  why: UnsavedCardWhy;
+  problems: readonly string[];
+  /** Whether this research read YouTube comments, which decides what a finding that says nothing about them rests on. */
+  commentsRead: boolean;
+}
+
+export type UnsavedCardResult = { status: "kept"; card_id: string } | { status: "not_kept"; reason: string };
+
+// The kept copies this process remembers, by card; past that the queue still finds the same card by listing.
+const KEPT_COPIES_REMEMBERED = 500;
+
 export interface FindingsSaveServiceOptions {
   /** The research receipt signing secret, read when a save arrives. */
   receiptSecret: () => string | undefined;
   limiter: LessonAttemptLimiter;
-  queue: Pick<GitHubFindingsQueue, "submit">;
+  /** The kept copies' own limit, so a run of refused cards never uses up the saves'. Without it none is kept. */
+  unsavedLimiter?: LessonAttemptLimiter;
+  queue: Pick<GitHubFindingsQueue, "submit"> & Partial<Pick<GitHubFindingsQueue, "keepUnsaved">>;
   protocols: () => Promise<readonly ProtocolIdentity[]>;
   version: string;
   build: string;
@@ -144,6 +183,7 @@ export class FindingsSaveService {
   /** Publications started after a save and not finished yet. */
   private readonly publishing = new Set<Promise<void>>();
   private readonly holds = new Set<Promise<void>>();
+  private readonly keptCopies = new Map<string, string>();
 
   constructor(private readonly options: FindingsSaveServiceOptions) {
     this.now = options.now ?? (() => new Date());
@@ -159,6 +199,59 @@ export class FindingsSaveService {
     await Promise.all([...this.holds]);
   }
 
+  /**
+   * Keeps a private copy of a card that wasn't saved, for a second look (findings/unsaved-card.ts). It never throws and
+   * never holds back the answer. A finding resting on YouTube comments never goes in the copy: of a card that reads and
+   * passes the privacy screen, it is held as a save would hold it.
+   */
+  async keepUnsaved(input: UnsavedCardInput): Promise<UnsavedCardResult> {
+    try {
+      if (declaredPersonalOnly(input.card)) return { status: "not_kept", reason: "personal_only" };
+      const secret = this.options.receiptSecret();
+      const queue = this.options.queue.keepUnsaved?.bind(this.options.queue);
+      const limiter = this.options.unsavedLimiter;
+      if (secret === undefined || queue === undefined || limiter === undefined) {
+        return { status: "not_kept", reason: "not_available" };
+      }
+      const copy = unsavedCardCopy(input.card, input.commentsRead);
+      const checked = laterFindingsCardSchema.safeParse(input.card);
+      if (copy === undefined && !checked.success) return { status: "not_kept", reason: "nothing_to_keep" };
+      const cardSha256 = checked.success
+        ? findingsCardDigest(checked.data)
+        : createHash("sha256").update(JSON.stringify(input.card), "utf8").digest("hex");
+      // The same card checked again, as a lane works through its answer, uses none of the limit.
+      const known = this.keptCopies.get(cardSha256);
+      if (known !== undefined) return { status: "kept", card_id: known };
+      if (!limiter.consume().allowed) return { status: "not_kept", reason: "rate_limited" };
+      const now = this.now();
+      if (checked.success && (copy?.kept.length ?? 0) < checked.data.findings.length &&
+        screenFindingsCard(checked.data).every(({ reasonCode }) => reasonCode === "not_a_source_identifier")) {
+        this.holdLeftOut(undefined, cardSha256, now, checked.data, copy?.kept ?? [], undefined);
+      }
+      if (copy === undefined) return { status: "not_kept", reason: "youtube_findings_only" };
+      const filed = await queue({
+        metadata: {
+          card_sha256: cardSha256,
+          thread: findingsThreadKey(secret, input.contributor, researchTargetDigest(input.researchTarget)),
+          claims: copy.claims,
+          kept_at: now.toISOString(),
+        },
+        ...(copy.question === undefined ? {} : { question: copy.question }),
+        card: copy.card,
+        why: UNSAVED_CARD_WHY_SENTENCES[input.why],
+        problems: unsavedCardProblems(input.problems, copy.sourcesLeftOut),
+        leftOut: copy.leftOut,
+        build: this.options.build,
+      });
+      const cardId = publicFindingsCardId(filed.issueNumber);
+      this.keptCopies.set(cardSha256, cardId);
+      if (this.keptCopies.size > KEPT_COPIES_REMEMBERED) this.keptCopies.delete(this.keptCopies.keys().next().value!);
+      return { status: "kept", card_id: cardId };
+    } catch {
+      return { status: "not_kept", reason: "queue_service_unavailable" };
+    }
+  }
+
   async save(raw: unknown, context: FindingsSaveContext): Promise<FindingsSaveResult> {
     try {
       const parsed = findingsSaveInputSchema.safeParse(raw);
@@ -171,6 +264,8 @@ export class FindingsSaveService {
       const receipt = verifyResearchReceipt(input.finalization_receipt, { secret, now: () => now });
       if (!receipt.ok) return notChecked(receipt.reason === "expired" ? "receipt_expired" : "receipt_invalid");
       if (receipt.kind !== "finalization") return notChecked("receipt_invalid");
+      // A test run's check, marked findings_save "off": nothing from it is saved, whoever asks.
+      if (receipt.claims.fs === "off") return result({ status: "call_saving_off", retryable: false });
       const signed = receipt.claims.findings;
       if (typeof signed !== "string" || signed === "") return notChecked("card_not_in_receipt");
       const cardSha256 = findingsCardDigest(input.findings_card);
@@ -205,25 +300,70 @@ export class FindingsSaveService {
       // Each finding's work beyond a quick answer, as the receipt signed it (owner answer 139c), by the finding's place
       // in the checked card; a receipt from before bases were signed stamps none.
       const bases = findingBasesFromReceipt(receipt.claims.bases, input.findings_card.findings.length);
-      const drawnFromComments = new Set((bases ?? []).flatMap((signed, index) =>
-        signed.includes("comment_audit") ? [index] : []));
-      const stored = withoutYouTubeData(input.findings_card, drawnFromComments);
+      // Held apart as drawn from YouTube comments: a comment audit among a finding's signed bases, or its place among
+      // those the receipt signed as held, by its declaration, the lack of one after comments were read, or the
+      // meaning judge (owner answer 219b).
+      const drawnFromComments = new Set([
+        ...(bases ?? []).flatMap((signed, index) => signed.includes("comment_audit") ? [index] : []),
+        ...heldFindingsFromReceipt(receipt.claims.held, input.findings_card.findings.length),
+      ]);
+      // Owner answer 253a: a forum signal keeps its threads' links only for an account whose consent covers them: a
+      // free contributor who accepted notice version 5, or a paid private user's yes to this save, under the privacy page
+      // that says so. A free contributor still on an earlier notice keeps none.
+      const threadLinks = context.account?.mode === "PAID_PRIVATE" ||
+        (context.account?.mode === "FREE_CONTRIBUTOR" && context.account.noticeVersion === RESEARCH_USE_NOTICE_VERSION);
+      // The review of 5 November (finding 1): a Reddit thread's community and link come only from the subreddit its
+      // reader's receipt signed, which the final check signed again for each of the card's threads.
+      const threadCommunities = threadCommunitiesFromReceipt(receipt.claims.ft, input.findings_card);
+      // The recheck of #417: a forum page's link only as its reader read it, which the final check signed (`fl`).
+      const threadLinksRead = threadLinksFromReceipt(receipt.claims.fl, input.findings_card);
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments,
+        { threadLinks, threadCommunities, threadLinksRead });
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {
         this.holdLeftOut(undefined, cardSha256, now, input.findings_card, stored.kept, bases);
         return result({ status: "youtube_findings_only", retryable: false });
       }
-      const card: StoredFindingsCard = bases === undefined ? stored.card : {
+      // Owner answer 252a: the research behind each finding, as the receipt signed it: the backing lines' quotes found
+      // word for word in a full text AskRigor fetched itself or a PubMed abstract (one that fails the privacy screen is
+      // left out, never refusing the card), and how each source was read. A receipt that signed none adds none.
+      // A quote naming YouTube is left out like one failing the screen; the AI's words lose a YouTube link's address, as
+      // every card text does (owner answer 170).
+      const backing = findingBackingFromReceipt(receipt.claims.bl, receipt.claims.bs, input.findings_card,
+        (value) => screenFindingsText(value) ?? (holdsYouTubeReference(value) ? "youtube_reference" : undefined),
+        withoutYouTubeLinks);
+      const readings = findingReadingFromReceipt(receipt.claims.rd, input.findings_card);
+      const card: StoredFindingsCard = {
         ...stored.card,
         findings: stored.card.findings.map((finding, index) => {
-          const signed = bases[stored.kept[index]!]!;
-          return signed.length === 0 ? finding : { ...finding, verified_bases: signed };
+          const original = stored.kept[index]!;
+          const signed = bases?.[original] ?? [];
+          const lines = backing.get(original) ?? [];
+          const reading = readings.get(original) ?? [];
+          return {
+            ...finding,
+            ...(signed.length === 0 ? {} : { verified_bases: signed }),
+            ...(lines.length === 0 ? {} : { backing: lines }),
+            ...(reading.length === 0 ? {} : { source_reading: reading }),
+          };
         }),
       };
+      const kept = stored.kept.map((index) => input.findings_card.findings[index]!);
+      // The AI's words against a finding lose a YouTube link's address, which the record then names (owner answer 170).
+      const linkReplaced = kept.some((finding) => (finding.backing ?? []).some((line) =>
+        withoutYouTubeLinks(line.against) !== line.against));
       const without: StoredWithout[] = [
-        ...(stored.omitted ? ["youtube_video_ids_and_links" as const] : []),
+        ...(stored.omitted || linkReplaced ? ["youtube_video_ids_and_links" as const] : []),
         ...(stored.findingsLeftOut > 0 ? ["youtube_comment_findings" as const] : []),
+        // Owner answer 219b: the declarations decided only whether a finding was held, so they are not stored.
+        ...(kept.some((finding) => finding.draws_on_youtube_comments !== undefined)
+          ? ["youtube_comment_declarations" as const] : []),
+        ...(kept.some((finding, index) => !backingKeptWhole(finding.backing ?? [], card.findings[index]!.backing ?? []))
+          ? ["backing_quotes_not_kept" as const] : []),
+        // Owner answers 252a and 253a: a forum signal is stored with how many threads and their communities, and their
+        // links only in the Atlas's id-only forms, never as given.
+        ...(kept.some((finding) => finding.forum_signal !== undefined) ? ["forum_thread_links" as const] : []),
       ];
       const atlasBasis = atlasBasisFromReceipt(receipt.claims.atlas);
       if (atlasBasis.length > 0) card.atlas_basis = atlasBasis;
@@ -249,6 +389,7 @@ export class FindingsSaveService {
         fingerprint: findingsCardFingerprint(input.findings_card),
         receiptSha256: createHash("sha256").update(input.finalization_receipt, "utf8").digest("hex"),
         thread: findingsThreadKey(secret, input.contributor, target),
+        question: findingsQuestionKey(input.findings_card.question),
         ...(publisher?.accountPublishes(context.account) === true ? { atlasPublish: true } : {}),
         ...(context.account?.mode === "PAID_PRIVATE" ? { paidPrivate: true } : {}),
       });
@@ -344,6 +485,16 @@ export function findingsThreadKey(secret: string, contributor: string, targetDig
     .digest("hex");
 }
 
+/**
+ * A card's question as a later card's is compared with it. A corrected answer replaces the wrong one (owner decision
+ * Q9), but a later pass on another question leaves the earlier card alone (owner answer 240a: a research lane keeps one
+ * target across passes, and each pass was withdrawing the last). The thread stays the person's whole research, so
+ * forget_card still finds all of it.
+ */
+export function findingsQuestionKey(question: string): string {
+  return createHash("sha256").update(normalizedFindingsText(question), "utf8").digest("hex");
+}
+
 /** The research behind the card, from the receipt's signed claims; the research target's digest stays out. */
 function researchStamp(issuedAt: string, claims: Readonly<Record<string, string | string[]>>): FindingsStamp["research"] {
   const word = (key: string) => {
@@ -387,4 +538,16 @@ function result(value: FindingsSaveResult): FindingsSaveResult {
   return parsed.success
     ? parsed.data
     : { status: "queue_unavailable", retryable: false, reason_code: "queue_service_unavailable" };
+}
+
+/**
+ * Whether the stored backing lines are the card's as it gave them, each with every quote it gave (owner answer 252a):
+ * then the owner's review can still check the stored card against the digest the final check signed.
+ */
+function backingKeptWhole(given: readonly FindingBacking[], kept: readonly StoredBacking[]): boolean {
+  return given.length === kept.length && given.every((line, index) => {
+    const stored = kept[index]!;
+    return stored.source === line.source && stored.sentence === line.sentence && stored.conclusion === line.conclusion &&
+      stored.against === line.against;
+  });
 }

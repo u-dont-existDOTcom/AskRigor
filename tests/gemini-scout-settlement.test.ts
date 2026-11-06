@@ -2,7 +2,11 @@ import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { GEMINI_YOUTUBE_SCOUT_MODEL, geminiModelTrialSetting } from "@askrigor/sources";
+import {
+  advanceGeminiYoutubeScoutBackground,
+  GEMINI_YOUTUBE_SCOUT_MODEL,
+  geminiModelTrialSetting
+} from "@askrigor/sources";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -265,7 +269,7 @@ describe("background Gemini scout budget settlement", () => {
     // Stopped before completion: its stored search is deleted, its cost unknown.
     const deleteBackgroundInteraction = vi.fn(async () => true);
     expect(await executeResumableAutomatedGeminiScout(
-      { ...TARGET, research_target: "treatments for hip osteoarthritis" },
+      { ...TARGET, research_target: "Jane Doe wants treatments for hip osteoarthritis" },
       resume,
       options(budget, scout, { deleteBackgroundInteraction })
     )).toEqual({
@@ -351,5 +355,75 @@ describe("background Gemini scout budget settlement", () => {
       controller_completion: { accounted_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD }
     });
     expect(await book.read()).toMatchObject({ charged_nano_usd: GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD });
+  });
+});
+
+// The regression logs of 1-2 Nov 2026: Google refused 50 scouts' start requests (a 4xx before any job existed) and
+// each forfeited its whole $1, which used up the monthly AI budget. Only that refusal is free: after anything else a
+// job may have run at Google. These run the real background scout against a stubbed Google.
+describe("a scout Google refuses to start", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const answer = (status: number, body: unknown = {}) => new Response(JSON.stringify(body), { status });
+  const refusal = (status: number, message: string) => answer(status, { error: { code: status, message } });
+  // The MCP tool's deadline lets the call that starts a scout poll it too.
+  const realScout = (budget: AiBudget) => options(budget, backgroundScout(), {
+    backgroundScout: advanceGeminiYoutubeScoutBackground,
+    deadlineMs: Date.now() + 60_000
+  });
+
+  it("commits nothing when Google answers the request that starts it with a 400", async () => {
+    const book = await ledger(new Date("2026-11-02T10:00:00.000Z"));
+    vi.stubGlobal("fetch", vi.fn(async () => refusal(400, "User location is not supported for the API use.")));
+
+    expect(await executeResumableAutomatedGeminiScout(TARGET, undefined, realScout(book.open()))).toEqual({
+      controller_boundary: {
+        code: "gemini_youtube_scout_request_failed",
+        retryable: false,
+        never_started: { http_status: 400, google_reason: "User location is not supported for the API use." }
+      }
+    });
+    expect(await book.read()).toMatchObject({ charged_nano_usd: 0 });
+  });
+
+  it("keeps the whole reservation charged after a timeout, a 500, a 404 on a poll or a 400 on a repair", async () => {
+    const book = await ledger(new Date("2026-11-02T10:00:00.000Z"));
+    const budget = book.open();
+    const run = async (google: ReturnType<typeof vi.fn>) => {
+      vi.stubGlobal("fetch", google);
+      return executeResumableAutomatedGeminiScout(TARGET, undefined, realScout(budget));
+    };
+
+    expect(await run(vi.fn(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    }))).toEqual({ controller_boundary: { code: "gemini_youtube_scout_request_failed", retryable: true } });
+    expect(await run(vi.fn(async () => refusal(500, "Internal error encountered.")))).toEqual({
+      controller_boundary: { code: "gemini_youtube_scout_upstream_unavailable", retryable: true }
+    });
+    // A 4xx too, but on the poll of a job that exists.
+    expect(await run(vi.fn()
+      .mockResolvedValueOnce(answer(200, { id: "interaction-polled-1", status: "in_progress" }))
+      .mockResolvedValueOnce(refusal(404, "Interaction not found.")))).toEqual({
+      controller_boundary: { code: "gemini_youtube_scout_request_failed", retryable: false }
+    });
+    // Google answers the start with a finished interaction whose packet needs a repair, then refuses the repair:
+    // no checkpoint exists yet, but the first interaction ran.
+    expect(await run(vi.fn()
+      .mockResolvedValueOnce(answer(200, {
+        id: "interaction-repaired-1",
+        status: "completed",
+        steps: [
+          { type: "google_search_call", arguments: { queries: ["hip pain what worked"] } },
+          { type: "google_search_result", results: [] },
+          { type: "model_output", text: "{}" }
+        ]
+      }))
+      .mockResolvedValueOnce(answer(200))
+      .mockResolvedValueOnce(refusal(400, "Request contains an invalid argument.")))).toEqual({
+      controller_boundary: { code: "gemini_youtube_scout_unclassified_failure", retryable: true }
+    });
+    expect(await book.read()).toMatchObject({ charged_nano_usd: 4 * GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD });
   });
 });

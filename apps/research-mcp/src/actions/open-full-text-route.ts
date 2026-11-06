@@ -24,6 +24,7 @@ import {
   studyMethodAuditExternalReceiptSchema,
   studyMethodAuditExternalSubmissionSchema,
   studyMethodAuditReceiptSchema,
+  studyMethodAuditPublishedSubmissionSchema,
   studyMethodAuditSubmissionSchema,
   validateStudyMethodAudit,
   validateStudyMethodAuditWithExternalEvidence,
@@ -63,12 +64,26 @@ const actionDoiSchema = z.string().trim().max(2_048).regex(
   /^(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/(?:[Dd][Xx]\.)?[Dd][Oo][Ii]\.[Oo][Rr][Gg]\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:A-Za-z0-9]+$/u
 );
 export const acquireOpenFullTextActionInputSchema = z.object({
-  doi: actionDoiSchema,
+  doi: actionDoiSchema.optional(),
   pmcid: z.string().trim().regex(/^[Pp][Mm][Cc][1-9]\d{0,15}$/u).optional(),
+  pmid: z.string().trim().regex(/^[1-9]\d{0,15}$/u).optional(),
   candidate_urls: candidateUrlsSchema.optional(),
   candidate_texts: candidateTextsSchema.optional(),
   public_copy_search: publicCopySearchSchema.optional()
 }).strict();
+/**
+ * The doi a call may give at runtime: the published pattern, which the tool lists keep as they froze it (owner answer
+ * 189a), with "<" and ">" too, which older SICI-form DOIs carry (the owner regressions on #412's build, judged 6 Nov 2026:
+ * a Wiley DOI was refused at the schema). A percent-escaped DOI ("%3C" for "<") fits the published pattern already and
+ * is read as its characters. The MCP tool takes this form at the top level or in later_inputs (later-inputs.ts).
+ */
+export const runtimeActionDoiSchema = z.string().trim().max(2_048).regex(
+  /^(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/(?:[Dd][Xx]\.)?[Dd][Oo][Ii]\.[Oo][Rr][Gg]\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>A-Za-z0-9]+$/u
+);
+/** acquire_open_full_text's input as it is checked when it runs: its published form, with runtimeActionDoiSchema. */
+export const acquireOpenFullTextRuntimeInputSchema = acquireOpenFullTextActionInputSchema.extend({
+  doi: runtimeActionDoiSchema.optional()
+});
 export const continueOpenFullTextActionInputSchema = z.object({
   document_handle: handleSchema
 }).strict();
@@ -118,8 +133,9 @@ const coverageSchema = z.object({
 }).strict();
 export const availableOpenFullTextActionOutputSchema = z.object({
   status: z.literal("full_text_available"),
-  requested_doi: z.string(),
+  requested_doi: z.string().optional(),
   requested_pmcid: z.string().optional(),
+  requested_pmid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
@@ -131,8 +147,9 @@ export const availableOpenFullTextActionOutputSchema = z.object({
 }).strict();
 export const openFullTextLeadActionOutputSchema = z.object({
   status: z.literal("possibly_useful_lead"),
-  requested_doi: z.string(),
+  requested_doi: z.string().optional(),
   requested_pmcid: z.string().optional(),
+  requested_pmid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
@@ -146,8 +163,9 @@ export const openFullTextActionOutputSchema = z.union([
 ]);
 export const openFullTextMcpOutputSchema = z.object({
   status: z.enum(["full_text_available", "possibly_useful_lead"]),
-  requested_doi: z.string(),
+  requested_doi: z.string().optional(),
   requested_pmcid: z.string().optional(),
+  requested_pmid: z.string().optional(),
   discovery_attempts: z.array(discoveryAttemptSchema),
   acquisition_state: acquisitionStateSchema.optional(),
   public_copy_search: publicCopySearchResultSchema.optional(),
@@ -233,6 +251,9 @@ export const reviewMethodAuditActionInputSchema = z.object({
   document_handle: handleSchema,
   audit: reviewMethodAuditSubmissionSchema
 }).strict();
+export const studyMethodAuditPublishedActionInputSchema = studyMethodAuditActionInputSchema.safeExtend({
+  audit: studyMethodAuditPublishedSubmissionSchema.optional()
+});
 export const studyMethodAuditActionOutputSchema = z.object({
   status: z.literal("source_linked_study_audit_validated"),
   audit_receipt: studyMethodAuditReceiptSchema,
@@ -288,6 +309,11 @@ export const studyMethodAuditRouteOutputSchema = z.object({
   ) {
     context.addIssue({ code: "custom", message: "a fresh-audit boundary requires its reason and next capability" });
   }
+});
+export const studyMethodAuditPublishedRouteOutputSchema = studyMethodAuditRouteOutputSchema.safeExtend({
+  audit_receipt: studyMethodAuditReceiptSchema.safeExtend({
+    reported_figures: studyMethodAuditPublishedSubmissionSchema.shape.reported_figures
+  }).optional()
 });
 export const reviewMethodAuditActionOutputSchema = z.object({
   status: z.literal("source_linked_review_audit_validated"),
@@ -376,17 +402,18 @@ export function createOpenFullTextExecutor(
       return structuredClone(state.index);
     },
     async acquire(input, runtime) {
-      const parsed = acquireOpenFullTextActionInputSchema.parse(input);
+      const parsed = acquireOpenFullTextRuntimeInputSchema.parse(input);
       const result = await acquire(parsed, unpaywallConfig, runtime);
       const data = result.data as OpenFullTextAcquisitionData;
       if (result.access_status !== "complete" || data.document_index === undefined ||
           data.acquisition_state !== undefined && data.acquisition_state !== "FULL_TEXT_READABLE") {
         return openFullTextLeadActionOutputSchema.parse({
           status: "possibly_useful_lead",
-          requested_doi: data.requested_doi,
+          ...(data.requested_doi === undefined ? {} : { requested_doi: data.requested_doi }),
           ...(data.requested_pmcid === undefined
             ? {}
             : { requested_pmcid: data.requested_pmcid }),
+          ...(data.requested_pmid === undefined ? {} : { requested_pmid: data.requested_pmid }),
           discovery_attempts: data.discovery_attempts,
           acquisition_state: data.acquisition_state,
           public_copy_search: data.public_copy_search,
@@ -396,10 +423,8 @@ export function createOpenFullTextExecutor(
           unseen_content_used_as_evidence: false
         });
       }
-      const repositoryStudyAudit = await repositoryStudyAuditFor(
-        data.document_index,
-        parsed.doi
-      );
+      const repositoryStudyAudit = parsed.doi === undefined ? undefined
+        : await repositoryStudyAuditFor(data.document_index, parsed.doi);
       const extraMetadataCharacters = JSON.stringify({
         source: data.document_index.source,
         discovery_attempts: data.discovery_attempts,
@@ -432,10 +457,11 @@ export function createOpenFullTextExecutor(
         const page = pageFrom(state.index, state.cursor);
         store.replace(parsedHandle, { ...state, cursor: page.cursor });
         return availableOutput({
-          requested_doi: state.index.source.doi ?? state.index.source.primary_identifier,
+          ...(state.index.source.doi === undefined ? {} : { requested_doi: state.index.source.doi }),
           ...(state.index.source.pmcid === undefined
             ? {}
             : { requested_pmcid: state.index.source.pmcid }),
+          ...(state.index.source.pmid === undefined ? {} : { requested_pmid: state.index.source.pmid }),
           discovery_attempts: []
         }, state.index, parsedHandle, page);
       } catch (error) {
@@ -618,8 +644,9 @@ export function createOpenFullTextActionRoutes(
       // Two 400,000-character copies plus bounded URLs/queries, including
       // JSON's worst-case six-byte character escaping; other routes keep 64 KiB.
       maximumRequestBytes: 5_000_000,
-      description: "Acquires an identity-verified full text through Europe PMC, Unpaywall PDFs, up to five public HTTPS candidate_urls, and up to two AI-supplied candidate_texts from a client search index. Reports structural completeness, embedded-block extraction, copy provenance, abstract cross-check limitations, and access or provider failures; admitted copies have a document handle for method audit.",
+      description: "Acquires an identity-verified full text using at least one of doi, pmcid or pmid. Without a DOI, uses Europe PMC by PMCID or resolves the PMID there; Unpaywall and the owner library require a DOI. Also checks up to five public HTTPS candidate_urls and up to two AI-supplied candidate_texts from a client search index. Reports structural completeness, embedded-block extraction, copy provenance, abstract cross-check limitations, and access or provider failures; admitted copies have a document handle for method audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
+      runtimeInputSchema: acquireOpenFullTextRuntimeInputSchema,
       outputSchema: openFullTextActionOutputSchema,
       async handle(input) {
         return executor.acquire(input);
@@ -735,7 +762,7 @@ function pageFrom(
 }
 
 function availableOutput(
-  data: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "discovery_attempts" | "acquisition_state" | "candidates" | "public_copy_search">,
+  data: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "requested_pmid" | "discovery_attempts" | "acquisition_state" | "candidates" | "public_copy_search">,
   index: AuditableDocumentIndex,
   handle: string,
   page: Page,
@@ -744,8 +771,9 @@ function availableOutput(
   if (page.blocks.length === 0) throw new Error("Open full-text page was empty");
   return availableOpenFullTextActionOutputSchema.parse({
     status: "full_text_available",
-    requested_doi: data.requested_doi,
+    ...(data.requested_doi === undefined ? {} : { requested_doi: data.requested_doi }),
     ...(data.requested_pmcid === undefined ? {} : { requested_pmcid: data.requested_pmcid }),
+    ...(data.requested_pmid === undefined ? {} : { requested_pmid: data.requested_pmid }),
     discovery_attempts: data.discovery_attempts,
     acquisition_state: data.acquisition_state ?? "FULL_TEXT_READABLE",
     public_copy_search: data.public_copy_search,
@@ -819,6 +847,8 @@ interface RouteDefinition<I extends z.ZodType, O extends z.ZodType> {
   maximumRequestBytes?: number;
   description: string;
   inputSchema: I;
+  /** What a call is checked against when it runs, when that differs from the published inputSchema. */
+  runtimeInputSchema?: I;
   outputSchema: O;
   handle(input: z.output<I>): Promise<z.output<O>>;
 }
@@ -843,7 +873,7 @@ function route<I extends z.ZodType, O extends z.ZodType>(
       422: actionJsonSchema(openFullTextActionErrorSchema)
     },
     async handle({ body }: ActionRequestContext): Promise<ActionResult> {
-      const input = definition.inputSchema.safeParse(body);
+      const input = (definition.runtimeInputSchema ?? definition.inputSchema).safeParse(body);
       if (!input.success) return actionError("action_input_invalid");
       try {
         return {

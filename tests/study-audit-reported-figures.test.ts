@@ -10,13 +10,19 @@ import {
   type StudyMethodAuditSubmission
 } from "../apps/research-mcp/src/index.js";
 import {
-  finalizeResearch, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  finalizeResearch as finalizeResearchUnwrapped, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { indexJatsStudyDocument, type EuropePmcFullTextArticle } from "../packages/sources/src/index.js";
 
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner questions 87 to 89 (issues #329 to #331): a study audit's headline figures, recomputed from the paper's own
 // tables, with a plausibility call and each program's route; the final check turns them into the answer's caveats.
@@ -72,6 +78,20 @@ async function submission(overrides: Partial<StudyMethodAuditSubmission> = {}, c
 }
 
 describe("study audit reported_figures", () => {
+  it("r382-other-aims-metabolic: reads 11·9% as 11.9 without a false inconsistency", async () => {
+    const { index, table, audit } = await submission({}, "<td>119 of 1000 (11·9%)</td>");
+    const figure = {
+      label: "reported percentage", evidence_block_id: table, reported: "11·9%", recomputed: 11.9,
+      recomputation: "119 / 1000 × 100 = 11.9%", plausibility: "consistent" as const,
+      percentage: { count: 119, denominator: 1000, printed: 11.9 }
+    };
+    expect(validateStudyMethodAudit(index, { ...audit, reported_figures: [figure] }).reported_figures_check)
+      .toEqual({ status: "consistent", mismatched: [], impossible_as_printed: [], values: [11.9] });
+    // The notation repair still catches a real disagreement.
+    expect(validateStudyMethodAudit(index, { ...audit, reported_figures: [{ ...figure, recomputed: 15 }] })
+      .reported_figures_check?.status).toBe("internally_inconsistent");
+  });
+
   it("records consistent figures, and a recomputation within rounding, with their printed values", async () => {
     const { index, audit } = await submission();
     expect(validateStudyMethodAudit(index, audit).reported_figures_check).toEqual({
@@ -115,6 +135,28 @@ describe("study audit reported_figures", () => {
       recomputation: "The table gives this value under the control label.",
       plausibility: "inconsistent_with_own_data", plausibility_reason: "The abstract and Table 1 swap the labels."
     }] }).reported_figures_check?.status).toBe("internally_inconsistent");
+  });
+
+  it("recomputes a printed percentage from its structured counts even when the auditor repeats the printed error", async () => {
+    const { index, table, audit } = await submission({}, "<td>2 (0.002%)</td><td>768 visits</td><td>0.26%</td><td>0.3%</td>");
+    const checked = (printed: number, decimal_places?: number) => validateStudyMethodAudit(index, {
+      ...audit,
+      reported_figures: [{
+        label: "serious adverse events per visit", evidence_block_id: table, reported: `${printed}%`,
+        recomputed: printed, recomputation: "The auditor repeated the source's printed rate.", plausibility: "consistent",
+        percentage: { count: 2, denominator: 768, printed, ...(decimal_places === undefined ? {} : { decimal_places }) }
+      }]
+    }).reported_figures_check;
+    expect(checked(0.002)).toMatchObject({ status: "internally_inconsistent", mismatched: ["serious adverse events per visit"] });
+    expect(checked(0.002, 0)).toMatchObject({ status: "internally_inconsistent" });
+    expect(checked(0.26)).toMatchObject({ status: "consistent", mismatched: [] });
+    expect(checked(0.3)).toMatchObject({ status: "consistent", mismatched: [] });
+    expect(checked(0.3, 2)).toMatchObject({ status: "internally_inconsistent" });
+    // Structured roles still cite the source: a made-up count cannot supply the server's arithmetic.
+    expect(() => validateStudyMethodAudit(index, { ...audit, reported_figures: [{
+      ...audit.reported_figures![0]!, evidence_block_id: table, reported: "0.002%",
+      percentage: { count: 999, denominator: 768, printed: 0.002 }
+    }] })).toThrow("percentage count is not in its cited source block");
   });
 
   it("keeps an impossible value exactly as printed", async () => {
@@ -243,8 +285,9 @@ describe("finalize_research reads each key study's figures check", () => {
 
   it("asks a new audit without figures to declare them, and leaves audits signed before the check alone", () => {
     const missing = check([sign({ id: A, fig: "not_declared" }), sign({ id: B, fig: "none_reported" })]);
-    expect(missing.status).toBe("not_ready");
-    expect(missing.next_steps).toEqual([
+    expect(missing.status).toBe("ready_with_limits");
+    expect(missing.next_steps).toEqual([]);
+    expect(missing.notes).toEqual([
       `The study audit of ${A} lists no reported_figures: validate it again with reported_figures, each headline ` +
         "result (not a dose or group size) as the paper prints it with its source block, recomputed from the " +
         "paper's own tables or with why that isn't possible, or with an empty list and reported_figures_none_reason " +
@@ -259,19 +302,20 @@ describe("finalize_research reads each key study's figures check", () => {
   });
 
   it("carries a study's inconsistency and its impossible values into the answer as caveats", () => {
-    const inconsistent = "A study whose reported figures don't match its own data: Paper 2017. Its results stay " +
-      "unreliable until they are reconciled.";
+    const inconsistent = "A study whose printed figures don't all match its own data: Paper 2017.";
     const impossible = "A value that is physically impossible as printed, so it is not used: 96 mmol/g. Study: Paper 2018.";
     const receipts = [sign({ id: A, fig: "internally_inconsistent", figv: ["64.51"] }),
       sign({ id: B, fig: "consistent", figv: ["96"], imp: ["96 mmol/g"] })];
-    expect(check(receipts).caveats).toEqual([SKIP, inconsistent, impossible]);
+    expect(check(receipts).limits).toEqual([SKIP, inconsistent, impossible]);
+    expect(check(receipts).caveats).toEqual([SKIP]);
     expect(check(receipts, `${LINKS}\n\n${inconsistent} ${impossible}`).status).toBe("ready_with_limits");
   });
 
   it("counts two key studies with two or more identical figures once", () => {
     const swapped = [sign({ id: A, fig: "consistent", figv: ["74.25", "65.25", "53.25"] }),
       sign({ id: B, fig: "consistent", figv: ["53.25", "74.25", "65.25"] })];
-    expect(check(swapped).caveats).toEqual([SKIP, IDENTICAL]);
+    expect(check(swapped).limits).toEqual([SKIP, IDENTICAL]);
+    expect(check(swapped).caveats).toEqual([SKIP]);
     expect(check(swapped, `${LINKS}\n\n${IDENTICAL}`).status).toBe("ready_with_limits");
     expect(check([sign({ id: A, fig: "consistent", figv: ["74.25", "12"] }),
       sign({ id: B, fig: "consistent", figv: ["74.25", "13"] })]).caveats).toEqual([SKIP]);

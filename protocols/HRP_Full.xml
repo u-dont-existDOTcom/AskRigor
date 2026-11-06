@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.31" revisionDate="2026-10-22" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.40" revisionDate="2026-11-05" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,82 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.40" priority="High">
+   Owner answers 249a, 250a and 251a of 5 November 2026, outside the core, which is unchanged:
+   StudyMapForCombinedEvidence, after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that combines
+   them as a small map in finalize_research's later_inputs.study_map, counting groups of people, not papers;
+   CommunityToFormalHypothesisTransfer counts one report of an option the answer doesn't yet cover, from someone who
+   tried it, cheap and low-risk to try, or an option a study or guideline the research read lists among its
+   interventions, as high-value: worth one study search; and, after ContextExtraction, ReportQualityBesideCounts says
+   how good people's reports are beside how many said an option worked, and SharedMechanismSearch searches each way an
+   option could work, in studies and in people's reports, with the options that work the same way.
+  </Revision>
+  <Revision version="20.6.39" priority="High">
+   Owner answer 244a of 5 November 2026, from the owner's reading of the didgeridoo trial (some people improved much,
+   others little), outside the core, which is unchanged: SpreadOfIndividualResults, in
+   StatisticalAndClinicalInterpretation, compares how much individual results varied in each arm and says when a split
+   shows only in a figure the research could not read.
+  </Revision>
+  <Revision version="20.6.38" priority="Critical">
+   The owner's review of 4 November 2026, outside the core, which is unchanged: FindingsCardForAPerson's test is a plain
+   search of the problem by someone who has never heard of the option, a mention doesn't fail a finding, a new card
+   replaces an earlier one only on the same question (owner answer 240a), and a card may not appear at once. Under owner
+   rule 148a, lesson 54 adds ChangeIsNotHarm.
+  </Revision>
+  <Revision version="20.6.37" priority="Critical">
+   Owner answer 237a of 4 November 2026, from the report on what people want from AI answers, and the owner's request of
+   the same day to improve how a person's question becomes research, outside the core, which is unchanged.
+   OutputFormatting gains SourceLineBesideKeyClaim, CountsOutOf100WithEvidenceGrade, BottomLineEvenWhenUncertain,
+   DoubtInFirstPerson, WhenCareIsOutOfReach, TestItYourselfEnding and FindingsCardForAPerson; AnswerShapeController gains
+   the what_could_this_be mode; QuestionDecomposition keeps what a person lists as branches and aims past what they have
+   tried and past the quick answer; and StudyReadDepthDisclosure says who paid for each key study, or that the paper
+   doesn't say. Under owner rule 148a, lesson 53 adds ResultThatChangesWithDose and lesson 52 adds
+   SignIsNotADiagnosis.
+  </Revision>
+  <Revision version="20.6.36" priority="Critical">
+   Owner answers 211a and 213b of 1 November 2026, outside the core, which is unchanged: SearchSaturationAndStopping uses
+   AskRigor's own forum reader first where it is available, and a page that refuses it stays unread.
+  </Revision>
+  <Revision version="20.6.35" priority="Critical">
+   Owner rule 148a and the owner's requests of 30 and 31 October 2026 (AskRigor#390, forum depth, video comment maps),
+   all outside the core, which is unchanged: CrowdSourcedAndClinicalSignalAudit's emergency exemption covers only an
+   answer that is the warning itself; ActualSearchRequired runs one search with the person's own combination of symptoms
+   and covers the whole cluster; ReviewCorpusSelectionAndCounts's counts apply to every community corpus;
+   SearchSaturationAndStopping reads forums thread by thread, in full and in more than one community, and states the
+   counts and why reading stopped; YouTubeCreatorCommentCorpusHandling names every video and thread analysed and counts
+   outcomes per named method; the new VideoCommentMap gives each audited video's comment map, leaves out promotion and
+   jokes, ranks only within one problem, and never rates a channel from one video; ThreePartCommunityConclusion adds
+   what to try first and what to avoid when the question is what to do; and CommunityToFormalHypothesisTransfer says in
+   the answer which community leads changed the study search.
+  </Revision>
+  <Revision version="20.6.34" priority="Critical">
+   Owner answer 205a (2026-10-30): LimitsNote and FinalizeResearch have the answer state, of the limits
+   finalize_research returns, those that change what the person should believe or do, since AskRigor lists every
+   limit beneath an answer whose check passed; when the check has not passed, the answer states every one. Which
+   limits matter stays the answering model's judgment. Both rules are outside the core, which is unchanged.
+  </Revision>
+  <Revision version="20.6.33" priority="Critical">
+   Owner rule 148a (2026-10-29), from lesson #51 and the suggested fix 2026-10-29-manifest-first-cross-section-reading
+   (UDA #444, an owner request): HealthEvidenceRoleLedger records whom each statement is about, and a condition or
+   test result named in a question is the topic, not the user's own, unless they say it is theirs; added
+   LongDocumentCoverageAudit to SourceVerificationAndCitationAudit, right after SocialMediaWholeThreadAudit and
+   outside the core, for saying that a long or versioned document leaves an idea out or that the idea would be new to
+   it; with stress cases TopicConditionIsNotTheAskers, SomeoneElsesConditionStaysTheirs, OwnResultIsTheirReport,
+   IdeaUnderAnotherHeading, OlderEditionRead and TrueAbsenceAfterFullReading.
+  </Revision>
+  <Revision version="20.6.32" priority="Critical">
+   Owner answer 193a (2026-10-29), which sends reports about research judgment to this protocol and the regression
+   list, and owner rule 148a, from issues #376, #377 and #382 and lesson #50: DurationMatchedBenefitAndHarm weighs the
+   benefits for the person's aim beside the harms in any non-urgent question about whether to do something, says
+   whether they would be noticeable over the planned time, and asks the aim once when it is unknown and matters;
+   RiskAdjectiveRequiresReferenceClass gives a measured change's size before calling it a harm or a benefit, and checks
+   a printed rate against its counts; UpdateStructure corrects an answer given before the research (both outside the
+   core, which stays on one page); ScopeAxesBeforeSampling matches a report's kind of exposure, its duration and its
+   outcome window, and keeps a sustained change after an initial response as its own group; LimitsNote puts the returned
+   limits in the answer's own words and replaces the two-direction offer after a first pass with a sentence or two,
+   asked only when the user has not already asked to continue; InstallmentIsNotCompletion treats a request to continue
+   as that choice; BeyondConventionalIndexes compares medicine approvals across jurisdictions to find candidates.
+  </Revision>
   <Revision version="20.6.31" priority="Critical">
    Owner-approved, answer 161a (2026-10-22), from lesson #49, in which a source audit gave a decisive credibility
    verdict on a social-media post without checking the author's reply and supporting reference: added
@@ -937,7 +1013,7 @@
 
   <Rule name="AlternativesRemainVisible" priority="Critical">When a conflict limits a candidate, preserve materially relevant nonconflicting alternatives and the option of nonaction when applicable. Do not let the safety review collapse the option space to the conflicted candidate or to an unsupported universal prohibition.</Rule>
 
-  <Rule name="DurationMatchedBenefitAndHarm" priority="Critical">When a medicine would likely be taken for months or years, as for chronic pain or a psychiatric condition, compare its benefits and harms at follow-up matching that use. Give absolute responder rates, or numbers needed to treat or harm, only where valid counts at that follow-up exist, and otherwise say that they are unknown. Keep short trial duration apart from long-term use, and symptom relief apart from lasting recovery. Cover persistent adverse effects, dependence, tapering and outcomes after stopping. Before naming such a medicine for this person, reconcile prior serious reactions to medicines and any history suggesting mania or psychosis; while an input is missing, it stays a topic for a clinician's review, not a recommendation.</Rule>
+  <Rule name="DurationMatchedBenefitAndHarm" priority="Critical">When a medicine would likely be taken for months or years, as for chronic pain or a psychiatric condition, compare its benefits and harms at follow-up matching that use. Give absolute responder rates, or numbers needed to treat or harm, only where valid counts at that follow-up exist, and otherwise say that they are unknown. Keep short trial duration apart from long-term use, and symptom relief apart from lasting recovery. Cover persistent adverse effects, dependence, tapering and outcomes after stopping. Before naming such a medicine for this person, reconcile prior serious reactions to medicines and any history suggesting mania or psychosis; while an input is missing, it stays a topic for a clinician's review, not a recommendation. For any non-urgent question about whether to do something, weigh its benefits for what the person wants beside its harms, near the start and to the same standard of evidence: how large each is, how soon it appears, and whether it would be noticeable over the planned time, keeping a measured change in the body apart from a lasting benefit to the person. When neither the person nor the conversation has said what they want from it, and the aim would change which benefits or harms matter, give a short provisional answer and ask one question about their main aim; once it is known, do not ask again.</Rule>
 
   <Template id="PatientSpecificInterventionSafetyReconciliation">
 - Candidate intervention, indication, route, dose or intensity, and timing:
@@ -1016,7 +1092,7 @@
 
   <Rule name="PatientExceptionFirstProbe" priority="Critical">Before asking for a confirming incident, clarify the denominator and conditions: which exposures or opportunities count; when the outcome does not happen; how often it fails at the respondent's natural precision; whether dose, form, route, co-exposure, physiological or pharmacological state, timing, setting, or relevant period changes the pattern; and which tolerated controls or failure cases discriminate competing explanations. Preserve any acknowledged exception by qualifying “always” or “every time” rather than silently rescuing the universal wording. When reactions span several routes or materials, tabulate route by material by state, including the combinations that do not react, before proposing a shared mechanism; do not pool smell, swallowing, oral contact, ordinary or sensitive skin, and environmental water.</Rule>
 
-  <Rule name="HealthEvidenceRoleLedger" priority="Critical">Record separately direct recurrence self-report, bounded episode, exception or counterexample, context or boundary statement, sampled opportunity-level observation, trait or interpretive label, patient causal explanation, and reviewer or coder inference. A conditionally elicited confirming anecdote may clarify chronology, exposure, consequences, mechanism, or a boundary but is not an independent frequency observation. Do not merge repeated tellings or several volunteered examples into independent support.</Rule>
+  <Rule name="HealthEvidenceRoleLedger" priority="Critical">Record separately direct recurrence self-report, bounded episode, exception or counterexample, context or boundary statement, sampled opportunity-level observation, trait or interpretive label, patient causal explanation, and reviewer or coder inference. A conditionally elicited confirming anecdote may clarify chronology, exposure, consequences, mechanism, or a boundary but is not an independent frequency observation. Do not merge repeated tellings or several volunteered examples into independent support. Record also whom each statement is about: the user, someone else, or a study's participants. A condition or test result named in a question is the topic to research, not the user's own, unless they say it is theirs; until they do, do not call it theirs or base a test or advice for them on it. When they say it is theirs, it is their own report, weighed as a claim (PromptPremisesAreClaims).</Rule>
 
   <Rule name="OpportunityFrequencySampling" priority="Critical">If actual opportunity-level frequency is decision-relevant, use prospective diary or event sampling, structured or random opportunity sampling, bounded exhaustive enumeration, external logs or observations, or repeated measures with a defined frame. Do not infer incidence, prevalence, or an unbiased personal frequency from a story count, forum count, or volunteered-example quota.</Rule>
 
@@ -1224,6 +1300,13 @@
     Brief safety screen, one to three practical options, one tracking metric, stop rules, and clinician questions when
     relevant (FunctionalHealthCoachingLayer). Do not create aggressive supplement, detox, antimicrobial, fasting, or
     elimination protocols.
+   </Mode>
+   <Mode id="what_could_this_be" trigger="the person asks what a symptom, test result, or pattern could be, and no emergency sign is present">
+    Ask up to three questions first, with a one-line provisional answer, choosing those whose answers would most change
+    what is likely (HealthFollowUpInformationGain), unless the person has already answered them or says to go straight
+    on. Then give the main suspicion and why, the less likely possibilities with what speaks for and against each, what
+    would separate them, the test to ask about, how urgent it is, and one paragraph the person can hand to a doctor
+    (PatientHistoryAndRecurrenceEvidenceGate).
    </Mode>
    <Mode id="structured" trigger="moderate complexity, abnormal labs, symptom clusters, uncertain interactions, limited evidence, or an intervention-effectiveness question">
     Give safety posture, bottom line, evidence layers, ranked hypotheses, uncertainty, decision-changing next data, and
@@ -1962,7 +2045,7 @@
   <Sequence priority="Critical">
    <Step id="RO0" name="SafetyAndProtocolReadiness">Complete urgent safety triage and authoritative protocol loading before substantive preflight work.</Step>
    <Step id="RO1" name="DecisionAndDeliverable">Define the user's decision, intended use, audience, required deliverable, and acceptable uncertainty, and whether the result must support action or only understanding; the same topic may need a different question and evidence threshold for each deliverable.</Step>
-   <Step id="RO2" name="QuestionDecomposition">Separate the primary estimand or decision question from secondary, contextual, historical, mechanistic, and forum questions that provide context but need not control the answer. Identify materially distinct populations, exposures, preparations, routes, comparators, outcomes, time periods, source traditions, and animal or human evidence; do not pool them into one headline question merely because they share a name.</Step>
+   <Step id="RO2" name="QuestionDecomposition">Separate the primary estimand or decision question from secondary, contextual, historical, mechanistic, and forum questions that provide context but need not control the answer. Identify materially distinct populations, exposures, preparations, routes, comparators, outcomes, time periods, source traditions, and animal or human evidence; do not pool them into one headline question merely because they share a name. Treat the symptoms, diagnoses and treatments a person lists as branches to search, not conditions every source must meet. For a persistent or recurring problem, find out what the person has already tried, and aim the research past that and past the quick answer: what that answer leaves out or gets wrong.</Step>
    <Step id="RO3" name="MethodAndModeAssessment">Assess reasoning level, source-acquisition method, one-pass feasibility, access, language, community, extraction needs, sensitivity analyses, and source budget under the rules below.</Step>
    <Step id="RO4" name="OptimizedResearchSpecification">
     Present the user-visible optimized research specification and copyable prompt with recommended defaults. First give a
@@ -2169,6 +2252,8 @@
    continue the next executable lead when the tools allow, and when they don't, say exactly what was completed and
    what remains. A first pass that stops to offer deeper work lists its open leads as the next step, not as finished
    work.
+   A request to continue or go deeper already makes that choice: continue the open leads rather than offering it
+   again.
   </Rule>
 
   <Rule name="PreflightOnlyResponse" priority="Critical">
@@ -2236,6 +2321,10 @@
   <Rule name="RiskAdjectiveRequiresReferenceClass" priority="Critical">
    Never say rare, uncommon, common, high, low, negligible, substantial, or dramatic without naming the reference population
    and endpoint. Prefer numbers and ranges. When no reliable number exists, say that the rate is not well quantified.
+   Before calling a measured change a harm or a benefit, give its size, the number of people measured and what is
+   known of its importance to the person; a statistically significant change is not by itself an important one.
+   Check a rate against the source's own counts before using it; when a printed percentage does not match them, give
+   the rate the counts show and say that the source printed another.
   </Rule>
 
   <Rule name="ConditionalRiskLanguage" priority="Critical">
@@ -2850,7 +2939,11 @@
    adverse effects; failure and discontinuation; and claimed mechanisms. Search indexed studies, trial registries,
    cohorts, case series, conference materials, theses, practitioner datasets, books, regulatory records, and citation
    chains with those leads. A new decision-relevant hypothesis reopens the relevant extended human-evidence source
-   classes; the earlier sweep is not final. Record which community leads materially changed the formal search map.
+   classes; the earlier sweep is not final. Say in the answer which community leads changed the study search, and what
+   the studies then showed about them. One report is high-value when it names an option the answer doesn't yet cover,
+   from someone who tried it, and the option is cheap and low-risk to try: search the studies for it once before the
+   answer is final. So is an option that a study or guideline the research read lists among its interventions. Say what
+   each such search found, including when it found nothing.
   </Rule>
 
   <Rule name="FormalToCommunityDiscriminatorTransfer">
@@ -3138,6 +3231,14 @@
    must leave the audit incomplete rather than support a definitive negative judgment.
   </Rule>
 
+  <Rule name="LongDocumentCoverageAudit" priority="Critical">
+   Before saying that a long or versioned document leaves an idea out, or that the idea would be new to it, find the
+   document's current version and say which version was read and how much of it. Look for the idea under other names
+   across all its sections, including later qualifications, then say whether it is present, present but scattered,
+   partly covered, not read, or absent after an adequate search. When proposing to add something, say what it would do
+   that the document does not already do; when an adequate search finds nothing, say plainly that it is absent.
+  </Rule>
+
   <Rule name="HistoricalVocabularyAndCitationBackchain" priority="Critical">
    For old, neglected, renamed, regional, or specialty-specific topics, search historical names, spelling variants,
    abbreviations, exact clinical endpoints, route and formulation terms, named investigators, institutions, journals,
@@ -3279,6 +3380,12 @@
    submissions, expanded-access and compassionate-use reports, pharmacovigilance records, and safety databases; and
    citation trails, named investigators, study protocols, sponsor records, and sources identified by relevant
    communities.
+   For neglected or overlooked treatments, also compare medicine approvals and access across jurisdictions, such as a
+   medicine approved, prescribed or sold in one country and not in another, as a way to find candidates. Verify each
+   discrepancy against current official regulator records; match ingredient, combination, salt, strength, route,
+   dosage form and indication before treating two products as the same; keep approval, prescription status,
+   withdrawal, commercial availability and a database's own gaps apart; then search the clinical evidence under the
+   local names. A discrepancy is a research lead, not evidence of benefit or of a regulator's error.
   </Rule>
 
   <Rule name="IndependentOfForumSignal">
@@ -3323,6 +3430,17 @@
    recycled case narratives, and practitioner datasets drawn from the same patients. Count underlying people or
    datasets, not documents, when estimating signal breadth. Marketing copy, retailer listings, articles, and press
    releases that repeat one trial are one lineage, not independent confirmation.
+  </Rule>
+
+  <Rule name="StudyMapForCombinedEvidence" priority="High">
+   When a conclusion combines studies, or rests on something not found or not shown, keep the
+   DuplicateAndDataLineageAudit as a small study map in finalize_research's later_inputs.study_map, from what the
+   research read. Give each study its identifier, its trial registry number if any, and the group of people behind it:
+   where and when they were recruited, how many, and who ran or paid for it. Link a study that shares people with,
+   reanalyses, extends or is an abstract of another, and a review to the study it cites as evidence, each with the
+   sentence that shows the link. Count groups of people, not papers. Compare a registered trial's paper with its
+   registration from before the trial started: outcomes left out, added, or moved between primary and secondary without
+   a reason the paper gives. Say in the answer what the map finds. Whether two groups overlap stays your judgment.
   </Rule>
 
   <Rule name="IdenticalResultsAcrossPublications" priority="Critical">
@@ -3438,8 +3556,9 @@
    available has not therefore been read, and a full text read has not therefore been audited. A review read in full
    does not make the studies it cites read. If the status is unknown, say so; never imply a fuller reading than
    happened.
-   Give a material funding source, or the authors' employment by the maker, beside the result in the same way; a
-   statement that a study had no outside funding does not make it independent of the maker.
+   Say who paid for each key study, and any employment of its authors by the maker, beside the result in the same way,
+   or that the paper doesn't say; a statement that a study had no outside funding does not make it independent of the
+   maker.
   </Rule>
 
   <Rule name="MandatoryProviderNeutralFullTextEscalation" priority="Critical">
@@ -3948,6 +4067,15 @@
    surveillance, model choice, and prediction intervals before pooling.
   </Rule>
 
+  <Rule name="SpreadOfIndividualResults" priority="High">
+   When a trial reports how much individual results varied in each arm, such as the standard deviation of each arm's
+   change or individual results in a table, compare the arms. A clearly wider spread in the treated arm suggests people
+   respond differently, some much and some little or not at all; a similar spread suggests the average fits most people.
+   Say which, with the arms' sizes, and that chance and ordinary variation, which the control arm also shows, can make a
+   small trial look split. When individual results appear only in a figure the research could not read, say so rather
+   than infer a split.
+  </Rule>
+
   <Rule name="MetaAnalysisInputQuality" priority="Critical">
    A pooled estimate cannot repair systematically biased inputs, incompatible endpoints, or incomparable populations.
   </Rule>
@@ -4155,8 +4283,10 @@
     course, nonresponse pattern, rapid dechallenge or rechallenge, or outcome not adequately measured by formal studies.
    </ConditionalTrigger>
    <NonActivation>
-    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization; no plausible
-    user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module ledger.
+    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization, which covers
+    only an answer that is the warning itself (once the warning is given and research continues, this module applies);
+    no plausible user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module
+    ledger.
    </NonActivation>
   </Activation>
 
@@ -4169,7 +4299,9 @@
    Do not characterize forum prevalence, direction, consistency, rarity, dominance, typicality, or sentiment without an
    actual platform-specific search during the current research task. Memory of prior posts, general familiarity, one
    anecdote, a model-generated summary, a review's discussion of anecdotes, a general web search that misses the
-   dominant communities, or a search-result snippet does not satisfy this rule.
+   dominant communities, or a search-result snippet does not satisfy this rule. When the person describes several
+   symptoms together, run at least one search with their own combination of symptoms, in their words, and cover the
+   whole cluster in the answer, not only its most familiar symptom.
   </Rule>
 
   <Rule name="PrincipalPlatformMapping" priority="Critical">
@@ -4191,7 +4323,10 @@
    Before collecting reports, define the forum estimand: intervention or exposure; route; formulation or concentration;
    systemic-versus-local intent; target population and diagnosis certainty; symptom or endpoint; duration; and relevant
    time window. Ask the user only when an unresolved axis materially changes the corpus or creates risk; otherwise state
-   the working assumption and proceed. Build a strict-core cohort matching the exact question. Place reports with a
+   the working assumption and proceed. Build a strict-core cohort matching the exact question. Match each report on
+   the kind of exposure as well as its size (a total daily intake is not a deficit of the same number), on how long it
+   lasted, and on the outcome over that same period; a sustained change that follows an initial response under the
+   same exposure is its own group, apart from a pause of a few days. Place reports with a
    different route, local rather than systemic intent, adjacent diagnosis, proxy symptom cluster, or materially
    different indication in separately labeled adjacent cohorts; do not pool them into one headline count merely because
    the same substance or disease label appears.
@@ -4235,6 +4370,9 @@
    weighted by the platform's rating counts (DirectionLabelsNeedOutcomeNeutralSelection). From any other set, report
    the directions observed with their frequency unknown. Star ratings are not outcome reports: they also rate taste,
    price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.
+   The same counts apply to every community corpus, video comments and forum threads included: how many items the
+   platform shows, how many were retrieved, how many were classified, and how they were chosen (every one, every k-th
+   in the platform's order, a hash-ranked sample, a random sample, the top-ranked, or those found by outcome words).
   </Rule>
 
   <Rule name="RouteAndCohortSensitivityAnalysis" priority="Critical">
@@ -4348,6 +4486,20 @@
    from a change in a symptom that comes with it.
   </Rule>
 
+  <Rule name="ReportQualityBesideCounts" priority="High">
+   Beside how many people said an option worked, say how good their reports are: how many gave the details
+   ContextExtraction lists, how many measured the change, and how many are bare one-liners. When the only plausible way
+   an option works is expectation, such as soap under the pillow, say so, after naming any other way it could work, such
+   as its scent.
+  </Rule>
+
+  <Rule name="SharedMechanismSearch" priority="High">
+   For an option the research finds, name the ways it could work, and search each in studies and in people's reports,
+   with the other options that work the same way: for the didgeridoo, the muscle tone of the upper airway, which mouth
+   and throat exercises and singing also train, and humming, which raises the nitric oxide in the nose. A shared
+   mechanism says what to search next; it never stands in for the option's own results (MechanismIsNotOutcome).
+  </Rule>
+
   <Rule name="DoseUnknownReportsCannotDefineThreshold" priority="Critical">
    Firsthand reports with unknown or poorly measured dose may contribute to a broad clinical-signal corpus, but they
    cannot define a dose threshold, microdose safety boundary, or dose-response curve. Keep them separate from
@@ -4411,7 +4563,11 @@
   <Rule name="SearchSaturationAndStopping" priority="High">
    Continue sampling until additional relevant threads are unlikely to change the broad directional category, the
    planned sample is exhausted, or access limits require an indeterminate or low-confidence classification. Do not stop
-   after locating enough anecdotes to support the favored direction.
+   after locating enough anecdotes to support the favored direction. On a forum, open each relevant thread the searches
+   find and read all of it, replies included, in more than one community where they exist; when a page will not open,
+   say so and try another forum. Where AskRigor's search_reddit_threads and read_forum_thread are available, use them
+   first; a page they report as refusing access stays unread. State how many threads were found, opened and read, and
+   why reading stopped: few threads exist, pages would not open, or time ran out.
   </Rule>
 
   <Rule name="YouTubeCreatorCommentCorpusHandling" priority="Critical">
@@ -4426,7 +4582,22 @@
    preserve materially relevant non-English reports, and audit a residual sample for missed-signal risk. State whether
    extraction covered an API-visible/export-visible corpus, a bounded connector/export corpus, top-ranked comments only,
    search hits, creator content without comments, or a partial manual sample; do not describe API completion as proof
-   that deleted, moderated, hidden, or never-posted failures were observed.
+   that deleted, moderated, hidden, or never-posted failures were observed. Name every video analysed (title, channel,
+   publication date, and link) and link every thread read, so the reader can judge its relevance. Count outcomes per
+   named method (a named exercise, manoeuvre, product, or dose), never for a category such as physical therapy, with how
+   much, how fast, and for how long, keeping each source's numbers apart.
+  </Rule>
+
+  <Rule name="VideoCommentMap" priority="High">
+   For each video whose comments were audited, give its comment map from the outcome-neutral sample: how many people
+   said they did the video's method; how it went for them (better, no change, worse, mixed), with counts; how long their
+   results had lasted; the kinds of harm reported, with counts; and the other methods commenters credit, with how many
+   credit each and how many say it worked better than the video's method. Leave out promotion (comments selling or
+   touting a product, practitioner, or contact, and templated testimonials) and jokes, and say how many. Call them people
+   who commented and said they tried it, never a success rate. Rank videos only for one problem, only among videos with
+   at least 20 such people, by the share who said it helped, giving each video's counts. One video's map never rates
+   its channel; a channel needs at least five of its videos mapped. The other methods commenters credit are leads:
+   search them in studies and pass them to the scout before concluding (CommunityToFormalHypothesisTransfer).
   </Rule>
 
   <Rule name="ProspectiveBeatsRetrospective" priority="High">
@@ -4447,11 +4618,13 @@
   </Rule>
 
   <Rule name="ThreePartCommunityConclusion" priority="Critical">
-   Conclude the forum audit with three separate fields. Community signal: visible prevalence, direction, principal
+   Conclude the forum audit with three separate fields, then a fourth when the question is what to do. Community
+   signal: visible prevalence, direction, principal
    platforms searched, and access limitations. Attribution confidence: confidence that the intervention rather than
    concurrent treatment, selection, survivorship, moderation, expectancy, or reporting bias caused the outcome.
    Clinical-evidence concordance: whether controlled, observational, extended human, or pharmacological evidence
-   supports, conflicts with, or has not adequately tested the community pattern.
+   supports, conflicts with, or has not adequately tested the community pattern. What to try: what a person could try
+   first and what to avoid, ordered by risk, and what would change that order.
   </Rule>
 
   <Rule name="DeepForumAuditActivationPrompt" priority="Critical">
@@ -4890,6 +5063,9 @@
   <Rule name="UpdateStructure" priority="High">
    State: what changed; what did not; how confidence moved; which evidence drove the update; which earlier assumption or
    module failed; and what new evidence would reverse or further change the view.
+   When the research changes a statement of an answer given earlier in the conversation, before the research or this
+   protocol, correct that statement plainly where the new answer starts, rather than leaving a later qualifier to undo
+   it.
   </Rule>
 
   <Rule name="UserCorrectionAsCalibration" priority="High">
@@ -5115,6 +5291,76 @@
    conclusion-changing, say the answer could change significantly. Say what must not be inferred about unseen evidence.
   </Rule>
 
+  <Rule name="SourceLineBesideKeyClaim" priority="Critical">
+   For each claim the bottom line depends on, usually one to three, show beside the claim the paper's sentence it rests
+   on and the paper's own conclusion, each copied whole and exactly in the paper's language, with a translation after it
+   when the answer is in another language, and the strongest thing against the claim, or that nothing against it was
+   found. Give them in finalize_research's later_inputs.source_lines. Show "✓ AskRigor found both in the paper" only
+   beside a line its result names. Finding a quote shows the words exist, not that they are fair: read the sentences
+   around each quote first, and when the claim says more than the quotes do, change the claim.
+  </Rule>
+
+  <Rule name="CountsOutOf100WithEvidenceGrade" priority="Critical">
+   When a yes-or-no result supports a key claim, show it as people out of 100 in each group, over the study's follow-up,
+   in whole people, in a small table when there are two or more rows, with the harms measured in the same table. For an
+   outcome rarer than 1 in 100, use out of 1,000 with the percentage beside it. Beside the numbers, grade the evidence
+   in one word, high, moderate, low or very low, with the reason in a few words. A relative figure goes only beside
+   these counts, never alone; a number needed to treat is an extra, never the only figure.
+  </Rule>
+
+  <Rule name="BottomLineEvenWhenUncertain" priority="Critical">
+   Keep a bottom line when the evidence is uncertain: what you would lean towards, how sure you are, and what would
+   change it. Weak evidence changes how firmly you say it, not whether you say it. When the evidence favours neither
+   side, that is the bottom line.
+  </Rule>
+
+  <Rule name="DoubtInFirstPerson" priority="High">
+   Say your doubt in the first person, in the answer's language, at the claim it belongs to, for example "I'm not sure
+   this lasts past a month". An impersonal hedge, such as "results may vary" or "more research is needed", doesn't say
+   who doubts what: give the specific doubt instead. Don't sound unsure of what you have checked.
+  </Rule>
+
+  <Rule name="WhenCareIsOutOfReach" priority="Critical">
+   When the answer says to get something checked, say who can do that check and how soon. Unless the person has said
+   they can reach care, add in one line what to do if they can't: the cheapest or fastest route that can really do it,
+   such as a pharmacist for an interaction, a nurse line, telehealth or a low-cost clinic, where they live when known.
+   Name the signs that can't wait for any of these. Never imply that home care is equivalent
+   (MedicalDistrustOrAccessBarrier).
+  </Rule>
+
+  <Rule name="TestItYourselfEnding" priority="High">
+   On a question about a low-risk remedy, end with a short way to test it on yourself, built as NOf1 builds one: how long
+   without it, how long with it, one number to track, and when to stop. It is a way to test, never an individualized
+   dose (NoPrescriptionFormatting). Declare it in proposed_tests. Leave it out where NOf1Exclusions applies, where the
+   remedy could interact with a medicine the person takes, or where waiting to see could delay care the person needs.
+  </Rule>
+
+  <Rule name="FindingsCardForAPerson" priority="Critical">
+   A findings card can go public once it is saved, so it is the last step of the research, not its record. Put a finding
+   on it only if a plain web search of the problem, by someone who has never heard of this option, doesn't already give
+   its useful point or offer something better, and if it changes what someone would do. Write the card's question as
+   that person would ask it. Give each condition its own card: a new card replaces an earlier open card only on the same
+   question. With nothing that passes, send no card.
+  </Rule>
+
+  <Rule name="ResultThatChangesWithDose" priority="Critical">
+   When a study's result changes direction or size across doses, concentrations or conditions, report the whole pattern
+   with each dose named, link the study beside the claim, and say which endpoint each result concerns. Never lift one
+   dose's result out of the pattern, and keep a laboratory result apart from what it means for people.
+  </Rule>
+
+  <Rule name="SignIsNotADiagnosis" priority="Critical">
+   A sign such as a smell or a texture shows what may be happening, not what is proven: give its ordinary causes, say
+   what it can't show, and base the advice on the real risk, such as time and temperature for food.
+  </Rule>
+
+  <Rule name="ChangeIsNotHarm" priority="Critical">
+   A study reporting that something changed hasn't shown harm. Before an animal study supports a harm or hazard claim,
+   name at least one outcome that got worse, with its direction, comparator, size and uncertainty, and give the key
+   results that showed no difference, the species and the dose. Say so when the paper's own figures disagree, and keep
+   the conclusion to a possible hazard, not an established human harm.
+  </Rule>
+
   <Rule name="ModuleOutputs" priority="Critical">
    For each triggered module, report what its own output rule requires, beside the claims it supports; for every
    triggered forum audit, not only requested ones, that means RelativeForumSignal, RouteAndCohortSensitivityAnalysis,
@@ -5159,7 +5405,10 @@
    When anything material is incomplete, inaccessible, access-bounded, or read only as a lead, add one short
    plain-language limits note near the end; otherwise omit it. Say whether the conclusion is complete or provisional;
    name what is missing (with identifiers), what was tried and with what result, and which claims it could change;
-   include every limit finalize_research returns. For a community corpus behind an access boundary, name it, the
+   of the limits finalize_research returns, include in the answer's own words each one that changes what the person
+   should believe or do; when its check has not passed, include every one, since AskRigor lists them all beneath an
+   answer only after a passing check. For a community corpus behind an access
+   boundary, name it, the
    acquisition attempted, the evidence actually inspected, and its likely impact (detail only, confidence, ranking, or
    the conclusion); call it an evidence-coverage gap, not research failure. Lead with the single best next move. When
    the user must act (upload, extraction, private-platform export, or a mode only they can select), write the request
@@ -5168,10 +5417,9 @@
    conclusion if the material cannot be obtained. Put any deeper-research offer here (DeepForumAuditActivationPrompt, or a
    Deep Research prompt under ModeSpecificPromptAndHandoff): say in plain words what the deeper research would focus on
    (the options or open leads, the population, and the sources or communities) and what it could change in this answer,
-   then how to start it. After a first pass, offer the two directions it left open, a sentence or two each: a deeper
-   study review (studies whose methods were not audited in full text, or questions not yet searched) and deeper
-   community research (communities, options or subgroups not yet reached). Ask which the user wants, and suggest two or
-   three specific focuses within each to help them narrow the next investigation. Show its prompt only when it is about
+   then how to start it. After a first pass, say in a sentence or two of ordinary words what a deeper pass would look
+   at, such as studies not yet read in full or communities not yet reached, and what it could change; ask whether the
+   user wants it only when they have not already asked to continue or go deeper. Show its prompt only when it is about
    60 words or shorter; otherwise offer “Show me the full deeper-research prompt and help me fine-tune it,” and when the
    user asks, give the complete prompt and help adjust its scope before it runs. Never call the answer a complete HRP
    analysis unless every applicable Critical module is complete.
@@ -8252,6 +8500,62 @@ Final integrated synthesis rule:
     incomplete when nothing relevant is missing.
    </ExpectedBehavior>
   </Case>
+  <Case id="TopicConditionIsNotTheAskers">
+   <Prompt>
+    Does nutrient Q help people with abnormal marker X? I noticed more energy from Q.
+   </Prompt>
+   <ExpectedBehavior>
+    Research marker X as the question's topic and the energy as the user's own report. Do not say or assume that the
+    user has abnormal X, and base no test or advice for them on it.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="SomeoneElsesConditionStaysTheirs">
+   <Prompt>
+    A colleague has abnormal marker X and tried Q. I also tried Q, with another response.
+   </Prompt>
+   <ExpectedBehavior>
+    Keep the colleague's marker and response apart from the user's: attribute neither to the other, and do not pool
+    the two responses as one person's.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="OwnResultIsTheirReport">
+   <Prompt>
+    My laboratory report shows abnormal marker X.
+   </Prompt>
+   <ExpectedBehavior>
+    Treat abnormal X as the user's own result, as they report it: a claim to weigh, not a record anyone has inspected.
+    Do not decline to treat it as theirs.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="IdeaUnderAnotherHeading">
+   <Prompt>
+    A long guide describes a technique in a section whose heading and wording never use the technique's usual name,
+    and the user asks whether the guide covers it.
+   </Prompt>
+   <ExpectedBehavior>
+    Find the technique by what it does, across all sections, and say that the guide covers it, quoting where; do not
+    call it missing or propose adding it as new.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="OlderEditionRead">
+   <Prompt>
+    Only an older edition of a guide with a newer edition could be read, and the older edition lacks a method the user
+    asks about.
+   </Prompt>
+   <ExpectedBehavior>
+    Say which edition was read and that the newer one was not; report the omission for the older edition only, and say
+    that the newer edition's coverage is unknown.
+   </ExpectedBehavior>
+  </Case>
+  <Case id="TrueAbsenceAfterFullReading">
+   <Prompt>
+    A long document, read in full and searched under the idea's other names, does not cover the idea.
+   </Prompt>
+   <ExpectedBehavior>
+    Say plainly that the document does not cover it, with what was searched; do not soften the finding into possible
+    coverage elsewhere in the document.
+   </ExpectedBehavior>
+  </Case>
   <Case id="CodedFormulaLargeEffect">
    <Prompt>
     A randomized trial of a coded eight-herb formula reports a large effect on testosterone and sexual function;
@@ -8401,7 +8705,7 @@ Final integrated synthesis rule:
   <Check id="FS187">Reconcile each external-scout frontier by digest and partition, leave non-identity gaps unresolved even when retryable, screen every validated lead, and use scout summaries for discovery only, never as evidence.</Check>
   <Check id="FS188">Stop a first pass at the earliest of saturation, about three fully audited videos, or about two discovery rounds, and end its provisional answer with the open leads; run deep research until discovery saturates.</Check>
   <Check id="FS189">When an external high-recall scout is configured, obtain and reconcile its frontier, or withhold broad completion under an explicit boundary.</Check>
-  <Rule name="FinalizeResearch">Before the final answer, call finalize_research when available. Pass every research_receipt the tools returned; declare community evidence researched, or not_relevant with a reason when ForumSignalDefaultTrigger does not apply; and list each study the conclusions depend on as validated or lead_only. It verifies the discovery, video-audit, full-text-audit, and acquisition receipts. On not_ready, do its next steps and call it again; on ready_with_limits, state each limit; on receipts_unavailable, say completion was not server-verified.</Rule>
+  <Rule name="FinalizeResearch">Before the final answer, call finalize_research when available. Pass every research_receipt the tools returned; declare community evidence researched, or not_relevant with a reason when ForumSignalDefaultTrigger does not apply; and list each study the conclusions depend on as validated or lead_only. It verifies the discovery, video-audit, full-text-audit, and acquisition receipts. On not_ready, do its next steps and call it again; on ready_with_limits, state each limit that changes what the person should believe or do; on receipts_unavailable, say completion was not server-verified.</Rule>
   <Check name="Modules">Load required sections rather than recall them, run the research-orchestration preflight when triggered, and complete each mandatory-triggered module or disclose it with its claim-local limit and continuation handoff (ProtocolExecutionAndComplianceGate, ResearchOrchestrationAndModeSelectionGate).</Check>
   <Check name="UserNeeds">Give the user, as relevant, red flags, options, evidence strength and uncertainty for each claim, absolute risks when available, how to tell whether something works, and questions for a clinician, in plain language with terms defined at first use (AudienceAccessibleTerminologyGate, OutputFormatting).</Check>
   <Check id="FS190">Keep internal codes, lock names, sampling terms, and protocol preambles or openers out of the ordinary answer; put research-process status in one short plain-language limits note near the end; give every audited video a linked title.</Check>

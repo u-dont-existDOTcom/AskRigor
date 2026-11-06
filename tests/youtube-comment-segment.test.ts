@@ -314,6 +314,86 @@ describe("resumable YouTube comment segments", () => {
     )).toHaveLength(1);
   });
 
+  it("skips a pinned comment's second listing, where it falls by date, with its replies", async () => {
+    // YouTube's newest-first listing puts a pinned comment first, then again in its place by date.
+    const thread = (id: string, publishedAt: string, replyCount: number) => ({
+      id: `thread-${id}`,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        topLevelComment: {
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `Top level ${id}`,
+            likeCount: 0,
+            publishedAt,
+            updatedAt: publishedAt
+          }
+        },
+        totalReplyCount: replyCount
+      }
+    });
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        const secondPage = url.searchParams.get("pageToken") === "page-2";
+        return Response.json({
+          ...(secondPage ? {} : { nextPageToken: "page-2" }),
+          pageInfo: { totalResults: 4, resultsPerPage: 2 },
+          items: secondPage
+            ? [thread("top-old", "2024-01-11T08:00:00Z", 0), thread("top-pinned", "2024-01-10T23:00:00Z", 1)]
+            : [thread("top-pinned", "2024-01-10T23:00:00Z", 1), thread("top-new", "2026-10-30T12:00:00Z", 0)]
+        });
+      }
+      const parentId = url.searchParams.get("parentId")!;
+      return Response.json({
+        pageInfo: { totalResults: parentId === "top-pinned" ? 1 : 0, resultsPerPage: 1 },
+        items: parentId === "top-pinned"
+          ? [{
+              id: "top-pinned.reply",
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                parentId,
+                textDisplay: "Reply to the pinned comment",
+                likeCount: 0,
+                publishedAt: "2024-01-12T08:00:00Z",
+                updatedAt: "2024-01-12T08:00:00Z"
+              }
+            }]
+          : []
+      });
+    }));
+
+    // A small budget makes the second page a later call, so the pinned thread crosses the cursor.
+    const first = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 4, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+    expect(first.next_cursor?.pinned_top_level_sha256).toHaveLength(1);
+    const second = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", cursor: first.next_cursor },
+      YOUTUBE,
+      { max_provider_requests: 10, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect([...first.comments, ...second.comments].map(({ comment_id }) => comment_id)).toEqual([
+      "top-pinned", "top-pinned.reply", "top-new", "top-old"
+    ]);
+    expect(second).toMatchObject({
+      access_status: "api_visible_complete",
+      exhausted: true,
+      pagination_overlaps_reconciled: 0,
+      pinned_repeats_skipped: 1,
+      limitations: []
+    });
+    expect(requests.filter((url) =>
+      url.pathname.endsWith("/comments") && url.searchParams.get("parentId") === "top-pinned"
+    )).toHaveLength(1);
+  });
+
   it("reconciles a repeated reply at an adjacent reply-page boundary", async () => {
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {

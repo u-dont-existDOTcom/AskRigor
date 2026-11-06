@@ -8,12 +8,24 @@ import {
   ATLAS_SEARCHES_PER_FINDING,
   ATLAS_SUBJECT_MAX_CHARACTERS,
   ATLAS_SUBJECT_TYPES,
+  withoutFormatCharacters,
   type AtlasNumberEntry,
   type HeldYouTubeFindingContent
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
 import { atlasBasisSchema, type AtlasBasis } from "../atlas/reuse.js";
+import {
+  BACKING_DESCRIPTION,
+  BACKING_LIMITS,
+  FORUM_SIGNAL_DESCRIPTION,
+  findingBackingSchema,
+  forumSignalSchema,
+  storedForumSignalOf,
+  type SourceReadingEntry,
+  type StoredBacking,
+  type StoredForumSignal
+} from "./research-behind.js";
 import {
   containsSecretLikeData,
   screenPrivateText,
@@ -194,7 +206,79 @@ export const findingsCardSchema = z.object({
   open_leads: z.array(cardText(200)).max(6).default([])
 }).strict();
 
-export type FindingsCard = z.output<typeof findingsCardSchema>;
+/**
+ * Owner answer 219b (2 November 2026): the AI declares for each finding whether it draws on YouTube comments, and
+ * AskRigor holds those (findings drawn from YouTube comments are never published; owner answers 170 and 173). The
+ * published card stays fixed (owner answer 189a), so the declaration is a nested field of the card's later shape: the
+ * whole card goes in later_inputs.findings_card, or at the top level where the app's copy of the schema lets it through.
+ * Whether a finding draws on comments is the AI's judgment, in any language; the check compares only what it declares.
+ */
+export const DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION = "Whether this finding draws on YouTube comments read in this " +
+  "research: true when any part of it rests on what commenters wrote (their reports, experiences, claims or " +
+  "numbers), false when none does. AskRigor holds a finding that draws on them privately for its owner's review and " +
+  "never publishes it; when this research read YouTube comments, a finding without this declaration is held too.";
+
+/**
+ * A figure of the card's later shape: the published figure, and which of the finding's sources it comes from (owner
+ * answer 252a: the page says which study each figure comes from).
+ */
+export const laterFindingNumberEntrySchema = findingNumberEntrySchema.extend({
+  source: cardText(300).optional()
+    .describe("Which of this finding's sources the figure comes from, by the same DOI, PMID or PMCID.")
+}).strict();
+export type LaterFindingNumberEntry = z.output<typeof laterFindingNumberEntrySchema>;
+
+/**
+ * Owner answer 252a (5 November 2026): each finding may also give the research behind it (backing, numbers' sources)
+ * and what people report (forum_signal), and one resting on the forum signal alone has no source. These are nested
+ * fields of the later shape too, so the published tool list stays as it is (owner answer 189a); research-behind.ts
+ * holds their shapes and exact checks.
+ */
+export const laterFindingSchema = findingsCardSchema.shape.findings.element.extend({
+  sources: z.array(cardText(300)).max(10)
+    .describe("DOI, PMID or PMCID of a key source verified in this call or cited from a checked Atlas finding used " +
+      "here, or the ID of a video audited here; empty only for a finding that rests on its forum_signal alone."),
+  numbers: z.array(laterFindingNumberEntrySchema).max(20).optional()
+    .describe("For an effect, harm or overlooked_option, required: each two-group yes-or-no figure the claim gives, " +
+      "an empty list if none, each with the source it comes from."),
+  draws_on_youtube_comments: z.boolean().optional().describe(DRAWS_ON_YOUTUBE_COMMENTS_DESCRIPTION),
+  backing: z.array(findingBackingSchema).max(BACKING_LIMITS.lines).optional().describe(BACKING_DESCRIPTION),
+  forum_signal: forumSignalSchema.optional().describe(FORUM_SIGNAL_DESCRIPTION)
+}).strict();
+
+/** The findings card with each finding's declaration of owner answer 219b, as finalize_research and the save read it. */
+export const laterFindingsCardSchema = findingsCardSchema.extend({
+  findings: z.array(laterFindingSchema).min(1).max(5).describe(FINDINGS_DESCRIPTION)
+}).strict();
+
+/** A card as checked: the published card's fields, and each finding's optional YouTube-comments declaration. */
+export type FindingsCard = z.output<typeof laterFindingsCardSchema>;
+
+/**
+ * The 1-based places of a checked card's findings that the finalization receipt signs as held (owner answer 219b), as
+ * indexes into the card: those whose declaration, or its absence after YouTube comments were read, or the meaning
+ * judge, put with the findings drawn from YouTube comments. Undefined entries, or entries past the card, are ignored.
+ */
+export function heldFindingsFromReceipt(signed: string | string[] | undefined, findings: number): Set<number> {
+  const entries = signed === undefined ? [] : Array.isArray(signed) ? signed : [signed];
+  return new Set(entries.flatMap((entry) => {
+    if (!/^[1-9]$/u.test(entry)) return [];
+    const index = Number(entry) - 1;
+    return index < findings ? [index] : [];
+  }));
+}
+
+/**
+ * Whether the save already holds a finding apart by what the card itself shows (owner answers 170 and 173): a YouTube
+ * video among its sources, community_checked, or a comment audit among the bases its receipt signed.
+ */
+export function heldByCardFields(
+  finding: Pick<FindingsCard["findings"][number], "sources" | "tags">,
+  bases: readonly VerifiedBasis[] = [],
+): boolean {
+  return finding.sources.some(isYouTubeVideoId) || finding.tags.includes("community_checked") ||
+    bases.includes("comment_audit");
+}
 
 /** The sentence a paid-private answer's offer ends with, as the owner worded it (139c): the save waits for a yes. */
 export const FINDINGS_SAVE_OFFER =
@@ -226,10 +310,14 @@ export const FINDINGS_ATLAS_SENTENCE = "Saved findings that AskRigor's owner acc
 /**
  * Work a quick answer cannot do, which finalize_research derives for each finding of a checked card from that call's
  * receipts and declarations (owner answer 139c, 2026-10-20): a source audited in full text, a video whose comments
- * were read, a sentence that is a checked absence claim, or a correction the research itself found. It shows depth,
- * not that a finding is better; why_not_usual stays the model's, for the owner's review.
+ * were read, a sentence that is a checked absence claim, or a correction the research itself found; and, owner answer
+ * 254a (5 November 2026), forum threads AskRigor's own reader read for the finding's forum signal, shown by their
+ * forum_thread_read receipts, the same as studies AskRigor read. It shows depth, not that a finding is better;
+ * why_not_usual stays the model's, for the owner's review.
  */
-export const VERIFIED_BASES = ["full_text_audit", "comment_audit", "bounded_absence", "research_correction"] as const;
+export const VERIFIED_BASES = [
+  "full_text_audit", "comment_audit", "bounded_absence", "research_correction", "forum_read",
+] as const;
 export type VerifiedBasis = typeof VERIFIED_BASES[number];
 
 /** What the bases of a card's findings rest on, counted once each across the card. */
@@ -242,6 +330,8 @@ export interface VerifiedWork {
   absences: number;
   /** Corrections the research found that a finding's sentence states. */
   corrections: number;
+  /** Forum threads AskRigor's reader read for a finding's forum signal, each once (owner answer 254a). */
+  threads?: number;
 }
 
 /** The work, in the words the answer shows: "full-text audits of 2 studies and audited comments on 3 videos". */
@@ -253,7 +343,9 @@ export function verifiedWorkPhrase(work: VerifiedWork): string {
     ...(work.absences === 0 ? [] : [counted(work.absences, "a check of what the evidence does not show",
       "# checks of what the evidence does not show")]),
     ...(work.corrections === 0 ? [] : [counted(work.corrections, "a correction the research made to an earlier statement",
-      "# corrections the research made to earlier statements")])
+      "# corrections the research made to earlier statements")]),
+    ...((work.threads ?? 0) === 0 ? [] : [counted(work.threads!, "1 forum thread read in full",
+      "# forum threads read in full")])
   ];
   return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 }
@@ -352,7 +444,7 @@ export function normalizedFindingsText(text: string): string {
  * The library's duplicate key: the question and the claims, with Unicode
  * form, invisible characters, spacing, case and the claims' order set aside.
  */
-export function findingsCardFingerprint(card: FindingsCard): string {
+export function findingsCardFingerprint(card: { question: string; findings: ReadonlyArray<{ claim: string }> }): string {
   const claims = card.findings.map(({ claim }) => normalizedFindingsText(claim)).sort();
   return createHash("sha256")
     .update(JSON.stringify(["askrigor-findings-v1", normalizedFindingsText(card.question), claims]), "utf8")
@@ -415,13 +507,34 @@ export function isSafeReportedModel(value: string): boolean {
     !containsSecretLikeData(value);
 }
 
-/** A finding as the library stores it: its YouTube videos counted, not named. */
-export type StoredFinding = Omit<FindingsCard["findings"][number], "sources"> & {
+/**
+ * A finding as the library stores it: its YouTube videos counted, not named. Its YouTube-comments declaration (owner
+ * answer 219b) decided only whether it was held apart, which the finalization receipt signed, so it is not stored.
+ */
+export type StoredFinding = Omit<FindingsCard["findings"][number],
+  "sources" | "draws_on_youtube_comments" | "backing" | "forum_signal"> & {
   sources: string[];
+  /**
+   * A finding's declaration of whether it draws on YouTube comments, which a card saved after #398 and before its record
+   * named them may still hold (the review of #417, finding 6); a save today stores none. True reads as drawn from them.
+   */
+  draws_on_youtube_comments?: boolean;
   /** Videos whose audited comments back this finding; their IDs are not stored. */
   youtube_videos?: number;
   /** The work a quick answer cannot do that this finding rests on, as the finalization receipt signed it. */
   verified_bases?: VerifiedBasis[];
+  /**
+   * Owner answer 252a: the card's backing lines as the receipt signed their lookups, with only the quotes found word for
+   * word in a full text AskRigor fetched itself or a PubMed abstract (research-behind.ts).
+   */
+  backing?: StoredBacking[];
+  /** Owner answer 252a: how each source was read, as the receipt signed it. */
+  source_reading?: SourceReadingEntry[];
+  /**
+   * Owner answer 252a: what people report in the forum threads read for this research, as the card declared it, with the
+   * communities and how many threads were read in place of the threads' links (research-behind.ts).
+   */
+  forum_signal?: StoredForumSignal;
 };
 
 /** A card as the library stores it. */
@@ -444,14 +557,31 @@ const YOUTUBE_PAGE =
   "|youtu\\.be/[A-Za-z0-9_-]{11}(?:\\?t=\\d{1,6}s?)?)";
 const YOUTUBE_LINK = new RegExp(`\\[([^[\\]\\n]{0,500})\\]\\(${YOUTUBE_PAGE}\\)`, "gu");
 const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
+// Any mention of YouTube's hosts, as the Atlas's own guards read one.
+const YOUTUBE_REFERENCE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
+
+/** A card text as the library stores it: a link to a YouTube video keeps its text, a bare one reads "(YouTube video)". */
+export function withoutYouTubeLinks(value: string): string {
+  return value.replace(YOUTUBE_LINK, "$1 (YouTube video)").replace(YOUTUBE_URL, "(YouTube video)");
+}
+
+/**
+ * Whether a text names a YouTube host at all: a paper's quote that does is never stored (owner answers 170 and 252a).
+ * The text is read as a reader sees it, without its format characters, as the Atlas pages read it (the review of #422,
+ * fourth round).
+ */
+export function holdsYouTubeReference(value: string): boolean {
+  return YOUTUBE_REFERENCE.test(withoutFormatCharacters(value));
+}
 
 /**
  * The card without YouTube video IDs or links, which AskRigor does not store
  * while its YouTube API compliance review is open: a link keeps its text. The
  * gate still checked the videos; the saved record keeps the digest it signed.
  * A finding drawn from YouTube comments (a YouTube video among its sources, or
- * community_checked, or a comment audit among the bases the receipt signed for
- * it, given as drawnFromComments) is left out whole: the owner told YouTube on 29 Aug 2026
+ * community_checked, or, given as drawnFromComments, a comment audit among the bases the receipt signed for it or a
+ * place the receipt signed as held: declared as drawing on comments, undeclared after comments were read, or read so
+ * by the meaning judge; owner answer 219b) is left out whole: the owner told YouTube on 29 Aug 2026
  * that AskRigor stores no YouTube-derived records until YouTube clarifies
  * (owner answer 170, 24 Oct); since owner answer 173 (25 Oct) each finding left
  * out is held apart from the card, for the owner's review. `kept`
@@ -459,7 +589,14 @@ const YOUTUBE_URL = new RegExp(YOUTUBE_PAGE, "gu");
  * were left out; a card left with no finding is not saved as a card, and its
  * findings are held with its question and topic.
  */
-export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set()): {
+export function withoutYouTubeData(card: FindingsCard, drawnFromComments: ReadonlySet<number> = new Set(),
+  options: {
+    threadLinks?: boolean;
+    /** The subreddits the final check's receipt signed for the card's Reddit threads (threadCommunitiesFromReceipt). */
+    threadCommunities?: ReadonlyMap<number, ReadonlyMap<number, string>>;
+    /** The forum pages whose links the final check's receipt signed as read (threadLinksFromReceipt). */
+    threadLinksRead?: ReadonlyMap<number, ReadonlySet<number>>;
+  } = {}): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   let omitted = false;
@@ -468,11 +605,23 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
     if (stored !== value) omitted = true;
     return stored;
   };
-  const kept = card.findings.flatMap(({ sources, tags }, index) =>
-    sources.some(isYouTubeVideoId) || tags.includes("community_checked") || drawnFromComments.has(index) ? [] : [index]);
-  const findings = kept.map((index) => card.findings[index]!).map(({ sources, ...finding }): StoredFinding => {
+  const kept = card.findings.flatMap((finding, index) =>
+    heldByCardFields(finding) || drawnFromComments.has(index) ? [] : [index]);
+  const findings = kept.map((index): StoredFinding => {
+    // The backing lines are stored as the receipt signed their lookups, which the save adds (owner answer 252a).
+    const { sources, draws_on_youtube_comments: _declared, backing: _backing, forum_signal: signal, ...finding } =
+      card.findings[index]!;
     const videos = sources.filter(isYouTubeVideoId).length;
     if (videos > 0) omitted = true;
+    // Owner answer 252a: stored with its communities and how many threads were read, and, owner answer 253a, the
+    // threads' links when the saving account's notice covers them; a thread link to YouTube is never a forum thread (the
+    // final check refuses one), and a signal left with no thread is not kept. Each thread is rebuilt from its verified
+    // parts, a Reddit post's community from its signed subreddit (the review of 5 November, findings 1 and 2).
+    const subreddits = options.threadCommunities?.get(index);
+    const linksRead = options.threadLinksRead?.get(index);
+    const stored = signal === undefined ? undefined
+      : storedForumSignalOf(signal, text, options.threadLinks === true, (place) => subreddits?.get(place),
+        (place) => linksRead?.has(place) === true);
     return {
       ...finding,
       claim: text(finding.claim),
@@ -483,19 +632,22 @@ export function withoutYouTubeData(card: FindingsCard, drawnFromComments: Readon
       // Atlas phase 3: the new texts are treated as every other card text; a field the card leaves out stays out.
       ...(finding.subject === undefined ? {} : { subject: text(finding.subject) }),
       ...(finding.numbers === undefined ? {} : {
-        numbers: finding.numbers.map((entry) => ({
+        numbers: finding.numbers.map(({ source, ...entry }) => ({
           ...entry,
           outcome: text(entry.outcome),
           option: text(entry.option),
           comparator: text(entry.comparator),
-          follow_up: text(entry.follow_up)
+          follow_up: text(entry.follow_up),
+          ...(source === undefined || isYouTubeVideoId(source) ? {} : { source })
         }))
       }),
       ...(finding.searches === undefined ? {} : {
         searches: finding.searches.map((search) => ({ ...search, query: text(search.query) }))
       }),
       sources: sources.filter((source) => !isYouTubeVideoId(source)),
-      ...(videos === 0 ? {} : { youtube_videos: videos })
+      ...(videos === 0 ? {} : { youtube_videos: videos }),
+      // Owner answer 252a: the forum signal's texts are treated as every other card text.
+      ...(stored === undefined ? {} : { forum_signal: stored })
     };
   });
   const declared = card.public_value;
@@ -532,11 +684,15 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
   card: StoredFindingsCard; omitted: boolean; kept: number[]; findingsLeftOut: number
 } {
   const drawnFromComments = new Set(card.findings.flatMap((finding, index) =>
-    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ? [index] : []));
+    (finding.youtube_videos ?? 0) > 0 || (finding.verified_bases ?? []).includes("comment_audit") ||
+      finding.draws_on_youtube_comments === true ? [index] : []));
   // withoutYouTubeData reads a checked card: a stored finding's sources hold no video ID, and its tags come with it.
   const checked = {
     ...card,
-    findings: card.findings.map(({ youtube_videos: _videos, verified_bases: _bases, ...finding }) => finding),
+    findings: card.findings.map(({
+      youtube_videos: _videos, verified_bases: _bases, backing: _backing, source_reading: _reading, forum_signal: _signal,
+      ...finding
+    }) => finding),
   } as FindingsCard;
   const stored = withoutYouTubeData(checked, drawnFromComments);
   return {
@@ -544,8 +700,16 @@ export function storedCardWithoutYouTubeFindings(card: StoredFindingsCard): {
     card: {
       ...stored.card,
       findings: stored.card.findings.map((finding, index) => {
-        const bases = card.findings[stored.kept[index]!]!.verified_bases;
-        return bases === undefined ? finding : { ...finding, verified_bases: [...bases] };
+        // The finding as stored keeps its signed bases, and its research behind it (owner answer 252a).
+        const { verified_bases: bases, backing, source_reading: reading, forum_signal: signal } =
+          card.findings[stored.kept[index]!]!;
+        return {
+          ...finding,
+          ...(bases === undefined ? {} : { verified_bases: [...bases] }),
+          ...(backing === undefined ? {} : { backing: backing.map((line) => ({ ...line })) }),
+          ...(reading === undefined ? {} : { source_reading: reading.map((entry) => ({ ...entry })) }),
+          ...(signal === undefined ? {} : { forum_signal: structuredClone(signal) }),
+        };
       }),
     },
   };
@@ -664,7 +828,14 @@ function cardTexts(card: FindingsCard): Array<[string, string]> {
       ]),
       // A search's query as the screen reads a search query, with its PubMed record numbers set aside.
       ...(finding.searches ?? []).map((search, at): [string, string] =>
-        [`findings[${index}].searches[${at}].query`, withoutPubMedRecordNumbers(search.query)])
+        [`findings[${index}].searches[${at}].query`, withoutPubMedRecordNumbers(search.query)]),
+      // Owner answer 252a: the AI's own words about the research behind a finding are screened as every card text. A
+      // paper's quotes are not: one that fails the screen is left out at the save, never refusing the card.
+      ...(finding.backing ?? []).map((line, at): [string, string] => [`findings[${index}].backing[${at}].against`, line.against]),
+      ...(finding.forum_signal?.mechanism === undefined ? []
+        : [[`findings[${index}].forum_signal.mechanism`, finding.forum_signal.mechanism] as [string, string]]),
+      ...(finding.forum_signal?.studies_measured === undefined ? []
+        : [[`findings[${index}].forum_signal.studies_measured`, finding.forum_signal.studies_measured] as [string, string]])
     ]),
     ...(declared?.who_else === undefined ? [] : [["public_value.who_else", declared.who_else] as [string, string]]),
     ...(declared?.what_it_changes === undefined ? []

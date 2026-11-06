@@ -9,7 +9,7 @@ import {
   protocolSections,
 } from "@askrigor/protocol";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
-import { undoOwnerQuestion149Hrp, undoOwnerQuestion161Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
+import { undoOwnerAnswer193Hrp, undoOwnerQuestion149Hrp, undoOwnerQuestion161Hrp, undoReadDepth } from "./helpers/undo-read-depth.js";
 
 // Independent of the recorded edit fixture: the owner's two approved sentences of 2026-10-22, word for word (answer
 // "161a", from lesson #49), where they go, the lesson's three invented cases as stress cases, and the revision note.
@@ -75,7 +75,7 @@ const hash = (text: string) => createHash("sha256").update(text, "utf8").digest(
 const size = (text: string) => Buffer.byteLength(text, "utf8");
 const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
 const plain = (body: string) => normalize(parser.parse(`<text>${body}</text>`).text as string);
-const load = () => readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8");
+const load = async () => undoOwnerAnswer193Hrp(await readFile(new URL("protocols/HRP_Full.xml", ROOT), "utf8"));
 interface Edits {
   from: { version: string; sha256: string }; to: { version: string; sha256: string };
   edits: Array<[string, string]>;
@@ -171,7 +171,8 @@ describe('owner-approved question 161: "161a" (2026-10-22), from lesson #49', ()
     const readDepth = JSON.parse(await readFile(new URL("tests/fixtures/protocol-edits/2026-10-11-read-depth.json", ROOT), "utf8")).hrp as Edits;
     expect(hash(await undoReadDepth(current, "hrp"))).toBe(readDepth.from.sha256);
     await expect(getProtocolManifest("hrp")).resolves.toEqual({
-      name: "HRP", version: PINS.to.version, revisionDate: REVISION_DATE, sha256: hash(current),
+      name: "HRP", version: "20.6.40", revisionDate: "2026-11-05",
+      sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1",
     });
   });
 

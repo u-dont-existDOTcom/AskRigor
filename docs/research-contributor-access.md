@@ -16,7 +16,9 @@ AskRigor has two research-use modes:
   2026-10-25; built, not yet released), free cards publish on save in AskRigor's
   public Atlas, written without the person and marked "Not checked by supervisors
   yet" until the owner reviews them. Signed-in people can vote and comment.
-  This is the free product.
+  Under notice v5 (owner answer 253a, 2026-11-05; built, not yet released), a
+  card's summary of what communities reported also holds links to the forum
+  threads AskRigor read. This is the free product.
 - **Paid private.** No research progress is submitted. Research findings and
   lesson feedback are saved only when the user accepts saving them for that
   answer. The answer's offer to save its findings ends with "Saved findings
@@ -31,13 +33,37 @@ usage itself is scientific evidence.
 
 ## Exact notice
 
-The version is `free-contributor-v4-2026-10-25` (owner answer 171,
-2026-10-25; exact wording approved, built, not yet released). The server returns
+The version is `free-contributor-v5-2026-11-05` (owner answer 253a,
+2026-11-05; wording the owner chose, built, not yet released). The server returns
 the complete notice from `RESEARCH_USE_NOTICE`. Free mode activates only when
 all four versioned agreement fields are literal `true`. Silence, inferred
 consent, a different notice version, or a partially checked agreement is rejected.
 
-Version 4 keeps every other sentence of v3 and makes exactly these three changes:
+Version 5 keeps every other sentence of v4 and changes the second sentence's
+community summary to:
+
+> ... and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.
+
+The privacy page and terms say the same. A card saved for an account that
+accepted only v4 stores no thread link; one saved under v5, or a paid private
+user's yes to a save, stores each thread's link as the Atlas publishes it
+(`docs/superpowers/plans/2026-11-05-atlas-research-behind.md`).
+
+An account that accepted v1 to v4 inspects as `UNENROLLED`, and research tools
+refuse it with `RESEARCH_ACCESS_REQUIRED`, until it accepts v5. Migration
+`0028_research_use_notice_v5` widens the same constraint as 0011, 0016 and 0020
+to admit all five versions, safely on repeated runs; it is renumbered when the
+Atlas stack next takes in main. An image that reads only v1 to v4 fails the
+access check of an account whose row carries v5, so an image rollback below v5
+first runs `infra/living-evidence-production/research-use-notice-v5-hold.sql`,
+which holds v5 rows in `research_use_notice_v5_hold` (migrator only) and marks
+the accounts revoked, so the person can accept v4 there;
+`research-use-notice-v5-restore.sql`, run once an image reading v5 serves again,
+restores each account still exactly in the held state. The Docker acceptance is
+`npm run contributor-access:notice-v5-rollback-acceptance`.
+
+Version 4 (owner answer 171) kept every other sentence of v3 and made exactly
+these three changes:
 
 > Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked "Not checked by supervisors yet" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.
 
@@ -83,6 +109,24 @@ and the dev-only `set_findings_save`. It is declared
 as a write to MCP clients. Revocation blocks later research calls and withdraws
 every still-pending proposal from that account. It does not silently rewrite an
 already accepted deidentified canonical record.
+
+`inspect` returns the account's `access`: its status, mode, the current notice's
+version and the notice itself. For an account whose research waits on the notice
+(not enrolled, revoked, or active under an earlier notice, which `inspect` shows
+as `UNENROLLED`), the result also carries `next_step`, which its text repeats
+with the notice word for word: "Show the user this notice, word for word, and
+ask whether they accept it for free research (or use paid private access if
+they have it). Only after their yes, call manage_research_access with action
+accept_free_contributor and agreement {noticeVersion: "<the current version>",
+eligibleDeidentifiedResearchContributionRequired: true,
+prohibitedPrivateAndRawContentExcluded: true,
+proposalReviewAndNoAuthorityAcknowledged: true,
+paidPrivateAlternativeAcknowledged: true}. Never accept for them." (The owner's
+report of 6 November 2026: with their login not yet on the new notice, ChatGPT
+only told them they couldn't use AskRigor; it never showed the notice or asked
+them to agree.) `next_step` is a runtime-only result field; the published tool
+lists don't change. An active account's `inspect` and the other actions'
+results carry none.
 
 ## The plain answer first
 
@@ -412,7 +456,10 @@ of 33 tools. They are flat fields with one rule set per action:
   findings drawn from YouTube comments that a saved card leaves out are held
   apart from the card for the owner's review; so are those of a card whose
   findings all rest on them, which is not saved as a card, with its question and
-  topic. They are kept until deleted (the owner's rule, 25 October: "don't
+  topic. Since owner answer 219b (2 November 2026) a finding is also held when
+  it declares that it draws on YouTube comments (`draws_on_youtube_comments`) or,
+  once the research read them, declares nothing; the finalization receipt signs
+  which. They are kept until deleted (the owner's rule, 25 October: "don't
   delete the summaries unless YT tells us to do that"): nothing deletes one by
   its age. `inspect_finding` on a card lists its held findings
   (`card.heldYoutubeFindings`) with the day each was saved, and

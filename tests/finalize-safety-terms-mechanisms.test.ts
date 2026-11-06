@@ -1,11 +1,18 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
-  FINALIZE_REMINDER, finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  FINALIZE_REMINDER, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner questions 86, 88 and 89 (issues #324, #325, #328, #330 and #331): harm and safety sentences, the terms a
 // conclusion depends on, and mechanism claims, declared by the model and checked exactly by the final check.
@@ -40,7 +47,7 @@ const SKIP = communitySkipCaveat("Synthetic fixture isolates structural checks."
 const check = (overrides: Partial<FinalizeResearchInput> = {}) =>
   assertNextStepsContract(finalizeResearch(withHarmScreen(withCommunitySkip(base(overrides))), { secret: SECRET }));
 const steps = (overrides: Partial<FinalizeResearchInput> = {}) =>
-  check(overrides).next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+  advisoryNotes(check(overrides)).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
 type SafetyClaim = NonNullable<FinalizeResearchInput["safety_claims"]>[number];
 const claim = (overrides: Partial<SafetyClaim>): SafetyClaim => ({
   quote: "Nausea occurred in 18% on the extract and 4% on placebo.", direction: "harm",
@@ -79,7 +86,8 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
           "measured. What was measured: alginate extracted in a laboratory. What people would use: wild seaweed eaten " +
           "as food."],
       [{ basis: "not_quantified", measured_exposure: undefined, studies: undefined },
-        "How often this happens wasn't quantified in the sources found here."],
+        "How often this harm happens wasn't quantified in the sources found here for this exposure: the extract at " +
+          "300 mg a day for 12 weeks."],
       [{ direction: "safety", basis: "hazard_measurement", exposure: "the thiolated gum", measured_exposure: "one acute high-dose rat test" },
         "This rests on a measurement or an animal test, not on observed safety in people, so long-term or rare harms " +
           "are unmeasured. What it rests on: one acute high-dose rat test. What people would use: the thiolated gum."],
@@ -91,24 +99,75 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
     for (const [overrides, caveat] of cases) {
       const quote = "The sentence the model declared.";
       const result = check({ answer_draft: `${LINKS}\n\n${quote} ${caveat}`, safety_claims: [claim({ quote, ...overrides })] });
-      expect(result.caveats).toEqual([SKIP, caveat]);
+      expect(result.limits).toEqual([SKIP, caveat, "The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."]);
+      expect(result.caveats).toEqual([SKIP]);
       expect(result.status).toBe("ready_with_limits");
       const missing = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
-      expect(missing.status).toBe("not_ready");
-      expect(missing.next_steps.join(" ")).toContain(`"${caveat}"`);
+      expect(missing.status).toBe("ready_with_limits");
+      expect(missing.limits).toContain(caveat);
+      expect(missing.next_steps).toEqual([]);
     }
   });
 
   it("needs what the evidence measured and key sources for every basis except not_quantified", () => {
     const quote = "Nausea occurred in 18% on the extract and 4% on placebo.";
     expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ measured_exposure: undefined })] })).toEqual([
-      "safety_claims[0] has basis comparative_rates without measured_exposure: give what the cited evidence measured " +
-        "and the key sources it rests on, or declare basis not_quantified."
+      "safety_claims[0] has basis comparative_rates without measured_exposure: give measured_exposure first, what the " +
+        "cited evidence measured. Declare basis not_quantified instead only when no source here gives a rate for this harm."
     ]);
-    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted"] })] })).toEqual([
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: [] })] })).toEqual([
+      "safety_claims[0] has basis comparative_rates without studies: give in studies the key sources it rests on. " +
+        "Declare basis not_quantified instead only when no source here gives a rate for this harm."
+    ]);
+    // Looked up here, it is asked into key_sources; not looked up, it is asked for its lookup first, since the sources
+    // check would refuse it in key_sources (n389-forum-depth on #394's build: a label and a PMC page, refused there).
+    const resolved = sign("doi_resolution", { doi: "10.1000/unlisted", url: "https://journal.example/unlisted" });
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted"] })],
+      receipts: [...base().receipts, resolved] })).toEqual([
       "safety_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to key_sources with its " +
         "read depth and link, so its reading is checked like any key study."
     ]);
+    const label = "https://labels.example/drug?setid=synthetic";
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: ["10.1000/unlisted", label] })] })).toEqual([
+      `safety_claims[0] rests on 10.1000/unlisted, ${label}, which no receipt passed here shows was found or looked up, ` +
+        "so key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, fetch_pubmed_record " +
+        "for a PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass its research_receipt, " +
+        "then add it to key_sources with its read depth and link. A source no AskRigor tool can look up, such as a page " +
+        "only your own search found, is not a key source: say in the answer that AskRigor did not look it up."
+    ]);
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026): r325 declared two warnings hazard_measurement without
+  // measured_exposure; the note offered not_quantified "when no source here gives a rate", which a measurement never
+  // gives, so the run took it and lost the measurement's caveat. The note asks for what was measured first, and says
+  // not_quantified fits only where no source measured or reported the harm at all.
+  it("asks a basis that gives no rate for what was measured, and keeps not_quantified for no source at all", () => {
+    const quote = "Hijiki can carry enough inorganic arsenic to avoid it.";
+    const measured = (overrides: Partial<SafetyClaim>) =>
+      steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
+    expect(measured({ basis: "hazard_measurement", measured_exposure: undefined })).toEqual([
+      "safety_claims[0] has basis hazard_measurement without measured_exposure: give measured_exposure first, what the " +
+        "laboratory, animal or composition measurement measured: the substance, its form and amount, and the test. A " +
+        "laboratory, animal or composition measurement gives no rate and needs none: declare basis not_quantified only " +
+        "when no source here measured or reported this at all."
+    ]);
+    expect(measured({ basis: "hazard_measurement", measured_exposure: undefined, studies: undefined })).toEqual([
+      "safety_claims[0] has basis hazard_measurement without measured_exposure or studies: give measured_exposure " +
+        "first, what the laboratory, animal or composition measurement measured: the substance, its form and amount, " +
+        "and the test, and in studies the key sources it rests on. A laboratory, animal or composition measurement " +
+        "gives no rate and needs none: declare basis not_quantified only when no source here measured or reported this " +
+        "at all."
+    ]);
+    expect(measured({ basis: "case_reports", measured_exposure: undefined })).toEqual([
+      "safety_claims[0] has basis case_reports without measured_exposure: give measured_exposure first, what the cited " +
+        "evidence measured. A case report gives no rate and needs none: declare basis not_quantified only when no " +
+        "source here measured or reported this at all."
+    ]);
+    // Given what was measured, the measurement's caveat follows, and nothing is asked.
+    const filled = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, basis: "hazard_measurement",
+      exposure: "hijiki eaten as food", measured_exposure: "inorganic arsenic measured in dried hijiki" })] });
+    expect(advisoryNotes(filled).filter((step) => step.includes("has basis"))).toEqual([]);
+    expect(filled.limits).toContainEqual(expect.stringMatching(/^This warning rests on measurements, not on harm observed in people/u));
   });
 
   it("checks that the declared sentence is in the answer", () => {
@@ -195,8 +254,9 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
       studies: [RAT]
     };
     const missing = check({ answer_draft: `${LINKS}\n\n${QUOTE}`, mechanism_claims: [mechanism] });
-    expect(missing.status).toBe("not_ready");
-    expect(missing.caveats).toEqual([SKIP, CAVEAT]);
+    expect(missing.status).toBe("ready_with_limits");
+    expect(missing.limits).toEqual([SKIP, CAVEAT]);
+    expect(missing.caveats).toEqual([SKIP]);
     const stated = check({ answer_draft: `${LINKS}\n\n${QUOTE} ${CAVEAT}`, mechanism_claims: [mechanism] });
     expect(stated.status).toBe("ready_with_limits");
   });
@@ -211,8 +271,12 @@ describe("finalize_research mechanism_claims (owner question 88, issue #330)", (
       mechanism_claims: [{
         quote: QUOTE, use_route: "oral", evidence_route: "oral", evidence_in: "people", studies: ["10.1000/unlisted"]
       }]
-    })).toEqual(["mechanism_claims[0] rests on 10.1000/unlisted, which key_sources does not list: add each to " +
-      "key_sources with its read depth and link, so its reading is checked like any key study."]);
+    })).toEqual(["mechanism_claims[0] rests on 10.1000/unlisted, which no receipt passed here shows was found or " +
+      "looked up, so key_sources cannot list it yet: look each up with AskRigor first (resolve_doi for a DOI, " +
+      "fetch_pubmed_record for a PMID, acquire_open_full_text for a PMCID, read_forum_thread for a forum thread), pass " +
+      "its research_receipt, then add it to key_sources with its read depth and link. A source no AskRigor tool can " +
+      "look up, such as a page only your own search found, is not a key source: say in the answer that AskRigor did " +
+      "not look it up."]);
     expect(finalizeResearchInputSchema.safeParse({
       ...base(), mechanism_claims: [{
         quote: QUOTE, use_route: "by mouth", evidence_route: "oral", evidence_in: "people", studies: [RAT]
@@ -226,13 +290,26 @@ describe("the three declarations are required with an answer draft", () => {
     const input = base();
     delete input[field];
     const result = assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.startsWith(`${field} is missing:`))).toBe(true);
-    expect(result.next_steps).toContain(TOOL_LIST_REFRESH_HINT);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.startsWith(`${field} is missing:`))).toBe(true);
+    expect(advisoryNotes(result)).toContain(TOOL_LIST_REFRESH_HINT);
+  });
+
+  // The 30 Oct rerun's r377-continue built its safety_claims from this note alone and was refused by the connector
+  // for the one required field the note did not name ("safety_claims[0].direction [required]").
+  it("names each required choice, so items built from the note pass the connector's schema", () => {
+    const input = base();
+    delete input.safety_claims;
+    delete input.mechanism_claims;
+    const notes = advisoryNotes(assertNextStepsContract(finalizeResearch(input, { secret: SECRET })));
+    const note = (field: string) => notes.find((step) => step.startsWith(`${field} is missing:`)) ?? "";
+    expect(note("safety_claims")).toContain("(direction harm)");
+    expect(note("safety_claims")).toContain("(direction safety)");
+    expect(note("mechanism_claims")).toContain("in people or animals");
   });
 
   it("states the research-result reminder as one sentence", () => {
     expect(FINALIZE_REMINDER).toBe("Answers that use this research are checked with finalize_research before they " +
-      "are given, in this turn or a later one.");
+      "are given, in this turn or a later one; HRP's OutputFormatting section sets a health answer's shape.");
   });
 });

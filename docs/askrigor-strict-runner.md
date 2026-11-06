@@ -75,7 +75,11 @@ language or length heuristic to decide what research means.
 
 Otherwise, the latest finalizer must return `ready` or `ready_with_limits`. Failed
 calls and `not_ready` checks send the model back to complete the returned next
-steps. The final message must match that call's `answer_draft`, allowing only
+steps. For a usable call, only the [five integrity checks](final-check.md) can
+return `not_ready`. Other diagnostics are notes and do not consume finalizer
+rounds. Limits stay in the result for the AI to include in its own words; a
+missing or reworded limit is not a step, and the panel displays every limit
+beneath a passing answer. The final message must match that call's `answer_draft`, allowing only
 line-ending normalization to `\n`, trailing whitespace removal on each line, and
 trimming the whole text. No words, internal spacing, punctuation, case or Unicode
 characters are otherwise normalized. After the draft, the message may give only the

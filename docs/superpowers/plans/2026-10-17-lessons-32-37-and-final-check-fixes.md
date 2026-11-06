@@ -1,5 +1,9 @@
 # Lessons #32 to #37, the final-check fixes from the 17 October run, and the carried state (owner questions 109, 111, 112 and 113)
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 ## Authority and scope
 
 - Owner answer "109a 110a 111a", typed in the AskRigor Claude session on 2026-10-17 (about 10:46 UTC):

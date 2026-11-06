@@ -31,14 +31,27 @@ import {
   type AtlasReviewResult,
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
+import { atlasKeptSchema } from "./atlas/kept-review.js";
+import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
+import { atlasPlacementsSchema } from "./atlas/placement-review.js";
+import { atlasReportsSchema } from "./atlas/report-review.js";
+import { atlasGlanceSchema } from "./atlas/glance-review.js";
 import { atlasPublicationsSchema } from "./atlas/publication-review.js";
+import { laterInputShape } from "./later-inputs.js";
 import { CASE_REVIEW_SCOPE } from "./oauth-resource-server.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
+import type { SharedAnswerVault } from "./shared-answers.js";
 
 const PROPOSAL_ACTIONS = ["inspect", "status", "accept", "reject"] as const;
+// Owner answer 200a: the shared questions and answers, runtime-only actions (owner answer 189a).
+const SHARED_ANSWER_REVIEW_ACTIONS = ["list_shared_answers", "read_shared_answer", "delete_shared_answer"] as const;
+type SharedAnswerReviewAction = typeof SHARED_ANSWER_REVIEW_ACTIONS[number];
+function isSharedAnswerReviewAction(action: string): action is SharedAnswerReviewAction {
+  return (SHARED_ANSWER_REVIEW_ACTIONS as readonly string[]).includes(action);
+}
 
 export const researchContributionReviewInputSchema = z.object({
-  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS])
+  action: z.enum([...PROPOSAL_ACTIONS, ...ATLAS_REVIEW_ACTIONS, ...SHARED_ANSWER_REVIEW_ACTIONS])
     .describe("Proposals: inspect, status, accept or reject. Findings for the Atlas: list_findings, inspect_finding, " +
       "accept_finding, edit_finding, reject_finding, withdraw_finding, link_findings or forget_card. Held YouTube " +
       "findings: list_youtube_findings, move_youtube_findings, delete_youtube_findings or delete_all_youtube_findings. " +
@@ -55,7 +68,56 @@ export const researchContributionReviewInputSchema = z.object({
       "unpublish one."),
   ...atlasReviewInputShape,
 }).strict().superRefine((value, context) => {
+  if (isSharedAnswerReviewAction(value.action)) {
+    const given = (Object.keys(value) as Array<keyof typeof value>)
+      .filter((field) => field !== "action" && field !== ("sharedAnswerId" as keyof typeof value) && value[field] !== undefined);
+    for (const field of given) {
+      context.addIssue({ code: "custom", path: [field], message: `${value.action} does not take ${String(field)}` });
+    }
+    const id = (value as { sharedAnswerId?: unknown }).sharedAnswerId;
+    if ((value.action === "list_shared_answers") !== (id === undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "list_shared_answers"
+        ? "list_shared_answers takes no sharedAnswerId" : `${value.action} needs later_inputs.sharedAnswerId` });
+    }
+    return;
+  }
   if (isAtlasReviewAction(value.action)) {
+    // Owner answers 229a and 231a: later_inputs.items goes only with keep_for_research and show_on_pages, and, since
+    // the owner's 6 Nov request, with mark_challenge and clear_challenge.
+    if ((value as { items?: unknown }).items !== undefined && value.action !== "keep_for_research" &&
+      value.action !== "show_on_pages" && value.action !== "mark_challenge" && value.action !== "clear_challenge") {
+      context.addIssue({ code: "custom", message: `${value.action} does not take items` });
+    }
+    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge.
+    for (const field of ATLAS_CHALLENGE_MARK_INPUTS) {
+      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge") {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
+    // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
+    const placements = (value as { placements?: unknown }).placements;
+    if ((value.action === "place_items") !== (placements !== undefined)) {
+      context.addIssue({ code: "custom", message: value.action === "place_items"
+        ? "place_items needs later_inputs.placements" : `${value.action} does not take placements` });
+    }
+    // Owner answer 229a: the report inputs go only with the report actions.
+    const reportInputs = value as { reportState?: unknown; report?: unknown; verdict?: unknown };
+    const reportAction = value.action === "list_reports" || value.action === "check_report" || value.action === "decide_report";
+    for (const field of ["reportState", "report", "verdict"] as const) {
+      const allowed = field === "reportState" ? value.action === "list_reports" : reportAction && value.action !== "list_reports";
+      if (reportInputs[field] !== undefined && !allowed) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
+    // The rows at a glance: each later input only with the action that takes it.
+    const glanceInputs = value as { glanceRow?: unknown; glanceRowId?: unknown; glanceState?: unknown };
+    const glanceTakes = { glanceRow: ["propose_glance_row"], glanceRowId: ["show_glance_row", "withdraw_glance_row"],
+      glanceState: ["list_glance_rows"] } as const;
+    for (const [field, actions] of Object.entries(glanceTakes)) {
+      if (glanceInputs[field as keyof typeof glanceInputs] !== undefined && !(actions as readonly string[]).includes(value.action)) {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
+    }
     refineAtlasReviewInput({ ...value, action: value.action }, context);
     return;
   }
@@ -199,6 +261,40 @@ export const researchContributionReviewOutputSchema = z.object({
 
 type ReviewErrorCode = z.infer<typeof reviewErrorSchema>["code"];
 
+const sharedAnswerSummarySchema = z.object({
+  id: z.string(),
+  sharedAt: z.string(),
+  expiresAt: z.string(),
+  build: z.string().optional(),
+  hrp: z.string().optional(),
+  universal: z.string().optional(),
+  characters: z.object({ question: z.number(), answer: z.number(), improve: z.number() }).strict(),
+}).strict();
+
+/** The review tool's results as the server checks them: the published fields and the shared answers' (200a). */
+export const researchContributionReviewRuntimeOutputSchema = researchContributionReviewOutputSchema.safeExtend({
+  // Owner answers 229a and 231a: keep_for_research, show_on_pages and list_kept, runtime-only (owner answer 189a).
+  kept: atlasKeptSchema.optional(),
+  // Owner answer 229a: place_items and list_unplaced, runtime-only (owner answer 189a).
+  placements: atlasPlacementsSchema.optional(),
+  // Owner answer 229a: list_reports, check_report and decide_report, runtime-only (owner answer 189a).
+  reports: atlasReportsSchema.optional(),
+  // The owner, 3 Nov: a problem's rows at a glance, runtime-only.
+  glance: atlasGlanceSchema.optional(),
+  // The owner, 6 Nov: mark_challenge, clear_challenge and list_challenges, runtime-only (owner answer 189a).
+  challenges: atlasChallengesSchema.optional(),
+  sharedAnswers: z.object({
+    kept: z.array(sharedAnswerSummarySchema).optional(),
+    answer: sharedAnswerSummarySchema.extend({
+      question: z.string(), answer: z.string(), improve: z.string().optional(),
+    }).strict().optional(),
+    deleted: z.boolean().optional(),
+  }).strict().optional(),
+}).strict();
+
+const researchContributionReviewRuntimeInputSchema = researchContributionReviewInputSchema.safeExtend(
+  laterInputShape("review_research_contribution"));
+
 export interface ResearchContributionReviewToolOptions {
   service?: ResearchContributionReviewService;
   resourceMetadataUrl?: URL;
@@ -214,6 +310,8 @@ export interface ResearchContributionReviewToolOptions {
     /** The provider settings the source checks use: crossrefConfig() and ncbiConfig(). */
     providers: () => AtlasProviderConfig;
   };
+  /** The shared questions and answers (owner answer 200a); undefined when the server keeps none. */
+  sharedAnswers?: SharedAnswerVault;
 }
 
 export function createResearchContributionReviewHandler(
@@ -225,11 +323,14 @@ export function createResearchContributionReviewHandler(
   ): Promise<CallToolResult> => {
     const authError = authorizeOwnerReview(extra, options);
     if (authError !== undefined) return authError;
-    const request = researchContributionReviewInputSchema.safeParse(input);
+    const request = researchContributionReviewRuntimeInputSchema.safeParse(input);
     if (!request.success) {
       return reviewError("invalid_request", `The owner-review request is invalid: ${issuesText(request.error)}`);
     }
     const parsed = request.data;
+    if (isSharedAnswerReviewAction(parsed.action)) {
+      return sharedAnswerReview(options.sharedAnswers, parsed.action, parsed.sharedAnswerId);
+    }
     if (isAtlasReviewAction(parsed.action)) {
       if (options.atlas?.enabled !== true) {
         return reviewError("atlas_review_closed", "The owner's findings review for the Atlas is not open yet " +
@@ -239,8 +340,11 @@ export function createResearchContributionReviewHandler(
         return reviewError("review_service_unavailable", "The Atlas review is not configured: it needs the review " +
           "database, the canonical reader and the findings repository. Nothing was recorded.");
       }
+      // The owner, 6 Nov: a challenge mark keeps who marked it, the reviewer login authorizeOwnerReview admitted, only
+      // as a digest (challenge-review.ts); it is never an input.
+      const reviewer = extra?.authInfo?.extra?.subject;
       return atlasToolResult(await options.atlas.review.run(
-        { ...parsed, action: parsed.action } as AtlasReviewRequest,
+        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }
@@ -315,6 +419,41 @@ export function createResearchContributionReviewHandler(
       );
     }
   };
+}
+
+/** The owner's shared answers (owner answer 200a): listed without their text, read one by one, deleted by ID. */
+function sharedAnswerReview(
+  vault: SharedAnswerVault | undefined,
+  action: SharedAnswerReviewAction,
+  id: string | undefined,
+): CallToolResult {
+  if (vault === undefined) {
+    return reviewError("review_service_unavailable", "This AskRigor server keeps no shared answers.");
+  }
+  const result = (text: string, sharedAnswers: Record<string, unknown>): CallToolResult => ({
+    content: [{ type: "text", text }],
+    structuredContent: researchContributionReviewRuntimeOutputSchema.parse({
+      ok: true, sharedAnswers, canonicalEvidenceChangedByThisCall: false,
+    }),
+  });
+  if (action === "list_shared_answers") {
+    const kept = vault.list();
+    return result(kept.length === 0 ? "No shared answers are kept." : `${kept.length} shared answer(s) kept, newest ` +
+      "first, without their text; read_shared_answer shows one: " + kept.map((item) =>
+        `${item.id} (shared ${item.sharedAt}, expires ${item.expiresAt}${item.build === undefined ? "" : `, build ` +
+          item.build.slice(0, 12)}; ${item.characters.question} + ${item.characters.answer} characters` +
+          `${item.characters.improve > 0 ? ", with what to improve" : ""})`).join("; "), { kept });
+  }
+  if (action === "delete_shared_answer") {
+    const deleted = vault.deleteById(id!);
+    return result(deleted ? "The shared answer is deleted." : "No shared answer with that ID is kept.", { deleted });
+  }
+  const answer = vault.read(id!);
+  if (answer === undefined) return result("No shared answer with that ID is kept.", {});
+  return result(`Shared answer ${answer.id}, shared ${answer.sharedAt}, expires ${answer.expiresAt}. It is ` +
+    "participant-given and unverified, for regression cases and fixes only; never publish it.\n\nQuestion:\n" +
+    `${answer.question}\n\nAnswer:\n${answer.answer}` +
+    (answer.improve === undefined ? "" : `\n\nWhat to improve:\n${answer.improve}`), { answer });
 }
 
 /** What shares the proposal's identities and what promotion would meet, in a sentence or two (IDs only). */
@@ -444,7 +583,7 @@ function reviewError(
  * checks_not_passed, try_again_later) has ok false and is an answer the AI acts on, not an error.
  */
 function atlasToolResult(result: AtlasReviewResult): CallToolResult {
-  const structuredContent = researchContributionReviewOutputSchema.parse({
+  const structuredContent = researchContributionReviewRuntimeOutputSchema.parse({
     ok: result.ok,
     ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
     ...(result.findings === undefined ? {} : { findings: result.findings }),
@@ -457,6 +596,11 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.heldWithoutCard === undefined ? {} : { heldWithoutCard: result.heldWithoutCard }),
     ...(result.publications === undefined ? {} : { publications: result.publications }),
     ...(result.participation === undefined ? {} : { participation: result.participation }),
+    ...(result.kept === undefined ? {} : { kept: result.kept }),
+    ...(result.placements === undefined ? {} : { placements: result.placements }),
+    ...(result.reports === undefined ? {} : { reports: result.reports }),
+    ...(result.glance === undefined ? {} : { glance: result.glance }),
+    ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

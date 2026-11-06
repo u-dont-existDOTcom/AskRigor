@@ -31,11 +31,15 @@ export function isTransientTransportError(error: unknown): boolean {
 export class UpstreamHttpError extends Error {
   public readonly status: number;
   public readonly reason: string | undefined;
+  // The provider's own error message as it wrote it (Google's error.message): unbounded
+  // provider text, which a caller bounds before passing it on.
+  public readonly providerMessage: string | undefined;
 
-  constructor(status: number, reason?: string) {
+  constructor(status: number, reason?: string, providerMessage?: string) {
     super(`Upstream request failed with status ${status}`);
     this.status = status;
     this.reason = reason;
+    this.providerMessage = providerMessage;
   }
 }
 
@@ -194,6 +198,21 @@ const providerErrorReason = (body: string): string | undefined => {
   }
 };
 
+// A Gemini error can come as a one-element array (the scout's 402 fixture of 2026-10-06).
+const providerErrorMessage = (body: string): string | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    const wrapper: unknown = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (typeof wrapper !== "object" || wrapper === null) return undefined;
+    const error = (wrapper as Record<string, unknown>).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const message = (error as Record<string, unknown>).message;
+    return typeof message === "string" ? message : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const fetchText = async (
   url: string,
   { timeoutMs, maxRetries, beforeAttempt, ...init }: UpstreamFetchOptions = {},
@@ -218,12 +237,15 @@ export const fetchText = async (
 
     if (!response.ok) {
       let reason: string | undefined;
+      let message: string | undefined;
       try {
-        reason = providerErrorReason(await responseText(response));
+        const body = await responseText(response);
+        reason = providerErrorReason(body);
+        message = providerErrorMessage(body);
       } catch {
         await response.body?.cancel();
       }
-      throw new UpstreamHttpError(response.status, reason);
+      throw new UpstreamHttpError(response.status, reason, message);
     }
 
     return responseText(response);
@@ -251,13 +273,15 @@ export interface DiscoveredDocumentFetchRuntime {
   requestDocument?: (
     url: URL,
     vettedAddresses: readonly string[],
-    options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
+    options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal; userAgent?: string }
   ) => Promise<DiscoveredDocumentHttpResponse>;
   /** Test-only compatibility hook. Production uses the DNS-pinned HTTPS requester. */
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   maximumBytes?: number;
   maximumRedirects?: number;
+  userAgent?: string;
+  beforeRequest?: (url: URL) => void | Promise<void>;
 }
 
 export interface DiscoveredDocumentHttpResponse {
@@ -304,11 +328,12 @@ export async function fetchDiscoveredDocument(
     try {
       runtime.signal?.throwIfAborted();
       const vettedAddresses = await withAbortSignal(publicDestinationAddresses(current, resolver), runtime.signal);
+      await withAbortSignal(Promise.resolve(runtime.beforeRequest?.(current)), runtime.signal);
       response = runtime.fetch === undefined
         ? await (runtime.requestDocument ?? requestPinnedDocument)(
-          current, vettedAddresses, { timeoutMs, maximumBytes, signal: runtime.signal }
+          current, vettedAddresses, { timeoutMs, maximumBytes, signal: runtime.signal, userAgent: runtime.userAgent }
         )
-        : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes, runtime.signal);
+        : await requestWithInjectedFetch(runtime.fetch, current, timeoutMs, maximumBytes, runtime.signal, runtime.userAgent);
     } catch (error) {
       if (error instanceof DiscoveredDocumentError || error instanceof UpstreamHttpError) throw error;
       throw new DiscoveredDocumentError("transport", "Discovered document transport failed",
@@ -376,12 +401,14 @@ async function requestWithInjectedFetch(
   url: URL,
   timeoutMs: number,
   maximumBytes: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  userAgent?: string
 ): Promise<DiscoveredDocumentHttpResponse> {
   const response = await fetcher(url, {
     method: "GET",
     headers: {
-      Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8"
+      Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8",
+      ...(userAgent === undefined ? {} : { "User-Agent": userAgent })
     },
     redirect: "manual",
     signal: signal === undefined ? AbortSignal.timeout(timeoutMs) : AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
@@ -397,7 +424,7 @@ async function requestWithInjectedFetch(
 async function requestPinnedDocument(
   url: URL,
   vettedAddresses: readonly string[],
-  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
+  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal; userAgent?: string }
 ): Promise<DiscoveredDocumentHttpResponse> {
   let lastError: unknown;
   for (const address of vettedAddresses) {
@@ -413,7 +440,7 @@ async function requestPinnedDocument(
 function requestPinnedAddress(
   url: URL,
   address: string,
-  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal }
+  options: { timeoutMs: number; maximumBytes: number; signal?: AbortSignal; userAgent?: string }
 ): Promise<DiscoveredDocumentHttpResponse> {
   const originalHostname = url.hostname.replace(/^\[|\]$/gu, "");
   return new Promise((resolve, reject) => {
@@ -425,6 +452,7 @@ function requestPinnedAddress(
       path: `${url.pathname}${url.search}`,
       headers: {
         Accept: "application/pdf,text/html,application/xhtml+xml,text/plain,application/octet-stream;q=0.8",
+        ...(options.userAgent === undefined ? {} : { "User-Agent": options.userAgent }),
         Host: url.host
       },
       ...(isIP(originalHostname) === 0 ? { servername: originalHostname } : {}),

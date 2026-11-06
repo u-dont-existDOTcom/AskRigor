@@ -7,8 +7,11 @@ import { expect } from "vitest";
 import {
   InMemoryAtlasPageSource,
   InMemoryAtlasParticipation,
+  InMemoryAtlasPlacements,
   InMemoryAtlasPublicationStore,
+  InMemoryAtlasReports,
   RESEARCH_USE_NOTICE_VERSION,
+  type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasPublicationDraft,
 } from "@askrigor/evidence-repository";
@@ -17,6 +20,7 @@ import { AtlasChangeSignal, announcingParticipationStore } from "../../apps/rese
 import {
   ATLAS_LOGIN_COOKIE,
   ATLAS_SESSION_COOKIE,
+  participantKeyFor,
   type AtlasParticipationSettings,
 } from "../../apps/research-mcp/src/atlas/participation.js";
 import {
@@ -36,7 +40,7 @@ import { LOW_DOSE_CARD, VELMOR_CARD } from "./atlas-scenario.js";
 // The Atlas's sign-in, votes and comments over HTTP for the tests (decision 171, sections 4D and 4E): two synthetic
 // cards' publications, an in-memory store, a fake Auth0 tenant and the research server's HTTP handler.
 
-export const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+export const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 export const SAVED_AT = "2026-11-04T09:00:00.000Z";
 export const ISSUER = "https://askrigor-test.example.auth0.com/";
 export const CLIENT_ID = "atlas-web-client";
@@ -54,7 +58,7 @@ export function recordOf(card: object): FindingsRecord {
     card_sha256: findingsCardDigest(parsed),
     stamp: {
       saved_at: SAVED_AT, askrigor_version: "0.1.0", askrigor_build: "0123abc",
-      protocols: [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }], tool_catalog_sha256: "c".repeat(64),
+      protocols: [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }], tool_catalog_sha256: "c".repeat(64),
       surface: "/mcp/claude", reported_model_unverified: "Example Model 2026-08-06",
       research: { finalized_at: SAVED_AT, depth: "standard", status: "ready" },
     },
@@ -133,6 +137,9 @@ export interface Fixture {
   tenant: Awaited<ReturnType<typeof fakeTenant>>;
   store: InMemoryAtlasParticipation;
   publications: InMemoryAtlasPublicationStore;
+  /** People's reports and where they sit (owner answer 229a). */
+  reports: InMemoryAtlasReports;
+  placements: InMemoryAtlasPlacements;
   signal: AtlasChangeSignal;
   /** Signs in as a subject through the fake tenant; returns the session cookie's header value. */
   signIn(subject?: string): Promise<string>;
@@ -150,9 +157,19 @@ export async function fixture(options: {
   wrapStore?: (store: AtlasParticipationStore) => AtlasParticipationStore;
   /** The apex proxy's shared secret the handler expects with a forwarded address. */
   proxySecret?: string;
+  /** The owner's private page: the subjects the owner signs in with (OWNER by default) and the maps file, if any. */
+  owner?: { subjects?: readonly string[]; commentMapsFile?: string } | false;
+  /** Wraps the page source the handler reads, such as to make it return what a store never would. */
+  wrapSource?: (source: AtlasPageSource) => AtlasPageSource;
+  /** No page reader at all, as when the living-evidence reader is not configured: the pages answer 503. */
+  noSource?: boolean;
+  /** What the account page lists the signed-in reader's AskRigor features with; none by default. */
+  features?: AtlasParticipationRuntime["features"];
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
+  const placements = new InMemoryAtlasPlacements();
+  const reports = new InMemoryAtlasReports(placements);
   const tenant = await fakeTenant();
   const settings: AtlasParticipationSettings = {
     publicOrigin: "https://askrigor.example", sessionKey: bytes(7), participantSecret: bytes(9), identitySecret: bytes(11),
@@ -163,7 +180,8 @@ export async function fixture(options: {
     return createAtlasPagesHandler({
       enabled: true,
       publicOrigin: origin,
-      source: new InMemoryAtlasPageSource({ publications: published, participation: store }),
+      ...(options.noSource === true ? {} : { source: (options.wrapSource ?? ((inner) => inner))(
+        new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports })) }),
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
@@ -172,9 +190,15 @@ export async function fixture(options: {
         participation: {
           settings,
           store: (options.wrapStore ?? ((inner) => inner))(announcingParticipationStore(store, signal)),
+          reports,
           signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
             fetch: tenant.fetch },
           ...(options.limiters === undefined ? {} : { limiters: options.limiters }),
+          ...(options.owner === false ? {} : { owner: {
+            participantKeys: new Set((options.owner?.subjects ?? [OWNER]).map((subject) => participantKeyFor(settings, subject))),
+            ...(options.owner?.commentMapsFile === undefined ? {} : { commentMapsFile: options.owner.commentMapsFile }),
+          } }),
+          ...(options.features === undefined ? {} : { features: options.features }),
         },
       }),
     });
@@ -205,7 +229,7 @@ export async function fixture(options: {
     expect(callback.response.status, callback.body).toBe(303);
     return cookiePart(callback.response, ATLAS_SESSION_COOKIE)!;
   };
-  return { base, settings, tenant, store, publications: published, signal, signIn, get, post };
+  return { base, settings, tenant, store, publications: published, reports, placements, signal, signIn, get, post };
 }
 
 /** A raw request with headers fetch() cannot set, such as Host. */

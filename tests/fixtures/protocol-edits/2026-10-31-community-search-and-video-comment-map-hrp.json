@@ -1,0 +1,59 @@
+{
+  "purpose": "Owner rule 148a and the owner's requests of 30 and 31 October 2026 (AskRigor#390, forum depth, video comment maps): exact HRP 20.6.35 bytes; reversible edits chained from owner answer 205a. All wording is owner-supplied and the core is unchanged.",
+  "hrp": {
+    "from": {
+      "version": "20.6.34",
+      "sha256": "7b933620ecca1116f1d4c45c87046e37d8b2a6f97bc4e7a38b6dfd30aa23c74a"
+    },
+    "to": {
+      "version": "20.6.35",
+      "sha256": "44e1ca79b864e8f8db232655bf6f67dd73cfd4f3c0c8b1b160f141e421871eec"
+    },
+    "edits": [
+      [
+        "version=\"20.6.34\" revisionDate=\"2026-10-30\"",
+        "version=\"20.6.35\" revisionDate=\"2026-10-31\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.35\" priority=\"Critical\">\n   Owner rule 148a and the owner's requests of 30 and 31 October 2026 (AskRigor#390, forum depth, video comment maps),\n   all outside the core, which is unchanged: CrowdSourcedAndClinicalSignalAudit's emergency exemption covers only an\n   answer that is the warning itself; ActualSearchRequired runs one search with the person's own combination of symptoms\n   and covers the whole cluster; ReviewCorpusSelectionAndCounts's counts apply to every community corpus;\n   SearchSaturationAndStopping reads forums thread by thread, in full and in more than one community, and states the\n   counts and why reading stopped; YouTubeCreatorCommentCorpusHandling names every video and thread analysed and counts\n   outcomes per named method; the new VideoCommentMap gives each audited video's comment map, leaves out promotion and\n   jokes, ranks only within one problem, and never rates a channel from one video; ThreePartCommunityConclusion adds\n   what to try first and what to avoid when the question is what to do; and CommunityToFormalHypothesisTransfer says in\n   the answer which community leads changed the study search.\n  </Revision>\n"
+      ],
+      [
+        "   classes; the earlier sweep is not final. Record which community leads materially changed the formal search map.\n",
+        "   classes; the earlier sweep is not final. Say in the answer which community leads changed the study search, and what\n   the studies then showed about them.\n"
+      ],
+      [
+        "    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization; no plausible\n    user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module ledger.\n",
+        "    Pure definition or mechanism with no real-world outcome claim; emergency triage before stabilization, which covers\n    only an answer that is the warning itself (once the warning is given and research continues, this module applies);\n    no plausible user-experience corpus; or a clearly irrelevant crowd layer. Record the reason in the applicable-module\n    ledger.\n"
+      ],
+      [
+        "   dominant communities, or a search-result snippet does not satisfy this rule.\n",
+        "   dominant communities, or a search-result snippet does not satisfy this rule. When the person describes several\n   symptoms together, run at least one search with their own combination of symptoms, in their words, and cover the\n   whole cluster in the answer, not only its most familiar symptom.\n"
+      ],
+      [
+        "   price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.\n",
+        "   price, delivery, and packaging. One review shows that an experience exists, never how often it occurs.\n   The same counts apply to every community corpus, video comments and forum threads included: how many items the\n   platform shows, how many were retrieved, how many were classified, and how they were chosen (every one, every k-th\n   in the platform's order, a hash-ranked sample, a random sample, the top-ranked, or those found by outcome words).\n"
+      ],
+      [
+        "   after locating enough anecdotes to support the favored direction.\n",
+        "   after locating enough anecdotes to support the favored direction. On a forum, open each relevant thread the searches\n   find and read all of it, replies included, in more than one community where they exist; when a page will not open,\n   say so and try another forum. State how many threads were found, opened and read, and why reading stopped: few\n   threads exist, pages would not open, or time ran out.\n"
+      ],
+      [
+        "   that deleted, moderated, hidden, or never-posted failures were observed.\n",
+        "   that deleted, moderated, hidden, or never-posted failures were observed. Name every video analysed (title, channel,\n   publication date, and link) and link every thread read, so the reader can judge its relevance. Count outcomes per\n   named method (a named exercise, manoeuvre, product, or dose), never for a category such as physical therapy, with how\n   much, how fast, and for how long, keeping each source's numbers apart.\n"
+      ],
+      [
+        "  <Rule name=\"ProspectiveBeatsRetrospective\" priority=\"High\">\n",
+        "  <Rule name=\"VideoCommentMap\" priority=\"High\">\n   For each video whose comments were audited, give its comment map from the outcome-neutral sample: how many people\n   said they did the video's method; how it went for them (better, no change, worse, mixed), with counts; how long their\n   results had lasted; the kinds of harm reported, with counts; and the other methods commenters credit, with how many\n   credit each and how many say it worked better than the video's method. Leave out promotion (comments selling or\n   touting a product, practitioner, or contact, and templated testimonials) and jokes, and say how many. Call them people\n   who commented and said they tried it, never a success rate. Rank videos only for one problem, only among videos with\n   at least 20 such people, by the share who said it helped, giving each video's counts. One video's map never rates\n   its channel; a channel needs at least five of its videos mapped. The other methods commenters credit are leads:\n   search them in studies and pass them to the scout before concluding (CommunityToFormalHypothesisTransfer).\n  </Rule>\n\n  <Rule name=\"ProspectiveBeatsRetrospective\" priority=\"High\">\n"
+      ],
+      [
+        "   Conclude the forum audit with three separate fields. Community signal: visible prevalence, direction, principal\n",
+        "   Conclude the forum audit with three separate fields, then a fourth when the question is what to do. Community\n   signal: visible prevalence, direction, principal\n"
+      ],
+      [
+        "   supports, conflicts with, or has not adequately tested the community pattern.\n",
+        "   supports, conflicts with, or has not adequately tested the community pattern. What to try: what a person could try\n   first and what to avoid, ordered by risk, and what would change that order.\n"
+      ]
+    ]
+  }
+}

@@ -44,7 +44,7 @@ import {
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 
 export const RESEARCH_USE_NOTICE_VERSION =
-  "free-contributor-v4-2026-10-25" as const;
+  "free-contributor-v5-2026-11-05" as const;
 
 /**
  * Notices free accounts accepted before the current one, oldest first. Such an
@@ -53,12 +53,14 @@ export const RESEARCH_USE_NOTICE_VERSION =
  * decision Q11, 2026-09-30), v3 when findings the owner accepts may be
  * published in the public Atlas and the notice says what deleting a card
  * removes and what stays (owner answers 159, 1b and 7, and 160b, 2026-10-22),
- * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25).
+ * v4 when free cards publish on save, with votes and comments (owner answer 171, 2026-10-25), v5 when a card's
+ * summary of what communities reported holds links to the forum threads AskRigor read (owner answer 253a, 2026-11-05).
  */
 export const EARLIER_RESEARCH_USE_NOTICE_VERSIONS = [
   "free-contributor-v1-2026-09-01",
   "free-contributor-v2-2026-09-30",
   "free-contributor-v3-2026-10-22",
+  "free-contributor-v4-2026-10-25",
 ] as const;
 
 const researchUseNoticeVersionSchema = z.enum([
@@ -68,12 +70,14 @@ const researchUseNoticeVersionSchema = z.enum([
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
 
-// Version 4 (owner answer 171, 2026-10-25), word for word: free cards publish on save, with the unreviewed label,
-// votes and comments; deleting a card removes it from the Atlas unless its findings were already accepted. An
-// accepted finding stays while it is valid. All other sentences remain version 3's.
+// Version 5 (owner answer 253a, 2026-11-05), word for word as the owner chose it: a card's summary of what public
+// online communities reported holds the communities, counts of what people reported and links to the forum threads
+// AskRigor read, never their posts or names, YouTube comments or video IDs. All other sentences remain version 4's
+// (owner answer 171, 2026-10-25: free cards publish on save, with the unreviewed label, votes and comments; deleting a
+// card removes it from the Atlas unless its findings were already accepted; an accepted finding stays while valid).
 export const RESEARCH_USE_NOTICE = [
   "Free AskRigor use is reciprocal: what AskRigor learns from your research is saved for its research library.",
-  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts, names, links or video IDs.",
+  "That includes deidentified structured research progress and, for each finished research answer whose findings would help other people, a findings card: the question in general terms, the main findings and how certain they are, the public studies behind them, and what public online communities reported, summarized without their posts or names: the communities, counts of what people reported, and links to the forum threads AskRigor read, never YouTube comments or video IDs.",
   "AskRigor never saves raw chat, prompts, identity or contact details, private health narratives, uploads, or raw source or provider bodies.",
   "Saved research is reviewed and does not become evidence, conclusions, or scientific authority merely because it was saved or repeated.",
   "Your findings cards are published in AskRigor's public Atlas as soon as they are saved, written without you and marked \"Not checked by supervisors yet\" until AskRigor's owner has reviewed them, and people who sign in can vote and comment on them.",
@@ -265,6 +269,15 @@ export interface ResearchContributorAccessServiceOptions {
   randomUuid?: () => string;
 }
 
+/** An active account's mode and settings, as activeAccount reads them. */
+export interface ActiveResearchAccount {
+  mode: ResearchUseMode;
+  plainAnswerNote: boolean;
+  detailedLessonReports: boolean;
+  findingsSave: boolean;
+  noticeVersion: ResearchUseNoticeVersion | null;
+}
+
 export interface ResearchAccessView {
   status: "UNENROLLED" | "ACTIVE" | "REVOKED";
   mode: ResearchUseMode | null;
@@ -340,9 +353,15 @@ export class ResearchContributorAccessService {
   }
 
   async inspect(subject: string): Promise<ResearchAccessView> {
-    const account = await this.store.getAccount(
-      this.accountKeyForSubject(subject),
-    );
+    return await this.inspectByAccountKey(this.accountKeyForSubject(subject));
+  }
+
+  /**
+   * inspect, for an account key the caller derived from a verified subject: the Atlas account page reads the account
+   * of the person signed in there, whose session carries the key and never the subject.
+   */
+  async inspectByAccountKey(accountKey: string): Promise<ResearchAccessView> {
+    const account = await this.store.getAccount(accountKeyChecked(accountKey));
     if (account === null) {
       return accessView("UNENROLLED", null, null, null);
     }
@@ -434,28 +453,13 @@ export class ResearchContributorAccessService {
    */
   async activeAccount(
     subject: string,
-  ): Promise<{
-    mode: ResearchUseMode;
-    plainAnswerNote: boolean;
-    detailedLessonReports: boolean;
-    findingsSave: boolean;
-    noticeVersion: ResearchUseNoticeVersion | null;
-  }> {
-    const account = await this.store.getAccount(
-      this.accountKeyForSubject(subject),
-    );
-    if (account === null) {
-      throw new ResearchAccessError(
-        "RESEARCH_ACCESS_REQUIRED",
-        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
-      );
-    }
-    if (account.status !== "ACTIVE" || account.mode === null) {
-      throw new ResearchAccessError(
-        "RESEARCH_ACCESS_REVOKED",
-        "Research access is revoked. Choose an allowed mode again before using AskRigor research tools.",
-      );
-    }
+  ): Promise<ActiveResearchAccount> {
+    return await this.activeAccountByKey(this.accountKeyForSubject(subject));
+  }
+
+  /** activeAccount, for an account key the caller derived from a verified subject (as inspectByAccountKey). */
+  async activeAccountByKey(accountKey: string): Promise<ActiveResearchAccount> {
+    const account = await this.enrolledAccountByKey(accountKeyChecked(accountKey));
     if (outdatedFreeNotice(account)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -478,6 +482,29 @@ export class ResearchContributorAccessService {
       findingsSave: account.findingsSave ?? true,
       noticeVersion: account.noticeVersion,
     };
+  }
+
+  /** An account that chose a mode and is not revoked, whatever notice it accepted and whatever its entitlement. */
+  private async enrolledAccount(subject: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
+    return await this.enrolledAccountByKey(this.accountKeyForSubject(subject));
+  }
+
+  /** enrolledAccount, by the account's key. */
+  private async enrolledAccountByKey(accountKey: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
+    const account = await this.store.getAccount(accountKey);
+    if (account === null) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    if (account.status !== "ACTIVE" || account.mode === null) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REVOKED",
+        "Research access is revoked. Choose an allowed mode again before using AskRigor research tools.",
+      );
+    }
+    return { ...account, mode: account.mode };
   }
 
   /**
@@ -510,9 +537,15 @@ export class ResearchContributorAccessService {
     return enabled;
   }
 
-  /** Turns findings-card saving off or on for an active account; the connector checks the dev-account restriction. */
+  /**
+   * Turns findings-card saving off or on; the connector checks the dev-account restriction. Turning it on needs an active
+   * account on the current notice, since a saved card may be published. Turning it off publishes nothing, so it works
+   * for an enrolled account whatever notice it accepted (the review of 5 November 2026, finding 5): a dev account still
+   * on an earlier notice switches its saving off before it accepts the new one, so a regression run never publishes.
+   */
   async setFindingsSave(subject: string, enabled: boolean): Promise<boolean> {
-    await this.requireActive(subject);
+    if (enabled) await this.requireActive(subject);
+    else await this.enrolledAccount(subject);
     if (!await this.store.setFindingsSave(this.accountKeyForSubject(subject), enabled)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -1300,6 +1333,14 @@ function normalizeOAuthSubject(subject: string): string {
     throw new Error("OAUTH_SUBJECT_INVALID");
   }
   return subject;
+}
+
+/** An account key as researchAccountKeyForSubject writes it: 64 lowercase hexadecimal characters. */
+function accountKeyChecked(accountKey: string): string {
+  if (!/^[a-f0-9]{64}$/u.test(accountKey)) {
+    throw new ResearchAccessError("INVALID_REQUEST", "The research account key is not one AskRigor derives.");
+  }
+  return accountKey;
 }
 
 function outdatedFreeNotice(account: ResearchUseAccountRecord): boolean {

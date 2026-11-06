@@ -24,7 +24,8 @@ import type { FindingsRecord } from "./service.js";
  * whenever they ask, with no reason needed. The steps, all exact:
  *
  * 1. Find the person's saves by exact research-thread marker match: every card, open or closed, whose marker holds the
- *    named card's thread key (earlier replaced cards among them), and every later save (occurrence comment) on another
+ *    named card's thread key (earlier replaced cards among them, and kept copies of cards that weren't saved, whose own
+ *    ids can name them too), and every later save (occurrence comment) on another
  *    card with that key. A tombstone an earlier call left lists the cards forgotten with it, so a call that resumes
  *    finds them too.
  * 2. Delete those cards' decision rows (forget_atlas_cards), the owner's private reasons with them, and their held
@@ -136,14 +137,19 @@ export async function forgetCard(
     }
   };
   addListed();
-  const thread = named?.card?.thread ??
-    [...cards].map((number) => byNumber.get(number)?.card?.thread).find((key) => key !== undefined);
+  // A kept copy of a card that wasn't saved goes with them, by the same key, and its own id can name them too.
+  const threadOf = (issue: FindingsRepositoryIssue | undefined) => issue?.card?.thread ?? issue?.unsaved?.thread;
+  const thread = threadOf(named) ??
+    [...cards].map((number) => threadOf(byNumber.get(number))).find((key) => key !== undefined);
   if (thread !== undefined) {
-    for (const issue of issues) if (issue.card?.thread === thread) cards.add(issue.number);
+    for (const issue of issues) if (threadOf(issue) === thread) cards.add(issue.number);
     addListed();
   }
   const ordered = [...cards].sort((left, right) => left - right);
-  const live = ordered.filter((number) => byNumber.get(number)?.card !== undefined);
+  const live = ordered.filter((number) => {
+    const issue = byNumber.get(number);
+    return issue?.card !== undefined || issue?.unsaved !== undefined;
+  });
   for (const number of ordered) {
     if (!byNumber.has(number) && !statuses.has(number)) statuses.set(number, await deps.inbox.issueStatus(number));
   }

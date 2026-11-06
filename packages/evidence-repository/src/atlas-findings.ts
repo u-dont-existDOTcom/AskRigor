@@ -1,6 +1,8 @@
 import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
+import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
+import { withoutFormatCharacters } from "./atlas-shown-text.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 
@@ -39,9 +41,11 @@ export type AtlasCardItemKind = typeof ATLAS_CARD_ITEM_KINDS[number];
 
 /**
  * The work a quick answer cannot do that counts as a verified basis (139c). comment_audit is not one, and is never
- * stored (4a): a finding resting only on audited comments waits for the community rule.
+ * stored (4a): a finding resting only on audited comments waits for the community rule. forum_read, forum threads
+ * AskRigor's own reader read, is one since owner answer 254a (5 November 2026; migration 0029 admits it), listed last
+ * so that a version stored before keeps its order.
  */
-export const ATLAS_VERIFIED_BASES = ["full_text_audit", "bounded_absence", "research_correction"] as const;
+export const ATLAS_VERIFIED_BASES = ["full_text_audit", "bounded_absence", "research_correction", "forum_read"] as const;
 /** A card finding's tags without community_checked, which is never stored (4a). */
 export const ATLAS_FINDING_TAGS = [
   "full_text_read", "contradicts_common_answer", "overlooked_study", "documented_absence",
@@ -137,15 +141,20 @@ const instantSchema = z.iso.datetime({ offset: true }).refine(
 );
 
 /**
- * A text the Atlas stores. Never a card reference (ARF- and four digits or more) or a YouTube link (4a), and no control
- * characters. Whether a text could identify a person is the owner's judgment, and the privacy screen's before this.
+ * A text the Atlas stores. Never a card reference (ARF- and four digits or more) or a YouTube link (4a), read as a reader
+ * sees the text, without its format characters (the review of #422, fourth round: a zero-width space inside
+ * "youtube.com" hid it from this check, and the pages, which read it so, then refused every page showing it), and no
+ * control characters. Whether a text could identify a person is the owner's judgment, and the privacy screen's before
+ * this.
  */
 const atlasText = (max: number) => z.string().trim().min(1).max(max)
   .refine((value) => !CONTROL_CHARACTER.test(value.replace(/[\n\t]/gu, "")), {
     message: "an Atlas text holds no control characters",
   })
-  .refine((value) => !ARF_REFERENCE.test(value), { message: "an Atlas text never names a findings card (ARF-…)" })
-  .refine((value) => !YOUTUBE_REFERENCE.test(value), { message: "an Atlas text holds no YouTube link (4a)" });
+  .refine((value) => !ARF_REFERENCE.test(withoutFormatCharacters(value)),
+    { message: "an Atlas text never names a findings card (ARF-…)" })
+  .refine((value) => !YOUTUBE_REFERENCE.test(withoutFormatCharacters(value)),
+    { message: "an Atlas text holds no YouTube link (4a)" });
 
 /** Source identifiers in canonical form, so one paper always names one source family. */
 export const atlasSourceIdentifierSchema = z.discriminatedUnion("scheme", [
@@ -279,10 +288,26 @@ export const atlasSearchSchema = z.object({
 export type AtlasSearch = z.infer<typeof atlasSearchSchema>;
 
 /**
+ * The research behind an accepted finding (owner answers 252a and 255a, 5 November 2026): what a version 3
+ * publication shows of it, kept with the version so that an accepted finding from any card, a paid private one's too,
+ * shows it. Its backing lines' quotes, found word for word in a text AskRigor fetched itself, and the strongest thing
+ * against each; how each source was read; each figure's source by its place in the numbers, null where none is named;
+ * and the forum signal. An erasure removes it whole (migration 0029).
+ */
+const canonicalResearch = atlasResearchSchemas(atlasText);
+export const atlasResearchSchema = z.object({
+  backing: z.array(canonicalResearch.backing).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
+  source_reading: z.array(canonicalResearch.reading).min(1).max(10).optional(),
+  figure_sources: z.array(atlasText(300).nullable()).min(1).max(20).optional(),
+  forum_signal: canonicalResearch.forumSignal.optional(),
+}).strict().refine((research) => Object.keys(research).length > 0, { message: "the research behind it holds something" });
+export type AtlasResearch = z.infer<typeof atlasResearchSchema>;
+
+/**
  * One version's content: the accepted wording and its fields. Atlas phase 3 adds the kind, subject, subject type,
  * direction and searches the research AI declared on its card, or the AI declared at acceptance for an older card.
  * They are optional, with no default, so an intent queued before phase 3 parses to itself and keeps its SHA-256; a
- * version without them stores none.
+ * version without them stores none. So is the research behind it (owner answer 255a).
  */
 export const atlasVersionContentSchema = z.object({
   wording: atlasText(500),
@@ -301,7 +326,12 @@ export const atlasVersionContentSchema = z.object({
   subjectType: z.enum(ATLAS_SUBJECT_TYPES).optional(),
   direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
   searchScope: z.array(atlasSearchSchema).min(1).max(ATLAS_SEARCHES_PER_FINDING).optional(),
+  research: atlasResearchSchema.optional(),
 }).strict().superRefine((content, context) => {
+  // Each figure's source goes with a figure of the version's own numbers.
+  if (content.research?.figure_sources !== undefined && content.research.figure_sources.length !== content.numbers.length) {
+    context.addIssue({ code: "custom", path: ["research", "figure_sources"], message: "one source or null a figure" });
+  }
   if (!canonicalSubset(ATLAS_FINDING_TAGS, content.tags)) {
     context.addIssue({ code: "custom", path: ["tags"], message: "tags once each, in their listed order" });
   }
@@ -394,8 +424,12 @@ export const atlasAcceptIntentSchema = z.object({
       issue(["content"], "an open lead has no certainty, why-not-usual or what-would-change-it");
     }
   } else {
-    if (intent.sources.length === 0) {
-      issue(["sources"], "a card finding rests on a DOI, PMID, PMCID or NCT source (community_only is refused)");
+    // Owner answers 252a and 254a: a finding may rest on its forum signal alone, the threads AskRigor's reader read.
+    const forumOnly = intent.content.research?.forum_signal !== undefined &&
+      intent.content.verifiedBases.includes("forum_read");
+    if (intent.sources.length === 0 && !forumOnly) {
+      issue(["sources"], "a card finding rests on a DOI, PMID, PMCID or NCT source, or on its forum signal (community_only " +
+        "is refused)");
     }
     if (intent.content.appliesTo === null || intent.content.certainty === null ||
       intent.content.whyNotUsual === null || intent.content.whatWouldChangeIt === null) {
@@ -1055,12 +1089,15 @@ export function atlasSearchWithoutQuery(search: AtlasSearch): AtlasSearch {
 
 /**
  * A version's content as erase_atlas_wording() leaves it: every text the fixed marker (a missing one stays missing),
- * the numbers' text labels and the searches' queries too (Atlas phase 3, migration 0018); certainty, tags, verified
- * bases, the counts, the kind, the subject type, the direction and each search's database and date range stay.
+ * the numbers' text labels and the searches' queries too (Atlas phase 3, migration 0018), and no research behind it
+ * (owner answer 255a, migration 0029); certainty, tags, verified bases, the counts, the kind, the subject type, the
+ * direction and each search's database and date range stay.
  */
 export function atlasErasedContent(content: AtlasVersionContent): AtlasVersionContent {
+  // The research behind it is removed whole (owner answer 255a; migration 0029).
+  const { research: _research, ...kept } = content;
   return {
-    ...content,
+    ...kept,
     wording: ATLAS_ERASED_TEXT,
     appliesTo: erasedOrNull(content.appliesTo),
     usualAnswer: erasedOrNull(content.usualAnswer),

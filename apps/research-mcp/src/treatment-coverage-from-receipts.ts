@@ -325,7 +325,7 @@ export function assessTreatmentCoverageFromReceipts(
   // so it counts as found by the round.
   const roundVideos = (round: Receipt): string[] => unique([
     ...list(round.claims.videos),
-    ...list(round.claims.alt).filter((videoId) => classification.has(videoId))
+    ...[...list(round.claims.alt), ...list(round.claims.unres)].filter((videoId) => classification.has(videoId))
   ]);
   const roundsByVideo = new Map<string, Receipt[]>();
   for (const round of rounds) {

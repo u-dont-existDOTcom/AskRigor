@@ -6,18 +6,42 @@ import { NEXT_STEP_KINDS } from "./next-step-kinds.js";
 
 export const CARRIED_STATE_MAX_CHARACTERS = 48_000;
 export const CARRIED_STATE_TOO_LARGE = "This conversation's state is too large to carry to the next final check.";
+/** How many note digests a carried state keeps for its turn, the latest ones. */
+export const TURN_NOTES_KEPT = 80;
+export const openLeadsSchema = z.array(z.object({
+  direction: z.enum(["studies", "community"]).default("community"),
+  topic: z.string().trim().min(1).max(200),
+  why: z.string().trim().min(1).max(500)
+}).strict()).max(12);
+export const researchPlanSchema = z.object({
+  research_target: z.string().trim().min(1).max(5_000),
+  open_leads: openLeadsSchema.optional(),
+  another_pass_estimate: z.string().trim().min(1).max(200).optional()
+}).strict();
 export const userObservationSchema = z.object({
   observation: z.string().trim().min(1).max(200).describe("What was used, how and when, and what happened, as a short noun phrase in the user's terms, such as \"a friend's drowsiness after the same product\"."),
   response: z.enum(["effect", "no_effect", "uncertain", "withdrawn"]).describe("effect: something happened; no_effect: an attempt or comparison where nothing happened; uncertain: whoever reported it is no longer sure; withdrawn: whoever reported it took it back."),
   source: z.enum(["user", "someone_else"]).describe("The user's own observation, or one the user reports about someone else.")
 }).strict();
 
+/**
+ * user_observations' newer form (later_inputs, owner answer 189a): not_tried for a report whose writer never tried
+ * what it describes, such as a review of a book whose exercises the reviewer didn't do (5 Nov 2026: runs on #393's to
+ * #412's builds marked those uncertain, which says their source is no longer sure).
+ */
+export const laterUserObservationSchema = userObservationSchema.extend({
+  response: z.enum(["effect", "no_effect", "uncertain", "withdrawn", "not_tried"]).describe("effect: something " +
+    "happened; no_effect: an attempt or comparison where nothing happened; uncertain: whoever reported it is no " +
+    "longer sure; withdrawn: whoever reported it took it back; not_tried: its writer never tried what it describes.")
+});
+
 export const carriedStateSchema = z.object({
   v: z.literal(2),
   issued_at: z.iso.datetime(),
-  observations: z.array(userObservationSchema).max(30),
+  observations: z.array(laterUserObservationSchema).max(30),
   retracted: z.array(z.string().max(200)).max(12),
   primary_outcome: z.string().trim().min(1).max(300).optional(),
+  research_plan: researchPlanSchema.optional(),
   rejected: z.array(z.string().trim().min(1).max(120)).max(12),
   named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
   current_turn_named_communities: z.array(z.string().trim().min(1).max(120)).max(8),
@@ -29,8 +53,19 @@ export const carriedStateSchema = z.object({
   open_kinds: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional(),
   turn: z.string().regex(/^[0-9a-f]{16}$/u).optional(),
   first_turn: z.boolean().optional(),
-  previous_open: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional()
+  previous_open: z.array(z.enum(NEXT_STEP_KINDS)).max(NEXT_STEP_KINDS.length).optional(),
+  // 5 Nov 2026. The places in observations of those a check of turn first declared, which a later check of that turn
+  // may reword or drop; the others came from earlier turns. Absent: all came from earlier turns.
+  turn_observations: z.array(z.number().int().min(0).max(29)).max(30).optional(),
+  // 5 Nov 2026. A digest of each note the checks of turn gave, so a later check of that turn gives each only once.
+  turn_notes: z.array(z.string().regex(/^[0-9a-f]{12}$/u)).max(TURN_NOTES_KEPT).optional()
 }).strict();
+/**
+ * The carried state as finalize_research's published output shows it, fixed with the tool list (owner answer 189a):
+ * the four responses' description and none of the turn fields of 5 Nov 2026, which the runtime output carries.
+ */
+export const publishedCarriedStateSchema = carriedStateSchema.omit({ turn_observations: true, turn_notes: true })
+  .extend({ observations: z.array(userObservationSchema).max(30) });
 const previousCarriedStateSchema = carriedStateSchema.omit({ current_turn_named_communities: true })
   .extend({ v: z.literal(1) });
 export type CarriedState = z.output<typeof carriedStateSchema>;
@@ -52,13 +87,16 @@ export function issueCarriedState(state: CarriedState, { secret }: Options): str
     const ordered: CarriedState = {
       v: 2, issued_at: checked.issued_at, observations: checked.observations, retracted,
       ...(checked.primary_outcome === undefined ? {} : { primary_outcome: checked.primary_outcome }),
+      ...(checked.research_plan === undefined ? {} : { research_plan: checked.research_plan }),
       rejected: checked.rejected, named_communities: checked.named_communities,
       current_turn_named_communities: checked.current_turn_named_communities,
       ...(checked.last_status === undefined ? {} : { last_status: checked.last_status }),
       ...(checked.open_kinds === undefined ? {} : { open_kinds: checked.open_kinds }),
       ...(checked.turn === undefined ? {} : { turn: checked.turn }),
       ...(checked.first_turn === undefined ? {} : { first_turn: checked.first_turn }),
-      ...(checked.previous_open === undefined ? {} : { previous_open: checked.previous_open })
+      ...(checked.previous_open === undefined ? {} : { previous_open: checked.previous_open }),
+      ...(checked.turn_observations === undefined ? {} : { turn_observations: checked.turn_observations }),
+      ...(checked.turn_notes === undefined ? {} : { turn_notes: checked.turn_notes })
     };
     const payload = deflateRawSync(Buffer.from(JSON.stringify(ordered))).toString("base64url");
     const body = `cs2~${payload}`;

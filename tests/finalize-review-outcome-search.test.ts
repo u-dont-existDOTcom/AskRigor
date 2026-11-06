@@ -1,3 +1,5 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -6,12 +8,17 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "review-outcome-search-test-secret-0123456789";
 const PRODUCT = "Liver Supplement 200 mg capsules";
@@ -78,7 +85,7 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
   });
   const call = async (input: FinalizeResearchInput): Promise<FinalizeResearchOutput> => {
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
@@ -89,41 +96,43 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
 
   it("blocks the iHerb first-page preview without outcome_search or outcome_search_boundary", async () => {
     const result = await complete(packageFor());
-    expect(result.status).toBe("not_ready");
-    expect(result.finalization_receipt).toBeUndefined();
-    expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.finalization_receipt).toEqual(expect.any(String));
+    expect(advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([
       `Give outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb: the searches run within the review text for the outcome and their directions, or why that search could not run.`
     ]);
-    expect(result.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(advisoryNotes(result).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     expect(result.limits).toContain(PREVIEW);
-    expect(result.caveats).toContain(PREVIEW);
+    expect(result.limits).toContain(PREVIEW);
   });
 
   it.each(["no_text_search", "search_blocked", "login_required"] as const)("accepts %s with the required preview caveat", async (boundary) => {
     const input = packageFor({ outcome_search_boundary: boundary });
     const first = await call(input);
-    expect(first.status).toBe("not_ready");
-    expect(first.next_steps.join(" ")).toContain(PREVIEW);
+    expect(first.status).toBe("ready_with_limits");
+    expect(first.limits).toContain(PREVIEW);
+    expect(first.next_steps).toEqual([]);
     const result = await complete(input);
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
     expect(result.finalization_receipt).toBeDefined();
     expect(result.limits).toContain(PREVIEW);
-    expect(result.caveats.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
+    expect(result.limits.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
     expect(result.must_report).toContain(`iHerb, ${PRODUCT}: 65000 star ratings shown; 1200 written reviews shown; 10 reviews read; selection top_ranked; outcome-search boundary: ${boundary}.`);
     const dropped = await call({ ...input, answer_draft: `${input.answer_draft}\n\n${result.caveats.filter((caveat) => caveat !== PREVIEW).join(" ")}` });
-    expect(dropped.status).toBe("not_ready");
-    expect(dropped.next_steps.join(" ")).toContain(PREVIEW);
+    expect(dropped.status).toBe("ready_with_limits");
+    expect(dropped.limits).toContain(PREVIEW);
+    expect(dropped.next_steps).toEqual([]);
   });
 
   it.each(["worse", "adverse"] as const)("accepts benefit, no_effect and %s without a preview caveat", async (harm) => {
     const result = await complete(packageFor({ outcome_search: { ...OUTCOME_SEARCH, directions: ["benefit", "no_effect", harm] } }));
     expect(result.status).toBe("ready_with_limits");
     expect(result.next_steps).toEqual([]);
-    expect(result.caveats).not.toContain(PREVIEW);
+    expect(result.limits).not.toContain(PREVIEW);
     expect(result.limits).not.toContain(PREVIEW);
     // The community lane's own caveat already says AskRigor could not verify its searches.
-    expect(result.caveats.join(" ")).toContain("could not verify");
+    expect(result.limits.join(" ")).toContain("could not verify");
     expect(result.must_report).toContain(`iHerb, ${PRODUCT}: 65000 star ratings shown; 1200 written reviews shown; 10 reviews read; selection top_ranked; outcome-search directions: benefit, no_effect, ${harm}.`);
   });
 
@@ -135,26 +144,26 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
   ] satisfies Array<{ directions: NonNullable<Corpus["outcome_search"]>["directions"]; missing: string }>)(
     "names missing directions: $missing", async ({ directions, missing }) => {
       const result = await complete(packageFor({ outcome_search: { ...OUTCOME_SEARCH, directions } }));
-      expect(result.status).toBe("not_ready");
-      expect(result.next_steps).toEqual([
+      expect(result.status).toBe("ready_with_limits");
+      expect(advisoryNotes(result)).toEqual([
         `outcome_search.directions for ${PRODUCT} in iHerb is missing ${missing}; record searches for each missing direction.`
       ]);
-      expect(result.finalization_receipt).toBeUndefined();
+      expect(result.finalization_receipt).toEqual(expect.any(String));
     }
   );
 
   it("refuses both the outcome search and its boundary", async () => {
     const result = await complete(packageFor({ outcome_search: OUTCOME_SEARCH, outcome_search_boundary: "search_blocked" }));
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       `Give exactly one of outcome_search or outcome_search_boundary for ${PRODUCT} in iHerb, so the declarations agree.`
     ]);
   });
 
   it.each(["top_ranked", "outcome_keyword", "other_partial"] as const)("requires the preview caveat for %s without outcome search", async (selection) => {
     const result = await complete(packageFor({ selection }));
-    expect(result.status).toBe("not_ready");
-    expect(result.caveats.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits.filter((caveat) => caveat === PREVIEW)).toHaveLength(1);
   });
 
   it("requires a search declaration for every corpus, including all written reviews", async () => {
@@ -162,8 +171,8 @@ describe.each(["gate", "MCP endpoint"] as const)("buyer-review outcome search th
     input.community_searches![0]!.review_corpora!.push({ product: "Second product", reviews_read: 2, reviews_shown: 2,
       selection: "all", item_identity: { exact_product: 2, variant_unresolved: 0, other_variant_excluded: 0 } });
     const result = await complete(input);
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps.some((step) => step.includes("Give outcome_search or outcome_search_boundary for Second product"))).toBe(true);
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result).some((step) => step.includes("Give outcome_search or outcome_search_boundary for Second product"))).toBe(true);
   });
 
   it("keeps star ratings apart from written-review denominators and omitted counts", async () => {

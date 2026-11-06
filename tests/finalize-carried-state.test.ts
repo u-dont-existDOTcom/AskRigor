@@ -1,9 +1,9 @@
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { createHmac } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { issueCarriedState, verifyCarriedState, type CarriedState } from "../apps/research-mcp/src/carried-state.js";
-import { CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, parseFinalizeResearchInput, repeatedNotesLine, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 const SECRET = "carried-state-fixture-secret-01234567890123456789";
 const NOW = () => new Date("2026-10-17T12:00:00.000Z");
@@ -15,7 +15,24 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   user_observations: [], proposed_tests: [], ...overrides
 });
 const check = (overrides: Partial<FinalizeResearchInput> = {}) => assertNextStepsContract(finalizeResearch(base(overrides), { secret: SECRET, now: NOW }));
-const carriedSteps = (overrides: Partial<FinalizeResearchInput>) => check(overrides).next_steps.filter((step) => /earlier|carried_state|primary_outcome|rejected/.test(step));
+const carriedSteps = (overrides: Partial<FinalizeResearchInput>) => {
+  const result = check(overrides);
+  return [...advisoryNotes(result), ...result.next_steps].filter((step) => /earlier|carried_state|primary_outcome|rejected/.test(step));
+};
+
+it.each([
+  ["i336: a clinician's check", "Ask the clinician to check the response."],
+  ["b-book-reviews: a reading-time log", "Log the time spent reading each day."],
+])("describes the unblinded limit without naming who runs %s", (_name, quote) => {
+  const result = check({ answer_draft: quote, proposed_tests: [{ quote, blinded: false }] });
+  const limit = "In an unblinded test, the person knows what they took or did, so expectation, effort and practice " +
+    "can produce a change; the test alone cannot show what caused it.";
+  expect(result.status).toBe("ready_with_limits");
+  expect(result.next_steps).toEqual([]);
+  expect(result.limits).toContain(limit);
+  expect(result.limits).toContain(limit);
+  expect(check({ answer_draft: quote, proposed_tests: [{ quote, blinded: true }] }).limits).not.toContain(limit);
+});
 
 describe("conversation state carried between final checks", () => {
   it("returns signed, readable declarations, including on not_ready calls, and accepts the same observations next turn", () => {
@@ -23,15 +40,15 @@ describe("conversation state carried between final checks", () => {
     expect(first.carry_forward).toBeDefined(); expect(verifyCarriedState(first.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: first.carried });
     expect(first.carried).toMatchObject({ observations: [observation], primary_outcome: "Explain the effect", rejected: ["Option A"], named_communities: [], current_turn_named_communities: ["r/Example"] });
     expect(carriedSteps({ carried_state: first.carry_forward, user_observations: [observation], primary_outcome: "Explain the effect", rejected_options: ["Option A"] })).toEqual([]);
-    expect(check({ user_observations: [observation], proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).status).toBe("not_ready");
+    expect(check({ user_observations: [observation], proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).status).toBe("ready_with_limits");
     expect(check({ proposed_tests: [{ quote: "Try it.", repeats: 9, blinded: true }] }).carry_forward).toBeDefined();
   });
   it("names a dropped observation, caps those steps at ten, and accepts a withdrawn observation with its caveat", () => {
     const token = check({ user_observations: [observation] }).carry_forward;
-    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
+    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     const withdrawn = check({ carried_state: token, user_observations: [{ ...observation, response: "withdrawn" }] });
-    expect(withdrawn.next_steps.join("\n")).not.toContain("user_observations leaves out");
-    expect(withdrawn.caveats).toContain(`A report its source has taken back: ${observation.observation}. It counts neither for nor against an effect.`);
+    expect(advisoryNotes(withdrawn).join("\n")).not.toContain("user_observations leaves out");
+    expect(withdrawn.limits).toContain(`A report its source has taken back: ${observation.observation}. It counts neither for nor against an effect.`);
     // The call that left it out still carries it, so its token cannot shed it.
     expect(check({ carried_state: token }).carried!.observations).toEqual([observation]);
     const added = { ...observation, observation: "a new observation" };
@@ -39,12 +56,92 @@ describe("conversation state carried between final checks", () => {
     const many = check({ user_observations: Array.from({ length: 13 }, (_, i) => ({ ...observation, observation: `Observation ${i}` })) }).carry_forward;
     const missing = carriedSteps({ carried_state: many }); expect(missing).toHaveLength(11); expect(missing.at(-1)).toBe("and 3 more earlier observations.");
   });
+  it("lets a check reword or drop an observation an earlier check of its own turn declared (5 Nov 2026)", () => {
+    const first = check({ user_observations: [observation] });
+    const reworded = { ...observation, observation: "drowsiness a friend had after the same product" };
+    const same = check({ carried_state: first.carry_forward, round_token: first.round_token, user_observations: [reworded] });
+    expect(advisoryNotes(same).join("\n")).not.toContain("user_observations leaves out");
+    // The turn's latest list replaces its drafts: the reworded entry alone is carried, never both.
+    expect(same.carried!.observations).toEqual([reworded]);
+    expect(same.carried!.turn_observations).toEqual([0]);
+    const next = check({ carried_state: same.carry_forward });
+    expect(advisoryNotes(next).join("\n")).toContain(`user_observations leaves out ${JSON.stringify(reworded.observation)} from an earlier turn`);
+    expect(advisoryNotes(next).join("\n")).not.toContain(JSON.stringify(observation.observation));
+    // An earlier turn's observation stays enforced within a later turn, re-declared or not.
+    const kept = check({ carried_state: first.carry_forward, user_observations: [observation] });
+    const dropped = check({ carried_state: kept.carry_forward, round_token: kept.round_token, user_observations: [] });
+    expect(advisoryNotes(dropped).join("\n")).toContain("user_observations leaves out");
+    expect(dropped.carried!.observations).toEqual([observation]);
+    expect(dropped.carried!.turn_observations).toBeUndefined();
+  });
+  it("accepts not_tried in user_observations' newer form, with its limit (5 Nov 2026)", () => {
+    const review = { observation: "a reader's review of the book's exercises", response: "not_tried" as const, source: "someone_else" as const };
+    const { user_observations: _topLevel, ...withoutTopLevel } = base();
+    const parsed = parseFinalizeResearchInput({ ...withoutTopLevel, later_inputs: { user_observations: [review] } });
+    expect(parsed.success).toBe(true);
+    expect(parsed.notes).toEqual([]);
+    const result = check(parsed.data!);
+    expect(result.limits).toContain(`A report from someone who never tried it: ${review.observation}. It counts neither for nor against an effect.`);
+    expect(result.limits.join("\n")).not.toContain("no longer sure");
+    expect(result.carried!.observations).toEqual([review]);
+    const repeated = check({ ...parsed.data!, proposed_tests: [{ quote: "Try it.", repeats: 0, blinded: true }] });
+    expect(advisoryNotes(repeated)).toContain("proposed_tests[0].repeats names user_observations[0], a report whose writer never tried it: leave repeats out.");
+    expect(advisoryNotes(repeated).join("\n")).not.toContain("repeats what the user already tried");
+    // Given in both places, the later_inputs form, the newer one, is used, and a note says so (the review of 5 Nov 2026).
+    const both = parseFinalizeResearchInput({ ...base({ user_observations: [observation] }), later_inputs: { user_observations: [review] } });
+    expect(both.notes).toContain("later_inputs.user_observations: user_observations is given both at the top level and " +
+      "in later_inputs: its later_inputs form, the newer one, is used.");
+    expect(both.data!.user_observations).toEqual([review]);
+  });
+  it("gives a note once per turn: a later check of the turn names how many it does not repeat (5 Nov 2026)", () => {
+    const { user_observations: _left, ...withoutObservations } = base({ answer_draft: "Synthetic answer." });
+    const call = (overrides: Partial<FinalizeResearchInput> = {}) =>
+      assertNextStepsContract(finalizeResearch({ ...withoutObservations, ...overrides }, { secret: SECRET, now: NOW }));
+    const first = call();
+    const note = advisoryNotes(first).find((text) => text.startsWith("user_observations is missing"))!;
+    expect(note).toBeDefined();
+    const second = call({ carried_state: first.carry_forward, round_token: first.round_token });
+    expect(advisoryNotes(second)).not.toContain(note);
+    const hidden = advisoryNotes(first).filter((text) => !advisoryNotes(second).includes(text)).length;
+    expect(hidden).toBeGreaterThan(0);
+    expect(advisoryNotes(second)).toContain(repeatedNotesLine(hidden));
+    // The digests carry on through the turn, so a third check repeats nothing either; the next turn gives it again.
+    const third = call({ carried_state: second.carry_forward, round_token: second.round_token });
+    expect(advisoryNotes(third)).not.toContain(note);
+    expect(advisoryNotes(call({ carried_state: third.carry_forward }))).toContain(note);
+    expect(repeatedNotesLine(2)).toBe("2 notes an earlier check of this turn gave are not repeated. Each still stands " +
+      "unless the draft or this call's declarations already meet it, in your own words; none asks you to remove a source or claim.");
+    expect(repeatedNotesLine(1)).toMatch(/^One note an earlier check of this turn gave is not repeated\. It still stands /u);
+  });
+  it("carries the turn's own observations when a check leaves user_observations out (review of 5 Nov)", () => {
+    const first = check({ user_observations: [observation] });
+    const { user_observations: _left, ...without } = base();
+    const call = (overrides: Partial<FinalizeResearchInput>) =>
+      assertNextStepsContract(finalizeResearch({ ...without, ...overrides }, { secret: SECRET, now: NOW }));
+    const second = call({ carried_state: first.carry_forward, round_token: first.round_token });
+    expect(second.carried!.observations).toEqual([observation]);
+    expect(second.carried!.turn_observations).toEqual([0]);
+    // A misspelt later input is dropped alone, and user_observations' newer form beside it is used (the review of 5 Nov
+    // 2026: one bad key once dropped every later input).
+    const newer = { ...observation, response: "not_tried" as const };
+    const parsed = parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
+      later_inputs: { user_observations: [newer], open_leadz: [] } });
+    expect(parsed.notes.join("\n")).toContain("open_leadz");
+    expect(parsed.data!.user_observations).toEqual([newer]);
+    // With every later input dropped, the turn's own observations are still carried: nothing is lost.
+    expect(call(parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
+      later_inputs: [] }).data!).carried!.observations).toEqual([observation]);
+    // The next turn: the entry is an earlier turn's, and a call leaving the list out still carries it.
+    const next = call({ carried_state: second.carry_forward });
+    expect(next.carried!.observations).toEqual([observation]);
+    expect(next.carried!.turn_observations).toBeUndefined();
+  });
   it("rejects tampering and still runs the other checks, without inheriting its contents", () => {
     const token = check({ user_observations: [observation], rejected_options: ["Old option"] }).carry_forward!;
     const tampered = token.slice(0, -3) + (token.at(-3) === "a" ? "b" : "a") + token.slice(-2);
     const result = check({ carried_state: tampered, rejected_options: ["Option A"], recommendations: [{ quote: "Try A.", intervention: "Option A", safety_check: "resolved", long_term_use: false }] });
-    expect(result.next_steps).toContain("carried_state does not verify: pass exactly the carry_forward value from the last final check in this conversation that gave one, or leave carried_state out if none has.");
-    expect(result.next_steps.join("\n")).toContain("recommendations[0] puts forward Option A");
+    expect(advisoryNotes(result)).toContain("carried_state does not verify: pass exactly the carry_forward value from the last final check in this conversation that gave one, or leave carried_state out if none has.");
+    expect(advisoryNotes(result).join("\n")).toContain("recommendations[0] puts forward Option A");
     // No replacement token, so the model cannot pass on a state that lost the earlier one.
     expect(result.carry_forward).toBeUndefined(); expect(result.carried).toBeUndefined();
   });
@@ -56,30 +153,21 @@ describe("conversation state carried between final checks", () => {
     expect(carriedSteps({ carried_state: token, answer_draft: change, corrections: [{ retracted: wrong, change, by_user: false }] })).toEqual([]);
     expect(carriedSteps({ carried_state: token, answer_draft: `${change}\n\n${wrong}`, corrections: [{ retracted: wrong, change, by_user: false }] }).join("\n")).toContain("repeats a statement");
   });
-  it("does not let a correction take back one of the check's own caveats (the 22 Oct regression o354 continue)", () => {
+  it("keeps retractions blocking and carried even when advisory caveats contain them (owner 195)", () => {
     const unblinded = { quote: "Try it.", blinded: false };
-    const caveat = check({ proposed_tests: [unblinded] }).caveats.find((text) => text.startsWith("A test done without blinding"))!;
-    expect(caveat).toBeDefined();
+    const caveat = check({ proposed_tests: [unblinded] }).limits.find((text) => text.startsWith("In an unblinded test, the person knows what they took or did"))!;
     const draft = `Try it.\n\n${caveat}`;
     const declared = check({ proposed_tests: [unblinded], answer_draft: draft,
       corrections: [{ retracted: caveat, change: "Try it.", by_user: false }] });
-    expect(declared.next_steps).toContain(`corrections[0] takes back words of the check's own caveat ${JSON.stringify(caveat)}, ` +
-      "which the answer keeps while what it describes stands: leave that correction out, or give as retracted the " +
-      "wrong statement as your earlier answer put it, outside the caveat's words.");
-    // Neither the answer check nor the carried state holds the caveat as taken back.
-    expect(declared.next_steps.join("\n")).not.toContain("wrong statement still appears");
-    expect(declared.carried!.retracted).toEqual([]);
-    // A state carried from before this fix may still hold it: a later answer stating the caveat is not refused for it.
-    const old = issueCarriedState({ ...declared.carried!, retracted: [caveat] }, { secret: SECRET })!;
-    expect(carriedSteps({ carried_state: old, proposed_tests: [unblinded], answer_draft: draft })).toEqual([]);
-    expect(check({ carried_state: old, proposed_tests: [unblinded], answer_draft: draft }).carried!.retracted).toEqual([]);
-    // Part of the caveat is held by it too; a statement the caveat does not hold is still refused.
-    expect(check({ proposed_tests: [unblinded], answer_draft: draft,
-      corrections: [{ retracted: "can show how the person did", change: "Try it.", by_user: false }] }).next_steps.join("\n"))
-      .toContain("corrections[0] takes back words of the check's own caveat");
-    const other = issueCarriedState({ ...declared.carried!, retracted: ["The rate was 40%."] }, { secret: SECRET })!;
-    expect(carriedSteps({ carried_state: other, proposed_tests: [unblinded], answer_draft: `${draft}\n\nThe rate was 40%.` }))
-      .toContain('The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.');
+    expect(declared.status).toBe("not_ready");
+    expect(declared.next_steps).toEqual([expect.stringContaining("wrong statement still appears")]);
+    expect(declared.carried!.retracted).toEqual([caveat.slice(0, 200)]);
+    const later = check({ carried_state: declared.carry_forward, proposed_tests: [unblinded], answer_draft: draft });
+    expect(later.next_steps).toEqual([expect.stringContaining("taken back earlier")]);
+    expect(later.carried!.retracted).toEqual([caveat.slice(0, 200)]);
+    const partial = check({ proposed_tests: [unblinded], answer_draft: draft,
+      corrections: [{ retracted: "can produce a change", change: "Try it.", by_user: false }] });
+    expect(partial.next_steps).toEqual([expect.stringContaining("wrong statement still appears")]);
   });
   it("keeps the latest twelve distinct retracted statements truncated to 200 characters", () => {
     const first = check({ corrections: Array.from({ length: 10 }, (_, i) => ({ retracted: `${i} ${"甲".repeat(250)}`, change: "Changed.", by_user: false })) });
@@ -92,10 +180,10 @@ describe("conversation state carried between final checks", () => {
     expect(check({ carried_state: token }).carried!.rejected).toEqual(["Option A"]);
     expect(check({ carried_state: token, rejected_options: ["Option B"] }).carried!.rejected).toEqual(["Option B", "Option A"]);
     const reopened = check({ carried_state: token, reopened: [" option a "] });
-    expect(reopened.next_steps.join("\n")).not.toContain("rejected_options leaves out"); expect(reopened.carried!.rejected).toEqual([]);
+    expect(advisoryNotes(reopened).join("\n")).not.toContain("rejected_options leaves out"); expect(reopened.carried!.rejected).toEqual([]);
     const rec = { quote: "Try A.", intervention: "OPTION A", safety_check: "resolved" as const, long_term_use: false };
-    expect(check({ rejected_options: ["option a"], recommendations: [rec] }).next_steps.join("\n")).toContain("recommendations[0] puts forward OPTION A, which the user rejected");
-    expect(check({ rejected_options: ["option a"], reopened: ["Option A"], recommendations: [rec] }).next_steps.join("\n")).not.toContain("which the user rejected");
+    expect(advisoryNotes(check({ rejected_options: ["option a"], recommendations: [rec] })).join("\n")).toContain("recommendations[0] puts forward OPTION A, which the user rejected");
+    expect(advisoryNotes(check({ rejected_options: ["option a"], reopened: ["Option A"], recommendations: [rec] })).join("\n")).not.toContain("which the user rejected");
   });
   it("requires the carried primary goal unless the user changed it, and keeps named communities", () => {
     const token = check({ primary_outcome: "Explain why", principal_communities: [{ name: "r/Example", platform: "reddit", named_by_user: true }] }).carry_forward;
@@ -105,7 +193,7 @@ describe("conversation state carried between final checks", () => {
     expect(check({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true }).carried!.primary_outcome).toBe("Another goal");
     expect(carriedSteps({ carried_state: token, primary_outcome: "Another goal", primary_outcome_changed: true })).toEqual([]);
     const result = check({ carried_state: token, primary_outcome: "Explain why", principal_communities: [{ name: "YouTube", platform: "youtube" }] });
-    expect(result.next_steps).toContain("principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or withdraw it in withdrawn_named_communities with name and reason."); expect(result.carried!.named_communities).toContain("r/Example");
+    expect(advisoryNotes(result)).toContain("principal_communities leaves out r/Example, which the user named earlier in this conversation: keep it with named_by_user, or withdraw it in withdrawn_named_communities with name and reason."); expect(result.carried!.named_communities).toContain("r/Example");
   });
   it("preserves observation, goal and rejection continuity without locking this turn’s community label", () => {
     const first = check({
@@ -120,8 +208,10 @@ describe("conversation state carried between final checks", () => {
       answer_draft: "The rate was 40%."
     };
     const steps = carriedSteps(current);
+    // An observation a check of this turn declared is that turn's draft (5 Nov 2026); a later turn still asks for it.
+    expect(carriedSteps({ ...current, round_token: undefined })).toContain(
+      `user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     expect(steps).toEqual([
-      `user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`,
       "rejected_options leaves out Option A, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.",
       'Give primary_outcome: the user\'s main goal carried from earlier in this conversation is "Explain why".',
       'The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.'
@@ -153,7 +243,7 @@ describe("carried-state ledger at its size limit", () => {
     const token = check({ user_observations: thirty, rejected_options: Array.from({ length: 12 }, (_, i) => `Option ${i}`) }).carry_forward;
     const replaced = [...thirty.slice(1), { ...observation, observation: "Observation 30" }];
     const result = check({ carried_state: token, user_observations: replaced, rejected_options: Array.from({ length: 12 }, (_, i) => `Option ${i + 1}`) });
-    expect(result.next_steps.join("\n")).not.toMatch(/(?:user_observations|rejected_options) leaves out/u);
+    expect(advisoryNotes(result).join("\n")).not.toMatch(/(?:user_observations|rejected_options) leaves out/u);
     expect(result.carried!.observations).toEqual(replaced); expect(result.carried!.rejected).toHaveLength(12);
   });
 });
@@ -204,9 +294,9 @@ describe("carried-state token bounds and authentication", () => {
 describe("observation, test and correction declarations (109)", () => {
   it("requires both declarations with a draft and keeps their limits strict", () => {
     const input = base(); delete input.user_observations; delete input.proposed_tests;
-    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain("user_observations is missing:");
+    expect(advisoryNotes(finalizeResearch(input, { secret: SECRET })).join("\n")).toContain("user_observations is missing:");
     const wording = "which attempt in user_observations it repeats (its index in repeats, left out if none)";
-    expect(finalizeResearch(input, { secret: SECRET }).next_steps.join("\n")).toContain(
+    expect(advisoryNotes(finalizeResearch(input, { secret: SECRET })).join("\n")).toContain(
       `proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, ${wording}`);
     expect(finalizeResearchInputSchema.shape.proposed_tests.description).toContain(wording);
     expect(finalizeResearchInputSchema.safeParse(base({ proposed_tests: [{ quote: "Test.", repeats: false as never, blinded: true }] })).success).toBe(false);
@@ -215,29 +305,29 @@ describe("observation, test and correction declarations (109)", () => {
   });
   it("requires uncertainty and unblinded caveats, checks repetition indexes and exact difference quotes", () => {
     const result = check({ user_observations: [{ ...observation, response: "uncertain" }], proposed_tests: [{ quote: "Try again.", repeats: 0, blinded: false }, { quote: "Different test.", repeats: 5, difference: "Different timing.", blinded: true }] });
-    expect(result.caveats).toContain(`A report its source is no longer sure of: ${observation.observation}. It counts neither for nor against an effect.`);
+    expect(result.limits).toContain(`A report its source is no longer sure of: ${observation.observation}. It counts neither for nor against an effect.`);
     // An observation that ends its own sentence keeps its stop, with no second one (the 23 Oct ".)." of l33).
-    expect(check({ user_observations: [{ ...observation, observation: "a friend's drowsiness; amount unspecified.", response: "uncertain" }] }).caveats)
+    expect(check({ user_observations: [{ ...observation, observation: "a friend's drowsiness; amount unspecified.", response: "uncertain" }] }).limits)
       .toContain("A report its source is no longer sure of: a friend's drowsiness; amount unspecified. It counts neither for nor against an effect.");
-    expect(result.caveats).toContain("A test done without blinding can show how the person did, not what caused a change, because expectation, effort and practice can move it too.");
-    expect(result.next_steps.join("\n")).toContain("proposed_tests[0] repeats what the user already tried"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].repeats names user_observations[5]"); expect(result.next_steps.join("\n")).toContain("proposed_tests[1].difference");
-    expect(check({ answer_draft: "Try again. Different timing.", user_observations: [observation], proposed_tests: [{ quote: "Try again.", repeats: 0, difference: "Different timing.", blinded: true }] }).next_steps.join("\n")).not.toContain("proposed_tests");
+    expect(result.limits).toContain("In an unblinded test, the person knows what they took or did, so expectation, effort and practice can produce a change; the test alone cannot show what caused it.");
+    expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[0] repeats what the user already tried"); expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[1].repeats names user_observations[5]"); expect(advisoryNotes(result).join("\n")).toContain("proposed_tests[1].difference");
+    expect(advisoryNotes(check({ answer_draft: "Try again. Different timing.", user_observations: [observation], proposed_tests: [{ quote: "Try again.", repeats: 0, difference: "Different timing.", blinded: true }] })).join("\n")).not.toContain("proposed_tests");
   });
   it("requires a user correction's shown report", () => {
     const correction = { retracted: "Wrong.", change: "Corrected.", by_user: true };
-    expect(check({ corrections: [correction] }).next_steps).toContain("Give corrections[0].report: the bug report the answer shows the user, copied from answer_draft.");
+    expect(advisoryNotes(check({ corrections: [correction] }))).toContain("Give corrections[0].report: the bug report the answer shows the user, copied from answer_draft.");
     const report = "When a comparison is ruled out, AskRigor should keep it because it constrains explanations.";
-    expect(check({ corrections: [{ ...correction, report }] }).next_steps.join("\n")).toContain("corrections[0].report");
-    expect(check({ answer_draft: `Corrected. ${report} ${CORRECTION_REPORT_OFFER}`, corrections: [{ ...correction, report }] }).next_steps.join("\n")).not.toContain("corrections[0].report");
+    expect(advisoryNotes(check({ corrections: [{ ...correction, report }] })).join("\n")).toContain("corrections[0].report");
+    expect(advisoryNotes(check({ answer_draft: `Corrected. ${report} ${CORRECTION_REPORT_OFFER}`, corrections: [{ ...correction, report }] })).join("\n")).not.toContain("corrections[0].report");
   });
   it("allows Reddit names and labels required by a caveat or a declared community, and still rejects internal labels", () => {
-    for (const text of ["r/Copper_deficiency", "u/Copper_deficiency"]) expect(check({ answer_draft: text }).next_steps.join("\n")).not.toContain("internal labels");
-    expect(check({ answer_draft: "Copper_deficiency" }).next_steps.join("\n")).toContain("internal labels (Copper_deficiency)");
-    expect(check({ answer_draft: "REQUIRED_NOW finalize_research" }).next_steps.join("\n")).toContain("internal labels (REQUIRED_NOW, finalize_research)");
-    const named = check({ answer_draft: "Copper_deficiency", principal_communities: [{ name: "r/Copper_deficiency", platform: "reddit" }] }); expect(named.next_steps.join("\n")).not.toContain("internal labels");
+    for (const text of ["r/Copper_deficiency", "u/Copper_deficiency"]) expect(advisoryNotes(check({ answer_draft: text })).join("\n")).not.toContain("internal labels");
+    expect(advisoryNotes(check({ answer_draft: "Copper_deficiency" })).join("\n")).toContain("internal labels (Copper_deficiency)");
+    expect(advisoryNotes(check({ answer_draft: "REQUIRED_NOW finalize_research" })).join("\n")).toContain("internal labels (REQUIRED_NOW, finalize_research)");
+    const named = check({ answer_draft: "Copper_deficiency", principal_communities: [{ name: "r/Copper_deficiency", platform: "reddit" }] }); expect(advisoryNotes(named).join("\n")).not.toContain("internal labels");
     const uncertain = { ...observation, observation: "r/Copper_deficiency report", response: "uncertain" as const };
     const first = check({ user_observations: [uncertain] });
-    expect(check({ answer_draft: `Copper_deficiency. ${first.caveats.join(" ")}`, user_observations: [uncertain] }).next_steps.join("\n")).not.toContain("internal labels");
+    expect(advisoryNotes(check({ answer_draft: `Copper_deficiency. ${first.caveats.join(" ")}`, user_observations: [uncertain] })).join("\n")).not.toContain("internal labels");
   });
 });
 
@@ -247,7 +337,7 @@ describe("27 Oct community carry regressions", () => {
     const first = check({ principal_communities: [{ name: "r/ExampleOne and r/ExampleTwo", platform: "reddit", named_by_user: true }] });
     const second = check({ carried_state: first.carry_forward, round_token: first.round_token,
       principal_communities: ["r/ExampleOne", "r/ExampleTwo"].map((name) => ({ name, platform: "reddit", named_by_user: true })) });
-    expect(second.next_steps.join("\n")).not.toContain("which the user named earlier");
+    expect(advisoryNotes(second).join("\n")).not.toContain("which the user named earlier");
     expect(second.carried).toMatchObject({ v: 2, named_communities: [], current_turn_named_communities: ["r/ExampleOne", "r/ExampleTwo"] });
     const nextTurn = check({ carried_state: second.carry_forward, principal_communities: [{ name: "YouTube", platform: "youtube" }] });
     expect(nextTurn.carried!.named_communities).toEqual(["r/ExampleOne", "r/ExampleTwo"]);
@@ -258,7 +348,7 @@ describe("27 Oct community carry regressions", () => {
     const first = check({ principal_communities: [{ name: "r/ExampleOne", platform: "reddit", named_by_user: true }] });
     const revised = check({ carried_state: first.carry_forward, round_token: first.round_token,
       principal_communities: [{ name: "r/ExampleOne", platform: "reddit" }] });
-    expect(revised.next_steps.join("\n")).not.toContain("which the user named earlier");
+    expect(advisoryNotes(revised).join("\n")).not.toContain("which the user named earlier");
     expect(revised.carried!.current_turn_named_communities).toEqual([]);
     expect(check({ carried_state: revised.carry_forward }).carried!.named_communities).toEqual([]);
   });
@@ -267,18 +357,20 @@ describe("27 Oct community carry regressions", () => {
     const first = check({ principal_communities: [{ name: "r/ExampleOne", platform: "reddit", named_by_user: true }] });
     const other = [{ name: "YouTube", platform: "youtube" as const }];
     const later = check({ carried_state: first.carry_forward, principal_communities: other });
-    expect(later.next_steps.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
-    expect(check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other }).next_steps.join("\n"))
-      .toContain("principal_communities leaves out r/ExampleOne");
+    expect(advisoryNotes(later).join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    // A note on the conversation's continuity comes back at every check while it stands, within a turn too.
+    const again = advisoryNotes(check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other }));
+    expect(again.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    expect(again.join("\n")).not.toContain("not repeated");
     const withdrawn = check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other,
       withdrawn_named_communities: [{ name: "r/ExampleOne", reason: "The combined label was misattributed." }] });
-    expect(withdrawn.next_steps.join("\n")).not.toContain("principal_communities leaves out");
+    expect(advisoryNotes(withdrawn).join("\n")).not.toContain("principal_communities leaves out");
     expect(withdrawn.carried!.named_communities).toEqual([]);
-    expect(withdrawn.caveats.join(" ")).not.toContain("r/ExampleOne");
+    expect(withdrawn.limits.join(" ")).not.toContain("r/ExampleOne");
     expect(check({ carried_state: withdrawn.carry_forward, principal_communities: other }).carried!.named_communities).toEqual([]);
     const wrong = check({ carried_state: later.carry_forward, principal_communities: other,
       withdrawn_named_communities: [{ name: "r/exampleone", reason: "The combined label was misattributed." }] });
-    expect(wrong.next_steps.join("\n")).toContain("withdrawn_named_communities[0].name is not an enforced earlier-turn name");
+    expect(advisoryNotes(wrong).join("\n")).toContain("withdrawn_named_communities[0].name is not an enforced earlier-turn name");
     expect(wrong.carried!.named_communities).toEqual(["r/ExampleOne"]);
     for (const reason of ["x".repeat(9), "x".repeat(301)]) expect(finalizeResearchInputSchema.safeParse(base({
       withdrawn_named_communities: [{ name: "r/ExampleOne", reason }]
@@ -288,7 +380,7 @@ describe("27 Oct community carry regressions", () => {
     })).success).toBe(true);
     const currentOnly = check({ carried_state: first.carry_forward, round_token: first.round_token,
       withdrawn_named_communities: [{ name: "r/ExampleOne", reason: "The combined label was misattributed." }] });
-    expect(currentOnly.next_steps.join("\n")).toContain("not an enforced earlier-turn name");
+    expect(advisoryNotes(currentOnly).join("\n")).toContain("not an enforced earlier-turn name");
   });
 
   it("q82: promoting a full current-turn set never silently drops names to fit the state bound", () => {
@@ -299,12 +391,12 @@ describe("27 Oct community carry regressions", () => {
       current_turn_named_communities: latest }, { secret: SECRET });
     const blocked = check({ carried_state: token });
     expect(blocked.carry_forward).toBeUndefined();
-    expect(blocked.next_steps.join(" ")).toContain("No name is dropped automatically");
+    expect(advisoryNotes(blocked).join(" ")).toContain("No name is dropped automatically");
     const withdrawn = check({ carried_state: token,
       principal_communities: latest.map((name) => ({ name, platform: "reddit", named_by_user: true })),
       withdrawn_named_communities: earlier.map((name) => ({ name, reason: "The user withdrew this earlier community." })) });
     expect(withdrawn.carried!.named_communities).toEqual(latest);
-    expect(withdrawn.next_steps.join(" ")).not.toContain("principal_communities leaves out");
+    expect(advisoryNotes(withdrawn).join(" ")).not.toContain("principal_communities leaves out");
   });
 
   it("q82: accepts cs1 names as enforced earlier-turn names even with the same turn id", () => {
@@ -319,7 +411,7 @@ describe("27 Oct community carry regressions", () => {
     } });
     const second = check({ carried_state: token, round_token: first.round_token,
       principal_communities: [{ name: "YouTube", platform: "youtube" }] });
-    expect(second.next_steps.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    expect(advisoryNotes(second).join("\n")).toContain("principal_communities leaves out r/ExampleOne");
     expect(second.carry_forward).toMatch(/^cs2~/u);
   });
 });

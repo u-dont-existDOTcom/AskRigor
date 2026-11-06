@@ -1,32 +1,44 @@
 import {
   ATLAS_PUBLICATION_HOLD_REASONS,
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V2,
+  ATLAS_PUBLICATION_SCHEMA_V3,
+  ATLAS_PUBLISHED_RETRACTIONS,
+  ATLAS_PUBLISHED_THREADS_PER_FINDING,
+  ATLAS_THREAD_COMMUNITY,
+  ATLAS_THREAD_LINK,
   ATLAS_VERIFIED_BASES,
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
+  atlasResearchSchema,
+  withoutFormatCharacters,
   type AtlasDecisionView,
+  type AtlasNumberEntry,
   type AtlasIntentView,
   type AtlasPublicationDraft,
   type AtlasPublicationHoldReason,
   type AtlasPublicationStore,
   type AtlasPublicationView,
   type AtlasPublishedFinding,
+  type AtlasResearch,
 } from "@askrigor/evidence-repository";
 
 import { containsCardReference } from "../findings/acceptance-checks.js";
 import { isYouTubeVideoId, topicKeyText, type StoredFinding } from "../findings/card.js";
+import { sourceIdKey } from "../findings/research-behind.js";
 import type {
   FindingsCardPublisher,
   FindingsRecord,
   FindingsSaveAccount,
   SavedFindingsCard,
 } from "../findings/service.js";
+import type { AtlasSourceTitleLookup, AtlasSourceTitles } from "../findings/source-checks.js";
 import { contactDetailKinds, withoutDirectionControls } from "./contact-check.js";
 
 /**
  * Publishing saved findings cards in the Atlas (decision 171, section 4B; owner answers 168a and "171 approved", 24 Oct
  * 2026): which cards and findings are published, what is published of each, and the save path's publisher. Every rule
- * here is an exact check: the account's mode, notice version and dev listing, the card's set-aside label and its
+ * here is an exact check: the account's mode and notice version, the card's set-aside label and its
  * public-value scope, the closed markers of a finding drawn from YouTube comments, and the structural contact-details
  * check (contact-check.ts). What a finding means stays the research AI's declaration and the owner's review.
  */
@@ -37,8 +49,6 @@ export const CARD_PUBLICATION_PROBLEMS = [
   "not_free_contributor",
   /** The saving account had not accepted the current free contributor notice. */
   "notice_not_current",
-  /** The saving account is a dev account (ASKRIGOR_DEV_ACCOUNT_KEYS): its cards are published only on acceptance. */
-  "dev_account",
   /** The card carries the set-aside label. */
   "set_aside",
   /** The card does not declare its findings public (owner answer 156a). */
@@ -59,8 +69,8 @@ export type FindingLeftOutReason = typeof FINDING_LEFT_OUT_REASONS[number];
 
 /**
  * Who asks for a card to be published: the save path, right after a confirmed save, with the saving account; or the
- * owner, naming the card (publish_cards), whose choice is the consent for the owner's own cards, so the notice and
- * dev-account checks do not apply. A card whose marker says it was saved in paid private mode is still refused: its
+ * owner, naming the card (publish_cards), whose choice is the consent for the owner's own cards, so the notice check
+ * does not apply. A card whose marker says it was saved in paid private mode is still refused: its
  * findings are published only after the owner accepts them (the privacy page's wording).
  */
 export type CardPublicationRoute =
@@ -85,15 +95,13 @@ export function cardPublicationProblems(
 }
 
 /**
- * The saving account's checks: free contributor mode, the current notice (RESEARCH_USE_NOTICE_VERSION, never a
- * literal: the notice that says cards are published as soon as they are saved), and not a dev account.
+ * The saving account's checks: free contributor mode and the current notice (RESEARCH_USE_NOTICE_VERSION, never a
+ * literal: the notice that says cards are published as soon as they are saved). A dev account's cards publish like
+ * everyone's (owner answer 196a, 29 Oct 2026): a regression run switches its card saving off instead.
  */
 export function accountPublicationProblems(account: FindingsSaveAccount | undefined): CardPublicationProblem[] {
   if (account === undefined || account.mode !== "FREE_CONTRIBUTOR") return ["not_free_contributor"];
-  return [
-    ...(account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? [] : ["notice_not_current" as const]),
-    ...(account.devAccount ? ["dev_account" as const] : []),
-  ];
+  return account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? [] : ["notice_not_current"];
 }
 
 /**
@@ -103,7 +111,8 @@ export function accountPublicationProblems(account: FindingsSaveAccount | undefi
  */
 export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
   return (finding.youtube_videos ?? 0) > 0 || finding.sources.some(isYouTubeVideoId) ||
-    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit");
+    finding.tags.includes("community_checked") || (finding.verified_bases ?? []).includes("comment_audit") ||
+    finding.draws_on_youtube_comments === true;
 }
 
 /**
@@ -118,11 +127,20 @@ export function drawnFromYouTubeComments(finding: StoredFinding): boolean {
  */
 export function publishedFindingOf(record: FindingsRecord, findingNumber: number,
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
+  const base = publishedFieldsOf(record, findingNumber, ownerTopic);
+  if (base === undefined) return undefined;
+  const parsed = atlasPublishedFindingSchema.safeParse(base);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/** A finding's version 1 fields, unchecked: what publishedFindingOf reads, and what a version 3 builds on. */
+function publishedFieldsOf(record: FindingsRecord, findingNumber: number,
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
   const finding = record.card.findings[findingNumber - 1];
   if (!Number.isSafeInteger(findingNumber) || findingNumber < 1 || finding === undefined) return undefined;
   const topic = record.card.topic ?? ownerTopic;
   const plain = withoutDirectionControls;
-  const parsed = atlasPublishedFindingSchema.safeParse({
+  return {
     schema: ATLAS_PUBLICATION_SCHEMA,
     topic: topic === undefined ? null : { key: topic.key, label: plain(topic.label) },
     claim: plain(finding.claim),
@@ -157,8 +175,7 @@ export function publishedFindingOf(record: FindingsRecord, findingNumber: number
     askrigor_version: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u.test(record.stamp.askrigor_version)
       ? record.stamp.askrigor_version
       : "unknown",
-  });
-  return parsed.success ? parsed.data : undefined;
+  };
 }
 
 // The Atlas's own guard against a YouTube link in a text it keeps (atlasText in @askrigor/evidence-repository).
@@ -167,7 +184,8 @@ const YOUTUBE_REFERENCE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
 /**
  * Every text a publication shows, by field: the topic (its key read as words, as the card's privacy screen reads it),
  * the claim, whom it applies to, the subject, each figure's labels, each search's query, why it is not the usual answer
- * and what would change it. Source identifiers are identifiers, not text.
+ * and what would change it; with version 2, the card's question and usual answer and each source's title. Source
+ * identifiers are identifiers, not text.
  */
 export function publishedTexts(published: AtlasPublishedFinding): Array<[string, string]> {
   return [
@@ -187,6 +205,27 @@ export function publishedTexts(published: AtlasPublishedFinding): Array<[string,
     ...(published.searches ?? []).map((search, at): [string, string] => [`searches[${at}].query`, search.query]),
     ["why_not_usual", published.why_not_usual],
     ["what_would_change_it", published.what_would_change_it],
+    ...(published.question === undefined ? [] : [["question", published.question] as [string, string]]),
+    ...(published.usual_answer === undefined ? [] : [["usual_answer", published.usual_answer] as [string, string]]),
+    ...(published.source_details ?? []).map(({ title }, at): [string, string] => [`source_details[${at}].title`, title]),
+    // Version 3 (owner answer 252a): the quotes and where they were found, the strongest thing against each, and the
+    // forum signal's communities, links and words.
+    ...(published.backing ?? []).flatMap((line, at): Array<[string, string]> => [
+      ...(line.sentence === undefined ? [] : [[`backing[${at}].sentence`, line.sentence] as [string, string]]),
+      ...(line.sentence_section === undefined ? [] : [[`backing[${at}].sentence_section`, line.sentence_section] as [string, string]]),
+      ...(line.conclusion === undefined ? [] : [[`backing[${at}].conclusion`, line.conclusion] as [string, string]]),
+      ...(line.conclusion_section === undefined ? []
+        : [[`backing[${at}].conclusion_section`, line.conclusion_section] as [string, string]]),
+      [`backing[${at}].against`, line.against],
+    ]),
+    ...(published.forum_signal === undefined ? [] : [
+      ...published.forum_signal.communities.map((community, at): [string, string] => [`forum_signal.communities[${at}]`, community]),
+      ...published.forum_signal.threads.map((thread, at): [string, string] => [`forum_signal.threads[${at}]`, thread]),
+      ...(published.forum_signal.mechanism === undefined ? []
+        : [["forum_signal.mechanism", published.forum_signal.mechanism] as [string, string]]),
+      ...(published.forum_signal.studies_measured === undefined ? []
+        : [["forum_signal.studies_measured", published.forum_signal.studies_measured] as [string, string]]),
+    ]),
   ];
 }
 
@@ -196,13 +235,217 @@ export function publishedTexts(published: AtlasPublishedFinding): Array<[string,
  * a YouTube link. Empty when it is shown.
  */
 export function publicationHoldReasons(published: AtlasPublishedFinding): AtlasPublicationHoldReason[] {
-  const found = new Set<AtlasPublicationHoldReason>();
-  for (const [, text] of publishedTexts(published)) {
-    for (const kind of contactDetailKinds(text)) found.add(kind);
-    if (containsCardReference(text)) found.add("card_reference");
-    if (YOUTUBE_REFERENCE.test(text)) found.add("youtube_link");
-  }
+  const found = new Set(publishedTexts(published).flatMap(([, text]) => textHoldReasons(text)));
   return ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => found.has(reason));
+}
+
+/**
+ * What one text holds that the pages never show, by the same three checks: a publication's texts here, and a challenge
+ * mark's usual view, source and link (challenge-review.ts).
+ */
+export function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
+  // Read as a reader sees it, without its format characters, as the pages read it (the review of #422, fourth round: a
+  // zero-width space inside "youtube.com" passed here, and every page showing the text then refused to serve).
+  const shown = withoutFormatCharacters(text);
+  return [
+    ...contactDetailKinds(shown),
+    ...(containsCardReference(shown) ? ["card_reference" as const] : []),
+    ...(YOUTUBE_REFERENCE.test(shown) ? ["youtube_link" as const] : []),
+  ];
+}
+
+/**
+ * A publication with its card's context (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md):
+ * version 2, with the card's question and usual answer (the card's own general wording, which the free notice says a
+ * published card holds) and each source's title and year where its public record gave one. A title is provider text:
+ * one that holds what the pages never show, or does not fit, is left out rather than holding the finding. The fields as
+ * they are when the context does not make a publication (a card text longer than the publication takes, say).
+ */
+export function withCardContext(published: AtlasPublishedFinding, record: FindingsRecord,
+  titles: AtlasSourceTitles = new Map(), findingNumber?: number): AtlasPublishedFinding {
+  return inCardContext(published, record, titles, findingNumber) ?? published;
+}
+
+/**
+ * The finding in its card's context, as version 2, or as version 3 when its stored finding carries the research behind
+ * it (owner answer 252a: researchBehindOf): undefined when neither makes a publication. A version 3 that doesn't make one
+ * falls back to version 2.
+ */
+function inCardContext(published: AtlasPublishedFinding, record: FindingsRecord, titles: AtlasSourceTitles,
+  findingNumber: number | undefined): AtlasPublishedFinding | undefined {
+  const plain = withoutDirectionControls;
+  const finding = findingNumber === undefined ? undefined : record.card.findings[findingNumber - 1];
+  const research = finding === undefined ? undefined : researchBehindOf(finding, published);
+  const details = (v3: boolean) => published.sources.flatMap((source) => {
+    const found = titles.get(source);
+    const title = found === undefined ? "" : plain(found.title).replace(/[\s\p{Cc}]+/gu, " ").trim();
+    const year = found?.year ?? null;
+    const retraction = v3 && found?.retraction !== undefined &&
+      (ATLAS_PUBLISHED_RETRACTIONS as readonly string[]).includes(found.retraction) ? found.retraction : undefined;
+    return title === "" || title.length > 500 || textHoldReasons(title).length > 0 ? []
+      : [{ source, title, year: year !== null && Number.isInteger(year) && year >= 1500 && year <= 2200 ? year : null,
+        ...(retraction === undefined ? {} : { retraction }) }];
+  });
+  const context = (v3: boolean) => {
+    const shown = details(v3);
+    return {
+      ...published,
+      schema: v3 ? ATLAS_PUBLICATION_SCHEMA_V3 : ATLAS_PUBLICATION_SCHEMA_V2,
+      question: plain(record.card.question),
+      usual_answer: plain(record.card.usual_answer),
+      ...(shown.length === 0 ? {} : { source_details: shown }),
+      ...(v3 ? research : {}),
+    };
+  };
+  if (research !== undefined) {
+    const parsed = atlasPublishedFindingSchema.safeParse(context(true));
+    if (parsed.success) return parsed.data;
+  }
+  const parsed = atlasPublishedFindingSchema.safeParse(context(false));
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * The research behind a finding as its accepted version keeps it (owner answer 255a), so that an accepted finding from
+ * any card, a paid private one's too, shows it: what a version 3 publication would show of it, with each figure's source
+ * by the figure's place in the version's numbers when those are the card's own figures. Only the sources the owner
+ * accepted (`kept`, the accept's sources; all the finding's when the owner kept them all) are in it, so a source the
+ * owner dropped, a retracted one say, never shows (the review of 5 November, finding 4). Undefined when the finding
+ * carries none, or when what it carries is not what the canonical Atlas keeps (its texts refuse a card's number and a
+ * YouTube link): the accept goes ahead without it.
+ */
+export function canonicalResearchOf(finding: StoredFinding, numbers: readonly AtlasNumberEntry[],
+  kept: readonly string[] = finding.sources): AtlasResearch | undefined {
+  const keys = new Set(kept.map(sourceIdKey));
+  const sources = finding.sources.filter((source) => !isYouTubeVideoId(source) && keys.has(sourceIdKey(source)));
+  const research = researchBehindOf(finding, { sources, numbers: null });
+  const own = (finding.numbers ?? []).map(({ source: _source, ...figure }) => figure);
+  const figureSources = own.length === numbers.length && own.every((figure, index) =>
+    JSON.stringify(figure) === JSON.stringify(numbers[index]))
+    ? (finding.numbers ?? []).map(({ source }) => source === undefined
+      ? null : sources.find((named) => sourceIdKey(named) === sourceIdKey(source)) ?? null)
+    : [];
+  const parsed = atlasResearchSchema.safeParse({
+    ...(research?.backing === undefined ? {} : { backing: research.backing }),
+    ...(research?.source_reading === undefined ? {} : { source_reading: research.source_reading }),
+    ...(figureSources.some((source) => source !== null) ? { figure_sources: figureSources } : {}),
+    ...(research?.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+  });
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * An accepted version's research behind it with only the sources a revision keeps (the review of 5 November, finding
+ * 4): each backing line and reading of a source dropped is left out, and a figure's source dropped becomes none.
+ * Undefined when nothing is left.
+ */
+export function researchKeeping(research: AtlasResearch, keeps: (source: string) => boolean): AtlasResearch | undefined {
+  const backing = (research.backing ?? []).filter(({ source }) => keeps(source));
+  const reading = (research.source_reading ?? []).filter(({ source }) => keeps(source));
+  const figures = (research.figure_sources ?? []).map((source) => source !== null && keeps(source) ? source : null);
+  const kept: AtlasResearch = {
+    ...(backing.length === 0 ? {} : { backing }),
+    ...(reading.length === 0 ? {} : { source_reading: reading }),
+    ...(figures.some((source) => source !== null) ? { figure_sources: figures } : {}),
+    ...(research.forum_signal === undefined ? {} : { forum_signal: research.forum_signal }),
+  };
+  return Object.keys(kept).length === 0 ? undefined : kept;
+}
+
+/**
+ * What version 3 adds of a stored finding (owner answer 252a), by the publication's own source strings: its backing
+ * lines, their quotes and sections as the save kept them, each left out when it holds what the pages never show (it is
+ * a paper's text, so it never holds the finding back) and a line with no quote left out, with the strongest thing
+ * against it in AskRigor's words; how each source was read; which source each figure comes from; and the forum signal,
+ * with the communities and the number of threads the save kept, and a link only from a signal that holds one, as the
+ * pages show it (a Reddit post by its id). Undefined when the finding carries none of them, so an older card stays
+ * version 2.
+ */
+export function researchBehindOf(finding: StoredFinding, published: Pick<AtlasPublishedFinding, "sources" | "numbers">): Partial<
+  Pick<AtlasPublishedFinding, "backing" | "source_reading" | "numbers" | "forum_signal">> | undefined {
+  const plain = withoutDirectionControls;
+  const sourceOf = (named: string) => published.sources.find((source) => sourceIdKey(source) === sourceIdKey(named));
+  const shown = (value: string | undefined) => {
+    if (value === undefined) return undefined;
+    const text = plain(value).trim();
+    return text === "" || textHoldReasons(text).length > 0 ? undefined : text;
+  };
+  const backing = (finding.backing ?? []).flatMap((line) => {
+    const source = sourceOf(line.source);
+    const sentence = shown(line.sentence);
+    const conclusion = shown(line.conclusion);
+    if (source === undefined || (sentence === undefined && conclusion === undefined)) return [];
+    const sentenceSection = sentence === undefined ? undefined : shown(line.sentence_section);
+    const conclusionSection = conclusion === undefined ? undefined : shown(line.conclusion_section);
+    return [{
+      source,
+      ...(sentence === undefined ? {} : { sentence }),
+      ...(sentenceSection === undefined ? {} : { sentence_section: sentenceSection }),
+      ...(conclusion === undefined ? {} : { conclusion }),
+      ...(conclusionSection === undefined ? {} : { conclusion_section: conclusionSection }),
+      text: line.text,
+      against: plain(line.against),
+    }];
+  });
+  const read = new Set<string>();
+  const reading = (finding.source_reading ?? []).flatMap((entry) => {
+    const source = sourceOf(entry.source);
+    if (source === undefined || read.has(source)) return [];
+    read.add(source);
+    return [{ source, read: entry.read, ...(entry.figures === undefined ? {} : { figures: entry.figures }) }];
+  });
+  const figureSources = (finding.numbers ?? []).map(({ source }) => source === undefined ? undefined : sourceOf(source));
+  const numbers = published.numbers === null || figureSources.every((source) => source === undefined) ? undefined
+    : published.numbers.map((entry, index) => {
+      const source = figureSources[index];
+      return source === undefined ? entry : { ...entry, source };
+    });
+  // The stored signal holds how many threads were read and their communities, and the threads' links only when the
+  // saving account's notice covered them (owner answer 253a), each rebuilt at the save from the read's verified parts.
+  // Only a community and a link in the Atlas's own forms are published (the review of 5 November, findings 1 and 2).
+  const signal = finding.forum_signal;
+  const communities = signal === undefined ? [] : [...new Set(signal.communities.flatMap((community) => {
+    const named = shown(community);
+    return named === undefined || !ATLAS_THREAD_COMMUNITY.test(named) ? [] : [named];
+  }))].slice(0, Math.min(ATLAS_PUBLISHED_THREADS_PER_FINDING, signal.threads_read));
+  const links = signal?.threads ?? [];
+  const threads = [...new Set(links.flatMap((thread) => {
+    const link = shown(thread);
+    return link === undefined || !ATLAS_THREAD_LINK.test(link) ? [] : [link];
+  }))].slice(0, signal?.threads_read ?? 0);
+  const forum = signal === undefined ? undefined : {
+    communities,
+    threads_read: signal.threads_read,
+    threads,
+    people: { ...signal.people },
+    report_quality: { ...signal.report_quality },
+    ...(signal.mechanism === undefined ? {} : { mechanism: plain(signal.mechanism) }),
+    studies: signal.studies,
+    ...(signal.studies_measured === undefined ? {} : { studies_measured: plain(signal.studies_measured) }),
+  };
+  if (backing.length === 0 && reading.length === 0 && numbers === undefined && forum === undefined) return undefined;
+  return {
+    ...(backing.length === 0 ? {} : { backing: backing.slice(0, 3) }),
+    ...(reading.length === 0 ? {} : { source_reading: reading }),
+    ...(numbers === undefined ? {} : { numbers }),
+    ...(forum === undefined ? {} : { forum_signal: forum }),
+  };
+}
+
+/**
+ * The titles of a card's sources, looked up once for all its findings; none when there is no lookup or it fails, which
+ * never holds publishing back.
+ */
+export async function cardSourceTitles(record: FindingsRecord, lookup: AtlasSourceTitleLookup | undefined):
+  Promise<AtlasSourceTitles> {
+  const sources = [...new Set(record.card.findings.flatMap((finding) => finding.sources)
+    .filter((source) => !isYouTubeVideoId(source)))];
+  if (lookup === undefined || sources.length === 0) return new Map();
+  try {
+    return await lookup(sources);
+  } catch {
+    return new Map();
+  }
 }
 
 /** What a decided finding's publication becomes: accepted or edited with its F number, or rejected. */
@@ -250,6 +493,8 @@ export function planCardPublication(input: {
   decided?: ReadonlyMap<number, DecidedPublicationState>;
   /** publish_cards only: a topic for a card that declares none. */
   ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>;
+  /** The card's sources' titles and years, for the findings published unreviewed. */
+  sourceTitles?: AtlasSourceTitles;
 }): CardPublicationPlan {
   const problems = cardPublicationProblems(input.record, input.setAside, input.route);
   if (problems.length > 0) return { problems, drafts: [], leftOut: [] };
@@ -266,22 +511,30 @@ export function planCardPublication(input: {
       leftOut.push({ findingNumber, reason: "rejected" });
       return;
     }
-    const published = publishedFindingOf(input.record, findingNumber, input.ownerTopic);
-    if (published === undefined) {
+    // Owner answer 252a: a finding resting on its forum signal alone has no source, so it makes no version 1 and is
+    // published in its card's context only, as version 3. A decided finding goes the same way (the review of 5
+    // November, finding 3), so an accepted forum-only finding gets its page too.
+    const shown = cardPublicationOf(input.record, findingNumber, input.sourceTitles ?? new Map(), input.ownerTopic);
+    if (shown === undefined) {
       leftOut.push({ findingNumber, reason: "not_publishable" });
       return;
     }
-    const held = publicationHoldReasons(published);
-    if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || held.length === 0)) {
-      drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null, published });
+    const holds = publicationHoldReasons(shown);
+    if (decided !== undefined && (input.ownerTopic === undefined || input.record.card.topic !== undefined || holds.length === 0)) {
+      // A decided finding's page shows its F number's latest version; its publication holds the card's fields.
+      drafts.push({ findingNumber, state: decided.state, atlasNumber: decided.atlasNumber, heldBecause: null,
+        published: shown });
       return;
     }
-    drafts.push(held.length === 0
-      ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published }
-      : { findingNumber, state: "held", atlasNumber: null, heldBecause: held, published });
+    drafts.push(holds.length === 0
+      ? { findingNumber, state: "unreviewed", atlasNumber: null, heldBecause: null, published: shown }
+      : { findingNumber, state: "held", atlasNumber: null, heldBecause: holds, published: shown });
   });
   return { problems, drafts, leftOut };
 }
+
+/** The kept reason a saved finding carries until the quick-answer test reads it (owner answer 240a). */
+export const QUICK_ANSWER_TEST_WAITING = "waiting for the quick-answer test (owner answer 240a)";
 
 /**
  * The save path's publisher (FindingsSaveService calls it right after a confirmed save, without waiting for it): it
@@ -289,11 +542,20 @@ export function planCardPublication(input: {
  * replaced ones, are what stays: owner decision Q9), then publishes the card's eligible findings when the save made the
  * card (a later save joining an open card publishes nothing of its own). Publishing is idempotent by the card's digest,
  * so a retried save publishes nothing twice; a failure is the owner's to retry with publish_cards.
+ *
+ * Owner answer 240a: what publishing makes is kept for AskRigor's research, off every list, until a separate AI's
+ * quick-answer test shows it (docs/atlas-quick-answer-test.md), since the AI that did the research can't fairly judge
+ * its own card. Held findings stay held, and a card the owner publishes shows at once.
  */
 export class AtlasCardPublisher implements FindingsCardPublisher {
   private readonly now: () => Date;
 
-  constructor(private readonly options: { store: AtlasPublicationStore; now?: () => Date }) {
+  constructor(private readonly options: {
+    store: AtlasPublicationStore;
+    now?: () => Date;
+    /** The sources' titles and years for the pages; without it, a page shows each source's identifier alone. */
+    sourceTitles?: AtlasSourceTitleLookup;
+  }) {
     this.now = options.now ?? (() => new Date());
   }
 
@@ -314,20 +576,28 @@ export class AtlasCardPublisher implements FindingsCardPublisher {
         failure = error;
       }
     }
-    if (saved.kind === "created") {
+    if (saved.kind === "created" && cardPublicationProblems(saved.record, saved.setAside,
+      { route: "save", account: saved.account }).length === 0) {
       const plan = planCardPublication({
         record: saved.record,
         setAside: saved.setAside,
         route: { route: "save", account: saved.account },
+        sourceTitles: await cardSourceTitles(saved.record, this.options.sourceTitles),
       });
       if (plan.problems.length === 0 && plan.drafts.length > 0) {
-        await this.options.store.publish({
+        const rows = await this.options.store.publish({
           cardNumber: saved.issueNumber,
           cardSha256: saved.record.card_sha256,
           findings: plan.drafts,
           publishedAt: this.now().toISOString(),
           revive: false,
         });
+        const waiting = rows.filter(({ outcome, state }) => outcome === "published" && state === "unreviewed")
+          .map(({ publicationNumber }) => publicationNumber);
+        if (waiting.length > 0) {
+          await this.options.store.keep({ publicationNumbers: waiting, atlasNumbers: [], keep: true,
+            reason: QUICK_ANSWER_TEST_WAITING, at: this.now().toISOString() });
+        }
       }
     }
     if (failure !== undefined) throw failure;
@@ -350,9 +620,24 @@ export function decidedPublicationDraft(
   if (target.state === "rejected" || target.atlasNumber === null) return undefined;
   const finding = record.card.findings[findingNumber - 1];
   if (finding === undefined || drawnFromYouTubeComments(finding)) return undefined;
-  const published = publishedFindingOf(record, findingNumber);
+  // The review of 5 November, finding 3: by the same path as a card's other publications, so a finding accepted from a
+  // paid private card, or a forum-only one, gets its page.
+  const published = cardPublicationOf(record, findingNumber, new Map());
   return published === undefined ? undefined
     : { findingNumber, state: target.state, atlasNumber: target.atlasNumber, heldBecause: null, published };
+}
+
+/**
+ * A card's finding as it is published (findingNumber from 1): in its card's context, as version 3 when its stored
+ * finding carries the research behind it and as version 2 otherwise, or as version 1 when the context makes no
+ * publication. Undefined when none does, which a finding resting on its forum signal alone, with no source, can only
+ * make as version 3.
+ */
+function cardPublicationOf(record: FindingsRecord, findingNumber: number, titles: AtlasSourceTitles,
+  ownerTopic?: NonNullable<AtlasPublishedFinding["topic"]>): AtlasPublishedFinding | undefined {
+  const published = publishedFindingOf(record, findingNumber, ownerTopic);
+  const base = published ?? publishedFieldsOf(record, findingNumber, ownerTopic);
+  return (base === undefined ? undefined : inCardContext(base, record, titles, findingNumber)) ?? published;
 }
 
 /**

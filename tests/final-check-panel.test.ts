@@ -3,16 +3,24 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
-import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messages.js";
+import {
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, PASSING_LIMITS_GUIDANCE,
+} from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
   finalCheckPanelHtml, finalCheckPanelWidgetDomain, inlineFinalCheckAppBundle,
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch, type FinalizeResearchInput, type FinalizeResearchOutput,
+  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped, type FinalizeResearchInput, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const MIME = "text/html;profile=mcp-app";
 const SECRET = "final-check-panel-test-secret-01234567890123456789";
@@ -39,7 +47,137 @@ function fixture(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResear
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
+const COPY_OBSERVATIONS = ["a friend's \"first\" report", "a ‘second’ report", "a “third” report", "the fourth report"];
+const COPY_LIMITS = COPY_OBSERVATIONS.map((observation) => `A report its source is no longer sure of: ${observation}. ` +
+  "It counts neither for nor against an effect.");
+const copyNote = (count: number) => `The draft repeats ${count} of the panel's limits word for word; the panel already ` +
+  "lists every limit beneath the answer. Keep only those that change what this person should believe or do, in your " +
+  "own words, and call finalize_research again with the changed draft.";
+function copyFixture(draftLimits: string[] = [], count = 3): FinalizeResearchInput {
+  return fixture({
+    not_relevant_basis: "emergency_before_triage",
+    user_observations: COPY_OBSERVATIONS.slice(0, count).map((observation) => ({
+      observation, response: "uncertain", source: "user",
+    })),
+    answer_draft: `[Texte lu] [Étude](https://doi.org/10.1000/depth).\n\n${draftLimits.join("\n\n")}`,
+  });
+}
+
+describe("verbatim panel limits in the checked draft", () => {
+  it.each([3, 4])("adds an advisory note for %i copied limits without consuming a round", (count) => {
+    const input = copyFixture(COPY_LIMITS.slice(0, count), count);
+    const result = finalizeResearch(input, { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual(COPY_LIMITS.slice(0, count));
+    expect(result.notes).toContain(copyNote(count));
+    expect(result.next_steps).toEqual([]);
+    expect(result.round).toEqual({ number: 1, limit: 10 });
+    const recheck = finalizeResearch({ ...input, round_token: result.round_token }, { secret: SECRET });
+    expect(recheck.status).toBe("ready_with_limits");
+    expect(recheck.notes).toContain(copyNote(count));
+    expect(recheck.round).toEqual(result.round);
+  });
+
+  it("does not add the note for two copied limits, even if they occur repeatedly", () => {
+    const result = finalizeResearch(copyFixture([...COPY_LIMITS.slice(0, 2), ...COPY_LIMITS.slice(0, 2)]), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.limits).toEqual(COPY_LIMITS.slice(0, 3));
+    expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+  });
+
+  it("collapses whitespace and treats curly and straight single/double quotes alike in either direction", () => {
+    const copied = [
+      COPY_LIMITS[0]!.replace(/'/gu, "’").replace('"first"', "“first”"),
+      COPY_LIMITS[1]!.replace(/[‘’]/gu, "'"),
+      COPY_LIMITS[2]!.replace(/[“”]/gu, '"'),
+    ].map((limit) => limit.replace(/ /gu, " \n\t "));
+    const result = finalizeResearch(copyFixture(copied), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.notes).toContain(copyNote(3));
+  });
+
+  it.each([
+    (text: string) => text.toUpperCase(),
+    (text: string) => text.replace("A report", "An account"),
+    (text: string) => text.replace(/\./gu, "!"),
+  ])("does not equate changed wording, case or punctuation with a verbatim copy (%#)", (change) => {
+    const result = finalizeResearch(copyFixture(COPY_LIMITS.slice(0, 3).map(change)), { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+  });
+
+  it("never adds the note while a blocking check is open or stopped", () => {
+    let round_token: string | undefined;
+    // A missing required source link is a blocking integrity failure; the same unchanged step stops after repeats.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const input = copyFixture(COPY_LIMITS.slice(0, 3));
+      const result = finalizeResearch({ ...input, answer_draft: COPY_LIMITS.slice(0, 3).join("\n\n"), round_token }, { secret: SECRET });
+      expect(result.status).toBe(attempt < 2 ? "not_ready" : "stopped");
+      expect(result.limits).toEqual(COPY_LIMITS.slice(0, 3));
+      expect(result.notes?.some((note) => note.startsWith("The draft repeats ")) ?? false).toBe(false);
+      round_token = result.round_token;
+    }
+  });
+});
+
 describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpSurface) => {
+  it("gives passing limits on one numbered reference line and the paste note as advisory text", async () => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "limit-copy-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const input = copyFixture(COPY_LIMITS.slice(0, 3));
+      const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
+      expect(response.isError).not.toBe(true);
+      const output = response.structuredContent as FinalizeResearchOutput;
+      expect(output).toMatchObject({ status: "ready_with_limits", next_steps: [], limits: COPY_LIMITS.slice(0, 3) });
+      expect(output.notes).toContain(copyNote(3));
+      const text = (response.content as Array<{ text: string }>)[0]!.text;
+      const line = COPY_LIMITS.slice(0, 3).map((limit, index) => `[${index + 1}] ${limit}`).join(" ");
+      expect(text).toContain(`\n${PASSING_LIMITS_GUIDANCE}\n${line}\n`);
+      expect(text).toContain(`- ${copyNote(3)}\n`);
+      expect(text).not.toContain("\nLimit: ");
+      expect(text).not.toContain("Limit to include in your own words:");
+    } finally { await client.close(); await server.close(); }
+  });
+
+  it.each(["none", "read"] as const)("keeps citation guidance in AI result text and reader limits in the panel (%s)", async (other_route) => {
+    vi.stubEnv("ASKRIGOR_FINALIZATION_SIGNING_SECRET", SECRET);
+    const server = createAskRigorServer("standard", { mcpSurface, researchAccessRequired: false, findingsLibrary: false });
+    const client = new Client({ name: "lead-panel-test", version: "1" });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(b); await client.connect(a);
+      const input = fixture({
+        receipts: [issueResearchReceipt("full_text_lead", { doi: "10.1000/depth", state: "ABSTRACT_ONLY" }, { secret: SECRET })],
+        key_sources: [{ id: "10.1000/depth", status: "lead_only", read_depth: "abstract_only", answer_marker: "Study", other_route }],
+        answer_draft: "[Study](https://doi.org/10.1000/depth) is a lead."
+      });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
+      expect(result.isError).not.toBe(true);
+      const output = result.structuredContent as FinalizeResearchOutput;
+      const instruction = other_route === "read"
+        ? "Cite 10.1000/depth as read through another tool, not audited by AskRigor."
+        : 'Cite "Study" (10.1000/depth) as a lead: only its abstract was readable, so its methods were not audited.';
+      const limit = other_route === "read"
+        ? "One key study, [this study](https://doi.org/10.1000/depth), was read through another tool, not audited by AskRigor."
+        : "Only the abstract of [this study](https://doi.org/10.1000/depth) was readable, so its methods were not checked.";
+      expect(output.status).toBe("ready_with_limits");
+      expect(output.next_steps).toEqual([]);
+      expect(output.notes).toContain(instruction);
+      expect(output.limits).toContain(limit);
+      expect(output.limits).not.toContain(instruction);
+      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
+      const panel = render(output);
+      const checked = fold(panel, "What AskRigor checked");
+      expect(checked.textContent).toContain(limit);
+      expect(checked.textContent).not.toContain(instruction);
+      expect(fold(panel, "Notes for the AI").textContent).toContain(instruction);
+    } finally { await client.close(); await server.close(); }
+  });
+
   it("lists and reads the sandboxed resource, retains metadata, and preserves the final check result", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));
@@ -65,17 +203,18 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         },
       }]);
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(33);
+      expect(tools).toHaveLength(35);
       const tool = tools.find(({ name }) => name === "finalize_research")!;
       expect(tool._meta).toMatchObject({
         ui: { resourceUri: FINAL_CHECK_PANEL_URI },
         "ui/resourceUri": FINAL_CHECK_PANEL_URI, "openai/outputTemplate": FINAL_CHECK_PANEL_URI,
         securitySchemes: expect.any(Array),
       });
-      const input = fixture();
+      // The draft says how its study was read before the whitespace goes around it (the owner, 5 Nov 2026).
+      const input = withSourceReading(fixture());
       // Leading/trailing whitespace and CRLF survive both the connector input and output schemas.
       input.answer_draft = ` \t\r\n${input.answer_draft}\r\n\t `;
-      const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
       expect(result.isError).not.toBe(true);
       const output = result.structuredContent as FinalizeResearchOutput;
       const direct = finalizeResearch(input, { secret: SECRET, findings: "closed" });
@@ -86,9 +225,9 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       });
       expect(verifyCarriedState(output.carry_forward!, { secret: SECRET })).toEqual({ ok: true, state: output.carried });
       expect(result.structuredContent).toMatchObject({
-        status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits above.",
+        status: "ready_with_limits", check_line: "Checked with AskRigor's final check, with the limits it found.",
         checked_answer: input.answer_draft,
-        next_steps: [], limits: [COMMUNITY_SKIP_LIMIT], sources: { validated: ["10.1000/depth"], lead_only: [] },
+        next_steps: [], limits: [communitySkipCaveat(input.not_relevant_reason!)], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
       expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
       // The panel draws from the structured result; nothing is sent only for it.
@@ -99,7 +238,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
 
 describe("the exact checked answer (owner answer 187)", () => {
   it.each(["ready", "ready_with_limits"] as const)("returns the submitted bytes only after %s", (status) => {
-    const input = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    const input = withSourceReading(fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {}));
     input.answer_draft = ` \t\r\n${input.answer_draft}\n\nRésumé e\u0301 中文 العربية.\r\n\t `;
     const result = finalizeResearch(input, { secret: SECRET });
     expect(result.status).toBe(status);
@@ -108,7 +247,7 @@ describe("the exact checked answer (owner answer 187)", () => {
     expect(Buffer.from(result.checked_answer!)).toEqual(Buffer.from(input.answer_draft));
     expect(result.carried).not.toHaveProperty("checked_answer");
     // A separate caller gets only its own draft, never the previous caller's.
-    const other = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    const other = withSourceReading(fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {}));
     expect(finalizeResearch(other, { secret: SECRET }).checked_answer).toBe(other.answer_draft);
   });
 
@@ -118,11 +257,11 @@ describe("the exact checked answer (owner answer 187)", () => {
     const invalid = finalizeResearch({ answer_draft: "private draft" }, { secret: SECRET });
     const blank = finalizeResearch(fixture({ answer_draft: " \t\r\n " }), { secret: SECRET });
     expect(blank).toMatchObject({ status: "not_ready", answer_checked: false });
-    let open = finalizeResearch(fixture({ absence_claims: undefined }), { secret: SECRET });
+    let open = finalizeResearch(fixture({ receipts: [] }), { secret: SECRET });
     expect(open.status).toBe("not_ready");
     for (const result of [missing, unavailable, invalid, blank, open]) expect(result).not.toHaveProperty("checked_answer");
     for (let round = 2; round <= 3; round += 1) {
-      open = finalizeResearch(fixture({ absence_claims: undefined, round_token: open.round_token }), { secret: SECRET });
+      open = finalizeResearch(fixture({ receipts: [], round_token: open.round_token }), { secret: SECRET });
     }
     expect(open.status).toBe("stopped");
     expect(open).not.toHaveProperty("checked_answer");
@@ -232,33 +371,140 @@ function render(result: unknown, doc = documentShim()) {
   runInNewContext(`${FINAL_CHECK_PANEL_RENDER_SOURCE}\nrenderFinalCheck(document, result);`, { document: doc, result });
   return doc.root;
 }
+// The one fold of the panel whose closed line starts with these words. A fold the page opened by itself would carry an
+// `open` property, which the shim lacks.
+function fold(root: Element, opening: string): Element {
+  const found = root.children.filter(({ tagName, children }) =>
+    tagName === "details" && children[0]?.tagName === "summary" && children[0].textContent.startsWith(opening));
+  expect(found).toHaveLength(1);
+  expect("open" in found[0]!).toBe(false);
+  return found[0]!;
+}
+const COUNTS = (audited: number, leads: number, communities: number) => `Key studies whose methods were audited: ` +
+  `${audited}. Used only as leads: ${leads}. Communities searched: ${communities}.`;
 
-// The verdict line remains as owner question 108 specified; owner answer 187 adds the checked answer or stopped steps.
+// The verdict line remains as owner question 108 specified; owner answer 187 adds the stopped steps, and owner answer
+// 217b folds a passing check's detail: the comparison with the quick answer, then what was checked with the limits.
 describe("rendered final check result", () => {
-  it.each([
-    [{ status: "ready" }, "\u2713 Checked by AskRigor's final check."],
-    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check. The answer states its 3 limits."],
-    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check. The answer states its 1 limit."],
-    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft."],
-    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here."],
-    [{ status: "unknown" }, "AskRigor's final check could not run here."],
-    [undefined, "AskRigor's final check could not run here."],
-  ])("shows one line for %j", (result, line) => {
-    const root = render(result);
-    expect(root.children.map((element) => [element.tagName, element.textContent])).toEqual([["p", line]]);
+  it("lists every limit under a passing check, folded, even when the draft omitted them (owner 195, 217b)", () => {
+    const input = fixture({ answer_draft: "[Study](https://doi.org/10.1000/depth) gives a provisional result." });
+    const result = finalizeResearch(input, { secret: SECRET });
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    const limits = [...result.limits, "<b>A second limit is plain text.</b>"];
+    const root = render({ ...result, limits });
+    const checked = fold(root, "What AskRigor checked");
+    expect(checked.children[0]!.textContent).toBe(`What AskRigor checked, and this answer's ${limits.length} limits`);
+    expect(checked.all("li").map(({ textContent }) => textContent)).toEqual(limits);
+    expect(root.all("b")).toEqual([]);
+    // The panel no longer repeats the checked answer (owner question 217).
+    expect(root.textContent).not.toContain(input.answer_draft);
+    expect(render({ status: "not_ready", limits, checked_answer: input.answer_draft }).textContent)
+      .not.toContain("What AskRigor checked");
   });
 
-  it.each(["ready", "ready_with_limits"])("shows the exact checked answer as text for %s", (status) => {
-    const answer = ' \n<script>alert(1)</script>\n<img src=x onerror="alert(2)">\n**not rendered**\r\n ';
-    const root = render({ status, checked_answer: answer });
-    expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
-      ["p", status === "ready" ? "\u2713 Checked by AskRigor's final check." :
-        "\u2713 Checked by AskRigor's final check. The answer states its 0 limits."],
-      ["h2", "The answer as AskRigor checked it:"],
-      ["p", answer],
+  it("shows all input notes as text without turning them into steps or caveats", () => {
+    const notes = ["A source type was dropped.", "<script>A field was unknown.</script>"];
+    const root = render({ status: "ready", notes });
+    expect(root.children.map(({ tagName }) => tagName)).toEqual(["p", "details", "details"]);
+    expect(root.children[0]!.textContent).toBe("\u2713 Checked by AskRigor's final check.");
+    expect(fold(root, "Notes for the AI").textContent).toBe(`Notes for the AI (2)${notes.join("")}`);
+    expect(fold(root, "Notes for the AI").all("li").map(({ textContent }) => textContent)).toEqual(notes);
+    expect(root.all("script")).toEqual([]);
+  });
+
+  // Owner, 30 Oct ("i got this massive askrigor check panel"): the notes are written for the AI, so they come last,
+  // folded under one closed line, after a passing check's folds or after the steps of a stopped check.
+  it("folds the notes for the AI under one closed line at the end, under every status", () => {
+    const notes = ["Give findings_card with answer_draft.", 7, "Try acquire_open_full_text for 12345678."];
+    const passing = render({ status: "ready_with_limits", checked_answer: "The answer.", limits: ["A limit."], notes });
+    expect(passing.children.map(({ tagName }) => tagName)).toEqual(["p", "details", "details"]);
+    const details = passing.children.at(-1)!;
+    expect(details.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["summary", "Notes for the AI (2)"], ["ul", "Give findings_card with answer_draft.Try acquire_open_full_text for 12345678."]
     ]);
+    for (const each of passing.all("details")) expect(each.all("summary")).toHaveLength(1);
+    expect(render({ status: "not_ready", notes }).children.map(({ tagName }) => tagName)).toEqual(["p", "details"]);
+    const stopped = render({ status: "stopped", stopped: { short_reason: "the round limit", could_not: [{ step: "A step." }] }, notes });
+    expect(stopped.children.map(({ tagName }) => tagName)).toEqual(["p", "h2", "ul", "p", "details"]);
+    expect(render({ status: "ready", notes: [] }).all("summary").map(({ textContent }) => textContent))
+      .toEqual(["What AskRigor checked"]);
+    expect(render({ status: "ready", notes: [3] }).all("summary").map(({ textContent }) => textContent))
+      .toEqual(["What AskRigor checked"]);
+  });
+
+  it.each([
+    [{ status: "ready" }, "\u2713 Checked by AskRigor's final check.", "What AskRigor checked"],
+    [{ status: "ready_with_limits", limits: ["a", "b", "c"] }, "\u2713 Checked by AskRigor's final check, with 3 limits below.",
+      "What AskRigor checked, and this answer's 3 limits"],
+    [{ status: "ready_with_limits", limits: ["a"] }, "\u2713 Checked by AskRigor's final check, with 1 limit below.",
+      "What AskRigor checked, and this answer's 1 limit"],
+    [{ status: "not_ready", next_steps: ["a", "b", "c"] }, "AskRigor's final check asked for more work on this draft.", undefined],
+    [{ status: "receipts_unavailable" }, "AskRigor's final check could not run here.", undefined],
+    [{ status: "unknown" }, "AskRigor's final check could not run here.", undefined],
+    [undefined, "AskRigor's final check could not run here.", undefined],
+  ])("shows one open line for %j, with a passing check's detail folded", (result, line, opening) => {
+    const root = render(result);
+    expect(root.children.map(({ tagName }) => tagName)).toEqual(opening === undefined ? ["p"] : ["p", "details"]);
+    expect(root.children[0]!.textContent).toBe(line);
+    if (opening === undefined) return;
+    const checked = fold(root, opening);
+    expect(checked.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["summary", opening], ["p", FINAL_CHECK_PANEL_SCOPE], ["p", COUNTS(0, 0, 0)],
+      ...(result?.status === "ready_with_limits" ? [["ul", result.limits.join("")]] : []),
+    ]);
+  });
+
+  // Owner answer 217b (2 Nov): "people can unfold if they want to see how the answer is different (and it should briefly
+  // explain why it's different)". The panel never repeats the checked answer.
+  it.each(["ready", "ready_with_limits"])("folds the quick-answer note as text, and never shows the checked answer, for %s", (status) => {
+    const note = ' \n<script>alert(1)</script>\n<img src=x onerror="alert(2)">\nWithout AskRigor, a quick answer would ' +
+      'have said: "**not rendered**".\r\n ';
+    const root = render({ status, checked_answer: "The checked draft, not shown.", plain_answer_note: note });
+    expect(root.children.map(({ tagName }) => tagName)).toEqual(["p", "details", "details"]);
+    const difference = fold(root, "How this answer differs from a quick answer");
+    expect(root.children[1]).toBe(difference);
+    expect(difference.children.map(({ tagName, textContent }) => [tagName, textContent])).toEqual([
+      ["summary", "How this answer differs from a quick answer"], ["p", FINAL_CHECK_PANEL_DIFFERENCE_LEAD], ["p", note],
+    ]);
+    expect(root.textContent).not.toContain("The checked draft, not shown.");
     expect(root.all("script")).toEqual([]);
     expect(root.all("img")).toEqual([]);
+    for (const empty of ["", "  \n", 7, undefined]) {
+      expect(render({ status, plain_answer_note: empty }).textContent).not.toContain("How this answer differs");
+    }
+    expect(render({ status: "not_ready", plain_answer_note: note }).textContent).not.toContain("How this answer differs");
+  });
+
+  // Owner answer 220a (2 Nov): AskRigor never sees the answer written after the check, so what was checked lists the
+  // checked answer's figures, and a figure the answer adds after the check is missing from that list.
+  it("lists the checked answer's figures in any script, without links, identifiers or markers (220a)", () => {
+    const checked_answer = "1. Bacopa improved recall by 12% (95% CI 4 to 20) in 3 trials of 1,000 people [1]; " +
+      "p=0.03, −0.5 SD, 12% again, 10-20 mg.\nAvoid confusing B12, COVID-19 or omega-3; see ARF-0042, PMID: 29340206, " +
+      "https://doi.org/10.1159/000337947 and doi:10.5152/iao.2021.9072. En France, 12 % ; 1,5 mg ; ١٢٪.";
+    const figures = "Figures in the answer AskRigor checked: 12% · 95% · 4 · 20 · 3 · 1,000 · " +
+      "0.03 · −0.5 · 10 · 12 % · 1,5 · ١٢٪.";
+    for (const status of ["ready", "ready_with_limits"]) {
+      const limits = status === "ready_with_limits" ? ["A limit."] : [];
+      const checked = fold(render({ status, checked_answer, limits }), "What AskRigor checked");
+      expect(checked.children.map(({ tagName, textContent }) => [tagName, textContent]).slice(1)).toEqual([
+        ["p", FINAL_CHECK_PANEL_SCOPE], ["p", COUNTS(0, 0, 0)],
+        ["p", `${figures} Any other figure in the answer was added or changed after the check.`],
+        ...(status === "ready_with_limits" ? [["ul", "A limit."]] : []),
+      ]);
+    }
+    // The quick-answer note quotes the quick answer's own figures, which the checked answer may not have.
+    const noted = fold(render({ status: "ready", checked_answer, plain_answer_note: "Without AskRigor, 40%." }),
+      "What AskRigor checked");
+    expect(noted.children[3]!.textContent).toBe(`${figures} Any other figure in the answer, apart from the ` +
+      "quick-answer note's, was added or changed after the check.");
+    expect(fold(render({ status: "ready", checked_answer: "See [2] at https://example.org/7 (PMID 42)." }),
+      "What AskRigor checked").children[3]!.textContent).toBe("The answer AskRigor checked gives no figures, so any " +
+      "figure in the answer was added after the check.");
+    for (const absent of [undefined, 7, ["12%"]]) {
+      expect(fold(render({ status: "ready", checked_answer: absent }), "What AskRigor checked").children).toHaveLength(3);
+    }
+    expect(render({ status: "not_ready", checked_answer }).textContent).not.toContain("Figures in the answer");
   });
 
   it.each([
@@ -302,23 +548,28 @@ describe("rendered final check result", () => {
     ]);
   });
 
-  it("shows only the verdict, never the check's lists or text, and never as HTML", () => {
+  it("shows limits with the verdict and keeps model instructions out of the panel", () => {
     const root = render({
       status: "ready_with_limits", limits: ["one", "two"], check_line: "The exact check line.",
       caveats: ["<script>alert(1)</script> caveat"], must_report: ["Lane. Then copy it into answer_quotes."],
       next_steps: ["A step for the model."], sources: { validated: ["10.1000/one"], lead_only: ["PMID 42"] },
       community: { communities_searched: ["Community"] }, findings_card: { status: "checked", problems: [] },
     });
-    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check. The answer states its 2 limits.");
+    expect(root.textContent).toBe("\u2713 Checked by AskRigor's final check, with 2 limits below." +
+      "What AskRigor checked, and this answer's 2 limits" + FINAL_CHECK_PANEL_SCOPE + COUNTS(1, 1, 1) + "onetwo");
     expect(root.all("script")).toEqual([]);
   });
 
   it("replaces a prior result", () => {
     const doc = documentShim();
-    render({ status: "ready", checked_answer: "an earlier draft" }, doc);
+    render({ status: "ready", checked_answer: "an earlier draft", plain_answer_note: "an earlier note" }, doc);
     render({ status: "stopped", stopped: { could_not: [{ step: "an earlier step" }] } }, doc);
     render({ status: "ready" }, doc);
-    expect(doc.root.children.map((element) => element.textContent)).toEqual(["\u2713 Checked by AskRigor's final check."]);
+    expect(doc.root.children.map(({ tagName }) => tagName)).toEqual(["p", "details"]);
+    expect(doc.root.children[0]!.textContent).toBe("\u2713 Checked by AskRigor's final check.");
+    for (const earlier of ["an earlier draft", "an earlier note", "an earlier step"]) {
+      expect(doc.root.textContent).not.toContain(earlier);
+    }
   });
 
   it("waits for the bridge result and renders only its structured content", async () => {
@@ -333,7 +584,8 @@ describe("rendered final check result", () => {
     await runInNewContext(FINAL_CHECK_PANEL_RENDER_SOURCE + FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE, { document: doc, App: TestApp });
     expect(doc.root.textContent).toBe("Waiting for AskRigor's final check");
     app!.ontoolresult!({ structuredContent: { status: "ready" }, content: [{ type: "text", text: "Ignored prose" }] });
-    expect(doc.root.textContent).toBe("\u2713 Checked by AskRigor's final check.");
+    expect(doc.root.children[0]!.textContent).toBe("\u2713 Checked by AskRigor's final check.");
+    expect(doc.root.textContent).not.toContain("Ignored prose");
   });
 
   it("shows the specified message when the bridge cannot connect", async () => {

@@ -68,3 +68,38 @@ export function fixtureStudyLinks(input: Record<string, unknown>): string {
     return url === undefined ? "" : `[Study](${url})`;
   }).join(" ");
 }
+
+/** Owner 195: advisory diagnostics remain actionable without entering the blocking step list. */
+export function advisoryNotes(result: FinalizeResearchOutput): string[] {
+  return result.notes ?? [];
+}
+
+export const copiedLimitsNote = (count: number): string => `The draft repeats ${count} of the panel's limits word ` +
+  "for word; the panel already lists every limit beneath the answer. Keep only those that change what this person " +
+  "should believe or do, in your own words, and call finalize_research again with the changed draft.";
+
+/**
+ * Other-rule fixtures isolate existing diagnostics; the community-reminder suite asserts unfiltered notes,
+ * tests/community-leads.test.ts the note asking for the leads people's reports raised, and
+ * tests/community-receipts.test.ts the note on a community declared searched or read without this call's receipt for
+ * it (5 Nov 2026).
+ */
+export function notesApartFromCommunityReminders(result: FinalizeResearchOutput): string[] {
+  return advisoryNotes(result).filter((note) => !note.startsWith("Forum evidence rests on ") && !note.startsWith("No forum thread was read.") &&
+    !note.startsWith("No study search came after the community research.") &&
+    !note.startsWith(COMMUNITY_LEADS_MISSING) && !COMMUNITY_WITHOUT_RECEIPT.test(note) &&
+    !note.startsWith("Research went past the emergency warning, so community evidence applies:"));
+}
+
+/** The note on a community declared searched or read that no receipt of this call shows (5 Nov 2026). */
+export const COMMUNITY_WITHOUT_RECEIPT = /^community_searches for .+ declares (?:it searched|threads read), but no receipt in this call /u;
+
+/** The start of the note asking for later_inputs.community_leads after people's reports were read. */
+export const COMMUNITY_LEADS_MISSING = "community_leads is missing: this research read ";
+
+/** A limit remains available independently of how the draft phrases or omits it (owner 195). */
+export function expectPassingLimits(result: FinalizeResearchOutput, limits: readonly string[]): void {
+  expect(result.next_steps).toEqual([]);
+  expect(result.status).toBe("ready_with_limits");
+  for (const limit of limits) expect(result.limits).toContain(limit);
+}

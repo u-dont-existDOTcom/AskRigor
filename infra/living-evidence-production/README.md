@@ -286,6 +286,99 @@ the account fields already held, and only the migrator can read it.
 with real PostgreSQL in Docker, including v1, v2 and v3 accounts, changed
 accounts, settings and every other table. It is not part of the hermetic gate.
 
+Owner answer 253a (2026-11-05; built, not yet released): the free contributor
+notice's fifth version, `free-contributor-v5-2026-11-05`, says a findings card's
+summary of what communities reported holds the communities, counts of what
+people reported and links to the forum threads AskRigor read, never their posts
+or names, YouTube comments or video IDs. Migration `0028_research_use_notice_v5`
+admits v1 to v5 under the same `research_use_accounts_free_notice_check`,
+without new columns or grants, and is safe to run again; renumber it when the
+Atlas stack next takes in main. Run the one-shot admin `migrate` before an image
+offering v5 serves. Earlier accounts, v4's included, accept v5 before free
+research, and a card saved for an account still on v4 stores no thread link.
+Right after the deploy, before any research or regression run, the owner's
+login accepts v5 (`manage_research_access` `inspect`, then
+`accept_free_contributor` with the v5 agreement), since free research refuses
+an account still on v4. A dev account the regression harness uses first
+switches card saving off (`set_findings_save` with `findingsSave: false`, which
+works whatever notice the account accepted, since it publishes nothing), then
+accepts v5; switching saving back on needs v5.
+For an image rollback below v5, follow the v4 order above with
+`research-use-notice-v5-hold.sql` and `research-use-notice-v5-restore.sql`
+(`research_use_notice_v5_hold`; held accounts may accept v4 on the earlier
+image). Undo no migration: 0028 stays and widens only the notice check.
+`npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
+real PostgreSQL in Docker, including v1 to v4 accounts.
+
+Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
+`0029_atlas_research_behind` admits `forum_read` among the verified bases of
+`atlas_finding_versions` and `held_youtube_findings`, adds the nullable
+`atlas_finding_versions.research` jsonb column (the research behind an accepted
+finding), and redefines `atlas_redaction_permits()` and `erase_atlas_wording()`
+so that an erasure removes that column whole. No role, grant or table is added,
+and no row is changed; an earlier image ignores the column. Renumber it when the
+Atlas stack next takes in main.
+
+The owner, 6 November 2026 (built, not yet released): migration
+`0030_atlas_challenges` adds six nullable columns to `atlas_publications` (a
+challenge mark: the usual view, its source's label and https link, the
+quick-answer verdict, who marked it as `reviewer:` and 16 hex characters, and
+when), one check holding them together, and two review-role functions,
+`mark_atlas_challenges` and `inspect_atlas_challenges`. Its release: run the
+one-shot admin `migrate` before the new image serves, then re-run
+`/usr/local/bin/provision-research-review-role` inside the PostgreSQL container,
+which grants the two functions. No tool-list change: `mark_challenge`,
+`clear_challenge` and `list_challenges` are runtime actions of
+`review_research_contribution`, with their inputs in `later_inputs`. An image
+rollback below 0030 needs no drain: the earlier image never reads the columns
+and shows no mark. Undo no migration: 0030 stays, with its marks, and its grant
+script leaves the two grants in place, harmlessly.
+
+Image rollback hazard (the reviews of 5 November 2026): an image from before this
+release cannot parse three kinds of row this release writes.
+
+- **Version 3 publications** (`askrigor.atlas-publication.v3`, the research
+  behind a finding and what people report). The earlier image's pages leave out
+  an unreviewed publication they can't read (an accepted one shows its F
+  number's version), but its publication store refuses such a row, and a
+  withdrawn row keeps its published fields: withdrawing them first (the owner's
+  `unpublish_finding`, by P number) keeps them off the earlier image's pages,
+  while its owner tools that list publications still fail on them.
+- **Atlas intents.** An accept or revise intent from this release carries
+  `content.research`, and a forum-only one `verifiedBases: ["forum_read"]`
+  (in `content`, or, for a re-check, at the payload's top level). The
+  earlier image (`bf3581aa`) parses every intent strictly
+  (`atlasVersionContentSchema`, whose `ATLAS_VERIFIED_BASES` has no
+  `forum_read`), both where its review lists intents (`intentFromRow`) and where
+  promotion prepares one (`prepareStoredAtlasIntent`, called by
+  `contributeAtlasFinding`). So after a rollback, one such intent, pending or
+  completed, breaks the old review's listing and stops its promotion; and a
+  revision of a version whose bases hold `forum_read` can't be made there.
+- **Findings cards** stored with the research behind it (quotes, readings,
+  figures' sources, a forum signal, or `forum_read` among its bases), which the
+  earlier image's review reads as unreadable.
+
+So once the release has published, queued or stored any, a rollback to an
+earlier image needs a hotfix of that image that reads all three tolerantly,
+with the publications withdrawn first if they must not show meanwhile. Check
+first with read-only queries, as the migrator (the intents table is private to
+the review role's functions):
+
+```sql
+SELECT count(*) FROM living_evidence.atlas_publications
+ WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3';
+SELECT count(*) FROM living_evidence.atlas_finding_intents
+ WHERE payload_json -> 'content' ? 'research'
+    OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read'
+    OR payload_json -> 'verifiedBases' ? 'forum_read';
+SELECT count(*) FROM living_evidence.atlas_finding_versions
+ WHERE verified_bases ? 'forum_read';
+```
+
+and count the findings cards saved since the release in the owner's review.
+With none of any, the rollback needs no step.
+
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner
 accepts findings from saved findings cards into this database. Migration
@@ -632,21 +725,57 @@ install the public-site packet with the upstream, after which
 `https://askrigor.com/atlas` answers the same.
 
 Navigation (owner answer 183b) adds no migration or grant. Check GET and HEAD for
-`/atlas/findings`, `/atlas/topics` and `/atlas/search?q=…`: every page header must
-offer All findings, Topics, What changed and a labelled GET search form, with
+`/atlas/findings`, `/atlas/topics`, `/atlas/map` and `/atlas/search?q=…`: every page header must
+offer All findings, Topics, Findings map, What changed and a labelled GET search form, with
 the existing sign-in/account entry when enabled. All findings must page newest
 first using `before=P-…`, preserving its all/checked/unreviewed/contested filter;
 the contested set uses the home lane's definition. Topics must list every
 populated topic by label, its count and the no-topic count/link. Search must
 match all words with Unicode normalization, case and accent folding (try Latin
-accents, Greek/Cyrillic and Japanese), page results and handle blank, overlong
-and markup-containing input as escaped normal pages. Search responses must be
+accents, Greek/Cyrillic and Japanese), anywhere in a finding's page text (try a
+word that only its "What would change it" holds) and inside longer words (a
+word of a Chinese or Japanese wording, and, as an example, `vitamin` for
+`vitamins`), list the findings whose wording holds the words first, page results
+by number with the total shown (past 2,000 matches it says only the first 2,000
+are listed), keep a number from matching inside a longer one (try `12 weeks`
+against a PMID holding 12), and handle blank, overlong and markup-containing
+input as escaped normal pages. Searches match against a 60-second in-memory copy
+of the shown findings' public text, dropped on every change; no query is kept. The findings map (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`)
+must show its rule, its key with "Not checked by supervisors yet", one cluster per
+topic whose circles open their findings, and the same findings in the list below;
+look at it at phone width and in dark mode. Search responses must be
 `private, no-store`, with `Referrer-Policy: no-referrer` and the same HTML meta
 policy, no cookies, no account name or form tokens even with a session cookie;
 query strings must never enter application, proxy/access/error or analytics
 logs. Keep request-URL logging disabled/redacted on both public proxy paths.
 Search is excluded from the in-process page cache; list caches retain the
 existing bounds, with separate normalized filter/cursor keys.
+
+Search engines (owner answer 224a; plan `../../docs/superpowers/plans/2026-11-02-atlas-foundation-223-225.md`): check
+that an unreviewed finding's page, `/atlas/findings?filter=unreviewed` and any search carry
+`<meta name="robots" content="noindex">` and the label "Written by an AI, not yet reviewed by a person", that a
+reviewed finding's page does not, that `/atlas/sitemap.xml` answers `application/xml` with the topics index and only
+reviewed findings and the pages that hold them, and, after the site packet is installed, that
+`https://askrigor.com/robots.txt` names that sitemap.
+
+Finding pages in context (plan
+`../../docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`) add no
+migration or grant: new publications carry their card's question, usual answer and
+sources' titles (`askrigor.atlas-publication.v2`), and the pages read a finding's card
+siblings by P number only. After the deploy, run `publish_cards` over the cards that have
+unreviewed publications (`list_publications` names them, at most 20 cards a call): each
+older publication gets its card's context under the same P number, and the reply names
+any whose context would be held. Then check `/atlas/findings/P-1020`: the question above
+the finding, "The usual answer", "What this research found" with the card's other
+findings linked and labelled, the label "Not checked by supervisors yet" unchanged, and
+each source by its title and year where its public record has one; and that every list
+(home, All findings, a topic, a search, the map's list) shows the question above each
+finding, or "Published without its question". Before rolling back to a build that reads
+only version 1, run as the migrator, in the living-evidence schema:
+`UPDATE atlas_publications SET published_json = (published_json - 'question' - 'usual_answer' - 'source_details') || '{"schema":"askrigor.atlas-publication.v1"}'::jsonb WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v2';`
+(an older build's publication store refuses a row it cannot read, and its pages leave
+such a row out).
 
 Check a topic with a single finding and one with many: inline SVG panels place
 findings by certainty, keep unreviewed findings and leads apart, and draw named
@@ -742,6 +871,60 @@ forwards (an IPv6 address by its /64); a public-site packet from before this
 change proxied with `Host: mcp.askrigor.com` and no forwarded address, so every
 such reader would share one address hash: install the current packet before
 relying on anonymous reports.
+
+The owner's private page (the owner, 5 November 2026; built, not yet released;
+plan `../../docs/superpowers/plans/2026-11-05-atlas-owner-page.md`):
+`/atlas/account/private`, there only while participation is on, shows the
+signed-in owner the comment maps and links to the owner's pages on GitHub; a
+reader who isn't signed in is asked to sign in, and anyone else signed in gets
+404. The owner is the connector's owner subject (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`,
+already in `runtime.env`): the Atlas checks ID tokens from the same tenant and
+takes their subject as it is, so the owner signing in to the Atlas with that
+same login is recognised with no new setting. If the owner signs in to the
+Atlas with another login, add `ASKRIGOR_ATLAS_OWNER_SUBJECT` with that login's
+exact Auth0 user ID (the tenant's user list shows it); both then count. The
+overlay (`compose.yaml` here, which every release installs as
+`/opt/askrigor/compose.living-evidence.yaml`) gives `research-mcp` the maps
+folder, read-only, beside the Reddit reader's:
+`/opt/askrigor/state/private-comment-maps:/var/lib/askrigor-private-comment-maps:ro`.
+Add no mount by hand: the next release's overlay would replace the host's copy
+and drop it. Its release step, by the operator, before the deploy, never with
+the maps in chat, Git or a receipt:
+
+1. On the host, as root, create `/opt/askrigor/state/private-comment-maps`
+   owned by the service user (UID and GID 1000), mode `0700`. If a deploy of
+   this overlay came first, Docker has made the folder itself, empty and owned
+   by root: give it that owner and mode.
+2. Copy the owner-pages repository's `askrigor/comment-maps.json` there as
+   `comment-maps.json`, owned by UID and GID 1000, mode `0600` (copy to a
+   temporary name in the same folder, then rename, so a reader never sees half
+   a file). Check it parses as `askrigor.comment-maps.v1` with
+   `npx tsx scripts/render-private-comment-maps.mts <file> <page outside the
+   repository>` on the owner's computer first.
+3. Add to `runtime.env`
+   `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE=/var/lib/askrigor-private-comment-maps/comment-maps.json`;
+   then deploy: recreate `research-mcp` with both Compose files, the overlay
+   being this release's.
+4. Check, through askrigor.com: `/atlas/account/private` signed out shows the
+   account pages' sign-in prompt with their headers (`Cache-Control: private,
+   no-store`, `Referrer-Policy: strict-origin-when-cross-origin`); signed in as
+   another account, 404 with the headers of an address with no page; signed in
+   as the owner, the maps and the three GitHub links, with `Cache-Control:
+   private, no-store`, `X-Robots-Tag: noindex, nofollow` and `Referrer-Policy:
+   no-referrer` (the public-site packet must hold the Atlas block's
+   `?Referrer-Policy`, or its Caddy replaces it), and the header's "Your private
+   pages" link on every page. A public page must still hold no YouTube text.
+
+To update the maps, repeat step 2: the page reads the file for each request. A
+missing file shows "No comment maps are installed", one that doesn't parse
+"can't be read". Rollback: the mount now comes with the overlay, so rolling back
+means installing an earlier image, which has no such route and reads neither
+the setting nor the folder, or an earlier release's overlay, which has no such
+mount, and recreating `research-mcp` with both Compose files. To take only the
+maps off the page, remove the `runtime.env` line and recreate `research-mcp`:
+the page then says no maps are installed, and the mount stays, read by nothing.
+Either way the folder and its file stay until the owner says otherwise; delete
+them only on the owner's word.
 
 Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
 `research-mcp`; the forms, the sign-in link and the routes go, and the pages

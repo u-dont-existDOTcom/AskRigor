@@ -33,7 +33,7 @@ import {
 import { parse } from "csv-parse";
 import { z } from "zod";
 
-import { normalizeDoiIdentifier } from "./doi.js";
+import { doiUrl, normalizeDoiIdentifier } from "./doi.js";
 
 export const RETRACTION_WATCH_SOURCE_REPOSITORY =
   "https://gitlab.com/crossref/retraction-watch-data" as const;
@@ -653,7 +653,7 @@ export async function loadVerifiedRetractionWatchSnapshot(
           recordType: "publication_integrity",
           primaryIdentifier: doi,
           retrievedAt: immutablePointer.source_checked_at,
-          sourceIdentity: { canonical_url: `https://doi.org/${doi}` },
+          sourceIdentity: { canonical_url: doiUrl(doi) },
           accessStatus: stale ? "partial" : "metadata_only",
           pagination: { exhausted: true },
           returned: events.length,

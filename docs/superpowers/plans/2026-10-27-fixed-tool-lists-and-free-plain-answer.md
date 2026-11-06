@@ -1,5 +1,9 @@
 # Owner answers 190a and 189a — 27 October 2026
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 Scope: implement 190a first, then the one-time catalog change and freeze in 189a on
 `claude/next-build-20261027`, following `d89b459f`. No external network, commits or release.
 The live UDA bootstrap and lesson/suggested-fix queue cannot be retrieved under this constraint.

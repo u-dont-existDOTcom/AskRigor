@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { RESEARCH_RECEIPT_MAX_CHARACTERS } from "../research-receipts.js";
-import { findingsCardSchema } from "./card.js";
+import { findingsCardSchema, laterFindingsCardSchema } from "./card.js";
 
 /**
  * The save a paid-private user accepts for one answer (owner decision Q11,
@@ -24,7 +24,8 @@ export const saveResearchFindingsInputSchema = z.object({
  * yes, with the caller's account key from its OAuth token.
  */
 export const findingsSaveInputSchema = z.object({
-  findings_card: findingsCardSchema,
+  // The card as checked, with each finding's YouTube-comments declaration when it gave one (owner answer 219b).
+  findings_card: laterFindingsCardSchema,
   finalization_receipt: z.string().trim().min(1).max(RESEARCH_RECEIPT_MAX_CHARACTERS),
   /** The pseudonymous research-use account key; only a keyed hash of it with the research target is stored. */
   contributor: z.string().regex(/^[a-f0-9]{64}$/u),
@@ -33,8 +34,18 @@ export const findingsSaveInputSchema = z.object({
 
 export type FindingsSaveInput = z.output<typeof findingsSaveInputSchema>;
 
-/** YouTube video IDs and links, and findings drawn from YouTube comments (owner answer 170). */
-export const STORED_WITHOUT = ["youtube_video_ids_and_links", "youtube_comment_findings"] as const;
+/**
+ * What a stored card leaves out of the checked card: YouTube video IDs and links, and findings drawn from YouTube
+ * comments (owner answer 170); the findings' declarations of whether they draw on YouTube comments, which decided only
+ * whether they were held (owner answer 219b); and, owner answer 252a, the backing lines' quotes not kept (not found word
+ * for word in a text AskRigor fetched itself, or failing the privacy screen) and the forum threads' links as the card
+ * gave them: a forum signal keeps the communities, how many threads were read and, under notice version 5 (owner
+ * answer 253a), each link as the Atlas publishes it.
+ */
+export const STORED_WITHOUT = [
+  "youtube_video_ids_and_links", "youtube_comment_findings", "youtube_comment_declarations", "backing_quotes_not_kept",
+  "forum_thread_links",
+] as const;
 export type StoredWithout = typeof STORED_WITHOUT[number];
 
 export const FINDINGS_SAVE_STATUSES = [
@@ -48,6 +59,9 @@ export const FINDINGS_SAVE_STATUSES = [
   // Owner answers 170 and 173: every finding rests on YouTube comments, so no card is saved; the findings are held for
   // the owner's review.
   "youtube_findings_only",
+  // The free Claude test of 5 Nov 2026: the finalize_research call that checked the card was marked findings_save
+  // "off", as a test run is, and its receipt signs that, so its card is never saved (the review of 5 Nov 2026).
+  "call_saving_off",
   "queue_unavailable"
 ] as const;
 

@@ -14,16 +14,16 @@ for (let codePoint = 0; codePoint <= 0x1ffff; codePoint += 1) {
   }
 }
 
-const NUMBER = /\p{Nd}+(?:[.,]\p{Nd}+)?/u;
+const NUMBER = /\p{Nd}+(?:[.,\u00B7]\p{Nd}+)?/u;
 // Groups of three digits after a first group of one to three, all with one separator (Arabic's own included), and
 // an optional decimal part marked by another; the number ends there.
 const GROUPED_NUMBER =
-  /\p{Nd}{1,3}([,.\u00A0\u202F' \u066C])\p{Nd}{3}(?:\1\p{Nd}{3})*(?:(?!\1)[.,\u066B]\p{Nd}+)?(?!\p{Nd})/uy;
+  /\p{Nd}{1,3}([,.\u00A0\u202F' \u066C])\p{Nd}{3}(?:\1\p{Nd}{3})*(?:(?!\1)[.,\u00B7\u066B]\p{Nd}+)?(?!\p{Nd})/uy;
 
 const numberValue = (number: string): number =>
   Number([...number].map((character) => digitValues.get(character) ?? ".").join(""));
 
-/** Unsigned decimal numbers in any script; a single dot or comma separates decimals. */
+/** Unsigned decimal numbers in any script; a dot, comma or interdigit middle dot separates decimals. */
 export function extractUnsignedNumbers(text: string): number[] {
   return [...text.matchAll(new RegExp(NUMBER.source, "gu"))].map(([number]) => numberValue(number))
     .filter(Number.isFinite);

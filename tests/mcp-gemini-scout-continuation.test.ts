@@ -12,6 +12,8 @@ import {
   researchTargetDigest,
   verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
+import { RESEARCH_TARGET_SCREEN_PARTS } from "../apps/research-mcp/src/actions/gemini-scout-route.js";
+import { COMMUNITY_RESEARCH_REMINDER, expectCommunityRemindersInTextOnly } from "./helpers/community-result-reminders.js";
 
 const execute = vi.hoisted(() => vi.fn());
 const deleteResumed = vi.hoisted(() => vi.fn());
@@ -212,10 +214,12 @@ describe("MCP Gemini scout continuation", () => {
 
   it("q132: research_target_not_deidentified explains the scout form and its difference from finalize_research", async () => {
     const client = await connect();
-    for (const [research_target, language] of [
-      ["Adultes souffrant d'arthrose de la hanche qui veulent éviter une prothèse", "fr"],
-      ["Adultos con artrosis de cadera que quieren evitar una prótesis", "es"],
-      ["人工股関節置換術を避けたい変形性股関節症の成人", "ja"]
+    // Owner answer 201a (30 Oct) dropped the group-word check, which had refused these targets for want of an English
+    // group word, so each now has a part the screen still refuses.
+    for (const [research_target, language, part] of [
+      ["Adultes comme Marie Dupont souffrant d'arthrose de la hanche", "fr", "name_like_pair"],
+      ["Adultos con artrosis de cadera, e.g. una mujer de Lyon", "es", "example_marker"],
+      ["What can I do about my hip osteoarthritis to avoid a replacement?", "en", "first_person"]
     ] as const) {
       const refused = await client.callTool({
         name: "scout_gemini_youtube_candidates",
@@ -228,6 +232,8 @@ describe("MCP Gemini scout continuation", () => {
       expect(text).toContain("give the person's language in language (for example: fr).");
       expect(text).toContain("Unlike finalize_research's research_target, which identifies the question all discovery used, the scout accepts only this deidentified population-and-goal form");
       expect(text).toContain("adults with hip osteoarthritis trying to avoid a replacement");
+      // The refusal names the part of the screen the target failed.
+      expect(text).toContain(`This research_target was refused because it has ${RESEARCH_TARGET_SCREEN_PARTS[part]} (matched `);
     }
     expect(execute).not.toHaveBeenCalled();
 
@@ -254,6 +260,18 @@ describe("MCP Gemini scout continuation", () => {
     );
   });
 
+  it.each([
+    ["l31", "In adults with low ceruloplasmin, does oral copper(I) improve ceruloplasmin more than copper(II)?", "I"],
+    ["o355-best-ocd", "What works best for OCD in adults, including nonstandard approaches?", "including"],
+  ])("%s: quotes the exact refusal trigger before any scout request", async (_name, research_target, matched) => {
+    const client = await connect();
+    const refused = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: { ...TARGET, research_target } });
+    expect(refused.isError).toBe(true);
+    expect((refused.content as Array<{ text: string }>)[0]!.text).toContain(`(matched ${JSON.stringify(matched)})`);
+    expect(execute).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
   it("returns a continuation while the scout searches, then validated and title-found videos with a discovery receipt", async () => {
     const progress = { controller_progress: { checkpoint: CHECKPOINT, accounted_nano_usd: 1_000_000_000 } };
     const now = vi.spyOn(Date, "now");
@@ -271,6 +289,11 @@ describe("MCP Gemini scout continuation", () => {
     expect(first.isError).not.toBe(true);
     const pending = first.structuredContent as { scout_status: string; continuation_token: string };
     expect(pending.scout_status).toBe("pending");
+    // A search still running gets no reminder; the finished result does.
+    expect((first.content as Array<{ text: string }>)[0]!.text).not.toContain(COMMUNITY_RESEARCH_REMINDER);
+    expect(Object.keys(pending).sort()).toEqual([
+      "continuation_token", "diagnosis_status", "research_target", "retry_after_seconds", "scout_status"
+    ]);
     // One deadline-paced advance per call keeps the call under Claude's 60-second tool timeout.
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenNthCalledWith(1, TARGET, undefined, { deadlineMs: startedAt + 40_000 }, []);
@@ -346,6 +369,11 @@ describe("MCP Gemini scout continuation", () => {
       }
     });
     const text = (second.content as Array<{ text: string }>)[0]!.text;
+    expectCommunityRemindersInTextOnly(second);
+    expect(Object.keys(done).sort()).toEqual([
+      "diagnosis_status", "discovery_queries", "provider_storage_mode", "research_receipt", "research_target",
+      "scout_status", "search_gaps", "title_lookup", "validation"
+    ]);
     expect(text).toContain("validated 1 video(s) and found 1 more by exact title (title_lookup.found)");
     expect(text).toContain("1 named video(s) could not be identified by exact title (title_lookup.unresolved, with YouTube's closest results)");
     expect(verifyResearchReceipt(done.research_receipt, { secret: SECRET })).toMatchObject({
@@ -472,7 +500,11 @@ describe("MCP Gemini scout continuation", () => {
     });
     expect(execute).not.toHaveBeenCalled();
     expect(named.isError).toBe(true);
-    expect((named.content as Array<{ text: string }>)[0]!.text).toContain("research_target_not_deidentified");
+    const text = (named.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("research_target_not_deidentified");
+    for (const part of ["age", "name_like_pair", "named_subject"] as const) {
+      expect(text).toContain(RESEARCH_TARGET_SCREEN_PARTS[part]);
+    }
   });
 
   it("sends only screened text to Gemini: a first-person target or lead is refused before any provider call", async () => {
@@ -499,7 +531,22 @@ describe("MCP Gemini scout continuation", () => {
       arguments: { ...TARGET, rediscovery_leads: ["Jane Doe in Boston says chemotherapy cured her"] }
     });
     expect(narrative.isError).toBe(true);
-    expect((narrative.content as Array<{ text: string }>)[0]!.text).toContain("rediscovery_lead_not_public_term");
+    const narrativeText = (narrative.content as Array<{ text: string }>)[0]!.text;
+    expect(narrativeText).toContain("rediscovery_lead_not_public_term");
+    // The refusal quotes the refused lead and what it matched, so one retry can fix it.
+    expect(narrativeText).toContain(
+      `rediscovery_leads[0] "Jane Doe in Boston says chemotherapy cured her" was refused because it has `);
+    expect(narrativeText).toContain(`${RESEARCH_TARGET_SCREEN_PARTS.pronoun} (matched "her")`);
+    expect(narrativeText).toContain(`a report verb (matched "says", "cured")`);
+    const contact = await client.callTool({
+      name: "scout_gemini_youtube_candidates",
+      arguments: { ...TARGET, rediscovery_leads: ["gelatin", "magnesium call 0612345678"] }
+    });
+    const contactText = (contact.content as Array<{ text: string }>)[0]!.text;
+    expect(contactText).toContain(`rediscovery_leads[1] was refused because it has ${
+      RESEARCH_TARGET_SCREEN_PARTS.contact_details} (not quoted).`);
+    expect(contactText).not.toContain("0612345678");
+    expect(contactText).not.toContain("rediscovery_leads[0]");
 
     getVideo.mockImplementation(async (videoId: string) => videoId === "XpZHKGGCK-o"
       ? { access_status: "api_visible_complete", data: { title: "GROWING MY HIP BACK", channel_title: "SHAPEFIXER" } }
@@ -651,6 +698,26 @@ describe("MCP Gemini scout continuation", () => {
     expect(result.content).toEqual([{
       type: "text",
       text: "scout gemini youtube candidates could not complete: gemini_youtube_scout_request_failed (retryable)."
+    }]);
+  });
+
+  it("names Google's refusal to start the scout and sends the model to survey_youtube_community", async () => {
+    execute.mockResolvedValueOnce({
+      controller_boundary: {
+        code: "gemini_youtube_scout_request_failed",
+        retryable: false,
+        never_started: { http_status: 400, google_reason: "User location is not supported for the API use." }
+      }
+    });
+    const client = await connect();
+    const result = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_youtube_scout_request_failed. Google refused " +
+        "to start the scout (HTTP 400, Google's reason: \"User location is not supported for the API use.\"), so no " +
+        "search ran. Do not call scout_gemini_youtube_candidates again in this research; find videos with " +
+        "survey_youtube_community instead."
     }]);
   });
 });

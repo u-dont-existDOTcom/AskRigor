@@ -40,7 +40,7 @@ import { FakeGitHub, FINDINGS_ISSUES_ROOT, storedRecordOf } from "./helpers/fake
 
 const SECRET = "atlas-forget-and-erase-test-secret-0123456789";
 const OWNER = "auth0|atlas-forget-owner";
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: sha256("synthetic-hrp") }];
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: sha256("synthetic-hrp") }];
 const PROVIDERS = {
   crossref: { mailto: "maintainer@example.test" },
   pubmed: { tool: "askrigor-tests", email: "maintainer@example.test" },
@@ -253,8 +253,8 @@ describe("forget_card (decision 7)", () => {
   /**
    * Alice's thread saves the Velmor card (ARF-0042), which Bob's save of the same findings joins; then the low-dose
    * card (ARF-0043), which replaces ARF-0042 (kept open for Bob's save); then a save that joins Carol's card (ARF-0044),
-   * which replaces ARF-0043 (closed, as it holds nothing else). The owner accepts ARF-0043's finding as F-1001 and
-   * ARF-0044's as F-1002.
+   * on another question, which leaves ARF-0043 alone (owner answer 240a). The owner accepts ARF-0043's finding as F-1001
+   * and ARF-0044's as F-1002.
    */
   async function threeThreads(h: Harness) {
     expect((await h.save(VELMOR_CARD, ALICE, ["full_text_audit", "none"])).card_id).toBe("ARF-0042");
@@ -263,7 +263,7 @@ describe("forget_card (decision 7)", () => {
     expect((await h.save(DAILY_CARD, CAROL, ["full_text_audit"])).card_id).toBe("ARF-0044");
     expect((await h.save(DAILY_CARD, ALICE, ["full_text_audit"])).card_id).toBe("ARF-0044");
     expect(h.github.issue(42).state).toBe("open");
-    expect(h.github.issue(43).state).toBe("closed");
+    expect(h.github.issue(43).state).toBe("open");
     const f1001 = await h.accept("ARF-0043", 1, [LOW_DOSE]);
     const f1002 = await h.accept("ARF-0044", 1, [LOW_DOSE], { topicKey: "velmor-syndrome", topicLabel: "Velmor syndrome" });
     expect([f1001, f1002]).toEqual(["F-1001", "F-1002"]);

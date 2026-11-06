@@ -1,3 +1,4 @@
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -19,9 +20,9 @@ import {
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
-import { COMMUNITY_SKIP_LIMIT, withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 // AskRigor#356 and the 21 Oct q136 responders case, whose answer computed a ratio from counts that conflicted with the
 // paper's: for each yes-or-no outcome the answer reports for two groups, the model declares each group's events and
@@ -106,8 +107,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withHarmScreen(withCommunitySkip(packageFor(overrides)));
-    if (input.answer_draft !== undefined) input.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const linked = withHarmScreen(withCommunitySkip(packageFor(overrides)));
+    if (linked.answer_draft !== undefined) linked.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const input = withSourceReading(linked);
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
@@ -117,14 +119,34 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   const one = (result: BinaryResult, overrides: Partial<FinalizeResearchInput> = {}) =>
     call({ answer_draft: result.nnt === undefined || result.harms_quote === undefined ? result.quote
       : `${result.quote} ${result.harms_quote}`, binary_results: [result], ...overrides });
+
+  it("reads a middle-dot percentage in the answer as the declared 11.9%", async () => {
+    const result = await one(declaration({
+      quote: "After 12 weeks, 11·9% responded to the drug versus 10% on placebo.",
+      option_events: 119, option_total: 1000, comparator_events: 100, comparator_total: 1000,
+      nnt: undefined, harms_quote: undefined,
+    }));
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result).join("\n")).not.toContain("quotes no figure");
+  });
   // Its one limit is the community search skipped for no real-world outcome (owner question 125).
-  const ready = (result: FinalizeResearchOutput) => {
+  const ready = (result: FinalizeResearchOutput, screened = false) => {
     expect(result.next_steps.filter((step) => step !== TOOL_LIST_REFRESH_HINT)).toEqual([]);
     expect(result.status).toBe("ready_with_limits");
-    expect(result.limits).toEqual([COMMUNITY_SKIP_LIMIT]);
+    expect(result.limits).toEqual([
+      communitySkipCaveat(packageFor().not_relevant_reason!),
+      ...(screened ? ["The serious-harm screen covered severe allergic reactions (product labels). Other serious harms may not have been checked."] : [])
+    ]);
     expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET })).toMatchObject({
       ok: true, kind: "finalization", claims: { status: "ready_with_limits" }
     });
+  };
+  const advised = (result: FinalizeResearchOutput, notes: string[]) => {
+    expect(result.status).toBe("ready_with_limits");
+    expect(result.next_steps).toEqual([]);
+    expect(advisoryNotes(result).filter((note) => note !== TOOL_LIST_REFRESH_HINT)).toEqual(notes);
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   };
   const blocked = (result: FinalizeResearchOutput, steps: string[]) => {
     expect(result.status).toBe("not_ready");
@@ -137,18 +159,18 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     ready(await one(sertraline, { safety_claims: [{
       quote: SERTRALINE, direction: "harm", exposure: "sertraline", basis: "comparative_rates",
       measured_exposure: "sertraline for 10 to 13 weeks", studies: [DOI]
-    }] }));
+    }] }), true);
     ready(await call());
   });
 
   it("requires binary_results with answer_draft, while accepting an explicit empty list", async () => {
     const missing = await call({ binary_results: undefined });
-    blocked(missing, [
+    advised(missing, [
       "binary_results is missing: with answer_draft, it lists each yes-or-no outcome the answer reports for two " +
         "groups, or with a number needed to treat or harm (an empty list means none)."
     ]);
     // A chat whose tool list predates binary_results is told the way out once.
-    expect(missing.next_steps.filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
+    expect(advisoryNotes(missing).filter((step) => step === TOOL_LIST_REFRESH_HINT)).toHaveLength(1);
     ready(await call({ answer_draft: "This answer reports no yes-or-no outcome.", binary_results: [] }));
   });
 
@@ -160,14 +182,72 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   });
 
   it("rejects a quote absent from the answer", async () => {
-    blocked(await call({ answer_draft: `The drug helped some people. ${HARMS}` }), [
+    advised(await call({ answer_draft: `The drug helped some people. ${HARMS}` }), [
       "binary_results[0] gives text the answer does not show: copy each sentence exactly from answer_draft."
     ]);
     // Its harms sentence is a quote too.
-    blocked(await call({ answer_draft: "The drug helped some people." }), [
+    advised(await call({ answer_draft: "The drug helped some people." }), [
       "binary_results[0], binary_results[0].harms_quote give text the answer does not show: copy each sentence " +
         "exactly from answer_draft."
     ]);
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026): o356-ssris-years gave a harms_quote with no number needed
+  // to treat, its answer no longer showed it, and it passed unchecked. Given, it is the answer's own sentence, checked as
+  // every declared quote is: word for word, as whole words, in any script.
+  it("checks a harms_quote given without a number needed to treat, as whole words, in any script", async () => {
+    const shown = async (overrides: Partial<FinalizeResearchInput>) => {
+      const result = await call(overrides);
+      ready(result);
+      expect(advisoryNotes(result).join("\n")).not.toContain("harms_quote");
+    };
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    advised(await call({ answer_draft: plain.quote, binary_results: [plain] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} ${HARMS}`, binary_results: [plain] });
+    // Inside a longer word or number it is not shown: "3% stopped" is not in "13% stopped".
+    const stopped = "3% stopped the drug for side effects.";
+    advised(await call({ answer_draft: `${plain.quote} About 1${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} About ${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] });
+    // A cased script's word does not run on into another letter; a script without case matches exactly anywhere.
+    advised(await call({ answer_draft: `${plain.quote} Harmlessness was similar in both groups.`,
+      binary_results: [declaration({ ...plain, harms_quote: "Harm" })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    const chinese = "两组的副作用相似。";
+    await shown({ answer_draft: `${plain.quote} 十二周内两组的副作用相似。`,
+      binary_results: [declaration({ ...plain, harms_quote: chinese })] });
+  });
+
+  // The review of #421: whole-word matching refused honest quotes beside a citation link glued to the last word, a
+  // superscript marker, or a letter of a script without case. A link's edges are word boundaries, a superscript is no
+  // digit of a word, and a cased letter runs on only into a cased letter, a decimal digit or a combining mark.
+  it("finds an honest declared quote beside a citation link, a superscript, or a script without case", async () => {
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    const shownAs = async (sentence: string, harms: string) => {
+      const result = await call({ answer_draft: `${plain.quote} ${sentence}`, binary_results: [declaration({ ...plain, harms_quote: harms })] });
+      return advisoryNotes(result).filter((note) => note.includes("does not show"));
+    };
+    const cases: Array<[string, string]> = [
+      [`${HARMS.slice(0, -1)}[1](https://example.org/a).`, HARMS],
+      [`${HARMS.slice(0, -1)}\u00B9.`, HARMS],
+      ["副作用はSSRI群とプラセボ群で同程度だった。", "SSRI群とプラセボ群で同程度だった"],
+      ["两组每日10mg的副作用相似。", "两组每日10mg"],
+      [HARMS, HARMS]
+    ];
+    for (const [sentence, harms] of cases) expect(await shownAs(sentence, harms), sentence).toEqual([]);
+    // A word or number running on stays refused.
+    expect(await shownAs("About 13% stopped the drug.", "3% stopped the drug.")).toHaveLength(1);
+    expect(await shownAs("Harmlessness was similar.", "Harm")).toHaveLength(1);
+    // A quote across a link's edge is still found in the text as the reader sees it.
+    expect(await shownAs("About 1[3% stopped](https://example.org/a).", "13% stopped")).toEqual([]);
   });
 
   it("names a group with more events than people, and leaves its other numbers unchecked", async () => {
@@ -356,6 +436,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
         [NO_FOLLOW_UP]);
       blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1.5"), follow_up: "week 1" })),
         [NO_FOLLOW_UP]);
+      blocked(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1·5"), follow_up: "week 1" })),
+        [NO_FOLLOW_UP]);
       // Standing as its own number, it is shown, beside other numbers too.
       ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "At week 1"), follow_up: "week 1" })));
       ready(await one(declaration({ quote: GOOD.replace("After 12 weeks", "After 8-12 weeks") })));
@@ -383,8 +465,8 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
     it("needs harms_quote with an nnt, as a step on the answer, without the refresh hint", async () => {
       const result = await one(declaration({ harms_quote: undefined }));
-      blocked(result, [NO_HARMS()]);
-      expect(result.next_step_kinds).toEqual(["answer_draft"]);
+      advised(result, [NO_HARMS()]);
+      expect(result.next_step_kinds).toEqual([]);
       expect(result.next_steps).not.toContain(TOOL_LIST_REFRESH_HINT);
     });
 
@@ -404,9 +486,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     it("needs the answer to show it", async () => {
       for (const draft of [GOOD, `${GOOD}\n\n\`\`\`\n${HARMS}\n\`\`\``, `${GOOD}\n\n> ${HARMS}`, `${GOOD} <!-- ${HARMS} -->`]) {
         const result = await call({ answer_draft: draft, binary_results: [declaration()] });
-        blocked(result, ["binary_results[0].harms_quote gives text the answer does not show: copy each sentence " +
+        advised(result, ["binary_results[0].harms_quote gives text the answer does not show: copy each sentence " +
           "exactly from answer_draft."]);
-        expect(result.next_step_kinds).toEqual(["answer_draft"]);
+        expect(result.next_step_kinds).toEqual([]);
       }
     });
 
@@ -437,16 +519,17 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
     it("names the missing harms with the entry's other steps, each with its own kind", async () => {
       const result = await one(declaration({ quote: responders("6"), nnt: 6, harms_quote: undefined }));
-      blocked(result, [recompute("nnt", 6, "6.7", 7), NO_HARMS()]);
-      expect(result.next_step_kinds).toEqual(["declaration", "answer_draft"]);
+      blocked(result, [recompute("nnt", 6, "6.7", 7)]);
+      expect(result.next_step_kinds).toEqual(["declaration"]);
+      expect(advisoryNotes(result)).toContain(NO_HARMS());
       // Both numbers given, the one the counts support is kept, so its harms are asked for too.
       blocked(await one(declaration({ nnh: 7, harms_quote: undefined })), [
-        "binary_results[0] gives both nnt and nnh: give only nnt, the one its counts support.", NO_HARMS()
+        "binary_results[0] gives both nnt and nnh: give only nnt, the one its counts support."
       ]);
       // Each entry by its index.
       const second = "After 12 weeks, 50 of 100 people taking the drug had a remission, against 30 of 100 taking " +
         "placebo, a number needed to treat of 5.";
-      blocked(await call({ answer_draft: `${GOOD} ${HARMS} ${second}`, binary_results: [declaration(),
+      advised(await call({ answer_draft: `${GOOD} ${HARMS} ${second}`, binary_results: [declaration(),
         declaration({ quote: second, outcome: "a remission", option_events: 50, nnt: 5, harms_quote: undefined })] }),
       [NO_HARMS(1)]);
     });
@@ -474,14 +557,15 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
   it.each([
     { better: "lower" }, { option_total: 0 }, { option_events: -1 }, { comparator_events: 1.5 }, { nnt: 0 },
     { nnh: -6 }, { outcome: "" }, { follow_up: undefined }, { option: "o".repeat(121) }, { extra: "unexpected" }
-  ])("rejects malformed declarations (%j)", async (invalid) => {
+  ])("notes malformed declarations (%j) while checking the answer", async (invalid) => {
     const input = { ...packageFor(), binary_results: [{ ...declaration(), ...invalid }] };
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     if (surface === "MCP endpoint") {
       const result = await client!.callTool({ name: "finalize_research", arguments: input });
       expect(result.isError).not.toBe(true);
-      expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: false, receipts_verified: 0 });
-      expect((result.structuredContent!.next_steps as string[]).join("\n")).toContain("binary_results[0]");
+      expect(result.structuredContent!.answer_checked).toBe(true);
+      expect((result.structuredContent!.notes as string[]).length).toBeGreaterThan(0);
+      expect((result.structuredContent!.notes as string[]).join("\n")).toContain("binary_results[0]");
     }
   });
 
@@ -497,7 +581,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
 
   if (surface === "MCP endpoint") it("publishes binary_results flat, with its catalog text", async () => {
     const { tools } = await client!.listTools();
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
     const tool = tools.find(({ name }) => name === "finalize_research")!;
     expect(tool.description).toContain("its reported yes-or-no results (binary_results: each group's events and " +
       "total, quoted as counts or a percentage, and any number needed to treat or harm, rounded up, checked against " +

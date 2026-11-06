@@ -29,11 +29,13 @@ import {
   PUBLIC_VALUE_SCOPES,
   VERIFIED_BASES,
   canonicalJson,
-  findingNumberEntrySchema,
   findingSearchSchema,
   findingsCardDigest,
   findingsCardFingerprint,
+  laterFindingNumberEntrySchema,
+  type FindingsCard,
 } from "./card.js";
+import { BACKING_LIMITS, storedBackingSchema, storedForumSignalSchema, sourceReadingSchema } from "./research-behind.js";
 import {
   BEYOND_QUICK_ANSWER_LABEL,
   CARD_MARKER,
@@ -42,15 +44,18 @@ import {
   OCCURRENCE_MARKER,
   PENDING_REVIEW_LABEL,
   SET_ASIDE_LABEL,
+  UNSAVED_CARD_MARKER,
   cardIssueBody,
   marker,
   occurrenceComment,
   parseCardMetadata,
   parseMarker,
   parseOccurrenceMetadata,
+  parseUnsavedCardMetadata,
   type CardMetadata,
   type GitHubFindingsRefile,
   type OccurrenceMetadata,
+  type UnsavedCardMetadata,
 } from "./github-findings.js";
 import { STORED_WITHOUT } from "./contracts.js";
 import type { FindingsRecord } from "./service.js";
@@ -70,6 +75,9 @@ import type { FindingsRecord } from "./service.js";
  * together, the labels removed, closed as not planned and locked. The owner then deletes the issues in GitHub (choice
  * 5a); GitHub then answers 404 or 410 for them.
  */
+
+// A card holds at most five findings, so a stored card's declarations are read in at most 32 forms.
+const MAXIMUM_DECLARATION_FINDINGS = 5;
 
 export const REVIEWED_LABEL = "reviewed";
 export const DECISION_MARKER = "askrigor-findings-decision";
@@ -103,10 +111,16 @@ const storedFindingSchema = z.object({
   subject: text(ATLAS_SUBJECT_MAX_CHARACTERS).optional(),
   subject_type: z.enum(ATLAS_SUBJECT_TYPES).optional(),
   direction: z.enum(ATLAS_FINDING_DIRECTIONS).optional(),
-  numbers: z.array(findingNumberEntrySchema).max(20).optional(),
+  numbers: z.array(laterFindingNumberEntrySchema).max(20).optional(),
   searches: z.array(findingSearchSchema).max(ATLAS_SEARCHES_PER_FINDING).optional(),
   youtube_videos: z.number().int().min(1).max(10).optional(),
   verified_bases: z.array(z.enum(VERIFIED_BASES)).min(1).max(VERIFIED_BASES.length).optional(),
+  // Owner answer 252a: the research behind the finding, as the save stored it.
+  backing: z.array(storedBackingSchema).min(1).max(BACKING_LIMITS.lines).optional(),
+  source_reading: z.array(sourceReadingSchema).min(1).max(10).optional(),
+  forum_signal: storedForumSignalSchema.optional(),
+  // A card a save stored with its findings' declarations (the review of #417, finding 6): read as it is.
+  draws_on_youtube_comments: z.boolean().optional(),
 }).strict();
 const storedRecordSchema = z.object({
   schema: z.literal("askrigor.findings-card.v1"),
@@ -200,11 +214,28 @@ export function parseFindingsRecordBody(
   if (!linkReplaced && !findingsLeftOut && findingsCardFingerprint(stored.card) !== metadata.fingerprint) return "tampered";
   if (stored.stored_without === undefined) {
     const { atlas_basis: _atlas, ...checkedCard } = stored.card;
+    // What the save adds is set aside: the signed bases and readings, and where each kept quote was found (owner answer
+    // 252a); a card whose backing quotes were not all kept names that in stored_without, so this reads only a whole one.
     const checked = {
       ...checkedCard,
-      findings: stored.card.findings.map(({ verified_bases: _bases, ...finding }) => finding),
+      findings: stored.card.findings.map(({ verified_bases: _bases, source_reading: _reading, backing, ...finding }) => ({
+        ...finding,
+        ...(backing === undefined ? {} : {
+          backing: backing.map(({ text: _text, sentence_section: _sentence, conclusion_section: _conclusion, ...line }) => line),
+        }),
+      })),
     };
-    if (findingsCardDigest(checked) !== stored.card_sha256) return "tampered";
+    // The findings' declarations of whether they draw on YouTube comments (owner answer 219b), which a card saved after
+    // #398 and before its record named them may hold as the check had them, or without them, finding by finding: the
+    // stored form exactly as stored first, then each combination of the kept findings declared false or not declaring
+    // (the reviews of 5 November and the recheck of #417), at most 32 for a card's five findings. A finding stored as
+    // drawing on them is never published, whichever form the digest matches.
+    const combinations = checked.findings.length <= MAXIMUM_DECLARATION_FINDINGS ? 2 ** checked.findings.length : 0;
+    const declared = (mask: number) => ({ ...checked, findings: checked.findings.map(
+      ({ draws_on_youtube_comments: _declared, ...finding }, index) =>
+        (mask & (1 << index)) === 0 ? finding : { ...finding, draws_on_youtube_comments: false }) });
+    const forms = [checked, ...Array.from({ length: combinations }, (_, mask) => declared(mask))];
+    if (!forms.some((form) => findingsCardDigest(form as FindingsCard) === stored.card_sha256)) return "tampered";
   }
   return { record: stored, metadata };
 }
@@ -350,6 +381,8 @@ export interface FindingsRepositoryIssue {
   record?: FindingsRecord;
   /** A forgotten card's tombstone marker. */
   forgotten?: ForgottenMetadata;
+  /** A kept copy's marker, of a card that wasn't saved: not a card, but forget_card removes it with its thread's. */
+  unsaved?: UnsavedCardMetadata;
 }
 
 /** A comment as forget_card reads it: its id, and what its marker says. */
@@ -601,7 +634,8 @@ export class GitHubFindingsReview implements FindingsCardInbox {
         const body = issue.body.replace(/\r\n/gu, "\n");
         const card = parseMarker(body, CARD_MARKER, parseCardMetadata);
         const forgotten = parseMarker(body, FORGOTTEN_MARKER, parseForgottenMetadata);
-        if (card === undefined && forgotten === undefined) continue;
+        const unsaved = parseMarker(body, UNSAVED_CARD_MARKER, parseUnsavedCardMetadata);
+        if (card === undefined && forgotten === undefined && unsaved === undefined) continue;
         const parsed = card === undefined ? undefined : parseFindingsRecordBody(body, "card");
         issues.push({
           number: issue.number,
@@ -614,6 +648,7 @@ export class GitHubFindingsReview implements FindingsCardInbox {
           ...(card === undefined ? {} : { card }),
           ...(parsed === undefined || parsed === "tampered" ? {} : { record: parsed.record }),
           ...(forgotten === undefined ? {} : { forgotten }),
+          ...(unsaved === undefined ? {} : { unsaved }),
         });
       }
       if (response.length < 100) break;

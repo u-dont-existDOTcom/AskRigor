@@ -713,6 +713,22 @@ export function visibleText(text: string): string {
   return (result + text.slice(from)).replaceAll(LINK_OPEN, "");
 }
 
+/**
+ * Marked text as the reader sees it, with a space before and after each link's text, so a link's edges are word
+ * boundaries where whole words are compared: a citation link glued to a word ("placebo[1](…)") ends the word before it
+ * (the review of #421).
+ */
+export function visibleTextWithLinkEdges(text: string): string {
+  let result = "";
+  let from = 0;
+  for (let target = text.indexOf(LINK_TARGET); target >= 0; target = text.indexOf(LINK_TARGET, from)) {
+    result += `${text.slice(from, target)} `;
+    const close = text.indexOf(LINK_CLOSE, target);
+    from = close < 0 ? text.length : close + 1;
+  }
+  return (result + text.slice(from)).replaceAll(LINK_OPEN, " ");
+}
+
 /** Marked text with each link replaced by its destination, so a link's text may vary. */
 export function linkTargets(text: string): string {
   const parts: string[] = [];

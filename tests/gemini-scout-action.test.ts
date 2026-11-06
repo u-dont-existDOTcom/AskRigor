@@ -383,10 +383,11 @@ describe("automated Gemini YouTube scout Action", () => {
     expect(scout).not.toHaveBeenCalled();
   });
 
-  it("sends Gemini only a target that names a group of people, on every route", async () => {
-    // De-identified, but it names no group, so it is not population-level.
+  it("sends Gemini only a target the screen passes, on every route", async () => {
+    // De-identified, but it could name a person, so the target screen refuses it. A target with no group word
+    // passes since owner answer 201a (30 Oct).
     const notPopulation = {
-      research_target: "treatments for hip osteoarthritis",
+      research_target: "Jane Doe wants treatments for hip osteoarthritis",
       diagnosis_status: "diagnosis_not_specified" as const
     };
     const aiBudget = budget({

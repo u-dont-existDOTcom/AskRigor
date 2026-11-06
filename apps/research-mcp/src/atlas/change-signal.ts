@@ -3,6 +3,9 @@ import type {
   AtlasParticipationStore,
   AtlasPublicationStore,
   AtlasReviewStore,
+  AtlasPlacementStore,
+  AtlasReportReviewStore,
+  AtlasGlanceStore,
 } from "@askrigor/evidence-repository";
 
 /**
@@ -59,6 +62,12 @@ export function announcingPublicationStore(
     markEdited: (atlasNumber, editedAt) => announcing(signal, () => store.markEdited(atlasNumber, editedAt)),
     withdraw: (withdrawal) => announcing(signal, () => store.withdraw(withdrawal)),
     eraseTexts: (atlasNumber, erasedAt) => announcing(signal, () => store.eraseTexts(atlasNumber, erasedAt)),
+    // Owner answers 229a and 231a: keeping a publication for research takes it off every list.
+    keep: (change) => announcing(signal, () => store.keep(change)),
+    inspectKept: () => store.inspectKept(),
+    // The owner, 6 Nov 2026: a challenge mark changes a shown finding's page and the challenges page.
+    markChallenges: (change) => announcing(signal, () => store.markChallenges(change)),
+    inspectChallenges: () => store.inspectChallenges(),
   };
 }
 
@@ -111,5 +120,36 @@ export function announcingModerationStore(
       announcing(signal, () => store.setCommenterStopped(commenterTag, stopped, at)),
     setHomePicks: (picks, at) => announcing(signal, () => store.setHomePicks(picks, at)),
     inspectHomePicks: () => store.inspectHomePicks(),
+  };
+}
+
+/** The placements (owner answer 229a): a change moves items between the Health pages. */
+export function announcingPlacementStore(
+  store: AtlasPlacementStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasPlacementStore {
+  return {
+    setPlacements: (changes, at) => announcing(signal, () => store.setPlacements(changes, at)),
+    listPlacements: () => store.listPlacements(),
+  };
+}
+
+/** People's reports in the review (owner answer 229a): a verdict can publish one, so it drops the pages' cache. */
+export function announcingReportReviewStore(
+  store: AtlasReportReviewStore,
+  signal: AtlasChangeSignal = atlasChanges,
+): AtlasReportReviewStore {
+  return {
+    inspectReports: (state, after, limit) => store.inspectReports(state, after, limit),
+    decideReport: (decision) => announcing(signal, () => store.decideReport(decision)),
+  };
+}
+
+/** The rows at a glance (the owner, 3 Nov): showing or withdrawing one changes a Health page. */
+export function announcingGlanceStore(store: AtlasGlanceStore, signal: AtlasChangeSignal = atlasChanges): AtlasGlanceStore {
+  return {
+    propose: (row, at) => store.propose(row, at),
+    setState: (publicId, state, at) => announcing(signal, () => store.setState(publicId, state, at)),
+    inspect: (state, after, limit) => store.inspect(state, after, limit),
   };
 }

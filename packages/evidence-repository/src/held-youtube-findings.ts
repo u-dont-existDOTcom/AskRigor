@@ -36,9 +36,12 @@ export const HELD_YOUTUBE_SAVES_WITHOUT_CARD_PER_READ = 100;
 export const HELD_YOUTUBE_FINDING_TAGS = [
   "full_text_read", "community_checked", "contradicts_common_answer", "overlooked_study", "documented_absence",
 ] as const;
-/** The verified bases, comment_audit included (the findings card's VERIFIED_BASES; a test holds the two equal). */
+/**
+ * The verified bases, comment_audit included (the findings card's VERIFIED_BASES; a test holds the two equal), and
+ * forum_read since owner answer 254a (migration 0029 admits it).
+ */
 export const HELD_YOUTUBE_FINDING_BASES = [
-  "full_text_audit", "comment_audit", "bounded_absence", "research_correction",
+  "full_text_audit", "comment_audit", "bounded_absence", "research_correction", "forum_read",
 ] as const;
 
 const heldText = (max: number) => z.string().min(1).max(max);

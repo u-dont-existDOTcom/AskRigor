@@ -1,14 +1,21 @@
+// Owner answer 195: these checks advise the model; only the five named integrity checks block.
+import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "lab-preparation-test-secret-01234567890123456789";
 const DOI = "10.1000/lab";
@@ -51,26 +58,26 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
     const input = withCommunitySkip(base(overrides));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
 
   it("requires the declaration with key sources and supplies one refresh hint", async () => {
     const result = await call();
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       "Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
         "conditions or preparation advice, or status not_applicable with reason.",
       TOOL_LIST_REFRESH_HINT
     ]);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   });
   // One object, not two alternatives (ChatGPT's app showed the union as "unknown", 2026-10-16): a status without its
   // field gets the declaration step, and a field the status does not use is left unused.
   it.each([{ status: "covered" as const }, { status: "not_applicable" as const }])(
     "asks for the field %j needs", async (lab_preparation) => {
-      expect((await call({ lab_preparation })).next_steps).toEqual([
+      expect(advisoryNotes((await call({ lab_preparation })))).toEqual([
         "Give lab_preparation: status covered with answer_quotes from answer_draft giving collection " +
           "conditions or preparation advice, or status not_applicable with reason.",
         TOOL_LIST_REFRESH_HINT
@@ -103,18 +110,17 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
   });
   it("rejects a quote absent from the answer with the existing quote failure wording", async () => {
     const result = await call({ lab_preparation: covered([QUOTE, "This sentence is missing from the answer."]) });
-    expect(result.status).toBe("not_ready");
-    expect(result.next_steps).toEqual([
+    expect(result.status).toBe("ready_with_limits");
+    expect(advisoryNotes(result)).toEqual([
       "lab_preparation.answer_quotes[1] gives text the answer does not show: the quote does not occur in answer_draft."
     ]);
-    expect(result.finalization_receipt).toBeUndefined();
+    expect(result.finalization_receipt).toEqual(expect.any(String));
   });
   it("requires an answer draft when covered is declared", async () => {
     const result = await call({ lab_preparation: covered(), answer_draft: undefined });
     expect(result.status).toBe("not_ready");
     expect(result.next_steps).toEqual([
-      "Pass the answer you are about to give as answer_draft, exactly as the user will see it; the final check reads it.",
-      TOOL_LIST_REFRESH_HINT
+      "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered."
     ]);
   });
   it("accepts not_applicable with a valid reason without judging applicability", async () => {
@@ -128,12 +134,12 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     expect(result.status).toBe("ready_with_limits");
   });
   if (surface === "MCP endpoint") it("rejects a too-short reason at the endpoint", async () => {
-    const result = await client!.callTool({ name: "finalize_research", arguments: {
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({
       ...base(), lab_preparation: { status: "not_applicable", reason: "short" }
-    } });
+    }) });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).toMatchObject({ status: "not_ready", answer_checked: false });
-    expect((result.structuredContent!.next_steps as string[]).join("\n")).toContain("lab_preparation.reason:");
+    expect(result.structuredContent).toMatchObject({ status: "ready_with_limits", answer_checked: true });
+    expect((result.structuredContent!.notes as string[]).join("\n")).toContain("lab_preparation.reason:");
   });
 });
 

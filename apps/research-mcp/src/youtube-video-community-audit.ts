@@ -54,6 +54,8 @@ const CONTINUATION_REPLY_OVERLAP_LIMITATION =
   "An exact reply repeated across continuation segments; the repeat was removed from unique counts, but provider-reported per-parent reply totals could not be independently proven.";
 const PARTIAL_SAMPLE_REFETCH_LIMITATION =
   "The deterministic analysis sample could only be partially refetched; unavailable sampled identifiers were excluded, so the retained records are bounded evidence and may not represent the full acquired corpus.";
+const possibleRepeatLimitation = (count: number) =>
+  `${count} record(s) matched the audit's repeat filter but not its exact sample. A pinned comment's second listing and repeats at page boundaries are removed exactly, so these were counted as new; any that YouTube listed twice in another way would make the corpus count that much too high.`;
 const PARTIAL_CORPUS_EVIDENCE_LIMITATION =
   "This is a partial corpus. The retrieved records remain eligible for bounded evidence review, but they do not represent unseen records or establish corpus-wide prevalence, direction, rarity, or typicality.";
 
@@ -302,6 +304,9 @@ export async function auditYoutubeVideoCommunity(
 
   const mismatchBlock = state.reply_count_mismatches.length > 0;
   const paginationOverlapBoundary = state.pagination_overlaps_reconciled > 0;
+  const possibleRepeats = state.possible_repeats_counted ?? 0;
+  // Like an overlap, a possible repeat leaves the count unproven but the corpus read.
+  const overlapOrRepeat = paginationOverlapBoundary || possibleRepeats > 0;
   const continuationReplyOverlapBoundary =
     state.continuation_reply_overlaps_reconciled > 0;
   const apiReportedExhaustion =
@@ -323,7 +328,7 @@ export async function auditYoutubeVideoCommunity(
     apiReportedExhaustion ||
     terminalMismatchAfterTopLevelExhaustion ||
     terminalOverlapAfterTopLevelExhaustion;
-  const apiVisibleComplete = apiReportedExhaustion && !mismatchBlock && !paginationOverlapBoundary;
+  const apiVisibleComplete = apiReportedExhaustion && !mismatchBlock && !overlapOrRepeat;
   const terminalReplyMismatchBoundary =
     topLevelPaginationExhausted &&
     mismatchBlock &&
@@ -331,7 +336,7 @@ export async function auditYoutubeVideoCommunity(
     segment.next_cursor === undefined;
   const terminalPaginationOverlapBoundary =
     topLevelPaginationExhausted &&
-    paginationOverlapBoundary &&
+    overlapOrRepeat &&
     !mismatchBlock &&
     segment.error === undefined &&
     segment.next_cursor === undefined;
@@ -486,6 +491,7 @@ export async function auditYoutubeVideoCommunity(
     ...(terminalReplyMismatchBoundary ? [TERMINAL_REPLY_MISMATCH_LIMITATION] : []),
     ...(paginationOverlapBoundary ? [TERMINAL_PAGINATION_OVERLAP_LIMITATION] : []),
     ...(continuationReplyOverlapBoundary ? [CONTINUATION_REPLY_OVERLAP_LIMITATION] : []),
+    ...(possibleRepeats > 0 ? [possibleRepeatLimitation(possibleRepeats)] : []),
     ...sampleRefetchLimitations,
     ...(sampleRefetchBoundary ? [PARTIAL_SAMPLE_REFETCH_LIMITATION] : []),
     ...(completionState === "incomplete" && sample !== undefined

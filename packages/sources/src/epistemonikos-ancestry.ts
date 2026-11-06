@@ -11,7 +11,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { normalizeDoiIdentifier } from "./doi.js";
+import { doiUrl, normalizeDoiIdentifier } from "./doi.js";
 
 const EPISTEMONIKOS_RESPONSE_CONTRACT =
   "askrigor.epistemonikos-authorized-response.v1" as const;
@@ -224,7 +224,7 @@ export function adaptEpistemonikosAuthorizedRecord(
     primaryIdentifier: doi,
     retrievedAt: parsed.data.retrieved_at,
     sourceIdentity: {
-      canonical_url: `https://doi.org/${doi}`,
+      canonical_url: doiUrl(doi),
       ...(parsed.data.source_title === null ? {} : { title: parsed.data.source_title }),
     },
     accessStatus: partial ? "partial" : "metadata_only",

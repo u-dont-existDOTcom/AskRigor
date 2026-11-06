@@ -1,12 +1,18 @@
+import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch, finalizeResearchInputSchema,
-  TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  FINALIZE_RESEARCH_HIDDEN_SHAPES, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema,
+  forumThreadDigest, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
-import { assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // The owner regression run of 2026-10-16: 19 of 20 first finalize_research calls were rejected by ChatGPT's connector
 // for fields its app shows the model only as "unknown" (read-only Codex probes), and #336's fourth turn kept its
@@ -194,17 +200,17 @@ describe("key-study links AskRigor's receipts tie (#336, 2026-10-16)", () => {
   it("keeps the earlier steps for a link naming another DOI or another key study", () => {
     const marker = `Key source ${DOI} has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.`;
     const missing = `Key study ${DOI} has no link in the answer; link it to the page AskRigor's tools returned, such as https://doi.org/${DOI}.`;
-    expect(linkSteps(`https://doi.org/${OTHER}`, [audit])).toEqual([marker, missing]);
+    expect(linkSteps(`https://doi.org/${OTHER}`, [audit])).toEqual([missing]);
     const other = sign("doi_resolution", { doi: OTHER, url: "https://journal.example/other" });
     const sources = [...base().key_sources, { id: OTHER, status: "validated" as const, read_depth: "full_text_audited" as const,
       answer_marker: "Other" }];
-    const steps = check({
+    const result = check({
       receipts: [audit, sign("study_audit", { id: OTHER, status: "complete_no_unresolved_fields" }), other],
       key_sources: sources, answer_draft: "[Trial and Other](https://journal.example/other) were read."
-    }).next_steps;
-    expect(steps).toContain(marker);
-    expect(steps).toContain(missing);
-    expect(steps.join(" ")).not.toContain(`Key study ${DOI} is linked by`);
+    });
+    expect(advisoryNotes(result)).toContain(marker);
+    expect(result.next_steps).toContain(missing);
+    expect(result.next_steps.join(" ")).not.toContain(`Key study ${DOI} is linked by`);
   });
 
   it("names the untied link for a PMID or PMCID source without offering resolve_doi", () => {
@@ -215,5 +221,83 @@ describe("key-study links AskRigor's receipts tie (#336, 2026-10-16)", () => {
       `Key study ${PMID} is linked by ${PUBLISHER}, which no receipt passed here ties to it: link ` +
         `https://pubmed.ncbi.nlm.nih.gov/${PMID}/ instead.`
     ]);
+  });
+});
+
+// The 30 Oct rerun on #384's build: a link written inside parentheses, "([label](URL)).", read as "URL))." and was
+// refused (o354-work-left, q136, s360 rating), and identifiers that are not DOIs were offered as doi.org pages.
+describe("key-study links written inside parentheses (the 30 Oct rerun)", () => {
+  const inParentheses = (link: string, receipts: string[], key_sources = base().key_sources) =>
+    check({ receipts, key_sources, answer_draft: `It was read ([Trial](${link})).` }).next_steps
+      .filter((step) => step !== TOOL_LIST_REFRESH_HINT && /^Key (?:study|source) /u.test(step));
+
+  it("accepts a DOI, PubMed or receipt-tied page linked inside parentheses", () => {
+    expect(inParentheses(`https://doi.org/${DOI}`, [audit])).toEqual([]);
+    const copy = sign("study_audit", { id: PMCID, doi: DOI, pmid: PMID, pmcid: PMCID, status: "complete_no_unresolved_fields" });
+    expect(inParentheses(`https://pubmed.ncbi.nlm.nih.gov/${PMID}`, [copy])).toEqual([]);
+    expect(inParentheses(PUBLISHER, [audit, sign("doi_resolution", { doi: DOI, url: PUBLISHER })])).toEqual([]);
+  });
+
+  it("keeps a DOI's own balanced parentheses", () => {
+    const lancet = "10.1016/s0140-6736(20)30183-5";
+    const sources = [{ id: lancet, status: "validated" as const, read_depth: "full_text_audited" as const, answer_marker: "Trial" }];
+    const read = sign("study_audit", { id: lancet, status: "complete_no_unresolved_fields" });
+    expect(inParentheses(`https://doi.org/${lancet}`, [read], sources)).toEqual([]);
+  });
+
+  it("asks a web-address source without a receipt only for its receipt, offering no doi.org page", () => {
+    const label = "https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=fda754f6-d0f3-4dce-a17a-927d64f912f7";
+    const steps = inParentheses(label, [audit],
+      [{ id: label, status: "validated" as const, read_depth: "partial_text" as const, answer_marker: "Trial" }]);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatch(/^Key source https:\/\/dailymed\S+ has no receipt showing it was found/u);
+    expect(steps.join(" ")).not.toContain("doi.org/https");
+  });
+
+  it("offers no doi.org page for an identifier of no kind AskRigor links", () => {
+    const steps = linkSteps(PUBLISHER, [audit],
+      [{ id: "Tiwari2008", status: "validated" as const, read_depth: "partial_text" as const, answer_marker: "Trial" }]);
+    expect(steps.join(" ")).toContain("Key study Tiwari2008 has no link in the answer; link it to the page AskRigor's tools returned.");
+    expect(steps.join(" ").toLowerCase()).not.toContain("doi.org/tiwari2008");
+  });
+});
+
+// #394's run (3 Nov): r376-forum-500 and r376-later-phase listed threads read_forum_thread had read as key sources, and
+// the sources check refused each as having "no receipt showing it was found or looked up", although its verified
+// forum_thread_read receipt was passed; each run lost a round dropping them.
+describe("threads AskRigor's forum reader read, as key sources (#394's run)", () => {
+  const THREAD = "https://www.reddit.com/r/Synthetic/comments/abc123/";
+  const PAGE = "https://forum.example/threads/synthetic-fasting.42/";
+  const read = (url: string) => sign("forum_thread_read", { u: forumThreadDigest(url), n: 12, v: "reddit" });
+  const threadSources = (...urls: string[]) => [...base().key_sources, ...urls.map((url, index) => ({
+    id: url, status: "lead_only" as const, read_depth: "partial_text" as const, answer_marker: `Thread ${index + 1}`
+  }))];
+  const draft = (...links: string[]) => [`[Trial](https://doi.org/${DOI}) was read.`,
+    ...links.map((link, index) => `[Thread ${index + 1}](${link}) was read too.`)].join("\n\n");
+
+  it("accepts a thread whose forum_thread_read receipt was passed, by any link to the same thread", () => {
+    const result = check({ receipts: [audit, read(THREAD), read(PAGE)], key_sources: threadSources(THREAD, PAGE),
+      answer_draft: draft(`https://old.reddit.com/r/synthetic/comments/abc123/a_title_slug/`, `${PAGE}page-2`) });
+    expect(result.next_steps).toEqual([]);
+    expect(result.status).toBe("ready_with_limits");
+    // A thread is a community source: it is not asked for a DOI, a full-text fetch or a lead's reason.
+    expect(advisoryNotes(result).join(" ")).not.toMatch(/Identify https|acquire_open_full_text for https|as a lead/u);
+    expect(result.sources).toEqual({ validated: [DOI], lead_only: [] });
+  });
+
+  it("still refuses a thread with no reader receipt, and names the receipt that would show it", () => {
+    const result = check({ receipts: [audit, read(PAGE)], key_sources: threadSources(THREAD), answer_draft: draft(THREAD) });
+    expect(result.status).toBe("not_ready");
+    expect(result.next_steps).toEqual([`Key source ${THREAD} has no receipt showing it was found or looked up in this ` +
+      "research: pass its search-result, record, full-text, audit, lead, route-failure or forum-thread research_receipt " +
+      "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID, read_forum_thread reads a forum thread). A source no " +
+      "AskRigor tool can look up, such as a page without a DOI that only your own search found, is not a key source: " +
+      "leave it out of key_sources, and say in the answer that AskRigor did not look it up."]);
+  });
+
+  it("asks for a link to the thread itself, not to another one", () => {
+    const steps = check({ receipts: [audit, read(THREAD)], key_sources: threadSources(THREAD),
+      answer_draft: draft("https://www.reddit.com/r/Synthetic/comments/zzz999/") }).next_steps;
+    expect(steps).toEqual([`Key study ${THREAD} has no link in the answer; link it to the page AskRigor's tools returned, such as ${THREAD}.`]);
   });
 });

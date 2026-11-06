@@ -15,6 +15,7 @@ import {
   atlasPool,
   type PostgresAtlasStoreOptions,
 } from "./atlas-findings.js";
+import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 
 // Decision 171, section 4B (owner answers 168a and "171 approved", 24 Oct 2026; plan
@@ -89,6 +90,8 @@ export const atlasPublishedNumberSchema = z.object({
   comparator_total: z.number().int().min(1),
   follow_up: publishedText(120),
   harms_none_found: z.boolean().optional(),
+  /** Version 3 (owner answer 252a): which of the published sources the figure comes from. */
+  source: publishedText(300).optional(),
 }).strict().superRefine((entry, context) => {
   if (entry.option_events > entry.option_total) {
     context.addIssue({ code: "custom", path: ["option_events"], message: "events above the group's total" });
@@ -100,15 +103,60 @@ export const atlasPublishedNumberSchema = z.object({
 export type AtlasPublishedNumber = z.infer<typeof atlasPublishedNumberSchema>;
 
 /**
+ * Published fields with their card's context (plan docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md):
+ * v1's, and the card's question and usual answer, with its sources' titles and years from their public records.
+ */
+export const ATLAS_PUBLICATION_SCHEMA_V2 = "askrigor.atlas-publication.v2";
+/** The longest card question and usual answer a publication takes: the card's own bounds. */
+export const ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS = 300;
+export const ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS = 400;
+
+/**
+ * The research behind each finding, and what people report (owner answer 252a, 5 November 2026; plan
+ * docs/superpowers/plans/2026-11-05-atlas-research-behind.md): version 2's fields, and for each source the paper's own
+ * sentence and conclusion found word for word in a text AskRigor fetched itself, with the strongest thing against it in
+ * AskRigor's words; how each source was read; which source each figure comes from; each source's retraction status; and
+ * the forum signal: the communities and the threads read, people's outcomes counted, how good their reports are, a way it
+ * could work and how studies relate to the reports. A version 3 finding may rest on its forum signal alone.
+ */
+export const ATLAS_PUBLICATION_SCHEMA_V3 = "askrigor.atlas-publication.v3";
+/** A source's retraction status as published: one a provider read (a status none could read is left out). */
+export const ATLAS_PUBLISHED_RETRACTIONS = [
+  "none_found", "corrected_or_updated", "expression_of_concern", "retracted", "not_applicable",
+] as const;
+export type AtlasPublishedRetraction = typeof ATLAS_PUBLISHED_RETRACTIONS[number];
+
+/** A source's title and year from its public record (Crossref, PubMed, Europe PMC or ClinicalTrials.gov). */
+export const atlasPublishedSourceDetailSchema = z.object({
+  /** The source as the publication's sources give it. */
+  source: publishedText(300),
+  title: publishedText(500),
+  year: z.number().int().min(1500).max(2200).nullable(),
+  /** Version 3: its retraction status, as the title lookup read it from Crossref's update markers and PubMed. */
+  retraction: z.enum(ATLAS_PUBLISHED_RETRACTIONS).optional(),
+}).strict();
+export type AtlasPublishedSourceDetail = z.infer<typeof atlasPublishedSourceDetailSchema>;
+
+// The research behind a finding as a publication holds it (atlas-research.ts), under the publication's text check.
+const publishedResearch = atlasResearchSchemas(publishedText);
+/** One backing line as published: at least one quote, each with the section it was found in when known. */
+export const atlasPublishedBackingSchema = publishedResearch.backing;
+export type AtlasPublishedBacking = z.infer<typeof atlasPublishedBackingSchema>;
+/** What people report, as published: AskRigor's counts and words and the threads' links, never a forum text or name. */
+export const atlasPublishedForumSignalSchema = publishedResearch.forumSignal;
+export type AtlasPublishedForumSignal = z.infer<typeof atlasPublishedForumSignalSchema>;
+
+/**
  * What the Atlas publishes of one finding, projected from the stored card: the card's topic; the finding's claim,
  * certainty, whom it applies to, kind, subject and its type, direction, numbers block (null when the card declares
  * none), searches for a search that found nothing (null when the card declares none), source identifiers, why it is not
  * the usual answer and what would change it; its verified bases; the day the card was saved; and the AskRigor version
- * from the card's stamp. Never the ARF number, the account or contributor, the thread key, the answer quote, the surface
- * or the reported model: the schema is strict and has no field for them.
+ * from the card's stamp. Version 2 adds the card's question and usual answer, and its sources' titles and years where a
+ * public record gave them. Never the ARF number, the account or contributor, the thread key, the answer quote, the
+ * surface or the reported model: the schema is strict and has no field for them.
  */
 export const atlasPublishedFindingSchema = z.object({
-  schema: z.literal(ATLAS_PUBLICATION_SCHEMA),
+  schema: z.enum([ATLAS_PUBLICATION_SCHEMA, ATLAS_PUBLICATION_SCHEMA_V2, ATLAS_PUBLICATION_SCHEMA_V3]),
   topic: z.object({
     key: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,199}$/u),
     label: publishedText(200),
@@ -129,14 +177,65 @@ export const atlasPublishedFindingSchema = z.object({
       end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
     }).strict().optional(),
   }).strict()).max(ATLAS_SEARCHES_PER_FINDING).nullable(),
-  sources: z.array(publishedText(300)).min(1).max(10),
+  // At least one, except a version 3 finding resting on its forum signal alone (checked below).
+  sources: z.array(publishedText(300)).max(10),
   why_not_usual: publishedText(300),
   what_would_change_it: publishedText(300),
   verified_bases: z.array(z.enum(ATLAS_VERIFIED_BASES)).max(ATLAS_VERIFIED_BASES.length)
     .refine((bases) => new Set(bases).size === bases.length, { message: "each basis once" }),
   saved_on: isoDateSchema,
   askrigor_version: z.string().regex(/^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/u),
-}).strict();
+  question: publishedText(ATLAS_PUBLISHED_QUESTION_MAX_CHARACTERS).optional(),
+  usual_answer: publishedText(ATLAS_PUBLISHED_USUAL_ANSWER_MAX_CHARACTERS).optional(),
+  source_details: z.array(atlasPublishedSourceDetailSchema).max(10).optional(),
+  // Version 3 (owner answer 252a).
+  backing: z.array(atlasPublishedBackingSchema).min(1).max(ATLAS_PUBLISHED_BACKING_PER_FINDING).optional(),
+  source_reading: z.array(publishedResearch.reading).min(1).max(10).optional(),
+  forum_signal: atlasPublishedForumSignalSchema.optional(),
+}).strict().superRefine((published, context) => {
+  // Versions 2 and 3 always have the card's question and usual answer; version 1 has none of version 2's fields, and
+  // versions 1 and 2 none of version 3's.
+  const v3 = published.schema === ATLAS_PUBLICATION_SCHEMA_V3;
+  const v2 = published.schema === ATLAS_PUBLICATION_SCHEMA_V2 || v3;
+  for (const key of ["question", "usual_answer"] as const) {
+    if (v2 !== (published[key] !== undefined)) {
+      context.addIssue({ code: "custom", path: [key], message: v2 ? "version 2 has it" : "version 1 has no such field" });
+    }
+  }
+  if (!v2 && published.source_details !== undefined) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "version 1 has no such field" });
+  }
+  const versionThree = [
+    ...(published.backing === undefined ? [] : ["backing"]),
+    ...(published.source_reading === undefined ? [] : ["source_reading"]),
+    ...(published.forum_signal === undefined ? [] : ["forum_signal"]),
+    ...((published.numbers ?? []).some(({ source }) => source !== undefined) ? ["numbers"] : []),
+    ...((published.source_details ?? []).some(({ retraction }) => retraction !== undefined) ? ["source_details"] : []),
+  ];
+  if (!v3 && versionThree.length > 0) {
+    for (const key of versionThree) context.addIssue({ code: "custom", path: [key], message: "only version 3 has it" });
+  }
+  if (published.sources.length === 0 && !(v3 && published.forum_signal !== undefined)) {
+    context.addIssue({ code: "custom", path: ["sources"], message: "a source, unless it rests on its forum signal alone" });
+  }
+  const named = (published.source_details ?? []).map(({ source }) => source);
+  if (named.some((source) => !published.sources.includes(source)) || new Set(named).size !== named.length) {
+    context.addIssue({ code: "custom", path: ["source_details"], message: "each detail names one published source, once" });
+  }
+  // Every source a version 3 field names is a published source, and a source is read once.
+  const named3 = [
+    ...(published.backing ?? []).map(({ source }) => source),
+    ...(published.source_reading ?? []).map(({ source }) => source),
+    ...(published.numbers ?? []).flatMap(({ source }) => source === undefined ? [] : [source]),
+  ];
+  if (named3.some((source) => !published.sources.includes(source))) {
+    context.addIssue({ code: "custom", path: ["backing"], message: "each line, reading and figure names a published source" });
+  }
+  const read = (published.source_reading ?? []).map(({ source }) => source);
+  if (new Set(read).size !== read.length) {
+    context.addIssue({ code: "custom", path: ["source_reading"], message: "each source read once" });
+  }
+});
 export type AtlasPublishedFinding = z.infer<typeof atlasPublishedFindingSchema>;
 
 // The store ---------------------------------------------------------------------------------------------------------
@@ -230,10 +329,145 @@ export interface AtlasPublicationStore {
   withdraw(withdrawal: AtlasPublicationWithdrawal): Promise<AtlasPublicationView[]>;
   /** Decision 7: the published fields of the publications naming the F number are erased. */
   eraseTexts(atlasNumber: string, erasedAt: string): Promise<AtlasPublicationView[]>;
+  /**
+   * Owner answers 229a and 231a: keeps publications for AskRigor's research only (in the lookup, with their pages, but
+   * on no list), with the owner's private reason, or shows them again. NOT_KEEPABLE, and nothing changed, when one of
+   * them is held, rejected, forgotten, set aside or replaced.
+   */
+  keep(change: AtlasKeepChange): Promise<AtlasKeptView[]>;
+  /** Every publication kept for research only. */
+  inspectKept(): Promise<AtlasKeptView[]>;
+  /**
+   * The owner, 6 Nov 2026: marks publications as challenging the usual view (or clears their marks), by P number.
+   * Marking shows nothing. NOT_MARKABLE, and nothing changed, when one to be marked is held, rejected or withdrawn;
+   * NOT_CLEARABLE, and nothing changed, when one to be cleared shows unreviewed, not kept, with the verdict headline or
+   * fail, which only its mark explains (the review of #422).
+   */
+  markChallenges(change: AtlasChallengeChange): Promise<AtlasChallengeView[]>;
+  /** Every publication that carries a challenge mark, kept for research or not. */
+  inspectChallenges(): Promise<AtlasChallengeView[]>;
+}
+
+/**
+ * The quick-answer test's verdicts (docs/atlas-quick-answer-test.md): pass, the finding is really better than a quick AI
+ * answer; headline, true and not in it but changing no important decision; fail, the quick answer already gives it.
+ */
+export const ATLAS_CHALLENGE_VERDICTS = ["pass", "headline", "fail"] as const;
+export type AtlasChallengeVerdict = typeof ATLAS_CHALLENGE_VERDICTS[number];
+/** The bounds migration 0030 holds the mark to. */
+export const ATLAS_CHALLENGE_USUAL_VIEW_MAX_CHARACTERS = 300;
+export const ATLAS_CHALLENGE_SOURCE_LABEL_MAX_CHARACTERS = 200;
+export const ATLAS_CHALLENGE_SOURCE_URL_MAX_CHARACTERS = 2_000;
+export const ATLAS_CHALLENGE_NUMBERS_PER_CALL = 100;
+/** Who marked it: the reviewer login's digest, never the login. */
+export const ATLAS_CHALLENGE_MARKER = /^reviewer:[0-9a-f]{16}$/u;
+
+/**
+ * A finding that goes against the usual view (the owner, 6 November 2026): the usual view in one plain line, its source
+ * (the words a page shows for it and an https link), and the quick-answer test's verdict for the finding.
+ */
+export interface AtlasChallengeMark {
+  usualView: string;
+  sourceUrl: string;
+  sourceLabel: string;
+  verdict: AtlasChallengeVerdict;
+}
+
+/** Publications to mark (mark given, with who marks them) or to clear (mark and markedBy null), by P number. */
+export interface AtlasChallengeChange {
+  publicationNumbers: readonly string[];
+  mark: AtlasChallengeMark | null;
+  markedBy: string | null;
+  at: string;
+}
+
+export interface AtlasChallengeView {
+  publicationNumber: string;
+  state: AtlasPublicationState;
+  atlasNumber: string | null;
+  kept: boolean;
+  /** Its mark, with who marked it and when; null when it carries none. */
+  mark: (AtlasChallengeMark & { markedBy: string; markedAt: string }) | null;
+}
+
+// Control characters, and the format characters (Unicode's Cf: the text-direction controls, the zero-width spaces and
+// the like), which can make a text show something other than it holds (the review of #422), but for the zero-width
+// non-joiner and joiner (U+200C, U+200D), which Persian, the Indian scripts and emoji sequences need (its third round).
+const CHALLENGE_CONTROL = /(?![\u200C\u200D])[\p{Cc}\p{Cf}]/u;
+
+/**
+ * Whether a mark is as migration 0030 holds it: trimmed one-line texts within their bounds, with no control or format
+ * character but the two joiners, an https link with neither, and a verdict.
+ */
+export function validChallengeMark(mark: AtlasChallengeMark): boolean {
+  const line = (text: unknown, max: number) => typeof text === "string" && text === text.trim() && text.length >= 1 &&
+    text.length <= max && !CHALLENGE_CONTROL.test(text);
+  let https = false;
+  try {
+    https = new URL(mark.sourceUrl).protocol === "https:";
+  } catch {
+    https = false;
+  }
+  return line(mark.usualView, ATLAS_CHALLENGE_USUAL_VIEW_MAX_CHARACTERS) &&
+    line(mark.sourceLabel, ATLAS_CHALLENGE_SOURCE_LABEL_MAX_CHARACTERS) && https &&
+    /^https:\/\/[^\s\p{Cc}\p{Cf}]+$/u.test(mark.sourceUrl) && mark.sourceUrl.length <= ATLAS_CHALLENGE_SOURCE_URL_MAX_CHARACTERS &&
+    (ATLAS_CHALLENGE_VERDICTS as readonly string[]).includes(mark.verdict);
+}
+
+/**
+ * Whether a publication shows only because it challenges the usual view: unreviewed, not kept, with a verdict other than
+ * pass, which its page states (a quick AI answer may already give it). Its mark can't be cleared while it shows, or its
+ * page would say a quick AI answer misses it (the review of #422): keep it for research first.
+ */
+export function shownForItsChallenge(state: AtlasPublicationState, kept: boolean, verdict: string | null | undefined): boolean {
+  return state === "unreviewed" && !kept && verdict !== undefined && verdict !== null && verdict !== "pass";
+}
+
+function validateChallenge(change: AtlasChallengeChange): void {
+  const count = change.publicationNumbers.length;
+  const marked = change.mark === null ? change.markedBy === null
+    : validChallengeMark(change.mark) && typeof change.markedBy === "string" && ATLAS_CHALLENGE_MARKER.test(change.markedBy);
+  if (count < 1 || count > ATLAS_CHALLENGE_NUMBERS_PER_CALL || !marked || !validInstant(change.at) ||
+    !change.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number))) throw invalid();
+}
+
+/** Publications to keep for research only (keep true, with a reason) or to show again (keep false). */
+export interface AtlasKeepChange {
+  publicationNumbers: readonly string[];
+  /** Every publication naming each F number. */
+  atlasNumbers: readonly string[];
+  keep: boolean;
+  reason: string | null;
+  at: string;
+}
+
+export interface AtlasKeptView {
+  publicationNumber: string;
+  state: AtlasPublicationState;
+  atlasNumber: string | null;
+  kept: boolean;
+  /** The owner's private reason; only from inspectKept. */
+  reason: string | null;
+  keptAt: string | null;
+}
+
+/** The most numbers one keep takes, as migration 0024 does. */
+export const ATLAS_KEEP_NUMBERS_PER_CALL = 100;
+
+function validateKeep(change: AtlasKeepChange): void {
+  const count = change.publicationNumbers.length + change.atlasNumbers.length;
+  const reasonOk = change.keep
+    ? typeof change.reason === "string" && change.reason === change.reason.trim() && change.reason.length >= 1 &&
+      change.reason.length <= 2_000
+    : change.reason === null;
+  if (count < 1 || count > ATLAS_KEEP_NUMBERS_PER_CALL || !reasonOk || !validInstant(change.at) ||
+    !change.publicationNumbers.every((number) => PUBLICATION_NUMBER.test(number)) ||
+    !change.atlasNumbers.every((number) => ATLAS_NUMBER.test(number))) throw invalid();
 }
 
 export class AtlasPublicationError extends Error {
-  constructor(readonly code: "INPUT_INVALID", message = "The Atlas publication request is not valid.") {
+  constructor(readonly code: "INPUT_INVALID" | "NOT_KEEPABLE" | "NOT_MARKABLE" | "NOT_CLEARABLE",
+    message = "The Atlas publication request is not valid.") {
     super(message);
   }
 }
@@ -472,6 +706,90 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     return this.rows.map((row) => structuredClone(row));
   }
 
+  private readonly kept = new Map<string, { reason: string; at: string }>();
+
+  async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
+    validateKeep(change);
+    const at = iso(change.at);
+    const targets = this.rows.filter((row) => change.publicationNumbers.includes(row.publicationNumber) ||
+      (row.atlasNumber !== null && change.atlasNumbers.includes(row.atlasNumber)))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber));
+    const unpublished = (row: AtlasPublicationView) => row.state === "withdrawn" &&
+      row.withdrawnBecause === "owner_unpublished" && row.atlasNumber === null && row.published !== null;
+    const shown = (row: AtlasPublicationView) => (row.state === "unreviewed" && row.published !== null) ||
+      row.state === "accepted" || row.state === "edited";
+    if (change.keep && !targets.every((row) => unpublished(row) || shown(row))) {
+      throw new AtlasPublicationError("NOT_KEEPABLE", "A publication in that state can't be kept for research.");
+    }
+    for (const row of targets) {
+      if (!change.keep) {
+        this.kept.delete(row.publicationNumber);
+        continue;
+      }
+      if (unpublished(row)) {
+        Object.assign(row, { state: "unreviewed", withdrawnBecause: null, ownerReason: null,
+          stateChangedAt: at > row.stateChangedAt ? at : row.stateChangedAt });
+      }
+      this.kept.set(row.publicationNumber, { reason: change.reason!, at });
+    }
+    return targets.map((row) => ({ publicationNumber: row.publicationNumber, state: row.state, atlasNumber: row.atlasNumber,
+      kept: this.kept.has(row.publicationNumber), reason: null, keptAt: null }));
+  }
+
+  async inspectKept(): Promise<AtlasKeptView[]> {
+    return this.rows.filter((row) => this.kept.has(row.publicationNumber))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+      .map((row) => ({ publicationNumber: row.publicationNumber, state: row.state, atlasNumber: row.atlasNumber, kept: true,
+        reason: this.kept.get(row.publicationNumber)!.reason, keptAt: this.kept.get(row.publicationNumber)!.at }));
+  }
+
+  /** Whether a publication is kept for research only, for the in-memory pages. */
+  isKept(publicationNumber: string): boolean {
+    return this.kept.has(publicationNumber);
+  }
+
+  private readonly challenges = new Map<string, AtlasChallengeMark & { markedBy: string; markedAt: string }>();
+
+  async markChallenges(change: AtlasChallengeChange): Promise<AtlasChallengeView[]> {
+    validateChallenge(change);
+    const at = iso(change.at);
+    const targets = this.rows.filter((row) => change.publicationNumbers.includes(row.publicationNumber))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber));
+    const markable = (row: AtlasPublicationView) => (row.state === "unreviewed" && row.published !== null) ||
+      row.state === "accepted" || row.state === "edited";
+    if (change.mark !== null && !targets.every(markable)) {
+      throw new AtlasPublicationError("NOT_MARKABLE", "A publication in that state can't be marked.");
+    }
+    if (change.mark === null && targets.some((row) => shownForItsChallenge(row.state, this.kept.has(row.publicationNumber),
+      this.challenges.get(row.publicationNumber)?.verdict))) {
+      throw new AtlasPublicationError("NOT_CLEARABLE", "A finding shown for its challenge can't lose its mark while it shows.");
+    }
+    for (const row of targets) {
+      if (change.mark === null) this.challenges.delete(row.publicationNumber);
+      else this.challenges.set(row.publicationNumber, { ...change.mark, markedBy: change.markedBy!, markedAt: at });
+    }
+    return targets.map((row) => this.challengeView(row));
+  }
+
+  async inspectChallenges(): Promise<AtlasChallengeView[]> {
+    return this.rows.filter((row) => this.challenges.has(row.publicationNumber))
+      .sort((left, right) => atlasPublicationOrder(left.publicationNumber) - atlasPublicationOrder(right.publicationNumber))
+      .map((row) => this.challengeView(row));
+  }
+
+  /** A publication's challenge mark, for the in-memory pages; null when it carries none. */
+  challengeOf(publicationNumber: string): AtlasChallengeMark | null {
+    const mark = this.challenges.get(publicationNumber);
+    return mark === undefined ? null
+      : { usualView: mark.usualView, sourceUrl: mark.sourceUrl, sourceLabel: mark.sourceLabel, verdict: mark.verdict };
+  }
+
+  private challengeView(row: AtlasPublicationView): AtlasChallengeView {
+    const mark = this.challenges.get(row.publicationNumber);
+    return { publicationNumber: row.publicationNumber, state: row.state, atlasNumber: row.atlasNumber,
+      kept: this.kept.has(row.publicationNumber), mark: mark === undefined ? null : { ...mark } };
+  }
+
   private change(
     selected: (row: AtlasPublicationView) => boolean,
     apply: (row: AtlasPublicationView) => void,
@@ -580,14 +898,89 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
     await this.pool.end();
   }
 
+  async keep(change: AtlasKeepChange): Promise<AtlasKeptView[]> {
+    validateKeep(change);
+    const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
+      kept_atlas_number: string | null; kept: boolean }>(
+      `SELECT * FROM ${this.schema}.keep_atlas_publications($1::text[], $2::text[], $3::boolean, $4::text, $5::timestamptz)`,
+      [[...change.publicationNumbers], [...change.atlasNumbers], change.keep, change.reason, change.at]);
+    return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
+      atlasNumber: row.kept_atlas_number, kept: row.kept, reason: null, keptAt: null }));
+  }
+
+  async inspectKept(): Promise<AtlasKeptView[]> {
+    const result = await this.call<{ kept_publication_number: string; kept_state: AtlasPublicationState;
+      kept_atlas_number: string | null; kept_reason: string; kept_at: Date | string }>(
+      `SELECT * FROM ${this.schema}.inspect_atlas_kept_publications()`, []);
+    return result.rows.map((row) => ({ publicationNumber: row.kept_publication_number, state: row.kept_state,
+      atlasNumber: row.kept_atlas_number, kept: true, reason: row.kept_reason, keptAt: instant(row.kept_at) }));
+  }
+
+  async markChallenges(change: AtlasChallengeChange): Promise<AtlasChallengeView[]> {
+    validateChallenge(change);
+    const mark = change.mark;
+    const result = await this.call<ChallengeRow>(
+      `SELECT * FROM ${this.schema}.mark_atlas_challenges($1::text[], $2::text, $3::text, $4::text, $5::text, $6::text, ` +
+        "$7::timestamptz)",
+      [[...change.publicationNumbers], mark?.usualView ?? null, mark?.sourceUrl ?? null, mark?.sourceLabel ?? null,
+        mark?.verdict ?? null, change.markedBy, change.at]);
+    return result.rows.map(challengeFromRow);
+  }
+
+  async inspectChallenges(): Promise<AtlasChallengeView[]> {
+    const result = await this.call<ChallengeRow>(`SELECT * FROM ${this.schema}.inspect_atlas_challenges()`, []);
+    return result.rows.map(challengeFromRow);
+  }
+
   private async call<Row extends object>(sql: string, values: unknown[]): Promise<{ rows: Row[] }> {
     try {
       return await this.pool.query(sql, values) as unknown as { rows: Row[] };
     } catch (error) {
       if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_INPUT_INVALID")) throw invalid();
+      if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_KEEPABLE")) {
+        throw new AtlasPublicationError("NOT_KEEPABLE", "A publication in that state can't be kept for research.");
+      }
+      if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_MARKABLE")) {
+        throw new AtlasPublicationError("NOT_MARKABLE", "A publication in that state can't be marked.");
+      }
+      if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_CLEARABLE")) {
+        throw new AtlasPublicationError("NOT_CLEARABLE",
+          "A finding shown for its challenge can't lose its mark while it shows.");
+      }
       throw error;
     }
   }
+}
+
+/** A row of migration 0030's two functions. */
+interface ChallengeRow {
+  mark_publication_number: string;
+  mark_state: string;
+  mark_atlas_number: string | null;
+  mark_kept: boolean;
+  mark_usual_view: string | null;
+  mark_source_url: string | null;
+  mark_source_label: string | null;
+  mark_verdict: string | null;
+  mark_marked_by: string | null;
+  mark_marked_at: Date | string | null;
+}
+
+/** A row as the store returns it, its mark read again strictly, so a row that does not read is refused. */
+function challengeFromRow(row: ChallengeRow): AtlasChallengeView {
+  const view = {
+    publicationNumber: row.mark_publication_number,
+    state: z.enum(ATLAS_PUBLICATION_STATES).parse(row.mark_state),
+    atlasNumber: row.mark_atlas_number,
+    kept: row.mark_kept === true,
+  };
+  if (row.mark_marked_at === null) return { ...view, mark: null };
+  const mark = { usualView: row.mark_usual_view, sourceUrl: row.mark_source_url, sourceLabel: row.mark_source_label,
+    verdict: row.mark_verdict } as AtlasChallengeMark;
+  if (!validChallengeMark(mark) || typeof row.mark_marked_by !== "string" || !ATLAS_CHALLENGE_MARKER.test(row.mark_marked_by)) {
+    throw invalid();
+  }
+  return { ...view, mark: { ...mark, markedBy: row.mark_marked_by, markedAt: instant(row.mark_marked_at) } };
 }
 
 interface PublicationRow {

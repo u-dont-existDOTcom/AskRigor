@@ -21,7 +21,20 @@ hashes, status records, release notes, plans, generated excerpts, and lesson
 summaries are downstream receipts. None can replace, truncate, or amend either
 complete XML protocol.
 
+`design-decisions.md` is the quick reference of design decisions: what was
+chosen, why, what wasn't, and when. Read it before redesigning anything. It
+records decisions and their sources; it adds no authority to the list above.
+
 ## Validation and release
+
+- [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
+- [Private-map leak check](private-map-leak-check.md): the exact pre-push check that refuses numbers and IDs from the
+  owner's private comment maps (owner answers 175, 208b, 212b); its plan and history replay are
+  [superpowers/plans/2026-11-03-private-map-leak-check.md](superpowers/plans/2026-11-03-private-map-leak-check.md)
+- [Final-check scope](final-check.md): the blocking checks of owner answers
+  193a, 195a and 217b, advisory notes, material limits and the folded passing-answer panel
+- [Changes waiting for the next tool-list change](tool-list-changes-waiting.md): fixes that need the fixed tool list
+  itself (owner answer 189a), with what holds meanwhile
 
 - `forum-outlier-and-reddit-retrieval-playbook.md`: source-checked operational reference for strict outcome/dose/duration admission of forum cases and portable ChatGPT-native-web / connected-scraper Reddit retrieval fallbacks. It is not a deployed protocol or a substitute for the canonical `FORUM_SIGNAL_MODULE.md`.
 
@@ -92,6 +105,146 @@ complete XML protocol.
   as one entry, the one-line panel, the correction-report question, and HRP 20.6.26, with production acceptance and
   the Codex plugin refresh, and the owner regressions (the final check passed in 12 of 21 cases; first-call schema
   rejections in 11 of 22 runs, from 19 of 20) with the findings for the next build.
+- `audits/2026-10-30-owner-answers-201a-205a.md`: owner answers 201a (the scout's group-word check dropped; the person markers and de-identification screen stay, and a target in another language now passes when nothing matches them) and 205a (HRP 20.6.34: a passing check's answer states the limits that change what the person should believe or do, the panel lists them all, and every limit is stated when the check has not passed), built for #387.
+- `audits/2026-10-29-lesson-51-and-uda-444-protocol.md`: lesson #51 and UDA #444 under owner rule 148a: HRP 20.6.33
+  ends `HealthEvidenceRoleLedger` with whom each statement is about (a condition named in a question is the topic, not
+  the asker's, unless they say so) and adds `LongDocumentCoverageAudit` outside the core (the current version, how much
+  was read, the idea under other names, an honest status), with six stress cases, seven owner regressions including
+  two controls, the new SHA-256 and tests; built for the build after #384, not yet released.
+- `audits/2026-10-29-owner-answer-196a-dev-account.md`: the owner's email-and-password login listed as a dev account
+  in production on owner answer 196a (one `runtime.env` line, `research-mcp` recreated on the same image, acceptance
+  and rollback).
+- `audits/2026-10-30-final-check-193a-production-release.md`: release of #384 (owner answer 197a): only five checks
+  stop an answer, the low-calorie reports, HRP 20.6.32; a probe shows two of the five still block in production.
+- `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
+  health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
+  benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-06-owner-answer-270a-production-release.md`: release of #421, the fixes from the owner-regression rerun (owner answer 270a, 6 Nov 2026).
+- `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
+  260a): HRP 20.6.40 (how each study was read, the study map, community leads), the owner's private page with its
+  read-only maps mount and settings line, the site's Atlas referrer policy, and the plugin reinstall; 35 tools unchanged,
+  so no app refresh; acceptance and the rollback.
+- `audits/2026-11-06-owner-answers-247a-259a-production-release.md`: release of #413 and the Atlas stack (owner answers
+  247a and 259a): migrations 0025 to 0029, notice v5, HRP 20.6.39, the site's privacy page, terms and robots.txt; 35 tools
+  unchanged, so no app refresh; acceptance, what waits for the owner (notice v5, the scout counter), why the cards'
+  context step wasn't run, and the rollback with its hazard.
+- `audits/2026-11-04-owner-answer-242a-production-release.md`: release of #412 (owner answer 242a): the review queue for
+  cards that weren't saved, HRP 20.6.38, lesson 54 and the kept pages; 35 tools unchanged, so no app refresh; acceptance, a
+  refused card through the live final check, what isn't shown live yet, and the rollback.
+- `audits/2026-11-04-owner-answer-241a-production-release.md`: release of #411 (owner answer 241a): the source line, HRP
+  20.6.37, lessons 52 and 53, and saved cards that wait for the quick-answer test; 35 tools unchanged, so no app refresh;
+  acceptance, a real paper through the source line, what isn't shown live yet, and the rollback.
+- `audits/2026-11-04-owner-answer-240a-production-release.md`: release of #398 (owner answer 240a): "kept for AskRigor's
+  research" (migration 0024), the regression fixes, the checked figures, the YouTube-comment hold and the named forum
+  failures; 35 tools and HRP 20.6.36 unchanged, so no app refresh; acceptance, the rollback, and what moved to kept.
+- `atlas-quick-answer-test.md`: how a saved AI-found finding reaches the Atlas's pages (owner answer 240a), and the
+  separate judgment of whether it challenges the usual view, marked for `/atlas/challenges` (the owner, 6 Nov 2026).
+- `audits/2026-11-02-owner-answer-215a-production-release.md`: release of #394 (owner answers 215a and 217b): the forum
+  reader's two tools (35 tools; the apps need one refresh), HRP 20.6.36, the privacy page of 2 November, the folded panel
+  and the quick-answer comparison as the sixth blocking check; the reader's read-only mount and settings, acceptance, the
+  site, the plugin receipt, both connector probes and the rollback.
+- `audits/2026-11-01-owner-answer-214a-production-release.md`: release of #393 (owner answer 214a): a passing check's caveats shown
+  as written, the plain-answer note (210b), InfoAccess one request at a time; acceptance, both connector probes, the plugin receipt
+  and the rollback; no site, migration, protocol or tool-list change.
+- `audits/2026-10-31-owner-answer-209a-production-release.md`: release of #389 (owner answer 209a): the comment-audit
+  fix, forum depth and the studies loop, the in-answer comment map, the regression run's findings, 205a's limit line
+  and HRP 20.6.35; acceptance, both connector probes, the plugin receipt and the rollback; no site, migration or
+  tool-list change.
+- `audits/2026-10-30-owner-answers-200a-205a-production-release.md`: release of #387 (owner answer 204a): shared
+  answers on with a key made on the host, the limits that matter (HRP 20.6.34), the scout's group-word check dropped,
+  and the privacy page dated 30 October; acceptance, the site byte for byte, both connector probes and the rollback.
+- `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
+  (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
+  193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-04-review-queue.md`: the private queue for cards that weren't saved, why it's in the findings
+  repository, what it keeps and leaves out, and GPT Pro's review of the lanes' message.
+- `superpowers/plans/2026-11-04-what-people-want.md`: the source line, meaning judge job 5, HRP 20.6.37's draft wording
+  and the reminder that names `OutputFormatting` (owner answer 237a); built on #398's branch, not yet released.
+- `superpowers/plans/2026-11-03-atlas-kept-for-research.md`: findings kept for AskRigor's research but not shown (owner
+  answers 229a and 231a): in the research lookup and at their own pages, on no list, topic, search or home page.
+- `superpowers/plans/2026-11-01-forum-reader.md`: the plan for AskRigor reading forum threads itself (owner answer 211a),
+  with a test of how many threads open to a plain request; waits for owner question 213.
+- `superpowers/plans/2026-11-02-atlas-full-text-search-and-findings-map.md`: Atlas search over each finding's whole page
+  text, in any language, the wording's matches first; and `/atlas/map`, the findings as circles by topic with a stated
+  size rule that is not a treatment ranking.
+- `superpowers/plans/2026-11-02-atlas-foundation-223-225.md`: the Atlas foundation the owner chose (223a, 224a, 225a):
+  unreviewed findings kept out of search engines and labelled, risky ones held for review, numbers "out of 100" with a
+  range, question pages with a bottom-line box, and "report a problem" in place of votes.
+- `atlas-report-check.md`: how the AI check of people's reports runs (owner answer 229a): a Claude session on the
+  owner's plan lists the received reports, judges each as untrusted text, researches the form's, and records publish,
+  publish with an AI warning, hold for the owner, or refuse.
+- `superpowers/plans/2026-11-03-atlas-reports-health-tree.md`: people's own reports of what worked for them (owner
+  answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
+  AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
+  practitioner scorecard.
+- `superpowers/plans/2026-11-05-atlas-owner-page.md`: the owner's private page on the Atlas (`/atlas/account/private`,
+  the owner, 5 Nov: "i don't see my private pages"): the comment maps read from a file on the server, with their video
+  links, and links to the owner's pages on GitHub, for the signed-in owner alone.
+- `superpowers/plans/2026-11-05-atlas-research-behind.md`: "The research behind it" and "What people report" on each
+  finding page (owner answer 252a): the papers' own sentences found word for word, how each source was read, the
+  strongest thing against it, which study each figure comes from, and the forum signal with its counts, report quality,
+  mechanism and relationship to studies; the card's later shape, signed lookups, publication v3; then 253a (notice v5:
+  forum thread links), 254a (forum reading a verified basis) and 255a (the research kept with accepted versions).
+- `superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md`: each Atlas finding shown with the question its
+  research answered, the usual answer, its card's other findings and its sources by title and year (owner, 2 Nov:
+  "the cards seem kinda useless?"); `publish_cards` adds the context to older publications under their own numbers.
+- `audits/2026-11-02-owner-regressions-393-judgment.md`: the owner regressions on #393's build `61215c0b` against
+  question 193's signals (86 cases: 45 pass, 39 in part, 1 fails, 1 not judged; against #389's build 8 better, 6 worse;
+  the low-calorie runs 6, 4 and 1 fails, 4 better; the new turmeric case of owner answer 216a in part): 111 of 113 checks
+  pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
+  from 43% to none; answers still changed after a passing check; three regression cards published when the account's
+  saving was switched on from outside the run (owner questions 218 and 219).
+- `audits/2026-11-05-owner-regressions-412-judgment.md`: the owner regressions on #412's build `bf3581aa`: the 41
+  runs NCBI's PubMed outage spared (19 pass, 22 in part, none fails; 4 better and 1 worse than on #394's build),
+  the two sleep apnea cases, and the forum reader's two faults, fixed in #413; the 61 outage runs wait for a rerun.
+- `audits/2026-11-03-owner-regressions-394-judgment.md`: the owner regressions on #394's build `b9e658e2` against
+  question 193's signals (85 cases: 40 pass, 44 in part, 1 fails; against #393's build 7 better, 12 worse, eight of
+  them for the plain-answer note dropped after the check; the low-calorie runs 4, 6 and none fails, 1 not judged):
+  108 of 111 checks pass by their second call, none never passes, 1 call fails on format, 33 cases pass twice in a
+  row; the forum reader raised the median threads read from 3 to 7; its threads refused as key sources and its
+  searches capped at 7; InfoAccess stuck from about 23:22 UTC; two runs lost to OpenAI's capacity, to be rerun.
+- `audits/2026-11-02-meaning-judge-development.md`: the meaning judge of owner answer 221 (a Claude API call in the
+  final check, for the owner's dev accounts only, notes only apart from holding findings drawn from YouTube comments),
+  measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
+  the judges' known cases 4 of 4 (YouTube comments), 33 of 35 (comparison backing), 13 of 14 (limits) and 5 of 5
+  (findings that stand on their own); USD 16.30 in all for development; the rubric frozen for validation on #394's run.
+- `audits/2026-11-04-meaning-judge-validation.md`: the meaning judge's frozen rubric (`2026-11-02.6`) on #394's run as
+  validation: 111 calls for USD 3.20; against the judges' verdicts, read blind, comparison backing agrees on 68 of 90
+  items (21 of 35 problems caught, 8 of 55 sound items flagged; 33 of 35 in development); 12 of its 16 limit flags
+  hold, but it caught 1 of the 9 limits the judges named; the YouTube and stand-alone jobs had no labels (card saving
+  off) and were read by hand; production's judge stays off; #394's run is now development data.
+- `superpowers/plans/2026-11-05-next-build.md`: the build after #412: HRP 20.6.39 (owner answer 244a, the spread of
+  individual results in a trial); then the YouTube scout's budget and failures, figures as images, the features on the
+  account page, two final-check faults from the CPAP test, and the meaning judge's revision.
+- `superpowers/plans/2026-11-05-study-map.md`: the study map (UDA item of 31 Oct, owner request): a small map of the
+  studies behind a conclusion that combines them, checked only where the check is exact, as notes; the owner said yes
+  to its HRP wording (answer 249a), and HRP 20.6.40 carries the rule.
+- `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
+  Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
+  saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at
+  23:15 UTC, the sample on Claude workers on the owner's Claude plan (`scripts/web-engine-worker.mts`), not the API.
+- `audits/2026-11-02-web-app-engine-trial.md`: the trial's record: the 3-case pilot cost $13.00 (16.8, 5.8 and 18.8
+  minutes, ChatGPT 15.8, 6.8 and 24.8), every check passed at its first call, Claude loaded almost none of the
+  protocols, so the engine now carries the AskRigor skill and a guard; a free blind check judged Claude's answers
+  better in all three; the sample runs in two stages (owner answer 226b) on the Claude plan, so API spending ends at
+  $13.09. Stage 1 (3 Nov) answered all three and passed every check; two blind judges agreed only on `r376`, for
+  ChatGPT's answer, where AskRigor's Reddit reader couldn't open a thread for Claude, so stage 2 didn't run and the
+  trial ends about level.
+- `audits/2026-11-01-owner-regressions-389-judgment.md`: the owner regressions on #389's build `ce7a664b`, with the
+  outage's 23 cases rerun, against question 193's signals (85 cases: 44 pass, 37 in part, 3 fail, 1 not judged; the
+  low-calorie runs 2, 8 and 1 fails; the four new cases all in part): 110 of 112 checks pass by their second call, none
+  never passes, 2 calls fail on format, 40 cases pass twice in a row; the forum-depth note left the median at 2 threads
+  read; the cause of the pasted limits, and what each finding comes to.
+- `audits/2026-10-31-owner-regressions-387-judgment.md`: the owner regressions on #387's build `00e9b6de` against
+  question 193's signals, all five met (85 cases: 49 pass, 34 in part, 1 fails, 1 not judged; the low-calorie runs 4,
+  7 and none fail): every check passes by its second call, none never passes, no call fails on format, 40 cases pass
+  twice in a row; 205a's limits, and what each finding comes to.
+- `audits/2026-10-30-owner-regressions-384-judgment.md`: the owner regressions on #384's build `d8beec2d`, both runs
+  against question 193's signals (85 cases: 45 pass, 38 in part, 1 fails, 1 not judged; the low-calorie runs 4, 7 and
+  none fail): 103 of 108 checks pass by their second call, none never passes, 6 calls fail on format, and what each
+  finding comes to, with the fixes built for the next build.
+- `audits/2026-10-29-next-build-production-release.md`: release of #381 (owner question 194): the checked answer in
+  the panel, a fixed tool list, the plain answer for free accounts, older cards under a topic, video and comment fixes.
 - `audits/2026-10-27-next-build-production-release.md`: release of #380 (owner question 188): Atlas navigation, detailed bug
   reports, lessons naming existing rules, research building on the Atlas.
 - `audits/2026-10-27-owner-regressions-judgment.md`: the owner regressions on #375's build `ddba2b79` (85 cases: 41 pass,

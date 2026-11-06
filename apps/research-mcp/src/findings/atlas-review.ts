@@ -50,6 +50,9 @@ import {
   type AtlasPublicationState,
   type AtlasPublicationStore,
   type AtlasModerationStore,
+  type AtlasPlacementStore,
+  type AtlasReportReviewStore,
+  type AtlasGlanceStore,
   type AtlasPublicationView,
   type AtlasQuestionUse,
   type AtlasReviewStore,
@@ -60,10 +63,12 @@ import {
   type AtlasStateFinding,
   type AtlasStateReader,
   type AtlasSubjectType,
+  type AtlasResearch,
   type AtlasVersionContent,
   type HeldYouTubeFinding,
   type HeldYouTubeFindingsStore,
   type PreparedAtlasFindingIntent,
+  withoutFormatCharacters,
 } from "@askrigor/evidence-repository";
 import type { CrossrefConfig, PubmedConfig } from "@askrigor/sources";
 import { z } from "zod";
@@ -78,7 +83,7 @@ import {
   type AtlasPublicationAction,
   type AtlasPublications,
 } from "../atlas/publication-review.js";
-import { reconcileCardPublications } from "../atlas/publication.js";
+import { canonicalResearchOf, reconcileCardPublications, researchKeeping } from "../atlas/publication.js";
 import {
   ATLAS_PARTICIPATION_ACTIONS,
   ATLAS_PARTICIPATION_ERROR_CODES,
@@ -87,6 +92,45 @@ import {
   type AtlasParticipation,
   type AtlasParticipationAction,
 } from "../atlas/participation-review.js";
+import {
+  ATLAS_KEEP_ACTIONS,
+  ATLAS_KEEP_OUTCOMES,
+  AtlasKeptReview,
+  type AtlasKeepAction,
+  type AtlasKept,
+} from "../atlas/kept-review.js";
+import {
+  ATLAS_CHALLENGE_ACTIONS,
+  ATLAS_CHALLENGE_OUTCOMES,
+  AtlasChallengeReview,
+  type AtlasChallengeAction,
+  type AtlasChallengeRequest,
+  type AtlasChallenges,
+} from "../atlas/challenge-review.js";
+import {
+  ATLAS_PLACEMENT_ACTIONS,
+  ATLAS_PLACEMENT_OUTCOMES,
+  AtlasPlacementReview,
+  type AtlasPlacementAction,
+  type AtlasPlacements,
+  type placementsInputSchema,
+} from "../atlas/placement-review.js";
+import {
+  ATLAS_REPORT_ACTIONS,
+  ATLAS_REPORT_OUTCOMES,
+  AtlasReportReview,
+  type AtlasReportAction,
+  type AtlasReports,
+  type ReportVerdictInput,
+} from "../atlas/report-review.js";
+import {
+  ATLAS_GLANCE_ACTIONS,
+  ATLAS_GLANCE_OUTCOMES,
+  AtlasGlanceReview,
+  type AtlasGlance,
+  type AtlasGlanceAction,
+  type GlanceRowInput,
+} from "../atlas/glance-review.js";
 import { ATLAS_NUMBERS_PROBLEM_CODES, atlasNumbersProblems, type AtlasNumbersProblem } from "../binary-results.js";
 import { GitHubApiError } from "../lessons/github-app.js";
 import {
@@ -117,6 +161,7 @@ import {
   type FindingsCardRead,
   type FindingsDecisionMarker,
 } from "./github-findings-review.js";
+import { storedClaimStrength } from "../atlas/strength.js";
 import { publicFindingsCardId } from "./github-findings.js";
 import { moveYouTubeFindings, type YouTubeFindingsMoveReport } from "./held-youtube-move.js";
 import type { FindingsRecord, FindingsStamp, ProtocolIdentity } from "./service.js";
@@ -128,6 +173,7 @@ import {
   type AtlasSourceCheck,
   type AtlasSourceCheckCache,
   type AtlasSourceChecks,
+  type AtlasSourceTitleLookup,
 } from "./source-checks.js";
 
 /**
@@ -172,6 +218,15 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_PUBLICATION_ACTIONS,
   // Decision 171 (sections 4E and 4F): the comments and the home page's picks.
   ...ATLAS_PARTICIPATION_ACTIONS,
+  // Owner answers 229a and 231a: findings kept for AskRigor's research only.
+  ...ATLAS_KEEP_ACTIONS,
+  // Owner answer 229a: where items sit under Health, and people's reports.
+  ...ATLAS_PLACEMENT_ACTIONS,
+  ...ATLAS_REPORT_ACTIONS,
+  // The owner, 3 Nov: a problem's rows at a glance, each shown on the owner's yes.
+  ...ATLAS_GLANCE_ACTIONS,
+  // The owner, 6 Nov: findings that challenge the usual view.
+  ...ATLAS_CHALLENGE_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -199,6 +254,11 @@ export const ATLAS_REVIEW_OUTCOMES = [
   "youtube_findings_deleted",
   ...ATLAS_PUBLICATION_OUTCOMES,
   ...ATLAS_PARTICIPATION_OUTCOMES,
+  ...ATLAS_KEEP_OUTCOMES,
+  ...ATLAS_PLACEMENT_OUTCOMES,
+  ...ATLAS_REPORT_OUTCOMES,
+  ...ATLAS_GLANCE_OUTCOMES,
+  ...ATLAS_CHALLENGE_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -393,6 +453,25 @@ export interface AtlasReviewRequest {
   comment?: string;
   commenter?: string;
   picks?: Array<{ publication: string; reason: string }>;
+  /** keep_for_research and show_on_pages (owner answers 229a and 231a), from later_inputs.items. */
+  items?: string[];
+  /** place_items (owner answer 229a), from later_inputs.placements. */
+  placements?: import("zod").infer<typeof placementsInputSchema>;
+  /** People's reports (owner answer 229a), from later_inputs.reportState, later_inputs.report and later_inputs.verdict. */
+  reportState?: "received" | "published" | "held" | "refused";
+  report?: string;
+  verdict?: ReportVerdictInput;
+  /** A problem's rows at a glance, from later_inputs.glanceRow, glanceRowId and glanceState. */
+  glanceRow?: GlanceRowInput;
+  glanceRowId?: string;
+  glanceState?: "proposed" | "shown" | "withdrawn";
+  /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
+  usual_view?: AtlasChallengeRequest["usual_view"];
+  usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
+  usual_view_source_label?: AtlasChallengeRequest["usual_view_source_label"];
+  quick_answer_verdict?: AtlasChallengeRequest["quick_answer_verdict"];
+  /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
+  reviewer?: string;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -438,6 +517,26 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   stop_commenter: ["commenter"],
   restore_commenter: ["commenter"],
   set_picks: ["picks"],
+  // Owner answers 229a and 231a; more numbers come in later_inputs.items.
+  keep_for_research: ["publication", "atlasNumber", "reason"],
+  show_on_pages: ["publication", "atlasNumber"],
+  list_kept: [],
+  // Owner answer 229a: the placements come in later_inputs.placements.
+  place_items: [],
+  list_unplaced: ["cursor"],
+  // Owner answer 229a: the report, its verdict and the state to list come in later_inputs.
+  list_reports: ["cursor"],
+  check_report: [],
+  decide_report: ["confirm"],
+  // The rows, their ids and the state to list come in later_inputs.
+  propose_glance_row: [],
+  list_glance_rows: [],
+  show_glance_row: ["confirm"],
+  withdraw_glance_row: [],
+  // The owner, 6 Nov: the items, the usual view, its source and the verdict come in later_inputs.
+  mark_challenge: [],
+  clear_challenge: [],
+  list_challenges: [],
 };
 
 /**
@@ -910,6 +1009,16 @@ export interface AtlasReviewResult {
   publications?: AtlasPublications;
   /** Decision 171: the comments listed or moderated, the commenter changed, the picks set. */
   participation?: AtlasParticipation;
+  /** Owner answers 229a and 231a: the publications kept for research, or shown again. */
+  kept?: AtlasKept;
+  /** Owner answer 229a: the placements set, or the publications that sit in no subcategory. */
+  placements?: AtlasPlacements;
+  /** Owner answer 229a: the reports listed, or the one checked or decided. */
+  reports?: AtlasReports;
+  /** The rows at a glance listed, or the one proposed or changed. */
+  glance?: AtlasGlance;
+  /** The owner, 6 Nov 2026: the publications marked, cleared or listed as challenging the usual view. */
+  challenges?: AtlasChallenges;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -947,6 +1056,18 @@ export interface AtlasReviewDependencies {
    * actions and the home page's picks need them; without them those actions answer that they are not configured.
    */
   participation?: AtlasModerationStore;
+  /** Where items sit under Health (owner answer 229a), through the review role's two placement functions. */
+  placements?: AtlasPlacementStore;
+  /** People's reports (owner answer 229a), through the review role's two report functions. */
+  reports?: AtlasReportReviewStore;
+  /** A problem's rows at a glance, through the review role's three glance functions. */
+  glance?: AtlasGlanceStore;
+  /**
+   * The titles and years publish_cards publishes with a card's sources (plan
+   * docs/superpowers/plans/2026-11-02-atlas-finding-pages-in-context.md), with the call's provider settings: production
+   * passes atlasSourceTitleLookup; without it, a page shows each source's identifier alone.
+   */
+  sourceTitles?: (providers: AtlasProviderConfig) => AtlasSourceTitleLookup;
 }
 
 // Plain words for the writer's failure codes --------------------------------------------------------------------------
@@ -1072,7 +1193,7 @@ export class AtlasReview {
         case "unpublish_finding":
         case "publish_cards":
         case "set_aside_cards":
-          return await this.publicationAction(request.action, request);
+          return await this.publicationAction(request.action, request, providers);
         case "list_comments":
         case "hide_comment":
         case "show_comment":
@@ -1081,6 +1202,26 @@ export class AtlasReview {
         case "restore_commenter":
         case "set_picks":
           return await this.participationAction(request.action, request);
+        case "keep_for_research":
+        case "show_on_pages":
+        case "list_kept":
+          return await this.keepAction(request.action, request);
+        case "place_items":
+        case "list_unplaced":
+          return await this.placementAction(request.action, request);
+        case "list_reports":
+        case "check_report":
+        case "decide_report":
+          return await this.reportAction(request.action, request);
+        case "propose_glance_row":
+        case "list_glance_rows":
+        case "show_glance_row":
+        case "withdraw_glance_row":
+          return await this.glanceAction(request.action, request);
+        case "mark_challenge":
+        case "clear_challenge":
+        case "list_challenges":
+          return await this.challengeAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1089,7 +1230,8 @@ export class AtlasReview {
 
   // The publications (decision 171) -------------------------------------------------------------------------------------
 
-  private async publicationAction(action: AtlasPublicationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+  private async publicationAction(action: AtlasPublicationAction, request: AtlasReviewRequest,
+    providers: AtlasProviderConfig): Promise<AtlasReviewResult> {
     const publications = this.deps.publications;
     if (publications === undefined) {
       return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
@@ -1101,6 +1243,7 @@ export class AtlasReview {
       reader: this.deps.reader,
       inbox: this.deps.inbox,
       now: this.now,
+      ...(this.deps.sourceTitles === undefined ? {} : { sourceTitles: this.deps.sourceTitles(providers) }),
     }).run({
       action,
       ...(request.publicationState === undefined ? {} : { publicationState: request.publicationState }),
@@ -1123,6 +1266,120 @@ export class AtlasReview {
   }
 
   // The comments and the home page's picks (decision 171) ---------------------------------------------------------------
+
+  private async keepAction(action: AtlasKeepAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasKeptReview({ publications, now: this.now }).run({
+      action,
+      ...(request.publication === undefined ? {} : { publication: request.publication }),
+      ...(request.atlasNumber === undefined ? {} : { atlasNumber: request.atlasNumber }),
+      ...(request.items === undefined ? {} : { items: request.items }),
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.kept === undefined ? {} : { kept: result.kept }),
+    };
+  }
+
+  // Findings that challenge the usual view (the owner, 6 Nov 2026) --------------------------------------------------------
+
+  private async challengeAction(action: AtlasChallengeAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasChallengeReview({ publications, now: this.now }).run({
+      action,
+      ...(request.items === undefined ? {} : { items: request.items }),
+      ...(request.usual_view === undefined ? {} : { usual_view: request.usual_view }),
+      ...(request.usual_view_source_url === undefined ? {} : { usual_view_source_url: request.usual_view_source_url }),
+      ...(request.usual_view_source_label === undefined ? {} : { usual_view_source_label: request.usual_view_source_label }),
+      ...(request.quick_answer_verdict === undefined ? {} : { quick_answer_verdict: request.quick_answer_verdict }),
+      ...(request.reviewer === undefined ? {} : { reviewer: request.reviewer }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
+    };
+  }
+
+  private async glanceAction(action: AtlasGlanceAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const glance = this.deps.glance;
+    if (glance === undefined) {
+      return errorOf("review_service_unavailable", "The rows at a glance are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasGlanceReview({ glance, now: this.now }).run({
+      action,
+      ...(request.glanceRow === undefined ? {} : { glanceRow: request.glanceRow }),
+      ...(request.glanceRowId === undefined ? {} : { glanceRowId: request.glanceRowId }),
+      ...(request.glanceState === undefined ? {} : { glanceState: request.glanceState }),
+      ...(request.confirm === undefined ? {} : { confirm: request.confirm }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.glance === undefined ? {} : { glance: result.glance }),
+    };
+  }
+
+  private async reportAction(action: AtlasReportAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const reports = this.deps.reports;
+    if (reports === undefined) {
+      return errorOf("review_service_unavailable", "People's reports are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasReportReview({ reports, now: this.now }).run({
+      action,
+      ...(request.reportState === undefined ? {} : { reportState: request.reportState }),
+      ...(request.report === undefined ? {} : { report: request.report }),
+      ...(request.verdict === undefined ? {} : { verdict: request.verdict }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+      ...(request.confirm === undefined ? {} : { confirm: request.confirm }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.reports === undefined ? {} : { reports: result.reports }),
+    };
+  }
+
+  private async placementAction(action: AtlasPlacementAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const placements = this.deps.placements;
+    if (placements === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas's categories are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasPlacementReview({ placements, now: this.now,
+      ...(this.deps.publications === undefined ? {} : { publications: this.deps.publications }) }).run({
+      action,
+      ...(request.placements === undefined ? {} : { placements: request.placements }),
+      ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.placements === undefined ? {} : { placements: result.placements }),
+    };
+  }
 
   private async participationAction(action: AtlasParticipationAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
     const moderation = this.deps.participation;
@@ -1231,7 +1488,8 @@ export class AtlasReview {
         }
         continue;
       }
-      waiting.push({ ...card, key: cursorKeyOf(card.labels, card.record, card.number) });
+      const undecided = new Set(card.record.card.findings.flatMap((_, index) => decided.has(index + 1) ? [] : [index + 1]));
+      waiting.push({ ...card, key: cursorKeyOf(card.labels, card.record, card.number, undecided) });
     }
     waiting.sort((left, right) => compareCursorKeys(left.key, right.key));
     const remaining = after === undefined ? waiting : waiting.filter(({ key }) => compareCursorKeys(key, after) > 0);
@@ -1384,7 +1642,7 @@ export class AtlasReview {
     const plan = sourceChecks === undefined ? emptySourcePlan() : planSources(sourceChecks, state, false);
     const accepted = acceptedTexts(focus, {});
     const declared = cardFieldsOf(focus);
-    const privacy = screenTexts(itemTexts(focus, accepted, focus.finding?.numbers ?? [], declared));
+    const privacy = screenTexts(itemTexts(focus, accepted, atlasFiguresOf(focus.finding?.numbers), declared));
     const problems = [...plan.problems];
     if (community?.refused === true) problems.push(communityOnlyProblem(focus.name));
     if (madeWithOf(focus.record.stamp).protocols.length === 0) problems.push(stampProblem());
@@ -1641,7 +1899,8 @@ export class AtlasReview {
       if (request.numbers !== undefined || item.finding === null) {
         numbers = request.numbers ?? [];
       } else if (!olderCard) {
-        numbers = item.finding.numbers ?? [];
+        // A figure's source (owner answer 252a) is the card's: the Atlas's figure is the figure alone.
+        numbers = atlasFiguresOf(item.finding.numbers);
       } else {
         problems.push({ code: "numbers_missing", message: `${item.name} is from a card saved before the Atlas ` +
           "fields, which declares no numbers: give numbers, each two-group yes-or-no figure the wording gives, or " +
@@ -1677,7 +1936,7 @@ export class AtlasReview {
           editedAtAcceptance,
           topic: { key: topicKey!, label: topicLabel },
           question: accepted.question,
-          content: contentOf(item, accepted, numbers, fields),
+          content: contentOf(item, accepted, numbers, fields, kept),
           sources: plan.sources,
           wordingKeys: { card: item.cardWordingKey, accepted: atlasWordingKey(accepted.question, accepted.wording) },
           researchCheckedOn: researchDayOf(item.record.stamp),
@@ -1887,7 +2146,13 @@ export class AtlasReview {
       ? emptySourcePlan()
       : planFamilySources(sourceChecks, keptFamilies, request.confirm === true);
     problems.push(...plan.problems);
-    const content: AtlasVersionContent = {
+    // The review of 5 November, finding 4: a source the owner drops from the revision leaves its research too.
+    const keepsSource = request.sources === undefined || openLead ? undefined : (source: string) => {
+      const parsed = parseAtlasSource(source);
+      return parsed !== undefined && keptFamilies.some(({ identifiers }) =>
+        identifiers.some(({ scheme, value }) => scheme === parsed.kind && value === parsed.id));
+    };
+    const content: AtlasVersionContent = revisedResearch({
       ...withoutDeclaredFields(latest.content),
       wording: request.wording ?? latest.content.wording,
       appliesTo: request.appliesTo ?? latest.content.appliesTo,
@@ -1895,7 +2160,7 @@ export class AtlasReview {
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
       ...storedFields,
-    };
+    }, latest.content, keepsSource);
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
     if (unchanged) {
@@ -2900,6 +3165,7 @@ function contentOf(
   texts: ReturnType<typeof acceptedTexts>,
   numbers: AtlasNumberEntry[],
   fields: DeclaredFields,
+  kept: readonly string[] = item.sources,
 ): AtlasVersionContent {
   const declared = item.record.card.public_value;
   const open = item.leadOrigin === "open_lead";
@@ -2917,7 +3183,30 @@ function contentOf(
     verifiedBases: item.entryKind === "finding" ? item.bases : [],
     numbers,
     ...(open ? {} : definedFields(fields)),
+    // Owner answer 255a: the research behind it, kept with the version, so an accepted finding from any card shows it;
+    // only the sources the owner accepts, so a source dropped never shows (the review of 5 November, finding 4).
+    ...(open || item.finding === null ? {} : researchField(canonicalResearchOf(item.finding, numbers, kept))),
   };
+}
+
+/** The research behind a finding as a version's content takes it: left out when there is none. */
+function researchField(research: AtlasResearch | undefined): Pick<AtlasVersionContent, "research"> {
+  return research === undefined ? {} : { research };
+}
+
+/**
+ * A revised version's research behind it (owner answer 255a): the latest version's, with only the sources the revision
+ * keeps (`keeps`, when the owner keeps some: the review of 5 November, finding 4), and whose figures' sources stay only
+ * while the figures do, since each names a figure by its place.
+ */
+function revisedResearch(content: AtlasVersionContent, latest: AtlasVersionContent,
+  keeps?: (source: string) => boolean): AtlasVersionContent {
+  const { research: given, ...withoutResearch } = content;
+  const kept = given === undefined || keeps === undefined ? given : researchKeeping(given, keeps);
+  const figuresKept = kept?.figure_sources === undefined || stableJson(content.numbers) === stableJson(latest.numbers);
+  const { figure_sources: _figures, ...rest } = kept ?? {};
+  const research = kept === undefined ? undefined : figuresKept ? kept : rest;
+  return research === undefined || Object.keys(research).length === 0 ? withoutResearch : { ...withoutResearch, research };
 }
 
 /** Every text of an item as an accept would store it, for the dry run's privacy screen. */
@@ -3193,7 +3482,7 @@ function storedTitle(title: string | undefined): string | null {
   let text = title.replace(/\s+/gu, " ").trim();
   if (text.length > 500) text = text.slice(0, /[\uD800-\uDBFF]/u.test(text.charAt(499)) ? 499 : 500);
   if (text.length === 0 || /\p{Cc}/u.test(text) || screenAtlasTexts({ title: text }).length > 0 ||
-    /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu.test(text)) {
+    /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu.test(withoutFormatCharacters(text))) {
     return null;
   }
   return text;
@@ -4037,17 +4326,27 @@ const LIST_PAGE = 10;
 
 /** A card's place in the list: beyond-quick-answer first, then the oldest save, then the issue number. */
 interface CursorKey {
+  /** The strength of the card's strongest finding that waits (atlas/strength.ts): the stronger first. */
+  g: number;
   b: 0 | 1;
   s: string;
   n: number;
 }
 
-function cursorKeyOf(labels: readonly string[], record: FindingsRecord, number: number): CursorKey {
-  return { b: isBeyondQuickAnswer(labels) ? 0 : 1, s: record.stamp.saved_at, n: number };
+/**
+ * Where a card waits in list_findings: its strongest undecided finding's claim strength first (the owner, 2 Nov 2026:
+ * "the stronger the claim is, the higher it ranks, but the more it needs checking"), then beyond a quick answer, then
+ * the oldest save, then the card's number.
+ */
+function cursorKeyOf(labels: readonly string[], record: FindingsRecord, number: number,
+  undecided: ReadonlySet<number> = new Set(record.card.findings.map((_, index) => index + 1))): CursorKey {
+  const strongest = Math.max(0, ...record.card.findings.flatMap((finding, index) =>
+    undecided.has(index + 1) ? [storedClaimStrength(finding).total] : []));
+  return { g: strongest, b: isBeyondQuickAnswer(labels) ? 0 : 1, s: record.stamp.saved_at, n: number };
 }
 
 function compareCursorKeys(left: CursorKey, right: CursorKey): number {
-  return left.b - right.b || Date.parse(left.s) - Date.parse(right.s) || left.n - right.n;
+  return right.g - left.g || left.b - right.b || Date.parse(left.s) - Date.parse(right.s) || left.n - right.n;
 }
 
 function encodeCursor(key: CursorKey): string {
@@ -4059,12 +4358,18 @@ function decodeCursor(cursor: string): CursorKey | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
     if (typeof value !== "object" || value === null) return null;
-    const { b, s, n, ...rest } = value as Record<string, unknown>;
-    return Object.keys(rest).length === 0 && (b === 0 || b === 1) && typeof s === "string" &&
+    const { g, b, s, n, ...rest } = value as Record<string, unknown>;
+    return Object.keys(rest).length === 0 && typeof g === "number" && Number.isSafeInteger(g) && g >= 0 &&
+        (b === 0 || b === 1) && typeof s === "string" &&
         Number.isFinite(Date.parse(s)) && typeof n === "number" && Number.isSafeInteger(n) && n >= 1
-      ? { b, s, n }
+      ? { g, b, s, n }
       : null;
   } catch {
     return null;
   }
+}
+
+/** A card's figures as the Atlas takes them: each without the source the card names for it (owner answer 252a). */
+function atlasFiguresOf(numbers: ReadonlyArray<AtlasNumberEntry & { source?: string }> | undefined): AtlasNumberEntry[] {
+  return (numbers ?? []).map(({ source: _source, ...figure }) => figure);
 }

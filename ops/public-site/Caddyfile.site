@@ -34,6 +34,31 @@ askrigor.com {
 		file_server
 	}
 
+	handle /add {
+		rewrite * /add/index.html
+		file_server
+	}
+
+	handle /roadmap {
+		rewrite * /roadmap/index.html
+		file_server
+	}
+
+	handle /compare {
+		rewrite * /compare/index.html
+		file_server
+	}
+
+	handle /compare/free-chatgpt {
+		rewrite * /compare/free-chatgpt/index.html
+		file_server
+	}
+
+	# Owner answer 224a: what crawlers may read, and where the sitemap of reviewed findings is.
+	handle /robots.txt {
+		file_server
+	}
+
 	@assets path /assets/*
 	handle @assets {
 		file_server
@@ -46,7 +71,7 @@ askrigor.com {
 		header {
 			Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
 			X-Content-Type-Options nosniff
-			Referrer-Policy strict-origin-when-cross-origin
+			?Referrer-Policy strict-origin-when-cross-origin
 			X-Frame-Options DENY
 			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()"
 			Strict-Transport-Security "max-age=31536000"

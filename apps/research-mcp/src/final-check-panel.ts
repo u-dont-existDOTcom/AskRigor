@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import {
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
+} from "./final-check-messages.js";
+import { ANSWER_READING_LABELS, LINKED_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -27,14 +30,73 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 }
 
 // Plain JavaScript shared verbatim by the page and DOM tests, with no bundle dependencies.
-// The verdict line (owner question 108), followed by the exact checked answer or the unfinished steps and a tip
-// for continuing (owner answer 187). All result text stays plain text in the sandboxed panel.
+// The verdict line (owner question 108), followed by folded detail under a passing check or the unfinished steps and a
+// tip for continuing (owner answer 187). All result text stays plain text in the sandboxed panel.
 // A research turn calls the check several times, and the app shows this panel under each call: a not-ready call is
 // usually a step on the way to a checked answer, so its line is not a warning (owner, 23 Oct: "on every turn, it says
 // completion check failed"). An answer given before the check passed says so in its own last line. A stopped check is
-// the turn's final result (owner answer 172a), so its line says it was not checked, and why.
+// the turn's final result (owner answer 172a), so its line says it was not checked, and why. The call's notes are
+// written for the AI to act on, so they come last, folded under one closed line that opens on a click (owner, 30 Oct:
+// "i got this massive askrigor check panel").
+// Owner answer 217b (2 Nov: "keep it folded, people can unfold if they want to see how the answer is different (and it
+// should briefly explain why it's different), along with limits of checking"): under a passing check the panel no
+// longer repeats the checked answer. One closed line opens the note comparing the answer with the quick answer the AI
+// wrote down before the research, and another what the check covers and the answer's limits.
+// Owner answer 220a (2 Nov): AskRigor never sees the answer the AI writes after the check, so what was checked also
+// lists the figures of the checked answer, and a figure in the answer that isn't on that list was written after the
+// check. A figure is a number in digits of any script, as written, with its decimal or group separators, a fraction's
+// slash and a percent sign. Links, DOIs, PubMed numbers, citation markers, list numbers and the digits of a name such as
+// COVID-19, B12 or ARF-0042 are not figures.
+// Owner answer 237a (4 Nov): what was checked also lists each key claim's two quotes, looked up word for word in the text
+// AskRigor fetched, and where each was found. A quote not found says so here, where the reader can see it.
+// The owner, 5 Nov ("make sure askrigor is enforcing that the AI tells people what it actually read"): it also lists how
+// each key study was read, as the check verified it, so the reader sees it even when the answer is reworded: the
+// readings AskRigor's receipts show, and apart, the AI's own account of the others, with what the receipts do show of
+// them (the review of 5 Nov 2026).
+// The owner, 6 Nov ("make sure we get it working so it tells you to what extent it read the studies"): under every status
+// with research receipts, the line after the verdict says how much of the research AskRigor read, counted exactly from
+// the receipts, unfolded; and what was checked lists, apart from the key studies, the other studies the answer links,
+// each with the reading AskRigor's receipts show, or that AskRigor did not look it up.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
+const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
+const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
+const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
+const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
+const SHOWN_READING_LABELS = ${JSON.stringify(SHOWN_READING_LABELS)};
+const LINKED_READING_LABELS = ${JSON.stringify(LINKED_READING_LABELS)};
+function sourceLineOutcome(line) {
+  const place = line.text === "abstract" ? "the paper's abstract"
+    : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
+  const where = (section) => typeof section === "string" && section !== "" ? " (" + section + ")" : "";
+  const quote = (name, outcome, section) => outcome === "found" ? name + " found" + where(section)
+    : outcome === "not_found" ? name + " NOT found" : name + " not looked up";
+  if (line.sentence === "not_checked" && line.conclusion === "not_checked") {
+    return line.reason === "text_expired" ? "not looked up: AskRigor no longer holds this paper's text."
+      : line.reason === "too_short" ? "not looked up: the quotes are too short to mean much."
+      : line.reason === "not_a_key_source" ? "not looked up: this isn't one of the answer's key sources."
+      : "not looked up: AskRigor has no text of this paper to look in.";
+  }
+  if (line.reason === "same_quote") {
+    return quote("the paper's sentence", line.sentence, line.sentence_section) +
+      ", given again as its conclusion, so only one passage was looked up, in " + place + ".";
+  }
+  if (line.sentence === "found" && line.conclusion === "found" && line.text !== "search_copy") {
+    return "\u2713 both quotes are in " + place + where(line.sentence_section) + where(line.conclusion_section) + ".";
+  }
+  return quote("the paper's sentence", line.sentence, line.sentence_section) + ", " +
+    quote("its conclusion", line.conclusion, line.conclusion_section) + ", in " + place + ".";
+}
+function answerFigures(text) {
+  const kept = text
+    .replace(/\bhttps?:\/\/\S+|\bwww\.\S+|\b10\.\d{4,9}\/\S+|\bPMID:?\s*\d+/giu, " ")
+    .replace(/\[\s*\p{Nd}+(?:\s*[,–-]\s*\p{Nd}+)*\s*\]/gu, " ")
+    .replace(/^([ \t]*)\p{Nd}+[.)](?=\s)/gmu, "$1");
+  const figure = /(?:(?<=^|[\s(\[])[−-])?(?<![\p{L}\p{Nd}_\/])(?<!\p{L}[-.])\p{Nd}+(?:[.,  ]\p{Nd}+)*(?:\/\p{Nd}+(?:[.,]\p{Nd}+)*)*(?:[   ]?[%‰٪])?/gu;
+  const figures = [];
+  for (const match of kept.matchAll(figure)) if (!figures.includes(match[0])) figures.push(match[0]);
+  return figures;
+}
 function renderFinalCheck(doc, structuredContent) {
   const root = doc.getElementById("final-check-panel");
   const result = structuredContent && typeof structuredContent === "object" ? structuredContent : {};
@@ -43,7 +105,7 @@ function renderFinalCheck(doc, structuredContent) {
   let line = "AskRigor's final check could not run here.";
   if (result.status === "ready") line = "\u2713 Checked by AskRigor's final check.";
   if (result.status === "ready_with_limits") {
-    line = "\u2713 Checked by AskRigor's final check. The answer states its " + limits + (limits === 1 ? " limit." : " limits.");
+    line = "\u2713 Checked by AskRigor's final check, with " + limits + (limits === 1 ? " limit below." : " limits below.");
   }
   if (result.status === "not_ready") line = "AskRigor's final check asked for more work on this draft.";
   if (result.status === "stopped") {
@@ -59,9 +121,71 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
-  if ((result.status === "ready" || result.status === "ready_with_limits") && typeof result.checked_answer === "string") {
-    appendText("h2", "The answer as AskRigor checked it:");
-    appendText("p", result.checked_answer);
+  const summary = result.reading_summary && typeof result.reading_summary === "object"
+    ? result.reading_summary.sentence : undefined;
+  if (typeof summary === "string" && summary.trim() !== "") appendText("p", summary);
+  const fold = (summary) => {
+    const details = doc.createElement("details");
+    appendText("summary", summary, details);
+    root.appendChild(details);
+    return details;
+  };
+  const strings = (list) => Array.isArray(list) ? list.filter((entry) => typeof entry === "string") : [];
+  if (result.status === "ready" || result.status === "ready_with_limits") {
+    const noted = typeof result.plain_answer_note === "string" && result.plain_answer_note.trim() !== "";
+    if (noted) {
+      const difference = fold("How this answer differs from a quick answer");
+      appendText("p", DIFFERENCE_LEAD, difference);
+      appendText("p", result.plain_answer_note, difference);
+    }
+    const sources = result.sources && typeof result.sources === "object" ? result.sources : {};
+    const community = result.community && typeof result.community === "object" ? result.community : {};
+    const checked = fold("What AskRigor checked" +
+      (limits > 0 ? ", and this answer's " + limits + (limits === 1 ? " limit" : " limits") : ""));
+    appendText("p", CHECK_SCOPE, checked);
+    appendText("p", "Key studies whose methods were audited: " + strings(sources.validated).length +
+      ". Used only as leads: " + strings(sources.lead_only).length +
+      ". Communities searched: " + strings(community.communities_searched).length + ".", checked);
+    const readings = Array.isArray(result.source_reading) ? result.source_reading.filter((entry) => entry &&
+      typeof entry.name === "string" && Object.hasOwn(ANSWER_READING_LABELS, entry.reading)) : [];
+    const shownReadings = readings.filter((entry) => entry.shown !== false);
+    const apart = readings.filter((entry) => entry.shown === false);
+    if (shownReadings.length > 0) {
+      appendText("p", "What AskRigor read: " + shownReadings.map((entry) => entry.name + ", " +
+        ANSWER_READING_LABELS[entry.reading]).join("; ") + ".", checked);
+    }
+    if (apart.length > 0) {
+      appendText("p", "As the AI gives them, which AskRigor's receipts don't show: " + apart.map((entry) =>
+        entry.name + ", " + ANSWER_READING_LABELS[entry.reading] +
+        (entry.reading !== "other_tool" && Object.hasOwn(SHOWN_READING_LABELS, entry.receipts)
+          ? " (AskRigor's receipts show: " + SHOWN_READING_LABELS[entry.receipts] + ")" : "")).join("; ") + ".", checked);
+    }
+    const linked = Array.isArray(result.linked_reading) ? result.linked_reading.filter((entry) => entry &&
+      typeof entry.name === "string" && Object.hasOwn(LINKED_READING_LABELS, entry.reading)) : [];
+    if (linked.length > 0) {
+      appendText("p", "Other studies the answer links, as AskRigor's receipts show them: " + linked.map((entry) =>
+        entry.name + ", " + LINKED_READING_LABELS[entry.reading]).join("; ") + ".", checked);
+    }
+    if (typeof result.checked_answer === "string") {
+      const figures = answerFigures(result.checked_answer);
+      const other = (noted ? ", apart from the quick-answer note's," : "") + " was added";
+      appendText("p", figures.length === 0
+        ? "The answer AskRigor checked gives no figures, so any figure in the answer" + other + " after the check."
+        : "Figures in the answer AskRigor checked: " + figures.join(" · ") + ". Any other figure in the answer" +
+          other + " or changed after the check.", checked);
+    }
+    const quoted = Array.isArray(result.source_lines) ? result.source_lines.filter((line) => line && typeof line.label === "string") : [];
+    if (quoted.length > 0) {
+      appendText("p", SOURCE_LINES_LEAD, checked);
+      const list = doc.createElement("ul");
+      for (const line of quoted) appendText("li", line.label + ": " + sourceLineOutcome(line), list);
+      checked.appendChild(list);
+    }
+    if (limits > 0) {
+      const list = doc.createElement("ul");
+      for (const limit of strings(result.limits)) appendText("li", limit, list);
+      checked.appendChild(list);
+    }
   }
   if (result.status === "stopped") {
     const appendSteps = (heading, steps) => {
@@ -75,6 +199,15 @@ function renderFinalCheck(doc, structuredContent) {
     appendSteps("Checks AskRigor could not finish this turn:", result.stopped?.could_not);
     appendSteps("What the next turn can do:", result.stopped?.next_turn);
     appendText("p", COMPLETE_CHECKS_TIP);
+  }
+  const notes = Array.isArray(result.notes) ? result.notes.filter((note) => typeof note === "string") : [];
+  if (notes.length > 0) {
+    const details = doc.createElement("details");
+    appendText("summary", "Notes for the AI (" + notes.length + ")", details);
+    const list = doc.createElement("ul");
+    for (const note of notes) appendText("li", note, list);
+    details.appendChild(list);
+    root.appendChild(details);
   }
 }
 `;
@@ -110,6 +243,7 @@ body { margin: 0; padding: 10px 16px; }
 main { max-width: 72ch; margin: auto; overflow-wrap: anywhere; }
 p { margin: 0; white-space: pre-wrap; }
 h2 { font-size: 1em; margin: 12px 0 4px; }
+summary { margin: 12px 0 4px; cursor: pointer; }
 ul { margin: 0 0 12px; padding-left: 20px; white-space: pre-wrap; }
 @media (prefers-color-scheme: dark) { :root { color: #e7e9ed; background: #191b20; } }
 </style>

@@ -2,10 +2,16 @@
   "protocolSection": {
     "identificationModule": {
       "nctId": "NCT01234567",
-      "briefTitle": "Recorded trial of an example intervention"
+      "briefTitle": "Recorded trial of an example intervention",
+      "secondaryIdInfos": [
+        { "id": "RRI-EX-001", "type": "OTHER", "domain": "Recorded Research Institute" },
+        { "type": "OTHER" }
+      ]
     },
     "statusModule": {
       "overallStatus": "RECRUITING",
+      "studyFirstSubmitDate": "2024-12-02",
+      "studyFirstPostDateStruct": { "date": "2024-12-09", "type": "ACTUAL" },
       "startDateStruct": { "date": "2025-01-15", "type": "ACTUAL" },
       "completionDateStruct": { "date": "2026-12-31", "type": "ESTIMATED" },
       "lastUpdatePostDateStruct": { "date": "2025-07-01", "type": "ACTUAL" }
@@ -22,6 +28,28 @@
     },
     "armsInterventionsModule": {
       "interventions": [{ "type": "DRUG", "name": "Example treatment" }]
+    },
+    "outcomesModule": {
+      "primaryOutcomes": [{
+        "measure": "Change in the example score",
+        "description": "The example score from baseline to week 12",
+        "timeFrame": "12 weeks"
+      }],
+      "secondaryOutcomes": [
+        { "measure": "Participants with an adverse event", "timeFrame": "12 weeks" },
+        { "description": "An outcome the record gives without its measure" }
+      ]
+    },
+    "contactsLocationsModule": {
+      "locations": [
+        {
+          "facility": "Example University Hospital",
+          "city": "Exampleton",
+          "country": "Exampleland",
+          "contacts": [{ "name": "Site Contact Person", "phone": "000-0000", "email": "site.contact@example.org" }]
+        },
+        { "facility": "Recorded Research Clinic", "city": "Sampleville", "country": "Sampleland" }
+      ]
     },
     "referencesModule": {
       "references": [{

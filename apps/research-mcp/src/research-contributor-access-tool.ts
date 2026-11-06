@@ -42,7 +42,22 @@ import {
   sameQuote,
   sentencesOf,
 } from "./research-finalization-gate.js";
+import { laterInputShape } from "./later-inputs.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
+import {
+  SHARED_ANSWER_KEPT,
+  SharedAnswersFullError,
+  sharedAnswerProblems,
+  type SharedAnswers,
+  type SharedAnswerVersions,
+} from "./shared-answers.js";
+import {
+  atlasReportResultSchema,
+  shareReport,
+  takeDownReport,
+  type AtlasReportDoor,
+  type ReportRefusalCode,
+} from "./atlas/report-door.js";
 import {
   RESEARCH_RECEIPT_MAX_CHARACTERS,
   researchTargetDigest,
@@ -79,6 +94,12 @@ export const manageResearchAccessInputSchema = z.object({
     "set_plain_answer_note",
     "set_detailed_lesson_reports",
     "set_findings_save",
+    // Owner answer 200a: runtime-only actions, named by the final check's share_offer (owner answer 189a).
+    "share_answer",
+    "delete_shared_answer",
+    // Owner answer 229a: a person's report of what worked for them, to the Atlas, and its take-down (runtime only).
+    "share_report",
+    "take_down_report",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -125,6 +146,9 @@ const researchAccessErrorSchema = z.object({
     "plain_answer_not_requested",
     "dev_account_required",
     "receipts_unavailable",
+    "sharing_unavailable",
+    "share_refused",
+    "share_limit_reached",
     "invalid_request",
   ]),
   message: z.string(),
@@ -152,6 +176,27 @@ export const manageResearchAccessOutputSchema = z.object({
       "for it."),
   problems: z.array(z.string()).optional(),
   error: researchAccessErrorSchema.optional(),
+}).strict();
+
+/** The account tool's inputs as its handler reads them: the published ones and its later shape (owner answer 189a). */
+const manageResearchAccessRuntimeInputSchema = manageResearchAccessInputSchema.safeExtend(
+  laterInputShape("manage_research_access"));
+
+/** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
+export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.safeExtend({
+  sharedAnswer: z.object({
+    code: z.string(),
+    expiresAt: z.string(),
+    kept: z.string(),
+  }).strict().optional(),
+  sharedAnswerDeleted: z.boolean().optional(),
+  // Owner answer 229a: the report sent to the Atlas, or taken down.
+  atlasReport: atlasReportResultSchema.optional(),
+  // The owner's report of 6 Nov 2026 (runtime only, owner answer 189a): inspect's next step for an account whose research
+  // waits on the free-use notice.
+  next_step: z.string().optional()
+    .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
+      "ask; never accept it for them."),
 }).strict();
 
 /**
@@ -264,6 +309,10 @@ export interface ResearchContributorToolOptions {
   toolListVersion?: string;
   /** The dev accounts permitted to change findings-card saving (owner answer 171). */
   devAccountKeys?: () => ReadonlySet<string>;
+  /** Shared questions and answers (owner answer 200a), with the versions they are given under; undefined when off. */
+  sharedAnswers?: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> };
+  /** People's reports to the Atlas (owner answer 229a); undefined while the Atlas takes none. */
+  atlasReports?: AtlasReportDoor;
 }
 
 export interface ResearchMapOptions {
@@ -313,6 +362,20 @@ export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this ac
 export const FINDINGS_SAVE_ON = "Findings-card saving is on for this dev account.";
 export const FINDINGS_SAVE_OFF = "Findings-card saving is off for this dev account; its final check still checks " +
   "the findings card and the answer.";
+
+/**
+ * What inspect asks of an account whose research waits on the free-use notice: one not enrolled, one revoked, or one
+ * active under an earlier notice, which inspect shows as not enrolled (the owner's report, 6 November 2026: when their
+ * login hadn't accepted the new notice, ChatGPT only told them they couldn't use AskRigor, and never showed the notice
+ * or asked them to agree). The research tools' refusal already says to call inspect and show the notice.
+ */
+export function noticeNextStep(): string {
+  return "Show the user this notice, word for word, and ask whether they accept it for free research (or use paid " +
+    "private access if they have it). Only after their yes, call manage_research_access with action " +
+    `accept_free_contributor and agreement {noticeVersion: "${RESEARCH_USE_NOTICE_VERSION}", ` +
+    "eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true, " +
+    "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+}
 
 /** What inspect asks of an account that registers a plain answer, before any research call. */
 export function plainAnswerRequest(note: boolean): string {
@@ -461,7 +524,66 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
       );
     }
     try {
-      const parsed = manageResearchAccessInputSchema.parse(input);
+      const parsed = manageResearchAccessRuntimeInputSchema.parse(input);
+      if ((parsed.action === "share_answer") !== (parsed.sharedAnswer !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.sharedAnswer goes only with action share_answer, which needs it.",
+        );
+      }
+      if ((parsed.action === "delete_shared_answer") !== (parsed.shareCode !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.shareCode goes only with action delete_shared_answer, which needs it.",
+        );
+      }
+      if (parsed.action === "share_answer" || parsed.action === "delete_shared_answer") {
+        const sharing = options.sharedAnswers;
+        if (sharing === undefined) {
+          return accessError("sharing_unavailable", "This AskRigor server does not keep shared answers, so nothing " +
+            "was sent or deleted.");
+        }
+        if (parsed.action === "delete_shared_answer") {
+          const deleted = sharing.vault.deleteByCode(parsed.shareCode!);
+          return {
+            content: [{ type: "text", text: deleted
+              ? "The shared answer for that code is deleted."
+              : "No shared answer is kept for that code: it was already deleted, its time ran out, or the code is " +
+                "not one AskRigor gave." }],
+            structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, sharedAnswerDeleted: deleted }),
+          };
+        }
+        return shareAnswer(options.service, sharing, auth.subject, parsed.sharedAnswer!);
+      }
+      // Owner answer 229a: a person's report to the Atlas, sent by their own AI on their yes, and its take-down.
+      if ((parsed.action === "share_report") !== (parsed.atlasReport !== undefined)) {
+        return accessError("invalid_request", "later_inputs.atlasReport goes only with action share_report, which needs it.");
+      }
+      if ((parsed.action === "take_down_report") !== (parsed.reportNumber !== undefined)) {
+        return accessError("invalid_request",
+          "later_inputs.reportNumber goes only with action take_down_report, which needs it.");
+      }
+      if (parsed.action === "share_report" || parsed.action === "take_down_report") {
+        const door = options.atlasReports;
+        if (door === undefined) {
+          return accessError("sharing_unavailable", "This AskRigor server does not take Atlas reports yet, so nothing " +
+            "was sent or taken down.");
+        }
+        await options.service.activeAccount(auth.subject);
+        const ok = (text: string, atlasReport: z.infer<typeof atlasReportResultSchema>): CallToolResult => ({
+          content: [{ type: "text", text }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, atlasReport }),
+        });
+        const refuse = (code: ReportRefusalCode, message: string, problems: string[] = []): CallToolResult => ({
+          content: [{ type: "text", text: problems.length === 0 ? message : `${message} ${problems.join(" ")}` }],
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: false,
+            ...(problems.length === 0 ? {} : { problems }), error: { code, message } }),
+          isError: true,
+        });
+        return parsed.action === "share_report"
+          ? await shareReport(door, auth.subject, parsed.atlasReport!, refuse, ok, new Date())
+          : await takeDownReport(door, auth.subject, parsed.reportNumber!, refuse, ok);
+      }
       if (
         (parsed.action === "accept_free_contributor") !==
           (parsed.agreement !== undefined)
@@ -552,6 +674,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           plainAnswerRequested(settings.mode)
         ? { note: settings.plainAnswerNote }
         : undefined;
+      // Inspected, an account whose research waits on the notice is told to show it and ask, with the notice itself in
+      // the text too, for an app that shows the model a tool's text alone.
+      const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
       return {
         content: [{
           type: "text",
@@ -560,6 +685,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             : access.status === "REVOKED"
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
+            (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
             (settings === undefined
               ? ""
@@ -567,18 +693,70 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
-        structuredContent: manageResearchAccessOutputSchema.parse({
+        structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
           ok: true,
           access,
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           accountReference,
+          ...(nextStep === undefined ? {} : { next_step: nextStep }),
         }),
       };
     } catch (error) {
       return mappedAccessError(error);
     }
+  };
+}
+
+/**
+ * Keeps the person's confirmed, de-identified copy (owner answer 200a). Only an active research account may share; the
+ * account is read to check that and counted in memory against the daily limit, and nothing about it is kept with the
+ * copy. The copy passes the contact screen's exact patterns first.
+ */
+async function shareAnswer(
+  service: ResearchContributorAccessService,
+  sharing: SharedAnswers & { versions: () => Promise<SharedAnswerVersions> },
+  subject: string,
+  copy: NonNullable<z.infer<typeof manageResearchAccessRuntimeInputSchema>["sharedAnswer"]>,
+): Promise<CallToolResult> {
+  await service.activeAccount(subject);
+  const problems = sharedAnswerProblems(copy);
+  if (problems.length > 0) {
+    return {
+      content: [{ type: "text", text: `Nothing was sent. ${problems.join(" ")}` }],
+      structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: false,
+        problems,
+        error: { code: "share_refused", message: "The copy holds what looks like contact details or a token." },
+      }),
+      isError: true,
+    };
+  }
+  if (!sharing.allow(service.accountKeyForSubject(subject))) {
+    return accessError("share_limit_reached", "This account has shared as many answers as AskRigor keeps from one " +
+      "account in a day, so nothing was sent; it can share again tomorrow (UTC).");
+  }
+  let kept: { code: string; expiresAt: string };
+  try {
+    kept = sharing.vault.share(copy, await sharing.versions());
+  } catch (error) {
+    if (error instanceof SharedAnswersFullError) {
+      return accessError("sharing_unavailable", "AskRigor is keeping as many shared answers as it can, so nothing " +
+        "was sent; try again later.");
+    }
+    throw error;
+  }
+  return {
+    content: [{
+      type: "text",
+      text: `Sent. Give the person this code, which deletes the shared answer: ${kept.code}. ${SHARED_ANSWER_KEPT} ` +
+        "AskRigor's server checked the copy only for contact details and tokens, not that it is de-identified.",
+    }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true,
+      sharedAnswer: { code: kept.code, expiresAt: kept.expiresAt, kept: SHARED_ANSWER_KEPT },
+    }),
   };
 }
 
@@ -636,8 +814,14 @@ async function registerPlainAnswer(
       "answer was not registered; the research goes ahead without it.");
   }
   const count = plainAnswer.claims.length;
-  const summary = `Plain answer registered before research: ${count === 1 ? "1 claim" : `${count} claims`}, signed ` +
-    "with the time. Treat each claim as something to check, confirm or correct, and look beyond the claims too. Pass " +
+  // The server keeps no record of the research, so it cannot tell here whether research began; the final check can, by
+  // the receipts' signed order (#394's run: q136-weak-lead-given registered again after research began, and both results
+  // said "registered before research").
+  const summary = `Plain answer registered: ${count === 1 ? "1 claim" : `${count} claims`}, signed with the time. The ` +
+    "final check compares the answer with the latest plain answer this account registered for the research target " +
+    "before the research's first receipt, so one registered after research began is not compared; if one for this " +
+    "research target was registered before the research began, pass that receipt too. Treat each claim as something " +
+    "to check, confirm or correct, and look beyond the claims too. Pass " +
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
     "it. Claims: " + plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +

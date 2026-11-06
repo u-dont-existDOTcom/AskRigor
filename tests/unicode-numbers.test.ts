@@ -6,6 +6,20 @@ import {
 
 describe("Unicode unsigned numbers", () => {
   it.each([
+    ["11·9%", [11.9]], ["１１·９%", [11.9]], ["١١·٩%", [11.9]],
+    ["a · b", []], ["11 · 9", [11, 9]], ["11· 9", [11, 9]], ["11 ·9", [11, 9]],
+  ])("reads a middle dot only between adjacent digits in %s", (text, numbers) => {
+    expect(extractUnsignedNumbers(text)).toEqual(numbers);
+    expect(firstNumberReadings(text)).toEqual(numbers.slice(0, 1));
+    expect(numberReadings(text)).toEqual(numbers);
+  });
+
+  it("allows a decimal middle dot after grouped thousands", () => {
+    expect(firstNumberReadings("1,234·5%")).toEqual([1.234, 1234.5]);
+    expect(firstNumberReadings("1·234%")).toEqual([1.234]);
+  });
+
+  it.each([
     ["Latin", "0–28; 6.8 versus 9.7; 2.9-point; 6", [0, 28, 6.8, 9.7, 2.9, 6]],
     ["Arabic-Indic", "٠–٢٨; ٦.٨ مقابل ٩.٧; ٢,٩; ٦", [0, 28, 6.8, 9.7, 2.9, 6]],
     ["Devanagari", "०–२८; ६.८; ९.७; २,९; ६", [0, 28, 6.8, 9.7, 2.9, 6]],

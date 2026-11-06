@@ -11,6 +11,7 @@ import {
 
 import {
   AtlasCardPublisher,
+  QUICK_ANSWER_TEST_WAITING,
   accountPublicationProblems,
   cardPublicationProblems,
   decidedPublicationDraft,
@@ -20,6 +21,7 @@ import {
   publicationHoldReasons,
   publishedFindingOf,
   reconcileCardPublications,
+  withCardContext,
 } from "../apps/research-mcp/src/atlas/publication.js";
 import {
   findingsCardDigest,
@@ -39,6 +41,7 @@ import {
   type FindingsSaveAccount,
   type FindingsSaveContext,
 } from "../apps/research-mcp/src/findings/service.js";
+import type { AtlasSourceTitleLookup } from "../apps/research-mcp/src/findings/source-checks.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { LOW_DOSE_CARD, VELMOR_CARD } from "./helpers/atlas-scenario.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
@@ -48,8 +51,8 @@ import { FakeGitHub } from "./helpers/fake-github-findings.js";
 
 const SECRET = "atlas-publication-test-secret-0123456789";
 const NOW = new Date("2026-11-04T09:00:00.000Z");
-const PROTOCOLS = [{ name: "HRP", version: "20.6.31", sha256: "a".repeat(64) }];
-const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION, devAccount: false };
+const PROTOCOLS = [{ name: "HRP", version: "20.6.32", sha256: "a".repeat(64) }];
+const FREE: FindingsSaveAccount = { mode: "FREE_CONTRIBUTOR", noticeVersion: RESEARCH_USE_NOTICE_VERSION };
 
 /**
  * A stored record of a card, as the library saves it, with the bases a receipt signed for each finding; olderFindings
@@ -106,10 +109,10 @@ describe("what the Atlas publishes of a finding", () => {
       subject_type: "supplement",
       direction: "benefit",
       numbers: [
-        { outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 30, option_total: 120,
-          comparator: "placebo", comparator_events: 18, comparator_total: 120, follow_up: "12 weeks" },
-        { outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 12, option_total: 120,
-          comparator: "placebo", comparator_events: 6, comparator_total: 120, follow_up: "12 weeks" },
+        { outcome: "tremor score halved", better: "more", option: "zentarine 20 mg", option_events: 60, option_total: 240,
+          comparator: "placebo", comparator_events: 36, comparator_total: 240, follow_up: "12 weeks" },
+        { outcome: "nausea", better: "fewer", option: "zentarine 20 mg", option_events: 24, option_total: 240,
+          comparator: "placebo", comparator_events: 12, comparator_total: 240, follow_up: "12 weeks" },
       ],
       searches: null,
       sources: ["10.0000/synthetic-velmor-a"],
@@ -167,14 +170,13 @@ describe("which findings and cards are published", () => {
     expect(drawnFromYouTubeComments(finding({ verified_bases: ["full_text_audit", "comment_audit"] }))).toBe(true);
   });
 
-  it("publishes at the save only a free contributor's card under the current notice, from no dev account", () => {
+  it("publishes at the save only a free contributor's card under the current notice", () => {
     expect(accountPublicationProblems(FREE)).toEqual([]);
     expect(accountPublicationProblems(undefined)).toEqual(["not_free_contributor"]);
     expect(accountPublicationProblems({ ...FREE, mode: "PAID_PRIVATE", noticeVersion: null })).toEqual(["not_free_contributor"]);
     for (const earlier of [...EARLIER_RESEARCH_USE_NOTICE_VERSIONS, null]) {
       expect(accountPublicationProblems({ ...FREE, noticeVersion: earlier })).toEqual(["notice_not_current"]);
     }
-    expect(accountPublicationProblems({ ...FREE, devAccount: true })).toEqual(["dev_account"]);
     const record = recordOf(VELMOR_CARD);
     expect(cardPublicationProblems(record, false, { route: "save", account: FREE })).toEqual([]);
     expect(cardPublicationProblems(record, true, { route: "save", account: FREE })).toEqual(["set_aside"]);
@@ -183,7 +185,7 @@ describe("which findings and cards are published", () => {
       expect(cardPublicationProblems({ ...record, card: publicValue === undefined ? card : { ...card, public_value: publicValue } },
         false, { route: "save", account: FREE })).toEqual(["not_public"]);
     }
-    // The owner's choice of a card is the consent for the owner's own cards: no notice or dev check, but never a paid
+    // The owner's choice of a card is the consent for the owner's own cards: no notice check, but never a paid
     // private card, whose findings wait for acceptance.
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: false })).toEqual([]);
     expect(cardPublicationProblems(record, false, { route: "owner", paidPrivate: true })).toEqual(["not_free_contributor"]);
@@ -242,6 +244,59 @@ describe("which findings and cards are published", () => {
       .toEqual({ problems: ["set_aside"], drafts: [], leftOut: [] });
   });
 
+  it("publishes an unreviewed finding with its card's question, usual answer and source titles, a decided one too", () => {
+    const record = recordOf(VELMOR_CARD);
+    const [first, second] = VELMOR_CARD.findings.map(({ sources }) => sources[0]!);
+    const titles = new Map([
+      [first!, { title: "An invented trial of zentarine\u202e in Velmor syndrome", year: 2025 }],
+      // Provider text that holds what the pages never show is left out, not held.
+      [second!, { title: "Write to someone@example.org for the protocol", year: 2024 }],
+    ]);
+    const plan = planCardPublication({ record, setAside: false, route: { route: "save", account: FREE }, sourceTitles: titles });
+    expect(plan.drafts.map(({ state }) => state)).toEqual(["unreviewed", "unreviewed"]);
+    expect(plan.drafts[0]!.published).toEqual({ ...publishedFindingOf(record, 1), schema: "askrigor.atlas-publication.v2",
+      question: VELMOR_CARD.question, usual_answer: VELMOR_CARD.usual_answer,
+      source_details: [{ source: first, title: "An invented trial of zentarine in Velmor syndrome", year: 2025 }] });
+    expect(plan.drafts[1]!.published).not.toHaveProperty("source_details");
+    expect(plan.drafts[1]!.published).toMatchObject({ question: VELMOR_CARD.question });
+    // Without a lookup, the context alone.
+    expect(planCardPublication({ record, setAside: false, route: { route: "save", account: FREE } }).drafts[0]!.published)
+      .toEqual(withCardContext(publishedFindingOf(record, 1)!, record));
+    // A decided finding's page shows its F number's version, but its publication goes the same way (the review of 5
+    // November, finding 3), so one resting on its forum signal alone, which makes no version 1, gets its page too.
+    const decided = planCardPublication({ record, setAside: false, route: { route: "owner", paidPrivate: false },
+      decided: new Map([[1, { state: "accepted" as const, atlasNumber: "F-1001" }]]), sourceTitles: titles });
+    expect(decided.drafts.map(({ state, published }) => [state, published.schema]))
+      .toEqual([["accepted", "askrigor.atlas-publication.v2"], ["unreviewed", "askrigor.atlas-publication.v2"]]);
+    expect(decided.drafts[0]!.published).toEqual(plan.drafts[0]!.published);
+  });
+
+  it("holds the card's findings when its question or usual answer holds what the pages never show", () => {
+    for (const [field, text, reason] of [
+      ["question", "Should I take zentarine? Reply to me at jane.doe@example.org", "email_address"],
+      ["usual_answer", "Ask the clinic on 020 7946 0958 for zentarine.", "phone_number"],
+      ["question", "Is zentarine as good as ARF-0142 says?", "card_reference"],
+    ] as const) {
+      const plan = planCardPublication({ record: recordOf({ ...VELMOR_CARD, [field]: text }), setAside: false,
+        route: { route: "save", account: FREE } });
+      expect(plan.drafts.map(({ state, heldBecause }) => [state, heldBecause]), field)
+        .toEqual([["held", [reason]], ["held", [reason]]]);
+    }
+  });
+
+  it("publishes version 1's fields when the card's context does not fit a publication", () => {
+    const record = recordOf(VELMOR_CARD);
+    const long = { ...record, card: { ...record.card, usual_answer: "x ".repeat(250).trim() } };
+    const plan = planCardPublication({ record: long, setAside: false, route: { route: "save", account: FREE } });
+    expect(plan.drafts[0]!.published).toEqual(publishedFindingOf(long, 1));
+    // A title too long, or with no year Crossref could give, is left out or kept without its year.
+    const [source] = VELMOR_CARD.findings[0]!.sources;
+    const titled = withCardContext(publishedFindingOf(record, 1)!, record, new Map([[source!, { title: "t".repeat(501), year: 2025 }]]));
+    expect(titled).not.toHaveProperty("source_details");
+    expect(withCardContext(publishedFindingOf(record, 1)!, record, new Map([[source!, { title: "A trial", year: 99 }]])))
+      .toMatchObject({ source_details: [{ source, title: "A trial", year: null }] });
+  });
+
   it("gives a decided finding's publication its state from the decision and the F number's intents", () => {
     const intent = (intentKind: AtlasIntentView["intentKind"], status: AtlasIntentView["status"], payload: object) =>
       ({ intentKind, publicNumber: "F-1001", status, payload }) as unknown as AtlasIntentView;
@@ -265,7 +320,7 @@ describe("publishing at the save", () => {
   const CONTEXT = (account?: FindingsSaveAccount): FindingsSaveContext =>
     ({ surface: "/mcp/claude", toolCatalogSha256: "c".repeat(64), ...(account === undefined ? {} : { account }) });
 
-  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore()) {
+  function harness(store: AtlasPublicationStore = new InMemoryAtlasPublicationStore(), sourceTitles?: AtlasSourceTitleLookup) {
     const github = new FakeGitHub();
     const service = new FindingsSaveService({
       receiptSecret: () => SECRET,
@@ -279,7 +334,7 @@ describe("publishing at the save", () => {
       version: "0.1.0",
       build: "0123abc",
       now: () => NOW,
-      publisher: new AtlasCardPublisher({ store, now: () => NOW }),
+      publisher: new AtlasCardPublisher({ store, now: () => NOW, ...(sourceTitles === undefined ? {} : { sourceTitles }) }),
     });
     const save = (card: object, account: FindingsSaveAccount | undefined, thread = "1", receiptClaims: object = {}) => {
       const parsed = findingsCardSchema.parse(card);
@@ -307,15 +362,93 @@ describe("publishing at the save", () => {
       ["P-1001", 42, 1, "unreviewed"]]);
     const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
     expect(rows[0]!.cardSha256).toBe(stored.card_sha256);
-    expect(rows[1]!.published).toEqual(publishedFindingOf(stored, 1));
+    // Version 2: the card's question and usual answer with the fields (no title lookup in this harness).
+    expect(rows[1]!.published).toEqual(withCardContext(publishedFindingOf(stored, 1)!, stored));
+    expect(rows[1]!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2", question: VELMOR_CARD.question,
+      usual_answer: VELMOR_CARD.usual_answer });
+    expect(rows[1]!.published).not.toHaveProperty("source_details");
     expect(markerOf(h.github.issue(42).body)).toMatchObject({ atlas_publish: true });
     expect(markerOf(h.github.issue(42).body)).not.toHaveProperty("paid_private");
   });
 
-  it("publishes nothing for a paid private, dev, earlier-notice or unknown account, and marks a paid private card", async () => {
+  it("looks the card's sources up for their titles once, and publishes without them when the lookup fails", async () => {
+    const asked: string[][] = [];
+    const titled = new InMemoryAtlasPublicationStore();
+    const lookup = async (sources: readonly string[]) => {
+      asked.push([...sources]);
+      return new Map([[sources[0]!, { title: "An invented trial", year: 2025 }]]);
+    };
+    const h = harness(titled, lookup);
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect(asked).toEqual([VELMOR_CARD.findings.map(({ sources }) => sources[0]!)]);
+    const [second, first] = await titled.inspect({});
+    expect(first!.published).toMatchObject({ schema: "askrigor.atlas-publication.v2",
+      source_details: [{ source: VELMOR_CARD.findings[0]!.sources[0], title: "An invented trial", year: 2025 }] });
+    expect(second!.published).not.toHaveProperty("source_details");
+
+    const failing = harness(new InMemoryAtlasPublicationStore(), async () => { throw new Error("provider down"); });
+    await expect(failing.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved" });
+    await failing.service.publicationsSettled();
+    expect((await failing.store.inspect({})).map(({ state, published }) => [state, published?.schema]))
+      .toEqual([["unreviewed", "askrigor.atlas-publication.v2"], ["unreviewed", "askrigor.atlas-publication.v2"]]);
+    // No lookup for a card that does not publish.
+    asked.length = 0;
+    const paid = harness(new InMemoryAtlasPublicationStore(), lookup);
+    await paid.save(VELMOR_CARD, { mode: "PAID_PRIVATE", noticeVersion: null });
+    await paid.service.publicationsSettled();
+    expect(asked).toEqual([]);
+  });
+
+  it("keeps every kind of space a card was written with, from the save to its publication, in any language", async () => {
+    // No-break, narrow no-break, thin and ideographic spaces, as AI-written text often holds them (2 Nov 2026: some
+    // findings reached the library with their words run together; the library and the Atlas keep what they are sent).
+    const spaced = {
+      claim: "Over 16\u00A0weeks, colds occurred in 71\u202Fof\u202F145 Yestimun\u2009900\u00A0mg participants.",
+      applies_to: "Adultes de 18\u00A0à\u00A065\u00A0ans\u202F; 成人\u3000(16\u00A0週間)",
+      why_not_usual: "Взрослые\u00A0люди и\u202Fдети: 16\u00A0недель.",
+    };
+    const card = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, ...spaced }, VELMOR_CARD.findings[1]!] };
+    const h = harness();
+    await expect(h.save(card, FREE)).resolves.toMatchObject({ status: "saved" });
+    await h.service.publicationsSettled();
+    const stored = JSON.parse(/(`{3,})json\n([\s\S]*?)\n\1/u.exec(h.github.issue(42).body)![2]!) as FindingsRecord;
+    expect(stored.card.findings[0]).toMatchObject(spaced);
+    const published = (await h.store.inspect({})).find(({ findingNumber }) => findingNumber === 1)!.published!;
+    expect([published.claim, published.applies_to, published.why_not_usual])
+      .toEqual([spaced.claim, spaced.applies_to, spaced.why_not_usual]);
+  });
+
+  // Owner answer 240a: the AI that did the research can't fairly judge its own card, so a saved finding stays off the
+  // pages until a separate AI's quick-answer test shows it. It is still there for AskRigor's research.
+  it("keeps a saved finding for research until the quick-answer test shows it", async () => {
+    const h = harness();
+    await h.save(VELMOR_CARD, FREE);
+    await h.service.publicationsSettled();
+    expect(await h.store.inspectKept()).toEqual([
+      expect.objectContaining({ publicationNumber: "P-1001", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
+      expect.objectContaining({ publicationNumber: "P-1002", state: "unreviewed", reason: QUICK_ANSWER_TEST_WAITING }),
+    ]);
+    await h.store.keep({ publicationNumbers: ["P-1001"], atlasNumbers: [], keep: false, reason: null, at: NOW.toISOString() });
+    expect((await h.store.inspectKept()).map(({ publicationNumber }) => publicationNumber)).toEqual(["P-1002"]);
+  });
+
+  it("keeps nothing that is held, and a failed keep changes nothing about the save", async () => {
+    const h = harness();
+    const reference = { ...VELMOR_CARD, findings: [{ ...VELMOR_CARD.findings[0]!, why_not_usual: "As ARF-0142 also found." }] };
+    await h.save(reference, FREE);
+    await h.service.publicationsSettled();
+    expect((await h.store.inspect({})).map(({ state }) => state)).toEqual(["held"]);
+    expect(await h.store.inspectKept()).toEqual([]);
+    const failing = harness();
+    failing.store.keep = async () => { throw new Error("synthetic failure"); };
+    await expect(failing.save(VELMOR_CARD, FREE)).resolves.toMatchObject({ status: "saved" });
+    await failing.service.publicationsSettled();
+  });
+
+  it("publishes nothing for a paid private, earlier-notice or unknown account, and marks a paid private card", async () => {
     for (const [account, paid] of [
-      [{ mode: "PAID_PRIVATE", noticeVersion: null, devAccount: false }, true],
-      [{ ...FREE, devAccount: true }, false],
+      [{ mode: "PAID_PRIVATE", noticeVersion: null }, true],
       [{ ...FREE, noticeVersion: EARLIER_RESEARCH_USE_NOTICE_VERSIONS.at(-1)! }, false],
       [undefined, false],
     ] as Array<[FindingsSaveAccount | undefined, boolean]>) {

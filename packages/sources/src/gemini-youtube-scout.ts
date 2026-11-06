@@ -39,6 +39,8 @@ export const GEMINI_YOUTUBE_SCOUT_MAX_SEARCH_QUERIES = 30;
 export const GEMINI_YOUTUBE_SCOUT_MAX_TITLE_ONLY_CANDIDATES = 6;
 export const GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS = 8;
 export const GEMINI_YOUTUBE_SCOUT_MAX_LEAD_CHARACTERS = 120;
+/** At most this many characters of Google's error message are kept for a scout it refused to start. */
+const GEMINI_YOUTUBE_SCOUT_MAX_REASON_CHARACTERS = 300;
 /**
  * The language to look for videos in, as a BCP 47 tag: a language, then
  * optionally a script and a region ("fr", "pt-BR", "zh-Hant-TW", "es-419").
@@ -223,6 +225,16 @@ export interface GeminiYoutubeScoutData {
   packet: GeminiYoutubeCandidatePacket;
 }
 
+/**
+ * Google refused the request that creates a background scout's interaction, with an HTTP 4xx other than 401, 402,
+ * 403 and 429, so no interaction exists and nothing ran. Google's reason is its error message on one line, without
+ * the configured key, at most 300 characters.
+ */
+export interface GeminiYoutubeScoutNeverStarted {
+  http_status: number;
+  google_reason?: string;
+}
+
 export type GeminiYoutubeScoutBackgroundAdvance =
   | {
       kind: "progress";
@@ -235,6 +247,8 @@ export type GeminiYoutubeScoutBackgroundAdvance =
   | {
       kind: "boundary";
       frontier: ProvenanceEnvelope<Record<string, never>>;
+      // Only a scout Google refused to start; any other boundary may follow work Google ran.
+      never_started?: GeminiYoutubeScoutNeverStarted;
     };
 
 /**
@@ -395,8 +409,9 @@ export async function advanceGeminiYoutubeScoutBackground(
     ? undefined
     : geminiYoutubeScoutBackgroundCheckpointSchema.parse(checkpoint);
 
+  let raw: unknown;
   try {
-    const raw = parsedCheckpoint === undefined
+    raw = parsedCheckpoint === undefined
       ? await requestGeminiBackgroundInteraction(
           parsedConfig.data,
           buildInitialRequest(parsedInput.data, parsedConfig.data.model, parsedConfig.data.thinkingLevel)
@@ -405,19 +420,24 @@ export async function advanceGeminiYoutubeScoutBackground(
           parsedConfig.data,
           parsedCheckpoint.interaction_id
         );
-    return processGeminiBackgroundInteraction(
-      parsedInput.data,
-      parsedConfig.data,
-      raw,
-      parsedCheckpoint,
-      parsedCheckpoint !== undefined
-    );
   } catch (error) {
+    // Only the request that creates the interaction can be refused before anything ran.
+    const neverStarted = parsedCheckpoint === undefined
+      ? startRefusal(error, parsedConfig.data.apiKey)
+      : undefined;
     return {
       kind: "boundary",
-      frontier: scoutFailureEnvelope(parsedInput.data, error)
+      frontier: scoutFailureEnvelope(parsedInput.data, error),
+      ...(neverStarted === undefined ? {} : { never_started: neverStarted })
     };
   }
+  return processGeminiBackgroundInteraction(
+    parsedInput.data,
+    parsedConfig.data,
+    raw,
+    parsedCheckpoint,
+    parsedCheckpoint !== undefined
+  );
 }
 
 async function processGeminiBackgroundInteraction(
@@ -1222,6 +1242,26 @@ function scoutFailureEnvelope(
     ...(status === undefined ? {} : { httpStatus: status }),
     retryable: status === undefined || status >= 500
   });
+}
+
+/**
+ * Google's refusal of the request that would create a background scout's interaction: a 4xx other than 401, 402,
+ * 403 and 429, which keep their own boundaries. Anything else (a timeout, a 5xx, an unreadable answer) may have
+ * reached a job, so it is no refusal.
+ */
+function startRefusal(error: unknown, apiKey: string): GeminiYoutubeScoutNeverStarted | undefined {
+  if (!(error instanceof UpstreamHttpError)) return undefined;
+  const { status } = error;
+  if (status < 400 || status > 499 || [401, 402, 403, 429].includes(status)) return undefined;
+  // The key is removed before the message is cut, so no part of it can remain.
+  const reason = [...(error.providerMessage ?? "")
+    .replaceAll(apiKey, "[redacted]")
+    .replace(/[\s\p{Cc}]+/gu, " ")
+    .trim()]
+    .slice(0, GEMINI_YOUTUBE_SCOUT_MAX_REASON_CHARACTERS)
+    .join("")
+    .trimEnd();
+  return { http_status: status, ...(reason.length === 0 ? {} : { google_reason: reason }) };
 }
 
 function scoutQuery(input: z.output<typeof scoutInputSchema>): Record<string, string> {

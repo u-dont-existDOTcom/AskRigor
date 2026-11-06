@@ -1,5 +1,9 @@
 # Final check: first calls that pass ChatGPT's connector, and key-study links AskRigor's receipts tie
 
+> Final-check behavior in this dated plan is superseded by owner answers 193a and 195a.
+> See [the current five-check scope](../../final-check.md): other diagnostics are notes, limits may be
+> paraphrased, and only blocking failures consume rounds. Historical evidence and owner quotes below are retained.
+
 ## Authority and scope
 
 - The owner regression run of 16 October 2026 (build `5c4fc93`, HRP 20.6.25, Universal 20.5.43), run through Codex

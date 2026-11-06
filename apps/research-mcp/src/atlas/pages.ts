@@ -1,10 +1,25 @@
-import type { AtlasLabel, AtlasPageSourceIdentifiers } from "@askrigor/evidence-repository";
+import type {
+  AtlasForumSignalStudies,
+  AtlasLabel,
+  AtlasPublishedRetraction,
+  AtlasQuoteText,
+  AtlasSourceFigures,
+  AtlasSourceReading,
+} from "@askrigor/evidence-repository";
 
-import { binaryContrast, binaryGroups, withoutEndPunctuation } from "../binary-results.js";
+import { binaryContrast, binaryGroups, differenceRange, withoutEndPunctuation } from "../binary-results.js";
+import { shownCommunity } from "../forum-thread-links.js";
+import type { AtlasAccountFeatures } from "./account-features.js";
 import { escapeHtml } from "./page-guard.js";
 import {
+  ATLAS_FINDINGS_PER_PAGE,
+  ATLAS_MAP_NEW_DAYS,
+  ATLAS_SEARCH_MAX_PAGE,
   NOT_CHECKED_LABEL,
+  SOURCE_SCHEME_WORDS,
   canonicalIdentifier,
+  strengthOf,
+  type AtlasChallengesModel,
   type AtlasChangeEntry,
   type AtlasChangesModel,
   type AtlasContestedPair,
@@ -12,21 +27,32 @@ import {
   type AtlasFindingParticipationView,
   type AtlasFindingsModel,
   type AtlasHomeModel,
+  type AtlasMapFinding,
+  type AtlasMapModel,
+  type AtlasMapTopic,
   type AtlasOwnerPick,
+  type AtlasSearchModel,
+  type AtlasSitemapEntry,
   type AtlasTopicModel,
   type AtlasTopicsModel,
+  type ShownChallenge,
   type ShownFinding,
+  type ShownForumSignal,
   type ShownNumber,
+  type ShownQuoteLine,
   type ShownRelated,
+  type ShownResearchSource,
   type ShownSearch,
+  type ShownSource,
 } from "./page-data.js";
-import { ATLAS_SEARCH_MAX_LENGTH } from "./search.js";
+import { ATLAS_SEARCH_MAX_LENGTH, type AtlasSearchField } from "./search.js";
+import { STRENGTH_RULE, STRONG_CLAIM } from "./strength.js";
 
 /**
  * The public Atlas pages' HTML (decision 171, section 4C): plain, semantic, server-rendered pages with no script and no
  * inline style, under a content policy that allows only the same-origin stylesheet. Every text a page shows goes
- * through html``, which escapes it; only markup this module writes is ever raw. Links to sources are built here from
- * identifiers in canonical form, never taken from a card's text.
+ * through html``, which escapes it; only markup this module and the Atlas's fixed-text pages (comment-maps-page.ts)
+ * write is ever raw. Links to sources are built here from identifiers in canonical form, never taken from a card's text.
  */
 
 // Escaping ------------------------------------------------------------------------------------------------------------
@@ -48,7 +74,10 @@ function part(value: HtmlValue): string {
 }
 
 /** Markup with every interpolated value escaped, unless it is markup this module made. */
-function html(strings: TemplateStringsArray, ...values: HtmlValue[]): SafeHtml {
+/** The type only: markup is made by html`` alone, never by constructing it elsewhere. */
+export type { SafeHtml };
+
+export function html(strings: TemplateStringsArray, ...values: HtmlValue[]): SafeHtml {
   let out = strings[0]!;
   values.forEach((value, index) => {
     out += part(value) + strings[index + 1]!;
@@ -82,8 +111,37 @@ const BASIS_WORDS = {
   full_text_audit: "a full-text audit of a study",
   bounded_absence: "a documented search that found nothing",
   research_correction: "research correcting a common claim",
+  // Owner answer 254a: forum threads AskRigor's own reader read.
+  forum_read: "forum threads read in full by AskRigor",
 } as const;
 const DATABASE_WORDS = { pubmed: "PubMed", europepmc: "Europe PMC", ctgov: "ClinicalTrials.gov" } as const;
+// Owner answer 252a: how AskRigor read a source, whether its printed figures match its own data, its retraction status,
+// where a quote was found, and how studies relate to what people report (HRP FormalAbsenceCannotEraseCommunitySignal's
+// four relationships, in plain words).
+const READ_WORDS: Readonly<Record<AtlasSourceReading, string>> = {
+  full_text_audited: "Full text, with its methods audited by AskRigor",
+  search_copy_audited: "Full text, with its methods audited by AskRigor in a copy the AI found, which AskRigor didn’t fetch itself",
+  full_text_read: "Full text read; its methods weren’t audited",
+  search_copy_read: "Full text read in a copy the AI found, which AskRigor didn’t fetch itself; its methods weren’t audited",
+  partial_text: "Part of the full text read; its methods weren’t audited",
+  abstract_only: "Abstract only",
+  atlas_checked: "Read for an earlier finding checked in the Atlas",
+  secondary_only: "Known only through other papers’ accounts of it",
+  not_read: "Not read here; its public record only",
+};
+const FIGURES_WORDS: Readonly<Record<AtlasSourceFigures, string>> = {
+  consistent: "Its printed figures match its own data.",
+  internally_inconsistent: "Some of its printed figures don’t match its own data.",
+};
+const RETRACTION_WORDS: Readonly<Partial<Record<AtlasPublishedRetraction, string>>> = {
+  retracted: "This paper has been retracted.",
+  expression_of_concern: "This paper carries an expression of concern from its journal.",
+  corrected_or_updated: "This paper has been corrected or updated since it was published.",
+};
+const QUOTE_TEXT_WORDS: Readonly<Record<AtlasQuoteText, string>> = {
+  full_text: "the full text AskRigor fetched",
+  abstract: "its PubMed abstract",
+};
 const DISAGREEMENT_WORDS: Record<string, string> = {
   dose: "the dose",
   population: "who was studied",
@@ -120,9 +178,20 @@ function day(value: string): SafeHtml {
 
 /** A rate as a percentage with at most one decimal. */
 export function percent(events: number, total: number): string {
-  const rounded = Math.round((1_000 * events) / total) / 10;
-  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+  return `${outOf100(events / total)}%`;
 }
+
+/** A share as a number out of 100, to one decimal place where it has one. */
+export function outOf100(share: number): string {
+  const rounded = Math.round(1_000 * share) / 10;
+  return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+/** A difference out of 100 in words: "10 more", "3.5 fewer" or "no difference". */
+const differenceWords = (share: number) => {
+  const text = outOf100(Math.abs(share));
+  return text === "0" ? "no difference" : `${text} ${share > 0 ? "more" : "fewer"}`;
+};
 
 const disagreementWords = (disagreement: string | null) =>
   disagreement === null ? "what they found" : DISAGREEMENT_WORDS[disagreement] ?? "how the studies were done";
@@ -136,22 +205,48 @@ export function sourceLink(identifier: { scheme: string; value: string }): { hre
     case "doi":
       return {
         href: `https://doi.org/${identifier.value.split("/").map(encodeURIComponent).join("/")}`,
-        text: `DOI ${identifier.value}`,
+        text: `${SOURCE_SCHEME_WORDS.doi} ${identifier.value}`,
       };
     case "pmid":
-      return { href: `https://pubmed.ncbi.nlm.nih.gov/${identifier.value}/`, text: `PMID ${identifier.value}` };
+      return { href: `https://pubmed.ncbi.nlm.nih.gov/${identifier.value}/`, text: `${SOURCE_SCHEME_WORDS.pmid} ${identifier.value}` };
     case "pmcid":
-      return { href: `https://pmc.ncbi.nlm.nih.gov/articles/${identifier.value}/`, text: `PMCID ${identifier.value}` };
+      return { href: `https://pmc.ncbi.nlm.nih.gov/articles/${identifier.value}/`, text: `${SOURCE_SCHEME_WORDS.pmcid} ${identifier.value}` };
     case "nct":
-      return { href: `https://clinicaltrials.gov/study/${identifier.value}`, text: `ClinicalTrials.gov ${identifier.value}` };
+      return { href: `https://clinicaltrials.gov/study/${identifier.value}`, text: `${SOURCE_SCHEME_WORDS.nct} ${identifier.value}` };
     default:
       return undefined;
   }
 }
 
 export const findingPath = (publicationNumber: string) => `/atlas/findings/${publicationNumber}`;
+/** What a finding kept for AskRigor's research says at its top (owner answers 229a and 231a). */
+export const KEPT_FOR_RESEARCH_LINE = "Kept for AskRigor’s research: AskRigor draws on this finding when it researches, " +
+  "but it isn’t one of the Atlas’s picks, so no list, topic or search on the Atlas shows it.";
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
+export const MAP_PATH = "/atlas/map";
+/** The findings that challenge the usual view (the owner, 6 Nov 2026). */
+export const CHALLENGES_PATH = "/atlas/challenges";
+export const CHALLENGES_TITLE = "Findings that challenge the usual view";
+/**
+ * What an unreviewed finding's status says of the quick-answer test: a pass, or a finding shown only because it
+ * challenges the usual view, whose stored verdict (headline or fail) means a quick AI answer may already give it.
+ */
+export const QUICK_ANSWER_MISSES_IT = "A separate AI found that a quick AI answer misses it.";
+export const SHOWN_AS_A_CHALLENGE = "A quick AI answer may already give it; it’s shown because it challenges the usual view.";
+/** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
+export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
 const CANONICAL_ORIGIN = "https://askrigor.com";
+
+/** The label on every finding no person has reviewed yet (owner answer 224a, 2 Nov 2026). */
+export const AI_LABEL = "Written by an AI, not yet reviewed by a person";
+
+/** The mark on an unreviewed finding whose claim is strong (the owner, 2 Nov 2026: "the more it needs checking"). */
+export const NEEDS_CHECKING_LABEL = "A strong claim: it needs checking";
+const needsChecking = (finding: ShownFinding) =>
+  finding.status.kind === "unreviewed" && strengthOf(finding).total >= STRONG_CLAIM;
+
+/** Whether every finding a page lists is unreviewed, so the page is kept out of search engines (owner answer 224a). */
+export const unreviewedOnly = (findings: readonly ShownFinding[]) => findings.every(({ status }) => status.kind === "unreviewed");
 
 function relatedLink(related: ShownRelated): SafeHtml {
   return related.publicationNumber === null ? html`${related.atlasNumber}`
@@ -161,27 +256,37 @@ function relatedLink(related: ShownRelated): SafeHtml {
 // The layout ----------------------------------------------------------------------------------------------------------
 
 export const ACCOUNT_PATH = "/atlas/account";
+/** The owner's private page (owner-pages.ts): only the signed-in owner can open it, and only the owner is shown a link. */
+export const PRIVATE_PAGES_PATH = "/atlas/account/private";
 
-/** Reader state is supplied only while votes and comments are on; its name is untrusted text. */
+/**
+ * Reader state is supplied only while votes and comments are on; its name is untrusted text. `owner` is set only for
+ * the signed-in owner, whose pages are never cached, so the link to the private page is never shown to anyone else.
+ */
 export interface AtlasPageReader {
   signInHref: string;
-  viewer: null | { displayName: string | null };
+  viewer: null | { displayName: string | null; owner?: boolean };
   notice?: string | null;
   tenantSignOutHref?: string | null;
 }
 
-interface PageFrame {
+export interface PageFrame {
   /** The page's own path, for its canonical link; null for a page that answers an error, which has none. */
   path: string | null;
+  /**
+   * Kept out of search engines (owner answer 224a): a page whose findings are all unreviewed, or not a content page; or
+   * a finding kept for AskRigor's research only (owner answers 229a and 231a).
+   */
+  noindex?: boolean;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account" | "findings" | "topics" | "search";
+  current?: "home" | "changes" | "account" | "private" | "findings" | "health" | "topics" | "map" | "search";
   reader?: AtlasPageReader;
   noReferrer?: boolean;
   body: SafeHtml;
 }
 
-function page(frame: PageFrame): string {
+export function page(frame: PageFrame): string {
   const current = (name: PageFrame["current"]) => frame.current === name ? html` aria-current="page"` : "";
   const reader = frame.reader;
   return html`<!doctype html>
@@ -191,6 +296,7 @@ function page(frame: PageFrame): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="${frame.description}">
 ${frame.noReferrer ? html`<meta name="referrer" content="no-referrer">` : ""}
+${frame.noindex ? html`<meta name="robots" content="noindex">` : ""}
 <title>${frame.title}</title>
 ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN}${frame.path}">
 `}<link rel="stylesheet" href="/atlas/atlas.css">
@@ -202,13 +308,16 @@ ${frame.path === null ? "" : html`<link rel="canonical" href="${CANONICAL_ORIGIN
 <nav aria-label="Atlas navigation"><ul class="nav-list">
 <li><a href="/atlas"${current("home")}>Atlas home</a></li>
 <li><a href="/atlas/findings"${current("findings")}>All findings</a></li>
+<li><a href="/atlas/health"${current("health")}>Health</a></li>
 <li><a href="/atlas/topics"${current("topics")}>Topics</a></li>
+<li><a href="${MAP_PATH}"${current("map")}>Findings map</a></li>
 <li><a href="/atlas/changes"${current("changes")}>What changed</a></li>
 ${reader === undefined ? "" : reader.viewer === null
     ? html`<li><a href="${reader.signInHref}">Sign in</a></li>
 ` : html`<li><a href="${ACCOUNT_PATH}"${current("account")}>Your account${reader.viewer.displayName
       ? html` (<bdi>${reader.viewer.displayName}</bdi>)` : ""}</a></li>
-`}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
+${reader.viewer.owner === true ? html`<li><a href="${PRIVATE_PAGES_PATH}"${current("private")}>Your private pages</a></li>
+` : ""}`}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
 </ul></nav>
 ${searchForm("atlas-header-query")}
 </div></header>
@@ -259,11 +368,30 @@ export function renderAtlasFindings(model: AtlasFindingsModel, reader?: AtlasPag
   const filters = Object.entries(FILTER_WORDS).map(([filter, label]) => html`<li><a
 href="/atlas/findings?filter=${filter}"${filter === model.filter ? html` aria-current="page"` : ""}>${label}</a></li>`);
   return page({ path: "/atlas/findings", title: "All findings | AskRigor Atlas", current: "findings", reader,
+    noindex: unreviewedOnly(model.findings),
     description: "Every finding published in the AskRigor Atlas, newest first.",
-    body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first.</p>
+    body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first. <a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a>.</p>
 <nav aria-label="Filter findings"><ul class="nav-list">${filters}</ul></nav>
 ${model.findings.length === 0 ? html`<p>No findings in this list yet.</p>` : findingList(model.findings)}
 ${model.before === null ? "" : html`<p><a rel="next" href="/atlas/findings?filter=${model.filter}&amp;before=${model.before}">Older findings</a></p>`}` });
+}
+
+/**
+ * The findings that challenge the usual view (the owner, 6 Nov 2026), each with the usual view and its source beside it,
+ * and its limits: how sure it is and whom it applies to (in its facts line) and what would change it. Kept out of search
+ * engines, like the finding pages.
+ */
+export function renderAtlasChallenges(model: AtlasChallengesModel, reader?: AtlasPageReader): string {
+  const item = (finding: ShownFinding) => findingItem(finding, html`<p class="usual-view">${usualViewLine(finding.challenge!)}</p>
+${finding.whatWouldChangeIt === null ? "" : html`<p class="meta">What would change it: ${finding.whatWouldChangeIt}</p>`}`);
+  return page({ path: CHALLENGES_PATH, title: `${CHALLENGES_TITLE} | AskRigor Atlas`, reader, noindex: true,
+    description: "Findings in the AskRigor Atlas that go against what most doctors and major guidelines advise.",
+    body: html`<h1>${CHALLENGES_TITLE}</h1>
+<p>Each of these findings goes against the usual view: what most doctors and major guidelines currently advise for the problem, as a separate AI found it, with its source beside it. A quick AI answer may already give some of them; they are here because they challenge the usual view. Each keeps its limits: how sure it is, whom it applies to and what would change it.</p>
+${model.findings.length === 0 ? html`<p>No finding on these pages challenges the usual view yet.</p>` : html`<ul class="finding-list">
+${model.findings.filter((finding) => finding.challenge !== null).map(item)}</ul>`}
+${model.before === null ? "" : html`<p><a rel="next" href="${CHALLENGES_PATH}?before=${model.before}">Older findings</a></p>`}
+<p><a href="/atlas/findings">See all findings</a></p>` });
 }
 
 export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader): string {
@@ -272,27 +400,74 @@ export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageRea
     body: html`<h1>Topics</h1>
 ${model.topics.length === 0 ? html`<p>No topics have findings yet.</p>` : html`<ul>${model.topics.map((topic) =>
       html`<li><a href="${topicPath(topic.key)}">${topic.label}</a> — ${topic.count} ${topic.count === 1 ? "finding" : "findings"}</li>`)}</ul>`}
-<p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>` });
+<p>${model.withoutTopic} ${model.withoutTopic === 1 ? "finding has" : "findings have"} no topic (older cards). <a href="/atlas/findings">Browse all findings</a>.</p>
+<p><a href="${MAP_PATH}">See the topics on the findings map</a></p>` });
 }
 
-export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasFindingsModel | null },
+const FOUND_IN_WORDS: Record<AtlasSearchField, string> = {
+  wording: "the wording",
+  question: "the question",
+  usual_answer: "the usual answer",
+  applies_to: "whom it applies to",
+  subject: "the subject",
+  topic: "the topic",
+  why_not_usual: "why it isn’t the usual answer",
+  what_would_change_it: "what would change it",
+  numbers: "the numbers",
+  research: "the research behind it",
+  people: "what people report",
+  searches: "what was searched",
+  sources: "the sources",
+  number: "its number",
+};
+
+/** How many matches a search lists across its pages. */
+const LISTED_RESULTS = ATLAS_SEARCH_MAX_PAGE * ATLAS_FINDINGS_PER_PAGE;
+const count = (value: number) => value.toLocaleString("en-US");
+
+const searchPageHref = (text: string, page: number) =>
+  `/atlas/search?q=${queryParameter(text)}${page === 1 ? "" : `&amp;page=${page}`}`;
+
+export function renderAtlasSearch(model: { text: string; message: string | null; results: AtlasSearchModel | null },
   reader?: AtlasPageReader): string {
+  const results = model.results;
+  const pager: SafeHtml[] = [];
+  if (results !== null && results.page > 1) {
+    pager.push(html`<a rel="prev" href="${new SafeHtml(searchPageHref(model.text, Math.min(results.page - 1, results.pages)))}">Previous results</a>`);
+  }
+  if (results !== null && results.page < results.pages) {
+    pager.push(html`<a rel="next" href="${new SafeHtml(searchPageHref(model.text, results.page + 1))}">Next results</a>`);
+  }
   // Search never carries account state, a canonical query URL, form tokens or a personalized header.
   return page({ path: null, title: "Search findings | AskRigor Atlas", current: "search", reader, noReferrer: true,
+    noindex: true,
     description: "Search the public findings in the AskRigor Atlas.",
     body: html`<h1>Search findings</h1>
 ${searchForm("atlas-query", model.text)}
-<p>Every word must match a word in the question, finding, whom it applies to, subject or topic. Case and accents are folded; there is no stemming.</p>
+<p>Search reads each finding’s whole text: its wording, question, whom it applies to, subject, topic, numbers, searches, why it isn’t the usual answer, what would change it, its sources and its number.</p>
+<ul>
+<li>Every word you type must be there. Case and accents don’t matter.</li>
+<li>A word can be part of a longer one (for example, vitamin also finds vitamins). A word of one or two letters of an alphabet with capitals or digits (for example, the D in vitamin D, MS or D3) counts only where it stands on its own, and a number never counts inside a longer number (for example, 50 doesn’t find 500).</li>
+<li>Findings whose wording holds all your words come first. Then whole words come before parts of words, your words as you typed them (for example a number such as P-1003, or a phrase) before the same words apart, stronger claims before weaker ones, and newer findings before older ones.</li>
+</ul>
 ${model.message === null ? "" : html`<p role="status">${model.message}</p>`}
-${model.results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
-${model.results.findings.length === 0 ? html`<p>No findings match these words.</p>` : findingList(model.results.findings)}
-${model.results.before === null ? "" : html`<p><a rel="next" href="/atlas/search?q=${queryParameter(model.text)}&amp;before=${model.results.before}">Older results</a></p>`}`}` });
+${results === null ? "" : html`<h2>Results for “${queryText(model.text)}”</h2>
+<p role="status">${results.total === 0 ? "No findings match these words."
+    : results.total > LISTED_RESULTS ? html`${count(results.total)} findings match; the first ${count(LISTED_RESULTS)} are listed, page ${results.page} of ${results.pages}. Add words to narrow the search.`
+      : html`${count(results.total)} ${results.total === 1 ? "finding matches" : "findings match"}${results.pages === 1 ? "" : html`, page ${results.page} of ${results.pages}`}.`}</p>
+${results.results.length === 0 ? (results.total === 0 ? "" : html`<p>There are no results on this page. <a href="${new SafeHtml(searchPageHref(model.text, 1))}">Go to the first page of results</a>.</p>`)
+    : html`<ul class="finding-list">
+${results.results.map(({ finding, foundIn }) => findingItem(finding,
+    html`<p class="meta">Found in ${joined(foundIn.map((field) => html`${FOUND_IN_WORDS[field]}`), ", ")}.</p>`))}</ul>`}
+${pager.length === 0 ? "" : html`<nav aria-label="Search result pages"><p>${joined(pager, " · ")}</p></nav>`}`}` });
 }
 
 // A finding in a list ---------------------------------------------------------------------------------------------------
 
 function badge(finding: ShownFinding): SafeHtml {
-  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>`;
+  return html`<p class="badge badge-${finding.status.kind}">${STATUS_WORDS[finding.status.kind]}</p>${needsChecking(finding)
+    ? html` <p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>` : ""}${finding.status.kind === "unreviewed"
+    ? html`<p class="ai-label">${AI_LABEL}</p>` : ""}`;
 }
 
 function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml {
@@ -307,6 +482,7 @@ function findingItem(finding: ShownFinding, extra: SafeHtml | "" = ""): SafeHtml
   }
   return html`<li class="finding">
 ${badge(finding)}
+${questionLine(finding)}
 <p class="finding-claim"><a href="${findingPath(finding.publicationNumber)}">${finding.claim}</a></p>
 <p class="meta">${joined(facts, " · ")}</p>
 ${extra === "" ? "" : html`${extra}
@@ -314,7 +490,17 @@ ${extra === "" ? "" : html`${extra}
 `;
 }
 
-function findingList(findings: readonly ShownFinding[]): SafeHtml {
+/**
+ * The question a listed finding's research answered, so a finding is never listed as a bare sentence; one published
+ * without it says so (its topic follows in the facts line).
+ */
+function questionLine(finding: ShownFinding): SafeHtml {
+  return finding.question === null
+    ? html`<p class="finding-question">Published without its question${finding.topic === null ? " or a topic" : ""}</p>`
+    : html`<p class="finding-question">Question: ${finding.question}</p>`;
+}
+
+export function findingList(findings: readonly ShownFinding[]): SafeHtml {
   return html`<ul class="finding-list">
 ${findings.map((finding) => findingItem(finding))}</ul>`;
 }
@@ -354,10 +540,16 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding is published as soon as its findings card is saved, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, or that it challenges the usual view, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
-${ownerPicks(model.picks)}<section aria-labelledby="recently-published">
+${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
+<h2 id="strongest-checked">Strongest checked findings</h2>
+<p>${STRENGTH_RULE} Only findings checked by supervisors are listed here; an unreviewed strong claim is marked “${NEEDS_CHECKING_LABEL}”.</p>
+${model.strongestChecked.length === 0 ? html`<p>No finding has been checked by supervisors yet.</p>`
+    : findingList(model.strongestChecked)}
+</section>
+<section aria-labelledby="recently-published">
 <h2 id="recently-published">Recently published</h2>
 ${model.recentlyPublished.length === 0 ? html`<p>Nothing is published yet.</p>` : findingList(model.recentlyPublished)}
 </section>
@@ -372,9 +564,15 @@ ${model.contested.length === 0 ? "" : html`<section aria-labelledby="contested">
 <ul class="pair-list">
 ${model.contested.map(contestedItem)}</ul>
 </section>
-`}<p><a href="/atlas/changes">See what changed in the Atlas</a></p>`;
+`}<section aria-labelledby="comment-maps">
+<h2 id="comment-maps">Comment maps</h2>
+<p>AskRigor maps what the people who commented under a health video say happened when they tried its method. The maps are kept privately for now, so none is shown here. <a href="${COMMENT_MAPS_PATH}">How comment maps work, what they can’t show, and why they aren’t here</a></p>
+</section>
+<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
+    noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.strongestChecked, ...model.recentlyPublished,
+      ...model.recentlyChecked, ...model.contested.flatMap(({ findings }) => findings)]),
     title: "AskRigor Atlas",
     description: "Findings from research done with AskRigor, written without the people who asked.",
     current: "home",
@@ -386,7 +584,7 @@ ${model.contested.map(contestedItem)}</ul>
 // A topic page ----------------------------------------------------------------------------------------------------------
 
 const SECTION_NOTES: Partial<Record<AtlasTopicModel["sections"][number]["id"], string>> = {
-  leads: "AskRigor’s owner kept these as leads: no full-text audit, documented search or research correction backs them yet.",
+  leads: "AskRigor’s owner kept these as leads: no full-text audit, documented search, research correction or forum reading backs them yet.",
   earlier: "Newer findings replace these.",
 };
 
@@ -396,6 +594,76 @@ const RELATION_WORDS = { same_as: "same as", narrows: "narrows", contradicts: "c
 const mapColumn = (finding: ShownFinding) => finding.status.kind === "unreviewed" ? 4
   : finding.status.kind === "lead" ? 5 : finding.certainty === null ? 6
     : ["high", "moderate", "low", "very_low"].indexOf(finding.certainty);
+const WORDS = new Intl.Segmenter(undefined, { granularity: "word" });
+// A wide character (Chinese, Japanese and Korean scripts, full-width forms) takes two columns of a label.
+const WIDE = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\u3000-\u303f\uff01-\uff60\uffe0-\uffe6]/u;
+const columns = (text: string) => Array.from(text).reduce((sum, character) => sum + (WIDE.test(character) ? 2 : 1), 0);
+// Closing punctuation never starts a line: it stays with the word before it.
+const CLOSING = /^[\p{Pe}\p{Pf}\p{Po}]+$/u;
+
+/**
+ * A text in at most `lines` lines of at most `width` columns, broken between words as Unicode's word boundaries find
+ * them in any script (Chinese, Japanese and Thai included); only a word longer than a line is cut. When text is left
+ * over, the last line ends with "…", by whole words where it can.
+ */
+export function wrapWords(text: string, width: number, lines: number): string[] {
+  const out: string[] = [];
+  let line = "";
+  let space = false;
+  let leftOver = false;
+  /** Starts a line with a segment, cutting a word longer than a line; false when no line is left. */
+  const start = (segment: string): boolean => {
+    let rest = segment;
+    while (columns(rest) > width) {
+      if (out.length === lines) return false;
+      let head = "";
+      for (const character of Array.from(rest)) {
+        if (columns(head + character) > width) break;
+        head += character;
+      }
+      out.push(head);
+      rest = rest.slice(head.length);
+    }
+    if (out.length === lines) return false;
+    line = rest;
+    return true;
+  };
+  for (const { segment } of WORDS.segment(text.replace(/\s+/gu, " ").trim())) {
+    if (segment === " ") {
+      space = line !== "";
+      continue;
+    }
+    const joined = `${line}${space ? " " : ""}${segment}`;
+    space = false;
+    if (line !== "" && (columns(joined) <= width || CLOSING.test(segment) && !joined.endsWith(` ${segment}`))) {
+      line = joined;
+      continue;
+    }
+    if (line !== "") {
+      out.push(line);
+      line = "";
+    }
+    if (!start(segment)) {
+      leftOver = true;
+      break;
+    }
+  }
+  if (line !== "") {
+    if (out.length < lines) out.push(line);
+    else leftOver = true;
+  }
+  if (leftOver && out.length > 0) {
+    let last = out.at(-1)!;
+    while (columns(last) + 1 > width) {
+      const words = [...WORDS.segment(last)].map(({ segment }) => segment);
+      last = words.length > 1 ? words.slice(0, -1).join("").trimEnd()
+        : Array.from(last).slice(0, -1).join("");
+    }
+    out[out.length - 1] = `${last}…`;
+  }
+  return out;
+}
+
 const chunks = <T,>(items: readonly T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
 
@@ -404,7 +672,9 @@ const chunks = <T,>(items: readonly T[], size: number): T[][] =>
 function topicMap(model: AtlasTopicModel): SafeHtml {
   const findings = model.sections.flatMap(({ findings }) => findings);
   const questions = [...new Set(findings.flatMap(({ question }) => question === null ? [] : [question]))];
-  const questionNumber = (finding: ShownFinding) => finding.question === null ? "Question not recorded"
+  // A finding published without its question is placed by its topic instead (the plan of 2 November 2026).
+  const topicWords = (finding: ShownFinding) => `Topic: ${finding.topic?.label ?? model.topic.label}`;
+  const questionNumber = (finding: ShownFinding) => finding.question === null ? topicWords(finding)
     : `Q${questions.indexOf(finding.question) + 1}`;
   const questionPanels = chunks(questions, MAP_PANEL_SIZE).map((panel, index) => html`<div class="map-scroll">
 <svg class="topic-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 ${panel.length * 48 + 40}"
@@ -415,7 +685,7 @@ ${panel.map((question, row) => {
     const y = row * 48 + 36;
     return html`<a href="${findingPath(finding.publicationNumber)}"><title>${question}</title>
 <rect class="map-node" x="8" y="${y - 22}" width="1100" height="36" rx="5"/>
-<text x="18" y="${y}">${questionNumber(finding)}: ${Array.from(question).slice(0, 125).join("")}${Array.from(question).length > 125 ? "…" : ""}</text></a>`;
+<text x="18" y="${y}">${questionNumber(finding)}: ${wrapWords(question, 125, 1)[0] ?? ""}</text></a>`;
   })}</svg></div>`);
   const panels = chunks(findings, MAP_PANEL_SIZE).map((panel, index) => {
     const rows = MAP_COLUMNS.map((_, column) => panel.filter((finding) => mapColumn(finding) === column));
@@ -428,13 +698,14 @@ ${rows.map((column, col) => html`<text class="map-heading" x="${col * 160 + 8}" 
 ${column.map((finding, row) => {
       const x = col * 160 + 8;
       const y = 45 + row * 88;
-      const claim = Array.from(finding.claim);
+      const [first = "", second = ""] = wrapWords(finding.claim, 19, 2);
       return html`<a href="${findingPath(finding.publicationNumber)}">
-<title>${finding.publicationNumber}: ${finding.question ?? "Question not recorded"}. ${finding.claim}. ${STATUS_WORDS[finding.status.kind]}.</title>
+<title>${finding.publicationNumber}: ${finding.question ?? topicWords(finding)}. ${finding.claim}. ${STATUS_WORDS[finding.status.kind]}.</title>
 <rect class="map-node" x="${x}" y="${y}" width="144" height="78" rx="5"/>
-<text x="${x + 6}" y="${y + 17}">${finding.publicationNumber} · ${finding.question === null ? "—" : questionNumber(finding)}</text>
-<text x="${x + 6}" y="${y + 36}">${claim.slice(0, 17).join("")}</text>
-<text x="${x + 6}" y="${y + 54}">${claim.slice(17, 33).join("")}${claim.length > 33 ? "…" : ""}</text>
+<text x="${x + 6}" y="${y + 17}">${finding.question === null ? finding.publicationNumber
+        : `${finding.publicationNumber} · ${questionNumber(finding)}`}</text>
+<text x="${x + 6}" y="${y + 36}">${first}</text>
+<text x="${x + 6}" y="${y + 54}">${second}</text>
 </a>`;
     })}`)}
 </svg></div>`;
@@ -484,6 +755,7 @@ ${findingList(section.findings)}
 `)}`;
   return page({
     path: topicPath(model.topic.key),
+    noindex: unreviewedOnly(model.sections.flatMap(({ findings }) => findings)),
     reader,
     title: `${model.topic.label} | AskRigor Atlas`,
     description: `Findings about ${model.topic.label} in the AskRigor Atlas.`,
@@ -491,14 +763,209 @@ ${findingList(section.findings)}
   });
 }
 
+// The findings map ------------------------------------------------------------------------------------------------------
+
+/** A circle's radius for its points: its area grows with the points, so 0 points still draws a circle. */
+export const mapRadius = (points: number) => Math.round(80 * Math.sqrt(points + 1)) / 10;
+const MAP_GAP = 4;
+const MAP_ISLAND_MARGIN = 8;
+const MAP_PADDING = 6;
+const MAP_MIN_WIDTH = 280;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const round = (value: number) => Math.round(value * 10) / 10;
+
+/**
+ * A topic's cluster, packed around its centre in the topic's order: the first circle in the middle, and each next one
+ * on its own ray of a sunflower spiral (turning by the golden angle), as close to the middle as it fits beside the
+ * circles already placed. Deterministic; rounded to a tenth, which the gap absorbs.
+ */
+export function clusterLayout(radii: readonly number[]): { centres: Array<{ x: number; y: number }>; extent: number } {
+  const centres: Array<{ x: number; y: number }> = [];
+  radii.forEach((radius, index) => {
+    const angle = index * GOLDEN_ANGLE;
+    for (let distance = 0; ; distance += 1) {
+      const centre = { x: round(distance * Math.cos(angle)), y: round(distance * Math.sin(angle)) };
+      if (centres.every((other, before) => Math.hypot(centre.x - other.x, centre.y - other.y) >= radius + radii[before]! + MAP_GAP)) {
+        centres.push(centre);
+        return;
+      }
+    }
+  });
+  return { centres, extent: Math.max(0, ...centres.map(({ x, y }, index) => Math.hypot(x, y) + radii[index]!)) };
+}
+
+/** Where a finding's points come from, in the rule's order. */
+const pointWords = ({ finding, points }: AtlasMapFinding): string[] => [
+  points.checked === 0 ? "" : "checked by supervisors +2",
+  points.certainty === 0 ? "" : finding.certainty === "high" ? "high certainty +2" : "moderate certainty +1",
+  points.numbers === 0 ? "" : "counted results +1",
+  points.sources === 0 ? "" : "two or more sources +1",
+  points.recent === 0 ? "" : `new in the last ${ATLAS_MAP_NEW_DAYS} days +1`,
+].filter((words) => words !== "");
+const pointsText = (total: number) => `${total} ${total === 1 ? "point" : "points"}`;
+
+/** The marks a status draws: a solid disc, a ring, or a light disc with a dashed outline. */
+function statusMarks(kind: ShownFinding["status"]["kind"], x: number, y: number, radius: number): SafeHtml {
+  if (kind === "contested") {
+    return html`<circle class="map-mark map-contested" cx="${x}" cy="${y}" r="${radius}"/><circle class="map-hole" cx="${x}" cy="${y}" r="${round(radius * 0.45)}"/>`;
+  }
+  const style = kind === "unreviewed" ? "map-unreviewed" : "map-checked";
+  return html`<circle class="map-mark ${style}" cx="${x}" cy="${y}" r="${radius}"/>`;
+}
+
+function cluster(topic: AtlasMapTopic, headingId: string): SafeHtml {
+  const radii = topic.findings.map(({ points }) => mapRadius(points.total));
+  const { centres, extent } = clusterLayout(radii);
+  const island = round(extent + MAP_ISLAND_MARGIN);
+  const width = Math.ceil(Math.max(MAP_MIN_WIDTH, 2 * (island + MAP_PADDING)));
+  const height = Math.ceil(2 * (island + MAP_PADDING));
+  const cx = width / 2;
+  const cy = height / 2;
+  return html`<svg class="map-cluster" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="group" aria-labelledby="${headingId}">
+<circle class="map-island" cx="${cx}" cy="${cy}" r="${island}"/>
+${topic.findings.map((entry, index) => {
+    const { finding, points } = entry;
+    return html`<a href="${findingPath(finding.publicationNumber)}"><title>${finding.publicationNumber}: ${finding.claim} (${STATUS_WORDS[finding.status.kind]}; ${pointsText(points.total)})</title>
+${statusMarks(finding.status.kind, round(cx + centres[index]!.x), round(cy + centres[index]!.y), radii[index]!)}</a>
+`;
+  })}</svg>`;
+}
+
+function topicCounts(topic: AtlasMapTopic): SafeHtml {
+  const kinds = topic.findings.map(({ finding }) => finding.status.kind);
+  const checked = kinds.filter((kind) => kind === "checked").length;
+  const contested = kinds.filter((kind) => kind === "contested").length;
+  const unreviewed = kinds.filter((kind) => kind === "unreviewed").length;
+  const parts = [
+    checked === 0 ? "" : `${checked} checked by supervisors`,
+    contested === 0 ? "" : `${contested} contested`,
+    unreviewed === 0 ? "" : `${unreviewed} not checked by supervisors yet`,
+  ].filter((part) => part !== "");
+  const shown = topic.findings.length;
+  return html`${topic.count} ${topic.count === 1 ? "finding" : "findings"}${shown < topic.count ? html`, ${shown} on the map` : ""}: ${parts.join(", ")}.`;
+}
+
+const topicName = (topic: AtlasMapTopic) => topic.topic?.label ?? "No topic (older cards)";
+const topicHref = (topic: AtlasMapTopic) => topic.topic === null ? "/atlas/findings" : topicPath(topic.topic.key);
+
+function legendSwatch(kind: "checked" | "contested" | "unreviewed"): SafeHtml {
+  return html`<svg class="map-swatch" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${statusMarks(kind, 12, 12, 9)}</svg>`;
+}
+
+export function renderAtlasMap(model: AtlasMapModel, reader?: AtlasPageReader): string {
+  const sizes = [0, 3, 7];
+  const sizeWidth = sizes.reduce((sum, points) => sum + 2 * mapRadius(points) + 8, 0);
+  const sizeHeight = Math.ceil(2 * mapRadius(sizes.at(-1)!) + 4);
+  let sizeX = 0;
+  const sizeLegend = html`<svg class="map-swatch map-sizes" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${Math.ceil(sizeWidth)} ${sizeHeight}" width="${Math.ceil(sizeWidth)}" height="${sizeHeight}" aria-hidden="true">${sizes.map((points) => {
+    const radius = mapRadius(points);
+    const x = round(sizeX + radius + 4);
+    sizeX += 2 * radius + 8;
+    return html`<circle class="map-mark map-size" cx="${x}" cy="${sizeHeight / 2}" r="${radius}"/>`;
+  })}</svg>`;
+  const rule = html`<section class="notice" aria-labelledby="map-rule">
+<h2 id="map-rule">How the map is drawn</h2>
+<p>Each finding gets points for what the Atlas holds about it, and more points draw a bigger circle:</p>
+<ul>
+<li>2 if supervisors checked it;</li>
+<li>2 if AskRigor rated it high certainty, 1 if moderate;</li>
+<li>1 if its page shows counted results for each group;</li>
+<li>1 if its page links to two or more sources;</li>
+<li>1 if it was published or checked in the last ${ATLAS_MAP_NEW_DAYS} days.</li>
+</ul>
+<p>In each topic, the stronger claims come first, in the middle of its cluster, then findings with more points, then the newest. ${STRENGTH_RULE} Topics with more findings come first. Leads, and findings a newer one replaced, are on each topic’s page instead.</p>
+<p><strong>The map is not a ranking of treatments and not a recommendation.</strong> Nothing in the rule depends on what a finding says: a big circle can be a harm, a treatment that did nothing, or a search that found nothing. AskRigor’s certainty is its own rating, not a formal GRADE assessment, and nothing here is medical advice.</p>
+</section>`;
+  const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
+<h1>Findings map</h1>
+<p class="lede">Published findings as circles, one cluster per topic. A bigger circle is a finding the Atlas holds more about, not a treatment that works better. Open a circle to read its finding.</p>
+<ul class="map-legend" aria-label="Map key">
+<li>${legendSwatch("checked")} Checked by supervisors</li>
+<li>${legendSwatch("contested")} Contested: another checked finding disagrees</li>
+<li>${legendSwatch("unreviewed")} ${NOT_CHECKED_LABEL}</li>
+<li>${sizeLegend} 0, 3 and 7 points</li>
+</ul>
+${model.topics.length === 0 ? html`<p>Nothing is published yet.</p>
+${rule}` : html`<p><a href="#map-rule">How the map is drawn</a> · <a href="#map-list">Skip the map and read it as a list</a></p>
+<section aria-labelledby="map-topics">
+<h2 id="map-topics">Topics</h2>
+<div class="map-grid">
+${model.topics.map((topic, index) => html`<section class="map-topic" aria-labelledby="map-topic-${index + 1}">
+<h3 id="map-topic-${index + 1}"><a href="${topicHref(topic)}">${topicName(topic)}</a></h3>
+<p class="meta">${topicCounts(topic)}</p>
+${cluster(topic, `map-topic-${index + 1}`)}
+${topic.findings.length < topic.count ? html`<p class="meta"><a href="${topicHref(topic)}">See all ${topic.count} on ${topic.topic === null ? "the list of all findings" : "the topic’s page"}</a></p>
+` : ""}</section>
+`)}</div>
+</section>
+${rule}
+<section aria-labelledby="map-list">
+<h2 id="map-list">The map as a list</h2>
+<p>The same findings, topic by topic, in the map’s order, each with its points.</p>
+${model.topics.map((topic) => html`<h3>${topicName(topic)}</h3>
+<ul class="finding-list">
+${topic.findings.map((entry) => {
+    const reasons = pointWords(entry);
+    return findingItem(entry.finding, html`<p class="meta">On the map: ${pointsText(entry.points.total)}${reasons.length === 0 ? "" : ` (${reasons.join(", ")})`}.</p>`);
+  })}</ul>
+`)}</section>`}`;
+  return page({
+    path: MAP_PATH,
+    noindex: unreviewedOnly(model.topics.flatMap(({ findings }) => findings.map(({ finding }) => finding))),
+    title: "Findings map | AskRigor Atlas",
+    description: "Published findings in the AskRigor Atlas as circles, one cluster per topic, sized by a stated rule.",
+    current: "map",
+    reader,
+    body,
+  });
+}
+
 // A finding page --------------------------------------------------------------------------------------------------------
+
+/**
+ * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
+ * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
+ * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
+ * research hasn't passed the test, so it says neither.
+ */
+function quickAnswerWords(finding: ShownFinding): string {
+  if (finding.kept) return "";
+  if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
+  return `${QUICK_ANSWER_MISSES_IT} `;
+}
+
+/** The usual view a finding challenges, with its source's link, as a sentence. */
+function usualViewLine(challenge: ShownChallenge): SafeHtml {
+  return html`The usual view: ${withoutEndPunctuation(challenge.usualView)} (<a href="${challenge.sourceUrl}" rel="nofollow noopener noreferrer">${challenge.sourceLabel}</a>).`;
+}
+
+/**
+ * The box on a finding's page that says it challenges the usual view (the owner, 6 Nov 2026). A finding kept for research
+ * hasn't been shown on the quick-answer test, so its box says nothing of it (the review of #422), as its status doesn't.
+ */
+function challengeBox(finding: ShownFinding): SafeHtml | "" {
+  const challenge = finding.challenge;
+  if (challenge === null) return "";
+  const quickAnswer = finding.kept ? "" : challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} `
+    : `${SHOWN_AS_A_CHALLENGE} `;
+  return html`<section class="notice challenge" aria-labelledby="challenge">
+<h2 id="challenge">It challenges the usual view</h2>
+<p>${usualViewLine(challenge)}</p>
+<p>This finding goes against it. ${quickAnswer}Its limits stay as this page gives them: how sure it is, whom it applies to and what would change it.</p>
+<p><a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a></p>
+</section>
+`;
+}
 
 function statusBlock(finding: ShownFinding): SafeHtml {
   const status = finding.status;
   if (status.kind === "unreviewed") {
     return html`<div class="status status-unreviewed">
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
-<p>It was published as soon as its findings card was saved. AskRigor’s owner has not reviewed it yet.</p>
+<p class="ai-label">${AI_LABEL}.</p>
+${needsChecking(finding) ? html`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>
+` : ""}<p>${quickAnswerWords(finding)}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
+    ? " Its claim is strong, so it needs checking before anyone relies on it." : ""}</p>
 </div>`;
   }
   const checked = html`AskRigor’s owner checked it on ${day(status.checkedOn)}.`;
@@ -541,9 +1008,16 @@ function figure(entry: ShownNumber): SafeHtml {
   // acceptance check figures with.
   const [option, comparator] = binaryGroups(counts);
   const contrast = binaryContrast(counts);
+  // Owner answer 225a: the difference out of 100 with its 95% range, and a number needed only when the range leaves
+  // out no difference.
+  const range = differenceRange(counts);
+  const difference = html`<p>Difference: ${differenceWords(range.difference)} out of 100 with ${option.name} than with ${comparator.name} (95% range: ${differenceWords(range.lower)} to ${differenceWords(range.upper)}).</p>
+`;
   let needed: SafeHtml;
   if (contrast === undefined) {
     needed = html`The two groups’ rates are the same, so there is no number needed to treat or harm.`;
+  } else if (!range.clear) {
+    needed = html`<strong>No clear difference</strong>: the range includes no difference, so there is no number needed to treat or harm.`;
   } else {
     // The option did better when a larger share had an outcome more people should have, or a smaller share one fewer
     // should (atlasNumbersProblems reads it the same way).
@@ -553,14 +1027,114 @@ function figure(entry: ShownNumber): SafeHtml {
   return html`<figure class="figure">
 <figcaption><strong>${withoutEndPunctuation(entry.outcome)}</strong>, over ${withoutEndPunctuation(entry.followUp)} (${entry.better === "more" ? "more" : "fewer"} is better)</figcaption>
 <table>
-<thead><tr><th scope="col">Group</th><th scope="col">People with the outcome</th><th scope="col">Rate</th></tr></thead>
+<thead><tr><th scope="col">Group</th><th scope="col">People with the outcome</th><th scope="col">Out of 100</th></tr></thead>
 <tbody>
-${[option, comparator].map(({ name, events, total }) => html`<tr><th scope="row">${name}</th><td>${events} of ${total}</td><td>${percent(events, total)}</td></tr>
+${[option, comparator].map(({ name, events, total }) => html`<tr><th scope="row">${name}</th><td>${events} of ${total}</td><td>${outOf100(events / total)}</td></tr>
 `)}</tbody>
 </table>
-<p>${needed}</p>
-${entry.harmsNoneFound ? html`<p>No harms were found over the same follow-up.</p>` : ""}
-</figure>
+${difference}<p>${needed}</p>
+${entry.harmsNoneFound ? html`<p>No harms were found over the same follow-up.</p>` : ""}${entry.source === null ? ""
+    : html`<p class="meta">From ${sourceName(entry.source)}.</p>
+`}</figure>
+`;
+}
+
+/** A source by its title and year, or its first identifier when no public record gave a title. */
+function sourceName(entry: ShownSource): SafeHtml {
+  if (entry.title !== null) return html`<cite>${entry.title}</cite>${entry.year === null ? "" : html` (${entry.year})`}`;
+  const link = entry.identifiers.map(sourceLink).find((found) => found !== undefined);
+  return html`${link?.text ?? "a study"}`;
+}
+
+/**
+ * The research behind a finding (owner answer 252a), source by source: its title and links, a retraction or concern
+ * notice, how AskRigor read it and whether its printed figures match its own data, the paper's own sentence and
+ * conclusion found word for word, and the strongest thing against the finding, in AskRigor's words.
+ */
+function researchSection(research: readonly ShownResearchSource[]): SafeHtml | "" {
+  if (research.length === 0) return "";
+  return html`<section aria-labelledby="research">
+<h2 id="research">The research behind it</h2>
+<p>Each source this finding rests on, with how AskRigor read it. Words in quotation blocks are the paper’s own, which AskRigor found word for word in a text it fetched itself; the strongest thing against the finding is in AskRigor’s words.</p>
+${research.map(researchSource)}</section>
+`;
+}
+
+function researchSource(entry: ShownResearchSource): SafeHtml {
+  const links = entry.source.identifiers.flatMap((identifier) => {
+    const link = sourceLink(identifier);
+    return link === undefined ? [] : [html`<a href="${link.href}">${link.text}</a>`];
+  });
+  const retraction = entry.retraction === null ? undefined : RETRACTION_WORDS[entry.retraction];
+  return html`<article class="research-source">
+<h3>${sourceName(entry.source)}</h3>
+${links.length === 0 ? "" : html`<p class="meta">${joined(links, " · ")}</p>
+`}${retraction === undefined ? "" : html`<p class="error-line" role="note">${retraction}</p>
+`}${entry.read === null ? "" : html`<p><strong>How AskRigor read it:</strong> ${READ_WORDS[entry.read]}.${entry.figures === null ? ""
+    : html` ${FIGURES_WORDS[entry.figures]}`}</p>
+`}${entry.lines.map(quoteLine)}</article>
+`;
+}
+
+function quoteLine(line: ShownQuoteLine): SafeHtml {
+  const found = (section: string | null) =>
+    html`Found word for word in ${QUOTE_TEXT_WORDS[line.text]}${section === null ? "" : html`, in ${section}`}.`;
+  return html`${line.sentence === null ? "" : html`<blockquote class="quote"><p>${line.sentence}</p>
+<footer>The paper’s sentence behind this finding. ${found(line.sentenceSection)}</footer></blockquote>
+`}${line.conclusion === null ? "" : html`<blockquote class="quote"><p>${line.conclusion}</p>
+<footer>The paper’s own conclusion. ${found(line.conclusionSection)}</footer></blockquote>
+`}<p><strong>The strongest thing against it</strong> (AskRigor’s words): ${line.against}</p>
+`;
+}
+
+const STUDIES_WORDS: Readonly<Record<AtlasForumSignalStudies, string>> = {
+  corroborated: "Studies agree with these reports.",
+  contradicted: "Studies that measured it the way these reports did found otherwise.",
+  support_not_located: "No studies on this were found in the searches made for this research. That doesn’t count against these reports.",
+  outcome_mismatch: "",
+};
+
+const people = (count: number) => `${count} ${count === 1 ? "person" : "people"}`;
+
+/** The forum a published thread link is on, as a reader knows it: its host in Unicode, as its community shows. */
+function threadSite(link: string): string {
+  try {
+    const host = new URL(link).hostname.toLowerCase().replace(/^www\./u, "");
+    return host === "reddit.com" || host.endsWith(".reddit.com") ? "Reddit" : shownCommunity(host);
+  } catch {
+    return "a forum";
+  }
+}
+
+/**
+ * What people report (owner answer 252a): AskRigor's counts of people by outcome and how good their reports are, a way it
+ * could work, labelled as a mechanism, how studies relate to the reports in plain words, and the threads read, as links
+ * with their communities. Never a username or anything a person wrote.
+ */
+function peopleSection(signal: ShownForumSignal | null): SafeHtml | "" {
+  if (signal === null) return "";
+  const { better, noChange, worse, mixed } = signal.people;
+  const total = better + noChange + worse + mixed;
+  const studies = signal.studies === "outcome_mismatch"
+    ? html`The studies found measured something else: ${signal.studiesMeasured ?? "not the outcome these reports describe"}. They don’t count against these reports.`
+    : html`${STUDIES_WORDS[signal.studies]}`;
+  return html`<section aria-labelledby="people">
+<h2 id="people">What people report</h2>
+<p>From ${signal.threadsRead} forum ${signal.threadsRead === 1 ? "thread" : "threads"} AskRigor’s own reader read${signal.communities.length === 0 ? ""
+    : html`, in ${joined(signal.communities.map((community) => html`${community}`), ", ")}`}. AskRigor counts people, not comments, and quotes no one.</p>
+<dl class="facts">
+<dt>Better</dt><dd>${people(better)}</dd>
+<dt>No change</dt><dd>${people(noChange)}</dd>
+<dt>Worse</dt><dd>${people(worse)}</dd>
+<dt>Mixed</dt><dd>${people(mixed)}</dd>
+</dl>
+<p><strong>How good the reports are:</strong> of ${people(total)}, ${signal.quality.detailed} gave the details (what, how much, how long, and what else changed at the same time), ${signal.quality.measured} measured the change, and ${signal.quality.bare} wrote a bare one-liner.</p>
+${signal.mechanism === null ? "" : html`<p><strong>A way it could work</strong> (a mechanism, in AskRigor’s words: it makes the reports plausible, but it isn’t a result): ${signal.mechanism}</p>
+`}<p><strong>Studies:</strong> ${studies}</p>
+${signal.threads.length === 0 ? "" : html`<ul class="thread-list">
+${signal.threads.map((link, index) => html`<li><a href="${link}" rel="nofollow noopener noreferrer">Thread ${index + 1}</a> on ${threadSite(link)}</li>
+`)}</ul>
+`}</section>
 `;
 }
 
@@ -570,12 +1144,34 @@ function search(entry: ShownSearch): SafeHtml {
 `;
 }
 
-function source(identifiers: AtlasPageSourceIdentifiers): SafeHtml | "" {
-  const links = identifiers.flatMap((identifier) => {
+function source(entry: ShownSource): SafeHtml | "" {
+  const links = entry.identifiers.flatMap((identifier) => {
     const link = sourceLink(identifier);
     return link === undefined ? [] : [html`<a href="${link.href}">${link.text}</a>`];
   });
-  return links.length === 0 ? "" : html`<li>${joined(links, " · ")}</li>
+  if (links.length === 0) return "";
+  const named = entry.title === null ? ""
+    : html`<cite>${entry.title}</cite>${entry.year === null ? "" : html` (${entry.year})`}. `;
+  return html`<li>${named}${joined(links, " · ")}</li>
+`;
+}
+
+/** What the card's research found: every finding the pages show from it, this one marked and the others linked. */
+function cardFindings(finding: ShownFinding, siblings: readonly ShownFinding[]): SafeHtml | "" {
+  if (siblings.length === 0) return "";
+  const all = [finding, ...siblings].sort((left, right) =>
+    Number(left.publicationNumber.slice(2)) - Number(right.publicationNumber.slice(2)));
+  return html`<section aria-labelledby="card-findings">
+<h2 id="card-findings">What this research found</h2>
+<p>${all.length} findings from the same research are published here. Each has its own page.</p>
+<ol class="card-findings">
+${all.map((entry) => html`<li${entry === finding ? html` aria-current="page"` : ""}>${badge(entry)}
+<p class="finding-claim">${entry === finding ? html`<strong>This finding:</strong> ${entry.claim}`
+    : html`<a href="${findingPath(entry.publicationNumber)}">${entry.claim}</a>`}</p>
+${entry.certainty === null ? "" : html`<p class="meta">How sure: ${CERTAINTY_WORDS[entry.certainty]}</p>
+`}</li>
+`)}</ol>
+</section>
 `;
 }
 
@@ -675,27 +1271,40 @@ export function renderAtlasFinding(model: AtlasFindingModel, participationView?:
   if (finding.researchCheckedOn !== null) dates.push(html`Research last checked ${day(finding.researchCheckedOn)}`);
   if (finding.askrigorVersion !== null) dates.push(html`AskRigor ${finding.askrigorVersion}`);
   const sources = finding.sources.map(source).filter((item): item is SafeHtml => item !== "");
+  // The question its research answered opens the page, or a plain note when it was published without one.
+  const question = finding.question !== null ? html`<p class="question"><span class="eyebrow">The question</span> ${finding.question}</p>`
+    : html`<p class="question question-missing">This finding was published without the question its research answered${finding.topic === null
+      ? ", and without a topic." : html`. Its topic: <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>.`}</p>`;
+  // The usual answer, then why this finding isn't it; without the usual answer, the why alone, as before.
+  const usual = finding.usualAnswer !== null ? html`<section aria-labelledby="usual">
+<h2 id="usual">The usual answer</h2>
+<p>What a quick, ordinary answer would say: ${finding.usualAnswer}</p>
+${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t it:</strong> ${finding.whyNotUsual}</p>
+`}</section>
+` : finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
+<h2 id="usual">Why this isn’t the usual answer</h2>
+<p>${finding.whyNotUsual}</p>
+</section>
+`;
 
   const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a>${finding.topic === null ? ""
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
-${statusBlock(finding)}
+${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
+` : ""}${statusBlock(finding)}
+${challengeBox(finding)}${question}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
 ${joined(facts, "\n")}
 </dl>`}
-${finding.numbers.length === 0 ? "" : html`<section aria-labelledby="numbers">
+${usual}${cardFindings(finding, model.siblings)}${finding.numbers.length === 0 ? "" : html`<section aria-labelledby="numbers">
 <h2 id="numbers">The numbers</h2>
-<p>Each rate is a group’s count divided by its size. The number needed to treat or harm is 1 divided by the difference between the two rates, rounded up; AskRigor works them out from the counts.</p>
+<p>Each group is shown as how many out of 100 had the outcome. The 95% range of the difference is worked out from the two groups’ counts by Newcombe’s method; it treats the groups as independent, so it does not allow for a crossover or clustered design. A number needed to treat or harm, 1 divided by the difference rounded up, is shown only when that range leaves out no difference. AskRigor works all of them out from the counts.</p>
 ${finding.numbers.map(figure)}</section>
-`}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
+`}${researchSection(finding.research)}${peopleSection(finding.forumSignal)}${finding.searches.length === 0 ? "" : html`<section aria-labelledby="searches">
 <h2 id="searches">What was searched, and found nothing</h2>
 <ul class="search-list">
 ${finding.searches.map(search)}</ul>
-</section>
-`}${finding.whyNotUsual === null ? "" : html`<section aria-labelledby="usual">
-<h2 id="usual">Why this isn’t the usual answer</h2>
-<p>${finding.whyNotUsual}</p>
 </section>
 `}${finding.whatWouldChangeIt === null ? "" : html`<section aria-labelledby="change">
 <h2 id="change">What would change it</h2>
@@ -709,6 +1318,8 @@ ${sources}</ul>
 `}${participation(finding.publicationNumber, participationView)}`;
   return page({
     path: findingPath(finding.publicationNumber),
+    // Kept for research only: out of search engines, like every page no list links to (owner answers 229a and 231a).
+    noindex: finding.status.kind === "unreviewed" || finding.kept,
     reader,
     title: `${finding.publicationNumber}: ${shortened(finding.claim, 70)} | AskRigor Atlas`,
     description: shortened(finding.claim, 160),
@@ -767,12 +1378,25 @@ ${model.entries.map(changeItem)}</ol>`}`;
   });
 }
 
+// The sitemap -----------------------------------------------------------------------------------------------------------
+
+/** The sitemap's XML (sitemaps.org 0.9) on the public origin: reviewed findings and the pages that hold them. */
+export function renderAtlasSitemap(entries: readonly AtlasSitemapEntry[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${entries.map(({ path, lastModified }) => `<url><loc>${escapeHtml(`${CANONICAL_ORIGIN}${path}`)}</loc>${lastModified === null ? ""
+    : `<lastmod>${escapeHtml(lastModified)}</lastmod>`}</url>
+`).join("")}</urlset>
+`;
+}
+
 // Pages without a model -------------------------------------------------------------------------------------------------
 
 export function renderAtlasNotFound(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Not found | AskRigor Atlas",
     description: "There is no Atlas page at this address.",
     body: html`<h1>Not found</h1>
@@ -785,6 +1409,7 @@ export function renderAtlasUnavailable(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Unavailable | AskRigor Atlas",
     description: "The Atlas is unavailable right now.",
     body: html`<h1>The Atlas is unavailable right now</h1>
@@ -795,6 +1420,33 @@ export function renderAtlasUnavailable(reader?: AtlasPageReader): string {
 export interface AtlasAccountView {
   reader: AtlasPageReader;
   tokens: null | { name: string; signOut: string; signOutEverywhere: string; forget: string };
+  /** The signed-in reader's AskRigor features, or why they are not shown; null or absent shows no section. */
+  features?: AtlasAccountFeatures | null;
+}
+
+/**
+ * The signed-in reader's AskRigor features (owner, 5 Nov 2026): each feature with whether it is on for them, who pays
+ * for it and its limit, as account-features.ts words them; or a line saying why they are not shown.
+ */
+function featuresSection(features: AtlasAccountFeatures, signInHref: string): SafeHtml {
+  return html`<h2 id="features">Your AskRigor features</h2>
+${features.state === "sign-in-again" ? html`<p>To see your AskRigor features here, sign in again.</p>
+<p><a href="${signInHref}">Sign in again</a></p>` : features.state === "unavailable"
+    ? html`<p>AskRigor couldn't read your features just now. Reload the page to try again.</p>`
+    : html`<p>How AskRigor stands for the account you signed in with: whether each feature is on for you, who pays
+for it and its limit. Your AI app uses this same account when you connect it to AskRigor with the same sign-in.
+AskRigor reads these each time you open this page and keeps no copy.</p>
+<ul class="finding-list">
+${features.rows.map((row) => html`<li class="finding feature" id="feature-${row.id}">
+<h3>${row.name}</h3>
+<p class="badge ${row.on ? "badge-on" : "badge-off"}">${row.on ? "On" : "Off"}</p>
+<dl class="facts">
+<dt>For you</dt><dd>${row.forYou}</dd>
+<dt>Who pays</dt><dd>${row.whoPays}</dd>
+<dt>Limit</dt><dd>${row.limit}</dd>
+</dl>
+</li>
+`)}</ul>`}`;
 }
 
 /** Account controls have one home, even before any finding has been published. */
@@ -803,6 +1455,7 @@ export function renderAtlasAccount(view: AtlasAccountView): string {
   const tokens = view.tokens;
   return page({
     path: null,
+    noindex: true,
     current: "account",
     reader: view.reader,
     title: "Your account | AskRigor Atlas",
@@ -820,6 +1473,9 @@ ${hiddenFields(tokens.name, ACCOUNT_PATH)}
 <button type="submit" class="quiet">Save name</button>
 </form>`}
 <p><a href="${OWN_COMMENTS_PATH}">Your votes and comments</a>, to find and delete any of them</p>
+<p><a href="/atlas/account/reports">Your reports</a>, to see where each stands and take any of them down · <a href="/atlas/share">Share what worked for you</a></p>
+${viewer.owner === true ? html`<p><a href="${PRIVATE_PAGES_PATH}">Your private pages</a>: your comment maps, and your pages on GitHub. Only you see this link.</p>
+` : ""}
 <h2>What the Atlas keeps</h2>
 <p>The Atlas keeps your votes, your comments with the display name you choose, and your reports, under a key derived
 from your account, never your email address. Votes are shown only as totals; comments are public. It keeps no record
@@ -841,7 +1497,8 @@ ${hiddenFields(tokens.forget, ACCOUNT_PATH)}
 <label for="forget-confirm">Delete everything I hold in the Atlas: my votes, my comments and my reports</label></p>
 <button type="submit" class="quiet">Delete them all</button>
 </form>
-</div>`}`,
+</div>
+${view.features ? featuresSection(view.features, view.reader.signInHref) : ""}`}`,
   });
 }
 
@@ -876,6 +1533,7 @@ export function renderAtlasOwnComments(view: AtlasOwnCommentsView, reader?: Atla
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Your votes and comments | AskRigor Atlas",
     description: "The votes you gave and the comments you posted in the AskRigor Atlas.",
     body: html`<h1>Your votes and comments</h1>
@@ -923,6 +1581,7 @@ export function renderAtlasMessage(title: string, message: string, back: { href:
   return page({
     reader,
     path: null,
+    noindex: true,
     title: `${title} | AskRigor Atlas`,
     description: title,
     body: html`<h1>${title}</h1>
@@ -935,6 +1594,7 @@ export function renderAtlasTooManyRequests(reader?: AtlasPageReader): string {
   return page({
     reader,
     path: null,
+    noindex: true,
     title: "Too many requests | AskRigor Atlas",
     description: "Too many requests for Atlas pages.",
     body: html`<h1>Too many requests</h1>
@@ -1022,6 +1682,28 @@ a:hover, a:focus-visible { color: var(--accent-hover); }
 .map-node { fill: var(--surface); stroke: currentColor; }
 .map-edge { fill: none; stroke: currentColor; }
 .topic-map a:focus .map-node { stroke-width: 3; }
+.notice h2:first-child { margin-top: 0; }
+.notice ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 1rem 0; padding: 0; list-style: none; }
+.map-legend li { display: flex; align-items: center; gap: 0.45rem; }
+.map-swatch { display: block; flex: none; width: 1.5rem; height: 1.5rem; }
+.map-swatch.map-sizes { width: auto; height: 2.75rem; }
+.map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 1rem; margin: 1rem 0; }
+.map-topic { min-width: 0; padding: 0.85rem 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 0.5rem; }
+.map-topic h3 { margin: 0; font-size: 1.1rem; }
+.map-topic .meta { margin: 0.3rem 0 0.6rem; }
+.map-cluster { display: block; width: 100%; height: auto; }
+.map-island { fill: var(--page); stroke: var(--line); }
+.map-mark { stroke-width: 2; }
+.map-checked { fill: var(--checked); stroke: var(--checked); }
+.map-contested { fill: var(--contested); stroke: var(--contested); }
+.map-hole { fill: var(--surface); }
+.map-unreviewed { fill: var(--unreviewed-surface); stroke: var(--unreviewed); stroke-dasharray: 4 3; }
+.map-size { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.map-cluster a:hover .map-mark { stroke: var(--accent-hover); stroke-dasharray: none; }
+.map-cluster a:focus-visible { outline: none; }
+/* The text colour stands apart from every status colour, in both themes. */
+.map-cluster a:focus-visible .map-mark { stroke: var(--text); stroke-width: 5; stroke-dasharray: none; }
 .brand { color: var(--text); font-size: 1.15rem; font-weight: 800; text-decoration: none; }
 .nav-list { flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
 .nav-list a[aria-current="page"] { color: var(--text); text-decoration: none; }
@@ -1056,6 +1738,13 @@ p, li, dd { max-width: 72ch; }
 .contested-pair .finding { margin: 0.75rem 0 0; }
 .finding-claim { margin: 0.35rem 0; font-size: 1.05rem; }
 .finding-claim a { font-weight: 600; }
+.finding-question { margin: 0.45rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.question { margin: 0 0 0.75rem; font-size: 1.1rem; }
+.question .eyebrow { display: block; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; }
+.question-missing { color: var(--muted); font-size: 1rem; }
+.card-findings { margin: 0; padding-left: 1.5rem; }
+.card-findings li { margin: 0.9rem 0; }
+.card-findings li[aria-current] .finding-claim { font-weight: 600; }
 .meta { margin: 0.35rem 0 0; font-size: 0.95rem; }
 .reason, .note { margin: 0.5rem 0 0; }
 
@@ -1068,9 +1757,16 @@ p, li, dd { max-width: 72ch; }
   font-weight: 700;
 }
 .badge-unreviewed { background: var(--unreviewed-surface); color: var(--unreviewed); }
+.badge-needs-checking { background: var(--contested-surface); color: var(--contested); }
+.ai-label { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.9rem; font-style: italic; }
+.status .ai-label { color: inherit; font-size: 1rem; }
 .badge-checked { background: var(--checked-surface); color: var(--checked); }
 .badge-contested { background: var(--contested-surface); color: var(--contested); }
 .badge-lead, .badge-superseded { background: var(--quiet-surface); color: var(--quiet); }
+.badge-on { background: var(--checked-surface); color: var(--checked); }
+.badge-off { background: var(--quiet-surface); color: var(--quiet); }
+.feature h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.feature .facts { margin: 0.75rem 0 0; }
 
 .status {
   margin: 0 0 1.25rem;
@@ -1111,6 +1807,17 @@ thead th { font-size: 0.9rem; color: var(--muted); }
 td:last-child, th:last-child { text-align: right; }
 
 .search-list li, .source-list li { margin: 0.5rem 0; }
+.research-source { margin: 1.25rem 0; padding-top: 0.75rem; border-top: 1px solid var(--line); }
+.research-source h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.quote {
+  margin: 0.9rem 0;
+  padding: 0.6rem 1rem;
+  border-left: 0.3rem solid var(--line);
+  background: var(--surface);
+}
+.quote p { margin: 0 0 0.35rem; }
+.quote footer { color: var(--muted); font-size: 0.9rem; }
+.thread-list { margin: 0.5rem 0; padding-left: 1.25rem; }
 code {
   padding: 0.1em 0.3em;
   background: color-mix(in srgb, var(--line) 45%, transparent);
