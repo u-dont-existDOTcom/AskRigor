@@ -10,8 +10,8 @@ import { isDeidentifiedResearchTarget, researchTargetScreenRefusal } from "./act
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { redditReaderFromEnv } from "./reddit-reader-client.js";
 import {
-  forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumThreadDigest, sameSiteRedirect, sameThreadAtSite,
-  signedSubreddit
+  forumLinkDigest, forumPageDigest, forumReadLink, forumSiteDigest, forumThreadDigest, pagePickedAfterFirst,
+  sameSiteRedirect, sameThreadAtSite, signedSubreddit
 } from "./forum-thread-links.js";
 import { researchUseAccount } from "./research-contributor-access-tool.js";
 import { discoveryQueryDigest, type ResearchReceiptClaims, type ResearchReceiptKind } from "./research-receipts.js";
@@ -160,7 +160,9 @@ export function registerForumTools(
     }
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
-      const data = readData.parse({ ...base, ...read.fields });
+      // The page before this one, which only the receipt reads (pv, below): the published result is unchanged.
+      const { previous_page: previous, ...fields } = read.fields as typeof read.fields & { previous_page?: string };
+      const data = readData.parse({ ...base, ...fields });
       // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
       // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
       const subreddit = reddit ? signedSubreddit(data.community) : undefined;
@@ -189,13 +191,15 @@ export function registerForumTools(
         // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is
         // part-way, as the result's own partial access status says (its fourth check).
         e: data.more || data.next_page || data.truncated ? "0" : "1",
-        // The next page the reader found on a forum page read whole (np, its thread digest), when that page is another
-        // link, as a thread's ?p=2 is: so the final check reads the pages, each read whole and named by the page before
-        // it, as one thread, read to its end when the last has nothing after it (the owner regressions on #412's build,
-        // judged 6 Nov 2026: r376-later-phase read both pages of a thread and could not declare it read in full). A
-        // page cut at the size limit names none, so its thread stays part read.
-        ...(!reddit && data.next_page !== undefined && !data.truncated && forumThreadDigest(data.next_page) !== readThread
-          ? { np: forumThreadDigest(data.next_page) } : {})
+        // A forum page's place in its thread, so the final check reads a thread as read in full only from its first page,
+        // through the next page each page read whole named, to one with nothing after it (the owner regressions on #412's
+        // build, judged 6 Nov 2026: r376-later-phase read both pages of a thread, its second at ?p=2, and could not
+        // declare it read in full; the review of #421: a run starting at a later page, or a last page read alone, is not
+        // the thread). pv: whether a page comes before this one, by the page's own rel="prev" link or the page its link
+        // picks (start=30, page=2, /page-2). nw: the next page's page digest, for a page read whole; a page cut at the
+        // size limit names none, so its thread stays part read.
+        ...(reddit ? {} : { pv: previous !== undefined || pagePickedAfterFirst(data.url) ? "1" : "0" }),
+        ...(!reddit && data.next_page !== undefined && !data.truncated ? { nw: forumPageDigest(data.next_page) } : {})
       }) : undefined;
       // A forum page the reader couldn't read signs what stopped it, at which site (sd), so a community declared blocked
       // or needing a login rests on an attempt (the owner regressions on #412's build, judged 6 Nov 2026: q135-urgent's

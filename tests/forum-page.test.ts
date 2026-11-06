@@ -155,6 +155,19 @@ describe("public forum page reader", () => {
     }
   });
 
+  // The review of #421: a page that links the page before it is not its thread's first, which the read's receipt says.
+  it("finds the page before this one as its next page is found, and none elsewhere", async () => {
+    for (const markup of [`<link rel="prev" href="?page=1">`, `<a rel='Previous' href='?page=1'>back</a>`]) {
+      const data = fixture({ page: `${page}${markup}` });
+      expect((await readForumPage(data.url, data.runtime)).previous_page, markup).toBe(`${data.url}?page=1`);
+    }
+    for (const markup of [`<a rel="prev" href="https://elsewhere.example/page">elsewhere</a>`,
+      `<script><a rel='prev' href='/script'></a></script>`, `<!-- <link rel='prev' href='/comment'> -->`, ""]) {
+      const data = fixture({ page: `${page}${markup}` });
+      expect((await readForumPage(data.url, data.runtime)).previous_page, markup).toBeUndefined();
+    }
+  });
+
   it("does not extract a next-page link from scripts or comments", async () => {
     const data = fixture({ page: `${page}<script><a rel='next' href='/script'></a></script><!-- <link rel='next' href='/comment'> -->` });
     expect((await readForumPage(data.url, data.runtime)).next_page).toBeUndefined();

@@ -29,6 +29,11 @@ export interface ForumPage {
   page_text?: string;
   truncated?: boolean;
   next_page?: string;
+  /**
+   * The page before this one the page's own markup links (rel="prev"), when it links one: so this page is not its
+   * thread's first, which a read of it alone, or of a run of pages starting from it, doesn't cover (the review of #421).
+   */
+  previous_page?: string;
 }
 
 export async function readForumPage(value: string, runtime: ForumPageRuntime = {}): Promise<ForumPage> {
@@ -71,10 +76,11 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
       return { url: fetched.finalUrl, access_state: "blocked" };
     }
     if (extracted.text.length < 1_500) return { url: fetched.finalUrl, access_state: "needs_a_browser" };
-    const next = contentType === "text/plain" ? undefined : nextPage(html, new URL(fetched.finalUrl));
+    const next = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl), "next");
+    const previous = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl), "prev");
     return { url: fetched.finalUrl, access_state: "read", ...(title === undefined ? {} : { title }),
       page_text: extracted.text.slice(0, MAXIMUM_CHARACTERS), truncated: extracted.text.length > MAXIMUM_CHARACTERS,
-      ...(next === undefined ? {} : { next_page: next }) };
+      ...(next === undefined ? {} : { next_page: next }), ...(previous === undefined ? {} : { previous_page: previous }) };
   } catch (error) {
     if (robotsDenied) return { url: url.toString(), access_state: "robots_disallowed" };
     const state = error instanceof UpstreamHttpError
@@ -190,20 +196,22 @@ function markupWithoutUnreadParts(html: string): string {
   return kept.join("");
 }
 
-function nextPage(html: string, base: URL): string | undefined {
+/** The page a page's markup links as its next (rel="next") or its previous (rel="prev" or "previous"), on the same host. */
+function linkedPage(html: string, base: URL, direction: "next" | "prev"): string | undefined {
+  const names = direction === "next" ? ["next"] : ["prev", "previous"];
   const markup = markupWithoutUnreadParts(html);
   for (const tag of markup.matchAll(/<(?:a|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
     const attributes = new Map<string, string>();
     for (const match of tag[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gu)) {
       attributes.set(match[1]!.toLowerCase(), match[2] ?? match[3] ?? match[4]!);
     }
-    if (!attributes.get("rel")?.toLowerCase().split(/\s+/u).includes("next")) continue;
+    if (!attributes.get("rel")?.toLowerCase().split(/\s+/u).some((name) => names.includes(name))) continue;
     const href = attributes.get("href");
     if (href === undefined) continue;
     try {
       const next = new URL(extractHtmlText(`<h1>${href}</h1>`).title!, base);
       if (next.protocol === "https:" && next.host === base.host && !next.username && !next.password) return next.toString();
-    } catch { /* An invalid next link does not prevent reading this page. */ }
+    } catch { /* An invalid linked page does not prevent reading this page. */ }
   }
   return undefined;
 }

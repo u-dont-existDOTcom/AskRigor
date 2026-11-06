@@ -252,10 +252,16 @@ A key source the draft cites still needs at least one entry whose quote the draf
 reader read is read as its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the
 receipt now signs which, and a page cut at the reader's size limit, or a Reddit read that missed comments, is
 part-way; a receipt from before it said counts as part-way, the under-claim); a thread is never method-audited nor read
-as an abstract, so an audit claimed of one holds the answer back. A forum page read whole signs the next page the reader
-found there when that page is another link (a thread's `?p=2`), so pages each read whole, each named by the page before
-it, are one thread, read to its end when the last has nothing after it (the owner regressions on #412's build, judged 6
-November 2026: r376-later-phase read both pages of a thread and was asked for "part of the text read"). The comparison is exact,
+as an abstract, so an audit claimed of one holds the answer back. A forum thread is read to its end page by page: each
+page's read signs whether a page comes before it (`pv`, by the page's own `rel="prev"` link or the page its link picks:
+`start=30`, `page=2`, `/page-2`) and, read whole, the next page the reader found there (`nw`, by page digest), so a run of
+pages each read whole, from one with no page before it, through the next page each named, to one with nothing after it,
+reads the thread in full, whichever of its pages the answer cites (the owner regressions on #412's build, judged 6
+November 2026: r376-later-phase read both pages of a thread, its second at `?p=2`, and was asked for "part of the text
+read"). A run starting at a later page, a last page read alone, or a receipt from before `pv` reads part of it (the
+review of #421: a search result linking into page 2, and phpBB's `start=60` read alone, earned "full text read"). A site
+whose pages link no previous page and pick their page some other way shows the reader no page before a later one, so
+such a page read alone still reads as its thread's first. The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor

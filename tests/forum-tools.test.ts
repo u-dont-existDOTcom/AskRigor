@@ -209,27 +209,43 @@ describe("forum tools", () => {
     }
   });
 
-  // The owner regressions on #412's build (judged 6 Nov 2026): r376-later-phase read both pages of a thread whose second
-  // page is another link (?p=2), and the final check could not tie them. A page read whole signs the next page the reader
-  // found there (np), when it is another link; a page cut at the size limit, or one whose next page is the same link
-  // once its page is set aside, signs none.
-  it("signs the next page of a page read whole, when it is another link", async () => {
+  // The owner regressions on #412's build (judged 6 Nov 2026) and the review of #421: a forum page's read signs its place in
+  // its thread, so the final check reads a thread in full only from its first page, through each next page, to the last.
+  // pv: whether a page comes before it, by the page's own rel="prev" link or the page its link picks; nw: the next page's
+  // page digest, for a page read whole (none for a page cut at the size limit). Neither changes the published result.
+  it("signs a forum page's place in its thread: a page before it, and the next page of a page read whole", async () => {
     const caller = await client();
-    const claimsOf = async (read: Record<string, unknown>) => {
-      page.mockResolvedValue({ url: "https://forum.example/health/q123-synthetic-question", access_state: "read",
-        page_text: "a".repeat(1_500), ...read });
-      const result = await caller.callTool({ name: "read_forum_thread",
-        arguments: { url: "https://forum.example/health/q123-synthetic-question" } });
+    const first = "https://forum.example/health/q123-synthetic-question";
+    const claimsOf = async (read: Record<string, unknown>, url = first) => {
+      page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), ...read });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent!.data).not.toHaveProperty("previous_page");
       const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
       if (!verified.ok) throw new Error("unverified");
       return verified.claims;
     };
-    const second = "https://forum.example/health/q123-synthetic-question?p=2";
-    expect(await claimsOf({ truncated: false, next_page: second })).toMatchObject({ e: "0", np: forumThreadDigest(second) });
-    expect(await claimsOf({ truncated: true, next_page: second })).not.toHaveProperty("np");
-    expect(await claimsOf({ truncated: false })).not.toHaveProperty("np");
-    expect(await claimsOf({ truncated: false, next_page: "https://forum.example/health/q123-synthetic-question?page=2" }))
-      .not.toHaveProperty("np");
+    const second = `${first}?p=2`;
+    expect(await claimsOf({ truncated: false, next_page: second })).toMatchObject({ e: "0", pv: "0", nw: forumPageDigest(second) });
+    expect(await claimsOf({ truncated: true, next_page: second })).not.toHaveProperty("nw");
+    expect(await claimsOf({ truncated: false })).toMatchObject({ e: "1", pv: "0" });
+    expect(await claimsOf({ truncated: false })).not.toHaveProperty("nw");
+    // A next page at a link that keeps the thread's digest is still another page.
+    expect(await claimsOf({ truncated: false, next_page: `${first}?page=2` })).toMatchObject({ nw: forumPageDigest(`${first}?page=2`) });
+    // A page whose markup links the page before it, or whose link picks a later page, is not its thread's first.
+    expect(await claimsOf({ truncated: false, previous_page: first }, second)).toMatchObject({ pv: "1", e: "1" });
+    for (const later of ["https://forum.example/viewtopic.php?t=4242&start=60", "https://forum.example/threads/x.12/page-3",
+      "https://forum.example/t/topic/42?page=2"]) {
+      expect(await claimsOf({ truncated: false }, later), later).toMatchObject({ pv: "1" });
+    }
+    for (const opening of ["https://forum.example/viewtopic.php?t=4242&start=0", "https://forum.example/threads/x.12/page-1",
+      "https://forum.example/t/topic/42?page=1"]) {
+      expect(await claimsOf({ truncated: false }, opening), opening).toMatchObject({ pv: "0" });
+    }
+    // A Reddit read signs neither.
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", comments: [], comments_read: 3 });
+    const reddit = verifyResearchReceipt((await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } }))
+      .structuredContent!.research_receipt as string, { secret: SECRET });
+    expect(reddit.ok && reddit.claims).not.toHaveProperty("pv");
   });
 
   // A post on a person's profile (a subreddit named u_ and the user's name) signs u_ alone, so no receipt names a user.

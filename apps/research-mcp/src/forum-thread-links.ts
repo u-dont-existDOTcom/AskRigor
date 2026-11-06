@@ -134,6 +134,29 @@ export function forumPageDigest(url: string): string {
 }
 
 /**
+ * Whether a link picks a page of its thread after the first, by the parameter or the path's end that picks a page
+ * (phpBB's start=30, vBulletin's or Discourse's page=2, XenForo's /page-2), so a read of it doesn't start at the thread's
+ * first page (the review of #421: reading only a thread's last page at start=60 earned "read in full"). Exact and
+ * structural; a page picked some other way (a site's own ?p=2) is known only by the page's own rel="prev" link.
+ */
+export function pagePickedAfterFirst(url: string): boolean {
+  let link: URL;
+  try {
+    link = new globalThis.URL(url.trim());
+  } catch {
+    return false;
+  }
+  const after = (key: string, value: string): boolean => {
+    if (!/^[0-9]{1,9}$/u.test(value)) return false;
+    const number = Number(value);
+    return /^(?:start|offset)$/iu.test(key) ? number > 0 : number > 1;
+  };
+  if ([...link.searchParams].some(([key, value]) => PAGE_PARAMETER.test(key) && after(key, value))) return true;
+  const suffix = /\/page[-/]?([0-9]{1,9})\/?$/iu.exec(link.pathname)?.[1];
+  return suffix !== undefined && Number(suffix) > 1;
+}
+
+/**
  * Whether a link the reader was sent on from names the same thread as the link it read, at the same site: the same
  * path and parameters at the same registrable host (a bare host sent on to a forum's subdomain, say). Only then does a
  * read sign the link it was given (`ur`, the recheck of #417), so a redirect to another site or to another page never
