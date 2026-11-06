@@ -2078,41 +2078,21 @@ export function finalizeResearch(
     const thread = readThreadOf(url);
     return thread === undefined ? undefined : forumReads.get(thread);
   };
-  // Whether AskRigor's reader read each thread to its end, by its digest. A Reddit thread: a read with nothing after it and
-  // nothing cut (e 1; the third check of 5 Nov 2026). A forum thread, page by page (the owner regressions on #412's build,
-  // judged 6 Nov 2026: r376-later-phase read both pages of a thread, its second at ?p=2, and was asked for partial_text;
-  // the review of #421: a run of pages starting after the first, or a last page read alone, earned "read in full"): a run
-  // of pages each read whole, from one with no page before it (pv 0), through the next page each named (nw, by page
-  // digest, w), to one with nothing after it, reads every thread its pages belong to in full. A receipt from before the
-  // reader said either counts as part-way, the under-claim, for the day such receipts live (its fourth check).
+  // Whether AskRigor's reader read each thread to its end, by its digest: one read with nothing after it and nothing cut
+  // (e 1; the third check of 5 Nov 2026), and, for a forum page, nothing before it either (pv 0): a whole thread on one
+  // page. Separate page reads are never stitched together, so a thread of several pages is part read, however many of
+  // its pages were read (the owner regressions on #412's build and the review of #421: each way of joining pages let a
+  // part pass as the whole). A receipt from before the reader said either counts as part-way, the under-claim, for the
+  // day such receipts live (its fourth check).
   const threadReadToEnd = new Map<string, boolean>();
-  const pageReads = new Map<string, Array<{ thread: string; first: boolean; next?: string; end: boolean }>>();
+  // Threads with a forum page read that had a page before or after it (pv or pa 1), by digest: threads of several pages.
+  const threadOfPages = new Set<string>();
   for (const { kind, claims } of verified) {
     if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
-    if (text(claims.v) === "page") {
-      const page = text(claims.w);
-      if (page === "") continue;
-      const reads = pageReads.get(page) ?? [];
-      reads.push({ thread: claims.u, first: claims.pv === "0", end: claims.e === "1",
-        ...(text(claims.nw) === "" ? {} : { next: text(claims.nw) }) });
-      pageReads.set(page, reads);
-      continue;
-    }
-    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || claims.e === "1");
-  }
-  for (const [start, reads] of pageReads) {
-    if (!reads.some(({ first }) => first)) continue;
-    const run: string[] = [];
-    let page: string | undefined = start;
-    while (page !== undefined && !run.includes(page)) {
-      run.push(page);
-      const here: Array<{ next?: string; end: boolean }> = pageReads.get(page)!;
-      if (here.some(({ end }) => end)) {
-        for (const read of run.flatMap((visited) => pageReads.get(visited)!)) threadReadToEnd.set(read.thread, true);
-        break;
-      }
-      page = here.map(({ next }) => next).find((next) => next !== undefined && pageReads.has(next));
-    }
+    const page = text(claims.v) === "page";
+    if (page && (claims.pv === "1" || claims.pa === "1")) threadOfPages.add(claims.u);
+    const whole = claims.e === "1" && (!page || claims.pv === "0");
+    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || whole);
   }
   // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
   // a search AskRigor couldn't make there, below.
@@ -2996,6 +2976,11 @@ export function finalizeResearch(
     }
     if (source.read_depth === undefined) {
       requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
+    } else if (source.read_depth === "full_text_read" && !read && threadRead &&
+               threadOfPages.has(readThreadOf(source.id) ?? forumThreadDigest(source.id))) {
+      // A thread of several pages is part read, whatever was read: say so, so a run doesn't guess (the review of #421).
+      addBlockingStep("read_depth", "declaration", joinRules(rule`Key source ${source.id} is a forum thread of several `,
+        "pages, which AskRigor counts as part read however many of its pages were read: give read_depth partial_text."));
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));

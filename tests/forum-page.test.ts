@@ -54,10 +54,31 @@ describe("public forum page reader", () => {
     expect((await readForumPage(data.url, data.runtime)).access_state).toBe("read");
   });
 
+  // The review of #421: a robots.txt that couldn't be reached is no rule of the site's. The read is unavailable, the page
+  // isn't fetched, and nothing is kept, so the next read asks again; robots_disallowed is only a parsed rule's answer.
   it.each([500, 503, new Error("synthetic network error")])("does not fetch a page after robots failure %s", async (robots) => {
     const data = fixture({ robots });
-    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("robots_disallowed");
+    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("unavailable");
     expect(data.requests).toHaveLength(1);
+    await readForumPage(data.url, data.runtime);
+    expect(data.requests.filter((request) => request.url.endsWith("/robots.txt"))).toHaveLength(2);
+  });
+
+  it("reads a host that doesn't resolve as unavailable, and one outside the public internet as invalid", async () => {
+    const unresolved = fixture();
+    unresolved.runtime.documentFetchRuntime!.resolveAddresses = async () => {
+      throw Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" });
+    };
+    expect((await readForumPage(unresolved.url, unresolved.runtime)).access_state).toBe("unavailable");
+    expect(unresolved.requests).toHaveLength(0);
+  });
+
+  it("reads a robots.txt redirected where the reader won't go as unavailable, since the site answered", async () => {
+    const data = fixture();
+    const request = data.requestDocument;
+    data.runtime.documentFetchRuntime!.requestDocument = async (...args) => args[0].pathname === "/robots.txt"
+      ? response("", 301, { location: `http://${args[0].host}/robots.txt` }) : request(...args);
+    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("unavailable");
   });
 
   it("caches rules for one hour then refreshes", async () => {
@@ -90,9 +111,15 @@ describe("public forum page reader", () => {
     expect(data.requests[2]!.at - data.requests[1]!.at).toBeGreaterThanOrEqual(1_000);
   });
 
-  it.each([401, 403, 406, 429, 451, 503])("reports blocked HTTP %i without text", async (status) => {
+  // The review of #421: only exact refusals are blocked; a busy or failing site is unavailable.
+  it.each([401, 403, 451])("reports blocked HTTP %i without text", async (status) => {
     const data = fixture({ status });
     expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "blocked" });
+  });
+
+  it.each([406, 429, 500, 503])("reports unavailable HTTP %i without text", async (status) => {
+    const data = fixture({ status });
+    expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "unavailable" });
   });
 
   it.each([404, 410])("reports not found HTTP %i without text", async (status) => {
@@ -155,16 +182,22 @@ describe("public forum page reader", () => {
     }
   });
 
-  // The review of #421: a page that links the page before it is not its thread's first, which the read's receipt says.
-  it("finds the page before this one as its next page is found, and none elsewhere", async () => {
-    for (const markup of [`<link rel="prev" href="?page=1">`, `<a rel='Previous' href='?page=1'>back</a>`]) {
+  // The review of #421: any rel="prev" or rel="next" tag marks a page before or after this one, followable or not, on any
+  // host, so a page of a longer thread never reads as a whole one; the reader still follows only a usable next link.
+  it("marks a page before or after it by any rel tag, and follows only a usable next link", async () => {
+    for (const [markup, before, after, next] of [
+      [`<link rel="prev" href="?page=1">`, true, false, undefined],
+      [`<a rel='Previous' href='http://elsewhere.example/1'>back</a>`, true, false, undefined],
+      [`<link rel="next" href="http://forum.example/insecure">`, false, true, undefined],
+      [`<link rel="next" href="?page=3"><link rel="prev">`, true, true, "?page=3"],
+      [`<script><a rel='prev' href='/script'></a></script><!-- <link rel='next' href='/comment'> -->`, false, false, undefined],
+      ["", false, false, undefined]
+    ] as const) {
       const data = fixture({ page: `${page}${markup}` });
-      expect((await readForumPage(data.url, data.runtime)).previous_page, markup).toBe(`${data.url}?page=1`);
-    }
-    for (const markup of [`<a rel="prev" href="https://elsewhere.example/page">elsewhere</a>`,
-      `<script><a rel='prev' href='/script'></a></script>`, `<!-- <link rel='prev' href='/comment'> -->`, ""]) {
-      const data = fixture({ page: `${page}${markup}` });
-      expect((await readForumPage(data.url, data.runtime)).previous_page, markup).toBeUndefined();
+      const read = await readForumPage(data.url, data.runtime);
+      expect(read.page_before === true, markup).toBe(before);
+      expect(read.page_after === true, markup).toBe(after);
+      expect(read.next_page, markup).toBe(next === undefined ? undefined : `${data.url}${next}`);
     }
   });
 

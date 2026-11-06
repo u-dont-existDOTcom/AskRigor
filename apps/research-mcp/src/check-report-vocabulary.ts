@@ -2396,6 +2396,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "unpaywall_response_invalid",
   "unplaced_listed",
   "unpublish_finding",
+  "unreached",
   "unreadable",
   "unrecognized_host",
   "unresolved",

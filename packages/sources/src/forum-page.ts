@@ -6,8 +6,13 @@ export const FORUM_READER_USER_AGENT = "AskRigor/0.1 (research thread check; +ht
 const MAXIMUM_BYTES = 3 * 1024 * 1024;
 const MAXIMUM_CHARACTERS = 60_000;
 const ROBOTS_CACHE_LIMIT = 256;
-const robotsCache = new Map<string, { expires: number; rules: RobotsGroup[] | boolean }>();
-const robotsPending = new Map<string, Promise<RobotsGroup[] | boolean>>();
+// A host's robots.txt as it answered: its rules, or true for none (a 4xx answer), kept for an hour. A robots.txt that
+// couldn't be reached is no answer and isn't kept (the review of #421).
+const robotsCache = new Map<string, { expires: number; rules: RobotsGroup[] | true }>();
+const robotsPending = new Map<string, Promise<RobotsGroup[] | true | RobotsFailure>>();
+/** A robots.txt fetch with no answer: unreached (transport, DNS, timeout, 5xx, a redirect's refusal), or refused by the
+ * reader itself before any request to the host. */
+type RobotsFailure = "unreached" | "refused";
 const hostRequests = new Map<string, { tail: Promise<void>; last: number; pending: number }>();
 
 export interface ForumPageRuntime {
@@ -20,20 +25,24 @@ export interface ForumPageRuntime {
 export interface ForumPage {
   url: string;
   /**
-   * What came of the read. invalid: the reader refused the link itself before any request to the site (not https, a
-   * port or credentials, not a URL, or a destination outside the public internet), so the site said nothing (the review
-   * of #421: such a link read as unavailable, and its receipt backed a community's declared block).
+   * What came of the read, by exact signals only (the review of #421). robots_disallowed: the site's robots.txt, fetched
+   * and parsed, disallows the page. blocked: the page answered 401, 403 or 451, or a bot challenge. not_found: 404 or 410.
+   * unavailable: anything else that stopped it, a robots.txt that couldn't be reached and a refusal on a redirect from
+   * the site among them. invalid: the reader refused the link itself before any request (not https, a port or
+   * credentials, not a URL, or an address outside the public internet), so the site said nothing.
    */
   access_state: "read" | "robots_disallowed" | "blocked" | "needs_a_browser" | "not_found" | "unavailable" | "invalid";
   title?: string;
   page_text?: string;
   truncated?: boolean;
+  /** The next page, when the page's markup links one the reader can follow. */
   next_page?: string;
   /**
-   * The page before this one the page's own markup links (rel="prev"), when it links one: so this page is not its
-   * thread's first, which a read of it alone, or of a run of pages starting from it, doesn't cover (the review of #421).
+   * Whether the page's markup marks a page before it or after it (any rel="prev" or rel="next" tag, followable or not),
+   * so a read of it is no whole thread (the review of #421).
    */
-  previous_page?: string;
+  page_before?: boolean;
+  page_after?: boolean;
 }
 
 export async function readForumPage(value: string, runtime: ForumPageRuntime = {}): Promise<ForumPage> {
@@ -44,22 +53,22 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
     url.hash = "";
   } catch { return { url: value, access_state: "invalid" }; }
   let robotsDenied = false;
+  let requested = false;
   try {
-    let allowed: boolean;
-    try {
-      allowed = await allowedByRobots(url, runtime);
-    } catch (error) {
-      // The reader refused the site's own address before any request to it; a redirect's refusal, after the site
-      // answered, stays unavailable below.
-      if (error instanceof ForumLinkRefused) return { url: url.toString(), access_state: "invalid" };
-      throw error;
-    }
-    if (!allowed) return { url: url.toString(), access_state: "robots_disallowed" };
+    const robots = await robotsAnswer(url, runtime);
+    // The reader refused the site's own address before any request to it; a robots.txt that couldn't be reached, or a
+    // refusal on its redirect, is no answer from the site's rules: unavailable, and the page isn't fetched.
+    if (robots === "refused") return { url: url.toString(), access_state: "invalid" };
+    if (robots === "unreached") return { url: url.toString(), access_state: "unavailable" };
+    if (robots === "disallowed") return { url: url.toString(), access_state: "robots_disallowed" };
     const fetched = await fetchDocument(url.toString(), runtime, async (destination) => {
-      if (!await allowedByRobots(destination, runtime)) {
+      const answer = await robotsAnswer(destination, runtime);
+      if (answer === "disallowed") {
         robotsDenied = true;
         throw new Error("Forum destination disallowed by robots.txt");
       }
+      if (answer !== "allowed") throw new Error("Forum destination's robots.txt could not be reached");
+      requested = true;
     });
     const contentType = fetched.contentType?.split(";", 1)[0]!.trim().toLowerCase();
     if (contentType !== undefined && !["text/html", "application/xhtml+xml", "text/plain"].includes(contentType)) {
@@ -76,43 +85,56 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
       return { url: fetched.finalUrl, access_state: "blocked" };
     }
     if (extracted.text.length < 1_500) return { url: fetched.finalUrl, access_state: "needs_a_browser" };
-    const next = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl), "next");
-    const previous = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl), "prev");
+    const next = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl));
+    const marked = contentType === "text/plain" ? { before: false, after: false } : pagesMarked(html);
     return { url: fetched.finalUrl, access_state: "read", ...(title === undefined ? {} : { title }),
       page_text: extracted.text.slice(0, MAXIMUM_CHARACTERS), truncated: extracted.text.length > MAXIMUM_CHARACTERS,
-      ...(next === undefined ? {} : { next_page: next }), ...(previous === undefined ? {} : { previous_page: previous }) };
+      ...(next === undefined ? {} : { next_page: next }), ...(marked.before ? { page_before: true } : {}),
+      ...(marked.after ? { page_after: true } : {}) };
   } catch (error) {
     if (robotsDenied) return { url: url.toString(), access_state: "robots_disallowed" };
+    // Only exact refusals are blocked: 401 and 403 refuse the reader, 451 refuses the page for legal reasons. A busy or
+    // failing site (429, 503 and the rest) is unavailable (the review of #421).
     const state = error instanceof UpstreamHttpError
-      ? [401, 403, 406, 429, 451, 503].includes(error.status) ? "blocked"
+      ? [401, 403, 451].includes(error.status) ? "blocked"
         : [404, 410].includes(error.status) ? "not_found" : "unavailable"
-      : "unavailable";
+      : !requested && refusedBeforeRequest(error) ? "invalid" : "unavailable";
     return { url: url.toString(), access_state: state };
   }
 }
 
-/** The reader refused a forum page's address before any request to its site. */
-class ForumLinkRefused extends Error {}
+/** The reader's own refusal of an address before any request to it: not public, or no valid URL. */
+function refusedBeforeRequest(error: unknown): boolean {
+  return error instanceof DiscoveredDocumentError && (error.code === "destination" || error.code === "invalid_url");
+}
 
-async function allowedByRobots(url: URL, runtime: ForumPageRuntime): Promise<boolean> {
+/**
+ * What a host's robots.txt says of a page: allowed or disallowed by rules fetched and parsed (or by a 4xx answer, which
+ * means no rules), unreached when it couldn't be fetched (transport, DNS, timeout, 5xx, or a refusal on its redirect,
+ * after the site answered), or refused when the reader refused the host's address before any request. Only an answer is
+ * kept for the hour (the review of #421).
+ */
+async function robotsAnswer(url: URL, runtime: ForumPageRuntime): Promise<"allowed" | "disallowed" | RobotsFailure> {
   const now = runtime.now ?? Date.now;
   const cached = robotsCache.get(url.host);
-  let rules = cached !== undefined && cached.expires > now() ? cached.rules : undefined;
+  let rules: RobotsGroup[] | true | RobotsFailure | undefined = cached !== undefined && cached.expires > now()
+    ? cached.rules : undefined;
   if (rules === undefined) {
     let pending = robotsPending.get(url.host);
     if (pending === undefined) {
-      pending = (async () => {
-        let rules: RobotsGroup[] | boolean;
+      pending = (async (): Promise<RobotsGroup[] | true | RobotsFailure> => {
+        let rules: RobotsGroup[] | true;
+        let requested = false;
         try {
-          const response = await fetchDocument(new URL("/robots.txt", url).toString(), runtime);
+          const response = await fetchDocument(new URL("/robots.txt", url).toString(), runtime, async () => {
+            requested = true;
+          });
           rules = parseRobotsTxt(new TextDecoder().decode(response.bytes));
         } catch (error) {
-          // The reader's own refusal of the site's address, before any request: the site said nothing, so this is no
-          // robots.txt answer, and nothing is kept for the host.
-          if (error instanceof DiscoveredDocumentError && (error.code === "destination" || error.code === "invalid_url")) {
-            throw new ForumLinkRefused();
+          if (!(error instanceof UpstreamHttpError) || error.status < 400 || error.status >= 500) {
+            return !requested && refusedBeforeRequest(error) ? "refused" : "unreached";
           }
-          rules = error instanceof UpstreamHttpError && error.status >= 400 && error.status < 500;
+          rules = true;
         }
         robotsCache.delete(url.host);
         if (robotsCache.size >= ROBOTS_CACHE_LIMIT) robotsCache.delete(robotsCache.keys().next().value!);
@@ -124,7 +146,8 @@ async function allowedByRobots(url: URL, runtime: ForumPageRuntime): Promise<boo
     try { rules = await pending; }
     finally { if (robotsPending.get(url.host) === pending) robotsPending.delete(url.host); }
   }
-  return typeof rules === "boolean" ? rules : robotsTxtAllows(rules, FORUM_READER_USER_AGENT, url.toString());
+  if (rules === "unreached" || rules === "refused") return rules;
+  return rules === true || robotsTxtAllows(rules, FORUM_READER_USER_AGENT, url.toString()) ? "allowed" : "disallowed";
 }
 
 async function fetchDocument(
@@ -196,22 +219,37 @@ function markupWithoutUnreadParts(html: string): string {
   return kept.join("");
 }
 
-/** The page a page's markup links as its next (rel="next") or its previous (rel="prev" or "previous"), on the same host. */
-function linkedPage(html: string, base: URL, direction: "next" | "prev"): string | undefined {
-  const names = direction === "next" ? ["next"] : ["prev", "previous"];
+/** The rel names of each a or link tag in a page's markup outside its unread parts, with its href. */
+function relTags(html: string): Array<{ rel: string[]; href: string | undefined }> {
   const markup = markupWithoutUnreadParts(html);
-  for (const tag of markup.matchAll(/<(?:a|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
+  return [...markup.matchAll(/<(?:a|link)\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)].flatMap((tag) => {
     const attributes = new Map<string, string>();
     for (const match of tag[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gu)) {
       attributes.set(match[1]!.toLowerCase(), match[2] ?? match[3] ?? match[4]!);
     }
-    if (!attributes.get("rel")?.toLowerCase().split(/\s+/u).some((name) => names.includes(name))) continue;
-    const href = attributes.get("href");
-    if (href === undefined) continue;
+    const rel = attributes.get("rel")?.toLowerCase().split(/\s+/u).filter((name) => name !== "") ?? [];
+    return rel.length === 0 ? [] : [{ rel, href: attributes.get("href") }];
+  });
+}
+
+/** The next page a page's markup links (rel="next") that the reader can follow: https, on the same host. */
+function linkedPage(html: string, base: URL): string | undefined {
+  for (const { rel, href } of relTags(html)) {
+    if (!rel.includes("next") || href === undefined) continue;
     try {
       const next = new URL(extractHtmlText(`<h1>${href}</h1>`).title!, base);
       if (next.protocol === "https:" && next.host === base.host && !next.username && !next.password) return next.toString();
     } catch { /* An invalid linked page does not prevent reading this page. */ }
   }
   return undefined;
+}
+
+/**
+ * Whether a page's markup marks a page before it (rel="prev" or "previous") or after it (rel="next"): any such tag, with
+ * any link, followable or not, on any host, so a page of a longer thread never reads as a whole one (the review of #421).
+ */
+function pagesMarked(html: string): { before: boolean; after: boolean } {
+  const tags = relTags(html);
+  return { before: tags.some(({ rel }) => rel.includes("prev") || rel.includes("previous")),
+    after: tags.some(({ rel }) => rel.includes("next")) };
 }

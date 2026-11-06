@@ -160,8 +160,10 @@ export function registerForumTools(
     }
     try {
       const read = withoutReaderHints(reddit ? await reader!.readThread(url, more) : await (options.forumPageReader ?? readForumPage)(url));
-      // The page before this one, which only the receipt reads (pv, below): the published result is unchanged.
-      const { previous_page: previous, ...fields } = read.fields as typeof read.fields & { previous_page?: string };
+      // Whether the page's markup marks a page before or after it, which only the receipt reads (pv and e, below): the
+      // published result is unchanged.
+      const { page_before: pageBefore, page_after: pageAfter, ...fields } =
+        read.fields as typeof read.fields & { page_before?: boolean; page_after?: boolean };
       const data = readData.parse({ ...base, ...fields });
       // A Reddit read also signs the subreddit the reader returned (`c`), the only source of the community and link the
       // Atlas publishes for it (the review of 5 November, finding 1); a post on a person's profile signs u_ alone.
@@ -189,17 +191,17 @@ export function registerForumTools(
         // Whether this read reached the thread's end (e): no more comments or pages after it, and nothing cut, so the
         // final check reads a thread read to its end as fully read, and one left part-way as part read (the third
         // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is
-        // part-way, as the result's own partial access status says (its fourth check).
-        e: data.more || data.next_page || data.truncated ? "0" : "1",
-        // A forum page's place in its thread, so the final check reads a thread as read in full only from its first page,
-        // through the next page each page read whole named, to one with nothing after it (the owner regressions on #412's
-        // build, judged 6 Nov 2026: r376-later-phase read both pages of a thread, its second at ?p=2, and could not
-        // declare it read in full; the review of #421: a run starting at a later page, or a last page read alone, is not
-        // the thread). pv: whether a page comes before this one, by the page's own rel="prev" link or the page its link
-        // picks (start=30, page=2, /page-2). nw: the next page's page digest, for a page read whole; a page cut at the
-        // size limit names none, so its thread stays part read.
-        ...(reddit ? {} : { pv: previous !== undefined || pagePickedAfterFirst(data.url) ? "1" : "0" }),
-        ...(!reddit && data.next_page !== undefined && !data.truncated ? { nw: forumPageDigest(data.next_page) } : {})
+        // part-way, as the result's own partial access status says (its fourth check). A forum page with a page after
+        // it, by any rel="next" tag, followable or not, is part-way too (the review of #421).
+        e: data.more || data.next_page || pageAfter === true || data.truncated ? "0" : "1",
+        // Whether a forum page has a page before it (pv), by any rel="prev" tag, followable or not, or the page its link
+        // picks (start=30, page=2, /page-2): the final check reads a forum thread in full only from one read of a page
+        // with nothing before it and nothing after it, a whole thread on one page; a thread of several pages is part
+        // read, however many were read (the owner regressions on #412's build and the review of #421).
+        ...(reddit ? {} : { pv: pageBefore === true || pagePickedAfterFirst(data.url) ? "1" : "0",
+          // And whether it has a page after it (pa), by its followable next page or any rel="next" tag, so the check can
+          // say why such a thread is part read.
+          pa: data.next_page !== undefined || pageAfter === true ? "1" : "0" })
       }) : undefined;
       // A forum page the reader couldn't read signs what stopped it, at which site (sd), so a community declared blocked
       // or needing a login rests on an attempt (the owner regressions on #412's build, judged 6 Nov 2026: q135-urgent's

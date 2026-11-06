@@ -252,16 +252,17 @@ A key source the draft cites still needs at least one entry whose quote the draf
 reader read is read as its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the
 receipt now signs which, and a page cut at the reader's size limit, or a Reddit read that missed comments, is
 part-way; a receipt from before it said counts as part-way, the under-claim); a thread is never method-audited nor read
-as an abstract, so an audit claimed of one holds the answer back. A forum thread is read to its end page by page: each
-page's read signs whether a page comes before it (`pv`, by the page's own `rel="prev"` link or the page its link picks:
-`start=30`, `page=2`, `/page-2`) and, read whole, the next page the reader found there (`nw`, by page digest), so a run of
-pages each read whole, from one with no page before it, through the next page each named, to one with nothing after it,
-reads the thread in full, whichever of its pages the answer cites (the owner regressions on #412's build, judged 6
-November 2026: r376-later-phase read both pages of a thread, its second at `?p=2`, and was asked for "part of the text
-read"). A run starting at a later page, a last page read alone, or a receipt from before `pv` reads part of it (the
-review of #421: a search result linking into page 2, and phpBB's `start=60` read alone, earned "full text read"). A site
-whose pages link no previous page and pick their page some other way shows the reader no page before a later one, so
-such a page read alone still reads as its thread's first. The comparison is exact,
+as an abstract, so an audit claimed of one holds the answer back. A forum thread is read in full only by one read of a
+page with nothing before it and nothing after it, a whole thread on one page: each page's read signs whether a page
+comes before it (`pv`: any `rel="prev"` tag on the page, followable or not, or the page its link picks, `start=30`,
+`page=2`, `/page-2`) and after it (`pa`: its next page, or any `rel="next"` tag), and reaches the end (`e`) only with
+nothing after it and nothing cut. Separate page reads are never stitched together, so a thread of several pages is part
+read however many of its pages were read, and the step says so and asks for `partial_text` (the owner regressions on
+#412's build, judged 6 November 2026: r376-later-phase read both pages of a thread, its second at `?p=2`; the review of
+#421: each way of joining pages, by next-page links, page numbers or page digests, let a part pass as the whole, as a run
+from page 2, a last page read alone at `start=60`, or a post's link sharing page 1's digest). Limit: a site that marks
+no page before or after with `rel` tags and picks its pages some other way (a site's own `?p=2`) shows the reader no
+other page, so one of its pages read whole still reads as a whole thread. The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor
@@ -358,12 +359,15 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
 - A forum or a patient organization the reader read nothing of, declared `blocked`, `login_required` or
   `retrieval_failed`, rests on the reader's own stop at its site: a page of it `read_forum_thread` asked the site for and
   couldn't read signs a `forum_page_unread` receipt (the link's digest, what stopped the reader and the digest of the
-  site's host name, without a www or mobile prefix), and a receipt for the entry's site backs the boundary only when what
-  stopped the reader fits it: `blocked` by a refusal or robots.txt (`blocked`, `robots_disallowed`), `login_required` by
-  a refusal or a page that needs a browser (`blocked`, `needs_a_browser`), `retrieval_failed` by a page that failed, was
-  missing or needed a browser (`unavailable`, `not_found`, `needs_a_browser`). A link the reader refuses itself, before
-  any request to the site (not https, a port or credentials, a destination outside the public internet), answers
-  `invalid` and earns no receipt. Without a fitting receipt the limit says only "A community not read here: …" (or, where
+  site's host name, without a www or mobile prefix where the rest is the same registrable host), and a receipt for the
+  entry's site backs the boundary only when what stopped the reader fits it. The reader's states come from exact signals
+  only (the review of #421, round 2): `blocked`, a page answering 401, 403 or 451, or a bot challenge; `robots_disallowed`,
+  a robots.txt fetched and parsed that disallows the page; `not_found`, 404 or 410; `needs_a_browser`, a page with too
+  little text; `unavailable`, anything else, a 429 or a 5xx, a transport or DNS failure, a robots.txt that couldn't be
+  reached (which is not kept for the hour), and a refusal on a redirect from the site, robots.txt's included. `blocked`
+  is backed by `blocked` or `robots_disallowed`; `login_required` by `blocked` or `needs_a_browser`; `retrieval_failed`
+  by `unavailable`, `not_found` or `needs_a_browser`. Only the initial link's own failure before any request (not https,
+  a port or credentials, not a URL, an address outside the public internet) answers `invalid` and earns no receipt. Without a fitting receipt the limit says only "A community not read here: …" (or, where
   threads were declared from the AI's own search, "Some pages of a community were not read here: …"), and a note asks
   for the reader's attempt, names the stop that doesn't fit, or asks for the community in `open_leads` as one not reached
   (the owner regressions on #412's build, judged 6 November 2026: q135-urgent-treatment's limit said National Snakebite
