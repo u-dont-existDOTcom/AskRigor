@@ -88,6 +88,10 @@ describe("public-site deployment packet", () => {
       "X-Frame-Options DENY", 'Strict-Transport-Security "max-age=31536000"', "-Server"]) {
       expect(atlas).toContain(header);
     }
+    // The pages' referrer policy is a default only (the review of #418, finding 2): the owner's private page sends
+    // no-referrer, and the block, written when the response is, would otherwise replace it.
+    expect(atlas).toContain("\t\t\t?Referrer-Policy strict-origin-when-cross-origin\n");
+    expect(atlas).not.toMatch(/^\t+Referrer-Policy/mu);
     expect(atlas).not.toMatch(/script-src|unsafe-|form-action 'none'/u);
     // The site's headers skip /atlas, so its form-action 'none' never joins the pages' policy.
     expect(rest).toContain("@site not path /atlas /atlas/*");

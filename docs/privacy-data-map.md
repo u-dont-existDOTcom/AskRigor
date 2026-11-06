@@ -2014,7 +2014,33 @@ path inside the repository. A maps file holds, per video, its ID, AskRigor's own
 labels, the channel's name, how the comments were chosen, and counts (people who
 said they tried the method and how it went, how long it lasted, harm kinds and other
 methods credited, and comments left out); never comment text, commenters' names or
-keys, or comment IDs. The server serves no such page and reads no maps file.
+keys, or comment IDs.
+
+The owner's private Atlas page (the owner, 5 November 2026; plan
+`docs/superpowers/plans/2026-11-05-atlas-owner-page.md`), `/atlas/account/private`,
+built, not yet released, and there only while sign-in is on: the server reads the
+same kind of maps file, which the operator copies from the private owner-pages
+repository to a path on the server outside the image
+(`ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE`), afresh for each request of the signed-in
+owner and never for anyone else, and shows the maps, each linking its video on
+YouTube, with links to the owner's private pages on GitHub. The owner is the
+participant whose key is the participant key of the connector's owner subject
+(`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`) or of another login of the owner's
+(`ASKRIGOR_ATLAS_OWNER_SUBJECT`); the server keeps neither subject, only the keys
+in memory. A reader who isn't signed in is asked to sign in, as on the other
+account pages and with their headers (`Cache-Control: private, no-store`), and
+anyone else signed in gets the Atlas's own "Not found", by design with a missing
+page's own page and headers. Only the owner's page itself carries
+`Referrer-Policy: no-referrer` (with its `<meta name="referrer"
+content="no-referrer">`) and `X-Robots-Tag: noindex, nofollow`, beside
+`Cache-Control: private, no-store`; the apex site's proxy sets the Atlas's
+`strict-origin-when-cross-origin` only where the pages set none, so it leaves
+that header as it is. Nothing is logged, cached or stored, and the signed-in
+owner's header and account page alone link the page. The maps' video
+links are the one exception to the pages' last check, on this page alone: any
+other YouTube text, script or card reference still stops a page, and a page of
+the owner's that would hold one is shown without the maps. No other route reads
+the file.
 
 ## Atlas votes and comments
 
