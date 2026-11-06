@@ -11,7 +11,7 @@ import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
 import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
-import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import { COMPLETE_CHECKS_TIP, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
@@ -22,7 +22,7 @@ import {
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
-import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
+import { decodedDoi, doiFromInput, doiUrl, escapedDoi, normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
   ADMINISTRATION_ROUTES,
@@ -43,7 +43,7 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { displayedProse, linkTargets, visibleText, visibleTextWithLinkEdges } from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
@@ -59,7 +59,7 @@ import {
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import {
-  quoteShown, sourceLineCheckSchema, sourceLineNotes,
+  quoteShown, sourceLineCheckSchema, sourceLineNotes, sourceLineSchema,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
@@ -97,7 +97,7 @@ import {
   type SourceReading
 } from "./findings/research-behind.js";
 // How two links to one thread compare, and the digest a forum_thread_read receipt signs: kept apart, so the save reads them too.
-import { comparableUrl, forumThreadDigest, isSignedSubreddit, NON_THREAD_PARAMETER } from "./forum-thread-links.js";
+import { comparableUrl, forumSiteDigest, forumThreadDigest, isSignedSubreddit, NON_THREAD_PARAMETER } from "./forum-thread-links.js";
 import {
   discoveryQueryDigest,
   issueResearchReceipt,
@@ -227,6 +227,13 @@ const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, RuleInp
 const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): RuleInput =>
   joinRules(rule`receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it `, rule`then needs its call again.`);
 
+// The safety bases whose evidence gives no rate, by what the note calls it: for them, not_quantified fits only where no
+// source here measured or reported the harm at all (the owner regressions on #412's build, judged 6 Nov 2026: r325).
+const NO_RATE_BASES: Readonly<Partial<Record<string, string>>> = {
+  hazard_measurement: "A laboratory, animal or composition measurement",
+  case_reports: "A case report",
+  share_of_reports: "A share of selected reports"
+};
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
 export const SAFETY_BASES = [
@@ -1211,7 +1218,16 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
       leadPlaces = read.places;
     }
   }
-  const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
+  const salvaged = salvageFinalizeInput(runtime, normalized, notes);
+  // Owner answer 237a: a source line left out for its shape gets the exact shape once, after its field notes, so the next
+  // call's lines are looked up (the owner regressions on #412's build, judged 6 Nov 2026: 11 of 12 runs first sent their
+  // lines with field names of their own, and each cost a check). Exact: the line doesn't parse; no name is guessed.
+  const givenLines = normalized.source_lines;
+  if (givenLines !== undefined && (!Array.isArray(givenLines) ||
+      givenLines.some((line) => !sourceLineSchema.safeParse(line).success))) {
+    notes.push(SOURCE_LINE_SHAPE_NOTE);
+  }
+  const parsed = runtime.safeParse(salvaged);
   return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}),
     ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }),
     ...(leadPlaces === undefined ? {} : { leadPlaces }) };
@@ -2062,13 +2078,21 @@ export function finalizeResearch(
     const thread = readThreadOf(url);
     return thread === undefined ? undefined : forumReads.get(thread);
   };
-  // Whether AskRigor's reader read each thread to its end, by the thread's digest: a read with nothing after it and
-  // nothing cut (e 1; the third check of 5 Nov 2026). A receipt from before the reader said counts as part-way, the
-  // under-claim, for the day such receipts live (its fourth check).
+  // Whether AskRigor's reader read each thread to its end, by its digest: one read with nothing after it and nothing cut
+  // (e 1; the third check of 5 Nov 2026), and, for a forum page, nothing before it either (pv 0): a whole thread on one
+  // page. Separate page reads are never stitched together, so a thread of several pages is part read, however many of
+  // its pages were read (the owner regressions on #412's build and the review of #421: each way of joining pages let a
+  // part pass as the whole). A receipt from before the reader said either counts as part-way, the under-claim, for the
+  // day such receipts live (its fourth check).
   const threadReadToEnd = new Map<string, boolean>();
+  // Threads with a forum page read that had a page before or after it (pv or pa 1), by digest: threads of several pages.
+  const threadOfPages = new Set<string>();
   for (const { kind, claims } of verified) {
     if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
-    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || claims.e === "1");
+    const page = text(claims.v) === "page";
+    if (page && (claims.pv === "1" || claims.pa === "1")) threadOfPages.add(claims.u);
+    const whole = claims.e === "1" && (!page || claims.pv === "0");
+    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || whole);
   }
   // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
   // a search AskRigor couldn't make there, below.
@@ -2115,11 +2139,26 @@ export function finalizeResearch(
   // A search the reader's host answered WEBSITE_FORMAT_CHANGED: it has come back when Reddit found nothing for the words,
   // and when the reader was broken, so it shows only that AskRigor tried and couldn't search there, never that nothing
   // relevant was found (the recheck of 5 Nov 2026).
+  // What stopped AskRigor's page reader at each forum site, by the site's digest, each signed by a forum_page_unread receipt
+  // (the owner regressions on #412's build; the review of #421: only what the site said, never the reader's own refusal).
+  const forumSiteStates = new Map<string, Set<string>>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_page_unread" || text(claims.sd) === "" || text(claims.s) === "") continue;
+    const states = forumSiteStates.get(text(claims.sd)) ?? new Set<string>();
+    states.add(text(claims.s));
+    forumSiteStates.set(text(claims.sd), states);
+  }
+  const readerStops = (search: CommunitySearch) => readerStopsAt(search, forumSiteStates);
   const unsearchableSubreddits = new Set(verified.filter(({ kind, claims }) => kind === "forum_search" &&
     claims.h !== undefined).map(({ claims }) => text(claims.sr).toLowerCase()).filter((subreddit) => subreddit !== ""));
   for (const search of input.community_searches ?? []) {
-    if (!READER_PLATFORMS.has(search.platform) || (search.access_boundary !== undefined &&
-        !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary))) continue;
+    // An entry whose site refused access keeps its own-web-search limit alone; on a site the page reader reads, only where
+    // the reader's own refusal there is on record (the review of #421: a thread declared beside an unbacked block was
+    // asked for no receipt).
+    const refused = search.access_boundary !== undefined &&
+      !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary) &&
+      (!SITE_READER_PLATFORMS.has(search.platform) || readerStops(search).fits);
+    if (!READER_PLATFORMS.has(search.platform) || refused) continue;
     const subreddit = search.platform === "reddit" ? subredditNamed(search.community) : undefined;
     const declared = search.threads_read.length > 0 ||
       (subreddit !== undefined && search.access_boundary === "no_relevant_results");
@@ -2458,7 +2497,8 @@ export function finalizeResearch(
       }
     }
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
-      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes }, options.redditThreads, forumReadUrls));
+      communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes },
+        options.redditThreads, forumReadUrls, readerStops));
     commercialReviewCoverage(input, { addStep, requireDeclaration });
   }
 
@@ -2832,7 +2872,8 @@ export function finalizeResearch(
     const openCopy = pmcidFor(id);
     if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
     addStep("research", 
-      joinRules(joinRules(rule`PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not `, rule`try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new `), rule`research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_RULE}`)
+      // A DOI with "<" or ">" is named escaped, the form the published doi pattern takes (the review of #421).
+      joinRules(joinRules(rule`PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not `, rule`try: call acquire_open_full_text with DOI ${escapedDoi(doi)} and pmcid ${openCopy}, then audit it, or pass the new `), rule`research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_RULE}`)
     );
     return true;
   };
@@ -2935,6 +2976,12 @@ export function finalizeResearch(
     }
     if (source.read_depth === undefined) {
       requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
+    } else if (source.read_depth === "full_text_read" && !read && threadRead &&
+               threadOfPages.has(readThreadOf(source.id) ?? forumThreadDigest(source.id))) {
+      // A page that marks a page before or after it is part read, whatever was read: say what was seen, so a run doesn't
+      // guess (the review of #421; such marks may be a pager's or a link to an adjacent topic, so the step names neither).
+      addBlockingStep("read_depth", "declaration", joinRules(rule`Key source ${source.id}'s page marks a page before or `,
+        "after it, so AskRigor counts it as part read: give read_depth partial_text."));
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
@@ -3454,10 +3501,25 @@ export function finalizeResearch(
     if (claim.basis !== "not_quantified") {
       // A share of selected reports may come from posts rather than a study.
       const studiesNeeded = claim.basis !== "share_of_reports";
-      if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
-        // The exit is for a harm no source here gives a rate for: on 30 Oct r324 took it for a study whose rates its
-        // binary_results declared, and its answer then carried the false limit below beside a table of those rates.
-        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or, when no source here gives a rate, declare basis not_quantified."));
+      const noStudies = studiesNeeded && (claim.studies ?? []).length === 0;
+      if (claim.measured_exposure === undefined || noStudies) {
+        // What the basis needs comes first, and not_quantified only where it fits. Its exit is for a harm no source here
+        // gives a rate for: on 30 Oct r324 took it for a study whose rates its binary_results declared, and its answer
+        // then carried the false limit below beside a table of those rates. A measurement, case reports or a share of
+        // reports give no rate and need none, so for them that exit fits nearly always: in the owner regressions on #412's
+        // build (judged 6 Nov 2026) r325 took it for two hazard_measurement warnings that only lacked what was measured,
+        // and lost the measurement's caveat. Exact: the declared basis picks the sentence; nothing reads the answer.
+        const give = claim.measured_exposure === undefined
+          ? joinRules("give measured_exposure first, ", claim.basis === "hazard_measurement"
+            ? "what the laboratory, animal or composition measurement measured: the substance, its form and amount, and the test"
+            : "what the cited evidence measured", noStudies ? ", and in studies the key sources it rests on." : ".")
+          : "give in studies the key sources it rests on.";
+        const noRate = NO_RATE_BASES[claim.basis];
+        const exit = noRate === undefined
+          ? " Declare basis not_quantified instead only when no source here gives a rate for this harm."
+          : ` ${noRate} gives no rate and needs none: declare basis not_quantified only when no source here measured or ` +
+            "reported this at all.";
+        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? noStudies ? rule`measured_exposure or studies` : rule`measured_exposure` : rule`studies`}: `, give, exit));
       }
       undeclaredStudies(at, claim.studies ?? []);
     }
@@ -4198,10 +4260,12 @@ export function finalizeResearch(
         ...communityLeads.flatMap(({ state, answer_quote: quote }, index) =>
           state === "searched" && quote !== undefined && !repeatedLeads.has(index)
             ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
-        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
-        ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
+        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote. Given without
+        // one, harms_quote is still the answer's own sentence, so it is checked the same way (the owner regressions on
+        // #412's build, judged 6 Nov 2026: o356-ssris-years passed with a harms_quote its answer no longer showed).
+        ...(input.binary_results ?? []).flatMap(({ quote, harms_quote: harms }, index) => [
           { at: `binary_results[${index}]`, quote },
-          ...(nnt === undefined || harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
+          ...(harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
         ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
@@ -4934,7 +4998,9 @@ function answerDraftProblems(
       context.blockingProblem("numbers", joinRules(rule`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain `, "the declared follow-up."));
     }
   }
-  const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
+  // A declared sentence is the answer's own words, so it is found only as whole words: not inside a longer word or number.
+  const showingWhole = quoteLocator(shownBlocks, { wholeWords: true });
+  const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showingWhole(quote).length === 0).map(({ at }) => at);
   if (unshownDeclared.length > 0) {
     problems.push(
       joinRules(rule`${unshownDeclared.join(", ")} ${unshownDeclared.length === 1 ? rule`gives` : rule`give`} text the answer does not show: `, "copy each sentence exactly from answer_draft.")
@@ -5015,18 +5081,50 @@ function termOccurrences(text: string, term: string): number[] {
  * items, headings) that contain it, compared as caveats are, with a link
  * matched by its target or by its text. Exact and the same in any language.
  */
-function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number[] {
+function quoteLocator(shownBlocks: readonly string[], { wholeWords = false }: { wholeWords?: boolean } = {}):
+  (quote: string) => number[] {
   const quoteBlocks = shownBlocks.map((block) => ({
     targets: caveatText(linkTargets(block)),
-    text: caveatText(visibleText(block))
+    text: caveatText(visibleText(block)),
+    // Compared as whole words, a link's edges are boundaries too (the review of #421).
+    edged: wholeWords ? caveatText(visibleTextWithLinkEdges(block)) : undefined
   }));
+  const contains = wholeWords ? (text: string, quote: string) => wholeOccurrence(text, quote)
+    : (text: string, quote: string) => text.includes(quote);
   return (quote: string): number[] => {
     const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
     const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
     if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
-    return quoteBlocks.flatMap(({ targets, text }, index) =>
-      targets.includes(byTarget) || text.includes(byText) ? [index] : []);
+    return quoteBlocks.flatMap(({ targets, text, edged }, index) =>
+      contains(targets, byTarget) || contains(text, byText) || (edged !== undefined && contains(edged, byText)) ? [index] : []);
   };
+}
+
+/**
+ * Whether a quote occurs in normalized text as whole words (the owner regressions on #412's build, judged 6 Nov 2026): an
+ * edge that is a letter of a script with letter case, which separates words with spaces, may not run on into another
+ * such letter, a digit or a combining mark, and an edge that is a digit, in any script, into another digit, so "3%" is
+ * not found in "13%" nor "harm" in "harmless". A letter of a script without case, which may not separate words, is no
+ * run-on ("SSRI" in "はSSRI群"), and neither is a superscript ("placebo¹"), only a decimal digit (the review of #421).
+ * Letters of scripts without case match anywhere, as termOccurrences matches a term. Exact and the same in any language.
+ */
+function wholeOccurrence(text: string, quote: string): boolean {
+  if (quote === "") return false;
+  const characters = Array.from(quote);
+  const digit = /\p{Nd}/u;
+  const mark = /\p{M}/u;
+  const cased = (character: string): boolean => character.toLowerCase() !== character.toUpperCase();
+  const edge = (inside: string, outside: string | undefined): boolean => outside === undefined ||
+    (cased(inside) ? !(cased(outside) || digit.test(outside) || mark.test(outside))
+      : digit.test(inside) ? !digit.test(outside) : true);
+  const first = characters[0]!;
+  const last = characters.at(-1)!;
+  for (let index = text.indexOf(quote); index >= 0; index = text.indexOf(quote, index + 1)) {
+    const before = Array.from(text.slice(Math.max(0, index - 2), index)).at(-1);
+    const after = Array.from(text.slice(index + quote.length, index + quote.length + 2))[0];
+    if (edge(first, before) && edge(last, after)) return true;
+  }
+  return false;
 }
 
 /**
@@ -5452,9 +5550,9 @@ const videoLink = (video: string, text: string): string => `[${text}](https://ww
  * identical ones.
  */
 function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>): string[] {
-  // A DOI may contain parentheses, which would end a Markdown link.
+  // A DOI may contain parentheses, which would end a Markdown link, and "<" or ">", which no link carries as they are.
   const link = (id: string) => `[this study](${isDoi(id)
-    ? `https://doi.org/${id.replace(/\(/gu, "%28").replace(/\)/gu, "%29")}`
+    ? doiUrl(decodedDoi(id)).replace(/\(/gu, "%28").replace(/\)/gu, "%29")
     : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`;
   // Studies whose lead receipt signed the same reason share one sentence, which
   // says what stopped the reading: a public copy read only in part is not one
@@ -5596,7 +5694,7 @@ class PaperLinks {
 function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
   const page = (identifier: string): string[] => isPmid(identifier) ? [`https://pubmed.ncbi.nlm.nih.gov/${identifier}/`]
     : isPmcid(identifier) ? [`https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`]
-    : isDoi(identifier) ? [`https://doi.org/${identifier}`]
+    : isDoi(identifier) ? [doiUrl(decodedDoi(identifier))]
     : /^https?:\/\//iu.test(identifier) ? [identifier] : [];
   const candidates = [
     ...page(id),
@@ -5756,6 +5854,28 @@ function subredditNamed(name: string): string | undefined {
 // app-only ones, read through the AI's own search, so its entries rest on the AI's word, as they did (the review of 5
 // Nov 2026).
 const READER_PLATFORMS: ReadonlySet<string> = new Set(["reddit", "forum", "patient_organization"]);
+// The platforms whose sites the page reader reads, so a refusal there is signed by a forum_page_unread receipt; Reddit's
+// reader answers for its own host, not the site's. And the declared boundaries that say a read was tried and stopped.
+const SITE_READER_PLATFORMS: ReadonlySet<string> = new Set(["forum", "patient_organization"]);
+const ATTEMPTED_BOUNDARIES: ReadonlySet<string> = new Set(["blocked", "login_required", "retrieval_failed"]);
+// The reader's stops that back each such boundary, by exact signals (the review of #421): a site that refused the reader
+// (403, 451, a bot challenge) or whose robots.txt disallows the page blocked it; one that answered 401 asks for a login;
+// one that failed to serve, lacked the page or showed too little text to read could not be retrieved.
+const FITTING_READER_STOPS: Readonly<Record<string, ReadonlySet<string>>> = {
+  blocked: new Set(["blocked", "robots_disallowed"]),
+  login_required: new Set(["login_required"]),
+  retrieval_failed: new Set(["unavailable", "not_found", "needs_a_browser"])
+};
+/** What the page reader's receipts show stopped it at an entry's site, and whether that backs the entry's boundary. */
+interface ReaderStops { states: string[]; fits: boolean }
+function readerStopsAt(search: CommunitySearch, siteStates: ReadonlyMap<string, ReadonlySet<string>>): ReaderStops {
+  const sites = new Set([search.url, ...search.threads_read.map(({ url }) => url)]
+    .flatMap((url) => url === undefined ? [] : [forumSiteDigest(url)])
+    .filter((site): site is string => site !== undefined));
+  const states = [...new Set([...sites].flatMap((site) => [...siteStates.get(site) ?? []]))].sort();
+  const fitting = search.access_boundary === undefined ? undefined : FITTING_READER_STOPS[search.access_boundary];
+  return { states, fits: fitting !== undefined && states.some((state) => fitting.has(state)) };
+}
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
 function redditPostOf(url: string): string | undefined {
@@ -6151,7 +6271,8 @@ function communityCoverage(
   youtubeResearched: boolean,
   out: DeclarationSteps & { requireLimit: (text: RuleInput, ...sentences: string[]) => void; lanes: string[] },
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>,
-  forumReadUrls: ReadonlySet<string> = new Set()
+  forumReadUrls: ReadonlySet<string> = new Set(),
+  readerStops: (search: CommunitySearch) => ReaderStops = () => ({ states: [], fits: false })
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
   // Communities read, one entry per community however many searches it had.
@@ -6183,6 +6304,10 @@ function communityCoverage(
   // entry beside four threads read, and q135-low-stakes declared a thread read and retrieval_failed in one entry.
   const readByReader = new Set((input.community_searches ?? []).filter(({ threads_read }) =>
     threads_read.some(({ url }) => forumReadUrls.has(forumThreadDigest(url))))
+    .map(({ community, platform }) => communityKey(community, platform)));
+  // Communities with a thread declared read in any entry, the reader's or the AI's own search's: a declared boundary there
+  // stopped only some of their pages, which an unbacked boundary's limit says.
+  const withThreads = new Set((input.community_searches ?? []).filter(({ threads_read }) => threads_read.length > 0)
     .map(({ community, platform }) => communityKey(community, platform)));
   for (const search of input.community_searches ?? []) {
     const name = search.community;
@@ -6355,7 +6480,30 @@ function communityCoverage(
     // Recorded, so a community the user named is not asked for again, but no discussion pool of its own.
     if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary === "not_found" || search.access_boundary === "supplied_by_user") unsearched.add(key);
-    if (search.access_boundary !== undefined) {
+    // A forum's or a patient organization's site, which the reader is made to read, refused or couldn't serve the pages
+    // of a community the reader read nothing of only as a receipt of the reader's own stop there shows, and only one whose
+    // state fits the declared boundary (the owner regressions on #412's build, judged 6 Nov 2026: q135-urgent declared
+    // National Snakebite Support blocked with no read of it tried, and its limit said the community blocked access; the
+    // review of #421: a thread declared from the AI's own search turned this off, and so did a receipt whatever it said).
+    // Without one, the limit says only what wasn't read, and a note asks for the reader's attempt. A note, as the
+    // communities' other receipt notes are.
+    const stops = search.access_boundary !== undefined && ATTEMPTED_BOUNDARIES.has(search.access_boundary) &&
+      SITE_READER_PLATFORMS.has(search.platform) && !readByReader.has(key) ? readerStops(search) : undefined;
+    if (stops !== undefined && !stops.fits) {
+      out.addStep("research", stops.states.length === 0
+        ? joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, `,
+          "but no receipt in this call shows AskRigor's reader tried its site: try one of its pages with read_forum_thread, ",
+          "which signs what stops it, and pass that research_receipt; if no read of it was tried, leave it out of ",
+          "community_searches and name it in open_leads as a community not reached.")
+        : joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, but `,
+          rule`AskRigor's reader was stopped at its site only as ${stops.states.join(", ")}, which that boundary doesn't fit: `,
+          "give the boundary that fits (blocked for blocked or robots_disallowed; login_required for login_required; ",
+          "retrieval_failed for unavailable, not_found or needs_a_browser), or try another of its pages."));
+      out.requireLimit(rule`${name} was not read here; say so, without a reason no receipt shows.`,
+        withThreads.has(key)
+          ? `${completedCaveat("Some pages of a community were not read here:", name)} Reports on those pages are not included.`
+          : `${completedCaveat("A community not read here:", name)} Reports there are not included.`);
+    } else if (search.access_boundary !== undefined) {
       const pagesLeft = readByReader.has(key) ? pagesLeftCaveat(name, search.access_boundary) : undefined;
       out.requireLimit(
         pagesLeft !== undefined ? rule`Some pages of ${name}, a community read here, stopped at an access boundary (${search.access_boundary}); say so.` : search.access_boundary === "supplied_by_user" ? rule`The user supplied reports from ${name}; AskRigor did not search that community itself.` : search.access_boundary === "no_relevant_results" ? rule`The search of ${name} found no relevant reports; say so.` : search.access_boundary === "not_found" ? rule`${name} could not be found; say so.` : rule`The search of ${name} ended at an access boundary (${search.access_boundary}); say so.`,
@@ -6709,7 +6857,10 @@ function recordVideoAudit(
 export function normalizeIdentifier(value: string): string {
   const trimmed = value.trim();
   const doi = trimmed.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
-  if (/^10\.\d{4,9}\//u.test(doi)) return doi.toLowerCase();
+  // Read as acquisition reads it (doiFromInput): a doi.org link decoded in full, a bare DOI's "%3C" and "%3E" read as "<"
+  // and ">", so a key source given as either form is the DOI its receipts sign (the review of #421: an escaped DOI, then
+  // a doi.org link with other escapes, matched none of its receipts).
+  if (/^10\.\d{4,9}\//u.test(doi)) return doiFromInput(/^https?:\/\//iu.test(trimmed) ? trimmed : doi);
   const pmcid = /^(?:pmcid:?\s*)?(pmc\d+)$/iu.exec(trimmed);
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
   const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);

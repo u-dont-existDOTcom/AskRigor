@@ -112,8 +112,12 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
   it("needs what the evidence measured and key sources for every basis except not_quantified", () => {
     const quote = "Nausea occurred in 18% on the extract and 4% on placebo.";
     expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ measured_exposure: undefined })] })).toEqual([
-      "safety_claims[0] has basis comparative_rates without measured_exposure: give what the cited evidence measured " +
-        "and the key sources it rests on, or, when no source here gives a rate, declare basis not_quantified."
+      "safety_claims[0] has basis comparative_rates without measured_exposure: give measured_exposure first, what the " +
+        "cited evidence measured. Declare basis not_quantified instead only when no source here gives a rate for this harm."
+    ]);
+    expect(steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ studies: [] })] })).toEqual([
+      "safety_claims[0] has basis comparative_rates without studies: give in studies the key sources it rests on. " +
+        "Declare basis not_quantified instead only when no source here gives a rate for this harm."
     ]);
     // Looked up here, it is asked into key_sources; not looked up, it is asked for its lookup first, since the sources
     // check would refuse it in key_sources (n389-forum-depth on #394's build: a label and a PMC page, refused there).
@@ -131,6 +135,39 @@ describe("finalize_research safety_claims (owner questions 86 and 89)", () => {
         "then add it to key_sources with its read depth and link. A source no AskRigor tool can look up, such as a page " +
         "only your own search found, is not a key source: say in the answer that AskRigor did not look it up."
     ]);
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026): r325 declared two warnings hazard_measurement without
+  // measured_exposure; the note offered not_quantified "when no source here gives a rate", which a measurement never
+  // gives, so the run took it and lost the measurement's caveat. The note asks for what was measured first, and says
+  // not_quantified fits only where no source measured or reported the harm at all.
+  it("asks a basis that gives no rate for what was measured, and keeps not_quantified for no source at all", () => {
+    const quote = "Hijiki can carry enough inorganic arsenic to avoid it.";
+    const measured = (overrides: Partial<SafetyClaim>) =>
+      steps({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, ...overrides })] });
+    expect(measured({ basis: "hazard_measurement", measured_exposure: undefined })).toEqual([
+      "safety_claims[0] has basis hazard_measurement without measured_exposure: give measured_exposure first, what the " +
+        "laboratory, animal or composition measurement measured: the substance, its form and amount, and the test. A " +
+        "laboratory, animal or composition measurement gives no rate and needs none: declare basis not_quantified only " +
+        "when no source here measured or reported this at all."
+    ]);
+    expect(measured({ basis: "hazard_measurement", measured_exposure: undefined, studies: undefined })).toEqual([
+      "safety_claims[0] has basis hazard_measurement without measured_exposure or studies: give measured_exposure " +
+        "first, what the laboratory, animal or composition measurement measured: the substance, its form and amount, " +
+        "and the test, and in studies the key sources it rests on. A laboratory, animal or composition measurement " +
+        "gives no rate and needs none: declare basis not_quantified only when no source here measured or reported this " +
+        "at all."
+    ]);
+    expect(measured({ basis: "case_reports", measured_exposure: undefined })).toEqual([
+      "safety_claims[0] has basis case_reports without measured_exposure: give measured_exposure first, what the cited " +
+        "evidence measured. A case report gives no rate and needs none: declare basis not_quantified only when no " +
+        "source here measured or reported this at all."
+    ]);
+    // Given what was measured, the measurement's caveat follows, and nothing is asked.
+    const filled = check({ answer_draft: `${LINKS}\n\n${quote}`, safety_claims: [claim({ quote, basis: "hazard_measurement",
+      exposure: "hijiki eaten as food", measured_exposure: "inorganic arsenic measured in dried hijiki" })] });
+    expect(advisoryNotes(filled).filter((step) => step.includes("has basis"))).toEqual([]);
+    expect(filled.limits).toContainEqual(expect.stringMatching(/^This warning rests on measurements, not on harm observed in people/u));
   });
 
   it("checks that the declared sentence is in the answer", () => {

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { forumPageDigest } from "../apps/research-mcp/src/forum-thread-links.js";
+import { forumPageDigest, forumSiteDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { createRedditReaderClient } from "../apps/research-mcp/src/reddit-reader-client.js";
@@ -207,6 +207,48 @@ describe("forum tools", () => {
       const claims = claimsOf(await caller.callTool({ name: "read_forum_thread", arguments: { url: given } }));
       expect(claims, given).toMatchObject({ u: forumThreadDigest(read), ur: forumThreadDigest(given) });
     }
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026) and the review of #421: a forum page's read signs whether a
+  // page comes before it (pv: any rel="prev" tag, or the page its link picks) and after it (pa: its next page, or any
+  // rel="next" tag), and reaches the thread's end (e) only with nothing after it and nothing cut, so the final check reads
+  // a forum thread in full only from one read of a whole thread on one page. Neither marker reaches the published result.
+  it("signs a forum page's place in its thread, by any page marked before or after it", async () => {
+    const caller = await client();
+    const first = "https://forum.example/health/q123-synthetic-question";
+    const claimsOf = async (read: Record<string, unknown>, url = first) => {
+      page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), ...read });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent!.data).not.toHaveProperty("page_before");
+      expect(result.structuredContent!.data).not.toHaveProperty("page_after");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    // A whole thread on one page: nothing before, nothing after, nothing cut.
+    expect(await claimsOf({ truncated: false })).toMatchObject({ pv: "0", pa: "0", e: "1" });
+    expect(await claimsOf({ truncated: true })).toMatchObject({ pv: "0", pa: "0", e: "0" });
+    // A page after it, followable or only marked.
+    expect(await claimsOf({ truncated: false, next_page: `${first}?p=2` })).toMatchObject({ pa: "1", e: "0" });
+    expect(await claimsOf({ truncated: false, page_after: true })).toMatchObject({ pa: "1", e: "0" });
+    // A page before it, marked or picked by its link.
+    expect(await claimsOf({ truncated: false, page_before: true }, `${first}?p=3`)).toMatchObject({ pv: "1", e: "1" });
+    for (const later of ["https://forum.example/viewtopic.php?t=4242&start=60", "https://forum.example/threads/x.12/page-3",
+      "https://forum.example/t/topic/42?page=2"]) {
+      expect(await claimsOf({ truncated: false }, later), later).toMatchObject({ pv: "1" });
+    }
+    for (const opening of ["https://forum.example/viewtopic.php?t=4242&start=0", "https://forum.example/threads/x.12/page-1",
+      "https://forum.example/t/topic/42?page=1"]) {
+      expect(await claimsOf({ truncated: false }, opening), opening).toMatchObject({ pv: "0" });
+    }
+    // No page is stitched to another: no receipt names a next page.
+    expect(await claimsOf({ truncated: false, next_page: `${first}?p=2` })).not.toHaveProperty("nw");
+    // A Reddit read signs neither marker.
+    thread.mockResolvedValue({ access_state: "read", url: URL, community: "example", comments: [], comments_read: 3 });
+    const reddit = verifyResearchReceipt((await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } }))
+      .structuredContent!.research_receipt as string, { secret: SECRET });
+    expect(reddit.ok && reddit.claims).not.toHaveProperty("pv");
+    expect(reddit.ok && reddit.claims).not.toHaveProperty("pa");
   });
 
   // A post on a person's profile (a subreddit named u_ and the user's name) signs u_ alone, so no receipt names a user.
@@ -419,11 +461,85 @@ describe("forum tools", () => {
     expect(JSON.stringify(result.content)).not.toContain("a@b.com");
     expect(search).not.toHaveBeenCalled();
   });
-  it.each(["robots_disallowed", "blocked", "needs_a_browser", "not_found", "unavailable"])("does not issue a receipt for %s", async (access_state) => {
+  // The owner regressions on #412's build (judged 6 Nov 2026): a community was declared blocked with no read of it tried.
+  // A forum page the reader couldn't read earns no read receipt, only one saying what stopped the reader, at which site
+  // (its registrable host's digest), so a declared access boundary rests on an attempt; Reddit's reader, which answers
+  // for its own host, signs none.
+  it.each(["robots_disallowed", "blocked", "needs_a_browser", "not_found", "unavailable"])("issues no read receipt for %s, only what stopped the reader", async (access_state) => {
     page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state });
-    const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/1" } });
+    const caller = await client();
+    const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://www.forum.example/thread/1" } });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).not.toHaveProperty("research_receipt");
     expect(result.structuredContent).toMatchObject({ data: { access_state } });
+    const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+    expect(verified).toMatchObject({ ok: true, kind: "forum_page_unread", claims: {
+      u: forumThreadDigest("https://www.forum.example/thread/1"), s: access_state,
+      sd: createHash("sha256").update("forum.example", "utf8").digest("hex").slice(0, 16) } });
+    // Digests and the reader's state only, with the receipt's own order: no link, host or text.
+    expect(verified.ok && Object.keys(verified.claims).sort()).toEqual(["s", "sd", "t", "u"]);
+    expect(JSON.stringify(result.content)).toContain("it backs the access_boundary of the community this page belongs to");
+    thread.mockResolvedValue({ url: URL, access_state: "unavailable" });
+    expect((await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } })).structuredContent)
+      .not.toHaveProperty("research_receipt");
+  });
+
+  // The review of #421: a page answering 401 asks for a login. The published states are fixed, so the result says
+  // blocked, with a sentence saying a login is needed, and the receipt signs login_required, which alone backs a
+  // community's login_required boundary.
+  it("publishes a 401 as blocked, says a login is needed, and signs login_required", async () => {
+    page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state: "login_required" });
+    const result = await (await client()).callTool({ name: "read_forum_thread",
+      arguments: { url: "https://forum.example/thread/1" } });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ data: { access_state: "blocked" } });
+    expect(JSON.stringify(result.content)).toContain("The site answered that this page needs a login (HTTP 401).");
+    expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET }))
+      .toMatchObject({ ok: true, kind: "forum_page_unread", claims: { s: "login_required" } });
+  });
+
+  // The review of #421: a pager without rel tags still links its thread's later pages. A page linking a later page of its
+  // own thread (the same comparable link, a page after the first) has a page after it; links to other threads, or to the
+  // thread's first page, are none.
+  it("reads a page linking a later page of its own thread as one of several", async () => {
+    const caller = await client();
+    const claimsOf = async (url: string, links: string[]) => {
+      page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), truncated: false,
+        ...(links.length === 0 ? {} : { later_page_links: links }) });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent!.data).not.toHaveProperty("later_page_links");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    for (const [url, later] of [
+      ["https://forum.example/showthread.php?tid=77", "https://forum.example/showthread.php?tid=77&page=2"],
+      ["https://forum.example/showthread.php?t=88", "https://forum.example/showthread.php?t=88&page=2"],
+      ["https://forum.example/viewtopic.php?f=4&t=99", "https://forum.example/viewtopic.php?f=4&t=99&start=15"],
+      ["https://forum.example/thema/55", "https://forum.example/thema/55?page=2"]
+    ]) {
+      expect(await claimsOf(url!, [later!]), url).toMatchObject({ pa: "1", e: "0" });
+    }
+    // Another thread's later page is no page of this one.
+    expect(await claimsOf("https://forum.example/showthread.php?tid=77", ["https://forum.example/showthread.php?tid=78&page=2"]))
+      .toMatchObject({ pa: "0", e: "1" });
+    expect(await claimsOf("https://forum.example/thema/55", [])).toMatchObject({ pa: "0", e: "1" });
+  });
+
+  // The review of #421: the reader's own refusal of a link, before any request to the site, says nothing of the site, so
+  // it signs no receipt; and a site is its host, so forums hosted as subdomains of one service are each their own.
+  it("signs nothing for a link the reader refuses itself, and keys a site on its host", async () => {
+    const caller = await client({ forumPageReader: (await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources")).readForumPage });
+    for (const url of ["http://www.forum.example/thread/1", "https://www.forum.example:8443/thread/1",
+      "https://user:secret@www.forum.example/thread/1"]) {
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent, url).toMatchObject({ data: { access_state: "invalid" } });
+      expect(result.structuredContent, url).not.toHaveProperty("research_receipt");
+    }
+    expect(forumSiteDigest("https://www.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/other"));
+    expect(forumSiteDigest("https://alpha.forums.example/t/1")).not.toBe(forumSiteDigest("https://beta.forums.example/t/1"));
+    // A www or mobile label comes off only while the rest is the same registrable host (the review of #421).
+    expect(forumSiteDigest("https://web.de/forum")).not.toBe(forumSiteDigest("https://mobile.de/forum"));
+    expect(forumSiteDigest("https://m.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/t/1"));
+    expect(forumSiteDigest("https://192.0.2.1/t/1")).toBeUndefined();
   });
 });

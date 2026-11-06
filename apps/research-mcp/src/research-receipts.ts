@@ -49,6 +49,10 @@ export const RESEARCH_RECEIPT_KINDS = [
   "doi_resolution",
   "literature_search",
   "forum_thread_read",
+  // A forum page (not Reddit) the reader couldn't read, by what stopped it, and its site (the owner regressions on #412's
+  // build, judged 6 Nov 2026): the final check ties a community's declared access boundary to an attempt at its site.
+  // Never a read: nothing else counts it.
+  "forum_page_unread",
   "forum_search",
   "full_text_lead",
   "full_text_route_failure",

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   communitySkipCaveat, finalizeResearch, forumThreadDigest, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { forumPageDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { discoveryQueryDigest, issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 
@@ -186,13 +187,53 @@ describe("a community declared searched or read needs this call's receipt for it
       "read_depth full_text_audited with these receipts; give read_depth full_text_read, or pass its matching research_receipt."]);
   });
 
+  // The owner regressions on #412's build (judged 6 Nov 2026): r376-later-phase read both pages of a thread, its second at
+  // ?p=2, and was asked for partial_text. Each way of stitching separate page reads into a whole let a part pass as the
+  // whole (the review of #421: a run from page 2, a last page read alone, a post's link sharing page 1's digest, a page
+  // whose rel="prev" the reader couldn't follow). So a forum thread is read in full only by one read of a page with
+  // nothing before it and nothing after it: a whole thread on one page. A thread of several pages is part read, however
+  // many of its pages were read, and the step says so.
+  it("reads a forum thread in full only from one page with nothing before or after it", () => {
+    const cite = (id: string, receipts: string[], depth = "full_text_read") =>
+      assertNextStepsContract(finalizeResearch({ ...input([], receipts),
+        key_sources: [...input([]).key_sources, { id, status: "lead_only", read_depth: depth, answer_marker: "Thread" }],
+        answer_draft: `${input([]).answer_draft}\n\n[Thread](${id}) (${depth === "full_text_read" ? "full text read"
+          : "part of the text read"}) describes the tea.`,
+        later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED },
+          { source: id, reading: depth, quote: depth === "full_text_read" ? "full text read" : "part of the text read" }] }
+      }, { secret: SECRET }));
+    const page = (url: string, claims: Record<string, string>) => sign("forum_thread_read",
+      { u: forumThreadDigest(url), w: forumPageDigest(url), n: 2_000, v: "page", ...claims });
+    // Worded by what was seen (the review of #421): a one-page topic may link an adjacent topic with rel tags too.
+    const severalPages = (id: string) => `Key source ${id}'s page marks a page before or after it, so AskRigor counts ` +
+      "it as part read: give read_depth partial_text.";
+    const first = "https://forum.example.org/health-fitness/q1234567-synthetic-weight-question";
+    const second = `${first}?p=2`;
+    // A whole thread on one page, read to its end: read in full.
+    expect(cite(first, [page(first, { pv: "0", pa: "0", e: "1" })]).next_steps).toEqual([]);
+    // Both pages of a two-page thread, read one after the other: part read, and the step asks for partial_text.
+    const both = [page(first, { pv: "0", pa: "1", e: "0" }), page(second, { pv: "1", pa: "0", e: "1" })];
+    expect(cite(first, both).next_steps).toContain(severalPages(first));
+    expect(cite(second, both).next_steps).toContain(severalPages(second));
+    expect(cite(first, both, "partial_text").next_steps).toEqual([]);
+    // A later page read alone, its page before marked or picked by its link: part read.
+    expect(cite(second, [page(second, { pv: "1", pa: "0", e: "1" })]).next_steps).toContain(severalPages(second));
+    const topic = "https://forum.example.org/viewtopic.php?t=4242";
+    expect(cite(topic, [page(`${topic}&start=60`, { pv: "1", pa: "0", e: "1" })]).next_steps).toContain(severalPages(topic));
+    // A page cut at the size limit, or a receipt from before pv: part read, under the plain step.
+    const refused = `Key source ${first} cannot support read_depth full_text_read with these receipts; give read_depth ` +
+      "partial_text or another lower value reflecting what was read, or pass its matching research_receipt.";
+    expect(cite(first, [page(first, { pv: "0", pa: "0", e: "0" })]).next_steps).toContain(refused);
+    expect(cite(first, [page(first, { e: "1" })]).next_steps).toContain(refused);
+  });
+
   // The follow-up of 5 Nov 2026 (l34 on #412's build): a thread the site sent the reader on from to another of its pages
   // is that thread, by the link given (`ur`), so an answer citing the link given has its receipt.
   it("takes a key source thread by the link the site sent the reader on from", () => {
-    const asked = "https://www.longecity.org/forum/topic/63977-synthetic-topic/page-2";
-    const landed = "https://www.longecity.org/forum/viewtopic.php?t=1063977&start=30";
-    const redirected = sign("forum_thread_read", { u: forumThreadDigest(landed), ur: forumThreadDigest(asked), n: 1_500,
-      v: "page", e: "1" });
+    const asked = "https://www.longecity.org/forum/topic/63977-synthetic-topic/";
+    const landed = "https://www.longecity.org/forum/viewtopic.php?t=1063977";
+    const redirected = sign("forum_thread_read", { u: forumThreadDigest(landed), ur: forumThreadDigest(asked),
+      w: forumPageDigest(landed), pv: "0", pa: "0", n: 1_500, v: "page", e: "1" });
     const cite = (receipts: string[]) => assertNextStepsContract(finalizeResearch({ ...input([], receipts),
       key_sources: [...input([]).key_sources, { id: asked, status: "lead_only", read_depth: "full_text_read",
         answer_marker: "Thread" }],
@@ -201,8 +242,15 @@ describe("a community declared searched or read needs this call's receipt for it
         { source: asked, reading: "full_text_read", quote: "full text read" }] }
     }, { secret: SECRET }));
     expect(cite([redirected]).next_steps).toEqual([]);
+    // Sent on to the thread's second page (start=30), it is the same thread, but one of several pages: part read.
+    const laterPage = "https://www.longecity.org/forum/viewtopic.php?t=1063977&start=30";
+    const second = sign("forum_thread_read", { u: forumThreadDigest(laterPage), ur: forumThreadDigest(asked),
+      w: forumPageDigest(laterPage), pv: "1", pa: "0", n: 1_500, v: "page", e: "1" });
+    expect(cite([second]).next_steps[0]).toBe(`Key source ${asked}'s page marks a page before or after it, so AskRigor ` +
+      "counts it as part read: give read_depth partial_text.");
     // Without the link given in its receipt, the asked link has no receipt (and so no reading either).
-    const unsigned = sign("forum_thread_read", { u: forumThreadDigest(landed), n: 1_500, v: "page", e: "1" });
+    const unsigned = sign("forum_thread_read", { u: forumThreadDigest(landed), w: forumPageDigest(landed), pv: "0",
+      pa: "0", n: 1_500, v: "page", e: "1" });
     // Compared as a prefix, not a pattern built from the link (CodeQL: a link is no regular expression).
     const unreceipted = `Key source ${asked} has no receipt showing it was found or looked up`;
     expect(cite([unsigned]).next_steps[0]?.slice(0, unreceipted.length)).toBe(unreceipted);

@@ -11,7 +11,8 @@ export const externalEvidenceTimestampSchema = z.string().datetime({ offset: tru
 export const canonicalDoiSchema = z
   .string()
   .max(2_048)
-  .regex(/^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/u)
+  // The characters DOIs use, "<" and ">" of older SICI-form DOIs among them.
+  .regex(/^10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>a-z0-9]+$/u)
   .refine((value) => value === value.toLowerCase(), "DOI must be canonical lowercase");
 
 const boundedTextSchema = z.string().trim().min(1).max(MAX_TEXT);

@@ -133,6 +133,9 @@ export function forumPageDigest(url: string): string {
   return digestOf(`${comparableUrl(url)}#${[...(suffix === undefined ? [] : [suffix]), ...parameters].join("&")}`);
 }
 
+// Whether a link picks a page of its thread after the first: the page reader's own rule, kept with it (the review of #421).
+export { pagePickedAfterFirst } from "@askrigor/sources";
+
 /**
  * Whether a link the reader was sent on from names the same thread as the link it read, at the same site: the same
  * path and parameters at the same registrable host (a bare host sent on to a forum's subdomain, say). Only then does a
@@ -171,6 +174,36 @@ export function sameSiteRedirect(given: string, read: string): boolean {
   const site = registrableHost(from.hostname);
   if (site === undefined || site !== registrableHost(to.hostname)) return false;
   return !(FRONT_PAGE_PATH.test(to.pathname.replace(/\/+$/u, "")) && to.search === "");
+}
+
+/**
+ * A forum site's digest, as a forum_page_unread receipt signs the site of a page the reader couldn't read (`sd`): of its
+ * host name, lower case, without a www or mobile prefix, as the final check names a community's site, so a community's
+ * declared access boundary is tied to an attempt at its own site, whatever page there was tried (the owner regressions
+ * on #412's build, judged 6 Nov 2026). Not of the registrable host: forums hosted as subdomains of one service
+ * (name.proboards.com) are each their own site (the review of #421). Communities that share one host by path
+ * (healthunlocked.com/<community>) share it here too: an attempt at one of them backs another's boundary, a limit
+ * docs/final-check.md states. Undefined for a link with no domain name.
+ */
+export function forumSiteDigest(url: string): string | undefined {
+  let hostname: string;
+  try {
+    hostname = new globalThis.URL(url.trim()).hostname.toLowerCase().replace(/\.$/u, "");
+  } catch {
+    return undefined;
+  }
+  const registrable = registrableHost(hostname);
+  if (registrable === undefined) return undefined;
+  // A www or mobile label comes off only while the rest is the same registrable host: web.de and mobile.de are sites of
+  // their own, not "de" (the review of #421).
+  let site = hostname;
+  for (let label = /^(?:www|m|mobile|mbasic|touch|web|amp)\./u.exec(site); label !== null;
+    label = /^(?:www|m|mobile|mbasic|touch|web|amp)\./u.exec(site)) {
+    const rest = site.slice(label[0].length);
+    if (registrableHost(rest) !== registrable) break;
+    site = rest;
+  }
+  return digestOf(site);
 }
 
 /** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form

@@ -4,15 +4,24 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import { RESEARCH_OPERATIONS } from "../apps/research-mcp/src/register-tools.js";
 
+// A SICI-form DOI, raw and escaped: the published pattern takes only the escaped form, a later shape both (the owner
+// regressions on #412's build). Synthetic; it names no paper.
+const SICI = "10.1002/(SICI)1099-0000(19990101)1:1<1::AID-SYN1>3.0.CO;2-X";
+const SICI_ESCAPED = SICI.replaceAll("<", "%3C").replaceAll(">", "%3E");
+// The review of #421: no sample used a published DOI character other than "-._/", so a runtime pattern narrowed to those
+// passed. Each character the published pattern takes, in a DOI of its own.
+const DOI_CHARACTER_SAMPLES = [..."!#$%&'*+;():"].map((character) => `10.1000/a${character}b`)
+  .concat(["10.1000/a-b._c/d", "10.1000/a#b%c", SICI_ESCAPED]);
 const UPPERCASE_DOIS = ["10.1002/14651858.CD014682.pub2", "10.23736/S1128-9155.18.00455-7"];
-const DOI_SAMPLES = UPPERCASE_DOIS.flatMap((doi) => [
+const DOI_SAMPLES = [...UPPERCASE_DOIS.flatMap((doi) => [
   doi, doi.toLowerCase(), `https://doi.org/${doi}`, `HTTPS://DOI.ORG/${doi}`, `HtTpS://Dx.DoI.OrG/${doi}`,
   `HTTP://DX.DOI.ORG/${doi}`
-]);
+]), ...DOI_CHARACTER_SAMPLES];
 const SAMPLES = [
-  ...DOI_SAMPLES,
+  ...DOI_SAMPLES, SICI,
   "", "invalid value", "é", "a", "en", "en-US", "zh-Hant-TW", "12345", "0",
   "2026-10-17", "2024-02-29", "2025-02-29", "2026-13-01",
   "2026-10-17T12:00:00Z", "2026-10-17T12:00:00.5+02:00", "2026-10-17T12:00:00", "2025-02-29T12:00:00Z",
@@ -77,6 +86,7 @@ describe("published MCP input patterns", () => {
       // tools/list still comes from the real server and its surface-specific catalog projection.
       const server = createAskRigorServer(surface === "/mcp/gemini" ? "gemini" : "standard", { mcpSurface: surface });
       const inputs = new Map(RESEARCH_OPERATIONS.map(({ name, runtimeInputSchema }) => [name, runtimeInputSchema]));
+      const publishedInputs = new Map(RESEARCH_OPERATIONS.map(({ name, publishedInputSchema }) => [name, publishedInputSchema]));
       const client = new Client({ name: "input-pattern-test", version: "0.1.0" });
       const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
       try {
@@ -87,6 +97,7 @@ describe("published MCP input patterns", () => {
         // Gemini deliberately publishes pattern constraints as prose hints.
         // Check every registered input even when its pattern is not published.
         const patterns = new Map([...inputs].map(([name, input]) => [name, inspectZod(input, `${surface} ${name}`)]));
+        const publishedForms = new Map([...publishedInputs].map(([name, input]) => [name, inspectZod(input, `${surface} ${name}`)]));
         let publishedPatterns = 0;
         let doiFields = 0;
         for (const tool of tools) {
@@ -95,7 +106,13 @@ describe("published MCP input patterns", () => {
             if (typeof node.pattern === "string") {
               publishedPatterns++;
               const published = new RegExp(node.pattern, "u");
-              const originals = patterns.get(tool.name)?.get(node.pattern) ?? [];
+              const runtime = patterns.get(tool.name)?.get(node.pattern) ?? [];
+              // A later shape may relax a published pattern, as a newer form of an existing input (owner answer 189a):
+              // the published form then stays registered in the published schema, and the runtime form, named among the
+              // tool's later inputs, refuses nothing the published pattern takes (the owner regressions on #412's build:
+              // acquire_open_full_text's doi with the "<" and ">" of older SICI-form DOIs).
+              const relaxed = runtime.length === 0 ? publishedForms.get(tool.name)?.get(node.pattern) ?? [] : [];
+              const originals = [...runtime, ...relaxed];
               expect(originals.length, `${surface} ${tool.name} ${path}: registered pattern`).toBeGreaterThan(0);
               expect(SAMPLES.some((sample) => published.test(sample)), `${tool.name} ${path}: positive sample`).toBe(true);
               for (const original of originals) {
@@ -103,6 +120,19 @@ describe("published MCP input patterns", () => {
                   expect(published.test(sample), `${surface} ${tool.name} ${path}: ${sample}`)
                     .toBe(original.safeParse(sample).success);
                 }
+              }
+              if (relaxed.length > 0) {
+                const field = path.split(".").at(-1)!;
+                expect(path, `${surface} ${tool.name}: a relaxed pattern at the input root`).toBe(`input.properties.${field}`);
+                expect(laterInputNames(tool.name), `${surface} ${tool.name}.${field}`).toContain(field);
+                const runtimeField = (inputs.get(tool.name) as z.ZodObject).shape[field] as z.ZodType<string>;
+                for (const sample of SAMPLES.filter((value) => published.test(value))) {
+                  expect(runtimeField.safeParse(sample).success, `${surface} ${tool.name}.${field}: ${sample}`).toBe(true);
+                }
+                // What the newer form adds: the raw SICI-form DOI, which the published pattern refuses.
+                expect(published.test(SICI), `${surface} ${tool.name}.${field}: published ${SICI}`).toBe(false);
+                expect(runtimeField.safeParse(SICI).success, `${surface} ${tool.name}.${field}: ${SICI}`).toBe(true);
+                expect(runtimeField.safeParse("10.1000/two words").success, `${surface} ${tool.name}.${field}: space`).toBe(false);
               }
             }
             if (isObject(node.properties)) {

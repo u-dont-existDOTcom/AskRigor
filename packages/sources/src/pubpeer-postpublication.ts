@@ -11,7 +11,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { normalizeDoiIdentifier } from "./doi.js";
+import { doiUrl, normalizeDoiIdentifier } from "./doi.js";
 
 const PUBPEER_RESPONSE_CONTRACT = "askrigor.pubpeer-authorized-response.v1" as const;
 const PUBPEER_FAILURE_CONTRACT = "askrigor.pubpeer-authorized-failure.v1" as const;
@@ -260,7 +260,7 @@ export function adaptPubpeerAuthorizedRecord(
     recordType: "postpublication_threads",
     primaryIdentifier: doi,
     retrievedAt: parsed.data.retrieved_at,
-    sourceIdentity: { canonical_url: `https://doi.org/${doi}` },
+    sourceIdentity: { canonical_url: doiUrl(doi) },
     accessStatus: partial ? "partial" : "api_visible_complete",
     pagination: {
       exhausted: parsed.data.pagination.exhausted && !incompleteTotal && !incompleteThreadCount,

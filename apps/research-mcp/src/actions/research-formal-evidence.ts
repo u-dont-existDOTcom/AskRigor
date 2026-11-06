@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { ProvenanceEnvelope } from "@askrigor/contracts";
 import {
+  doiUrl,
   publicBasisSchema,
   acquisitionStateSchema, fullTextCandidateSchema, canSignFullTextLead, publicCopySearchResultSchema,
   fetchPubmedRecord,
@@ -47,7 +48,8 @@ import {
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const bounded = (maximum: number) => z.string().trim().min(1).max(maximum);
-const doi = z.string().regex(/^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/u);
+// The characters DOIs use, "<" and ">" of older SICI-form DOIs among them (DOI_PATTERN, lower case here).
+const doi = z.string().regex(/^10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>a-z0-9]+$/u);
 const pmid = z.string().regex(/^[1-9]\d{0,15}$/u);
 const pmcid = z.string().regex(/^PMC[1-9]\d{0,15}$/u);
 const handle = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
@@ -2581,7 +2583,7 @@ function upsertLinkedFormalSource(
   const origin = sourceOriginSchema.parse({
     provider: "external_evidence",
     provider_record_id: input.sourceItemHash,
-    canonical_url: `https://doi.org/${canonicalDoi}`,
+    canonical_url: doiUrl(canonicalDoi),
     hypothesis_ids: parent.hypothesis_ids,
     provider_access_status: "metadata_only",
     source_record_hash: sha256(JSON.stringify(input))
