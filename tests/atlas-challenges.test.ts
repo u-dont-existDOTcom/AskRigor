@@ -7,6 +7,7 @@ import {
   ATLAS_PUBLICATION_SCHEMA,
   AtlasPublicationError,
   InMemoryAtlasCanonicalStore,
+  InMemoryAtlasPageSource,
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
   PostgresAtlasPublicationStore,
@@ -18,6 +19,9 @@ import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AtlasChallengeReview, challengeMarker } from "../apps/research-mcp/src/atlas/challenge-review.js";
+import { atlasPageProblems, opensYouTube } from "../apps/research-mcp/src/atlas/page-guard.js";
+import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
 import { laterInputNames } from "../apps/research-mcp/src/later-inputs.js";
 import { createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
@@ -87,10 +91,28 @@ describe("the challenge mark in the publications store", () => {
     expect(store.isKept(kept)).toBe(true);
     expect(store.challengeOf(shown)).toEqual(MARK);
     expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown, kept]);
-    const cleared = await store.markChallenges({ publicationNumbers: [shown], mark: null, markedBy: null, at: LATER });
-    expect(cleared).toEqual([{ publicationNumber: shown, state: "unreviewed", atlasNumber: null, kept: false, mark: null }]);
-    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([kept]);
-    expect(store.challengeOf(shown)).toBeNull();
+    const cleared = await store.markChallenges({ publicationNumbers: [kept], mark: null, markedBy: null, at: LATER });
+    expect(cleared).toEqual([{ publicationNumber: kept, state: "unreviewed", atlasNumber: null, kept: true, mark: null }]);
+    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown]);
+    expect(store.challengeOf(kept)).toBeNull();
+  });
+
+  // R8 (the review of #422): a finding shown only for its challenge, with the verdict headline or fail, would say a quick
+  // AI answer misses it once its mark went. Its mark stays while it shows; kept first, or a pass, it clears.
+  it.each(["fail", "headline"] as const)("keeps a shown %s's mark until it is kept, and clears a pass's", async (verdict) => {
+    const { store, shown } = await stored();
+    await store.markChallenges({ publicationNumbers: [shown], mark: { ...MARK, verdict }, markedBy: MARKER, at: LATER });
+    await expect(store.markChallenges({ publicationNumbers: [shown], mark: null, markedBy: null, at: LATER }))
+      .rejects.toMatchObject({ code: "NOT_CLEARABLE" });
+    expect(store.challengeOf(shown)).toEqual({ ...MARK, verdict });
+    await store.keep({ publicationNumbers: [shown], atlasNumbers: [], keep: true, reason: "owner answer 240a", at: LATER });
+    expect(await store.markChallenges({ publicationNumbers: [shown], mark: null, markedBy: null, at: LATER }))
+      .toMatchObject([{ publicationNumber: shown, mark: null }]);
+    const passing = await stored();
+    await passing.store.markChallenges({ publicationNumbers: [passing.shown], mark: { ...MARK, verdict: "pass" },
+      markedBy: MARKER, at: LATER });
+    expect(await passing.store.markChallenges({ publicationNumbers: [passing.shown], mark: null, markedBy: null, at: LATER }))
+      .toMatchObject([{ publicationNumber: passing.shown, mark: null }]);
   });
 
   it("refuses a held, rejected or withdrawn publication, changing nothing, and clears any", async () => {
@@ -112,6 +134,13 @@ describe("the challenge mark in the publications store", () => {
     ["a usual view too long", { ...MARK, usualView: "x".repeat(301) }],
     ["an untrimmed label", { ...MARK, sourceLabel: " Invented guideline " }],
     ["another verdict", { ...MARK, verdict: "passed" as AtlasChallengeMark["verdict"] }],
+    // R7 (the review of #422): text-direction controls and zero-width characters, which can show what a text doesn't hold.
+    ["a right-to-left override", { ...MARK, usualView: "Guidelines advise writing to \u202Egro.elpmaxe@namrevo\u202C first." }],
+    ["an isolate in the label", { ...MARK, sourceLabel: "Invented guideline \u2066moc.ebutuoy\u2069 (2025)" }],
+    ["a zero-width space", { ...MARK, usualView: "Guidelines advise you\u200Btube.com videos." }],
+    ["a left-to-right mark", { ...MARK, sourceLabel: "Invented\u200E guideline" }],
+    ["an Arabic letter mark", { ...MARK, usualView: "Guidelines advise\u061C zentarine." }],
+    ["a byte-order mark in the link", { ...MARK, sourceUrl: "https://guidelines.example.org/\uFEFFvelmor" }],
   ])("refuses %s, before any write", async (_name, mark) => {
     const { store, shown } = await stored();
     await expect(store.markChallenges({ publicationNumbers: [shown], mark, markedBy: MARKER, at: LATER }))
@@ -218,11 +247,81 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     ["a card reference", { usual_view_source_label: "As card ARF-0042 put it" }],
     ["a usual view of two lines", { usual_view: "One line.\nAnother." }],
     ["no reviewer", { reviewer: undefined }],
+    // R7: an address written reversed under a right-to-left override, which displays as an address.
+    ["a reversed address under an override", { usual_view: "Guidelines advise writing to \u202Egro.elpmaxe@namrevo\u202C first." }],
+    ["a reversed YouTube host in the label", { usual_view_source_label: "Invented guideline \u202Emoc.ebutuoy\u202C (2025)" }],
+    ["a zero-width joiner", { usual_view: "Guidelines advise you\u200Dtube.com videos." }],
+    ["a word joiner", { usual_view_source_label: "Invented\u2060guideline" }],
+    // R6: links a browser opens as YouTube, whatever their words.
+    ["a percent-encoded full stop in the host", { usual_view_source_url: "https://youtube%2Ecom/watch?v=aaaaaaaaaaa" }],
+    ["full-width letters in the host", { usual_view_source_url: "https://ｙｏｕｔｕｂｅ.com/watch?v=aaaaaaaaaaa" }],
+    ["a YouTube subdomain", { usual_view_source_url: "https://m.youtube.com/watch?v=aaaaaaaaaaa" }],
+    ["youtu.be", { usual_view_source_url: "https://youtu.be/aaaaaaaaaaa" }],
+    ["youtube-nocookie.com", { usual_view_source_url: "https://www.youtube-nocookie.com/embed/aaaaaaaaaaa" }],
   ])("refuses %s, changing nothing", async (_name, change) => {
     const { run, store, shown } = await review();
     const result = await run.run({ ...mark([shown]), ...change } as Parameters<AtlasChallengeReview["run"]>[0]);
     expect(result).toMatchObject({ ok: false, error: { code: "invalid_request" } });
     expect(await store.inspectChallenges()).toEqual([]);
+  });
+
+  it("shows the mark's texts escaped, and its link as a browser opens it, with no markup of its own", async () => {
+    const { run, store, shown } = await review();
+    const link = "https://guidelines.example.org/a\"onmouseover=\"alert(1)'<x>";
+    expect((await run.run({ ...mark([shown]), usual_view: "Guidelines <b>advise</b> \"40 mg\" & <img src=x onerror=alert(1)>",
+      usual_view_source_label: "Label <i>x</i> 'q'", usual_view_source_url: link })).ok).toBe(true);
+    const source = new InMemoryAtlasPageSource({ publications: store, canonical: new InMemoryAtlasCanonicalStore() });
+    const page = renderAtlasFinding((await loadAtlasFinding(source, shown))!);
+    expect(page).not.toContain("<img");
+    expect(page).not.toContain("<b>advise");
+    expect(page).not.toContain("<i>x");
+    expect(page).toContain(`href="${new URL(link).href.replace(/&/gu, "&amp;").replace(/'/gu, "&#39;")}"`);
+    expect(page).not.toContain("onmouseover=\"");
+  });
+
+  // The review of #422's samples: real guidelines' and journals' addresses pass the refusals, and a phone number doesn't.
+  it.each([
+    "https://www.ahajournals.org/doi/10.1161/CIR.0000000000001063",
+    "https://academic.oup.com/eurheartj/article/44/38/3627/7246292",
+    "https://pubmed.ncbi.nlm.nih.gov/31415926/",
+    "https://www.nice.org.uk/guidance/ng202",
+    "https://jcsm.aasm.org/doi/10.5664/jcsm.7640",
+    "https://www.acpjournals.org/doi/10.7326/M23-1234",
+    "https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD001106.pub4/full",
+    "https://doi.org/10.1016/S0140-6736(23)01234-5",
+    "https://www.who.int/publications/i/item/9789240034228",
+    "https://www.ncbi.nlm.nih.gov/books/NBK558906/",
+  ])("takes the guideline link %s", async (link) => {
+    const { run, store, shown } = await review();
+    expect((await run.run({ ...mark([shown]), usual_view_source_url: link,
+      usual_view: "Guidelines advise CPAP every night for an AHI of 15 or more (2019 statement, page 1234-5678)." })).ok)
+      .toBe(true);
+    expect(store.challengeOf(shown)?.sourceUrl).toBe(new URL(link).href);
+  });
+
+  it("refuses a phone number in the label", async () => {
+    const { run, store, shown } = await review();
+    expect((await run.run({ ...mark([shown]),
+      usual_view_source_label: "AASM clinical practice guideline (2019), call 1-800-555-0199" })).ok).toBe(false);
+    expect(await store.inspectChallenges()).toEqual([]);
+  });
+
+  it("keeps a link as a browser opens it", async () => {
+    const { run, store, shown } = await review();
+    expect((await run.run({ ...mark([shown]), usual_view_source_url: "https://Guidelines.Example.org/velmor%2Dsyndrome" }))
+      .ok).toBe(true);
+    expect(store.challengeOf(shown)?.sourceUrl).toBe(new URL("https://Guidelines.Example.org/velmor%2Dsyndrome").href);
+  });
+
+  it("refuses to clear a finding shown for its challenge, naming it and what to do first (R8)", async () => {
+    const { run, store, shown, kept } = await review();
+    await run.run(mark([shown, kept]));
+    const refused = await run.run({ action: "clear_challenge", items: [shown, kept] });
+    expect(refused).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(refused.text).toBe(`${shown} shows unreviewed only because it challenges the usual view, with the ` +
+      "quick-answer verdict headline or fail, so its mark stays while it shows: without it, its page would say a quick " +
+      "AI answer misses it. Keep it for research first (keep_for_research), then clear its mark; nothing was changed.");
+    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown, kept]);
   });
 
   it("refuses a held publication, and a mark's texts on clear_challenge", async () => {
@@ -296,13 +395,38 @@ describe("through review_research_contribution", () => {
       later_inputs: { items: [shown], usual_view: MARK.usualView } });
     expect(misplaced.isError).toBe(true);
     expect(JSON.stringify(misplaced.content)).toContain("keep_for_research does not take usual_view");
-    expect((await call({ action: "clear_challenge", later_inputs: { items: [shown] } })).structuredContent)
+    // Shown for its challenge (a headline), its mark stays while it shows (R8); the kept one's clears.
+    const stays = await call({ action: "clear_challenge", later_inputs: { items: [shown] } });
+    expect(stays.isError).toBe(true);
+    expect(JSON.stringify(stays.content)).toContain("Keep it for research first (keep_for_research)");
+    expect((await call({ action: "clear_challenge", later_inputs: { items: [kept] } })).structuredContent)
       .toMatchObject({ ok: true, outcome: "challenge_cleared" });
-    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([kept]);
+    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown]);
     // Another login can't mark: the owner's review admits only its reviewer subjects.
     const other = await connect("auth0|someone-else");
-    const refused = await call({ action: "mark_challenge", later_inputs: { ...later, items: [shown] } }, other);
+    const refused = await call({ action: "mark_challenge", later_inputs: { ...later, items: [kept] } }, other);
     expect(refused.isError).toBe(true);
-    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([kept]);
+    expect((await store.inspectChallenges()).map(({ publicationNumber }) => publicationNumber)).toEqual([shown]);
+  });
+});
+
+// R6 (the review of #422): the pages' last check reads where each of a page's links goes, as a browser opens it.
+describe("the page guard and YouTube hosts", () => {
+  it.each([
+    ["https://youtube%2Ecom/watch?v=aaaaaaaaaaa", true],
+    ["https://ｙｏｕｔｕｂｅ.com/watch?v=aaaaaaaaaaa", true],
+    ["https://m.youtube.com/watch?v=aaaaaaaaaaa", true],
+    ["https://youtu.be/aaaaaaaaaaa", true],
+    ["https://www.youtube-nocookie.com/embed/aaaaaaaaaaa", true],
+    ["https://guidelines.example.org/youtube-policy", false],
+    ["/atlas/findings/P-1001", false],
+  ])("reads %s", (link, youtube) => {
+    expect(opensYouTube(link)).toBe(youtube);
+    const page = `<p><a href="${link.replace(/&/gu, "&amp;")}">a source</a></p>`;
+    expect(atlasPageProblems(page).includes("youtube_link")).toBe(youtube);
+  });
+
+  it("reads a host, not words: another site whose name ends in youtube.com opens no YouTube page", () => {
+    expect(opensYouTube("https://notyoutube.com/watch")).toBe(false);
   });
 });

@@ -939,15 +939,19 @@ function usualViewLine(challenge: ShownChallenge): SafeHtml {
   return html`The usual view: ${withoutEndPunctuation(challenge.usualView)} (<a href="${challenge.sourceUrl}" rel="nofollow noopener noreferrer">${challenge.sourceLabel}</a>).`;
 }
 
-/** The box on a finding's page that says it challenges the usual view (the owner, 6 Nov 2026). */
+/**
+ * The box on a finding's page that says it challenges the usual view (the owner, 6 Nov 2026). A finding kept for research
+ * hasn't been shown on the quick-answer test, so its box says nothing of it (the review of #422), as its status doesn't.
+ */
 function challengeBox(finding: ShownFinding): SafeHtml | "" {
   const challenge = finding.challenge;
   if (challenge === null) return "";
+  const quickAnswer = finding.kept ? "" : challenge.verdict === "pass" ? `${QUICK_ANSWER_MISSES_IT} `
+    : `${SHOWN_AS_A_CHALLENGE} `;
   return html`<section class="notice challenge" aria-labelledby="challenge">
 <h2 id="challenge">It challenges the usual view</h2>
 <p>${usualViewLine(challenge)}</p>
-<p>This finding goes against it. ${challenge.verdict === "pass" ? QUICK_ANSWER_MISSES_IT
-    : "A quick AI answer may already give it; it’s here because it challenges the usual view."} Its limits stay as this page gives them: how sure it is, whom it applies to and what would change it.</p>
+<p>This finding goes against it. ${quickAnswer}Its limits stay as this page gives them: how sure it is, whom it applies to and what would change it.</p>
 <p><a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a></p>
 </section>
 `;

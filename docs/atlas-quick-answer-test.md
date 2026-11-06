@@ -61,7 +61,10 @@ and fail, which it neither changes nor depends on:
    as a reader should see it, such as the guideline and its year; and `quick_answer_verdict`, the finding's verdict from
    step 4: `pass`, `headline` or `fail`. Only the reviewer login can mark, as with `keep_for_research`; the mark keeps
    who marked it, as a digest of that login, and when. A mark whose texts hold contact details, a findings card's
-   reference or a YouTube link is refused, since the pages never show them.
+   reference or a YouTube link is refused, since the pages never show them: the link by the host a browser opens it at
+   (so `youtube%2Ecom` or full-width letters are YouTube too), and the texts with no control or format character, such as
+   a text-direction control or a zero-width character, which can make a text show something other than it holds. The
+   link is kept as a browser opens it.
 4. Marking shows nothing: showing is still `show_on_pages`. Whether the daily task shows a marked finding right away is
    the owner's to decide (question 272), so the method fits either answer:
    - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages` whatever its
@@ -71,13 +74,16 @@ and fail, which it neither changes nor depends on:
      `list_challenges` lists every marked finding, kept or shown, with its usual view, source and verdict.
 5. Add the usual view, its source and the judgment to the finding's log line (step 6), marked or not.
 
-`clear_challenge` takes a mark off. A shown finding that carries a mark is listed on `/atlas/challenges`, "Findings
+`clear_challenge` takes a mark off, except from a finding that shows unreviewed only because it challenges the usual
+view (a headline or a fail): without its mark its page would say a quick AI answer misses it, so `clear_challenge`
+refuses it, naming it, until `keep_for_research` has kept it. A shown finding that carries a mark is listed on `/atlas/challenges`, "Findings
 that challenge the usual view" (linked from the Atlas's home page and its list of all findings), with the usual view and
 its source beside it and its own limits: how sure it is, whom it applies to and what would change it. Its page carries a
 box saying it challenges the usual view, with the view and its source. An unreviewed finding's status says, from the
 stored verdict, that a separate AI found a quick AI answer misses it (a pass), or that a quick AI answer may already
-give it and that it's shown because it challenges the usual view (a headline or a fail). A finding kept for research is
-on no list, the section page included, and its page says nothing of the quick-answer test. These pages are kept out of
+give it and that it's shown because it challenges the usual view (a headline or a fail), and its box says the same. A
+finding kept for research is on no list, the section page included, and its page, its box too, says nothing of the
+quick-answer test. These pages are kept out of
 search engines like every page of an unreviewed finding. The pages show no one's login and no YouTube comment data.
 
 Limits: the usual view is one helper's answer from two searches, so it can miss a newer or a regional guideline; its

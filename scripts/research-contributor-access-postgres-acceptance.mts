@@ -2659,8 +2659,9 @@ export async function verifyAtlasPublications(context: {
     checks.push("atlas_publications_kept_for_research_stay_off_the_lists_and_in_the_lookup");
 
     // The owner, 6 Nov 2026 (migration 0030): a challenge mark on a shown publication, read by the pages with its usual
-    // view, source and verdict but never who marked it; one that isn't shown can't be marked; a mark is cleared whole;
-    // the table's check refuses a mark that isn't one, written past the functions.
+    // view, source and verdict but never who marked it; one that isn't shown can't be marked; a fail's mark stays while
+    // it shows, and a pass's is cleared whole; the table's check and the function refuse a mark that isn't one, written
+    // past the store's checks.
     // The unpublished card's finding, kept and then shown again above, is the one shown publication here.
     const challengePages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
     try {
@@ -2679,22 +2680,46 @@ export async function verifyAtlasPublications(context: {
       } catch (error) {
         notMarkable = error instanceof AtlasPublicationError && error.code === "NOT_MARKABLE";
       }
-      let constrained = false;
+      const refusedBy = async (statement: () => Promise<unknown>, message: string) => {
+        try {
+          await statement();
+          return false;
+        } catch (error) {
+          return error instanceof Error && error.message.includes(message);
+        }
+      };
+      // Past the store's own checks, the table's check refuses a link that isn't https and a text-direction control or a
+      // zero-width character (the review of #422), and the review role's function refuses the same.
+      const update = (usualView: string, url: string, label: string) => () => admin.query(
+        `UPDATE ${schema}.atlas_publications SET challenge_usual_view = $3, challenge_source_url = $4, ` +
+        "challenge_source_label = $5, challenge_verdict = 'fail', challenge_marked_by = $1, challenge_marked_at = now() " +
+        "WHERE publication_number = $2", [marker, target, usualView, url, label]);
+      const constrained = await refusedBy(update("x", "http://example.org", "x"), "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("Guidelines \u202Egro.elpmaxe@namrevo\u202C", mark.sourceUrl, "x"),
+          "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("x", mark.sourceUrl, "Invented\u200Bguideline"), "atlas_publications_v1_challenge_check");
+      const functionRefuses = await asRole("askrigor_research_review", async (client) => refusedBy(() => client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, "Guidelines \u2066moc.ebutuoy\u2069 advise it.", mark.sourceUrl, mark.sourceLabel, marker]),
+      "ATLAS_PUBLICATION_INPUT_INVALID"));
+      // Shown only for its challenge (a fail), its mark stays while it shows; a pass's clears.
+      let notClearable = false;
       try {
-        await admin.query(`UPDATE ${schema}.atlas_publications SET challenge_usual_view = 'x', challenge_source_url = ` +
-          `'http://example.org', challenge_source_label = 'x', challenge_verdict = 'fail', challenge_marked_by = $1, ` +
-          "challenge_marked_at = now() WHERE publication_number = $2", [marker, target]);
+        await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
       } catch (error) {
-        constrained = error instanceof Error && error.message.includes("atlas_publications_v1_challenge_check");
+        notClearable = error instanceof AtlasPublicationError && error.code === "NOT_CLEARABLE";
       }
+      await store.markChallenges({ publicationNumbers: [target], mark: { ...mark, verdict: "pass" }, markedBy: marker,
+        at: tick() });
       const [cleared] = await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
       const afterClear = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
       assert(view?.mark?.verdict === "fail" && view.mark.markedBy === marker &&
         listedMarks.map(({ publicationNumber }) => publicationNumber).join() === target &&
         read.length === 1 && read[0]!.publicationNumber === target && isDeepStrictEqual(read[0]!.challenge, mark) &&
-        !JSON.stringify(read).includes(marker) && notMarkable && constrained && cleared?.mark === null &&
-        afterClear.length === 0 && (await store.inspectChallenges()).length === 0,
-      `ATLAS_CHALLENGE_MARK_MISMATCH ${JSON.stringify({ view, read, notMarkable, constrained, cleared })}`);
+        !JSON.stringify(read).includes(marker) && notMarkable && constrained && functionRefuses && notClearable &&
+        cleared?.mark === null && afterClear.length === 0 && (await store.inspectChallenges()).length === 0,
+      `ATLAS_CHALLENGE_MARK_MISMATCH ${JSON.stringify({ view, read, notMarkable, constrained, functionRefuses,
+        notClearable, cleared })}`);
     } finally {
       await challengePages.close();
     }

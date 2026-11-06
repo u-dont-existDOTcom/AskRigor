@@ -339,7 +339,9 @@ export interface AtlasPublicationStore {
   inspectKept(): Promise<AtlasKeptView[]>;
   /**
    * The owner, 6 Nov 2026: marks publications as challenging the usual view (or clears their marks), by P number.
-   * Marking shows nothing. NOT_MARKABLE, and nothing changed, when one to be marked is held, rejected or withdrawn.
+   * Marking shows nothing. NOT_MARKABLE, and nothing changed, when one to be marked is held, rejected or withdrawn;
+   * NOT_CLEARABLE, and nothing changed, when one to be cleared shows unreviewed, not kept, with the verdict headline or
+   * fail, which only its mark explains (the review of #422).
    */
   markChallenges(change: AtlasChallengeChange): Promise<AtlasChallengeView[]>;
   /** Every publication that carries a challenge mark, kept for research or not. */
@@ -388,9 +390,14 @@ export interface AtlasChallengeView {
   mark: (AtlasChallengeMark & { markedBy: string; markedAt: string }) | null;
 }
 
-const CHALLENGE_CONTROL = /\p{Cc}/u;
+// Control characters, and the format characters (Unicode's Cf: the text-direction controls, the zero-width characters
+// and the like), which can make a text show something other than it holds (the review of #422).
+const CHALLENGE_CONTROL = /[\p{Cc}\p{Cf}]/u;
 
-/** Whether a mark is as migration 0030 holds it: trimmed one-line texts within their bounds, an https link, a verdict. */
+/**
+ * Whether a mark is as migration 0030 holds it: trimmed one-line texts within their bounds, with no control or format
+ * character, an https link without either, and a verdict.
+ */
 export function validChallengeMark(mark: AtlasChallengeMark): boolean {
   const line = (text: unknown, max: number) => typeof text === "string" && text === text.trim() && text.length >= 1 &&
     text.length <= max && !CHALLENGE_CONTROL.test(text);
@@ -402,8 +409,17 @@ export function validChallengeMark(mark: AtlasChallengeMark): boolean {
   }
   return line(mark.usualView, ATLAS_CHALLENGE_USUAL_VIEW_MAX_CHARACTERS) &&
     line(mark.sourceLabel, ATLAS_CHALLENGE_SOURCE_LABEL_MAX_CHARACTERS) && https &&
-    /^https:\/\/[^\s\p{Cc}]+$/u.test(mark.sourceUrl) && mark.sourceUrl.length <= ATLAS_CHALLENGE_SOURCE_URL_MAX_CHARACTERS &&
+    /^https:\/\/[^\s\p{Cc}\p{Cf}]+$/u.test(mark.sourceUrl) && mark.sourceUrl.length <= ATLAS_CHALLENGE_SOURCE_URL_MAX_CHARACTERS &&
     (ATLAS_CHALLENGE_VERDICTS as readonly string[]).includes(mark.verdict);
+}
+
+/**
+ * Whether a publication shows only because it challenges the usual view: unreviewed, not kept, with a verdict other than
+ * pass, which its page states (a quick AI answer may already give it). Its mark can't be cleared while it shows, or its
+ * page would say a quick AI answer misses it (the review of #422): keep it for research first.
+ */
+export function shownForItsChallenge(state: AtlasPublicationState, kept: boolean, verdict: string | null | undefined): boolean {
+  return state === "unreviewed" && !kept && verdict !== undefined && verdict !== null && verdict !== "pass";
 }
 
 function validateChallenge(change: AtlasChallengeChange): void {
@@ -449,7 +465,7 @@ function validateKeep(change: AtlasKeepChange): void {
 }
 
 export class AtlasPublicationError extends Error {
-  constructor(readonly code: "INPUT_INVALID" | "NOT_KEEPABLE" | "NOT_MARKABLE",
+  constructor(readonly code: "INPUT_INVALID" | "NOT_KEEPABLE" | "NOT_MARKABLE" | "NOT_CLEARABLE",
     message = "The Atlas publication request is not valid.") {
     super(message);
   }
@@ -743,6 +759,10 @@ export class InMemoryAtlasPublicationStore implements AtlasPublicationStore {
     if (change.mark !== null && !targets.every(markable)) {
       throw new AtlasPublicationError("NOT_MARKABLE", "A publication in that state can't be marked.");
     }
+    if (change.mark === null && targets.some((row) => shownForItsChallenge(row.state, this.kept.has(row.publicationNumber),
+      this.challenges.get(row.publicationNumber)?.verdict))) {
+      throw new AtlasPublicationError("NOT_CLEARABLE", "A finding shown for its challenge can't lose its mark while it shows.");
+    }
     for (const row of targets) {
       if (change.mark === null) this.challenges.delete(row.publicationNumber);
       else this.challenges.set(row.publicationNumber, { ...change.mark, markedBy: change.markedBy!, markedAt: at });
@@ -921,6 +941,10 @@ export class PostgresAtlasPublicationStore implements AtlasPublicationStore {
       }
       if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_MARKABLE")) {
         throw new AtlasPublicationError("NOT_MARKABLE", "A publication in that state can't be marked.");
+      }
+      if (error instanceof Error && error.message.includes("ATLAS_PUBLICATION_NOT_CLEARABLE")) {
+        throw new AtlasPublicationError("NOT_CLEARABLE",
+          "A finding shown for its challenge can't lose its mark while it shows.");
       }
       throw error;
     }

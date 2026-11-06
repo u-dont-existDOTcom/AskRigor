@@ -380,6 +380,7 @@ export {
   ATLAS_CHALLENGE_SOURCE_URL_MAX_CHARACTERS,
   ATLAS_CHALLENGE_USUAL_VIEW_MAX_CHARACTERS,
   ATLAS_CHALLENGE_VERDICTS,
+  shownForItsChallenge,
   validChallengeMark,
   type AtlasChallengeChange,
   type AtlasChallengeMark,

@@ -7,6 +7,7 @@ import {
   ATLAS_CHALLENGE_USUAL_VIEW_MAX_CHARACTERS,
   ATLAS_CHALLENGE_VERDICTS,
   AtlasPublicationError,
+  shownForItsChallenge,
   validChallengeMark,
   type AtlasChallengeMark,
   type AtlasChallengeVerdict,
@@ -15,7 +16,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { passesPageGuard } from "./page-guard.js";
+import { opensYouTube, passesPageGuard } from "./page-guard.js";
 import { textHoldReasons } from "./publication.js";
 
 /**
@@ -27,7 +28,11 @@ import { textHoldReasons } from "./publication.js";
  * list_challenges lists every marked publication. Marking shows nothing: showing stays show_on_pages. The pages show the
  * mark of a shown finding, with its usual view and source, and list the shown ones on /atlas/challenges. A mark is
  * refused, and nothing changes, when its texts hold what the pages never show (contact details, a findings card's
- * reference or a YouTube link), so it never holds a page back; the Atlas keeps no YouTube comment data.
+ * reference or a YouTube link, its link's host read as a browser reads it), or a control or format character, such as a
+ * text-direction control or a zero-width character, which can make a text show something other than it holds (the review
+ * of #422); so it never holds a page back, and the Atlas keeps no YouTube comment data. A finding that shows unreviewed
+ * only because it challenges the usual view (a headline or a fail) keeps its mark while it shows: clear_challenge refuses
+ * it until keep_for_research has kept it, or its page would say a quick AI answer misses it.
  */
 
 export const ATLAS_CHALLENGE_ACTIONS = ["mark_challenge", "clear_challenge", "list_challenges"] as const;
@@ -103,6 +108,14 @@ const itemOf = (view: AtlasChallengeView): AtlasChallenges["items"][number] => (
 });
 
 const PUBLICATION_NUMBER = /^P-[1-9][0-9]{3,}$/u;
+// A control character or a format character (Unicode's Cf: text-direction controls, zero-width characters and the like).
+const FORMAT_OR_CONTROL = /[\p{Cc}\p{Cf}]/u;
+
+/** Why clear_challenge refuses a finding shown for its challenge, and what to do first. */
+const notClearable = (numbers: readonly string[]) => `${numbers.join(", ")} ${numbers.length === 1 ? "shows" : "show"} ` +
+  "unreviewed only because it challenges the usual view, with the quick-answer verdict headline or fail, so its mark " +
+  "stays while it shows: without it, its page would say a quick AI answer misses it. Keep it for research first " +
+  "(keep_for_research), then clear its mark; nothing was changed.";
 
 export class AtlasChallengeReview {
   constructor(private readonly deps: { publications: AtlasPublicationStore; now: () => Date }) {}
@@ -130,6 +143,13 @@ export class AtlasChallengeReview {
         "such as [\"P-1003\"]; F numbers are not taken.");
     }
     if (!mark && given.length > 0) return refused(`clear_challenge takes only items, not ${given.join(", ")}.`);
+    if (!mark) {
+      // The review of #422: a finding shown for its challenge, with the verdict headline or fail, would then say a quick
+      // AI answer misses it. The store refuses it too (NOT_CLEARABLE); this names which.
+      const shown = (await this.deps.publications.inspectChallenges()).filter((view) =>
+        numbers.includes(view.publicationNumber) && shownForItsChallenge(view.state, view.kept, view.mark?.verdict));
+      if (shown.length > 0) return refused(notClearable(shown.map(({ publicationNumber }) => publicationNumber)));
+    }
     let challenge: AtlasChallengeMark | null = null;
     let markedBy: string | null = null;
     if (mark) {
@@ -138,15 +158,30 @@ export class AtlasChallengeReview {
         return refused(`mark_challenge needs later_inputs.${missing.join(", later_inputs.")}: the usual view in one ` +
           "plain line, its source's https link and label, and the quick-answer test's verdict (pass, headline or fail).");
       }
-      challenge = { usualView: request.usual_view!.trim(), sourceUrl: request.usual_view_source_url!.trim(),
-        sourceLabel: request.usual_view_source_label!.trim(), verdict: request.quick_answer_verdict! };
+      const texts = [request.usual_view!, request.usual_view_source_label!, request.usual_view_source_url!]
+        .map((text) => text.trim());
+      if (texts.some((text) => FORMAT_OR_CONTROL.test(text))) {
+        return refused("The usual view, its source or its link holds a control or format character, such as a " +
+          "text-direction control or a zero-width character, which can make it show something other than it holds: " +
+          "write it without them; nothing was changed.");
+      }
+      // The link as a browser opens it, which the page shows.
+      let link: string;
+      try {
+        link = new URL(texts[2]!).href;
+      } catch {
+        return refused("mark_challenge needs its source's link as an https address; nothing was changed.");
+      }
+      challenge = { usualView: texts[0]!, sourceLabel: texts[1]!, sourceUrl: link, verdict: request.quick_answer_verdict! };
       if (!validChallengeMark(challenge)) {
         return refused("mark_challenge needs the usual view and its source's label each on one plain line, within " +
           "their bounds, and its source's link as an https address; nothing was changed.");
       }
-      // What the pages never show, in any of the mark's texts: nothing would show the mark, so none is kept.
-      const texts = [challenge.usualView, challenge.sourceLabel, challenge.sourceUrl];
-      if (texts.some((text) => textHoldReasons(text).length > 0 || !passesPageGuard(text))) {
+      // What the pages never show, in any of the mark's texts: nothing would show the mark, so none is kept. The link's
+      // host is read as a browser reads it, so youtube%2Ecom or full-width letters are YouTube too.
+      if ([challenge.usualView, challenge.sourceLabel, challenge.sourceUrl, texts[2]!].some((text) =>
+        textHoldReasons(text.normalize("NFKC")).length > 0 || !passesPageGuard(text)) ||
+        opensYouTube(texts[2]!) || opensYouTube(challenge.sourceUrl)) {
         return refused("The usual view, its source or its link holds what the Atlas pages never show (contact " +
           "details, a findings card's reference or a YouTube link); nothing was changed.");
       }
@@ -164,6 +199,7 @@ export class AtlasChallengeReview {
         return refused("One of them is held, rejected or withdrawn, so it can't be marked; nothing was changed. " +
           "list_publications shows each one's state.");
       }
+      if (error instanceof AtlasPublicationError && error.code === "NOT_CLEARABLE") return refused(notClearable(numbers));
       if (error instanceof AtlasPublicationError) return refused("Those numbers or texts are not valid; nothing was changed.");
       throw error;
     }

@@ -2243,16 +2243,23 @@ describe("findings that challenge the usual view", () => {
     const { store, source, shown } = await fixture();
     await store.publications.keep({ publicationNumbers: [shown.effect], atlasNumbers: [], keep: true,
       reason: "owner answer 240a", at: store.tick() });
-    await store.publications.markChallenges({ publicationNumbers: [shown.effect, shown.hip], mark: MARK,
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: MARK, markedBy: marker,
+      at: store.tick() });
+    // A pass, whose mark can be cleared while it shows.
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: { ...MARK, verdict: "pass" },
       markedBy: marker, at: store.tick() });
     expect(numbersOf((await loadAtlasChallenges(source)).findings)).toEqual([shown.hip]);
     const signal = new AtlasChangeSignal();
     const base = await serve(pages(source, { signal }));
-    // Its own page still says it challenges the usual view, and nothing of the quick-answer test.
+    // Its own page still says it challenges the usual view, and nothing at all of the quick-answer test (R4, the review
+    // of #422: the box said it, in other words than the status's).
     const kept = (await text(base, `/atlas/findings/${shown.effect}`)).body;
     expect(kept).toContain("It challenges the usual view");
-    expect(kept).not.toContain(SHOWN_AS_A_CHALLENGE);
-    expect(kept).not.toContain(QUICK_ANSWER_MISSES_IT);
+    expect(kept).not.toContain("quick AI answer");
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    signal.announce();
+    expect((await text(base, `/atlas/findings/${shown.effect}`)).body).not.toContain("quick AI answer");
     await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: null, markedBy: null,
       at: store.tick() });
     signal.announce();
@@ -2260,11 +2267,16 @@ describe("findings that challenge the usual view", () => {
     expect((await text(base, CHALLENGES_PATH)).body).toContain("No finding on these pages challenges the usual view yet.");
   });
 
-  it("leaves out a mark whose texts a page would refuse, so it never stops a page", async () => {
+  it.each([
+    "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+    // R6 (the review of #422): a link a browser opens as YouTube, whatever its words.
+    "https://youtube%2Ecom/watch?v=aaaaaaaaaaa",
+    "https://ｙｏｕｔｕｂｅ.com/watch?v=aaaaaaaaaaa",
+  ])("leaves out a mark whose link is %s, so it never stops a page", async (link) => {
     const { store, source, shown } = await fixture();
     // The review action refuses such a mark; one written to the store directly is left out of every page.
     await store.publications.markChallenges({ publicationNumbers: [shown.effect],
-      mark: { ...MARK, sourceUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }, markedBy: marker, at: store.tick() });
+      mark: { ...MARK, sourceUrl: link }, markedBy: marker, at: store.tick() });
     expect((await loadAtlasChallenges(source)).findings).toEqual([]);
     expect((await loadAtlasFinding(source, shown.effect))!.finding.challenge).toBeNull();
     const base = await serve(pages(source));

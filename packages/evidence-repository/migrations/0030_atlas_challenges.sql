@@ -28,10 +28,13 @@ ALTER TABLE atlas_publications ADD CONSTRAINT atlas_publications_v1_challenge_ch
   AND (challenge_marked_at IS NULL) = (challenge_verdict IS NULL)
   AND (challenge_marked_at IS NULL) = (challenge_marked_by IS NULL)
   AND (challenge_usual_view IS NULL OR (challenge_usual_view = btrim(challenge_usual_view)
-    AND length(challenge_usual_view) BETWEEN 1 AND 300 AND challenge_usual_view !~ '[[:cntrl:]]'))
+    AND length(challenge_usual_view) BETWEEN 1 AND 300 AND challenge_usual_view !~ '[[:cntrl:]]'
+    AND challenge_usual_view !~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'))
   AND (challenge_source_label IS NULL OR (challenge_source_label = btrim(challenge_source_label)
-    AND length(challenge_source_label) BETWEEN 1 AND 200 AND challenge_source_label !~ '[[:cntrl:]]'))
+    AND length(challenge_source_label) BETWEEN 1 AND 200 AND challenge_source_label !~ '[[:cntrl:]]'
+    AND challenge_source_label !~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'))
   AND (challenge_source_url IS NULL OR (challenge_source_url ~ '^https://[^[:space:][:cntrl:]]+$'
+    AND challenge_source_url !~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'
     AND length(challenge_source_url) <= 2000))
   AND (challenge_verdict IS NULL OR challenge_verdict IN ('pass', 'headline', 'fail'))
   AND (challenge_marked_by IS NULL OR challenge_marked_by ~ '^reviewer:[0-9a-f]{16}$')
@@ -56,7 +59,11 @@ COMMENT ON COLUMN atlas_publications.challenge_marked_at IS
 -- Marks the publications named, by P number, as challenging the usual view, with that view, its source, the
 -- quick-answer test's verdict and who marked them; with every mark field NULL, clears their marks. At most 100
 -- numbers. Only a publication the pages can show, or one kept for research, can be marked: ATLAS_PUBLICATION_NOT_MARKABLE,
--- and nothing changes, for a held, rejected or withdrawn one. Clearing takes any. Returns each publication named.
+-- and nothing changes, for a held, rejected or withdrawn one. Clearing takes any but one that shows unreviewed, not kept,
+-- with the verdict headline or fail, which only its mark explains: ATLAS_PUBLICATION_NOT_CLEARABLE, and nothing changes
+-- (keep it for research first, or its page would say a quick AI answer misses it). The text checks of the mark refuse
+-- control characters and the text-direction and zero-width characters (the store refuses every Unicode format
+-- character before it calls this). Returns each publication named.
 CREATE OR REPLACE FUNCTION mark_atlas_challenges(
   target_publication_numbers text[],
   usual_view text,
@@ -87,9 +94,12 @@ BEGIN
                           OR marked_by IS NOT NULL))
      OR (marking AND (usual_view <> btrim(usual_view) OR length(usual_view) NOT BETWEEN 1 AND 300
                       OR usual_view ~ '[[:cntrl:]]'
+                      OR usual_view ~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'
                       OR source_label <> btrim(source_label) OR length(source_label) NOT BETWEEN 1 AND 200
                       OR source_label ~ '[[:cntrl:]]'
+                      OR source_label ~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'
                       OR source_url !~ '^https://[^[:space:][:cntrl:]]+$' OR length(source_url) > 2000
+                      OR source_url ~ '[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]'
                       OR verdict NOT IN ('pass', 'headline', 'fail')
                       OR marked_by !~ '^reviewer:[0-9a-f]{16}$'))
   THEN
@@ -112,6 +122,10 @@ BEGIN
              challenge_marked_by = marked_by, challenge_marked_at = change_time
        WHERE stored.publication_number = target.publication_number;
     ELSE
+      IF target.state = 'unreviewed' AND target.kept_for_research_at IS NULL AND target.challenge_verdict IS NOT NULL
+         AND target.challenge_verdict <> 'pass' THEN
+        RAISE EXCEPTION 'ATLAS_PUBLICATION_NOT_CLEARABLE';
+      END IF;
       UPDATE atlas_publications stored
          SET challenge_usual_view = NULL, challenge_source_url = NULL, challenge_source_label = NULL,
              challenge_verdict = NULL, challenge_marked_by = NULL, challenge_marked_at = NULL

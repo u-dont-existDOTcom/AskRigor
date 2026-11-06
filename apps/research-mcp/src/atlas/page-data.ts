@@ -24,7 +24,7 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { shownCommunity } from "../forum-thread-links.js";
-import { passesPageGuard } from "./page-guard.js";
+import { opensYouTube, passesPageGuard } from "./page-guard.js";
 import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
   foldAtlasSearchTexts,
@@ -192,10 +192,14 @@ export interface ShownFinding {
 /** A finding's challenge mark as its pages show it: never who marked it. */
 export type ShownChallenge = AtlasPageChallenge;
 
-/** A publication's challenge mark, or null when it has none or one of its texts would stop a page (page-guard.ts). */
+/**
+ * A publication's challenge mark, or null when it has none, or one of its texts would stop a page (page-guard.ts) or its
+ * link opens YouTube by its host, as a browser reads it (the review of #422).
+ */
 function shownChallenge(publication: AtlasPagePublication): ShownChallenge | null {
   const mark = publication.challenge ?? null;
-  return mark === null || ![mark.usualView, mark.sourceLabel, mark.sourceUrl].every(passesPageGuard) ? null
+  return mark === null || ![mark.usualView, mark.sourceLabel, mark.sourceUrl].every(passesPageGuard) ||
+    opensYouTube(mark.sourceUrl) ? null
     : { usualView: mark.usualView, sourceUrl: mark.sourceUrl, sourceLabel: mark.sourceLabel, verdict: mark.verdict };
 }
 
