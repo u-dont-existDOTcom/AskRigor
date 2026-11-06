@@ -50,7 +50,7 @@ describe("DOIs with \"<\" or \">\"", () => {
     expect(normalizeDoiIdentifier(link)).toBe(CANONICAL);
     expect(doiFromInput(link)).toBe(CANONICAL);
     expect(doiFromInput("10.1002/%28SICI%29x")).toBe("10.1002/%28sici%29x");
-    for (const given of [link, ESCAPED, SICI, "10.1000/x%2541", `https://doi.org/${CANONICAL.replace("<", "%253C")}`]) {
+    for (const given of [link, ESCAPED, SICI, "10.1000/x%2541", `https://doi.org/${CANONICAL.replaceAll("<", "%253C")}`]) {
       expect(doiFromInput(doiFromInput(given)), given).toBe(doiFromInput(given));
       const once = normalizeDoiIdentifier(given);
       if (once !== undefined) expect(normalizeDoiIdentifier(once), given).toBe(once);
