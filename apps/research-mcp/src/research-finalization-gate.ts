@@ -1,4 +1,6 @@
-import { laterInputShape, mergeLaterInputs } from "./later-inputs.js";
+import {
+  findingsSaveMarker, findingsSaveOff, laterInputShape, mergeLaterInputs, TOP_LEVEL_FALLBACK_INPUTS
+} from "./later-inputs.js";
 import { sourceIdentifierOf } from "./atlas/page-data.js";
 import { atlasReuseSchema, checkAtlasReuse, atlasSourceDigest, checkedAtlasSources } from "./atlas/reuse.js";
 import { preventingRuleSchema } from "./protocol-rule-names.js";
@@ -10,6 +12,13 @@ import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
 import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
+import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
+import {
+  answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
+  readingShown, receiptReadings, sourceReadingCheckSchema, verifiedAnswerReading, type AnswerReading,
+  type ShownReading, type SourceReadingCheck, type SourceReadingQuote
+} from "./source-reading.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -21,7 +30,8 @@ import {
   USE_ROUTE_WORDS
 } from "./administration-routes.js";
 import {
-  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, researchPlanSchema,
+  CARRIED_STATE_TOO_LARGE, carriedStateSchema, issueCarriedState, publishedCarriedStateSchema, researchPlanSchema,
+  TURN_NOTES_KEPT,
   userObservationSchema, verifyCarriedState, type CarriedState
 } from "./carried-state.js";
 import { analysesSavedSchema } from "./analysis-staging.js";
@@ -52,6 +62,10 @@ import {
   quoteShown, sourceLineCheckSchema, sourceLineNotes,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
+import {
+  checkStudyMap, readStudyMap, studyMapCheckSchema,
+  type CheckedStudyMap, type StudyMapCheck, type StudyMapLookup, type StudyMapRequest, type StudyMapRequests
+} from "./study-map.js";
 import type { SecondReaderFinding } from "./second-reader.js";
 import { extractUnsignedNumbers, includesAbsoluteNumber } from "./unicode-numbers.js";
 import {
@@ -254,6 +268,24 @@ export const OPTION_CLASS_CAVEAT_STARTS = {
 /** The caveat for a class not researched or out of reach: the server's words and the declared class, ending as a sentence. */
 export function optionClassCaveat(state: keyof typeof OPTION_CLASS_CAVEAT_STARTS, optionClass: string): string {
   return completedCaveat(OPTION_CLASS_CAVEAT_STARTS[state], optionClass);
+}
+
+// Leads from people's reports that the research did not search in studies (community_leads, 5 November 2026) reach the
+// answer in one sentence naming each, in the colon form of owner answer "165a": two phrases of one kind share the colon,
+// separated by "; ".
+export const NOT_SEARCHED_LEADS_CAVEAT_STARTS = {
+  one: "A lead from people's reports that this research did not search in studies:",
+  several: "Leads from people's reports that this research did not search in studies:"
+} as const;
+
+/**
+ * The caveat for the leads not searched in studies: the server's words and each declared lead as leadPhrase gives it
+ * (on one line, its closing . , : or ; left out, a semicolon inside it a comma), ending as a sentence; a lead ending in ?
+ * or ! keeps it, and the sentence then ends there.
+ */
+export function notSearchedLeadsCaveat(leads: readonly string[]): string {
+  const phrases = leads.map(leadPhrase);
+  return completedCaveat(NOT_SEARCHED_LEADS_CAVEAT_STARTS[phrases.length === 1 ? "one" : "several"], phrases.join("; "));
 }
 
 // The one thing a question is about, and a video the person gave that AskRigor could not read (AskRigor#359: an answer
@@ -983,7 +1015,8 @@ export function finalizeResearchRuntimeInputSchema() {
   return finalizeResearchInputSchema.extend({
     ...later,
     answer_draft: finalizeResearchInputSchema.shape.answer_draft.describe(
-      "The exact answer to check. Only source provenance and links, declared reading depth, binary arithmetic and " +
+      "The exact answer to check. Only source provenance and links, declared reading depth (with each cited key " +
+      "source's reading and the answer's words for it, in later_inputs.source_reading), binary arithmetic and " +
       "shown figures, the named-harm screen for safety statements, and repeated retractions block. Other " +
       "diagnostics are notes. State in your own words the limits that change what the person should believe or do; " +
       "their exact wording is not checked."),
@@ -1119,10 +1152,21 @@ export function normalizeFinalizeResearchInput(rawInput: unknown): unknown {
 /** Merge later inputs, keep independently usable fields, and return all format problems as notes. */
 export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseResult<FinalizeResearchInput> & {
   notes: string[]; droppedFindingsCard: boolean; droppedCard?: unknown;
+  /** The study map as checked (owner answer 249a): each item at its place as given. */
+  studyMap?: CheckedStudyMap;
+  /** Each accepted community_leads entry's place as given, in order (5 November 2026). */
+  leadPlaces?: number[];
 } {
   const topLevel = new Set([...Object.keys(finalizeResearchInputSchema.shape), "later_inputs"]);
-  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel);
-  const notes = problems.map(({ path, message }) => `${inputPath(path)}: dropped. ${message}`);
+  // The usable later inputs are kept, each bad key dropped alone, and a key in both places takes its later form.
+  const { input, problems } = mergeLaterInputs("finalize_research", rawInput, topLevel, undefined,
+    { keepUsable: true, fallback: TOP_LEVEL_FALLBACK_INPUTS });
+  const notes = problems.map(({ path, message, kind }) =>
+    kind === "dropped" ? `${inputPath(path)}: dropped. ${message}` : `${inputPath(path)}: ${message}`);
+  // The test marker, read from the raw call on its own: a value other than "off", or later_inputs sent as text, is read
+  // as off, which a note says (the recheck of 5 Nov 2026).
+  const marker = findingsSaveMarker(rawInput).note;
+  if (marker !== undefined) notes.push(marker);
   const runtime = finalizeResearchRuntimeInputSchema();
   const object = input !== null && typeof input === "object" && !Array.isArray(input);
   const essential = object ? ["answer_draft", "research_target"].flatMap((key) => {
@@ -1146,8 +1190,31 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
       droppedFindingsCard = true;
     }
   }
+  // Owner answer 249a: the study map is read an item at a time, so an item left out never moves the others' places in
+  // its notes and result; the map as accepted then passes through the parser unchanged.
+  let studyMap: CheckedStudyMap | undefined;
+  if (normalized.study_map !== undefined) {
+    const read = readStudyMap(normalized.study_map);
+    notes.push(...read.notes);
+    studyMap = read.map;
+    if (read.given === undefined) delete normalized.study_map;
+    else normalized.study_map = read.given;
+  }
+  // So are the leads from people's reports (5 November 2026): an entry left out never moves the others' places.
+  let leadPlaces: number[] | undefined;
+  if (normalized.community_leads !== undefined) {
+    const read = readCommunityLeads(normalized.community_leads);
+    notes.push(...read.notes);
+    if (read.leads === undefined) delete normalized.community_leads;
+    else {
+      normalized.community_leads = read.leads;
+      leadPlaces = read.places;
+    }
+  }
   const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
-  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}) };
+  return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}),
+    ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }),
+    ...(leadPlaces === undefined ? {} : { leadPlaces }) };
 }
 
 const REPORT_RECEIPT_REASONS = ["unverified", "research_target_mismatch"] as const;
@@ -1258,6 +1325,38 @@ const MAX_CARRIED_OBSERVATIONS = 30;
 const MAX_CARRIED_REJECTED = 12;
 
 /** Earlier turns are enforced; the current turn's latest declaration is still revisable. */
+/**
+ * The carried observations from earlier turns. Those a check of the call's own turn first declared are that turn's
+ * drafts, which its later checks may reword or drop (5 Nov 2026: a reworded entry was called left out, and runs then
+ * declared it twice); a token without turn_observations counts all as earlier.
+ */
+function earlierObservations(carried: CarriedState | undefined, turn: string): CarriedState["observations"] {
+  if (carried === undefined) return [];
+  if (carried.turn !== turn) return carried.observations;
+  const own = new Set(carried.turn_observations ?? []);
+  return carried.observations.filter((_, index) => !own.has(index));
+}
+
+/** The line that stands for the notes an earlier check of this turn gave, which this check does not repeat. */
+export function repeatedNotesLine(count: number): string {
+  return `${count === 1 ? "One note" : `${count} notes`} an earlier check of this turn gave ${count === 1 ? "is" : "are"} ` +
+    `not repeated. ${count === 1 ? "It still stands" : "Each still stands"} unless the draft or this call's declarations ` +
+    "already meet it, in your own words; none asks you to remove a source or claim.";
+}
+
+/**
+ * Kinds of note that describe the call's own input or the conversation's continuity, which come back at every check
+ * while they stand: their wording can stay the same while the entry they name changes (review of 5 Nov, a withdrawn
+ * name given wrongly in two ways).
+ */
+const ALWAYS_REPEATED_NOTE_KINDS: ReadonlySet<NextStepKind> = new Set(["input_invalid", "receipt_rejected", "carried_state",
+  "tool_list"]);
+
+/** A short digest of a note, so a carried state can say which notes its turn has given. */
+function noteDigest(note: string): string {
+  return createHash("sha256").update(note).digest("hex").slice(0, 12);
+}
+
 function earlierNamedCommunities(carried: CarriedState | undefined, turn: string): string[] {
   return [...new Set([...(carried?.named_communities ?? []),
     ...(carried?.turn === turn ? [] : carried?.current_turn_named_communities ?? [])])];
@@ -1289,8 +1388,8 @@ function checkCarriedState(input: FinalizeResearchInput, secret: string, turn: s
     const observations = new Set(declared.map(({ observation }) => observation));
     const dropped = declared.length >= MAX_CARRIED_OBSERVATIONS
       ? []
-      : carried.observations.filter(({ observation }) => !observations.has(observation));
-    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(rule`user_observations leaves out ${JSON.stringify(observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
+      : earlierObservations(carried, turn).filter(({ observation }) => !observations.has(observation));
+    for (const { observation } of dropped.slice(0, 10)) nextSteps.push(rule`user_observations leaves out ${JSON.stringify(observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     if (dropped.length > 10) nextSteps.push(rule`and ${dropped.length - 10} more earlier observations.`);
     if ((input.rejected_options ?? []).length < MAX_CARRIED_REJECTED) {
       for (const option of carried.rejected) {
@@ -1336,7 +1435,7 @@ function researchPlan(input: FinalizeResearchInput): CarriedState["research_plan
 
 function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState | undefined, options: FinalizeResearchOptions,
   check: { status: "ready" | "ready_with_limits" | "not_ready"; open: NextStepKind[]; caveats: readonly string[];
-    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[] }):
+    turn: string; firstTurn: boolean; previousOpen?: NextStepKind[]; notes: readonly string[] }):
   { carry_forward: string; carried: CarriedState } | "too_large" | undefined {
   if (options.secret === undefined) return undefined;
   const reopened = new Set((input.reopened ?? []).map(optionKey));
@@ -1345,10 +1444,19 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     .map((text) => text.slice(0, 200));
   // Keep the latest occurrence of each statement, then the latest twelve statements.
   const latest = [...new Set([...retracted].reverse())].reverse().slice(-12);
-  const declared = input.user_observations ?? [];
-  const kept = new Set(declared.map(({ observation }) => observation));
-  const observations = [...declared, ...(carried?.observations ?? []).filter(({ observation }) => !kept.has(observation))]
-    .slice(0, MAX_CARRIED_OBSERVATIONS);
+  const given = input.user_observations;
+  const kept = new Set((given ?? []).map(({ observation }) => observation));
+  const earlier = earlierObservations(carried, check.turn);
+  // A call that leaves user_observations out declares nothing new, so the state's observations carry as they were,
+  // this turn's drafts with their places (review of 5 Nov: leaving it out, or a later_inputs problem dropping it, erased
+  // them). Given, this turn's latest list replaces its drafts, and earlier turns' entries stay.
+  const observations = given === undefined ? carried?.observations ?? []
+    : [...given, ...earlier.filter(({ observation }) => !kept.has(observation))].slice(0, MAX_CARRIED_OBSERVATIONS);
+  const earlierTexts = new Set(earlier.map(({ observation }) => observation));
+  const turnObservations = given === undefined ? carried?.turn === check.turn ? carried.turn_observations ?? [] : []
+    : observations.flatMap(({ observation }, index) => earlierTexts.has(observation) ? [] : [index]);
+  const turnNotes = [...new Set([...(carried?.turn === check.turn ? carried.turn_notes ?? [] : []),
+    ...check.notes.map(noteDigest)])].slice(-TURN_NOTES_KEPT);
   const rejectedKeys = new Set<string>();
   const rejected = [...(input.rejected_options ?? []), ...(carried?.rejected ?? [])].filter((option) => {
     const key = optionKey(option);
@@ -1381,7 +1489,9 @@ function buildCarriedState(input: FinalizeResearchInput, carried: CarriedState |
     ...(check.status === "not_ready" ? { open_kinds: check.open } : {}),
     turn: check.turn,
     first_turn: check.firstTurn,
-    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen })
+    ...(check.previousOpen === undefined ? {} : { previous_open: check.previousOpen }),
+    ...(turnObservations.length === 0 ? {} : { turn_observations: turnObservations }),
+    ...(turnNotes.length === 0 ? {} : { turn_notes: turnNotes })
   };
   const token = issueCarriedState(state, { secret: options.secret });
   if (token === undefined) return "too_large";
@@ -1580,6 +1690,16 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
   source_lines: z.array(sourceLineCheckSchema).optional()
     .describe("For a passing check with source_lines, in their order: whether each quote is in the text AskRigor " +
       "fetched, and where. Only a line with both found in a paper AskRigor fetched may be marked as found."),
+  // The owner, 5 Nov 2026, runtime only (owner answer 189a): how each key source was read, said beside it in the answer.
+  source_reading: z.array(sourceReadingCheckSchema).optional()
+    .describe("For each key source whose reading this check knows: its id, how a limit names it, and how it was read, " +
+      "from its verified receipts and accepted read_depth. The answer says it beside each study it cites, and the " +
+      "panel lists it under a passing check."),
+  // Owner answer 249a, runtime only (owner answer 189a): what the check of the study map found.
+  study_map: studyMapCheckSchema.optional()
+    .describe("For a passing check with study_map: each study's receipt, text, group of people and registry numbers, " +
+      "each link's passage, and for each claim whether the answer shows it, the groups it counts and those AskRigor " +
+      "counts, and its passages. What it finds are notes; none of it holds the answer back."),
   // Owner answer 200a, runtime only (owner answer 189a): the offer to share a de-identified copy.
   share_offer: z.object({ line: z.string(), on_yes: z.string() }).strict().optional()
     .describe("When this server keeps shared answers and the caller has a research account: line ends the answer, " +
@@ -1587,7 +1707,7 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
 });
 
 export const finalizeResearchPublishedOutputSchema = finalizeResearchRetainedOutputSchema.omit({ research_plan: true, notes: true })
-  .extend({ carried: carriedStateSchema.omit({ research_plan: true }).optional() });
+  .extend({ carried: publishedCarriedStateSchema.omit({ research_plan: true }).optional() });
 
 export type FinalizeResearchOutput = z.output<typeof finalizeResearchOutputSchema>;
 
@@ -1601,6 +1721,8 @@ export interface FinalizeResearchOptions {
   meaningJudgment?: MeaningJudgment;
   /** Each source line's quotes as looked up after this check's earlier pass (owner answer 237a), in the lines' order. */
   sourceLineLookups?: readonly SourceLineLookup[];
+  /** The study map's texts and registry records as looked up after this check's earlier pass (owner answer 249a). */
+  studyMapLookup?: StudyMapLookup;
   /**
    * Each backing line's quotes as looked up after this check's earlier pass (owner answer 252a), by the finding and the
    * line, which the finalization receipt signs.
@@ -1679,6 +1801,10 @@ export function finalizeResearch(
   const parsed = parseFinalizeResearchInput(rawInput);
   if (!parsed.success) return invalidFinalizeResearchInput(parsed.error, options, parsed.notes);
   const input = parsed.data;
+  // A test run's call, marked findings_save "off", read from the raw call on its own: it offers no save and files no
+  // map, and its finalization receipt signs the mark, so save_research_findings refuses its card too (the review of 5
+  // Nov 2026). The card is still checked.
+  const savingOff = findingsSaveOff(rawInput);
   if (options.secret === undefined) {
     const nextSteps: RuleInput[] = [];
     const secondReading = checkSecondReading(input, options.secondReading, nextSteps);
@@ -1752,6 +1878,8 @@ export function finalizeResearch(
   const stepKinds: NextStepKind[] = [];
   const checkSteps: CheckStep[] = [];
   const notes = [...new Set(parsed.notes)];
+  // Notes on the call's own input or continuity, which repeat at every check (see ALWAYS_REPEATED_NOTE_KINDS).
+  const repeatedNotes = new Set(notes);
   let researchAdvised = false;
   const addCheckStep = (step: CheckStep, blockingRule?: FinalCheckBlockingRule): void => {
     if (step.deferUntilNextTurn === true) {
@@ -1761,6 +1889,7 @@ export function finalizeResearch(
     if (blockingRule === undefined || !FINAL_CHECK_BLOCKING_RULES.includes(blockingRule)) {
       if (step.kind === "research") researchAdvised = true;
       if (!notes.includes(step.text)) notes.push(step.text);
+      if (ALWAYS_REPEATED_NOTE_KINDS.has(step.kind)) repeatedNotes.add(step.text);
       return;
     }
     nextSteps.push(step.text);
@@ -1823,7 +1952,7 @@ export function finalizeResearch(
     }
   }
   if (input.answer_draft !== undefined && input.user_observations === undefined) {
-    requireDeclaration(rule`user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty list means none).`);
+    requireDeclaration(rule`user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn, or, in later_inputs.user_observations, not_tried for a report whose writer never tried what it describes (an empty list means none).`);
   }
   if (input.answer_draft !== undefined && input.proposed_tests === undefined) {
     requireDeclaration(rule`proposed_tests is missing: with answer_draft, it lists each test or self-measurement the answer proposes, which attempt in user_observations it repeats (its index in repeats, left out if none), and whether it is blinded (an empty list means none).`);
@@ -1835,11 +1964,15 @@ export function finalizeResearch(
     if (response === "withdrawn") caveatOnce(
       rule`The report of ${observation} was withdrawn; say it counts neither for nor against an effect.`,
       `${completedCaveat("A report its source has taken back:", observation)} It counts neither for nor against an effect.`);
+    if (response === "not_tried") caveatOnce(
+      rule`The report of ${observation} comes from someone who never tried it; say it counts neither for nor against an effect.`,
+      `${completedCaveat("A report from someone who never tried it:", observation)} It counts neither for nor against an effect.`);
   }
   for (const [index, test] of (input.proposed_tests ?? []).entries()) {
     if (test.repeats !== undefined) {
       const observation = input.user_observations?.[test.repeats]?.observation;
       if (observation === undefined) addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], which this call does not give.`);
+      else if (input.user_observations?.[test.repeats]?.response === "not_tried") addStep("declaration", rule`proposed_tests[${index}].repeats names user_observations[${test.repeats}], a report whose writer never tried it: leave repeats out.`);
       else if (test.difference === undefined) addStep("declaration", rule`proposed_tests[${index}] repeats what the user already tried (${observation}): leave it out of the answer, or give the answer's sentence saying how it differs in a way that could change the result as difference.`);
     }
     // proposed_tests includes clinician-run checks and reading logs as well as self-measurements.
@@ -1929,7 +2062,17 @@ export function finalizeResearch(
     const thread = readThreadOf(url);
     return thread === undefined ? undefined : forumReads.get(thread);
   };
-  const forumSearchReceipts = verified.filter(({ kind }) => kind === "forum_search");
+  // Whether AskRigor's reader read each thread to its end, by the thread's digest: a read with nothing after it and
+  // nothing cut (e 1; the third check of 5 Nov 2026). A receipt from before the reader said counts as part-way, the
+  // under-claim, for the day such receipts live (its fourth check).
+  const threadReadToEnd = new Map<string, boolean>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
+    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || claims.e === "1");
+  }
+  // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
+  // a search AskRigor couldn't make there, below.
+  const forumSearchReceipts = verified.filter(({ kind, claims }) => kind === "forum_search" && claims.h === undefined);
   const forumFound = new Set(forumSearchReceipts.flatMap(({ claims }) => list(claims.u)));
   // Each search signs whether more pages exist (`more`): "1" when Reddit offered one, "0" when its page was the last.
   // A full page without a next page, or a receipt from before, leaves it unknown, and then the threads found are a
@@ -1955,6 +2098,53 @@ export function finalizeResearch(
     } else if (threads.size < 5 || communities.size === 1) {
       addStep("research", rule`Forum evidence rests on ${threads.size} ${threads.size === 1 ? "thread" : "threads"} read in ${communities.size} ${communities.size === 1 ? "community" : "communities"}.${searchDepth} Keep reading relevant threads, in more than one community where they exist, until more are unlikely to change the direction (HRP SearchSaturationAndStopping): find them with search_reddit_threads, open each one in full with read_forum_thread, and try other forums when a page won't open. Then say in the answer how many threads you found and read, and why you stopped: few threads exist, pages wouldn't open, or time ran out.`);
     }
+  }
+  // The free Claude test of 5 Nov 2026: the answer declared a subreddit, r/herbalism, it never searched or read. An entry
+  // of community_searches rests on the AI's word, made for its own web search, which AskRigor can't see, and community
+  // checks are notes (owner answers 193a and 195a), so nothing asked for a receipt. Where AskRigor's own tools reach a
+  // community, one declared searched or read now needs this call's receipt for it, matched exactly: a Reddit community, a
+  // thread of it read with read_forum_thread or listed by search_reddit_threads, or a search limited to its subreddit;
+  // a forum or a patient organization, one of its threads read with read_forum_thread. A note, not a step: the sources
+  // check holds key sources, whose threads already need their read receipts there, and an entry of community_searches is
+  // not one.
+  // Facebook, Telegram, Discord, review sites and platform other, sites the reader can't read or isn't made for, and
+  // entries whose site refused access, keep their own-web-search limit alone (the review of 5 Nov 2026: a community read
+  // through the AI's own search under platform other got a false note).
+  const searchedSubreddits = new Set(forumSearchReceipts.map(({ claims }) => text(claims.sr).toLowerCase())
+    .filter((subreddit) => subreddit !== ""));
+  // A search the reader's host answered WEBSITE_FORMAT_CHANGED: it has come back when Reddit found nothing for the words,
+  // and when the reader was broken, so it shows only that AskRigor tried and couldn't search there, never that nothing
+  // relevant was found (the recheck of 5 Nov 2026).
+  const unsearchableSubreddits = new Set(verified.filter(({ kind, claims }) => kind === "forum_search" &&
+    claims.h !== undefined).map(({ claims }) => text(claims.sr).toLowerCase()).filter((subreddit) => subreddit !== ""));
+  for (const search of input.community_searches ?? []) {
+    if (!READER_PLATFORMS.has(search.platform) || (search.access_boundary !== undefined &&
+        !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary))) continue;
+    const subreddit = search.platform === "reddit" ? subredditNamed(search.community) : undefined;
+    const declared = search.threads_read.length > 0 ||
+      (subreddit !== undefined && search.access_boundary === "no_relevant_results");
+    if (!declared) continue;
+    const threadReceipt = search.threads_read.some(({ url }) => {
+      const thread = forumThreadDigest(url);
+      return forumReadUrls.has(thread) || forumFound.has(thread);
+    });
+    if (threadReceipt || (subreddit !== undefined && searchedSubreddits.has(subreddit))) continue;
+    if (subreddit !== undefined && search.threads_read.length === 0 && unsearchableSubreddits.has(subreddit)) {
+      addStep("research", joinRules(rule`community_searches for ${search.community} declares it searched with nothing `,
+        rule`relevant found, but AskRigor's reader couldn't search it: its host answered WEBSITE_FORMAT_CHANGED, as it `,
+        rule`does when Reddit finds nothing and when the reader is broken. Search it again with other words (subreddit `,
+        rule`${subreddit}); if that fails too, give its access_boundary as retrieval_failed and say in the answer that `,
+        "the reader couldn't search it."));
+      continue;
+    }
+    addStep("research", subreddit === undefined
+      ? joinRules(rule`community_searches for ${search.community} declares threads read, but no receipt in this call `,
+        "shows AskRigor read any of them: read them with read_forum_thread and pass their research_receipts, or leave ",
+        "the community out of community_searches and don't present it as read.")
+      : joinRules(rule`community_searches for ${search.community} declares it searched, but no receipt in this call shows `,
+        rule`AskRigor searched or read it: search it with search_reddit_threads (subreddit ${subreddit}) and read its `,
+        "threads with read_forum_thread, passing their research_receipts, or leave it out of community_searches and ",
+        "don't present it as searched."));
   }
   const youtubeCommunityReceipts = verified.filter(({ kind }) => kind === "youtube_scout" ||
     kind === "youtube_survey" || kind === "youtube_community_audit" || kind === "youtube_video_audit");
@@ -2016,6 +2206,8 @@ export function finalizeResearch(
   const offTarget: FinalizeResearchOutput["receipts_rejected"] = [];
   const offTargetVideos = new Set<string>();
   let directlyReadComments = false;
+  // The videos whose comments get_youtube_comments or search_youtube_comments returned, a lead's source (community_leads).
+  const directlyReadVideos = new Set<string>();
   for (const receipt of verified) {
     const { kind, claims } = receipt;
     if (DISCOVERY_KINDS.has(kind) && text(claims.target) !== targetDigest) {
@@ -2061,7 +2253,10 @@ export function finalizeResearch(
         Number(text(claims.shown) || text(claims.records)),
         text(claims.boundary) === "identifier_membership" ? Number(text(claims.records)) : undefined);
     }
-    if (kind === "youtube_comments_read") directlyReadComments = true;
+    if (kind === "youtube_comments_read") {
+      directlyReadComments = true;
+      if (text(claims.video) !== "") directlyReadVideos.add(text(claims.video));
+    }
     if (kind === "youtube_community_audit") {
       // One call samples comments across its videos, so it counts as a
       // survey; each material video still needs its own video audit.
@@ -2408,6 +2603,135 @@ export function finalizeResearch(
     }
   }
 
+  // Leads from people's reports, and the study search that followed each (the owner, 5 November 2026: "make sure that
+  // our feedback loop is working between forum signal and studies"; HRP CommunityToFormalHypothesisTransfer,
+  // FormalAbsenceCannotEraseCommunitySignal and MatchedContradictionAndOutcomeAlignment; community-leads.ts). Judges
+  // reading 18 runs found 19 of 98 leads from forum threads or comments searched in studies, and no answer saying a lead
+  // went unsearched. As option_classes' are, each part the model declares is checked exactly: where it read a lead, by
+  // this call's read receipts or the threads community_searches declares; a search, by a literature-search receipt's
+  // query and the records it returned; a sentence, by the draft (with the other declared quotes, below). Which reports
+  // raise a lead, and what the studies showed, stay the model's judgment. Every finding is a note; the leads AskRigor
+  // saw no study search for are one limit.
+  // Each thread once: those the reader read, by the thread it read, and those the call declares from its own web
+  // search that the reader didn't read (community_searches outside review sites and reports the user pasted, as the
+  // forum note counts them). Each video whose comments the model received.
+  const readerThreads: ReadonlySet<string> = forumThreads;
+  const ownSearchThreads = new Set(forumSearches.flatMap(({ threads_read }) => threads_read.map(({ url }) =>
+    readThreadOf(url) ?? forumThreadDigest(url))).filter((thread) => !readerThreads.has(thread)));
+  const leadVideos = new Set([...commentVideos, ...directlyReadVideos]);
+  // A lead's source is a video whose comments the model received, a thread the reader read, or any link a
+  // community_searches entry declares in threads_read. A declaration only ties the lead to a read the call reports; the
+  // limits on reports from the AI's own web search stand as they are.
+  const declaredLinks = new Set((input.community_searches ?? []).flatMap(({ threads_read }) =>
+    threads_read.map(({ url }) => forumThreadDigest(url))));
+  const leadRead = (source: string): boolean => {
+    const video = communityLeadVideo(source);
+    if (video !== undefined) return leadVideos.has(video);
+    const thread = forumThreadDigest(source);
+    return forumReadUrls.has(thread) || declaredLinks.has(thread);
+  };
+  const communityLeads = input.community_leads ?? [];
+  // Each entry by its place as given, though an entry before it was left out.
+  const leadAt = (index: number): string => `community_leads[${parsed.leadPlaces?.[index] ?? index}]`;
+  if (input.community_leads === undefined && input.answer_draft !== undefined &&
+      readerThreads.size + ownSearchThreads.size + leadVideos.size > 0) {
+    const [reader, own] = [readerThreads.size, ownSearchThreads.size];
+    const threads = (count: number) => count === 1 ? rule`thread` : rule`threads`;
+    const threadsRead = own === 0 ? rule`${reader} forum ${threads(reader)}`
+      : reader === 0 ? rule`${own} forum ${threads(own)} declared from your own web search`
+      : rule`${reader + own} forum threads (${reader} with AskRigor's reader, ${own} declared from your own web search)`;
+    const videosRead = rule`the comments of ${leadVideos.size} ${leadVideos.size === 1 ? rule`video` : rule`videos`}`;
+    const read = leadVideos.size === 0 ? threadsRead : reader + own === 0 ? videosRead
+      : rule`${threadsRead} and ${videosRead}`;
+    addStep("declaration", joinRules(rule`community_leads is missing: this research read ${read}. `,
+      "In later_inputs.community_leads, list each option, form, dose, timing, responder group, harm or way it could ",
+      "work that those reports raised and the question didn't name, as {lead, from, state, search_query, studies, ",
+      "answer_quote, reason}: from gives the links of the threads read (with read_forum_thread, or declared in ",
+      "community_searches), or video:<id> for the comments read; searched gives the exact search_query of the ",
+      "search_pubmed, search_europe_pmc or search_clinical_trials call that followed, studies (corroborated, ",
+      "contradicted, outcome_mismatch or support_not_located) and the answer's sentence on what it found as ",
+      "answer_quote; not_searched gives reason. An empty list means the reports raised nothing new."));
+  }
+  // One lead, one entry, as one class has one (leadKey compares them); a repeat is left out of every other check.
+  const leadEntries = new Map<string, number>();
+  const repeatedLeads = new Set<number>();
+  // The leads AskRigor saw no study search for: those declared not_searched, and those declared searched with no
+  // literature search passed here under their query. From AskRigor's view this research did not search them, which is
+  // what their limit says.
+  const leadsNotSearched: string[] = [];
+  for (const [index, entry] of communityLeads.entries()) {
+    const at = leadAt(index);
+    const first = leadEntries.get(leadKey(entry.lead));
+    if (first !== undefined) {
+      repeatedLeads.add(index);
+      addStep("declaration", rule`${at} names the same lead as ${leadAt(first)}: give each lead one entry.`);
+      continue;
+    }
+    leadEntries.set(leadKey(entry.lead), index);
+    const lead = leadPhrase(entry.lead);
+    const unread = entry.from.flatMap((source, place) => leadRead(source) ? [] : [`from[${place}]`]);
+    if (unread.length > 0) {
+      addStep("declaration", joinRules(
+        rule`${at}.${joinNames(unread)} ${unread.length === 1 ? rule`is not a read` : rule`are not reads`} this call `,
+        "shows: give the link of a thread that read_forum_thread read (with its research_receipt in receipts) or that ",
+        "community_searches declares in threads_read, or video:<id> for a video whose comments AskRigor read; or leave ",
+        "it out of from."));
+    }
+    // Each state's own field; another state's field, if given, is not used.
+    let searchShown = false;
+    if (entry.state === "searched") {
+      // Searched with a query a literature-search receipt in this call signed, compared by its digest as a class
+      // researched is: a forum or YouTube search signing the same query is not a study search.
+      const query = entry.search_query === undefined ? undefined : discoveryQueryDigest([entry.search_query]);
+      const searches = query === undefined ? []
+        : verified.filter(({ kind, claims }) => kind === "literature_search" && text(claims.q) === query);
+      searchShown = searches.length > 0;
+      if (query === undefined) {
+        addStep("declaration", joinRules(rule`${at} is searched without search_query: give the exact query ${lead} `,
+          "was searched with in search_pubmed, search_europe_pmc or search_clinical_trials, and pass that search's ",
+          "research_receipt, or declare it not_searched with reason."));
+      } else if (!searchShown) {
+        addStep("research", joinRules(rule`${at}.search_query is not the query of any literature search passed here: `,
+          rule`search ${lead} with search_pubmed, search_europe_pmc or search_clinical_trials, give that exact query, `,
+          "and pass its research_receipt, or declare it not_searched with reason."));
+      }
+      if (entry.studies === undefined) {
+        addStep("declaration", joinRules(rule`${at} is searched without studies: say what the studies showed about `,
+          rule`${lead} as corroborated, contradicted (only when they measured it the way the reports did), `,
+          "outcome_mismatch (they measured something else) or support_not_located (the search found no study of it)."));
+      }
+      // Each receipt under the query signs the records its page returned (ret); when none returned any, the search
+      // found no study, whatever the studies field says. A receipt from before ret was signed says nothing.
+      if (searchShown && entry.studies !== "support_not_located" &&
+          searches.every(({ claims }) => text(claims.ret) === "0")) {
+        addStep("declaration", joinRules(rule`${at}'s search returned no records: give support_not_located as studies, `,
+          "or, as search_query, the query of the search that found the studies."));
+      }
+      // A search that found no study is said in the answer too: the quote rule is the same, and nothing reads its words.
+      if (entry.answer_quote === undefined) {
+        addStep("answer_draft", entry.studies === "support_not_located"
+          ? joinRules(rule`${at}'s search found no study of ${lead}, and it gives no answer_quote: say in the answer `,
+            "that the search found none, and copy that sentence from answer_draft.")
+          : joinRules(rule`${at} is searched without answer_quote: say in the answer what the search for ${lead} `,
+            "found, and copy that sentence from answer_draft."));
+      }
+    } else if (entry.reason === undefined) {
+      addStep("declaration", rule`${at} is not_searched without reason: say why ${lead} was not searched in studies, in 10 to 300 characters.`);
+    }
+    if (searchShown) continue;
+    // The lead reaches the reader in the limit, so it shows no internal labels, as a class not researched does.
+    const labels = internalLabels(entry.lead, options.protocolNames ?? new Set());
+    if (labels.length > 0) {
+      addStep("declaration", joinRules(joinRules(rule`${at}.lead shows internal labels (${labels.slice(0, 8).join(", ")}`, rule`${labels.length > 8 ? rule`, and more` : rule``}): the answer names this lead in its caveat, so give it in plain `), "words."));
+    }
+    leadsNotSearched.push(entry.lead);
+  }
+  if (leadsNotSearched.length > 0) {
+    caveatOnce(joinRules(rule`No study search this call shows followed leads from people's reports (`,
+      rule`${joinNames(leadsNotSearched.map(leadPhrase))}): say so in the answer, as the caveat does.`),
+    notSearchedLeadsCaveat(leadsNotSearched));
+  }
+
   // Key studies.
   const validatedIds = new Set<string>();
   const leadIds = new Set<string>();
@@ -2564,6 +2888,15 @@ export function finalizeResearch(
   const foundHere = (sourceId: string): boolean => paperReceipts(sourceLinks(sourceId)).length > 0 ||
     checkedInAtlas(sourceId) || threadReadHere(sourceId);
   const keyLinks = input.key_sources.map((source) => sourceLinks(source.id));
+  // How each key source was read, as this check verifies it, and which ones the draft cites, by a link its receipts tie
+  // to it or by its identifier in the prose a reader sees (the owner, 5 Nov 2026; source-reading.ts).
+  const readings: Array<AnswerReading | undefined> = [];
+  // What each key source's receipts show of it, a forum thread's read among them.
+  const shownReadings: Array<ReadonlySet<ShownReading>> = [];
+  const citedSources = new Set<number>();
+  // The displayed blocks (paragraphs, list items, headings), where a declared quote is looked up.
+  const shownBlocks = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft);
+  const shownProse = shownBlocks.map(visibleText).join("\n");
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
     const threadRead = threadReadHere(source.id);
@@ -2575,7 +2908,19 @@ export function finalizeResearch(
       addBlockingStep("source_provenance", "research", joinRules(joinRules(rule`Key source ${source.id} has no receipt showing it was found or looked up in this research: pass its search-result, record, full-text, audit, lead, route-failure or forum-thread research_receipt `, "(resolve_doi looks up a DOI, fetch_pubmed_record a PMID, read_forum_thread reads a forum thread). A source no AskRigor tool can look up, such as a page "), "without a DOI that only your own search found, is not a key source: leave it out of key_sources, and say in the answer that AskRigor did not look it up."));
     }
     const audited = sourceReceipts.some(({ kind }) => kind === "study_audit" || kind === "review_audit");
-    const read = audited || sourceReceipts.some(({ kind }) => kind === "full_text_read");
+    // Every audit was of a copy the AI found, which AskRigor didn't fetch itself, as the Atlas reads a card's sources.
+    const searchCopy = audited && sourceReceipts.every(({ kind, claims }) => (kind !== "study_audit" &&
+      kind !== "review_audit") || claims.retrieval_provider === "client_search_index");
+    const fullReads = sourceReceipts.filter(({ kind }) => kind === "full_text_read");
+    // A forum thread AskRigor's reader read is read as its receipt signs: to its end, the plain full reading, and
+    // otherwise part of it; a thread is never method-audited nor read as an abstract (the third check of 5 Nov 2026).
+    const threadReading: AnswerReading | undefined = !threadRead ? undefined
+      : threadReadToEnd.get(readThreadOf(source.id) ?? forumThreadDigest(source.id)) === true ? "full_text_read"
+        : "partial_text";
+    const read = audited || fullReads.length > 0 || threadReading === "full_text_read";
+    // The review of 5 Nov 2026: every full reading was of a copy the AI found, which reads so, as an audit's does.
+    const readSearchCopy = fullReads.length > 0 &&
+      fullReads.every(({ claims }) => claims.retrieval_provider === "client_search_index");
     // Acquisition is now advisory, so a record alone must not erase the declared reading boundary.
     if (!read && sourceReceipts.length > 0 && !sourceReceipts.some(({ kind }) =>
       kind === "full_text_lead" || kind === "full_text_route_failure")) {
@@ -2594,7 +2939,13 @@ export function finalizeResearch(
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
     }
+    readings[index] = threadReading ?? verifiedAnswerReading(source.read_depth,
+      { audited, searchCopy, read, readSearchCopy, atlasChecked: checkedInAtlas(source.id) });
+    const receiptsShow = receiptReadings(sourceReceipts, checkedInAtlas(source.id));
+    if (threadReading !== undefined) receiptsShow.add(threadReading);
+    shownReadings[index] = receiptsShow;
     if (input.answer_draft !== undefined) {
+      if (studyLinks.some(linked) || identifierShown(shownProse, id)) citedSources.add(index);
       const identified = isPmid(id) || isDoi(id) || isPmcid(id);
       const marker = source.answer_marker === undefined ? "" : caveatText(source.answer_marker);
       const markerLinks = marker === "" ? [] : studyLines
@@ -2645,6 +2996,7 @@ export function finalizeResearch(
       };
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
+        readings[index] = "other_tool";
         continue;
       }
       const state = ids.map((candidate) => leadStates.get(candidate)).find((state) => state !== undefined);
@@ -2667,6 +3019,7 @@ export function finalizeResearch(
       leadSources.push(source.id);
       if (source.other_route === "read") {
         readThroughOtherTool(source.id, id);
+        readings[index] = "other_tool";
         continue;
       }
       addStep("declaration", joinRules(rule`Cite ${keySourceName(source)} as a lead: a full-text service kept failing when AskRigor tried to fetch it, `, "so its methods were not audited."));
@@ -2699,6 +3052,114 @@ export function finalizeResearch(
     addStep("research", source.status === "validated" ? joinRules(joinRules(rule`For ${source.id}: acquire_open_full_text${target === source.id ? rule`` : rule` (DOI ${target})`}, continue_open_full_text until exhausted, `, "then validate_study_method_audit (or validate_review_method_audit) and pass its research_receipt. If no open full text exists, "), rule`the acquisition receipt lets you list it as lead_only. ${LEAD_RECEIPT_SEARCH_RULE}`) : joinRules(rule`Try acquire_open_full_text for ${source.id}${target === source.id ? rule`` : rule` (DOI ${target})`} `, rule`before treating it as lead_only; pass the research_receipt it returns. ${LEAD_RECEIPT_SEARCH_RULE}`));
   }
   for (const caveat of unreadStudiesCaveats(unreadStudies)) requireLimit(caveat, caveat);
+  // How each cited key source was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing
+  // that the AI tells people what it actually read"; HRP StudyReadDepthDisclosure; source-reading.ts). Under the
+  // read_depth rule, which already holds each declared reading to its receipts: a key source the draft cites has a
+  // source_reading entry whose quote the draft shows, compared as the other declared quotes are, and no entry whose
+  // quote the draft shows gives a reading claiming more than the check verifies, or, with no reading verified (no
+  // read_depth), more than the receipts show (the review of 5 Nov 2026 and its recheck), exactly, by the fixed readings.
+  // An entry whose quote the draft doesn't show is left aside, so an older one does no harm, but an honest entry beside
+  // one that claims more doesn't let it pass. Which study an entry's words are about, and whether they say its reading,
+  // stay the model's declaration, in any language: AskRigor checks each declared reading exactly against the receipts of
+  // the source it names, never the draft's layout (the fourth check of 5 Nov 2026). A key source the draft doesn't cite needs nothing, and every other finding about the entries, a reading
+  // claiming less among them, is a note. Each key source's reading goes back in the result, for the answer to say
+  // before a check blocks, and for the panel to list under a passing one, apart when AskRigor's receipts don't show it.
+  const sourceReadings: SourceReadingCheck[] = [];
+  {
+    const keyIds = input.key_sources.map(({ id }) => normalizeIdentifier(id));
+    const entries = new Map<string, SourceReadingQuote[]>();
+    for (const entry of input.source_reading ?? []) {
+      const key = normalizeIdentifier(entry.source);
+      if (!keyIds.includes(key)) {
+        addStep("declaration", rule`source_reading names ${entry.source}, which key_sources does not list: give each key source's id as key_sources gives it, or leave the entry out.`);
+      } else {
+        entries.set(key, [...(entries.get(key) ?? []), entry]);
+      }
+    }
+    const showing = quoteLocator(shownBlocks);
+    const checkedKeys = new Set<string>();
+    for (const [index, source] of input.key_sources.entries()) {
+      const key = keyIds[index]!;
+      if (checkedKeys.has(key)) continue;
+      checkedKeys.add(key);
+      const reading = readings[index];
+      const shownSet = shownReadings[index] ?? new Set<ShownReading>();
+      if (reading !== undefined) {
+        // A reading is shown when the source's receipts show it, a thread's read among them, and otherwise the panel
+        // lists it apart, with what they do show.
+        const shown = readingShown(reading, shownSet);
+        const receipts = shown ? undefined : deepestShown(shownSet);
+        sourceReadings.push({ source: source.id, name: keySourceName(source).text, reading, shown,
+          ...(receipts === undefined ? {} : { receipts }) });
+      }
+      if (!citedSources.has(index)) continue;
+      const how = reading === undefined ? rule`` : rule` (${answerReadingRule(reading)})`;
+      const given = entries.get(key) ?? [];
+      // What each entry's reading is held to: the reading the check verifies, or with none, what the receipts show.
+      const deepest = deepestShown(shownSet);
+      const bar = reading ?? (deepest === undefined ? undefined : declarableReading(deepest));
+      const otherRoute = source.other_route === "read";
+      // Each entry whose quote the draft shows counts for the source it declares, and is held to that source's reading:
+      // which words are about which study is the AI's declaration, as for every declared quote (the fourth check of 5
+      // Nov 2026: tying an entry to the block citing its source misread headings, reference lists, nested bullets and
+      // separate source lines). An entry whose quote shows only inside another of this source's shown quotes, as
+      // "full text read" sits inside "full text read from a copy the AI found", says nothing of its own and is set
+      // aside, and so is one whose quote the draft doesn't show, with a note.
+      const placed = given.map((entry) => ({ entry, at: showing(entry.quote) })).filter(({ at }) => at.length > 0);
+      const shownEntries = placed.filter(({ entry, at }) => quoteShownBeyond(shownBlocks, entry.quote,
+        placed.filter((other) => other.entry !== entry).map((other) => other.entry.quote), at)).map(({ entry }) => ({
+        entry,
+        verdict: bar === undefined ? "same" as const : judgeSourceReading(entry.reading, bar, shownSet, { otherRoute })
+      }));
+      if (placed.length > 0) {
+        for (const entry of given.filter((one) => !placed.some(({ entry: shown }) => shown === one))) {
+          addStep("declaration", rule`source_reading's entry claiming ${entry.reading} for ${source.id} quotes words the answer doesn't show, so it is set aside: copy them exactly from answer_draft, or leave the entry out.`);
+        }
+      }
+      const claimsMore = shownEntries.find(({ verdict }) => verdict === "more");
+      if (given.length === 0) {
+        addBlockingStep("read_depth", "answer_draft", reading === undefined
+          ? joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read: give it a `,
+            rule`read_depth its receipts support, say beside it how it was read, in the answer's language, and give `,
+            rule`later_inputs.source_reading an entry for it, with source ${source.id}, that reading, and quote those `,
+            "words copied from answer_draft.")
+          : joinRules(rule`Key source ${source.id} is cited in the answer without saying how it was read${how}: say `,
+            rule`so beside it, in the answer's language, and give later_inputs.source_reading an entry for it, with `,
+            rule`source ${source.id}, reading ${reading}, and quote those words copied from answer_draft.`));
+      } else if (shownEntries.length === 0) {
+        addBlockingStep("read_depth", "answer_draft", joinRules(
+          rule`source_reading's quote for ${source.id} is not in the answer: say beside it how it was read${how}, `,
+          "in the answer's language, and copy those words exactly from answer_draft into the entry's quote."));
+      } else if (claimsMore !== undefined && bar !== undefined) {
+        const given = claimsMore.entry.reading;
+        // The recheck of 5 Nov 2026: a lower reading the AI's own search gave it (an abstract it read, say) is one a
+        // read_depth declares with no receipt behind it, so the step offers that too, rather than only the words for
+        // what AskRigor's receipts show.
+        const declarable = DECLARABLE_WITHOUT_RECEIPT.has(given) && source.read_depth !== given;
+        addBlockingStep("read_depth", "answer_draft", joinRules(
+          rule`source_reading gives ${source.id} the reading ${given} (${answerReadingRule(given)}), more than `,
+          reading === undefined
+            ? rule`this call's receipts show: they show ${bar} (${answerReadingRule(bar)}). `
+            : rule`this call's receipts show: this check verifies ${bar} (${answerReadingRule(bar)}). `,
+          rule`Remove the source_reading entry claiming ${given} for ${source.id}, or change its reading to ${bar}, with `,
+          "the answer's words saying so, in its language, copied into its quote",
+          declarable
+            ? rule`; or, if it was read so, give key_sources.read_depth ${given} for it, which needs no receipt.`
+            // Another tool's reading is the AI's own account only for a source key_sources declares read so.
+            : given === "other_tool" && !otherRoute
+              ? "; or, if it was read through another tool, give it other_route read in key_sources."
+              : "."));
+      } else if (bar !== undefined) {
+        // A reading claiming less than the check verifies is a note: the answer may say more.
+        const less = shownEntries.find(({ verdict }) => verdict === "less")?.entry.reading;
+        if (less !== undefined) {
+          addStep("declaration", joinRules(rule`source_reading gives ${source.id} the reading ${less} `,
+            rule`(${answerReadingRule(less)}), less than this check verifies: ${bar} (${answerReadingRule(bar)}). `,
+            "The answer may say so beside it."));
+        }
+      }
+    }
+  }
   // A key study's headline figures, as its audit recomputed them (owner
   // questions 87 and 89, issues #329 and #331): a study whose own data
   // contradict its figures, a value impossible as printed, and two studies
@@ -3240,6 +3701,37 @@ export function finalizeResearch(
     }
     if (accepted) acceptedAbsences.add(index);
   }
+  // The free Claude test of 5 Nov 2026 (absence-searches.ts): each other spelling, older name or synonym of the key
+  // name the call declares searched is checked exactly, against a literature search's receipt and its own query's
+  // words. Only a form other than the key name, as the answer writes it (key_name, which the answer must show), counts
+  // as another name searched, so declaring the usual name alone leaves the ask (the review of 5 Nov 2026). Which forms a
+  // name has stays the model's judgment, in any language. Every finding is a note.
+  const literatureQueries = new Set(verified.filter(({ kind }) => kind === "literature_search")
+    .map(({ claims }) => text(claims.q)));
+  const keyName = input.key_name;
+  const keyNameShown = keyName !== undefined &&
+    quoteLocator(displayedProse(input.answer_draft ?? ""))(keyName).length > 0;
+  if (keyName !== undefined && !keyNameShown) {
+    addStep("declaration", rule`later_inputs.key_name is not in the answer: give the key name exactly as the answer writes it, copied from answer_draft.`);
+  }
+  let nameFormsSearched = 0;
+  // Forms searched here that wait only for the key name the answer shows (the recheck of 5 Nov 2026: ask just for it).
+  let formsAwaitingKeyName = 0;
+  for (const [index, entry] of (input.name_forms ?? []).entries()) {
+    if (!literatureQueries.has(discoveryQueryDigest([entry.query]))) {
+      addStep("research", joinRules(rule`name_forms[${index}].query is not the query of any literature search passed `,
+        rule`here: search ${entry.form} with search_pubmed, search_europe_pmc or search_clinical_trials, give that `,
+        "exact query, and pass its research_receipt."));
+    } else if (!nameFormInQuery(entry)) {
+      addStep("declaration", rule`name_forms[${index}].form is not in its query: give the query that searched ${entry.form}, copied exactly.`);
+    } else if (keyName !== undefined && sameName(entry.form, keyName)) {
+      addStep("declaration", rule`name_forms[${index}].form is the key name as the answer writes it: give the other spellings, older names and synonyms searched.`);
+    } else if (keyNameShown) {
+      nameFormsSearched += 1;
+    } else {
+      formsAwaitingKeyName += 1;
+    }
+  }
   // A serious harm the screen did not find is a claim that something was not found too, so the same caveats bound it
   // to the searches made here; its own step above names a search receipt it lacks.
   const notLocated = absenceClaims.some(({ state }) => state === "support_not_located");
@@ -3267,7 +3759,28 @@ export function finalizeResearch(
         );
       }
     } else {
-      const covered = new Set(input.search_coverage ?? []);
+      // A name form searched here covers older or variant terms, as a declared historical_terms does.
+      const covered = new Set<string>([...(input.search_coverage ?? []), ...(nameFormsSearched > 0 ? ["historical_terms"] : [])]);
+      // Before something is called not found, the sweep HRP already asks for (absence-searches.ts): the key name's other
+      // forms, searched here, and a source beyond PubMed and Europe PMC. A note: no seventh blocking check.
+      if (notLocated) {
+        const asks = [
+          ...(nameFormsSearched > 0 ? []
+            : formsAwaitingKeyName > 0 ? [joinRules("give the key name as the answer writes it in later_inputs.key_name, ",
+              "copied from answer_draft, so the other names searched in name_forms count")]
+            : [joinRules("search the key name's other spellings, older names and synonyms, ",
+              "each with search_pubmed or search_europe_pmc, and give each in later_inputs.name_forms as {form, query}, ",
+              "with that search's exact query", keyNameShown ? "" : joinRules(", and the key name as the answer writes ",
+                "it in later_inputs.key_name"))]),
+          ...(covered.has("other_journals") ? [] : [joinRules("search a source beyond PubMed and Europe PMC: your own ",
+            "web search finds journals they don't index (then give other_journals in later_inputs.search_coverage), and ",
+            "search_clinical_trials covers trial registries")])
+        ];
+        if (asks.length > 0) {
+          addStep("research", joinRules(`The answer says something was not found: before saying so, ${ABSENCE_SWEEP_RULES} `,
+            "ask you to ", ...(asks.length === 1 ? asks : [asks[0]!, "; and ", asks[1]!]), "."));
+        }
+      }
       const uncovered = SEARCH_COVERAGE.filter(({ id }) => !covered.has(id)).map(({ phrase }) => phrase);
       requireLimit(
         rule`The answer says something was not found: bound that to the searches made here, as the caveat does.`,
@@ -3338,7 +3851,8 @@ export function finalizeResearch(
   // why_not_usual, for the owner's review.
   const paperKey = (id: string): string => papers.identifiers(normalizeIdentifier(id)).sort()[0]!;
   // Owner answer 254a: the forum threads a finding's forum signal names that AskRigor's reader read here, each by its
-  // verified forum_thread_read receipt, count as studies AskRigor read do.
+  // verified forum_thread_read receipt, count as studies AskRigor read do. Each counts once, by the thread the reader
+  // read, whether the signal gives that link or the one it was sent on from (`ur`).
   const verifiedWork = (sources: readonly string[], quote: string | undefined, threads: readonly string[] = []) => ({
     studies: new Set(sources.filter(auditedStudy).map(paperKey)),
     videos: new Set(sources.filter((source) => commentVideos.has(source))),
@@ -3520,7 +4034,7 @@ export function finalizeResearch(
         // can still ask for the save. Owner answer 156a (2026-10-22): findings declared personal only are never
         // offered, and so neither is this research's map, which is offered only in the same sentence as the card
         // (143a). The receipt still signs the card, so save_research_findings refuses it by its signed declaration.
-        if (options.findings === "offer" && beyond > 0 && scope === "public") {
+        if (options.findings === "offer" && beyond > 0 && scope === "public" && !savingOff) {
           // Owner answer 143a: on the connector the offer's one sentence also asks to file this research's map, unless
           // one was filed already, so one yes saves the card and files the map.
           mapOffered = options.researchMap?.mode === "offer" && !mapFiled;
@@ -3680,6 +4194,10 @@ export function finalizeResearch(
         // A class researched is shown in the answer by the sentence on what its search found.
         ...optionClasses.flatMap(({ state, answer_quote: quote }, index) => state === "researched" && quote !== undefined
           ? [{ at: `option_classes[${index}].answer_quote`, quote }] : []),
+        // So is a lead from people's reports searched in studies, by its sentence on what the search found.
+        ...communityLeads.flatMap(({ state, answer_quote: quote }, index) =>
+          state === "searched" && quote !== undefined && !repeatedLeads.has(index)
+            ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
         // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
         ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
           { at: `binary_results[${index}]`, quote },
@@ -3815,6 +4333,39 @@ export function finalizeResearch(
       shown: quoteShown(draft, line.sentence) && quoteShown(draft, line.conclusion) }];
   }) : [];
   for (const note of sourceLineChecks.flatMap(sourceLineNotes)) if (!notes.includes(note)) notes.push(note);
+  // Owner answer 249a: the study map. Each study's source resolves through the verified receipts as a source line's
+  // does, so its passages are looked up in its own text only, once the check passes; what the map gives is compared
+  // exactly, and what came of it goes to the AI as notes. None of it holds the answer back or consumes a round.
+  const studyMap = parsed.studyMap;
+  const studyMapLinks = (studyMap?.studies ?? []).map(({ source }) => sourceLinks(source));
+  const studyMapRequests: StudyMapRequest[] = studyMapLinks.map((links) => {
+    const receipts = paperReceipts(links);
+    return {
+      tied: receipts.length > 0,
+      handles: [...new Set(receipts.flatMap(({ kind, claims }) =>
+        SOURCE_TEXT_KINDS.has(kind) && text(claims.handle) !== "" ? [text(claims.handle)] : []))],
+      pmids: [...new Set([...(isPmid(links.id) ? [links.id] : []),
+        ...receipts.flatMap(({ claims }) => text(claims.pmid) === "" ? [] : [text(claims.pmid)])])]
+    };
+  });
+  let studyMapCheck: StudyMapCheck | undefined;
+  if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup !== undefined) {
+    const showing = quoteLocator(displayedProse(draft));
+    const checked = checkStudyMap(studyMap, options.studyMapLookup, {
+      requests: studyMapRequests,
+      // The identical-results test of the key studies' audited figures, for any study of the map.
+      figures: studyMapLinks.map(({ linkIds }) =>
+        linkIds.map((id) => studyFigures.get(id)?.values).find((values) => values !== undefined) ?? []),
+      shown: (quote) => showing(quote).length > 0,
+      absenceClaims: absenceClaims.flatMap(({ quote, studies }, index) => {
+        const resting = new Set((studies ?? []).map(normalizeIdentifier)).size;
+        return resting >= 2 ? [{ index, quote, studies: resting }] : [];
+      }),
+      sameQuote
+    });
+    studyMapCheck = checked.check;
+    for (const note of checked.notes) if (!notes.includes(note)) notes.push(note);
+  }
   // Owner answer 221: the meaning judge's notes, for the AI only; none of them is a step or holds the answer back.
   const judgment = options.meaningJudgment;
   if (judgment !== undefined && passed) {
@@ -3856,10 +4407,17 @@ export function finalizeResearch(
     if (at >= 0) caveats.splice(at, 1);
     mapOffered = false;
   }
+  // 5 Nov 2026: a note an earlier check of this turn gave is not given again (runs removed a study to quiet a note
+  // their drafts already met in their own words); a note whose words changed is new. A token without turn_notes, or
+  // from an earlier turn, repeats nothing.
+  const givenNotes = notes.filter((note) => !repeatedNotes.has(note));
+  const givenThisTurn = new Set(carried?.turn === callRound.turn ? carried.turn_notes ?? [] : []);
+  const newNotes = notes.filter((note) => repeatedNotes.has(note) || !givenThisTurn.has(noteDigest(note)));
+  if (newNotes.length < notes.length) newNotes.push(repeatedNotesLine(notes.length - newNotes.length));
   const output: FinalizeResearchOutput = {
     contract: FINALIZE_RESEARCH_CONTRACT,
     status,
-    ...(notes.length === 0 ? {} : { notes }),
+    ...(newNotes.length === 0 ? {} : { notes: newNotes }),
     ...(researchPlan(input) === undefined ? {} : { research_plan: researchPlan(input) }),
     next_steps: nextSteps,
     next_step_kinds: stepKinds,
@@ -3940,18 +4498,20 @@ export function finalizeResearch(
     if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
   }
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
+  if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
+  if (sourceReadings.length > 0) output.source_reading = sourceReadings;
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
   // None of them holds back the answer.
   if (options.researchMap !== undefined) {
     if (mapFiled) output.research_map = { status: "filed" };
     else if (mapOffered) output.research_map = { status: "offered", note: RESEARCH_MAP_OFFERED };
-    else if (options.researchMap.mode === "remind" && verifiedWorkPhrase(researchWork) !== "") {
+    else if (options.researchMap.mode === "remind" && !savingOff && verifiedWorkPhrase(researchWork) !== "") {
       output.research_map = { status: "not_filed", note: researchMapReminder(researchWork) };
     }
   }
-  // Owner answer 252a: how each source of a checked card was read, from this call's receipts (an audit, of a copy AskRigor
-  // fetched or of the AI's search copy, or a full reading), else the depth the AI declared for it; and an audit's check
+  // Owner answer 252a: how each source of a checked card was read, from this call's receipts (an audit or a full reading,
+  // of a copy AskRigor fetched or of the AI's search copy), else the depth the AI declared for it; and an audit's check
   // of its printed figures against its own data. Signed into the receipt, so the save stores it as checked here.
   const sourceReadingOf = (source: string): { read: SourceReading; figures?: SourceFigures } | undefined => {
     const id = normalizeIdentifier(source);
@@ -3966,7 +4526,10 @@ export function finalizeResearch(
     const withFigures = (read: SourceReading) => ({ read, ...(shown === undefined ? {} : { figures: shown }) });
     if (audits.some(({ claims }) => claims.retrieval_provider !== "client_search_index")) return withFigures("full_text_audited");
     if (audits.length > 0) return withFigures("search_copy_audited");
-    if (receipts.some(({ kind }) => kind === "full_text_read")) return withFigures("full_text_read");
+    // A full reading of a copy the AI found reads so, as an audit's does (the review of 5 Nov 2026).
+    const fullReads = receipts.filter(({ kind }) => kind === "full_text_read");
+    if (fullReads.some(({ claims }) => claims.retrieval_provider !== "client_search_index")) return withFigures("full_text_read");
+    if (fullReads.length > 0) return withFigures("search_copy_read");
     const linked = new Set(links.linkIds.map(normalizeIdentifier));
     const declared = input.key_sources.find((key) => linked.has(normalizeIdentifier(key.id)))?.read_depth;
     return withFigures(declared === "full_text_audited" || declared === "full_text_read" || declared === "partial_text" ||
@@ -4024,7 +4587,9 @@ export function finalizeResearch(
         : {}),
       // An offer that asks to file this research's map, made to this account: a paid private map is filed only with
       // this receipt and the user's yes to it (owner answer 143a).
-      ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {})
+      ...(mapOffered && mapAccount !== undefined ? { map: "offered", acct: mapAccount } : {}),
+      // A call marked findings_save "off": save_research_findings refuses this receipt's card.
+      ...(savingOff ? { fs: "off" } : {})
     }, {
       secret: options.secret,
       ...(options.now === undefined ? {} : { now: options.now })
@@ -4035,7 +4600,7 @@ export function finalizeResearch(
   const carry = carriedInvalid ? undefined : buildCarriedState(input, carried, options, {
     status: status === "stopped" ? "not_ready" : status,
     open: checkRound === undefined ? [...new Set(stepKinds)] : [...new Set(openSteps.map(({ kind }) => kind))],
-    caveats, turn: callRound.turn, firstTurn,
+    caveats, turn: callRound.turn, firstTurn, notes: givenNotes,
     ...(previousOpen === undefined ? {} : { previousOpen })
   });
   if (carry === "too_large") output.carry_forward_note = CARRIED_STATE_TOO_LARGE;
@@ -4046,6 +4611,9 @@ export function finalizeResearch(
   const parsedOutput = finalizeResearchOutputSchema.parse(output);
   if (passed && draft !== undefined && sourceLines.length > 0 && options.sourceLineLookups === undefined) {
     SOURCE_LINE_REQUESTS.set(parsedOutput, sourceLineRequests);
+  }
+  if (passed && draft !== undefined && studyMap !== undefined && options.studyMapLookup === undefined) {
+    STUDY_MAP_REQUESTS.set(parsedOutput, { map: studyMap, requests: studyMapRequests });
   }
   if (passed && backingLines.length > 0 && options.backingLookups === undefined) {
     BACKING_REQUESTS.set(parsedOutput, { lines: backingLines, requests: backingRequests });
@@ -4103,6 +4671,14 @@ const SOURCE_LINE_REQUESTS = new WeakMap<FinalizeResearchOutput, SourceLineReque
 /** Where this result's source lines may be looked up: a passing check whose lines haven't been yet. */
 export function sourceLineRequestsOf(result: FinalizeResearchOutput): readonly SourceLineRequest[] | undefined {
   return SOURCE_LINE_REQUESTS.get(result);
+}
+
+// What a passing check asks to have looked up of its study map, by the result it returned (owner answer 249a).
+const STUDY_MAP_REQUESTS = new WeakMap<FinalizeResearchOutput, StudyMapRequests>();
+
+/** The study map of a passing check that hasn't been looked up yet, as checked, and where each study's text may be. */
+export function studyMapRequestsOf(result: FinalizeResearchOutput): StudyMapRequests | undefined {
+  return STUDY_MAP_REQUESTS.get(result);
 }
 
 /** A checked card's backing lines in order, each with its finding and place, and where each may be looked up. */
@@ -4451,6 +5027,28 @@ function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number
     return quoteBlocks.flatMap(({ targets, text }, index) =>
       targets.includes(byTarget) || text.includes(byText) ? [index] : []);
   };
+}
+
+/**
+ * Whether a quote shows in any of the given blocks outside every longer quote that holds it (the third check of 5 Nov
+ * 2026): "full text read", met only inside "full text read from a copy the AI found", says nothing of its own there.
+ * Compared as quoteLocator compares, by a link's target and by its text, so exact and the same in any language.
+ */
+function quoteShownBeyond(shownBlocks: readonly string[], quote: string, others: readonly string[],
+  at: readonly number[]): boolean {
+  const [byTarget, byText] = quoteForms(quote);
+  const longer = others.map(quoteForms).filter(([target, text]) =>
+    (target.length > byTarget.length && target.includes(byTarget)) || (text.length > byText.length && text.includes(byText)));
+  if (longer.length === 0) return true;
+  return at.some((index) => {
+    let targets = caveatText(linkTargets(shownBlocks[index]!));
+    let text = caveatText(visibleText(shownBlocks[index]!));
+    for (const [target, words] of longer) {
+      if (target !== "") targets = targets.split(target).join("\u0000");
+      if (words !== "") text = text.split(words).join("\u0000");
+    }
+    return (byTarget !== "" && targets.includes(byTarget)) || (byText !== "" && text.includes(byText));
+  });
 }
 
 /** Meaning belongs to the reader; this gate compares only shown and declared text. */
@@ -5145,7 +5743,19 @@ function communityOf(platform: string, url: string, thread: boolean): string | u
   }
   return undefined;
 }
-const SUBREDDIT_NAME = /^\/?r\/([A-Za-z0-9_]{2,21})$/u;
+// A subreddit as a community_searches entry names it, exactly and in any case: r/<name>, with an optional leading slash
+// or its reddit.com address before it (the review of 5 Nov 2026: "reddit.com/r/herbalism" and "R/Herbalism" were read
+// as no subreddit). A bare name is not one: "Reddit" alone names the site.
+const SUBREDDIT_NAME = /^(?:(?:https?:\/\/)?(?:[a-z]+\.)?reddit\.com)?\/?r\/([a-z0-9_]{2,21})\/?$/iu;
+/** The subreddit, in lower case, a community name names, or undefined when it names none. */
+function subredditNamed(name: string): string | undefined {
+  return SUBREDDIT_NAME.exec(name.trim())?.[1]?.toLowerCase();
+}
+// The platforms whose pages AskRigor's forum tools are made to reach: Reddit, with its search and reader, and public
+// forum and patient-organization pages, with the reader. Platform other covers sites the reader can't open, such as
+// app-only ones, read through the AI's own search, so its entries rest on the AI's word, as they did (the review of 5
+// Nov 2026).
+const READER_PLATFORMS: ReadonlySet<string> = new Set(["reddit", "forum", "patient_organization"]);
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
 function redditPostOf(url: string): string | undefined {
@@ -5611,7 +6221,7 @@ function communityCoverage(
     }
     // A subreddit is one community: its entry names it, and its threads are in it.
     if (search.platform === "reddit") {
-      const subreddit = SUBREDDIT_NAME.exec(name)?.[1]?.toLowerCase();
+      const subreddit = subredditNamed(name);
       if (subreddit === undefined) {
         out.addStep("declaration", rule`Name the Reddit community ${name} by its subreddit, as r/<name>.`);
         continue;
@@ -5913,7 +6523,9 @@ const LITERATURE_SOURCES = [
 const SEARCH_COVERAGE = [
   { id: "historical_terms", phrase: "older or variant terms" },
   { id: "citation_chains", phrase: "citation chains" },
-  { id: "grey_literature", phrase: "grey literature" }
+  { id: "grey_literature", phrase: "grey literature" },
+  // The free Claude test of 5 Nov 2026: a 2022 study in a journal neither index covers.
+  { id: "other_journals", phrase: "journals outside PubMed and Europe PMC" }
 ] as const;
 
 /** "a", "a and b", "a, b and c". */

@@ -72,7 +72,11 @@ export {
   type ClinicalTrial,
   type ClinicalTrialEnrollment,
   type ClinicalTrialIntervention,
+  type ClinicalTrialOutcome,
   type ClinicalTrialReference,
+  type ClinicalTrialRegistration,
+  type ClinicalTrialSecondaryId,
+  type ClinicalTrialSite,
   type SearchClinicalTrialsInput
 } from "./clinical-trials.js";
 export {

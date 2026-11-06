@@ -62,7 +62,7 @@ import {
   RESEARCH_BEHIND_NOTE,
   backingRequestsOf,
   communitySkipCaveat,
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   forumThreadDigest,
   parseFinalizeResearchInput,
   type FinalizeResearchInput,
@@ -75,6 +75,12 @@ import {
 } from "../apps/research-mcp/src/research-receipts.js";
 import { lookUpSourceLines, sourceLineDocument, type SourceLineDocument } from "../apps/research-mcp/src/source-lines.js";
 import { FakeGitHub, storedRecordOf } from "./helpers/fake-github-findings.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner answer 252a (5 Nov 2026): "we need all the research that backs the interesting finding right there for people
 // to inspect", with "the forum signal we found as well for consilience". Plan:
@@ -474,6 +480,32 @@ describe("the final check signs the research behind each finding", () => {
     expect(result.findings_card?.status).toBe("rejected");
     expect(result.findings_card?.problems.join(" ")).toMatch(/threads\[0\] was not read here/u);
     expect(signedClaims(result.finalization_receipt)).not.toHaveProperty("findings");
+  });
+
+  // 5 Nov 2026: a read receipt also signs the link it was given (`ur`) when the site's own redirect sent the reader on to
+  // another of its pages short of its front page (l34 on #412's build: LongeCity's topic link to viewtopic.php), or to the
+  // same thread at the site's other host. A forum signal may give either link, and each thread counts once, by the link
+  // the reader read: both links on one card are one thread listed twice.
+  it("takes a thread by the link asked for when the site sent the reader to another, and counts it once", () => {
+    const asked = "https://www.longecity.org/forum/topic/4512-knee-squats/page-2";
+    const landed = "https://www.longecity.org/forum/viewtopic.php?t=104512&start=30";
+    const redirected = receipt("forum_thread_read",
+      { u: forumThreadDigest(landed), ur: forumThreadDigest(asked), n: 900, v: "page" });
+    const receipts = [...fixture().receipts.slice(0, 2), threadRead(THREAD), redirected];
+    const forumOnly = (threads: string[]) => laterFindingsCardSchema.parse({ ...card(),
+      findings: [{ ...card().findings[1], forum_signal: signal({ threads }) }] });
+    const byAsked = finalizeResearch(fixture({ receipts, findings_card: forumOnly([THREAD, asked]) }),
+      { ...OPTIONS, findings: "offer" as const });
+    expect(byAsked.findings_card).toMatchObject({ status: "checked", beyond_quick_answer: 1, problems: [] });
+    expect(signedClaims(byAsked.finalization_receipt).bases).toEqual(["forum_read"]);
+    expect(byAsked.caveats.join(" ")).toContain("These findings rest on 2 forum threads read in full");
+    // The research's own count: two threads read, not three links.
+    const reminded = finalizeResearch(fixture({ receipts }),
+      { ...OPTIONS, researchMap: { mode: "remind" as const, account: "acct0123456789ab" } });
+    expect(reminded.research_map?.note).toContain(" 2 forum threads read in full");
+    const both = finalizeResearch(fixture({ receipts, findings_card: forumOnly([THREAD, asked, landed]) }), OPTIONS);
+    expect(both.findings_card?.status).toBe("rejected");
+    expect(both.findings_card?.problems.join(" ")).toMatch(/threads\[2\] gives a thread already listed/u);
   });
 
   it("names the new fields in a note when a public card's study finding gives no backing", () => {

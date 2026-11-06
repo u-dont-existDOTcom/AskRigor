@@ -34,6 +34,7 @@ import { mcpYoutubeCommunityAuditOutputSchema, mcpYoutubeVideoCommunityAuditOutp
 import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/youtube-community-survey.js";
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
+import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -117,9 +118,14 @@ afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
-// What a literature search with few records adds to its result.
+// What a literature search with few records adds to its result: the owner's words (owner report, 2026-09-30), and,
+// for PubMed and Europe PMC, the not-found searches after them (the free Claude test of 5 Nov 2026).
 const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
   "the components of a mixed exposure, and citation chains.";
+const NOT_FOUND_SEARCHES_NOTE = " Before saying studies don't exist, also search the key name's other spellings and " +
+  "older names, and a source beyond PubMed and Europe PMC: your own web search finds journals they don't index, and " +
+  "search_clinical_trials covers trial registries (HRP UserNamedInterventionSweep, " +
+  "HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).";
 
 describe("AskRigor MCP tools", () => {
   it("registers the exact thirty-five-tool catalog with six declared writes", async () => {
@@ -574,7 +580,7 @@ describe("AskRigor MCP tools", () => {
         text: "YouTube community audit selected 1 video(s); comment retrieval api_visible_complete; YouTube comments lock " +
           `pass (these videos only). ${COMMUNITY_RESEARCH_REMINDER} This lock covers retrieving these YouTube comments only; other communities and the ` +
           "final check are separate. Note now what these comments show (benefit, no-effect and adverse reports), and " +
-          "give it to finalize_research as community_findings, even if the signal is weak or neutral."
+          `give it to finalize_research as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       });
       expectCommunityRemindersInTextOnly(result);
       expect(result.structuredContent).toStrictEqual(mcpYoutubeCommunityAuditOutputSchema.parse(result.structuredContent));
@@ -1108,7 +1114,7 @@ describe("AskRigor MCP tools", () => {
         text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
           "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research " +
-          "as community_findings, even if the signal is weak or neutral."
+          `as community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`
       }, {
         type: "text",
         text: `research_receipt: ${researchReceipt}`
@@ -2004,7 +2010,8 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: "YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete."
+        // 5 Nov 2026: comments that came back raise leads for studies, so the result asks for the loop.
+        text: `YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "youtube",
@@ -2104,7 +2111,7 @@ describe("AskRigor MCP tools", () => {
         text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial. " +
           "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence " +
           "that commenters do not report something; read the full comments with audit_youtube_video_community before " +
-          "saying so."
+          `saying so. ${COMMUNITY_LEADS_GUIDANCE}`
       }]);
       // No count from a query-bounded search, zero included, may be read as absence.
       expect(result.structuredContent).toMatchObject({
@@ -2523,10 +2530,12 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      // Few records: the result says what to try before calling anything not found (owner report, 2026-09-30).
+      // Few records: the result says what to try before calling anything not found, in the owner's words (owner report,
+      // 2026-09-30), then what to search (the free Claude test of 5 Nov 2026: the key name's other forms and a source
+      // beyond PubMed and Europe PMC).
       expect(result.content).toEqual([{
         type: "text",
-        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "pubmed",
@@ -2567,8 +2576,14 @@ describe("AskRigor MCP tools", () => {
       expect(verifyResearchReceipt(receipt, { secret: "mcp-continuation-secret-value-32-bytes" })).toMatchObject({
         ok: true,
         kind: "pubmed_record",
-        claims: { pmid: "40123456", doi: "10.1234/recorded.example" }
+        // The review of 5 Nov 2026: whether the record had an abstract, so the final check shows one read only then.
+        claims: { pmid: "40123456", doi: "10.1234/recorded.example", abs: "1" }
       });
+      // 5 Nov 2026: a signed record names how a study cited from it alone was read, before the final check.
+      expect((result.content as Array<{ text: string }>)[0]!.text).toBe("PubMed record 40123456 retrieval finished " +
+        "with access status api_visible_complete. If the answer cites this study from this record alone, say " +
+        "\"abstract only\" beside it in the answer, in the answer's language, and give those words in " +
+        "finalize_research's later_inputs.source_reading, with reading abstract_only.");
     } finally {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);
@@ -2595,7 +2610,7 @@ describe("AskRigor MCP tools", () => {
       expect(result.isError).not.toBe(true);
       expect(result.content).toEqual([{
         type: "text",
-        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}`
+        text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
       expect(result.structuredContent).toMatchObject({
         provider: "europe_pmc",
@@ -3106,15 +3121,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.39",
+          version: "20.6.40",
           revisionDate: "2026-11-05",
-          sha256: "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5"
+          sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "99f135cb87a3726d2598ceddcccf9140eda89096952880f8ec438846e9b2a1c5"
+        scope_sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(first.content).toEqual([

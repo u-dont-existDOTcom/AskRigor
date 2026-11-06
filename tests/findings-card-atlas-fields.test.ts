@@ -14,7 +14,7 @@ import { GitHubFindingsQueue } from "../apps/research-mcp/src/findings/github-fi
 import { DEFAULT_FINDINGS_REPOSITORY } from "../apps/research-mcp/src/findings/runtime.js";
 import { FindingsSaveService } from "../apps/research-mcp/src/findings/service.js";
 import {
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   finalizeResearchPublishedInputSchema,
   type FinalizeResearchInput,
   type FinalizeResearchOutput,
@@ -27,6 +27,12 @@ import {
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Atlas phase 3 (docs/superpowers/plans/2026-10-22-atlas-phase-3-design.md, sections 1 to 4 and 7): the fields a
 // findings card's research AI declares for the public Atlas while the papers are open, and the final check's exact

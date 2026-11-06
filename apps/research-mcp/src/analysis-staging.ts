@@ -74,6 +74,8 @@ interface Entry {
   key: string;
   stagedAtMs: number;
   analysis: Promise<StagedAnalysis>;
+  /** The audited document's handle, which the audit's research receipt signs. */
+  handle?: string;
 }
 
 export class AnalysisStaging {
@@ -86,10 +88,10 @@ export class AnalysisStaging {
   ) {}
 
   /** Holds one analysis; checking the same audit again replaces it. */
-  stage(accountKey: string, key: string, analysis: Promise<StagedAnalysis>): void {
+  stage(accountKey: string, key: string, analysis: Promise<StagedAnalysis>, handle?: string): void {
     this.prune();
     this.entries = this.entries.filter((entry) => entry.accountKey !== accountKey || entry.key !== key);
-    this.entries.push({ accountKey, key, stagedAtMs: this.now(), analysis });
+    this.entries.push({ accountKey, key, stagedAtMs: this.now(), analysis, ...(handle === undefined ? {} : { handle }) });
     // Past capacity the oldest go first.
     if (this.entries.length > this.maxEntries) this.entries.splice(0, this.entries.length - this.maxEntries);
   }
@@ -100,6 +102,19 @@ export class AnalysisStaging {
     const taken = this.entries.filter((entry) => entry.accountKey === accountKey);
     this.entries = this.entries.filter((entry) => entry.accountKey !== accountKey);
     return taken.map(({ analysis }) => analysis);
+  }
+
+  /**
+   * Drops the account's held analyses of the documents a test run audited, by the handles its audit receipts sign, so
+   * they never reach the review inbox (the review of 5 Nov 2026); the account's other analyses stay held. Returns how
+   * many were dropped.
+   */
+  discard(accountKey: string, handles: ReadonlySet<string>): number {
+    this.prune();
+    const before = this.entries.length;
+    this.entries = this.entries.filter((entry) =>
+      entry.accountKey !== accountKey || entry.handle === undefined || !handles.has(entry.handle));
+    return before - this.entries.length;
   }
 
   private prune(): void {

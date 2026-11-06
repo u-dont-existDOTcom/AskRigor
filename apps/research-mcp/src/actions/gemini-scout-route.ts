@@ -765,8 +765,10 @@ export function isPopulationLevelResearchTarget(value: string): boolean {
  * reports that part alone; otherwise every person marker found is reported.
  * Empty when the target passes.
  */
-export function researchTargetScreenFailures(value: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart[] {
-  const deidentification = deidentificationFailure(value, caught);
+export function researchTargetScreenFailures(
+  value: string, caught?: TargetMatchRecorder, options: DeidentificationOptions = {}
+): ResearchTargetScreenPart[] {
+  const deidentification = deidentificationFailure(value, caught, options);
   if (deidentification !== undefined) return [deidentification];
   // Collapse whitespace first, so every pattern below matches single spaces
   // and none can backtrack over a long run of them.
@@ -801,17 +803,20 @@ type TargetMatchRecorder = (part: ResearchTargetScreenPart, fragment: string) =>
 const escapePattern = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
 /** The refusal names the existing screen's parts and quotes their exact matches; it never changes acceptance. */
-export function researchTargetScreenRefusal(value: string): string {
+export function researchTargetScreenRefusal(value: string, options: DeidentificationOptions = {}): string {
   const matches = new Map<ResearchTargetScreenPart, Set<string>>();
   const failures = researchTargetScreenFailures(value, (part, fragment) => {
     const words = matches.get(part) ?? new Set<string>();
     words.add(fragment);
     matches.set(part, words);
-  });
+  }, options);
   if (failures.length === 0) return "";
+  const partText = (part: ResearchTargetScreenPart): string =>
+    part === "first_person" && options.quotedFirstPerson === true
+      ? `${RESEARCH_TARGET_SCREEN_PARTS.first_person} outside double quotes` : RESEARCH_TARGET_SCREEN_PARTS[part];
   // A secret or contact detail is named, never echoed back.
   return `This research_target was refused because it has ${
-    failures.map((part) => `${RESEARCH_TARGET_SCREEN_PARTS[part]} (${part === "secret" || part === "contact_details"
+    failures.map((part) => `${partText(part)} (${part === "secret" || part === "contact_details"
       ? "not quoted" : `matched ${[...matches.get(part)!].map((fragment) => JSON.stringify(fragment)).join(", ")}`})`)
       .join("; and ")}.`;
 }
@@ -931,14 +936,46 @@ const TITLE_CASE_FUNCTION_WORDS: ReadonlySet<string> = new Set([
   "why", "when", "after", "before", "from", "by", "at", "into", "over", "under", "vs", "versus", "not"
 ]);
 
-export function isDeidentifiedResearchTarget(value: string): boolean {
-  return deidentificationFailure(value) === undefined;
+/** How the de-identification screen reads a text. */
+export interface DeidentificationOptions {
+  /**
+   * For a forum search query only: a first-person word inside a double-quoted phrase passes, since the quotes are
+   * the calling model's declaration that the phrase is what others write ("worked for me") or a term ("copper(I)"),
+   * never the person's own words (5 Nov 2026: the runs on #389's to #412's builds were refused "copper(I)" and
+   * "makes me sleepy", each in quotes, as first-person words). Whether words are the person's is a judgment of
+   * meaning, so the screen reads the model's quotes, an exact form, rather than another word list. Every other part
+   * of the screen still reads the whole text, quoted phrases included.
+   */
+  readonly quotedFirstPerson?: boolean;
+}
+
+export function isDeidentifiedResearchTarget(value: string, options: DeidentificationOptions = {}): boolean {
+  return deidentificationFailure(value, undefined, options) === undefined;
+}
+
+/**
+ * value with each double-quoted phrase replaced by a space: straight quotes, only when they come in pairs and each
+ * opens at the start, after a space or bracket, and closes before a space, punctuation or the end, so inch marks
+ * ("a 5" tube") and a stray quote never hide words; curly quotes and guillemets, only when every opening one is
+ * closed. Anything else is read whole (review of 5 Nov).
+ */
+function withoutQuotedPhrases(value: string): string {
+  const count = (pattern: RegExp): number => value.match(pattern)?.length ?? 0;
+  let text = value;
+  if (count(/"/gu) % 2 === 0) {
+    text = text.replace(/(?<=^|[\s([{])"[^"\s][^"\n]*?(?<=\S)"(?=$|[\s.,;:!?)\]}])|(?<=^|[\s([{])"[^"\s]"(?=$|[\s.,;:!?)\]}])/gu, " ");
+  }
+  if (count(/\u201C/gu) === count(/\u201D/gu)) text = text.replace(/\u201C[^\u201C\u201D\n]*\u201D/gu, " ");
+  if (count(/\u00AB/gu) === count(/\u00BB/gu)) text = text.replace(/\u00AB[^\u00AB\u00BB\n]*\u00BB/gu, " ");
+  return text;
 }
 
 /** The first part of the de-identification screen value fails, or undefined when it passes. */
-function deidentificationFailure(value: string, caught?: TargetMatchRecorder): ResearchTargetScreenPart | undefined {
-  const match = (part: ResearchTargetScreenPart, pattern: RegExp): boolean => {
-    const hits = [...value.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))];
+function deidentificationFailure(
+  value: string, caught?: TargetMatchRecorder, options: DeidentificationOptions = {}
+): ResearchTargetScreenPart | undefined {
+  const match = (part: ResearchTargetScreenPart, pattern: RegExp, text = value): boolean => {
+    const hits = [...text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))];
     for (const hit of hits) caught?.(part, hit[0]);
     return hits.length > 0;
   };
@@ -946,7 +983,8 @@ function deidentificationFailure(value: string, caught?: TargetMatchRecorder): R
   if (match("hidden_characters", /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u)) {
     return "hidden_characters";
   }
-  if (match("first_person", /\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu)) return "first_person";
+  if (match("first_person", /\b(?:i|i'm|i've|my|me|mine|we|we're|our|ours)\b/iu,
+    options.quotedFirstPerson === true ? withoutQuotedPhrases(value) : value)) return "first_person";
   if (match("contact_details", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu)) return "contact_details";
   if (match("contact_details", /(?:\+?\d[\d .()-]{6,}\d)/u)) return "contact_details";
   if (match("secret", /\bAIza[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9_-]{16,}\b|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/u)) {

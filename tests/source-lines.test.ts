@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import { meaningJudgeBundle, judgmentItems, MEANING_JUDGE_OUTPUT_SCHEMA } from "../apps/research-mcp/src/meaning-judge.js";
 import {
-  communitySkipCaveat, finalizeResearch, finalizeResearchOutputSchema, meaningJudgeSourceOf, parseFinalizeResearchInput,
+  communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchOutputSchema, meaningJudgeSourceOf, parseFinalizeResearchInput,
   sourceLineRequestsOf, type FinalizeResearchInput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
@@ -19,6 +19,12 @@ import {
 import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
 import { acquireOpenFullText, type AcquireOpenFullTextRuntime } from "../packages/sources/src/index.js";
 import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "source-lines-test-secret-0123456789012345678901";
 const SENTENCE = "Pain fell by 12 points in the exercise group at 6 months, against 3 points with usual care.";
@@ -718,7 +724,7 @@ describe("the finalize_research tool", () => {
     const client = new Client({ name: "source-lines-test", version: "1" });
     try {
       await server.connect(st); await client.connect(ct);
-      const result = await client.callTool({ name: "finalize_research", arguments: input as Record<string, unknown> });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) as Record<string, unknown> });
       expect(result.isError).not.toBe(true);
       return { body: result.structuredContent as Record<string, unknown>, text: (result.content as Array<{ text: string }>).map(({ text }) => text).join("\n") };
     } finally { await client.close(); await server.close(); }

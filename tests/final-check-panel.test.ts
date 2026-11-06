@@ -12,9 +12,15 @@ import {
 } from "../apps/research-mcp/src/final-check-panel.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
-  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch, type FinalizeResearchInput, type FinalizeResearchOutput,
+  COMMUNITY_SKIP_LIMIT, communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped, type FinalizeResearchInput, type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const MIME = "text/html;profile=mcp-app";
 const SECRET = "final-check-panel-test-secret-01234567890123456789";
@@ -123,7 +129,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
     try {
       await server.connect(b); await client.connect(a);
       const input = copyFixture(COPY_LIMITS.slice(0, 3));
-      const response = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
       expect(response.isError).not.toBe(true);
       const output = response.structuredContent as FinalizeResearchOutput;
       expect(output).toMatchObject({ status: "ready_with_limits", next_steps: [], limits: COPY_LIMITS.slice(0, 3) });
@@ -149,7 +155,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         key_sources: [{ id: "10.1000/depth", status: "lead_only", read_depth: "abstract_only", answer_marker: "Study", other_route }],
         answer_draft: "[Study](https://doi.org/10.1000/depth) is a lead."
       });
-      const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
       expect(result.isError).not.toBe(true);
       const output = result.structuredContent as FinalizeResearchOutput;
       const instruction = other_route === "read"
@@ -204,10 +210,11 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         "ui/resourceUri": FINAL_CHECK_PANEL_URI, "openai/outputTemplate": FINAL_CHECK_PANEL_URI,
         securitySchemes: expect.any(Array),
       });
-      const input = fixture();
+      // The draft says how its study was read before the whitespace goes around it (the owner, 5 Nov 2026).
+      const input = withSourceReading(fixture());
       // Leading/trailing whitespace and CRLF survive both the connector input and output schemas.
       input.answer_draft = ` \t\r\n${input.answer_draft}\r\n\t `;
-      const result = await client.callTool({ name: "finalize_research", arguments: { ...input } });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
       expect(result.isError).not.toBe(true);
       const output = result.structuredContent as FinalizeResearchOutput;
       const direct = finalizeResearch(input, { secret: SECRET, findings: "closed" });
@@ -231,7 +238,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
 
 describe("the exact checked answer (owner answer 187)", () => {
   it.each(["ready", "ready_with_limits"] as const)("returns the submitted bytes only after %s", (status) => {
-    const input = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    const input = withSourceReading(fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {}));
     input.answer_draft = ` \t\r\n${input.answer_draft}\n\nRésumé e\u0301 中文 العربية.\r\n\t `;
     const result = finalizeResearch(input, { secret: SECRET });
     expect(result.status).toBe(status);
@@ -240,7 +247,7 @@ describe("the exact checked answer (owner answer 187)", () => {
     expect(Buffer.from(result.checked_answer!)).toEqual(Buffer.from(input.answer_draft));
     expect(result.carried).not.toHaveProperty("checked_answer");
     // A separate caller gets only its own draft, never the previous caller's.
-    const other = fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {});
+    const other = withSourceReading(fixture(status === "ready" ? { not_relevant_basis: "emergency_before_triage" } : {}));
     expect(finalizeResearch(other, { secret: SECRET }).checked_answer).toBe(other.answer_draft);
   });
 

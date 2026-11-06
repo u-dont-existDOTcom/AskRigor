@@ -120,6 +120,7 @@ const READ_WORDS: Readonly<Record<AtlasSourceReading, string>> = {
   full_text_audited: "Full text, with its methods audited by AskRigor",
   search_copy_audited: "Full text, with its methods audited by AskRigor in a copy the AI found, which AskRigor didn’t fetch itself",
   full_text_read: "Full text read; its methods weren’t audited",
+  search_copy_read: "Full text read in a copy the AI found, which AskRigor didn’t fetch itself; its methods weren’t audited",
   partial_text: "Part of the full text read; its methods weren’t audited",
   abstract_only: "Abstract only",
   atlas_checked: "Read for an earlier finding checked in the Atlas",

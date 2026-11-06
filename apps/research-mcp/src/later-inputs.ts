@@ -2,12 +2,16 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
-import { openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { laterUserObservationSchema, openLeadsSchema, researchPlanSchema } from "./carried-state.js";
+import { communityLeadsSchema } from "./community-leads.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
 import { shareCodeSchema, sharedAnswerIdSchema, sharedAnswerInputSchema } from "./shared-answers.js";
 import { SOURCE_LINE_LIMITS, sourceLineSchema } from "./source-lines.js";
+import { sourceReadingInputSchema } from "./source-reading.js";
+import { keyNameSchema, nameFormsSchema, searchCoverageSchema } from "./absence-searches.js";
+import { studyMapSchema } from "./study-map.js";
 import { keepItemsInputSchema } from "./atlas/kept-review.js";
 import { placementsInputSchema } from "./atlas/placement-review.js";
 import { reportVerdictSchema } from "./atlas/report-review.js";
@@ -20,6 +24,10 @@ import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.j
  * form reaches runtime validation at the top level or through later_inputs, never both. A new action or category
  * goes in the runtime enum only, named in results or the protocol. New guidance belongs in results or the protocol.
  */
+// The test marker (the free Claude test of 5 Nov 2026): "off", or another explicit off such as false or ["off"]; the
+// value is read from the raw call (findingsSaveMarker), so any value parses here, and one that isn't off gets a note.
+const findingsSaveMarkerSchema = z.unknown().optional();
+
 const LATER_INPUT_SHAPES = Object.freeze({
   finalize_research: {
     community_evidence: z.enum(["researched", "not_relevant"]).optional()
@@ -43,7 +51,53 @@ const LATER_INPUT_SHAPES = Object.freeze({
     source_lines: z.array(sourceLineSchema).min(1).max(SOURCE_LINE_LIMITS.lines).optional()
       .describe("Optional: for each key claim, the key source's id, the claim, the paper's sentence and its own " +
         "conclusion, each copied whole and exactly, and the strongest thing against the claim. AskRigor looks both " +
-        "quotes up in the text it fetched; a quote not found is a note, and the panel says so.")
+        "quotes up in the text it fetched; a quote not found is a note, and the panel says so."),
+    // Owner answer 249a: the study map, for a conclusion that combines studies.
+    study_map: studyMapSchema.optional()
+      .describe("Optional, when a conclusion combines studies: the studies, the group of people behind each, the " +
+        "links between them and, for each claim, how many independent groups of people it counts, with each study's " +
+        "passage it rests on. AskRigor checks what is exact against the research receipts, the texts it fetched and " +
+        "ClinicalTrials.gov; what it finds are notes."),
+    // 5 Nov 2026: user_observations' newer form, with not_tried.
+    user_observations: z.array(laterUserObservationSchema).max(30).optional()
+      .describe("user_observations' newer form, given here or at the top level, not both: as the top-level input, " +
+        "and not_tried for a report whose writer never tried what it describes, such as a review of a book whose " +
+        "exercises the reviewer didn't do."),
+    // 5 Nov 2026 (the owner: "make sure that our feedback loop is working between forum signal and studies"): each lead
+    // people's reports raised, with the study search that followed it or why none did.
+    community_leads: communityLeadsSchema.optional()
+      .describe("Each option, form, dose, timing, responder group, harm or way it could work that the forum threads " +
+        "or YouTube comments read here raised and the question didn't name: searched, with the exact query of the " +
+        "study search that followed, what the studies showed and the answer's sentence on it, or not_searched, with " +
+        "why; an empty list when the reports raised nothing new. AskRigor checks the reads, searches and sentences " +
+        "against this call's receipts and answer_draft; what it finds are notes, and leads not searched are a limit."),
+    // 5 Nov 2026 (the owner: "make sure askrigor is enforcing that the AI tells people what it actually read"): for each
+    // key source, the answer's words saying how it was read.
+    source_reading: sourceReadingInputSchema.optional()
+      .describe("For each key source the answer cites, one entry: source, its id as key_sources gives it, and quote, " +
+        "the answer's own words saying how it was read (as this check's result names it, such as abstract only or " +
+        "full text read), beside or in the sentence citing it, in the answer's language, copied from answer_draft. " +
+        "A cited key source without an entry, or whose quote the answer doesn't show, holds the answer back under the " +
+        "reading-depth check."),
+    // The free Claude test of 5 Nov 2026 (absence-searches.ts): before saying something was not found, the key name's
+    // other spellings, older names and synonyms, each searched, and a source beyond PubMed and Europe PMC.
+    name_forms: nameFormsSchema.optional()
+      .describe("Before saying something was not found: each other spelling, older name or synonym of the key name " +
+        "that was searched, with the exact query of the search_pubmed, search_europe_pmc or search_clinical_trials " +
+        "call that searched it. AskRigor checks each query against this call's literature-search receipts and that the " +
+        "form's words are in it; what it finds are notes."),
+    key_name: keyNameSchema.optional()
+      .describe("With name_forms: the key name, as the answer writes it, copied from answer_draft. Only a form other " +
+        "than it counts as another name searched."),
+    search_coverage: searchCoverageSchema.optional()
+      .describe("search_coverage's newer form, given here or at the top level (given in both, this one is used): " +
+        "what the searches covered " +
+        "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
+        "PMC don't index, which AskRigor can't see."),
+    // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
+        "can only turn saving off; any value other than off leaves the account's setting to decide.")
   },
   // Owner answer 219b: the card exactly as finalize_research checked it, its findings' declarations included.
   save_research_findings: {
@@ -55,7 +109,19 @@ const LATER_INPUT_SHAPES = Object.freeze({
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()
       .describe("The caller's exact YouTube channel id; only matching results are returned, even when the query names a channel.")
   },
-  validate_study_method_audit: { audit: studyMethodAuditSubmissionSchema.optional() },
+  // The recheck of 5 Nov 2026: a test run's audits leave nothing in the review inbox, so a marked check of the method is
+  // never held for it.
+  validate_study_method_audit: {
+    audit: studyMethodAuditSubmissionSchema.optional(),
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. It changes " +
+        "nothing else.")
+  },
+  validate_review_method_audit: {
+    findings_save: findingsSaveMarkerSchema
+      .describe("off: hold nothing from this audit for AskRigor's review inbox, as a test run does. It changes " +
+        "nothing else.")
+  },
   // Owner answer 200a: the person's confirmed, de-identified copy, and the code that deletes it.
   manage_research_access: {
     sharedAnswer: sharedAnswerInputSchema.optional()
@@ -137,19 +203,82 @@ interface RuntimeInputOptions {
   handler?: "merges" | "validates";
 }
 
-/** A problem with a call's later_inputs, by path. */
-export interface LaterInputProblem { path: PropertyKey[]; message: string }
+/**
+ * A problem with a call's later_inputs, by path: a key left out ("dropped"), or, for a tool that keeps the usable keys, a
+ * key given in both places whose later_inputs form was used ("replaced").
+ */
+export interface LaterInputProblem { path: PropertyKey[]; message: string; kind?: "dropped" | "replaced" | "kept" }
+
+/**
+ * Whether a call is marked findings_save, read from the raw call on its own (the review of 5 Nov 2026: a misspelt key
+ * beside it once dropped every later input, the marker too, and a test run's card was saved), and the note it needs:
+ * in later_inputs, at the top level, where an older app may put it, or in later_inputs sent as a JSON string (its
+ * recheck). Only an explicit off reads as off: "off", in any case or separator, false, or a list of those such as
+ * ["off"]. Any other value (true, "on") is not read as off, with a note that the account's setting decides: the owner's
+ * own research must never lose a card because a model meant true as "save", as set_findings_save's true does (the third
+ * check of 5 Nov 2026). Text that isn't JSON is not read for it; its envelope is dropped with its note, as any other.
+ */
+export function findingsSaveMarker(raw: unknown): { off: boolean; note?: string } {
+  const object = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  if (!object(raw)) return { off: false };
+  const values: unknown[] = [];
+  let asText = false;
+  if (Object.hasOwn(raw, "findings_save")) values.push(raw.findings_save);
+  let later = raw.later_inputs;
+  if (typeof later === "string") {
+    try { later = JSON.parse(later); asText = true; } catch { later = undefined; }
+  }
+  if (object(later) && Object.hasOwn(later, "findings_save")) values.push(later.findings_save);
+  else asText = false;
+  const given = values.filter((value) => value !== undefined && value !== null);
+  if (given.length === 0) return { off: false };
+  const offWord = (value: unknown): boolean => value === false ||
+    (typeof value === "string" && value.toLowerCase().replace(/[\s_-]+/gu, "") === "off");
+  const explicit = (value: unknown): boolean => offWord(value) ||
+    (Array.isArray(value) && value.length > 0 && value.length <= 10 && value.every(offWord));
+  if (!given.every(explicit)) {
+    return { off: false, note: "findings_save: not read as off. It only turns card saving off, with \"off\"; any other " +
+      "value leaves the account's setting to decide." };
+  }
+  const exact = given.every((value) => typeof value === "string" && offWord(value));
+  return {
+    off: true,
+    ...(asText ? { note: "findings_save: read as \"off\" from later_inputs given as text; give later_inputs as an " +
+        "object, with findings_save \"off\"." }
+      : exact ? {} : { note: "findings_save: read as \"off\"; give \"off\", its value." })
+  };
+}
+
+/** Whether a call is marked findings_save, as findingsSaveMarker reads it. */
+export function findingsSaveOff(raw: unknown): boolean {
+  return findingsSaveMarker(raw).off;
+}
+
+/**
+ * The later inputs whose top-level form a final check falls back to when their later_inputs form doesn't parse (the
+ * recheck of 5 Nov 2026): ones the check only reads, whose older form is harmless. Anything saved or published, a
+ * findings card above all, never falls back (the third check of 5 Nov 2026: a corrected card's unusable later form gave
+ * way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
+ * kept privately, with its note, as before.
+ */
+export const TOP_LEVEL_FALLBACK_INPUTS: ReadonlySet<string> = new Set(["source_reading", "name_forms", "key_name",
+  "search_coverage"]);
 
 /**
  * Merges a call's later_inputs into its top-level inputs. A key the later shape declares (a new input, or a newer form
- * of a published one) is merged, unless the call also gives it at the top level; any other key is a problem: a
- * published top-level input belongs at the top level, and an unknown key is named with the tool's later inputs.
+ * of a published one) is merged; any other key is a problem: a published top-level input belongs at the top level, and
+ * an unknown key is named with the tool's later inputs. By default any problem leaves every later input out, and the
+ * wrapper refuses the call. A tool that words its own result keeps the usable keys (keepUsable): it drops only the bad
+ * ones, and a key given at the top level too takes its later_inputs form, the newer one, each named in a problem (the
+ * review of 5 Nov 2026: one misspelt key lost a final check's source_reading and its test marker).
  */
 export function mergeLaterInputs(
   tool: string,
   raw: unknown,
   topLevel: ReadonlySet<string>,
   laterShape: z.ZodRawShape = laterInputShape(tool),
+  { keepUsable = false, fallback = new Set<string>() }: { keepUsable?: boolean; fallback?: ReadonlySet<string> } = {},
 ): { input: unknown; problems: LaterInputProblem[] } {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw) || !Object.hasOwn(raw, "later_inputs")) {
     return { input: raw, problems: [] };
@@ -157,19 +286,38 @@ export function mergeLaterInputs(
   const { later_inputs: later, ...own } = raw as Record<string, unknown>;
   const envelope = laterInputsField.safeParse(later);
   if (!envelope.success) {
-    return { input: own, problems: envelope.error.issues.map((issue) => ({ path: ["later_inputs", ...issue.path], message: issue.message })) };
+    return { input: own, problems: envelope.error.issues.map((issue) =>
+      ({ path: ["later_inputs", ...issue.path], message: issue.message, kind: "dropped" as const })) };
   }
   const additions = envelope.data ?? {};
   const names = Object.keys(laterShape);
+  const merged: Record<string, unknown> = { ...own };
   const problems = Object.keys(additions).flatMap((key): LaterInputProblem[] => {
     const path = ["later_inputs", key];
-    if (Object.hasOwn(laterShape, key) && key !== "later_inputs") return Object.hasOwn(own, key)
-      ? [{ path, message: `${key} is also given at the top level; each input may be given only once.` }] : [];
-    return topLevel.has(key)
-      ? [{ path, message: `${key} is a published top-level input of ${tool}; give "${key}" at the top level.` }]
-      : [{ path, message: `Unknown later input ${JSON.stringify(key)} for ${tool}. Its later inputs: ${names.join(", ") || "none"}.` }];
+    if (Object.hasOwn(laterShape, key) && key !== "later_inputs") {
+      merged[key] = additions[key];
+      if (!Object.hasOwn(own, key)) return [];
+      if (!keepUsable) {
+        return [{ path, kind: "dropped", message: `${key} is also given at the top level; each input may be given only once.` }];
+      }
+      // The recheck of 5 Nov 2026: a later form that doesn't parse beside a top-level one that does keeps the top-level
+      // form, rather than losing a valid declaration to an unusable one, for an input whose older form is harmless
+      // (fallback); anything saved or published keeps its later form (the third check of 5 Nov 2026).
+      const schema = laterShape[key]!;
+      if (fallback.has(key) && !z.safeParse(schema, additions[key]).success && z.safeParse(schema, own[key]).success) {
+        merged[key] = own[key];
+        return [{ path, kind: "kept", message: `${key} is given both at the top level and in later_inputs, and its ` +
+          "later_inputs form doesn't parse: its top-level form is used." }];
+      }
+      return [{ path, kind: "replaced", message: `${key} is given both at the top level and in later_inputs: its ` +
+        "later_inputs form, the newer one, is used." }];
+    }
+    return [topLevel.has(key)
+      ? { path, kind: "dropped", message: `${key} is a published top-level input of ${tool}; give "${key}" at the top level.` }
+      : { path, kind: "dropped", message: `Unknown later input ${JSON.stringify(key)} for ${tool}. Its later inputs: ` +
+        `${names.join(", ") || "none"}.` }];
   });
-  return { input: problems.length > 0 ? own : { ...own, ...additions }, problems };
+  return { input: keepUsable || problems.length === 0 ? merged : own, problems };
 }
 
 /**

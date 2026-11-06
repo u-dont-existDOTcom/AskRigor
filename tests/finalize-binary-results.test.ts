@@ -22,6 +22,7 @@ import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 // AskRigor#356 and the 21 Oct q136 responders case, whose answer computed a ratio from counts that conflicted with the
 // paper's: for each yes-or-no outcome the answer reports for two groups, the model declares each group's events and
@@ -106,8 +107,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withHarmScreen(withCommunitySkip(packageFor(overrides)));
-    if (input.answer_draft !== undefined) input.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const linked = withHarmScreen(withCommunitySkip(packageFor(overrides)));
+    if (linked.answer_draft !== undefined) linked.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const input = withSourceReading(linked);
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);

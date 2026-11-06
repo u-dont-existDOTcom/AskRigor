@@ -1,6 +1,7 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -70,7 +71,8 @@ function compared(overrides: Partial<FinalizeResearchInput> = {}): FinalizeResea
     answer_draft: `${input.answer_draft}\n\n${CLASS_SENTENCE}`
   };
 }
-const run = (input: FinalizeResearchInput) => assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
+const run = (input: FinalizeResearchInput) =>
+  assertNextStepsContract(finalizeResearch(withSourceReading(input, { check: { secret: SECRET } }), { secret: SECRET }));
 const checked = (input: FinalizeResearchInput) => {
   const first = run(input);
   return run({ ...input, answer_draft: `${input.answer_draft}\n\n${first.caveats.join(" ")}` });
@@ -277,6 +279,24 @@ describe("communities named by the user and the visible check line", () => {
     expect(declared.limits).toContain("A community whose pages could not be retrieved: Mineral Forum. Reports there are not included.");
     expect(declared.limits).toContain("A community that blocked access: Longevity Forum. Reports there are not included.");
   });
+  // 5 Nov 2026, l34 on #412's build: the declared link was the one asked for, and the reader landed on another. Since
+  // #417, a read signs the link it was given (`ur`) only when that is the same thread at the same site, here the site's
+  // other host; a redirect to another page or site vouches for nothing but where it landed.
+  it("matches a thread declared by the link asked for, and counts it once", () => {
+    const plain = base();
+    const asked = plain.community_searches!.map(({ threads_read }) => threads_read[0]!.url);
+    const landed = asked.map((url) => url.replace("https://", "https://talk."));
+    const reads = asked.map((url, index) => sign("forum_thread_read",
+      { u: forumThreadDigest(landed[index]!), ur: forumThreadDigest(url), n: 1_500, v: "page" }));
+    const result = checked({ ...plain, receipts: [...plain.receipts, ...reads] });
+    expect(result.limits.join(" ")).not.toContain("come from my own web search");
+    const forumNote = advisoryNotes(result).find((note) => note.startsWith("Forum evidence rests on"));
+    const declaredThreads = new Set(plain.community_searches!.flatMap(({ threads_read }) => threads_read.map(({ url }) => url)));
+    if (forumNote !== undefined) expect(forumNote).toContain(`rests on ${declaredThreads.size} thread`);
+    // Without the asked link, the same declarations are the AI's own web search.
+    const unsigned = asked.map((_, index) => sign("forum_thread_read", { u: forumThreadDigest(landed[index]!), n: 1_500, v: "page" }));
+    expect(checked({ ...plain, receipts: [...plain.receipts, ...unsigned] }).limits.join(" ")).toContain("come from my own web search");
+  });
   it("records a named community that cannot be found without an address, as no discussion pool (22 Oct, book cases)", () => {
     const ghost: Search = { community: "Ghost Forum", platform: "forum", queries: ["Ghost Forum form A"], threads_read: [],
       access_boundary: "not_found" };
@@ -346,9 +366,9 @@ describe("communities named by the user and the visible check line", () => {
       await server.connect(serverTransport);
       await client.connect(clientTransport);
       const input = base();
-      const result = await client.callTool({ name: "finalize_research", arguments: {
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({
         ...input, answer_draft: `${input.answer_draft}\n\n${run(input).caveats.join(" ")}`
-      } });
+      }) });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits",
         check_line: "Checked with AskRigor's final check, with the limits it found." });
@@ -414,7 +434,7 @@ describe("strict declaration schemas", () => {
       expect(published.anyOf).toBeUndefined();
       expect(published.type).toBeUndefined();
       expect(published.description).toContain("Outside review sites");
-      const result = await client.callTool({ name: "finalize_research", arguments: { ...shown(single(identity())) } });
+      const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...shown(single(identity())) }) });
       expect(result.isError).not.toBe(true);
       expect(result.structuredContent).toMatchObject({ status: "ready_with_limits" });
     } finally {

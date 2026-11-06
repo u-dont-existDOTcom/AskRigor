@@ -18,6 +18,7 @@ import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mc
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { COMMUNITY_SKIP_LIMIT, withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const SECRET = "scale-results-test-secret-01234567890123456789";
 // These are the owner's regression sentences, used as synthetic gate fixtures,
@@ -75,7 +76,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research scale_result
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withCommunitySkip(packageFor(overrides));
+    const input = withSourceReading(withCommunitySkip(packageFor(overrides)), { check: { secret: SECRET } });
     if (input.answer_draft !== undefined) input.answer_draft += "\n\n[Study](https://doi.org/10.1002/art.41142)";
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
