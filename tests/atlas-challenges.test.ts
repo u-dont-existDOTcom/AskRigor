@@ -313,6 +313,20 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     expect(renderAtlasFinding((await loadAtlasFinding(source, shown))!)).toContain(written.replace(/\.$/u, ""));
   });
 
+  // The final recheck of #422: a Persian dose line isn't a phone number, a joiner in a link's path is kept as a browser
+  // sends it, and one in its host makes no address.
+  it("takes a Persian dose line, keeps a joiner in a link's path percent-encoded, and refuses one in its host", async () => {
+    const { run, store, shown } = await review();
+    expect((await run.run({ ...mark([shown]),
+      usual_view: "راهنماها ۴۰ میلی\u200Cگرم در روز، ۲ بار، برای ۱۲ هفته را توصیه می\u200Cکنند." })).ok).toBe(true);
+    expect((await run.run({ ...mark([shown]), usual_view_source_url: "https://guidelines.example.org/velmor\u200D/2025" })).ok)
+      .toBe(true);
+    expect(store.challengeOf(shown)?.sourceUrl).toBe("https://guidelines.example.org/velmor%E2%80%8D/2025");
+    for (const link of ["https://guide\u200Dlines.example.org/velmor/2025", "https://you\u200Dtube.com/watch?v=aaaaaaaaaaa"]) {
+      expect((await run.run({ ...mark([shown]), usual_view_source_url: link })).ok, link).toBe(false);
+    }
+  });
+
   it("shows the mark's texts escaped, and its link as a browser opens it, with no markup of its own", async () => {
     const { run, store, shown } = await review();
     const link = "https://guidelines.example.org/a\"onmouseover=\"alert(1)'<x>";

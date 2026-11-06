@@ -1918,7 +1918,12 @@ The pages (section 4C) are built, not yet released, and switched off until
   shows an `ARF-` number, an account or contributor, an answer quote, a chat, a
   surface or model name, a link's rationale, or anything from YouTube, not even
   a count; a rendered page that holds a script, a card reference or a YouTube
-  link is not served. Nothing about a reader who does not sign in is stored,
+  link is not served. Every check reads a text as a reader sees it, without its
+  format characters (a zero-width space, a joiner, a soft hyphen), and a stored
+  row with a text or link the pages would refuse (a finding, a change's note, a
+  report, a glance row, another report's link) is left out of every page that
+  would show it, its own page answering 404, so no stored text can stop a page
+  (the review of #422, fourth round). Nothing about a reader who does not sign in is stored,
   logged or set as a cookie: the pages set them no cookie and keep no request
   log; the per-address rate limit holds, in memory only, a counter per address
   (an IPv6 address counted by its /64; at most 10,000, each dropped after 15

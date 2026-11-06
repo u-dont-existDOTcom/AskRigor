@@ -24,7 +24,7 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { shownCommunity } from "../forum-thread-links.js";
-import { opensYouTube, passesPageGuard } from "./page-guard.js";
+import { opensYouTube, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
 import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
   foldAtlasSearchTexts,
@@ -699,17 +699,21 @@ function canonicalFigureSource(
   return same?.source === undefined ? null : canonicalSourceOnly(same.source, sources);
 }
 
-/** What a publication shows, or undefined when it shows nowhere. */
+/**
+ * What a publication shows, or undefined when it shows nowhere: a finding with a text a page would refuse is left out
+ * of every page, its own included (the review of #422, fourth round: one stored text made every page listing it answer
+ * 503), as a comment, a thread link, a glance row or a pick is.
+ */
 function shownFindingOf(
   publication: AtlasPagePublication,
   findings: ReadonlyMap<string, AtlasPageFinding>,
   related: ReadonlyMap<string, RelatedFinding> = new Map(),
 ): ShownFinding | undefined {
-  if (publication.state === "unreviewed") {
-    return publication.published === null ? undefined : fromPublished(publication, publication.published);
-  }
   const finding = publication.atlasNumber === null ? undefined : findings.get(publication.atlasNumber);
-  return canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  const shown = publication.state === "unreviewed"
+    ? publication.published === null ? undefined : fromPublished(publication, publication.published)
+    : canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  return shown === undefined || !rowPassesPageGuard(shown) ? undefined : shown;
 }
 
 async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {
@@ -1325,6 +1329,8 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       });
     }
     for (const change of changes) {
+      // A change whose public note a page would refuse is left out, so it can't stop the page (the review of #422).
+      if (change.publicNote !== null && !passesPageGuard(change.publicNote)) continue;
       if (change.kind === "withdrawn") {
         // Withdrawn after acceptance: listed only if a publication had put it on the pages.
         if (onPages.has(change.atlasNumber)) {

@@ -6,6 +6,7 @@ import {
   ATLAS_SOURCE_READINGS,
   ATLAS_THREAD_COMMUNITY,
   ATLAS_THREAD_LINK,
+  opensYouTube,
   type AtlasForumSignalStudies,
   type AtlasQuoteText,
   type AtlasSourceFigures,
@@ -586,12 +587,9 @@ function isWebLink(value: string): boolean {
   }
 }
 
+/** Whether a link opens YouTube, by the host a browser opens it at, as the Atlas's stores and pages read it. */
 function isYouTubeLink(value: string): boolean {
-  try {
-    return /(?:^|\.)(?:youtube\.com|youtube-nocookie\.com|youtu\.be)$/iu.test(new URL(value).hostname);
-  } catch {
-    return false;
-  }
+  return opensYouTube(value);
 }
 
 /**

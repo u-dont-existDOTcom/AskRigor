@@ -11,6 +11,7 @@ import {
   RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
   atlasResearchSchema,
+  withoutFormatCharacters,
   type AtlasDecisionView,
   type AtlasNumberEntry,
   type AtlasIntentView,
@@ -243,10 +244,13 @@ export function publicationHoldReasons(published: AtlasPublishedFinding): AtlasP
  * mark's usual view, source and link (challenge-review.ts).
  */
 export function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
+  // Read as a reader sees it, without its format characters, as the pages read it (the review of #422, fourth round: a
+  // zero-width space inside "youtube.com" passed here, and every page showing the text then refused to serve).
+  const shown = withoutFormatCharacters(text);
   return [
-    ...contactDetailKinds(text),
-    ...(containsCardReference(text) ? ["card_reference" as const] : []),
-    ...(YOUTUBE_REFERENCE.test(text) ? ["youtube_link" as const] : []),
+    ...contactDetailKinds(shown),
+    ...(containsCardReference(shown) ? ["card_reference" as const] : []),
+    ...(YOUTUBE_REFERENCE.test(shown) ? ["youtube_link" as const] : []),
   ];
 }
 

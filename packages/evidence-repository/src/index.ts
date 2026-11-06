@@ -353,6 +353,7 @@ export {
   type AtlasSourceFigures,
   type AtlasSourceReading,
 } from "./atlas-research.js";
+export { opensYouTube, withoutFormatCharacters } from "./atlas-shown-text.js";
 export {
   ATLAS_PUBLICATION_CARDS_PER_WITHDRAWAL,
   ATLAS_PUBLICATION_HOLD_REASONS,

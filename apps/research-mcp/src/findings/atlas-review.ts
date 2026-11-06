@@ -68,6 +68,7 @@ import {
   type HeldYouTubeFinding,
   type HeldYouTubeFindingsStore,
   type PreparedAtlasFindingIntent,
+  withoutFormatCharacters,
 } from "@askrigor/evidence-repository";
 import type { CrossrefConfig, PubmedConfig } from "@askrigor/sources";
 import { z } from "zod";
@@ -3481,7 +3482,7 @@ function storedTitle(title: string | undefined): string | null {
   let text = title.replace(/\s+/gu, " ").trim();
   if (text.length > 500) text = text.slice(0, /[\uD800-\uDBFF]/u.test(text.charAt(499)) ? 499 : 500);
   if (text.length === 0 || /\p{Cc}/u.test(text) || screenAtlasTexts({ title: text }).length > 0 ||
-    /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu.test(text)) {
+    /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu.test(withoutFormatCharacters(text))) {
     return null;
   }
   return text;

@@ -47,6 +47,7 @@ import {
   reportDraftProblem,
   reportInputOf,
   reportPath,
+  reportShowable,
 } from "./report-pages.js";
 import {
   loadAtlasChanges,
@@ -789,7 +790,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       [await reads.readReport(publicId, session?.participantKey ?? null), await reads.listPlacements()] as const);
     const reader = participation === undefined ? undefined
       : session === undefined ? signedOutReader(path) : await readerFor(participation, path, session, done);
-    if (report === null) return checked({ status: 404, html: renderAtlasNotFound(reader) });
+    // A report with a text a page would refuse is left out, as on the lists (the review of #422, fourth round).
+    if (report === null || !reportShowable(report)) return checked({ status: 404, html: renderAtlasNotFound(reader) });
     const placed = placements.find(({ itemNumber }) => itemNumber === publicId);
     const subcategory = placed?.categoryKey === HEALTH.key
       ? HEALTH.subcategories.find(({ key }) => key === placed.subcategoryKey) ?? null : null;

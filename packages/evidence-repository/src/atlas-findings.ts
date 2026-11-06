@@ -2,6 +2,7 @@ import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 
 import { ATLAS_PUBLISHED_BACKING_PER_FINDING, atlasResearchSchemas } from "./atlas-research.js";
+import { withoutFormatCharacters } from "./atlas-shown-text.js";
 import { assertNoProhibitedPersistentKeys } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 
@@ -140,15 +141,20 @@ const instantSchema = z.iso.datetime({ offset: true }).refine(
 );
 
 /**
- * A text the Atlas stores. Never a card reference (ARF- and four digits or more) or a YouTube link (4a), and no control
- * characters. Whether a text could identify a person is the owner's judgment, and the privacy screen's before this.
+ * A text the Atlas stores. Never a card reference (ARF- and four digits or more) or a YouTube link (4a), read as a reader
+ * sees the text, without its format characters (the review of #422, fourth round: a zero-width space inside
+ * "youtube.com" hid it from this check, and the pages, which read it so, then refused every page showing it), and no
+ * control characters. Whether a text could identify a person is the owner's judgment, and the privacy screen's before
+ * this.
  */
 const atlasText = (max: number) => z.string().trim().min(1).max(max)
   .refine((value) => !CONTROL_CHARACTER.test(value.replace(/[\n\t]/gu, "")), {
     message: "an Atlas text holds no control characters",
   })
-  .refine((value) => !ARF_REFERENCE.test(value), { message: "an Atlas text never names a findings card (ARF-…)" })
-  .refine((value) => !YOUTUBE_REFERENCE.test(value), { message: "an Atlas text holds no YouTube link (4a)" });
+  .refine((value) => !ARF_REFERENCE.test(withoutFormatCharacters(value)),
+    { message: "an Atlas text never names a findings card (ARF-…)" })
+  .refine((value) => !YOUTUBE_REFERENCE.test(withoutFormatCharacters(value)),
+    { message: "an Atlas text holds no YouTube link (4a)" });
 
 /** Source identifiers in canonical form, so one paper always names one source family. */
 export const atlasSourceIdentifierSchema = z.discriminatedUnion("scheme", [

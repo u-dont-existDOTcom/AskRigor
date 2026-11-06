@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { opensYouTube } from "./atlas-shown-text.js";
+
 /**
  * The research behind an Atlas finding, and what people report (owner answers 252a and 255a, 5 November 2026; plan
  * docs/superpowers/plans/2026-11-05-atlas-research-behind.md): the shapes a version 3 publication and an accepted
@@ -44,9 +46,6 @@ export const ATLAS_OTHER_WEBSITE = "another website";
 export const ATLAS_THREAD_COMMUNITY = new RegExp(`^(?:r/(?!u_)[a-z0-9][a-z0-9_]{1,20}|${THREAD_HOST}|${ATLAS_OTHER_WEBSITE})$`, "u");
 
 type TextCheck = (max: number) => z.ZodType<string>;
-// YouTube's hosts, as the pages' guard reads them (apps/research-mcp/src/atlas/page-guard.ts), youtube.googleapis.com,
-// its older embedded player's, among them (the review of #422, third round).
-const YOUTUBE_HOST = /^\s*https?:\/\/(?:[^/?#@]*\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be|youtube\.googleapis\.com)(?:[:/?#]|$)/iu;
 const peopleCount = z.number().int().nonnegative().max(100_000);
 
 /** The research behind a finding's schemas, for one store's text check. */
@@ -105,8 +104,9 @@ export function atlasResearchSchemas(text: TextCheck) {
     if (signal.communities.length > signal.threads_read) {
       context.addIssue({ code: "custom", path: ["communities"], message: "no more communities than threads read" });
     }
-    // A YouTube page is never a forum thread (owner answers 170, 208b and 227).
-    if (signal.threads.some((thread) => YOUTUBE_HOST.test(thread))) {
+    // A YouTube page is never a forum thread (owner answers 170, 208b and 227), by the host a browser opens it at, as
+    // the pages read it (opensYouTube; the review of #422, fourth round).
+    if (signal.threads.some(opensYouTube)) {
       context.addIssue({ code: "custom", path: ["threads"], message: "a forum thread, never a YouTube page" });
     }
   });

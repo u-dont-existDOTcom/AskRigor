@@ -5,6 +5,12 @@
  * and which stored rows a page leaves out, so that no one's comment or name can stop a whole page from being served.
  */
 
+import { opensYouTube, withoutFormatCharacters } from "@askrigor/evidence-repository";
+
+// How the Atlas reads a text and a link for its guards, shared with the stores' and the write-time checks (the review
+// of #422, fourth round): a text without its format characters, a link by the host a browser opens it at.
+export { opensYouTube, withoutFormatCharacters };
+
 /** Text made safe for HTML content and double- or single-quoted attribute values. */
 export function escapeHtml(text: string): string {
   return text
@@ -21,39 +27,8 @@ export function escapeHtml(text: string): string {
 const PAGE_SCRIPT = /<script\b/iu;
 const PAGE_CARD_REFERENCE = /ARF-\d{4}/iu;
 const PAGE_YOUTUBE = /(?:youtube(?:-nocookie)?\.com|youtu\.be)/iu;
-// The hosts that serve YouTube, each with its subdomains: youtube.com, youtu.be, youtube-nocookie.com, and
-// youtube.googleapis.com, the address of its older embedded player (the review of #422, third round).
-const YOUTUBE_HOST = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com|youtube\.googleapis\.com)$/u;
-// Unicode's format characters (Cf), which show nothing themselves: a zero-width joiner, a direction mark and the like.
-const FORMAT_CHARACTER = /\p{Cf}/gu;
-
-/** A text as the checks here read it: as a reader sees it, without the format characters, which show nothing. */
-export function withoutFormatCharacters(text: string): string {
-  return text.replace(FORMAT_CHARACTER, "");
-}
 
 export type AtlasPageProblem = "script" | "card_reference" | "youtube_link";
-
-/**
- * Whether a link opens YouTube, by its parsed host, as a browser reads it, and again once the link is in Unicode's
- * compatibility form (NFKC) without its format characters: one of YOUTUBE_HOST's hosts, or any of their subdomains. A
- * percent-encoded full stop (youtube%2Ecom), full-width letters (ｙｏｕｔｕｂｅ.com) or a zero-width joiner name the same
- * host, which the words alone don't show (the review of #422). A relative link is read against the Atlas's own origin.
- * A limit: only the host a link names is read, never where it leads, so a link shortener's or a site's own redirect
- * to YouTube (bit.ly, t.co, a page's ?url=) isn't seen.
- */
-export function opensYouTube(link: string): boolean {
-  for (const form of new Set([link, link.normalize("NFKC"), withoutFormatCharacters(link).normalize("NFKC")])) {
-    let host: string;
-    try {
-      host = new URL(form, "https://askrigor.com").hostname.toLowerCase().replace(/\.$/u, "");
-    } catch {
-      continue;
-    }
-    if (YOUTUBE_HOST.test(host)) return true;
-  }
-  return false;
-}
 
 // Each link a rendered page holds, as its attribute writes it (the pages write every one double-quoted and escaped).
 const PAGE_HREF = /\bhref="([^"]*)"/gu;
@@ -84,4 +59,23 @@ export function pageGuardProblems(text: string): AtlasPageProblem[] {
 /** Whether a text, written onto a page, leaves the page servable. */
 export function passesPageGuard(text: string): boolean {
   return pageGuardProblems(text).length === 0;
+}
+
+/**
+ * Whether every text a stored row holds, at any depth of its lists and fields, leaves a page servable, as
+ * passesPageGuard reads one. A row that fails is left out of every page that would show it (the review of #422, fourth
+ * round: a published claim holding "you" and "tube.com" with a zero-width space between them made every page that
+ * listed it answer 503), so that no stored text can stop a page; the page's last check stays.
+ */
+export function rowPassesPageGuard(row: unknown): boolean {
+  const texts: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") texts.push(value);
+    else if (Array.isArray(value)) value.forEach(collect);
+    else if (value !== null && typeof value === "object") Object.values(value).forEach(collect);
+  };
+  collect(row);
+  // One line each: none of the last check's patterns spans a line break, so the texts pass together exactly when each
+  // passes alone, and the row is read once.
+  return passesPageGuard(texts.join("\n"));
 }
