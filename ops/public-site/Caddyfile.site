@@ -34,6 +34,26 @@ askrigor.com {
 		file_server
 	}
 
+	handle /add {
+		rewrite * /add/index.html
+		file_server
+	}
+
+	handle /roadmap {
+		rewrite * /roadmap/index.html
+		file_server
+	}
+
+	handle /compare {
+		rewrite * /compare/index.html
+		file_server
+	}
+
+	handle /compare/free-chatgpt {
+		rewrite * /compare/free-chatgpt/index.html
+		file_server
+	}
+
 	# Owner answer 224a: what crawlers may read, and where the sitemap of reviewed findings is.
 	handle /robots.txt {
 		file_server

@@ -21,6 +21,10 @@ hashes, status records, release notes, plans, generated excerpts, and lesson
 summaries are downstream receipts. None can replace, truncate, or amend either
 complete XML protocol.
 
+`design-decisions.md` is the quick reference of design decisions: what was
+chosen, why, what wasn't, and when. Read it before redesigning anything. It
+records decisions and their sources; it adds no authority to the list above.
+
 ## Validation and release
 
 - [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release
@@ -111,6 +115,7 @@ complete XML protocol.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-06-owner-answer-270a-production-release.md`: release of #421, the fixes from the owner-regression rerun (owner answer 270a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
   260a): HRP 20.6.40 (how each study was read, the study map, community leads), the owner's private page with its
   read-only maps mount and settings line, the site's Atlas referrer policy, and the plugin reinstall; 35 tools unchanged,
