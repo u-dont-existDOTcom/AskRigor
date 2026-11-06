@@ -1946,6 +1946,16 @@ The pages (section 4C) are built, not yet released, and switched off until
   no list, topic, home page or search shows it. The row gains when it was kept and the owner's private reason, which
   no page reads. Nothing about a person is added.
 
+- **Challenges the usual view** (the owner, 6 November 2026; migration 0030; built, not yet released). The reviewer
+  login can mark a shown or kept publication (`mark_challenge`) as going against the usual view: the row gains the
+  usual view in one plain line of at most 300 characters, its source's label and https link, the quick-answer test's
+  verdict for the finding (`pass`, `headline` or `fail`), who marked it and when. Who marked it is `reviewer:` and 16
+  hex characters of a domain-separated SHA-256 of the reviewer login's OAuth subject, never the subject itself, and
+  no page reads it; the pages read the usual view, its source and the verdict, and show a shown finding's mark on its
+  page and on `/atlas/challenges`. A mark whose texts hold contact details, a findings card's reference or a YouTube
+  link is refused. `clear_challenge` removes the mark whole. The usual view is general text about what doctors and
+  guidelines advise, written by the tester or the owner; nothing about the person who asked is added.
+
 ## Atlas navigation and search
 
 Owner answer 183b: `/atlas/findings` and `/atlas/topics` reuse only the public

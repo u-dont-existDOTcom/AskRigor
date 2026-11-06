@@ -7,6 +7,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasPageChallenge,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
   AtlasPageParticipation,
@@ -181,6 +182,21 @@ export interface ShownFinding {
   research: ShownResearchSource[];
   /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
   forumSignal: ShownForumSignal | null;
+  /**
+   * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict, from its
+   * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
+   */
+  challenge: ShownChallenge | null;
+}
+
+/** A finding's challenge mark as its pages show it: never who marked it. */
+export type ShownChallenge = AtlasPageChallenge;
+
+/** A publication's challenge mark, or null when it has none or one of its texts would stop a page (page-guard.ts). */
+function shownChallenge(publication: AtlasPagePublication): ShownChallenge | null {
+  const mark = publication.challenge ?? null;
+  return mark === null || ![mark.usualView, mark.sourceLabel, mark.sourceUrl].every(passesPageGuard) ? null
+    : { usualView: mark.usualView, sourceUrl: mark.sourceUrl, sourceLabel: mark.sourceLabel, verdict: mark.verdict };
 }
 
 /** The owner's "most important now" pick with its reason (decision 2a). */
@@ -466,6 +482,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    challenge: shownChallenge(publication),
     ...researchBehind(published, shownSource),
   };
 }
@@ -634,6 +651,7 @@ function fromCanonical(
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    challenge: shownChallenge(publication),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
@@ -914,6 +932,41 @@ export async function loadAtlasFindings(source: AtlasPageSource, options: {
     const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
     const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
     return { findings: visible, filter, before: more ? visible.at(-1)!.publicationNumber : null };
+  });
+}
+
+/** The findings that challenge the usual view (the owner, 6 Nov 2026), newest first, a page at a time. */
+export interface AtlasChallengesModel {
+  findings: ShownFinding[];
+  before: string | null;
+}
+
+/**
+ * The shown findings that carry a challenge mark (the owner, 6 Nov 2026: "we should also have a section for results
+ * that challenge mainstream consensus even if it's available with a standard ai answer"): never one kept for research,
+ * which no list shows, nor one whose mark a page would refuse.
+ */
+export async function loadAtlasChallenges(source: AtlasPageSource, options: { before?: string } = {}):
+  Promise<AtlasChallengesModel> {
+  return await source.read(async (reads) => {
+    const findings: ShownFinding[] = [];
+    let cursor = options.before;
+    for (;;) {
+      const publications = await reads.listPublications({ limit: READ_CHUNK, challengedOnly: true,
+        ...(cursor === undefined ? {} : { before: cursor }) });
+      for (const finding of await shownFindings(reads, publications)) {
+        if (finding.challenge === null) continue;
+        findings.push(finding);
+        if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
+      }
+      if (findings.length > ATLAS_FINDINGS_PER_PAGE || publications.length < READ_CHUNK) break;
+      const next = publications.at(-1)!.publicationNumber;
+      if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
+      cursor = next;
+    }
+    const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
+    const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
+    return { findings: visible, before: more ? visible.at(-1)!.publicationNumber : null };
   });
 }
 

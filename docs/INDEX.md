@@ -128,7 +128,8 @@ complete XML protocol.
 - `audits/2026-11-04-owner-answer-240a-production-release.md`: release of #398 (owner answer 240a): "kept for AskRigor's
   research" (migration 0024), the regression fixes, the checked figures, the YouTube-comment hold and the named forum
   failures; 35 tools and HRP 20.6.36 unchanged, so no app refresh; acceptance, the rollback, and what moved to kept.
-- `atlas-quick-answer-test.md`: how a saved AI-found finding reaches the Atlas's pages (owner answer 240a).
+- `atlas-quick-answer-test.md`: how a saved AI-found finding reaches the Atlas's pages (owner answer 240a), and the
+  separate judgment of whether it challenges the usual view, marked for `/atlas/challenges` (the owner, 6 Nov 2026).
 - `audits/2026-11-02-owner-answer-215a-production-release.md`: release of #394 (owner answers 215a and 217b): the forum
   reader's two tools (35 tools; the apps need one refresh), HRP 20.6.36, the privacy page of 2 November, the folded panel
   and the quick-answer comparison as the sixth blocking check; the reader's read-only mount and settings, acceptance, the

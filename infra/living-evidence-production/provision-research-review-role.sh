@@ -127,6 +127,11 @@ GRANT EXECUTE ON FUNCTION living_evidence.set_atlas_glance_row_state(text, text,
   TO askrigor_research_review;
 GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_glance_rows(text, bigint, integer)
   TO askrigor_research_review;
+-- The owner, 6 Nov (migration 0030): findings that challenge the usual view, marked and cleared by P number.
+GRANT EXECUTE ON FUNCTION living_evidence.mark_atlas_challenges(text[], text, text, text, text, text, timestamptz)
+  TO askrigor_research_review;
+GRANT EXECUTE ON FUNCTION living_evidence.inspect_atlas_challenges()
+  TO askrigor_research_review;
 ALTER ROLE askrigor_research_review SET statement_timeout = '5s';
 ALTER ROLE askrigor_research_review SET idle_in_transaction_session_timeout = '5s';
 ALTER ROLE askrigor_research_review SET search_path = living_evidence, pg_catalog;

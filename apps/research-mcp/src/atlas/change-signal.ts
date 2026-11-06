@@ -65,6 +65,9 @@ export function announcingPublicationStore(
     // Owner answers 229a and 231a: keeping a publication for research takes it off every list.
     keep: (change) => announcing(signal, () => store.keep(change)),
     inspectKept: () => store.inspectKept(),
+    // The owner, 6 Nov 2026: a challenge mark changes a shown finding's page and the challenges page.
+    markChallenges: (change) => announcing(signal, () => store.markChallenges(change)),
+    inspectChallenges: () => store.inspectChallenges(),
   };
 }
 

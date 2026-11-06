@@ -238,8 +238,11 @@ export function publicationHoldReasons(published: AtlasPublishedFinding): AtlasP
   return ATLAS_PUBLICATION_HOLD_REASONS.filter((reason) => found.has(reason));
 }
 
-/** What one text holds that the pages never show, by the same three checks. */
-function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
+/**
+ * What one text holds that the pages never show, by the same three checks: a publication's texts here, and a challenge
+ * mark's usual view, source and link (challenge-review.ts).
+ */
+export function textHoldReasons(text: string): AtlasPublicationHoldReason[] {
   return [
     ...contactDetailKinds(text),
     ...(containsCardReference(text) ? ["card_reference" as const] : []),

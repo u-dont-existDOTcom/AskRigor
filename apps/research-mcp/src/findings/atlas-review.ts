@@ -99,6 +99,14 @@ import {
   type AtlasKept,
 } from "../atlas/kept-review.js";
 import {
+  ATLAS_CHALLENGE_ACTIONS,
+  ATLAS_CHALLENGE_OUTCOMES,
+  AtlasChallengeReview,
+  type AtlasChallengeAction,
+  type AtlasChallengeRequest,
+  type AtlasChallenges,
+} from "../atlas/challenge-review.js";
+import {
   ATLAS_PLACEMENT_ACTIONS,
   ATLAS_PLACEMENT_OUTCOMES,
   AtlasPlacementReview,
@@ -216,6 +224,8 @@ export const ATLAS_REVIEW_ACTIONS = [
   ...ATLAS_REPORT_ACTIONS,
   // The owner, 3 Nov: a problem's rows at a glance, each shown on the owner's yes.
   ...ATLAS_GLANCE_ACTIONS,
+  // The owner, 6 Nov: findings that challenge the usual view.
+  ...ATLAS_CHALLENGE_ACTIONS,
 ] as const;
 export type AtlasReviewAction = typeof ATLAS_REVIEW_ACTIONS[number];
 
@@ -247,6 +257,7 @@ export const ATLAS_REVIEW_OUTCOMES = [
   ...ATLAS_PLACEMENT_OUTCOMES,
   ...ATLAS_REPORT_OUTCOMES,
   ...ATLAS_GLANCE_OUTCOMES,
+  ...ATLAS_CHALLENGE_OUTCOMES,
 ] as const;
 export type AtlasReviewOutcome = typeof ATLAS_REVIEW_OUTCOMES[number];
 
@@ -453,6 +464,13 @@ export interface AtlasReviewRequest {
   glanceRow?: GlanceRowInput;
   glanceRowId?: string;
   glanceState?: "proposed" | "shown" | "withdrawn";
+  /** mark_challenge (the owner, 6 Nov 2026): the usual view, its source and the quick-answer verdict, from later_inputs. */
+  usual_view?: AtlasChallengeRequest["usual_view"];
+  usual_view_source_url?: AtlasChallengeRequest["usual_view_source_url"];
+  usual_view_source_label?: AtlasChallengeRequest["usual_view_source_label"];
+  quick_answer_verdict?: AtlasChallengeRequest["quick_answer_verdict"];
+  /** The reviewer login that made the call, set by the tool after its owner check; never an input. */
+  reviewer?: string;
 }
 
 const EDIT_TEXTS = ["wording", "appliesTo", "whyNotUsual", "whatWouldChangeIt"] as const;
@@ -514,6 +532,10 @@ const FIELDS_BY_ACTION: Record<AtlasReviewAction | "edit_after", readonly AtlasF
   list_glance_rows: [],
   show_glance_row: ["confirm"],
   withdraw_glance_row: [],
+  // The owner, 6 Nov: the items, the usual view, its source and the verdict come in later_inputs.
+  mark_challenge: [],
+  clear_challenge: [],
+  list_challenges: [],
 };
 
 /**
@@ -994,6 +1016,8 @@ export interface AtlasReviewResult {
   reports?: AtlasReports;
   /** The rows at a glance listed, or the one proposed or changed. */
   glance?: AtlasGlance;
+  /** The owner, 6 Nov 2026: the publications marked, cleared or listed as challenging the usual view. */
+  challenges?: AtlasChallenges;
 }
 
 // Dependencies ----------------------------------------------------------------------------------------------------------
@@ -1193,6 +1217,10 @@ export class AtlasReview {
         case "show_glance_row":
         case "withdraw_glance_row":
           return await this.glanceAction(request.action, request);
+        case "mark_challenge":
+        case "clear_challenge":
+        case "list_challenges":
+          return await this.challengeAction(request.action, request);
       }
     } catch (error) {
       return errorResult(error);
@@ -1257,6 +1285,32 @@ export class AtlasReview {
       ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
       ...(result.error === undefined ? {} : { error: result.error }),
       ...(result.kept === undefined ? {} : { kept: result.kept }),
+    };
+  }
+
+  // Findings that challenge the usual view (the owner, 6 Nov 2026) --------------------------------------------------------
+
+  private async challengeAction(action: AtlasChallengeAction, request: AtlasReviewRequest): Promise<AtlasReviewResult> {
+    const publications = this.deps.publications;
+    if (publications === undefined) {
+      return errorOf("review_service_unavailable", "The Atlas publications are not configured: they need the review " +
+        "database. Nothing was changed.");
+    }
+    const result = await new AtlasChallengeReview({ publications, now: this.now }).run({
+      action,
+      ...(request.items === undefined ? {} : { items: request.items }),
+      ...(request.usual_view === undefined ? {} : { usual_view: request.usual_view }),
+      ...(request.usual_view_source_url === undefined ? {} : { usual_view_source_url: request.usual_view_source_url }),
+      ...(request.usual_view_source_label === undefined ? {} : { usual_view_source_label: request.usual_view_source_label }),
+      ...(request.quick_answer_verdict === undefined ? {} : { quick_answer_verdict: request.quick_answer_verdict }),
+      ...(request.reviewer === undefined ? {} : { reviewer: request.reviewer }),
+    });
+    return {
+      ok: result.ok,
+      text: result.text,
+      ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+      ...(result.error === undefined ? {} : { error: result.error }),
+      ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
     };
   }
 

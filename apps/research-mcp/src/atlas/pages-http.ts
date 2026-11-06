@@ -51,6 +51,7 @@ import {
 import {
   loadAtlasChanges,
   loadAtlasFinding,
+  loadAtlasChallenges,
   loadAtlasFindings,
   loadAtlasMap,
   loadAtlasSitemap,
@@ -73,6 +74,7 @@ import { ownerPageProblems, readPrivateCommentMaps, renderAtlasOwnerPages } from
 import {
   ATLAS_CSS,
   ACCOUNT_PATH,
+  CHALLENGES_PATH,
   COMMENT_MAPS_PATH,
   OWN_COMMENTS_PATH,
   PRIVATE_PAGES_PATH,
@@ -81,6 +83,7 @@ import {
   renderAtlasAccount,
   renderAtlasChanges,
   renderAtlasFinding,
+  renderAtlasChallenges,
   renderAtlasFindings,
   renderAtlasMap,
   renderAtlasSitemap,
@@ -140,8 +143,8 @@ import {
 /**
  * The public Atlas pages over HTTP (decision 171, sections 4C to 4E; design
  * docs/superpowers/plans/2026-10-25-171-pages-sign-in-design.md, sections C to E). The research server answers /atlas,
- * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/findings, /atlas/topics, /atlas/map, /atlas/search,
- * /atlas/changes and /atlas/atlas.css; any other /atlas path answers
+ * /atlas/topics/<topic key>, /atlas/findings/P-<n>, /atlas/findings, /atlas/challenges, /atlas/topics, /atlas/map,
+ * /atlas/search, /atlas/changes and /atlas/atlas.css; any other /atlas path answers
  * 404, and every path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. Every /atlas response carries the pages' own
  * content policy and headers. Nothing about a reader is logged; a reader who does not sign in gets no cookie, and the
  * per-address rate limit keeps a counter in memory, as the evidence-gap page's does, counting an IPv6 address by its
@@ -224,6 +227,8 @@ export type AtlasRoute =
   | { kind: "stylesheet" }
   | { kind: "changes" }
   | { kind: "findings"; before?: string; filter?: AtlasFindingFilter }
+  // The owner, 6 Nov 2026: the findings that challenge the usual view.
+  | { kind: "challenges"; before?: string }
   | { kind: "topics" }
   | { kind: "health" }
   | { kind: "subcategory"; subcategoryKey: string }
@@ -280,6 +285,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/atlas.css") return { kind: "stylesheet" };
   if (pathname === "/atlas/changes") return { kind: "changes" };
   if (pathname === "/atlas/findings") return { kind: "findings" };
+  if (pathname === CHALLENGES_PATH) return { kind: "challenges" };
   if (pathname === "/atlas/topics") return { kind: "topics" };
   if (pathname === "/atlas/health") return { kind: "health" };
   if (pathname === "/atlas/map") return { kind: "map" };
@@ -795,8 +801,9 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     return checked({ status: 200, html: renderAtlasReport(report, view, reader) });
   };
 
-  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "health" |
-    "subcategory" | "map" | "comment-maps" | "report" }>, source: AtlasPageSource, reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
+  const render = async (route: Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "challenges" |
+    "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" }>, source: AtlasPageSource,
+  reader?: AtlasPageReader): Promise<RenderedAtlasPage> => {
     switch (route.kind) {
       case "comment-maps":
         // Fixed text: it reads nothing from the source.
@@ -807,6 +814,9 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         return checked({ status: 200, html: renderAtlasChanges(await loadAtlasChanges(source), reader) });
       case "findings":
         return checked({ status: 200, html: renderAtlasFindings(await loadAtlasFindings(source, route), reader) });
+      case "challenges":
+        return checked({ status: 200, html: renderAtlasChallenges(await loadAtlasChallenges(source,
+          route.before === undefined ? {} : { before: route.before }), reader) });
       case "topics":
         return checked({ status: 200, html: renderAtlasTopics(await loadAtlasTopics(source), reader) });
       case "health":
@@ -1417,8 +1427,8 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           await ownReportsRoute(request, response, participation, source, now);
           return true;
         }
-        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" | "topics" | "health" |
-          "subcategory" | "map" | "comment-maps" | "report" }>;
+        let pageRoute = route as Extract<AtlasRoute, { kind: "home" | "changes" | "topic" | "finding" | "findings" |
+          "challenges" | "topics" | "health" | "subcategory" | "map" | "comment-maps" | "report" }>;
         let cacheKey = pathname;
         if (pageRoute.kind === "findings") {
           const query = queryOf(request);
@@ -1427,6 +1437,11 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
           const filter = ATLAS_FINDING_FILTERS.find((value) => value === raw) ?? "all";
           pageRoute = { kind: "findings", filter, ...(before === undefined ? {} : { before }) };
           cacheKey = `${pathname}?filter=${filter}${before === undefined ? "" : `&before=${before}`}`;
+        }
+        if (pageRoute.kind === "challenges") {
+          const before = publicationCursor(queryOf(request));
+          pageRoute = { kind: "challenges", ...(before === undefined ? {} : { before }) };
+          cacheKey = `${pathname}${before === undefined ? "" : `?before=${before}`}`;
         }
         if (participation !== undefined) {
           const { session, clear: stale } = await currentSession(request, participation, now, "read-as-signed-out");

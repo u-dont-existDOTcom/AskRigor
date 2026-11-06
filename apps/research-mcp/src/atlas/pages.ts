@@ -19,6 +19,7 @@ import {
   SOURCE_SCHEME_WORDS,
   canonicalIdentifier,
   strengthOf,
+  type AtlasChallengesModel,
   type AtlasChangeEntry,
   type AtlasChangesModel,
   type AtlasContestedPair,
@@ -34,6 +35,7 @@ import {
   type AtlasSitemapEntry,
   type AtlasTopicModel,
   type AtlasTopicsModel,
+  type ShownChallenge,
   type ShownFinding,
   type ShownForumSignal,
   type ShownNumber,
@@ -222,6 +224,15 @@ export const KEPT_FOR_RESEARCH_LINE = "Kept for AskRigor’s research: AskRigor 
   "but it isn’t one of the Atlas’s picks, so no list, topic or search on the Atlas shows it.";
 export const topicPath = (topicKey: string) => `/atlas/topics/${topicKey}`;
 export const MAP_PATH = "/atlas/map";
+/** The findings that challenge the usual view (the owner, 6 Nov 2026). */
+export const CHALLENGES_PATH = "/atlas/challenges";
+export const CHALLENGES_TITLE = "Findings that challenge the usual view";
+/**
+ * What an unreviewed finding's status says of the quick-answer test: a pass, or a finding shown only because it
+ * challenges the usual view, whose stored verdict (headline or fail) means a quick AI answer may already give it.
+ */
+export const QUICK_ANSWER_MISSES_IT = "A separate AI found that a quick AI answer misses it.";
+export const SHOWN_AS_A_CHALLENGE = "A quick AI answer may already give it; it’s shown because it challenges the usual view.";
 /** How AskRigor's comment maps work (comment-maps-page.ts); the maps themselves are not shown (owner answer 208b). */
 export const COMMENT_MAPS_PATH = "/atlas/comment-maps";
 const CANONICAL_ORIGIN = "https://askrigor.com";
@@ -359,10 +370,28 @@ href="/atlas/findings?filter=${filter}"${filter === model.filter ? html` aria-cu
   return page({ path: "/atlas/findings", title: "All findings | AskRigor Atlas", current: "findings", reader,
     noindex: unreviewedOnly(model.findings),
     description: "Every finding published in the AskRigor Atlas, newest first.",
-    body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first.</p>
+    body: html`<h1>All findings</h1><p>Every publication on the Atlas, newest first. <a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a>.</p>
 <nav aria-label="Filter findings"><ul class="nav-list">${filters}</ul></nav>
 ${model.findings.length === 0 ? html`<p>No findings in this list yet.</p>` : findingList(model.findings)}
 ${model.before === null ? "" : html`<p><a rel="next" href="/atlas/findings?filter=${model.filter}&amp;before=${model.before}">Older findings</a></p>`}` });
+}
+
+/**
+ * The findings that challenge the usual view (the owner, 6 Nov 2026), each with the usual view and its source beside it,
+ * and its limits: how sure it is and whom it applies to (in its facts line) and what would change it. Kept out of search
+ * engines, like the finding pages.
+ */
+export function renderAtlasChallenges(model: AtlasChallengesModel, reader?: AtlasPageReader): string {
+  const item = (finding: ShownFinding) => findingItem(finding, html`<p class="usual-view">${usualViewLine(finding.challenge!)}</p>
+${finding.whatWouldChangeIt === null ? "" : html`<p class="meta">What would change it: ${finding.whatWouldChangeIt}</p>`}`);
+  return page({ path: CHALLENGES_PATH, title: `${CHALLENGES_TITLE} | AskRigor Atlas`, reader, noindex: true,
+    description: "Findings in the AskRigor Atlas that go against what most doctors and major guidelines advise.",
+    body: html`<h1>${CHALLENGES_TITLE}</h1>
+<p>Each of these findings goes against the usual view: what most doctors and major guidelines currently advise for the problem, as a separate AI found it, with its source beside it. A quick AI answer may already give some of them; they are here because they challenge the usual view. Each keeps its limits: how sure it is, whom it applies to and what would change it.</p>
+${model.findings.length === 0 ? html`<p>No finding on these pages challenges the usual view yet.</p>` : html`<ul class="finding-list">
+${model.findings.filter((finding) => finding.challenge !== null).map(item)}</ul>`}
+${model.before === null ? "" : html`<p><a rel="next" href="${CHALLENGES_PATH}?before=${model.before}">Older findings</a></p>`}
+<p><a href="/atlas/findings">See all findings</a></p>` });
 }
 
 export function renderAtlasTopics(model: AtlasTopicsModel, reader?: AtlasPageReader): string {
@@ -511,7 +540,7 @@ export function renderAtlasHome(model: AtlasHomeModel, reader?: AtlasPageReader)
 <h1>AskRigor Atlas</h1>
 <p class="lede">Findings from research done with AskRigor, written without the people who asked.</p>
 <div class="notice">
-<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
+<p>A finding reaches these pages once a separate AI finds that a quick AI answer misses it, or that it challenges the usual view, marked “${NOT_CHECKED_LABEL}” until AskRigor’s owner has reviewed it. A reviewed finding shows the wording the owner accepted, its Atlas number and the day it was checked; a rejected one leaves these pages.</p>
 <p>How sure each finding is shows AskRigor’s rating, not a formal GRADE assessment. Rates and the numbers needed to treat or harm are worked out from each group’s counts. Nothing here is medical advice.</p>
 </div>
 ${ownerPicks(model.picks)}<section aria-labelledby="strongest-checked">
@@ -539,7 +568,7 @@ ${model.contested.map(contestedItem)}</ul>
 <h2 id="comment-maps">Comment maps</h2>
 <p>AskRigor maps what the people who commented under a health video say happened when they tried its method. The maps are kept privately for now, so none is shown here. <a href="${COMMENT_MAPS_PATH}">How comment maps work, what they can’t show, and why they aren’t here</a></p>
 </section>
-<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
+<p><a href="${MAP_PATH}">See every finding on the findings map</a> · <a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a> · <a href="/atlas/changes">See what changed in the Atlas</a></p>`;
   return page({
     path: "/atlas",
     noindex: unreviewedOnly([...model.picks.map(({ finding }) => finding), ...model.strongestChecked, ...model.recentlyPublished,
@@ -893,6 +922,37 @@ ${topic.findings.map((entry) => {
 
 // A finding page --------------------------------------------------------------------------------------------------------
 
+/**
+ * What an unreviewed shown finding's status says of the quick-answer test (owner answer 240a): a finding shown because it
+ * passed says a quick AI answer misses it; one shown because it challenges the usual view says so from its stored verdict
+ * (the owner, 6 Nov 2026), and a headline or a fail means a quick AI answer may already give it. A finding kept for
+ * research hasn't passed the test, so it says neither.
+ */
+function quickAnswerWords(finding: ShownFinding): string {
+  if (finding.kept) return "";
+  if (finding.challenge !== null && finding.challenge.verdict !== "pass") return `${SHOWN_AS_A_CHALLENGE} `;
+  return `${QUICK_ANSWER_MISSES_IT} `;
+}
+
+/** The usual view a finding challenges, with its source's link, as a sentence. */
+function usualViewLine(challenge: ShownChallenge): SafeHtml {
+  return html`The usual view: ${withoutEndPunctuation(challenge.usualView)} (<a href="${challenge.sourceUrl}" rel="nofollow noopener noreferrer">${challenge.sourceLabel}</a>).`;
+}
+
+/** The box on a finding's page that says it challenges the usual view (the owner, 6 Nov 2026). */
+function challengeBox(finding: ShownFinding): SafeHtml | "" {
+  const challenge = finding.challenge;
+  if (challenge === null) return "";
+  return html`<section class="notice challenge" aria-labelledby="challenge">
+<h2 id="challenge">It challenges the usual view</h2>
+<p>${usualViewLine(challenge)}</p>
+<p>This finding goes against it. ${challenge.verdict === "pass" ? QUICK_ANSWER_MISSES_IT
+    : "A quick AI answer may already give it; it’s here because it challenges the usual view."} Its limits stay as this page gives them: how sure it is, whom it applies to and what would change it.</p>
+<p><a href="${CHALLENGES_PATH}">See the findings that challenge the usual view</a></p>
+</section>
+`;
+}
+
 function statusBlock(finding: ShownFinding): SafeHtml {
   const status = finding.status;
   if (status.kind === "unreviewed") {
@@ -900,7 +960,7 @@ function statusBlock(finding: ShownFinding): SafeHtml {
 <p class="status-label">${NOT_CHECKED_LABEL}</p>
 <p class="ai-label">${AI_LABEL}.</p>
 ${needsChecking(finding) ? html`<p class="badge badge-needs-checking">${NEEDS_CHECKING_LABEL}</p>
-` : ""}<p>${finding.kept ? "" : "A separate AI found that a quick AI answer misses it. "}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
+` : ""}<p>${quickAnswerWords(finding)}AskRigor’s owner has not reviewed it yet.${needsChecking(finding)
     ? " Its claim is strong, so it needs checking before anyone relies on it." : ""}</p>
 </div>`;
   }
@@ -1227,7 +1287,7 @@ ${finding.whyNotUsual === null ? "" : html`<p><strong>Why this finding isn’t i
     : html` › <a href="${topicPath(finding.topic.key)}">${finding.topic.label}</a>`}</p>
 ${finding.kept ? html`<p class="notice-line" role="note">${KEPT_FOR_RESEARCH_LINE}</p>
 ` : ""}${statusBlock(finding)}
-${question}
+${challengeBox(finding)}${question}
 <h1 class="claim">${finding.claim}</h1>
 <p class="meta">${joined(dates, " · ")}</p>
 ${facts.length === 0 ? "" : html`<dl class="facts">
