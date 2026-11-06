@@ -6,13 +6,12 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
+import { doiFromInput, DOI_PATTERN, doiUrl } from "./doi.js";
 import { upstreamFailureDetails, fetchJson, UpstreamHttpError } from "./http.js";
 
 const UNPAYWALL_API_ROOT = "https://api.unpaywall.org/v2";
-const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
-const doiSchema = z.string().trim().max(2_048).transform((value) =>
-  value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "").trim().toLowerCase()
-).refine((value) => DOI_PATTERN.test(value), "must be a valid DOI");
+const doiSchema = z.string().trim().max(2_048).transform((value) => doiFromInput(value))
+  .refine((value) => DOI_PATTERN.test(value), "must be a valid DOI");
 const configSchema = z.object({
   email: z.string().trim().email().max(320)
 }).strict();
@@ -154,7 +153,7 @@ export async function resolveUnpaywallOpenAccess(
       recordType: "open_access_location_resolution",
       primaryIdentifier: parsedDoi.data,
       sourceIdentity: {
-        canonical_url: `https://doi.org/${parsedDoi.data}`,
+        canonical_url: doiUrl(parsedDoi.data),
         ...(data.title === undefined ? {} : { title: data.title })
       },
       pagination: { exhausted: true },
@@ -242,7 +241,7 @@ function toOpenLocation(
 }
 
 function normalizeDoi(value: string): string {
-  return value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "").trim().toLowerCase();
+  return doiFromInput(value);
 }
 
 interface UnpaywallErrorDetails {
@@ -262,7 +261,7 @@ function unpaywallErrorEnvelope(
     provider: "unpaywall",
     recordType: "open_access_location_resolution",
     primaryIdentifier: doi,
-    sourceIdentity: { canonical_url: `https://doi.org/${doi}` },
+    sourceIdentity: { canonical_url: doiUrl(doi) },
     pagination: { exhausted: false },
     returned: 0,
     accessStatus: details.accessStatus,

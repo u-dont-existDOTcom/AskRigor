@@ -15,13 +15,19 @@ import { registerTools } from "../apps/research-mcp/src/register-tools.js";
 import { PASSING_LIMITS_GUIDANCE } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINALIZE_RESEARCH_SHAPES_DESCRIPTION, HARM_NOT_CHECKED_CAVEAT_START, HARM_SCREEN_SOURCES, HARM_SCREEN_STATES,
-  TOOL_LIST_REFRESH_HINT, finalizeResearch, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
+  TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, finalizeResearchPublishedInputSchema, harmNotCheckedCaveat,
   type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { CARD } from "./helpers/findings-fixtures.js";
 import { SCREENED_HARM_SENTENCE, withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner answer "128b" (2026-10-20), from lesson #44 (UDA #403): comparing the safety of a prescribed growth hormone
 // with peptides that raise it, an answer searched blood sugar, swelling, joints, the heart and cancer, but never severe
@@ -103,9 +109,10 @@ const SAFETY_QUESTION_MISSING = "safety_question is missing: with answer_draft, 
 const NO_DRAFT = "The final check needs usable answer_draft: answer_draft is the answer to check; research_target is the question the research answered.";
 const NOT_CHECKED = "A serious harm this answer did not check: anaphylaxis.";
 const NOT_CHECKED_LIMIT = "A serious harm, anaphylaxis, was not checked: say so in the answer, as the caveat does.";
+// The free Claude test of 5 Nov 2026: what the searches left uncovered includes journals outside PubMed and Europe PMC.
 const BOUNDED = (names: string) => `Where this answer says something was not found, it means the searches made here ` +
-  `(${names}) did not find it, and they did not cover older or variant terms, citation chains and grey literature; ` +
-  "that is not evidence that it does not exist.";
+  `(${names}) did not find it, and they did not cover older or variant terms, citation chains, grey literature and ` +
+  "journals outside PubMed and Europe PMC; that is not evidence that it does not exist.";
 const BOUNDED_LIMIT = "The answer says something was not found: bound that to the searches made here, as the caveat does.";
 const unshown = (...at: string[]) => `${at.join(", ")} ${at.length === 1 ? "gives" : "give"} text the answer does not ` +
   "show: copy each sentence exactly from answer_draft.";
@@ -337,11 +344,11 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."
       ],
       status: "ready_with_limits"
     });
-    expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."]);
+    expectPassingLimits(left, ["Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."]);
     expect(check({ ...passed, answer_draft: `${base().answer_draft}\n\n${bounded}` }))
       .toMatchObject({ status: "ready_with_limits", next_steps: [], limits: ["The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.", bounded], caveats: [] });
   });
@@ -399,7 +406,7 @@ describe("finalize_research harm_screen: a harm not found rests on a literature 
       caveats: [],
       limits: [
         "The serious-harm screen covered severe allergic reactions (product labels); anaphylaxis (case reports, serious events in trials). Other serious harms may not have been checked.",
-        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains and grey literature; that is not evidence that it does not exist."
+        "Where this answer says something was not found, it means the searches made here (PubMed) did not find it, and they did not cover older or variant terms, citation chains, grey literature and journals outside PubMed and Europe PMC; that is not evidence that it does not exist."
       ],
       status: "ready_with_limits"
     });
@@ -638,11 +645,11 @@ describe("finalize_research harm_screen is request-local (privacy data map)", ()
     });
     const card = { ...CARD, findings: [{ ...CARD.findings[0]!, answer_quote: SAFETY, sources: [DOI], tags: ["full_text_read"] }] };
     const stroke = "stroke after rechallenge";
-    const result = await finalize!(base({
+    const result = await finalize!(withSourceReading(base({
       receipts: [audit, search()], harm_screen: [onLabel, notFound, { harm: stroke, state: "not_checked" }],
       findings_card: findingsCardSchema.parse(card),
       answer_draft: `${base().answer_draft}\n\n${BOUNDED("PubMed")} ${harmNotCheckedCaveat(stroke)}`
-    }), {
+    })), {
       authInfo: {
         token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
         expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject: "auth0|free" }
@@ -713,7 +720,7 @@ describe("finalize_research publishes harm_screen on both surfaces (owner answer
       const logged = (["log", "info", "warn", "error", "debug"] as const)
         .map((method) => vi.spyOn(console, method).mockImplementation(() => undefined));
       const call = async (input: unknown) => {
-        const response = await client.callTool({ name: "finalize_research", arguments: input as Record<string, unknown> });
+        const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading(input) as Record<string, unknown> });
         expect(response.isError).not.toBe(true);
         const text = (response.content as Array<{ type: string; text?: string }>).map(({ text }) => text ?? "").join("\n");
         return { result: response.structuredContent as Record<string, unknown>, text };

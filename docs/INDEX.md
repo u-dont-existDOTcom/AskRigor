@@ -115,6 +115,14 @@ records decisions and their sources; it adds no authority to the list above.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
+  260a): HRP 20.6.40 (how each study was read, the study map, community leads), the owner's private page with its
+  read-only maps mount and settings line, the site's Atlas referrer policy, and the plugin reinstall; 35 tools unchanged,
+  so no app refresh; acceptance and the rollback.
+- `audits/2026-11-06-owner-answers-247a-259a-production-release.md`: release of #413 and the Atlas stack (owner answers
+  247a and 259a): migrations 0025 to 0029, notice v5, HRP 20.6.39, the site's privacy page, terms and robots.txt; 35 tools
+  unchanged, so no app refresh; acceptance, what waits for the owner (notice v5, the scout counter), why the cards'
+  context step wasn't run, and the rollback with its hazard.
 - `audits/2026-11-04-owner-answer-242a-production-release.md`: release of #412 (owner answer 242a): the review queue for
   cards that weren't saved, HRP 20.6.38, lesson 54 and the kept pages; 35 tools unchanged, so no app refresh; acceptance, a
   refused card through the live final check, what isn't shown live yet, and the rollback.
@@ -163,6 +171,9 @@ records decisions and their sources; it adds no authority to the list above.
   answer 229a: published once the AI checks pass, an AI warning where one is needed, the owner sees only what the
   AI can't judge), the research around each, the Health tree, and problem pages at a glance in the shape of the
   practitioner scorecard.
+- `superpowers/plans/2026-11-05-atlas-owner-page.md`: the owner's private page on the Atlas (`/atlas/account/private`,
+  the owner, 5 Nov: "i don't see my private pages"): the comment maps read from a file on the server, with their video
+  links, and links to the owner's pages on GitHub, for the signed-in owner alone.
 - `superpowers/plans/2026-11-05-atlas-research-behind.md`: "The research behind it" and "What people report" on each
   finding page (owner answer 252a): the papers' own sentences found word for word, how each source was read, the
   strongest thing against it, which study each figure comes from, and the forum signal with its counts, report quality,
@@ -200,8 +211,8 @@ records decisions and their sources; it adds no authority to the list above.
   individual results in a trial); then the YouTube scout's budget and failures, figures as images, the features on the
   account page, two final-check faults from the CPAP test, and the meaning judge's revision.
 - `superpowers/plans/2026-11-05-study-map.md`: the study map (UDA item of 31 Oct, owner request): a small map of the
-  studies behind a conclusion that combines them, checked only where the check is exact, as notes; waits for the
-  owner's yes to its HRP wording (question 249).
+  studies behind a conclusion that combines them, checked only where the check is exact, as notes; the owner said yes
+  to its HRP wording (answer 249a), and HRP 20.6.40 carries the rule.
 - `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
   Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
   saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at

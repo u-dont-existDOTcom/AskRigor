@@ -3,10 +3,16 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "../apps/research-mcp/src/europe-pmc-sections.js";
-import { finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput, type FinalizeResearchOutput } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput, type FinalizeResearchOutput } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { discoveryQueryDigest, issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "full-text-section-search-test-secret-0123456789";
 const QUERY = 'METHODS:"carbidopa"';
@@ -82,7 +88,7 @@ describe("section search through the in-memory MCP endpoint", () => {
       expect(fetch).toHaveBeenCalledTimes(1);
       if (sections.length > 0) {
         const request = base({ receipts: [...base().receipts, output.research_receipt], full_text_search: { status: "run", queries: [query] } });
-        const finalized = await client.callTool({ name: "finalize_research", arguments: { ...withCommunitySkip(request) } });
+        const finalized = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...withCommunitySkip(request) }) });
         expect(finalized.isError).not.toBe(true);
         expect(assertNextStepsContract(finalized.structuredContent as FinalizeResearchOutput).status).toBe("ready_with_limits");
       }

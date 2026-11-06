@@ -1,4 +1,10 @@
 import { expectPassingLimits, notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -15,7 +21,7 @@ import {
   NAMED_TARGET_SOURCES,
   TARGET_MATCHES,
   TOOL_LIST_REFRESH_HINT,
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   finalizeResearchInputSchema,
   finalizeResearchPublishedInputSchema,
   isProgramNotDescribed,
@@ -192,7 +198,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
     const input = packageFor(overrides);
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
@@ -562,7 +568,7 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     expect(finalizeResearchInputSchema.safeParse(input).success).toBe(false);
     const result = surface === "gate"
       ? finalizeResearch(input, { secret: SECRET })
-      : (await client!.callTool({ name: "finalize_research", arguments: input })).structuredContent as FinalizeResearchOutput;
+      : (await client!.callTool({ name: "finalize_research", arguments: withSourceReading(input) })).structuredContent as FinalizeResearchOutput;
     expect(result.answer_checked).toBe(true);
     expect(result.notes!.length).toBeGreaterThan(0);
     expect(result.next_step_kinds).not.toContain("input_invalid");

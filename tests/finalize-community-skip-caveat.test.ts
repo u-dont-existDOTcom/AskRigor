@@ -5,11 +5,17 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  COMMUNITY_SKIP_CAVEAT_START, TOOL_LIST_REFRESH_HINT, communitySkipCaveat, finalizeResearch,
+  COMMUNITY_SKIP_CAVEAT_START, TOOL_LIST_REFRESH_HINT, communitySkipCaveat, finalizeResearch as finalizeResearchUnwrapped,
   finalizeResearchPublishedInputSchema, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 // Owner question 125, answer "125a" (2026-10-20), from lesson #38: community evidence declared not relevant because
 // the question has no real-world outcome shows in the answer, in the server's sentence completed by the reason the
@@ -225,7 +231,7 @@ describe("finalize_research documents the reason on both surfaces (question 125)
         "answer compares treatment options;");
       // Owner answer 149a: the skip says whether the question is about a symptom or a test result.
       expect(published.properties.question_about).toMatchObject({ enum: ["symptom_or_test_result", "other"] });
-      const response = await client.callTool({ name: "finalize_research", arguments: { ...base(), receipts: [] } });
+      const response = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...base(), receipts: [] }) });
       expect(response.isError).not.toBe(true);
       expect(response.structuredContent).toMatchObject({
         caveats: [

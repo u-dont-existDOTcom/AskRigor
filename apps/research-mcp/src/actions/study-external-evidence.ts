@@ -25,6 +25,7 @@ import {
 } from "@askrigor/contracts";
 import type { ProtocolManifest } from "@askrigor/protocol";
 import {
+  doiUrl,
   checkCrossrefPublicationIntegrity,
   derivePublicationRecordState,
   lookupForrtReplicationRelationships,
@@ -494,7 +495,7 @@ function verifiedIdentity(
   envelope: ProvenanceEnvelope<CrossrefPublicationIntegrityData>,
   doi: string,
 ): CanonicalStudyIdentity {
-  const expectedUrl = `https://doi.org/${doi}`;
+  const expectedUrl = doiUrl(doi);
   if (
     envelope.provider !== "crossref" ||
     envelope.record_type !== "publication_integrity" ||
@@ -535,7 +536,7 @@ function assertOptionalProviderEnvelope(
     envelope.primary_identifier !== doi ||
     envelope.data.doi !== doi ||
     (envelope.error === undefined &&
-      envelope.source_identity.canonical_url !== `https://doi.org/${doi}`)
+      envelope.source_identity.canonical_url !== doiUrl(doi))
   ) {
     throw new StudyExternalEvidenceIdentityError(
       envelope.error?.retryable === true,

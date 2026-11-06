@@ -13,7 +13,7 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { normalizeDoiIdentifier } from "./doi.js";
+import { doiUrl, normalizeDoiIdentifier } from "./doi.js";
 import { fetchJson, UpstreamHttpError } from "./http.js";
 
 const FORRT_LOOKUP_URL = "https://rep-api.forrt.org/v1/original-lookup";
@@ -137,7 +137,7 @@ export async function lookupForrtReplicationRelationships(
       primaryIdentifier: doi,
       query: { doi },
       sourceIdentity: {
-        canonical_url: `https://doi.org/${doi}`,
+        canonical_url: doiUrl(doi),
         ...(queryIdentity.title === undefined ? {} : { title: queryIdentity.title }),
         ...(queryIdentity.first_author === undefined
           ? {}

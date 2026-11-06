@@ -1,10 +1,56 @@
-const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
+/**
+ * A DOI as AskRigor takes it: "10.", a registrant code, "/" and a suffix of the characters DOIs use, "<" and ">" among
+ * them, which older SICI-form DOIs carry, such as 10.1002/(sici)1097-0258(19980515)17:9<1083::aid-sim794>3.0.co;2-2
+ * (the owner regressions on #412's build, judged 6 Nov 2026: acquire_open_full_text refused one at its schema).
+ */
+export const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>a-z0-9]+$/iu;
+
+// The characters a URL's path can't carry as they are, which a DOI's link at doi.org gives percent-encoded.
+const DOI_URL_ESCAPES = /[%"#<>?[\\\]^`{|}\s]/gu;
+
+/**
+ * A DOI with its "<" and ">" given percent-escaped ("%3C" and "%3E", in either case), as acquire_open_full_text's published
+ * doi pattern needs them and a link carries them, read as those characters. Only those two: any other "%" stays a
+ * character of the DOI, as it always was, so reading a DOI again changes nothing (the review of #421: a full decode at
+ * each of three layers read "10.1000/x%2541" as "10.1000/xa", and refused a literal "%20" it used to take).
+ */
+export function decodedDoi(value: string): string {
+  return value.replace(/%3c/giu, "<").replace(/%3e/giu, ">");
+}
+
+/**
+ * A DOI as given, read once and lower case, its pattern not checked: a doi.org link's path decoded in full, as a link's
+ * escapes are ("%28SICI%29…%3C…" is "(sici)…<…"), and a bare DOI's "%3C" and "%3E" alone (the review of #421: a link's
+ * other escapes reached Europe PMC and Unpaywall as they were). Reading the result again changes nothing.
+ */
+export function doiFromInput(value: string): string {
+  const trimmed = value.trim();
+  const link = /^https?:\/\/(?:dx\.)?doi\.org\//iu.exec(trimmed);
+  if (link === null) return decodedDoi(trimmed).toLowerCase();
+  let path = trimmed.slice(link[0].length);
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // An escape that decodes to no text leaves the path as given.
+  }
+  return decodedDoi(path).toLowerCase();
+}
+
+/** A DOI with its "<" and ">" percent-escaped, the form acquire_open_full_text's published doi pattern takes. */
+export function escapedDoi(doi: string): string {
+  return doi.replace(/</gu, "%3C").replace(/>/gu, "%3E");
+}
+
+/** A DOI's link at doi.org, with each character a URL's path can't carry percent-encoded, so "<" reaches it as %3C. */
+export function doiUrl(doi: string): string {
+  return `https://doi.org/${doi.replace(DOI_URL_ESCAPES, (character) => encodeURIComponent(character))}`;
+}
 
 export function normalizeDoiIdentifier(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 5_000) return undefined;
   let doi = value.trim();
   if (/^doi:/iu.test(doi)) {
-    doi = doi.slice(4).trim();
+    doi = decodedDoi(doi.slice(4).trim());
   } else if (/^https?:\/\//iu.test(doi)) {
     let url: URL;
     try {
@@ -21,10 +67,13 @@ export function normalizeDoiIdentifier(value: unknown): string | undefined {
       return undefined;
     }
     try {
-      doi = decodeURIComponent(url.pathname.slice(1));
+      // Decoded in full, then read as a bare DOI is, so reading the result again changes nothing.
+      doi = decodedDoi(decodeURIComponent(url.pathname.slice(1)));
     } catch {
       return undefined;
     }
+  } else {
+    doi = decodedDoi(doi);
   }
   const canonical = doi.toLowerCase();
   return DOI_PATTERN.test(canonical) ? canonical : undefined;

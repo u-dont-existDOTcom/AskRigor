@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
   InMemoryResearchContributorAccessStore,
   RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
@@ -23,12 +24,13 @@ import {
 } from "../apps/research-mcp/src/research-contributor-access-tool.js";
 import {
   FINALIZE_REMINDER, FINALIZE_RESEARCH_SHAPES_DESCRIPTION, TOOL_LIST_REFRESH_HINT, finalizeResearch, meaningJudgeSourceOf,
-  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, type FinalizeResearchInput
+  finalizeResearchInputSchema, forumThreadDigest, plainAnswerClaimDigest, repeatedNotesLine, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import {
   discoveryQueryDigest, issueResearchReceipt, plainAnswerAccountBinding, researchTargetDigest, verifyResearchReceipt
 } from "../apps/research-mcp/src/research-receipts.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 import { CARD } from "./helpers/findings-fixtures.js";
 
 // Owner answer 190a (2026-10-27) extends 140b to every active account. Originally, 140b (2026-10-20): "for paid and dev accounts at once. Before research, the AI writes the short answer
@@ -60,7 +62,7 @@ const COMPARISON: Comparison = [
   { claim: CLAIMS[0]!, outcome: "corrected", answer_quote: CORRECTED, sources: [DOI] },
   { claim: CLAIMS[1]!, outcome: "not_checked" }
 ];
-const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => withCommunitySkip({
+const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchInput => withSourceReading(withCommunitySkip({
   receipts: [plainReceipt(1_000), audit()],
   research_target: TARGET, research_depth: "deep", treatment_choice: "not_compared",
   community_evidence: "not_relevant", not_relevant_basis: "no_real_world_outcome", question_about: "other",
@@ -73,7 +75,7 @@ const base = (overrides: Partial<FinalizeResearchInput> = {}): FinalizeResearchI
   answer_draft: `${LINK}\n\n${CORRECTED} ${QUALIFIED}`,
   plain_answer_comparison: COMPARISON,
   ...overrides
-});
+}));
 // An account asked for a plain answer, with its note on, unless a test passes its setting, or null for another account.
 const check = (overrides: Partial<FinalizeResearchInput> = {}, note: boolean | null = true) =>
   assertNextStepsContract(finalizeResearch(base(overrides), {
@@ -361,7 +363,9 @@ describe("finalize_research compares the answer with the plain answer registered
     const withinTurn = check({ ...correction, carried_state: result.carry_forward, round_token: result.round_token });
     expect(withinTurn.round?.number).toBe(1);
     expect(withinTurn.carried).toMatchObject({ turn: result.carried!.turn, first_turn: true });
-    expect(advisoryNotes(withinTurn)).toContain(problem);
+    // The same notes, the problem among them, come back within the turn only as their count (5 Nov 2026).
+    expect(advisoryNotes(withinTurn)).not.toContain(problem);
+    expect(advisoryNotes(withinTurn)).toContain(repeatedNotesLine(advisoryNotes(result).length));
     // A new turn passes the earlier state's token without the round token: that claim may have been shown.
     const later = check({ ...correction, carried_state: result.carry_forward });
     expect(later.status).toBe("ready_with_limits");
@@ -500,8 +504,11 @@ describe("manage_research_access and finalize_research through the connector (ow
         if (registered === name) handler = execute;
       }
     } as unknown as McpServer, { researchAccessRequired: true, mcpSurface: "/mcp/claude", ...options });
+    // The published finalize_research input, later_inputs included (owner answer 189a), as a strict client checks it.
     return async (input: Record<string, unknown>, subject: string) => handler!(
-      (name === "finalize_research" ? finalizeResearchInputSchema : manageResearchAccessInputSchema).parse(input), {
+      (name === "finalize_research" ? finalizeResearchInputSchema.extend({
+        later_inputs: z.record(z.string(), z.unknown()).optional()
+      }) : manageResearchAccessInputSchema).parse(input), {
         authInfo: {
           token: "synthetic-token", clientId: "synthetic-client", scopes: ["research:use"],
           expiresAt: Math.floor(Date.now() / 1_000) + 60, extra: { subject }

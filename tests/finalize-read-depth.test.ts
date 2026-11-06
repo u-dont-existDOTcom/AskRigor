@@ -9,6 +9,7 @@ import {
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const SECRET = "read-depth-test-secret-01234567890123456789";
 const DOI = "10.1000/depth";
@@ -43,7 +44,7 @@ describe.each(["gate", "MCP endpoint"] as const)("read_depth through %s", (surfa
   });
   afterAll(async () => { await client?.close(); await server?.close(); vi.unstubAllEnvs(); });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withCommunitySkip(base(overrides));
+    const input = withSourceReading(withCommunitySkip(base(overrides)));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);

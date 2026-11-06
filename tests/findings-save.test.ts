@@ -63,10 +63,12 @@ import {
   RESEARCH_MAP_OFFERED,
   researchMapReminder,
   TOOL_LIST_REFRESH_HINT,
+  type FinalizeResearchOutput,
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
 const NOW = new Date("2026-09-30T12:00:00.000Z");
@@ -202,6 +204,21 @@ describe("findings library save", () => {
     await expect(service(github).save(saveInput({ findings_card: unsafe, finalization_receipt: receipt }), CONTEXT))
       .resolves.toEqual({ status: "privacy_rejected", retryable: false, reason_code: "unsafe_card" });
     expect(github.writes).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: a test run's check signs its mark, and the save refuses its card, whoever asks.
+  it("refuses a card whose check was marked findings_save off, before the limit or the queue", async () => {
+    const github = new FakeGitHub();
+    let consumed = 0;
+    const counting: LessonAttemptLimiter = {
+      consume: () => { consumed += 1; return { allowed: true }; },
+      lastBlockingReason: () => "hourly_limit",
+    };
+    const receipt = finalization({ findings: findingsCardDigest(findingsCardSchema.parse(CARD)), fs: "off" });
+    await expect(service(github, { limiter: counting }).save(saveInput({ findings_card: CARD, finalization_receipt: receipt }), CONTEXT))
+      .resolves.toEqual({ status: "call_saving_off", retryable: false });
+    expect(github.writes).toEqual([]);
+    expect(consumed).toBe(0);
   });
 
   // Owner answer 156a (2026-10-22): the library keeps only findings that would help other people.
@@ -632,7 +649,9 @@ describe("finalize_research, save_research_findings and the findings library", (
       const parsed = name === "finalize_research" && !("later_inputs" in input)
         ? finalizeResearchInputSchema.parse(input)
         : name === "save_research_findings" ? saveResearchFindingsInputSchema.parse(input) : input;
-      return await handler!(parsed, subject === undefined ? {} : {
+      // A checked answer says how each key study it cites was read (the owner, 5 Nov 2026); the shared helper gives
+      // these fixtures its words after the published schema has read the call.
+      return await handler!(name === "finalize_research" ? withSourceReading(parsed) : parsed, subject === undefined ? {} : {
         authInfo: {
           token: "synthetic-token",
           clientId: "synthetic-client",
@@ -1195,6 +1214,148 @@ describe("finalize_research, save_research_findings and the findings library", (
     };
   }
 
+  // The free Claude test of 5 Nov 2026: the regression harness and the owner's own research share one account and its one
+  // saving switch, which the owner's research turned on mid-run, so test cases saved ARF-0297 and ARF-0300. A call
+  // marked later_inputs.findings_save "off" saves no card and keeps no copy, whatever the switch says.
+  it("saves and keeps nothing from a call marked findings_save off, whatever the account's switch", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const marked = { ...request(), later_inputs: { findings_save: "off" } };
+    const result = await finalize(marked, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      status: "ready_with_limits", findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+    });
+    expect(result.structuredContent).not.toHaveProperty("saved_line");
+    expect(resultText(result)).toContain("\nFindings card: checked; not saved: this call turned card saving off.");
+    // A marked call whose answer hasn't passed keeps no copy either.
+    const open = await finalize({ ...marked, receipts: [] }, "auth0|free");
+    expect(open.structuredContent).toMatchObject({ status: "not_ready" });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: one misspelt later input beside the marker once dropped every later input, the marker too,
+  // and a test run's card was saved. The marker is read from the raw call on its own.
+  it("keeps the marker beside a misspelt, misplaced or doubled later input", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    for (const later of [{ findings_save: "off", name_form: [] }, { findings_save: "off", absence_claims: [] },
+      { findings_save: "off", search_coverage: ["other_journals"] }]) {
+      const result = await finalize({ ...request(), search_coverage: ["historical_terms"], later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { status: "checked", saved: { status: "not_saved", reason: "call_saving_off" } },
+      });
+      // A marked call whose answer hasn't passed keeps no copy either.
+      await finalize({ ...request(), receipts: [], later_inputs: later }, "auth0|free");
+    }
+    // At the top level, where an older app may put it, the marker is read too.
+    expect((await finalize({ ...request(), findings_save: "off", later_inputs: {} }, "auth0|free")).structuredContent)
+      .toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+  });
+
+  // The review of 5 Nov 2026: the marker reached neither the paid flow nor save_research_findings.
+  it("offers no save from a marked call, for every account, and its receipt makes save_research_findings refuse it", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const options = { researchContributorAccessService: service, findingsLibrary: true, findingsSave };
+    const finalize = connectorTool("finalize_research", options);
+    const save = connectorTool("save_research_findings", options);
+    const marked = (subject: string) => finalize({ ...request(), later_inputs: { findings_save: "off" } }, subject);
+    const paid = (await marked("auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(paid).toMatchObject({ status: "ready_with_limits", caveats: [SKIP], findings_card: { status: "checked" } });
+    expect(paid.findings_card).not.toHaveProperty("saved");
+    expect(paid).not.toHaveProperty("research_map");
+    const free = (await marked("auth0|free")).structuredContent as FinalizeResearchOutput;
+    expect(free).not.toHaveProperty("research_map");
+    for (const [result, subject] of [[paid, "auth0|paid"], [free, "auth0|free"]] as const) {
+      expect(verifyResearchReceipt(result.finalization_receipt!, { secret: SECRET }))
+        .toMatchObject({ ok: true, kind: "finalization", claims: { fs: "off" } });
+      const refused = await save({ findings_card: CHECKED_CARD, finalization_receipt: result.finalization_receipt,
+        user_consent: "yes_to_this_save" }, subject);
+      expect(refused.isError).toBe(true);
+      expect(refused.structuredContent).toEqual({ status: "call_saving_off", retryable: false });
+      expect(refused.content).toEqual([{ type: "text", text: "Not saved: the finalize_research call that checked " +
+        "this card was marked findings_save \"off\", as a test run is, so its card is never saved." }]);
+    }
+    expect(calls).toEqual([]);
+    // An unmarked check's receipt signs no mark, and its card is saved after the user's yes.
+    const unmarked = (await finalize(request(), "auth0|paid")).structuredContent as FinalizeResearchOutput;
+    expect(verifyResearchReceipt(unmarked.finalization_receipt!, { secret: SECRET }).claims).not.toHaveProperty("fs");
+    expect((await save({ findings_card: CHECKED_CARD, finalization_receipt: unmarked.finalization_receipt,
+      user_consent: "yes_to_this_save" }, "auth0|paid")).structuredContent).toMatchObject({ status: "saved" });
+  });
+
+  // The recheck of 5 Nov 2026: ["off"], and later_inputs sent as a JSON string holding the marker, let a card save. Its
+  // third check: true, "on" and stray text read as off would cost the owner's own research a card, when a model meant
+  // true as "save", as set_findings_save's true does. Only an explicit off is off; any other value leaves the account's
+  // setting to decide, with a note.
+  it("reads only an explicit off as the marker, and leaves any other value to the account's setting, with a note", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const service = await accessService();
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: service, findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const notes = (result: CallToolResult) => ((result.structuredContent as { notes?: string[] }).notes ?? []).join("\n");
+    // Sent as text, later_inputs holds no source_reading the check can read, so the call gives it at the top level.
+    const asText = { ...withSourceReading(request(), { topLevel: true, check: { secret: SECRET } }),
+      later_inputs: JSON.stringify({ findings_save: "off" }) };
+    for (const [later, note] of [[{ findings_save: ["off"] }, 'findings_save: read as "off"; give "off", its value.'],
+      [{ findings_save: false }, 'findings_save: read as "off"; give "off", its value.'],
+      [asText.later_inputs, "findings_save: read as \"off\" from later_inputs given as text"]] as const) {
+      const result = await finalize(typeof later === "string" ? asText : { ...request(), later_inputs: later }, "auth0|free");
+      expect(result.structuredContent, JSON.stringify(later)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } },
+      });
+      expect(notes(result)).toContain(note);
+      expect(verifyResearchReceipt((result.structuredContent as FinalizeResearchOutput).finalization_receipt!,
+        { secret: SECRET }).claims).toMatchObject({ fs: "off" });
+    }
+    expect(calls).toEqual([]);
+    expect(kept).toEqual([]);
+    // Any other value is no marker: the account's switch decides, off or on, and a note says why.
+    const notOff = "findings_save: not read as off. It only turns card saving off, with \"off\"; any other value leaves " +
+      "the account's setting to decide.";
+    await service.setFindingsSave("auth0|free", false);
+    for (const value of [true, "on", "yes"]) {
+      const result = await finalize({ ...request(), later_inputs: { findings_save: value } }, "auth0|free");
+      expect(result.structuredContent, String(value)).toMatchObject({
+        findings_card: { saved: { status: "not_saved", reason: "dev_account_saving_off" } },
+      });
+      expect(notes(result)).toContain(notOff);
+    }
+    expect(calls).toEqual([]);
+    await service.setFindingsSave("auth0|free", true);
+    const meantSave = await finalize({ ...request(), later_inputs: { findings_save: true } }, "auth0|free");
+    expect(meantSave.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(calls).toHaveLength(1);
+    // Absent, or given as null, nothing is said; "OFF", only cased otherwise, is off with no note.
+    const saved = await finalize({ ...request(), later_inputs: { findings_save: null } }, "auth0|free");
+    expect(saved.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved", card_id: "ARF-0042" } } });
+    expect(notes(saved)).not.toContain("findings_save");
+    expect(calls).toHaveLength(2);
+    const cased = await finalize({ ...request(), later_inputs: { findings_save: "OFF" } }, "auth0|free");
+    expect(cased.structuredContent).toMatchObject({ findings_card: { saved: { status: "not_saved", reason: "call_saving_off" } } });
+    expect(notes(cased)).not.toContain("findings_save");
+    // Text that isn't JSON is no marker either: its envelope is dropped with its note, as any other.
+    const textual = await finalize({ ...asText, later_inputs: "findings_save is not needed here" }, "auth0|free");
+    expect(textual.structuredContent).toMatchObject({ findings_card: { saved: { status: "saved" } } });
+    expect(notes(textual)).toContain("later_inputs: dropped.");
+    expect(calls).toHaveLength(3);
+  });
+
   it("keeps a private copy of a refused card, tells the AI, and says so at the end of a passing answer", async () => {
     process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
     const service = await accessService();
@@ -1244,6 +1405,27 @@ describe("finalize_research, save_research_findings and the findings library", (
     });
     expect(kept).toHaveLength(1);
     expect(kept[0]).toMatchObject({ why: "malformed", card: tooLong });
+  });
+
+  // The third check of 5 Nov 2026: a corrected card sent in later_inputs that doesn't read gave way to the out-of-date
+  // top-level card, which was saved. A findings card never falls back: its later form is read, and kept privately.
+  it("never saves the top-level card beside a corrected later card that doesn't read, and keeps the correction", async () => {
+    process.env.ASKRIGOR_FINALIZATION_SIGNING_SECRET = SECRET;
+    const { calls, findingsSave } = recorder();
+    const { kept, findingsKeep } = keeper();
+    const finalize = connectorTool("finalize_research", {
+      researchContributorAccessService: await accessService(), findingsLibrary: true, findingsSave, findingsKeep,
+    });
+    const corrected = { ...CHECKED_CARD, findings: [{ ...CHECKED_CARD.findings[0],
+      claim: "A corrected claim the AI meant to save instead.",
+      backing: [{ source: "PMC10518852", sentence: "x".repeat(400), against: "Too long a sentence for the later shape." }] }] };
+    const result = await finalize({ ...request(), later_inputs: { findings_card: corrected } }, "auth0|free");
+    expect(result.structuredContent).toMatchObject({
+      findings_card: { status: "rejected", saved: { status: "not_saved", reason: "kept_for_review" } },
+    });
+    expect(calls).toEqual([]);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({ why: "malformed", card: corrected });
   });
 
   it("keeps a checked card whose answer hasn't passed, with no line for an answer that isn't finished", async () => {

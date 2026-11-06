@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { issueCarriedState, verifyCarriedState, type CarriedState } from "../apps/research-mcp/src/carried-state.js";
-import { CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { CORRECTION_REPORT_OFFER, finalizeResearch, finalizeResearchInputSchema, parseFinalizeResearchInput, repeatedNotesLine, type FinalizeResearchInput } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 const SECRET = "carried-state-fixture-secret-01234567890123456789";
 const NOW = () => new Date("2026-10-17T12:00:00.000Z");
@@ -45,7 +45,7 @@ describe("conversation state carried between final checks", () => {
   });
   it("names a dropped observation, caps those steps at ten, and accepts a withdrawn observation with its caveat", () => {
     const token = check({ user_observations: [observation] }).carry_forward;
-    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`);
+    expect(carriedSteps({ carried_state: token })).toContain(`user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     const withdrawn = check({ carried_state: token, user_observations: [{ ...observation, response: "withdrawn" }] });
     expect(advisoryNotes(withdrawn).join("\n")).not.toContain("user_observations leaves out");
     expect(withdrawn.limits).toContain(`A report its source has taken back: ${observation.observation}. It counts neither for nor against an effect.`);
@@ -55,6 +55,86 @@ describe("conversation state carried between final checks", () => {
     expect(check({ carried_state: token, user_observations: [added] }).carried!.observations).toEqual([added, observation]);
     const many = check({ user_observations: Array.from({ length: 13 }, (_, i) => ({ ...observation, observation: `Observation ${i}` })) }).carry_forward;
     const missing = carriedSteps({ carried_state: many }); expect(missing).toHaveLength(11); expect(missing.at(-1)).toBe("and 3 more earlier observations.");
+  });
+  it("lets a check reword or drop an observation an earlier check of its own turn declared (5 Nov 2026)", () => {
+    const first = check({ user_observations: [observation] });
+    const reworded = { ...observation, observation: "drowsiness a friend had after the same product" };
+    const same = check({ carried_state: first.carry_forward, round_token: first.round_token, user_observations: [reworded] });
+    expect(advisoryNotes(same).join("\n")).not.toContain("user_observations leaves out");
+    // The turn's latest list replaces its drafts: the reworded entry alone is carried, never both.
+    expect(same.carried!.observations).toEqual([reworded]);
+    expect(same.carried!.turn_observations).toEqual([0]);
+    const next = check({ carried_state: same.carry_forward });
+    expect(advisoryNotes(next).join("\n")).toContain(`user_observations leaves out ${JSON.stringify(reworded.observation)} from an earlier turn`);
+    expect(advisoryNotes(next).join("\n")).not.toContain(JSON.stringify(observation.observation));
+    // An earlier turn's observation stays enforced within a later turn, re-declared or not.
+    const kept = check({ carried_state: first.carry_forward, user_observations: [observation] });
+    const dropped = check({ carried_state: kept.carry_forward, round_token: kept.round_token, user_observations: [] });
+    expect(advisoryNotes(dropped).join("\n")).toContain("user_observations leaves out");
+    expect(dropped.carried!.observations).toEqual([observation]);
+    expect(dropped.carried!.turn_observations).toBeUndefined();
+  });
+  it("accepts not_tried in user_observations' newer form, with its limit (5 Nov 2026)", () => {
+    const review = { observation: "a reader's review of the book's exercises", response: "not_tried" as const, source: "someone_else" as const };
+    const { user_observations: _topLevel, ...withoutTopLevel } = base();
+    const parsed = parseFinalizeResearchInput({ ...withoutTopLevel, later_inputs: { user_observations: [review] } });
+    expect(parsed.success).toBe(true);
+    expect(parsed.notes).toEqual([]);
+    const result = check(parsed.data!);
+    expect(result.limits).toContain(`A report from someone who never tried it: ${review.observation}. It counts neither for nor against an effect.`);
+    expect(result.limits.join("\n")).not.toContain("no longer sure");
+    expect(result.carried!.observations).toEqual([review]);
+    const repeated = check({ ...parsed.data!, proposed_tests: [{ quote: "Try it.", repeats: 0, blinded: true }] });
+    expect(advisoryNotes(repeated)).toContain("proposed_tests[0].repeats names user_observations[0], a report whose writer never tried it: leave repeats out.");
+    expect(advisoryNotes(repeated).join("\n")).not.toContain("repeats what the user already tried");
+    // Given in both places, the later_inputs form, the newer one, is used, and a note says so (the review of 5 Nov 2026).
+    const both = parseFinalizeResearchInput({ ...base({ user_observations: [observation] }), later_inputs: { user_observations: [review] } });
+    expect(both.notes).toContain("later_inputs.user_observations: user_observations is given both at the top level and " +
+      "in later_inputs: its later_inputs form, the newer one, is used.");
+    expect(both.data!.user_observations).toEqual([review]);
+  });
+  it("gives a note once per turn: a later check of the turn names how many it does not repeat (5 Nov 2026)", () => {
+    const { user_observations: _left, ...withoutObservations } = base({ answer_draft: "Synthetic answer." });
+    const call = (overrides: Partial<FinalizeResearchInput> = {}) =>
+      assertNextStepsContract(finalizeResearch({ ...withoutObservations, ...overrides }, { secret: SECRET, now: NOW }));
+    const first = call();
+    const note = advisoryNotes(first).find((text) => text.startsWith("user_observations is missing"))!;
+    expect(note).toBeDefined();
+    const second = call({ carried_state: first.carry_forward, round_token: first.round_token });
+    expect(advisoryNotes(second)).not.toContain(note);
+    const hidden = advisoryNotes(first).filter((text) => !advisoryNotes(second).includes(text)).length;
+    expect(hidden).toBeGreaterThan(0);
+    expect(advisoryNotes(second)).toContain(repeatedNotesLine(hidden));
+    // The digests carry on through the turn, so a third check repeats nothing either; the next turn gives it again.
+    const third = call({ carried_state: second.carry_forward, round_token: second.round_token });
+    expect(advisoryNotes(third)).not.toContain(note);
+    expect(advisoryNotes(call({ carried_state: third.carry_forward }))).toContain(note);
+    expect(repeatedNotesLine(2)).toBe("2 notes an earlier check of this turn gave are not repeated. Each still stands " +
+      "unless the draft or this call's declarations already meet it, in your own words; none asks you to remove a source or claim.");
+    expect(repeatedNotesLine(1)).toMatch(/^One note an earlier check of this turn gave is not repeated\. It still stands /u);
+  });
+  it("carries the turn's own observations when a check leaves user_observations out (review of 5 Nov)", () => {
+    const first = check({ user_observations: [observation] });
+    const { user_observations: _left, ...without } = base();
+    const call = (overrides: Partial<FinalizeResearchInput>) =>
+      assertNextStepsContract(finalizeResearch({ ...without, ...overrides }, { secret: SECRET, now: NOW }));
+    const second = call({ carried_state: first.carry_forward, round_token: first.round_token });
+    expect(second.carried!.observations).toEqual([observation]);
+    expect(second.carried!.turn_observations).toEqual([0]);
+    // A misspelt later input is dropped alone, and user_observations' newer form beside it is used (the review of 5 Nov
+    // 2026: one bad key once dropped every later input).
+    const newer = { ...observation, response: "not_tried" as const };
+    const parsed = parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
+      later_inputs: { user_observations: [newer], open_leadz: [] } });
+    expect(parsed.notes.join("\n")).toContain("open_leadz");
+    expect(parsed.data!.user_observations).toEqual([newer]);
+    // With every later input dropped, the turn's own observations are still carried: nothing is lost.
+    expect(call(parseFinalizeResearchInput({ ...without, carried_state: first.carry_forward, round_token: first.round_token,
+      later_inputs: [] }).data!).carried!.observations).toEqual([observation]);
+    // The next turn: the entry is an earlier turn's, and a call leaving the list out still carries it.
+    const next = call({ carried_state: second.carry_forward });
+    expect(next.carried!.observations).toEqual([observation]);
+    expect(next.carried!.turn_observations).toBeUndefined();
   });
   it("rejects tampering and still runs the other checks, without inheriting its contents", () => {
     const token = check({ user_observations: [observation], rejected_options: ["Old option"] }).carry_forward!;
@@ -128,8 +208,10 @@ describe("conversation state carried between final checks", () => {
       answer_draft: "The rate was 40%."
     };
     const steps = carriedSteps(current);
+    // An observation a check of this turn declared is that turn's draft (5 Nov 2026); a later turn still asks for it.
+    expect(carriedSteps({ ...current, round_token: undefined })).toContain(
+      `user_observations leaves out ${JSON.stringify(observation.observation)} from an earlier turn of this conversation: keep it in these words, which the check compares exactly, marked withdrawn or uncertain if its source took it back.`);
     expect(steps).toEqual([
-      `user_observations leaves out ${JSON.stringify(observation.observation)} from earlier in this conversation: keep it, marked withdrawn or uncertain if its source took it back.`,
       "rejected_options leaves out Option A, which the user rejected earlier in this conversation: keep it, or list it in reopened if the user reopened it.",
       'Give primary_outcome: the user\'s main goal carried from earlier in this conversation is "Explain why".',
       'The answer repeats a statement taken back earlier in this conversation: "The rate was 40%.". Leave it out.'
@@ -276,8 +358,10 @@ describe("27 Oct community carry regressions", () => {
     const other = [{ name: "YouTube", platform: "youtube" as const }];
     const later = check({ carried_state: first.carry_forward, principal_communities: other });
     expect(advisoryNotes(later).join("\n")).toContain("principal_communities leaves out r/ExampleOne");
-    expect(advisoryNotes(check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other })).join("\n"))
-      .toContain("principal_communities leaves out r/ExampleOne");
+    // A note on the conversation's continuity comes back at every check while it stands, within a turn too.
+    const again = advisoryNotes(check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other }));
+    expect(again.join("\n")).toContain("principal_communities leaves out r/ExampleOne");
+    expect(again.join("\n")).not.toContain("not repeated");
     const withdrawn = check({ carried_state: later.carry_forward, round_token: later.round_token, principal_communities: other,
       withdrawn_named_communities: [{ name: "r/ExampleOne", reason: "The combined label was misattributed." }] });
     expect(advisoryNotes(withdrawn).join("\n")).not.toContain("principal_communities leaves out");

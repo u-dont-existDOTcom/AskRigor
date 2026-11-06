@@ -110,6 +110,44 @@ export interface ClinicalTrial {
   has_results?: boolean;
   references?: ClinicalTrialReference[];
   last_update?: string;
+  /** fetchClinicalTrial only: what the record registered (ClinicalTrialRegistration). */
+  registration?: ClinicalTrialRegistration;
+}
+
+export interface ClinicalTrialOutcome {
+  measure: string;
+  time_frame?: string;
+  description?: string;
+}
+
+export interface ClinicalTrialSecondaryId {
+  id: string;
+  type?: string;
+  domain?: string;
+}
+
+export interface ClinicalTrialSite {
+  facility?: string;
+  city?: string;
+  country?: string;
+}
+
+/**
+ * What one record registered, kept by fetchClinicalTrial and not by search (the study map, owner answer 249a): when it
+ * was first submitted and first posted, whether its start date is actual or estimated, its outcomes, its other
+ * identifiers and where it recruits. A site's contacts are never kept. Only the record's current version is served, so
+ * outcomes changed since registration can't be told from it.
+ */
+export interface ClinicalTrialRegistration {
+  first_submitted?: string;
+  first_posted?: string;
+  start_date_type?: string;
+  primary_outcomes?: ClinicalTrialOutcome[];
+  secondary_outcomes?: ClinicalTrialOutcome[];
+  other_outcomes?: ClinicalTrialOutcome[];
+  secondary_ids?: ClinicalTrialSecondaryId[];
+  /** How many sites it lists, their countries, and the first SITES_LISTED of them. */
+  sites?: { count: number; countries: string[]; listed: ClinicalTrialSite[] };
 }
 
 interface VersionCache {
@@ -209,7 +247,8 @@ export const fetchClinicalTrial = async (
       throw new ClinicalTrialsResponseError();
     }
 
-    const trial = normalizeStudy(parsedStudy.data);
+    const registration = registrationOf(parsedStudy.data.protocolSection);
+    const trial = { ...normalizeStudy(parsedStudy.data), ...(registration === undefined ? {} : { registration }) };
     const freshness = await providerFreshness();
     return okEnvelope({
       provider: "clinicaltrials_gov",
@@ -331,6 +370,93 @@ const normalizeStudy = (study: z.infer<typeof studySchema>): ClinicalTrial => {
       status?.lastUpdatePostDateStruct?.date ?? status?.lastUpdateSubmitDate
     )
   };
+};
+
+// The registration's fields, each read on its own: one the record words unexpectedly is left out, never the record.
+const SITES_LISTED = 25;
+const registeredOutcomeSchema = z.object({
+  measure: z.string().min(1),
+  description: z.string().min(1).optional(),
+  timeFrame: z.string().min(1).optional()
+}).passthrough();
+const secondaryIdSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1).optional(),
+  domain: z.string().min(1).optional()
+}).passthrough();
+// A site's contacts (names, telephones, emails) are not read.
+const siteSchema = z.object({
+  facility: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  country: z.string().min(1).optional()
+}).passthrough();
+const registrationModulesSchema = z.object({
+  identificationModule: z.object({ secondaryIdInfos: z.array(z.unknown()).optional() }).passthrough().optional(),
+  statusModule: z.object({
+    studyFirstSubmitDate: z.unknown().optional(),
+    studyFirstPostDateStruct: z.unknown().optional(),
+    startDateStruct: z.unknown().optional()
+  }).passthrough().optional(),
+  outcomesModule: z.object({
+    primaryOutcomes: z.array(z.unknown()).optional(),
+    secondaryOutcomes: z.array(z.unknown()).optional(),
+    otherOutcomes: z.array(z.unknown()).optional()
+  }).passthrough().optional(),
+  contactsLocationsModule: z.object({ locations: z.array(z.unknown()).optional() }).passthrough().optional()
+}).passthrough();
+
+const each = <T>(schema: z.ZodType<T>, values: readonly unknown[] | undefined): T[] =>
+  (values ?? []).flatMap((value) => {
+    const parsed = schema.safeParse(value);
+    return parsed.success ? [parsed.data] : [];
+  });
+
+const outcomesOf = (values: readonly unknown[] | undefined): ClinicalTrialOutcome[] =>
+  each(registeredOutcomeSchema, values).map(({ measure, description, timeFrame }) => ({
+    measure,
+    ...definedString("time_frame", timeFrame),
+    ...definedString("description", description)
+  }));
+
+const textOf = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length > 0 ? value : undefined;
+
+const dateOf = (value: unknown): string | undefined =>
+  value !== null && typeof value === "object" ? textOf((value as { date?: unknown }).date) : undefined;
+
+/** What the record registered: dates, outcomes, other identifiers and sites, as far as it gives them. */
+const registrationOf = (protocolSection: unknown): ClinicalTrialRegistration | undefined => {
+  const parsed = registrationModulesSchema.safeParse(protocolSection);
+  if (!parsed.success) return undefined;
+  const { identificationModule, statusModule, outcomesModule, contactsLocationsModule } = parsed.data;
+  const startType = statusModule?.startDateStruct !== null && typeof statusModule?.startDateStruct === "object"
+    ? textOf((statusModule.startDateStruct as { type?: unknown }).type) : undefined;
+  const secondaryIds = each(secondaryIdSchema, identificationModule?.secondaryIdInfos)
+    .map(({ id, type, domain }) => ({ id, ...definedString("type", type), ...definedString("domain", domain) }));
+  const sites = each(siteSchema, contactsLocationsModule?.locations)
+    .map(({ facility, city, country }) => ({
+      ...definedString("facility", facility), ...definedString("city", city), ...definedString("country", country)
+    }));
+  const primary = outcomesOf(outcomesModule?.primaryOutcomes);
+  const secondary = outcomesOf(outcomesModule?.secondaryOutcomes);
+  const other = outcomesOf(outcomesModule?.otherOutcomes);
+  const registration: ClinicalTrialRegistration = {
+    ...definedString("first_submitted", textOf(statusModule?.studyFirstSubmitDate)),
+    ...definedString("first_posted", dateOf(statusModule?.studyFirstPostDateStruct)),
+    ...definedString("start_date_type", startType),
+    ...(primary.length === 0 ? {} : { primary_outcomes: primary }),
+    ...(secondary.length === 0 ? {} : { secondary_outcomes: secondary }),
+    ...(other.length === 0 ? {} : { other_outcomes: other }),
+    ...(secondaryIds.length === 0 ? {} : { secondary_ids: secondaryIds }),
+    ...(sites.length === 0 ? {} : {
+      sites: {
+        count: sites.length,
+        countries: [...new Set(sites.flatMap(({ country }) => country === undefined ? [] : [country]))],
+        listed: sites.slice(0, SITES_LISTED)
+      }
+    })
+  };
+  return Object.keys(registration).length === 0 ? undefined : registration;
 };
 
 const normalizeIntervention = (

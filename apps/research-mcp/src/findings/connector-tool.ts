@@ -75,6 +75,14 @@ export function findingsSaveToolResult(raw: FindingsSaveResult): CallToolResult 
         result,
         true,
       );
+    // The free Claude test of 5 Nov 2026: a test run's check is marked findings_save "off", and its card stays unsaved.
+    case "call_saving_off":
+      return receipt(
+        "Not saved: the finalize_research call that checked this card was marked findings_save \"off\", as a test run " +
+          "is, so its card is never saved.",
+        result,
+        true,
+      );
     // Owner answer 156a (2026-10-22): personal-only findings are never saved for the Atlas, even when the user asks.
     case "personal_only":
       return receipt(

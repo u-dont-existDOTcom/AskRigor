@@ -2,10 +2,16 @@
 import { advisoryNotes, assertNextStepsContract, inventory } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT, type FinalizeResearchInput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "contested-evidence-test-secret-0123456789012345";
 const DOI = "10.1000/contested";
@@ -105,11 +111,19 @@ describe("declared contested intervention evidence-strength verdicts", () => {
     const receipts = [...base().receipts, sign("literature_search", { src: "pubmed", q: "a".repeat(12), ret: 0, n: 0 })];
     const result = check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"] });
     expect(result.status).toBe("ready_with_limits");
+    // Journals outside PubMed and Europe PMC stay uncovered until a search beyond them is declared (search_coverage's
+    // newer form, other_journals: the free Claude test of 5 Nov 2026).
+    const indexesOnly = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
+      "not find it, and they did not cover journals outside PubMed and Europe PMC; that is not evidence that it does " +
+      "not exist.";
+    expect(result.limits).toEqual([communitySkipCaveat(base().not_relevant_reason!), indexesOnly]);
+    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!)]);
     const notFound = "Where this answer says something was not found, it means the searches made here (PubMed) did " +
       "not find it; that is not evidence that it does not exist.";
-    expect(result.limits).toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
-    expect(result.caveats).toEqual([communitySkipCaveat(base().not_relevant_reason!)]);
-    expect(check({ ...notLocated, receipts, search_coverage: ["historical_terms", "citation_chains", "grey_literature"],
+    const all = ["historical_terms", "citation_chains", "grey_literature", "other_journals"];
+    expect(check({ ...notLocated, receipts, search_coverage: all }).limits)
+      .toEqual([communitySkipCaveat(base().not_relevant_reason!), notFound]);
+    expect(check({ ...notLocated, receipts, search_coverage: all,
       answer_draft: `${base().answer_draft} ${notFound}` }).status).toBe("ready_with_limits");
   });
   it("publishes the new state and descriptive evidence-strength declaration in the generated catalog", () => {

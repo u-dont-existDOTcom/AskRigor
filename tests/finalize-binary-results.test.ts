@@ -22,6 +22,7 @@ import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 
 import { communitySkipCaveat, withCommunitySkip } from "./helpers/community-skip.js";
 import { withHarmScreen } from "./helpers/harm-screen.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 // AskRigor#356 and the 21 Oct q136 responders case, whose answer computed a ratio from counts that conflicted with the
 // paper's: for each yes-or-no outcome the answer reports for two groups, the model declares each group's events and
@@ -106,8 +107,9 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     vi.unstubAllEnvs();
   });
   const call = async (overrides: Partial<FinalizeResearchInput> = {}): Promise<FinalizeResearchOutput> => {
-    const input = withHarmScreen(withCommunitySkip(packageFor(overrides)));
-    if (input.answer_draft !== undefined) input.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const linked = withHarmScreen(withCommunitySkip(packageFor(overrides)));
+    if (linked.answer_draft !== undefined) linked.answer_draft += `\n\n[Study](https://doi.org/${DOI})`;
+    const input = withSourceReading(linked);
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
     const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
     expect(result.isError).not.toBe(true);
@@ -188,6 +190,64 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
       "binary_results[0], binary_results[0].harms_quote give text the answer does not show: copy each sentence " +
         "exactly from answer_draft."
     ]);
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026): o356-ssris-years gave a harms_quote with no number needed
+  // to treat, its answer no longer showed it, and it passed unchecked. Given, it is the answer's own sentence, checked as
+  // every declared quote is: word for word, as whole words, in any script.
+  it("checks a harms_quote given without a number needed to treat, as whole words, in any script", async () => {
+    const shown = async (overrides: Partial<FinalizeResearchInput>) => {
+      const result = await call(overrides);
+      ready(result);
+      expect(advisoryNotes(result).join("\n")).not.toContain("harms_quote");
+    };
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    advised(await call({ answer_draft: plain.quote, binary_results: [plain] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} ${HARMS}`, binary_results: [plain] });
+    // Inside a longer word or number it is not shown: "3% stopped" is not in "13% stopped".
+    const stopped = "3% stopped the drug for side effects.";
+    advised(await call({ answer_draft: `${plain.quote} About 1${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} About ${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] });
+    // A cased script's word does not run on into another letter; a script without case matches exactly anywhere.
+    advised(await call({ answer_draft: `${plain.quote} Harmlessness was similar in both groups.`,
+      binary_results: [declaration({ ...plain, harms_quote: "Harm" })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    const chinese = "两组的副作用相似。";
+    await shown({ answer_draft: `${plain.quote} 十二周内两组的副作用相似。`,
+      binary_results: [declaration({ ...plain, harms_quote: chinese })] });
+  });
+
+  // The review of #421: whole-word matching refused honest quotes beside a citation link glued to the last word, a
+  // superscript marker, or a letter of a script without case. A link's edges are word boundaries, a superscript is no
+  // digit of a word, and a cased letter runs on only into a cased letter, a decimal digit or a combining mark.
+  it("finds an honest declared quote beside a citation link, a superscript, or a script without case", async () => {
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    const shownAs = async (sentence: string, harms: string) => {
+      const result = await call({ answer_draft: `${plain.quote} ${sentence}`, binary_results: [declaration({ ...plain, harms_quote: harms })] });
+      return advisoryNotes(result).filter((note) => note.includes("does not show"));
+    };
+    const cases: Array<[string, string]> = [
+      [`${HARMS.slice(0, -1)}[1](https://example.org/a).`, HARMS],
+      [`${HARMS.slice(0, -1)}\u00B9.`, HARMS],
+      ["副作用はSSRI群とプラセボ群で同程度だった。", "SSRI群とプラセボ群で同程度だった"],
+      ["两组每日10mg的副作用相似。", "两组每日10mg"],
+      [HARMS, HARMS]
+    ];
+    for (const [sentence, harms] of cases) expect(await shownAs(sentence, harms), sentence).toEqual([]);
+    // A word or number running on stays refused.
+    expect(await shownAs("About 13% stopped the drug.", "3% stopped the drug.")).toHaveLength(1);
+    expect(await shownAs("Harmlessness was similar.", "Harm")).toHaveLength(1);
+    // A quote across a link's edge is still found in the text as the reader sees it.
+    expect(await shownAs("About 1[3% stopped](https://example.org/a).", "13% stopped")).toEqual([]);
   });
 
   it("names a group with more events than people, and leaves its other numbers unchecked", async () => {

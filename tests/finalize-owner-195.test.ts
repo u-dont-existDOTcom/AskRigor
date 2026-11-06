@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { finalizeResearch } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, researchTargetDigest, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
+import { withSourceReading } from "./helpers/source-reading.js";
 
 const secret = "owner-195-final-check-test-secret-0123456789";
 const options = { secret };
@@ -11,12 +12,14 @@ const page = "https://www.jgtps.com/admin/uploads/tUXQnG.pdf";
 const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Parameters<typeof issueResearchReceipt>[1]) =>
   issueResearchReceipt(kind, claims, options);
 const audit = sign("study_audit", { id: doi, url: page });
+// The answer says how the study was read (the owner, 5 Nov 2026), and the shared helper copies those words into
+// source_reading, adding them to a draft a call changes.
 const base = {
   research_target: target, receipts: [audit],
-  answer_draft: `[Rat study](${page}) reports a provisional result.`,
+  answer_draft: `[Rat study](${page}) (full text read, methods audited by AskRigor) reports a provisional result.`,
   key_sources: [{ id: doi, status: "validated", read_depth: "full_text_audited", answer_marker: "Rat study" }]
 };
-const check = (overrides: Record<string, unknown> = {}) => finalizeResearch({ ...base, ...overrides }, options);
+const check = (overrides: Record<string, unknown> = {}) => finalizeResearch(withSourceReading({ ...base, ...overrides }), options);
 
 describe("owner answers 193a and 195: only five blocking checks", () => {
   it("passes a replay with every other declaration missing in one round, preserving notes, limits and the draft digest", () => {
@@ -36,6 +39,7 @@ describe("owner answers 193a and 195: only five blocking checks", () => {
     ["source receipt", { receipts: [] }, "no receipt"],
     ["source link", { answer_draft: "Rat study reports a provisional result." }, "no link"],
     ["read depth", { receipts: [sign("full_text_lead", { doi, state: "ABSTRACT_ONLY" })] }, "read_depth"],
+    ["how a cited study was read", { later_inputs: { source_reading: [{ source: doi, quote: "abstract only" }] } }, "how it was read"],
     ["arithmetic", { binary_results: [{ quote: "30 of 100 versus 10 of 100 at 12 weeks: NNT 9.", outcome: "response", better: "more", option: "drug", option_events: 30, option_total: 100, comparator: "placebo", comparator_events: 10, comparator_total: 100, follow_up: "12 weeks", nnt: 9 }] }, "rounds up to 5"],
     ["shown figure", { binary_results: [{ quote: "99% versus 88%", outcome: "response", better: "more", option: "drug", option_events: 30, option_total: 100, comparator: "placebo", comparator_events: 10, comparator_total: 100, follow_up: "12 weeks" }] }, "quotes no figure"],
     ["harm screen", { safety_claims: [{ quote: "Harm was reported.", direction: "harm", exposure: "drug", basis: "not_quantified" }] }, "harm_screen"],

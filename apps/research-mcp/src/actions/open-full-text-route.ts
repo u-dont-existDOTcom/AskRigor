@@ -71,6 +71,19 @@ export const acquireOpenFullTextActionInputSchema = z.object({
   candidate_texts: candidateTextsSchema.optional(),
   public_copy_search: publicCopySearchSchema.optional()
 }).strict();
+/**
+ * The doi a call may give at runtime: the published pattern, which the tool lists keep as they froze it (owner answer
+ * 189a), with "<" and ">" too, which older SICI-form DOIs carry (the owner regressions on #412's build, judged 6 Nov 2026:
+ * a Wiley DOI was refused at the schema). A percent-escaped DOI ("%3C" for "<") fits the published pattern already and
+ * is read as its characters. The MCP tool takes this form at the top level or in later_inputs (later-inputs.ts).
+ */
+export const runtimeActionDoiSchema = z.string().trim().max(2_048).regex(
+  /^(?:[Hh][Tt][Tt][Pp][Ss]?:\/\/(?:[Dd][Xx]\.)?[Dd][Oo][Ii]\.[Oo][Rr][Gg]\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>A-Za-z0-9]+$/u
+);
+/** acquire_open_full_text's input as it is checked when it runs: its published form, with runtimeActionDoiSchema. */
+export const acquireOpenFullTextRuntimeInputSchema = acquireOpenFullTextActionInputSchema.extend({
+  doi: runtimeActionDoiSchema.optional()
+});
 export const continueOpenFullTextActionInputSchema = z.object({
   document_handle: handleSchema
 }).strict();
@@ -389,7 +402,7 @@ export function createOpenFullTextExecutor(
       return structuredClone(state.index);
     },
     async acquire(input, runtime) {
-      const parsed = acquireOpenFullTextActionInputSchema.parse(input);
+      const parsed = acquireOpenFullTextRuntimeInputSchema.parse(input);
       const result = await acquire(parsed, unpaywallConfig, runtime);
       const data = result.data as OpenFullTextAcquisitionData;
       if (result.access_status !== "complete" || data.document_index === undefined ||
@@ -633,6 +646,7 @@ export function createOpenFullTextActionRoutes(
       maximumRequestBytes: 5_000_000,
       description: "Acquires an identity-verified full text using at least one of doi, pmcid or pmid. Without a DOI, uses Europe PMC by PMCID or resolves the PMID there; Unpaywall and the owner library require a DOI. Also checks up to five public HTTPS candidate_urls and up to two AI-supplied candidate_texts from a client search index. Reports structural completeness, embedded-block extraction, copy provenance, abstract cross-check limitations, and access or provider failures; admitted copies have a document handle for method audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
+      runtimeInputSchema: acquireOpenFullTextRuntimeInputSchema,
       outputSchema: openFullTextActionOutputSchema,
       async handle(input) {
         return executor.acquire(input);
@@ -833,6 +847,8 @@ interface RouteDefinition<I extends z.ZodType, O extends z.ZodType> {
   maximumRequestBytes?: number;
   description: string;
   inputSchema: I;
+  /** What a call is checked against when it runs, when that differs from the published inputSchema. */
+  runtimeInputSchema?: I;
   outputSchema: O;
   handle(input: z.output<I>): Promise<z.output<O>>;
 }
@@ -857,7 +873,7 @@ function route<I extends z.ZodType, O extends z.ZodType>(
       422: actionJsonSchema(openFullTextActionErrorSchema)
     },
     async handle({ body }: ActionRequestContext): Promise<ActionResult> {
-      const input = definition.inputSchema.safeParse(body);
+      const input = (definition.runtimeInputSchema ?? definition.inputSchema).safeParse(body);
       if (!input.success) return actionError("action_input_invalid");
       try {
         return {

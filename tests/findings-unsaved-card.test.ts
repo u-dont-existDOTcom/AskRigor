@@ -58,7 +58,7 @@ function service(github: FakeGitHub, options: {
     limiter: allow,
     unsavedLimiter: options.unsavedLimiter ?? allow,
     queue: options.queue ?? queueOf(github),
-    protocols: async () => [{ name: "HRP", version: "20.6.39", sha256: "a".repeat(64) }],
+    protocols: async () => [{ name: "HRP", version: "20.6.40", sha256: "a".repeat(64) }],
     version: "0.1.0",
     build: "0123abc",
     now: () => NOW,

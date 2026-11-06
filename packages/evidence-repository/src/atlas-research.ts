@@ -10,8 +10,8 @@ import { z } from "zod";
 
 /** How AskRigor read a source, from the final check's receipts or the depth the AI declared. */
 export const ATLAS_SOURCE_READINGS = [
-  "full_text_audited", "search_copy_audited", "full_text_read", "partial_text", "abstract_only", "atlas_checked",
-  "secondary_only", "not_read",
+  "full_text_audited", "search_copy_audited", "full_text_read", "search_copy_read", "partial_text", "abstract_only",
+  "atlas_checked", "secondary_only", "not_read",
 ] as const;
 export type AtlasSourceReading = typeof ATLAS_SOURCE_READINGS[number];
 /** A study audit's check of its printed figures against its own data. */

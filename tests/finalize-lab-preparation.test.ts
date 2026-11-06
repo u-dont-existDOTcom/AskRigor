@@ -4,12 +4,18 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  finalizeResearch, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
+  finalizeResearch as finalizeResearchUnwrapped, finalizeResearchInputSchema, TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput, type FinalizeResearchOutput
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { withCommunitySkip } from "./helpers/community-skip.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 const SECRET = "lab-preparation-test-secret-01234567890123456789";
 const DOI = "10.1000/lab";
@@ -52,7 +58,7 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     // The answer carries the sentence its no_real_world_outcome declaration requires (owner question 125).
     const input = withCommunitySkip(base(overrides));
     if (surface === "gate") return assertNextStepsContract(finalizeResearch(input, { secret: SECRET }));
-    const result = await client!.callTool({ name: "finalize_research", arguments: { ...input } });
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({ ...input }) });
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
@@ -128,9 +134,9 @@ describe.each(["gate", "MCP endpoint"] as const)("lab_preparation through the %s
     expect(result.status).toBe("ready_with_limits");
   });
   if (surface === "MCP endpoint") it("rejects a too-short reason at the endpoint", async () => {
-    const result = await client!.callTool({ name: "finalize_research", arguments: {
+    const result = await client!.callTool({ name: "finalize_research", arguments: withSourceReading({
       ...base(), lab_preparation: { status: "not_applicable", reason: "short" }
-    } });
+    }) });
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({ status: "ready_with_limits", answer_checked: true });
     expect((result.structuredContent!.notes as string[]).join("\n")).toContain("lab_preparation.reason:");

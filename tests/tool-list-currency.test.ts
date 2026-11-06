@@ -128,7 +128,8 @@ describe("telling the user when the app's copy of AskRigor's tools is out of dat
     }).notes ?? [];
     expect(steps(call(VERSION), VERSION)).toContain(
       "user_observations is missing: with answer_draft, it lists each observation the user reported, about themselves " +
-        "or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn (an empty " +
+        "or others, that the answer relies on or rules out, marked effect, no_effect, uncertain or withdrawn, or, in " +
+        "later_inputs.user_observations, not_tried for a report whose writer never tried what it describes (an empty " +
         "list means none)."
     );
     // The same version: the field is in this app's tools, so nothing about refreshing.

@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 import { fetchJson } from "./http.js";
-import { normalizeDoiIdentifier } from "./doi.js";
+import { doiUrl, normalizeDoiIdentifier } from "./doi.js";
 
 const WORKS_URL = "https://api.crossref.org/works";
 const CITATION_ROWS = 5;
@@ -521,7 +521,7 @@ const publicationYear = (message: Message): string | undefined => {
 
 const sourceIdentity = (message: Message, doi: string) => {
   const candidate = candidateFromMessage(message);
-  return { canonical_url: `https://doi.org/${doi}`, ...(candidate.title === undefined ? {} : { title: candidate.title }), ...(candidate.first_author === undefined ? {} : { authors_or_channel: [candidate.first_author] }) };
+  return { canonical_url: doiUrl(doi), ...(candidate.title === undefined ? {} : { title: candidate.title }), ...(candidate.first_author === undefined ? {} : { authors_or_channel: [candidate.first_author] }) };
 };
 
 const publicationEventKind = (value: string): PublicationIntegrityEvent["event_kind"] => {

@@ -2,7 +2,8 @@ import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
 import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
-import { withLaterInputs } from "./later-inputs.js";
+import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
+import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
 import { atlasLookupInputSchema, atlasLookupOutputSchema, atlasLookupToolResult, configuredAtlasLookupSource } from "./atlas/lookup-tool.js";
 import type { AtlasPageSource } from "@askrigor/evidence-repository";
@@ -11,8 +12,14 @@ import { createHash } from "node:crypto";
 import { readAnswer, secondReaderEnabled, type SecondReader } from "./second-reader.js";
 import { meaningJudgeBundle, meaningJudgeFromEnv, type MeaningJudge } from "./meaning-judge.js";
 import {
-  abstractDocument, lookUpSourceLines, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument, type SourceLineTexts
+  abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
+  type SourceLineTexts
 } from "./source-lines.js";
+import { READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance } from "./source-reading.js";
+import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
+import {
+  lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
+} from "./study-map.js";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { FINAL_CHECK_PANEL_URI } from "./final-check-panel.js";
@@ -51,6 +58,7 @@ import {
   type PubmedRecord,
   checkRetractionStatus,
   resolveDoi,
+  escapedDoi,
   searchClinicalTrials,
   searchEuropePmc,
   searchPubmed,
@@ -267,6 +275,7 @@ import {
   finalizeResearchPublishedOutputSchema,
   meaningJudgeSourceOf,
   sourceLineRequestsOf,
+  studyMapRequestsOf,
   backingRequestsOf,
   type FinalizeResearchOptions,
   type FinalizeResearchOutput
@@ -612,6 +621,34 @@ const clinicalTrialEnvelopeSchema = z.object({
   error: errorSchema.optional(),
   data: clinicalTrialRecordSchema.or(z.object({}).strict())
 }).strict();
+// Owner answer 249a, runtime only (owner answer 189a): what one fetched record registered, for comparing a trial's
+// paper with its registration; the study map's check fetches the record again itself.
+const clinicalTrialOutcomeSchema = z.object({
+  measure: z.string(),
+  time_frame: z.string().optional(),
+  description: z.string().optional()
+}).strict();
+const CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE = {
+  registration: z.object({
+    first_submitted: z.string().optional().describe("When the record was first submitted to ClinicalTrials.gov."),
+    first_posted: z.string().optional().describe("When ClinicalTrials.gov first posted it."),
+    start_date_type: z.string().optional().describe("Whether data.start_date is the actual start or an estimate."),
+    primary_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    secondary_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    other_outcomes: z.array(clinicalTrialOutcomeSchema).optional(),
+    secondary_ids: z.array(z.object({
+      id: z.string(), type: z.string().optional(), domain: z.string().optional()
+    }).strict()).optional().describe("The trial's other identifiers, such as another registry's number."),
+    sites: z.object({
+      count: z.number().int().nonnegative(),
+      countries: z.array(z.string()),
+      listed: z.array(z.object({
+        facility: z.string().optional(), city: z.string().optional(), country: z.string().optional()
+      }).strict())
+    }).strict().optional().describe("How many sites it lists, their countries and the first 25, without contacts.")
+  }).strict().optional()
+    .describe("What the record registered, as it stands now: ClinicalTrials.gov serves no earlier version here.")
+};
 const crossrefCandidateSchema = z.object({
   doi: z.string(),
   title: z.string().optional(),
@@ -836,6 +873,11 @@ export interface RegisterToolsOptions {
   meaningJudge?: MeaningJudge;
   /** Where source lines are looked up (owner answer 237a); AskRigor's held full texts and PubMed otherwise. */
   sourceLineTexts?: SourceLineTexts;
+  /**
+   * Where a study map is looked up (owner answer 249a): texts as for source lines, and ClinicalTrials.gov records;
+   * AskRigor's held full texts, PubMed and ClinicalTrials.gov otherwise.
+   */
+  studyMapTexts?: StudyMapTexts;
   infoAccess?: InfoAccessClient;
   redditReader?: RedditReaderClient;
   forumPageReader?: typeof readForumPage;
@@ -1282,7 +1324,7 @@ function defineResearchOperations(
         const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total) + literatureOutageNote("pubmed", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data),
           result
         ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
@@ -1311,14 +1353,22 @@ function defineResearchOperations(
         // The receipt records whether PubMed lists a DOI or a PMC copy, which
         // decides whether finalize_research may accept this PMID as a lead
         // without acquisition.
-        const record = result.data as { pmid?: string; doi?: string; pmcid?: string } | undefined;
+        const record = result.data as { pmid?: string; doi?: string; pmcid?: string; abstract?: string } | undefined;
         const retrieved = result.access_status === "api_visible_complete" || result.access_status === "complete";
+        // The receipt signs whether the record had an abstract (abs), so the final check shows an abstract read only
+        // when there was one (the review of 5 Nov 2026).
+        const abstract = (record?.abstract ?? "").trim() !== "";
+        const receipt = retrieved && record?.pmid === pmid
+          ? researchReceipt("pubmed_record", { pmid, doi: record.doi, pmcid: record.pmcid, abs: abstract ? "1" : "0" })
+          : undefined;
+        // The owner, 5 Nov 2026: a signed record names how the study was read from it (source-reading.ts).
+        const reading = receipt === undefined ? "" : ` ${readingResultNote(READING_RESULT_WHEN.record,
+          abstract ? "abstract_only" : "metadata_only")}`;
         return withResearchReceipt(pubmedToolResult(
-          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
+          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}` +
+            angleBracketDoiNote(result.data),
           result
-        ), retrieved && record?.pmid === pmid
-          ? researchReceipt("pubmed_record", { pmid, doi: record.doi, pmcid: record.pmcid })
-          : undefined);
+        ), receipt);
       } catch (error) {
         return pubmedToolResult(
           `PubMed record ${pmid} retrieval failed; access status error.`,
@@ -1355,7 +1405,7 @@ function defineResearchOperations(
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("europe_pmc", result.error) + angleBracketDoiNote(result.data),
           { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
@@ -1415,9 +1465,12 @@ function defineResearchOperations(
     async ({ nct_id }) => {
       try {
         const result = await fetchClinicalTrial(nct_id);
+        // Owner answer 249a, runtime only (owner answer 189a): what the record registered, beside the published data.
+        const { registration, ...trial } = result.data;
+        const content = { ...result, data: trial, ...(registration === undefined ? {} : { registration }) };
         return clinicalTrialsToolResult(
           `ClinicalTrials.gov study ${nct_id} retrieval finished with access status ${result.access_status}.`,
-          result
+          content
         );
       } catch (error) {
         return clinicalTrialsToolResult(
@@ -1451,7 +1504,7 @@ function defineResearchOperations(
         // Tie the page the DOI is registered to, so finalize_research can
         // accept a key study linked by that page.
         return withResearchReceipt(crossrefToolResult(
-          `Crossref DOI resolution finished with access status ${result.access_status}.`,
+          `Crossref DOI resolution finished with access status ${result.access_status}.${angleBracketDoiNote(result.data)}`,
           result
         ), typeof resolvedDoi === "string" && candidate?.landing_url !== undefined
           ? researchReceipt("doi_resolution", { doi: resolvedDoi.toLowerCase(), url: candidate.landing_url })
@@ -1605,7 +1658,8 @@ function defineResearchOperations(
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return withResearchReceipt(youtubeToolResult(
-          `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
+          `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.` +
+            commentLeadsGuidance(result),
           result
         ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
@@ -1636,7 +1690,8 @@ function defineResearchOperations(
           ...(cursor === undefined ? {} : { cursor })
         }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return withResearchReceipt(youtubeToolResult(
-          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}`,
+          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}. ${COMMENT_SEARCH_NON_EVIDENCE}` +
+            commentLeadsGuidance(result),
           commentSearchOutput(result)
         ), youtubeCommentsReadReceipt(result));
       } catch (_error) {
@@ -2479,29 +2534,50 @@ function defineResearchOperations(
       let gateOptions: FinalizeResearchOptions = { ...finalizeOptions, onCommentsRead: (read) => { commentsRead = read; } };
       let result = finalizeResearch(input, gateOptions);
       // Owner answer 237a: a passing check's source lines are looked up in the text AskRigor fetched, exactly and with
-      // no model. Whatever happens, the check stands: a line that couldn't be looked up says so in a note.
-      // Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same texts, and
-      // what came of them is signed into the finalization receipt.
+      // no model. Owner answer 252a: a checked card's backing lines are looked up with them, in one pass over the same
+      // texts, and what came of them is signed into the finalization receipt. Owner answer 249a: so is its study map,
+      // with its studies' ClinicalTrials.gov records, within the same deadline; the map's PubMed reads come after the
+      // lines', so they never delay them, and what the map read in time is kept. Whatever happens, the check stands:
+      // what couldn't be looked up says so in a note.
       const lookups = checkedInput?.source_lines === undefined ? undefined : sourceLineRequestsOf(result);
       const backing = backingRequestsOf(result);
-      if (lookups !== undefined || backing !== undefined) {
+      const mapRequests = studyMapRequestsOf(result);
+      if (lookups !== undefined || backing !== undefined || mapRequests !== undefined) {
+        const lineTexts = options.sourceLineTexts ?? AskRigorSourceLineTexts;
+        const mapTexts = options.studyMapTexts ?? AskRigorStudyMapTexts;
+        // One paper's text is read once when both look in the same texts.
+        const lineCache = quoteCache();
+        const mapCache = mapTexts.fullText === lineTexts.fullText && mapTexts.abstract === lineTexts.abstract
+          ? lineCache : quoteCache();
         const given = lookups === undefined ? [] : checkedInput!.source_lines!;
         const lines = [...given, ...(backing?.lines ?? [])];
         const requests = [...(lookups ?? []),
           ...(backing?.requests ?? []).map((request) => ({ ...request, line: given.length + request.line }))];
         const late = requests.map(({ line }) => ({ source: lines[line]!.source,
           sentence: "not_checked" as const, conclusion: "not_checked" as const, reason: "text_unavailable" as const }));
-        const looked = await withinDeadline(lookUpSourceLines(lines, requests, options.sourceLineTexts ?? AskRigorSourceLineTexts)
-          .catch(() => late), SOURCE_LINE_DEADLINE_MILLISECONDS, late);
+        const looking = requests.length === 0 ? undefined : withinDeadline(
+          lookUpSourceLines(lines, requests, lineTexts, lineCache).catch(() => late),
+          SOURCE_LINE_DEADLINE_MILLISECONDS, late);
+        const [looked, studyMapLookup] = await Promise.all([
+          looking,
+          // The map keeps its own deadline; this one only guards against a lookup that never settles.
+          mapRequests === undefined ? undefined : withinDeadline(
+            lookUpStudyMap(mapRequests.map, mapRequests.requests, mapTexts,
+              { cache: mapCache, milliseconds: SOURCE_LINE_DEADLINE_MILLISECONDS, ...(looking === undefined ? {} : { after: looking }) })
+              .catch(() => lateStudyMapLookup(mapRequests.map)),
+            SOURCE_LINE_DEADLINE_MILLISECONDS + STUDY_MAP_GUARD_MILLISECONDS, lateStudyMapLookup(mapRequests.map))
+        ]);
         const fromLines = lookups?.length ?? 0;
         const withLines: FinalizeResearchOptions = {
           ...gateOptions,
-          ...(lookups === undefined ? {} : { sourceLineLookups: looked.slice(0, fromLines) })
+          ...(lookups === undefined ? {} : { sourceLineLookups: (looked ?? late).slice(0, fromLines) }),
+          // Owner answer 249a: the study map's lookup stands whether or not the backing lines' lookups can be signed.
+          ...(studyMapLookup === undefined ? {} : { studyMapLookup })
         };
         const withBacking: FinalizeResearchOptions = backing === undefined ? withLines : {
           ...withLines,
           backingLookups: backing.lines.map(({ finding, line }, place) =>
-            ({ finding, line, lookup: looked[fromLines + place] ?? late[fromLines + place]! }))
+            ({ finding, line, lookup: looked?.[fromLines + place] ?? late[fromLines + place]! }))
         };
         // The review of 5 November (finding 6): a receipt that can't be issued with what the lookups found (one too
         // long, say) never stops the call: the check is made again without the backing lines' lookups, and otherwise
@@ -2542,7 +2618,16 @@ function defineResearchOperations(
           result = finalizeResearch(input, { ...gateOptions, meaningJudgment: judgment });
         }
       }
-      if (
+      // The free Claude test of 5 Nov 2026: test runs and the owner's own research share one account and its one saving
+      // switch, which the owner's research turned on mid-run, so test cases saved cards ARF-0297 and ARF-0300. A call
+      // marked later_inputs.findings_save "off" saves no card and keeps no copy, whatever the switch says; the value can
+      // only turn saving off. The harness reaches AskRigor through the ChatGPT app inside Codex, whose connection
+      // OpenAI's platform makes, so the marker rides in the call, not in a header (docs/owner-regressions.md).
+      // Read from the raw call on its own, so no other input's problem can lose it (the review of 5 Nov 2026).
+      const callSavingOff = findingsSaveOff(input);
+      if (account?.mode === "FREE_CONTRIBUTOR" && callSavingOff && result.findings_card.status === "checked") {
+        result.findings_card.saved = { status: "not_saved", reason: "call_saving_off" };
+      } else if (
         account?.mode === "FREE_CONTRIBUTOR" && !account.findingsSave && result.findings_card.status === "checked"
       ) {
         // Owner answer 171, default 5: regression runs still pass the same final check, but save no findings card.
@@ -2581,9 +2666,8 @@ function defineResearchOperations(
       }
       // The owner, 4 Nov 2026: a card that didn't save is kept privately for a second look, so a finding isn't lost on
       // a technicality. Saving-off dev accounts keep nothing, as they save nothing, and it never changes the check.
-      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && checkedInput !== undefined
-        ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard)
-        : undefined;
+      const unsaved = account?.mode === "FREE_CONTRIBUTOR" && account.findingsSave && !callSavingOff &&
+        checkedInput !== undefined ? unsavedCardWhy(result.findings_card, parsed.droppedFindingsCard) : undefined;
       let keptCardId: string | undefined;
       if (unsaved !== undefined) {
         const kept = await withinDeadline((options.findingsKeep ?? keepUnsavedFindingsCard)({
@@ -2614,8 +2698,12 @@ function defineResearchOperations(
         result.saved_line = result.saved_line === undefined ? line : `${result.saved_line} ${line}`;
       }
       // Analyses a free contributor's research validated, in this chat or another, go to the review inbox at the
-      // account's next passing final check (analysis-staging.ts).
-      if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
+      // account's next passing final check (analysis-staging.ts). A test run's call, marked findings_save "off", sends
+      // none, and drops those of the documents its own audit receipts name, so a test leaves nothing in the inbox; the
+      // account's other research keeps its analyses for its own check (the review of 5 Nov 2026).
+      if (researcher?.mode === "FREE_CONTRIBUTOR" && callSavingOff) {
+        ANALYSIS_STAGING.discard(researcher.accountKey, auditedHandles(input, secret));
+      } else if (researcher?.mode === "FREE_CONTRIBUTOR" && result.finalization_receipt !== undefined) {
         const held = ANALYSIS_STAGING.take(researcher.accountKey);
         if (held.length > 0) {
           result.analyses_saved = await saveStagedAnalyses(
@@ -2646,10 +2734,15 @@ function defineResearchOperations(
           result.caveats
             .map((caveat) => `\nInclude as written, translated when the answer is not in English: ${caveat}`).join("") +
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
+          // The owner, 5 Nov 2026: each key source's reading, up front, so the answer says it before a check blocks.
+          (result.source_reading === undefined ? "" : `\n${sourceReadingGuidance(result.source_reading)}`) +
           (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
               "when the answer is not in English.") +
+          // Owner answer 249a: the study map's shape, only with a passing check of an answer combining studies.
+          (!passing || checkedInput === undefined || checkedInput.study_map !== undefined ||
+            checkedInput.key_sources.length < 2 ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
@@ -2691,6 +2784,7 @@ function defineResearchOperations(
                         ? `not saved, and a private copy is kept for review${card.problems.length === 0 ? ""
                           : `: ${card.problems.join(" ")}`}`
                       : card.saved.reason === "dev_account_saving_off" ? "not saved: this dev account's card saving is off"
+                      : card.saved.reason === "call_saving_off" ? "not saved: this call turned card saving off"
                       : card.saved.reason === "youtube_findings_only" ? YOUTUBE_FINDINGS_NOT_SAVED : "not saved"
                     : card.saved.status === "unconfirmed"
                       ? "the save had not finished; it may still complete"
@@ -2790,6 +2884,13 @@ function registerFindingsSave(
       if (account === undefined) {
         return reply({ status: "queue_unavailable", retryable: false, reason_code: "research_account_required" });
       }
+      // A test run's check, marked findings_save "off", signs that in its receipt: its card is refused here, for every
+      // account, before any save is tried (the review of 5 Nov 2026). The save itself refuses it too.
+      const secret = researchReceiptSecretFromEnv();
+      const checked = secret === undefined ? undefined : verifyResearchReceipt(input.finalization_receipt, { secret });
+      if (checked?.ok === true && checked.kind === "finalization" && checked.claims.fs === "off") {
+        return reply({ status: "call_saving_off", retryable: false });
+      }
       return reply(await (options.findingsSave ?? saveResearchFindings)({
         findings_card: input.findings_card,
         finalization_receipt: input.finalization_receipt,
@@ -2832,9 +2933,22 @@ async function withinDeadline<T>(work: Promise<T>, milliseconds: number, late: T
   }
 }
 
+/** The document handles a call's verified study and review audit receipts sign. */
+function auditedHandles(raw: unknown, secret: string | undefined): Set<string> {
+  const receipts = raw !== null && typeof raw === "object" && Array.isArray((raw as { receipts?: unknown }).receipts)
+    ? (raw as { receipts: unknown[] }).receipts : [];
+  return new Set(secret === undefined ? [] : receipts.flatMap((receipt) => {
+    if (typeof receipt !== "string") return [];
+    const verified = verifyResearchReceipt(receipt, { secret });
+    return verified.ok && (verified.kind === "study_audit" || verified.kind === "review_audit") &&
+      typeof verified.claims.handle === "string" ? [verified.claims.handle] : [];
+  }));
+}
+
 /** What finalize_research reports of a findings save: its public id, or that it was not saved. */
 // The saves' own refusals of what is meant to stay out of the library: nothing about them is a technicality.
-const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "youtube_findings_only"]);
+const NOT_FOR_THE_LIBRARY: ReadonlySet<string> = new Set(["personal_only", "dev_account_saving_off", "call_saving_off",
+  "youtube_findings_only"]);
 
 /** Why a free contributor's card wasn't saved, or undefined when it was, may yet be, or there was none to save. */
 function unsavedCardWhy(check: FinalizeResearchOutput["findings_card"], dropped: boolean): UnsavedCardWhy | undefined {
@@ -2894,10 +3008,11 @@ function reservedResultBytes(text: string, receipt: string | undefined): number 
   return Buffer.byteLength(text, "utf8") + 2 * receiptBytes + reminderBytes + 200;
 }
 // A pass lock says the comments were retrieved, not that they reached the answer.
+// 5 Nov 2026: the loop from people's reports to studies is asked for where the comments are read (community-leads.ts).
 const MCP_COMMENT_FINDINGS_HANDOFF =
   "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
   "Note now what these comments show (benefit, no-effect and adverse reports), and give it to finalize_research as " +
-  "community_findings, even if the signal is weak or neutral.";
+  `community_findings, even if the signal is weak or neutral. ${COMMUNITY_LEADS_GUIDANCE}`;
 const MCP_COMMENTS_NOT_SHOWN =
   "No comment fitted in this view; read each video's comments with audit_youtube_video_community.";
 const MCP_VIDEO_COMMENTS_NOT_SHOWN =
@@ -2987,13 +3102,16 @@ async function readSmallSearchWhole<Page extends { error?: unknown; pagination: 
 
 // A search that finds little is where a narrow vocabulary misses most (owner
 // report, 2026-09-30: geosmin and humic acid searched under modern terms only),
-// so its result says what to try before calling anything not found.
+// so its result says what to try before calling anything not found. ClinicalTrials.gov's, a registry's, says this
+// alone; PubMed's and Europe PMC's say it too, then name the key name's other forms and a source beyond them
+// (absence-searches.ts).
 const SPARSE_SEARCH_RECORDS = 10;
 function sparseSearchNote(total: number | undefined): string {
-  return total === undefined || total > SPARSE_SEARCH_RECORDS
-    ? ""
-    : " Few records: before saying anything was not found, try synonyms, older or variant terms, the components of " +
-      "a mixed exposure, and citation chains.";
+  return total === undefined || total > SPARSE_SEARCH_RECORDS ? "" : SPARSE_SEARCH_NOTE;
+}
+// The free Claude test of 5 Nov 2026: a small search is one read whole (WHOLE_SEARCH_RECORDS, 50 or fewer records).
+function smallLiteratureSearchNote(total: number | undefined): string {
+  return total === undefined || total > WHOLE_SEARCH_RECORDS ? "" : SMALL_LITERATURE_SEARCH_NOTE;
 }
 
 // The owner regression run of 5 Nov 2026: from 03:49 UTC NCBI's PubMed search failed for everyone (HTTP 500 at
@@ -3314,6 +3432,12 @@ function researchReceipt(
     : issueResearchReceipt(kind, { ...claims, t: receiptSequence() }, { secret });
 }
 
+// 5 Nov 2026: comments returned outside an audit raise leads for studies too, so their result asks for the loop
+// (community-leads.ts) when comments came back, as their receipt is signed.
+function commentLeadsGuidance(result: { error?: unknown; pagination: { returned: number } }): string {
+  return result.error === undefined && result.pagination.returned > 0 ? ` ${COMMUNITY_LEADS_GUIDANCE}` : "";
+}
+
 // Owner answer 219b: comments returned outside an audit leave a receipt too, so a findings card that says nothing about
 // them is held. It signs the video and how many records came back, never what they say.
 function youtubeCommentsReadReceipt(
@@ -3412,9 +3536,12 @@ function registerOpenFullTextMcpTools(
       outputSchema: studyMethodAuditPublishedRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input, extra) => stageValidatedAnalysis(
-      "study", await invokeOpenFullTextMcp("validate_study_method_audit", input), extra, options
-    )
+    async (input, extra) => {
+      // The recheck of 5 Nov 2026: a test run's audit, marked findings_save, is never held for the review inbox.
+      const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
+      return stageValidatedAnalysis("study", await invokeOpenFullTextMcp("validate_study_method_audit", audit), extra,
+        options, findingsSaveOff({ findings_save: marker }));
+    }
   );
   registrar.registerTool(
     "validate_review_method_audit",
@@ -3424,9 +3551,11 @@ function registerOpenFullTextMcpTools(
       outputSchema: reviewMethodAuditActionOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async (input, extra) => stageValidatedAnalysis(
-      "review", await invokeOpenFullTextMcp("validate_review_method_audit", input), extra, options
-    )
+    async (input, extra) => {
+      const { findings_save: marker, ...audit } = input as typeof input & { findings_save?: unknown };
+      return stageValidatedAnalysis("review", await invokeOpenFullTextMcp("validate_review_method_audit", audit), extra,
+        options, findingsSaveOff({ findings_save: marker }));
+    }
   );
 }
 
@@ -3435,14 +3564,19 @@ function registerOpenFullTextMcpTools(
  * to send to the review inbox (owner decision, 30 Sep). The validation result
  * is returned unchanged and never waits: building the contribution, with its
  * Crossref integrity check, runs in the background. Repository reuse is
- * skipped, since that analysis is already in the repository.
+ * skipped, since that analysis is already in the repository. A test run's
+ * audit, marked findings_save, is never held (the recheck of 5 Nov 2026): test
+ * runs share the owner's account, and nothing else tells their analyses apart
+ * from the owner's own research, whose analyses stay held as before.
  */
 async function stageValidatedAnalysis(
   kind: "study" | "review",
   result: CallToolResult,
   extra: unknown,
-  options: RegisterToolsOptions
+  options: RegisterToolsOptions,
+  marked = false
 ): Promise<CallToolResult> {
+  if (marked) return result;
   const body = result.structuredContent as {
     status?: string;
     audit_receipt?: { audit_sha256?: string };
@@ -3473,7 +3607,7 @@ async function stageValidatedAnalysis(
     auditReceipt: body!.audit_receipt as never,
     crossref: crossrefConfig(),
     canonical: LIVING_EVIDENCE_READER
-  }));
+  }), handle);
   return result;
 }
 
@@ -3563,16 +3697,27 @@ async function invokeOpenFullTextMcp(
       type: "text",
       text: `${operationId.replaceAll("_", " ")} completed.` +
         ((result.body as { access_boundary?: string; acquisition_state?: string }).acquisition_state === undefined ? "" : ` ${(result.body as { access_boundary?: string }).access_boundary ?? ""}`) + (failedLead
-        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "")
+        ? failureText : "") + (completedLead ? ` ${OTHER_FULL_TEXT_ROUTE}` : "") + openFullTextReadingNote(receipt)
     }],
     structuredContent: result.body as Record<string, unknown>
   }, receipt);
+}
+
+/**
+ * The owner, 5 Nov 2026: a result whose receipt shows how a paper was read names the words for it, so the answer says
+ * them before its first final check (source-reading.ts).
+ */
+function openFullTextReadingNote(receipt: string | undefined): string {
+  const note = receiptReadingNote(receipt, researchReceiptSecretFromEnv());
+  return note === "" ? "" : ` ${note}`;
 }
 
 const OPEN_FULL_TEXT_READER = createOpenFullTextExecutor();
 
 // How long a passing check may wait to look its source lines up; the held texts are in memory, PubMed's are one call.
 const SOURCE_LINE_DEADLINE_MILLISECONDS = 8_000;
+// Past the study map's own deadline, which keeps what it read, a lookup that never settles is given up.
+const STUDY_MAP_GUARD_MILLISECONDS = 1_000;
 const AskRigorSourceLineTexts: SourceLineTexts = {
   fullText(handle) {
     try {
@@ -3588,6 +3733,16 @@ const AskRigorSourceLineTexts: SourceLineTexts = {
     const abstract = record?.abstract;
     return record === undefined || abstract === undefined || abstract === "" ? undefined
       : abstractDocument(abstract, pubmedAbstractSections(record));
+  }
+};
+// Owner answer 249a: a study map's texts are the source lines', and its registry records are fetched again at check
+// time, by NCT number alone.
+const AskRigorStudyMapTexts: StudyMapTexts = {
+  ...AskRigorSourceLineTexts,
+  async registry(nct) {
+    const result = await fetchClinicalTrial(nct);
+    if (result.access_status === "not_found") return undefined;
+    return result.error === undefined && result.data.nct_id === nct ? registryRecordOf(result.data) : null;
   }
 };
 
@@ -3659,7 +3814,9 @@ function openFullTextResearchReceipt(operationId: string, body: unknown): string
     // The final check looks source lines up in this text while AskRigor still holds it (owner answer 237a).
     handle,
     ...(kind === "full_text_read" ? { content: source.content_sha256.slice(0, 16) } : {}),
-    ...(kind !== "full_text_read" && source.provider === "client_supplied" ? {
+    // A copy the AI found with its own search, which AskRigor didn't fetch itself: an audit's receipt and, since the
+    // review of 5 Nov 2026, a full reading's sign it, so each reads as "from a copy the AI found" (source-reading.ts).
+    ...(source.provider === "client_supplied" ? {
       retrieval_provider: "client_search_index",
       host: new URL(source.canonical_url).hostname
     } : {}),
@@ -3759,6 +3916,7 @@ function collectResearchOperations(
         : name === "review_research_contribution" ? researchContributionReviewRuntimeOutputSchema
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
+        : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
@@ -3858,6 +4016,27 @@ function youtubeCommunityAuditBudgets() {
     ...youtubeCommentBudgets(),
     maxElapsedMs: PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs
   };
+}
+
+/**
+ * The note for a literature result that lists a DOI with "<" or ">", as older SICI-form DOIs have (the owner regressions on
+ * #412's build, judged 6 Nov 2026: q126-42-group-average found a Wiley DOI in a Europe PMC search, and the app refused it
+ * at acquire_open_full_text's published doi pattern before the call reached AskRigor). The same DOI percent-escaped fits
+ * that pattern, and AskRigor reads it as the DOI; its newer form in later_inputs takes it as it is. Exact: the
+ * characters decide; nothing else is read.
+ */
+export function angleBracketDoiNote(data: unknown): string {
+  const records = Array.isArray(data) ? data : [data];
+  const dois = [...new Set(records.flatMap((record): unknown[] => {
+    if (record === null || typeof record !== "object") return [];
+    const { doi, resolved_doi: resolved, candidates } = record as { doi?: unknown; resolved_doi?: unknown; candidates?: unknown };
+    return [doi, resolved, ...(Array.isArray(candidates)
+      ? candidates.map((candidate: unknown) => (candidate as { doi?: unknown } | null)?.doi) : [])];
+  }).filter((doi): doi is string => typeof doi === "string" && /[<>]/u.test(doi)))];
+  if (dois.length === 0) return "";
+  return ` ${dois.length === 1 ? "A DOI listed here has" : "DOIs listed here have"} "<" or ">", which ` +
+    "acquire_open_full_text's published doi pattern refuses: give it there with %3C for \"<\" and %3E for \">\" (" +
+    `${dois.slice(0, 3).map(escapedDoi).join(", ")}), which AskRigor reads as the DOI, or as it is in later_inputs.doi.`;
 }
 
 function pubmedToolResult(

@@ -6,7 +6,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  finalizeResearch,
+  finalizeResearch as finalizeResearchUnwrapped,
   TOOL_LIST_REFRESH_HINT,
   type FinalizeResearchInput,
   type FinalizeResearchOutput
@@ -17,6 +17,12 @@ import {
   type ResearchReceiptOptions
 } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { withSourceReading } from "./helpers/source-reading.js";
+
+// The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
+// source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
+const finalizeResearch = (...args: Parameters<typeof finalizeResearchUnwrapped>) =>
+  finalizeResearchUnwrapped(withSourceReading(args[0], { check: args[1] }), args[1]);
 
 
 const SECRET = "product-review-requirement-test-secret-0123456789";
@@ -277,7 +283,7 @@ describe("finalize_research product review requirement", () => {
       await client.connect(clientTransport);
       const input = packageFor({}, { secret: SECRET });
       const call = async (request: FinalizeResearchInput) => {
-        const result = await client.callTool({ name: "finalize_research", arguments: { ...request } });
+        const result = await client.callTool({ name: "finalize_research", arguments: withSourceReading({ ...request }) });
         expect(result.isError).not.toBe(true);
         return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
       };

@@ -27,6 +27,7 @@ import {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 
+import { doiFromInput, DOI_PATTERN, doiUrl } from "./doi.js";
 import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission, type PublicBasis } from "./full-text-admission.js";
 
 const MAX_PDF_PAGES = 1_000;
@@ -34,7 +35,6 @@ const PDFJS_DIRECTORY = dirname(createRequire(import.meta.url).resolve("pdfjs-di
 const STANDARD_FONT_DATA_URL = join(PDFJS_DIRECTORY, "standard_fonts") + sep;
 const CMAP_URL = join(PDFJS_DIRECTORY, "cmaps") + sep;
 const MAX_EXTRACTED_CHARACTERS = 20_000_000;
-const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
 
 export interface AcquireUnpaywallFullTextRuntime {
   resolve?: typeof resolveUnpaywallOpenAccess;
@@ -111,7 +111,7 @@ export async function acquireUnpaywallFullText(
     .find((location) => location?.license?.toLowerCase().startsWith("cc-") === true);
   const publicBasis: PublicBasis | undefined = licensedLocation === undefined ? undefined : {
     route: "unpaywall", url: licensedLocation.landing_page_url ?? licensedLocation.location_url ??
-      licensedLocation.pdf_url ?? licensedLocation.candidate_full_text_url ?? `https://doi.org/${doi}`
+      licensedLocation.pdf_url ?? licensedLocation.candidate_full_text_url ?? doiUrl(doi)
   };
   const locations = pdfCandidates(discovery);
   if (locations.length === 0) {
@@ -362,7 +362,7 @@ function normalizeText(value: string): string {
 }
 
 function normalizeDoi(value: string): string {
-  return value.trim().toLowerCase().replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "");
+  return doiFromInput(value);
 }
 
 function attempt(
@@ -391,7 +391,7 @@ function unavailable(
     provider: "unpaywall",
     recordType: "open_full_text_acquisition",
     primaryIdentifier: doi,
-    sourceIdentity: { canonical_url: `https://doi.org/${doi}` },
+    sourceIdentity: { canonical_url: doiUrl(doi) },
     pagination: { exhausted: true },
     returned: 0,
     accessStatus: state === "PROVIDER_UNAVAILABLE" ? "error" : state === "PRIMARY_OA_ROUTES_EXHAUSTED" ? "not_found" : "partial",
