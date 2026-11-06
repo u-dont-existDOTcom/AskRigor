@@ -9,16 +9,18 @@ export const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:<>a-z0-9]+$/iu;
 const DOI_URL_ESCAPES = /[%"#<>?[\\\]^`{|}\s]/gu;
 
 /**
- * A DOI given with percent escapes, as a link carries one ("%3C" for "<"), read as its characters; a "%" that starts no
- * valid escape leaves the DOI as given.
+ * A DOI with its "<" and ">" given percent-escaped ("%3C" and "%3E", in either case), as acquire_open_full_text's published
+ * doi pattern needs them and a link carries them, read as those characters. Only those two: any other "%" stays a
+ * character of the DOI, as it always was, so reading a DOI again changes nothing (the review of #421: a full decode at
+ * each of three layers read "10.1000/x%2541" as "10.1000/xa", and refused a literal "%20" it used to take).
  */
 export function decodedDoi(value: string): string {
-  if (!/%[0-9a-f]{2}/iu.test(value)) return value;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+  return value.replace(/%3c/giu, "<").replace(/%3e/giu, ">");
+}
+
+/** A DOI with its "<" and ">" percent-escaped, the form acquire_open_full_text's published doi pattern takes. */
+export function escapedDoi(doi: string): string {
+  return doi.replace(/</gu, "%3C").replace(/>/gu, "%3E");
 }
 
 /** A DOI's link at doi.org, with each character a URL's path can't carry percent-encoded, so "<" reaches it as %3C. */

@@ -9,7 +9,8 @@ import {
 import { angleBracketDoiNote } from "../apps/research-mcp/src/register-tools.js";
 import { canonicalDoiSchema } from "../packages/contracts/src/study-external-evidence.js";
 import {
-  doiUrl, normalizeDoiIdentifier, resolveDoi, resolveUnpaywallOpenAccess, type AcquireOpenFullTextRuntime
+  decodedDoi, doiUrl, escapedDoi, normalizeDoiIdentifier, resolveDoi, resolveUnpaywallOpenAccess,
+  type AcquireOpenFullTextRuntime
 } from "../packages/sources/src/index.js";
 
 // The owner regressions on #412's build (judged 6 Nov 2026): acquire_open_full_text refused a valid Wiley DOI at its
@@ -31,6 +32,39 @@ describe("DOIs with \"<\" or \">\"", () => {
     // A "%" that starts no valid escape is a character of the DOI, as it was.
     expect(normalizeDoiIdentifier("10.1002/%ZZ100")).toBe("10.1002/%zz100");
     expect(canonicalDoiSchema.safeParse(CANONICAL).success).toBe(true);
+    expect(escapedDoi(CANONICAL)).toBe(CANONICAL.replaceAll("<", "%3C").replaceAll(">", "%3E"));
+    expect(decodedDoi(escapedDoi(SICI))).toBe(SICI);
+  });
+
+  // The review of #421: decoding every escape at each of three layers read "10.1000/x%2541" as "10.1000/xa" by the time
+  // it reached Unpaywall, made "%2522" a quote mark that the full-text route refused, and refused a literal "%20" that
+  // used to be taken. Only "%3C" and "%3E" are read, so reading a DOI again changes nothing.
+  it("reads only the escaped angle brackets, so a DOI read again is the same DOI", async () => {
+    for (const doi of ["10.1000/x%2541", "10.1000/x%2522", "10.1000/a%20b", ESCAPED, `${ESCAPED}%253C`]) {
+      const once = normalizeDoiIdentifier(doi);
+      expect(once, doi).toBeDefined();
+      expect(normalizeDoiIdentifier(once!), doi).toBe(once);
+      expect(decodedDoi(decodedDoi(doi)), doi).toBe(decodedDoi(doi));
+    }
+    expect(normalizeDoiIdentifier("10.1000/a%20b")).toBe("10.1000/a%20b");
+    const requests: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(String(input));
+      return new Response("{}", { status: 404 });
+    }));
+    const searchEuropePmc = vi.fn(async (_: { query: string }) => okEnvelope({ provider: "europe_pmc",
+      recordType: "europe_pmc_search_result", pagination: { exhausted: true }, returned: 0, accessStatus: "complete", data: [] }));
+    const { acquireOpenFullText } = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    for (const doi of ["10.1000/x%2541", "10.1000/x%2522"]) {
+      requests.length = 0;
+      const result = await acquireOpenFullText({ doi }, { email: "research@example.org" },
+        { searchEuropePmc } as unknown as AcquireOpenFullTextRuntime);
+      expect(result.data.requested_doi, doi).toBe(doi);
+      expect(searchEuropePmc.mock.calls.at(-1)?.[0].query, doi).toBe(`DOI:"${doi}"`);
+      // Unpaywall is asked for the same DOI, so the route is tried rather than refused for the input.
+      expect(requests.filter((url) => url.includes("api.unpaywall.org")).map((url) => new URL(url).pathname), doi)
+        .toEqual([`/v2/${encodeURIComponent(doi)}`]);
+    }
   });
 
   it("encodes what a link can't carry, and leaves an ordinary DOI's link as it was", () => {
