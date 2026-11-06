@@ -192,6 +192,39 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
     ]);
   });
 
+  // The owner regressions on #412's build (judged 6 Nov 2026): o356-ssris-years gave a harms_quote with no number needed
+  // to treat, its answer no longer showed it, and it passed unchecked. Given, it is the answer's own sentence, checked as
+  // every declared quote is: word for word, as whole words, in any script.
+  it("checks a harms_quote given without a number needed to treat, as whole words, in any script", async () => {
+    const shown = async (overrides: Partial<FinalizeResearchInput>) => {
+      const result = await call(overrides);
+      ready(result);
+      expect(advisoryNotes(result).join("\n")).not.toContain("harms_quote");
+    };
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    advised(await call({ answer_draft: plain.quote, binary_results: [plain] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} ${HARMS}`, binary_results: [plain] });
+    // Inside a longer word or number it is not shown: "3% stopped" is not in "13% stopped".
+    const stopped = "3% stopped the drug for side effects.";
+    advised(await call({ answer_draft: `${plain.quote} About 1${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    await shown({ answer_draft: `${plain.quote} About ${stopped}`,
+      binary_results: [declaration({ ...plain, harms_quote: stopped })] });
+    // A cased script's word does not run on into another letter; a script without case matches exactly anywhere.
+    advised(await call({ answer_draft: `${plain.quote} Harmlessness was similar in both groups.`,
+      binary_results: [declaration({ ...plain, harms_quote: "Harm" })] }), [
+      "binary_results[0].harms_quote gives text the answer does not show: copy each sentence exactly from answer_draft."
+    ]);
+    const chinese = "两组的副作用相似。";
+    await shown({ answer_draft: `${plain.quote} 十二周内两组的副作用相似。`,
+      binary_results: [declaration({ ...plain, harms_quote: chinese })] });
+  });
+
   it("names a group with more events than people, and leaves its other numbers unchecked", async () => {
     blocked(await call({ binary_results: [declaration({ option_events: 101 })] }), [
       "binary_results[0] gives more events than people for the drug: option_events counts the people in that group " +

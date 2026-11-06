@@ -4229,10 +4229,12 @@ export function finalizeResearch(
         ...communityLeads.flatMap(({ state, answer_quote: quote }, index) =>
           state === "searched" && quote !== undefined && !repeatedLeads.has(index)
             ? [{ at: `${leadAt(index)}.answer_quote`, quote }] : []),
-        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote.
-        ...(input.binary_results ?? []).flatMap(({ quote, nnt, harms_quote: harms }, index) => [
+        // A number needed to treat is shown with its harms, by the sentence the entry copies as harms_quote. Given without
+        // one, harms_quote is still the answer's own sentence, so it is checked the same way (the owner regressions on
+        // #412's build, judged 6 Nov 2026: o356-ssris-years passed with a harms_quote its answer no longer showed).
+        ...(input.binary_results ?? []).flatMap(({ quote, harms_quote: harms }, index) => [
           { at: `binary_results[${index}]`, quote },
-          ...(nnt === undefined || harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
+          ...(harms === undefined ? [] : [{ at: `binary_results[${index}].harms_quote`, quote: harms }])
         ]),
         ...(input.safety_claims ?? []).map(({ quote }, index) => ({ at: `safety_claims[${index}]`, quote })),
         // A harm the screen found is shown in the answer by the sentence the entry copies.
@@ -4965,7 +4967,9 @@ function answerDraftProblems(
       context.blockingProblem("numbers", joinRules(rule`${at} gives a number needed to treat or harm without its follow-up: the quote does not contain `, "the declared follow-up."));
     }
   }
-  const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showing(quote).length === 0).map(({ at }) => at);
+  // A declared sentence is the answer's own words, so it is found only as whole words: not inside a longer word or number.
+  const showingWhole = quoteLocator(shownBlocks, { wholeWords: true });
+  const unshownDeclared = context.declaredQuotes.filter(({ quote }) => showingWhole(quote).length === 0).map(({ at }) => at);
   if (unshownDeclared.length > 0) {
     problems.push(
       joinRules(rule`${unshownDeclared.join(", ")} ${unshownDeclared.length === 1 ? rule`gives` : rule`give`} text the answer does not show: `, "copy each sentence exactly from answer_draft.")
@@ -5046,18 +5050,46 @@ function termOccurrences(text: string, term: string): number[] {
  * items, headings) that contain it, compared as caveats are, with a link
  * matched by its target or by its text. Exact and the same in any language.
  */
-function quoteLocator(shownBlocks: readonly string[]): (quote: string) => number[] {
+function quoteLocator(shownBlocks: readonly string[], { wholeWords = false }: { wholeWords?: boolean } = {}):
+  (quote: string) => number[] {
   const quoteBlocks = shownBlocks.map((block) => ({
     targets: caveatText(linkTargets(block)),
     text: caveatText(visibleText(block))
   }));
+  const contains = wholeWords ? (text: string, quote: string) => wholeOccurrence(text, quote)
+    : (text: string, quote: string) => text.includes(quote);
   return (quote: string): number[] => {
     const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
     const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
     if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
     return quoteBlocks.flatMap(({ targets, text }, index) =>
-      targets.includes(byTarget) || text.includes(byText) ? [index] : []);
+      contains(targets, byTarget) || contains(text, byText) ? [index] : []);
   };
+}
+
+/**
+ * Whether a quote occurs in normalized text as whole words (the owner regressions on #412's build, judged 6 Nov 2026): an
+ * edge that is a letter of a script with letter case, which separates words with spaces, may not run on into another
+ * letter, digit or mark, and an edge that is a digit, in any script, into another digit, so "3%" is not found in "13%"
+ * nor "harm" in "harmless". Letters of scripts without case, which may not separate words, match anywhere, as
+ * termOccurrences matches a term. Exact and the same in any language.
+ */
+function wholeOccurrence(text: string, quote: string): boolean {
+  if (quote === "") return false;
+  const characters = Array.from(quote);
+  const wordCharacter = /[\p{L}\p{N}\p{M}]/u;
+  const digit = /\p{N}/u;
+  const cased = (character: string): boolean => character.toLowerCase() !== character.toUpperCase();
+  const edge = (inside: string, outside: string | undefined): boolean => outside === undefined ||
+    (cased(inside) ? !wordCharacter.test(outside) : digit.test(inside) ? !digit.test(outside) : true);
+  const first = characters[0]!;
+  const last = characters.at(-1)!;
+  for (let index = text.indexOf(quote); index >= 0; index = text.indexOf(quote, index + 1)) {
+    const before = Array.from(text.slice(Math.max(0, index - 2), index)).at(-1);
+    const after = Array.from(text.slice(index + quote.length, index + quote.length + 2))[0];
+    if (edge(first, before) && edge(last, after)) return true;
+  }
+  return false;
 }
 
 /**
