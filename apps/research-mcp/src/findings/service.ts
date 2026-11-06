@@ -11,6 +11,8 @@ import { researchTargetDigest, verifyResearchReceipt } from "../research-receipt
 import {
   findingBackingFromReceipt,
   findingReadingFromReceipt,
+  threadCommunitiesFromReceipt,
+  threadLinksFromReceipt,
   type FindingBacking,
   type StoredBacking,
 } from "./research-behind.js";
@@ -308,7 +310,13 @@ export class FindingsSaveService {
       // that says so. A free contributor still on an earlier notice keeps none.
       const threadLinks = context.account?.mode === "PAID_PRIVATE" ||
         (context.account?.mode === "FREE_CONTRIBUTOR" && context.account.noticeVersion === RESEARCH_USE_NOTICE_VERSION);
-      const stored = withoutYouTubeData(input.findings_card, drawnFromComments, { threadLinks });
+      // The review of 5 November (finding 1): a Reddit thread's community and link come only from the subreddit its
+      // reader's receipt signed, which the final check signed again for each of the card's threads.
+      const threadCommunities = threadCommunitiesFromReceipt(receipt.claims.ft, input.findings_card);
+      // The recheck of #417: a forum page's link only as its reader read it, which the final check signed (`fl`).
+      const threadLinksRead = threadLinksFromReceipt(receipt.claims.fl, input.findings_card);
+      const stored = withoutYouTubeData(input.findings_card, drawnFromComments,
+        { threadLinks, threadCommunities, threadLinksRead });
       // A card whose findings all rest on YouTube comments is not saved as a card (owner answer 170); its findings are
       // held, with its question and topic, for the owner's review (owner answer 173).
       if (stored.card.findings.length === 0) {
@@ -351,7 +359,8 @@ export class FindingsSaveService {
           ? ["youtube_comment_declarations" as const] : []),
         ...(kept.some((finding, index) => !backingKeptWhole(finding.backing ?? [], card.findings[index]!.backing ?? []))
           ? ["backing_quotes_not_kept" as const] : []),
-        // Owner answer 252a: a forum signal is stored with its communities and how many threads, never the links.
+        // Owner answers 252a and 253a: a forum signal is stored with how many threads and their communities, and their
+        // links only in the Atlas's id-only forms, never as given.
         ...(kept.some((finding) => finding.forum_signal !== undefined) ? ["forum_thread_links" as const] : []),
       ];
       const atlasBasis = atlasBasisFromReceipt(receipt.claims.atlas);

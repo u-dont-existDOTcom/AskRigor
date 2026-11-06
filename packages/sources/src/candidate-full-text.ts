@@ -199,7 +199,26 @@ function decodeEntities(text: string): string {
     return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "";
   });
 }
-/** Small static extractor: block tags preserve heading/paragraph boundaries.
+// The tags that break the stored text's lines, as at 06b96b14 and before (the recheck of #417): the blocks, and strong
+// and b, which set a page's run-in headings ("<b>Methods</b> We enrolled…") and its access labels ("<strong>Subscription
+// required</strong> to read…"), so full-text admission and the paywall labels read each on a line of its own. The
+// source's own line breaks stay too. Any other tag reads as a space. This layout serves admission, the paywall labels
+// and the blocks the AI reads; the quote lookup reads its lines run on within a section (source-lines.ts), so a line
+// break here is never a sentence's end.
+const LINE_TAG = /<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu;
+// What HTML's tokenizer takes out of the text, up to the next ">": a tag ("<" and a letter), an end tag or, after "</"
+// and anything else, a bogus comment ("</ p>", "</ br>"), and a declaration or a processing instruction ("<!", "<?"). A
+// "<" before anything else is text, as a browser shows it, so "(p<0.05)", "a < b" and "(q>0.1)" keep their words.
+const TAG = /<(?:[A-Za-z]|[/!?])[^>]*>/gu;
+const SUPERSCRIPT_DIGITS = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+/** A superscript of digits (a citation, "12,14–16", or a power, "−3") in Unicode's superscripts, as it is printed. */
+function superscript(element: string, inner: string): string {
+  const text = decodeEntities(withoutTags(inner)).replace(/\s+/gu, "");
+  if (!/^[+−‐-—-]?\d+(?:[,−‐-—-]\d+)*$/u.test(text)) return element;
+  return text.replace(/\d/gu, (digit) => SUPERSCRIPT_DIGITS[Number(digit)]!)
+    .replace(/[−‐-—-]/gu, "⁻").replace(/\+/gu, "⁺");
+}
+/** Small static extractor: block tags, and strong and b, keep heading, label and paragraph lines (LINE_TAG).
  * Scripts, templates, hidden blocks and navigation never supply article text.
  * No script execution, subresource requests, cookies, or browser rendering. */
 export function extractHtmlText(html: string): { text: string; title?: string; doi?: string } {
@@ -215,22 +234,30 @@ export function extractHtmlText(html: string): { text: string; title?: string; d
   }
   const citationTitle = meta.get("citation_title");
   const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/iu)?.[1];
-  const title = citationTitle ?? (h1 === undefined ? undefined : h1.replace(/<[^>]*>/gu, " "));
+  const title = citationTitle ?? (h1 === undefined ? undefined : withoutTags(h1, " "));
   // Removal repeats until nothing changes, so nested or split markup cannot reassemble a comment or script.
-  const visible = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
+  const laidOut = removeAll(removeAll(html, /<!--[\s\S]*?-->/gu), /<(script|style|template|noscript|nav|footer)\b[^>]*>[\s\S]*?<\/\1\s*>/giu)
     .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?=\s|=|>)|aria-hidden\s*=\s*["']true["']|style\s*=\s*["'][^"']*display\s*:\s*none)[^>]*>[\s\S]*?<\/\1\s*>/giu, "")
-    .replace(/<\/?(?:h[1-6]|p|div|section|article|li|tr|br|title|strong|b)\b[^>]*>/giu, "\n")
-    .replace(/<[^>]*>/gu, " ");
-  return { text: decodeEntities(visible).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
+    .replace(/<sup\b[^>]*>([\s\S]*?)<\/sup\s*>/giu, superscript)
+    .replace(LINE_TAG, "\n");
+  return { text: decodeEntities(withoutTags(laidOut, " ")).replace(/[ \t\f\v]+/gu, " ").replace(/\s*\n\s*/gu, "\n").trim(),
     ...(title === undefined ? {} : { title: decodeEntities(title).replace(/\s+/gu, " ").trim() }),
     ...(meta.get("citation_doi") === undefined ? {} : { doi: decodeEntities(meta.get("citation_doi")!) }) };
 }
-function removeAll(text: string, pattern: RegExp): string {
+/**
+ * Every tag replaced (by nothing, or by a space between words), again until nothing changes, so split markup can't
+ * reassemble one (CodeQL, #417). A "<" still opening a tag (an unclosed one at the end) goes too, as a browser drops it,
+ * so the text never holds the start of a tag.
+ */
+function withoutTags(html: string, replacement = ""): string {
+  return removeAll(html, TAG, replacement).replace(/<(?=[A-Za-z!/?])/gu, "");
+}
+function removeAll(text: string, pattern: RegExp, replacement = ""): string {
   let previous: string;
   let current = text;
   do {
     previous = current;
-    current = current.replace(pattern, "");
+    current = current.replace(pattern, replacement);
   } while (current !== previous);
   return current;
 }

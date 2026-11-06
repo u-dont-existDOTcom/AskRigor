@@ -296,6 +296,13 @@ without new columns or grants, and is safe to run again; renumber it when the
 Atlas stack next takes in main. Run the one-shot admin `migrate` before an image
 offering v5 serves. Earlier accounts, v4's included, accept v5 before free
 research, and a card saved for an account still on v4 stores no thread link.
+Right after the deploy, before any research or regression run, the owner's
+login accepts v5 (`manage_research_access` `inspect`, then
+`accept_free_contributor` with the v5 agreement), since free research refuses
+an account still on v4. A dev account the regression harness uses first
+switches card saving off (`set_findings_save` with `findingsSave: false`, which
+works whatever notice the account accepted, since it publishes nothing), then
+accepts v5; switching saving back on needs v5.
 For an image rollback below v5, follow the v4 order above with
 `research-use-notice-v5-hold.sql` and `research-use-notice-v5-restore.sql`
 (`research_use_notice_v5_hold`; held accounts may accept v4 on the earlier
@@ -312,6 +319,50 @@ finding), and redefines `atlas_redaction_permits()` and `erase_atlas_wording()`
 so that an erasure removes that column whole. No role, grant or table is added,
 and no row is changed; an earlier image ignores the column. Renumber it when the
 Atlas stack next takes in main.
+
+Image rollback hazard (the reviews of 5 November 2026): an image from before this
+release cannot parse three kinds of row this release writes.
+
+- **Version 3 publications** (`askrigor.atlas-publication.v3`, the research
+  behind a finding and what people report). The earlier image's pages leave out
+  an unreviewed publication they can't read (an accepted one shows its F
+  number's version), but its publication store refuses such a row, and a
+  withdrawn row keeps its published fields: withdrawing them first (the owner's
+  `unpublish_finding`, by P number) keeps them off the earlier image's pages,
+  while its owner tools that list publications still fail on them.
+- **Atlas intents.** An accept or revise intent from this release carries
+  `content.research`, and a forum-only one `verifiedBases: ["forum_read"]`
+  (in `content`, or, for a re-check, at the payload's top level). The
+  earlier image (`bf3581aa`) parses every intent strictly
+  (`atlasVersionContentSchema`, whose `ATLAS_VERIFIED_BASES` has no
+  `forum_read`), both where its review lists intents (`intentFromRow`) and where
+  promotion prepares one (`prepareStoredAtlasIntent`, called by
+  `contributeAtlasFinding`). So after a rollback, one such intent, pending or
+  completed, breaks the old review's listing and stops its promotion; and a
+  revision of a version whose bases hold `forum_read` can't be made there.
+- **Findings cards** stored with the research behind it (quotes, readings,
+  figures' sources, a forum signal, or `forum_read` among its bases), which the
+  earlier image's review reads as unreadable.
+
+So once the release has published, queued or stored any, a rollback to an
+earlier image needs a hotfix of that image that reads all three tolerantly,
+with the publications withdrawn first if they must not show meanwhile. Check
+first with read-only queries, as the migrator (the intents table is private to
+the review role's functions):
+
+```sql
+SELECT count(*) FROM living_evidence.atlas_publications
+ WHERE published_json ->> 'schema' = 'askrigor.atlas-publication.v3';
+SELECT count(*) FROM living_evidence.atlas_finding_intents
+ WHERE payload_json -> 'content' ? 'research'
+    OR payload_json -> 'content' -> 'verifiedBases' ? 'forum_read'
+    OR payload_json -> 'verifiedBases' ? 'forum_read';
+SELECT count(*) FROM living_evidence.atlas_finding_versions
+ WHERE verified_bases ? 'forum_read';
+```
+
+and count the findings cards saved since the release in the owner's review.
+With none of any, the rollback needs no step.
 
 Atlas phase 2 (owner answers 159 and 160b, 2026-10-22; design
 `../../docs/superpowers/plans/2026-10-22-atlas-phase-2-design.md`): the owner

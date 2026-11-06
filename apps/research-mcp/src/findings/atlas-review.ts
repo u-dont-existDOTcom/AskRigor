@@ -82,7 +82,7 @@ import {
   type AtlasPublicationAction,
   type AtlasPublications,
 } from "../atlas/publication-review.js";
-import { canonicalResearchOf, reconcileCardPublications } from "../atlas/publication.js";
+import { canonicalResearchOf, reconcileCardPublications, researchKeeping } from "../atlas/publication.js";
 import {
   ATLAS_PARTICIPATION_ACTIONS,
   ATLAS_PARTICIPATION_ERROR_CODES,
@@ -1881,7 +1881,7 @@ export class AtlasReview {
           editedAtAcceptance,
           topic: { key: topicKey!, label: topicLabel },
           question: accepted.question,
-          content: contentOf(item, accepted, numbers, fields),
+          content: contentOf(item, accepted, numbers, fields, kept),
           sources: plan.sources,
           wordingKeys: { card: item.cardWordingKey, accepted: atlasWordingKey(accepted.question, accepted.wording) },
           researchCheckedOn: researchDayOf(item.record.stamp),
@@ -2091,6 +2091,12 @@ export class AtlasReview {
       ? emptySourcePlan()
       : planFamilySources(sourceChecks, keptFamilies, request.confirm === true);
     problems.push(...plan.problems);
+    // The review of 5 November, finding 4: a source the owner drops from the revision leaves its research too.
+    const keepsSource = request.sources === undefined || openLead ? undefined : (source: string) => {
+      const parsed = parseAtlasSource(source);
+      return parsed !== undefined && keptFamilies.some(({ identifiers }) =>
+        identifiers.some(({ scheme, value }) => scheme === parsed.kind && value === parsed.id));
+    };
     const content: AtlasVersionContent = revisedResearch({
       ...withoutDeclaredFields(latest.content),
       wording: request.wording ?? latest.content.wording,
@@ -2099,7 +2105,7 @@ export class AtlasReview {
       whatWouldChangeIt: request.whatWouldChangeIt ?? latest.content.whatWouldChangeIt,
       numbers: request.numbers ?? latest.content.numbers,
       ...storedFields,
-    }, latest.content);
+    }, latest.content, keepsSource);
     const unchanged = stableJson(content) === stableJson(latest.content) &&
       keptFamilies.length === families.length;
     if (unchanged) {
@@ -3104,6 +3110,7 @@ function contentOf(
   texts: ReturnType<typeof acceptedTexts>,
   numbers: AtlasNumberEntry[],
   fields: DeclaredFields,
+  kept: readonly string[] = item.sources,
 ): AtlasVersionContent {
   const declared = item.record.card.public_value;
   const open = item.leadOrigin === "open_lead";
@@ -3121,8 +3128,9 @@ function contentOf(
     verifiedBases: item.entryKind === "finding" ? item.bases : [],
     numbers,
     ...(open ? {} : definedFields(fields)),
-    // Owner answer 255a: the research behind it, kept with the version, so an accepted finding from any card shows it.
-    ...(open || item.finding === null ? {} : researchField(canonicalResearchOf(item.finding, numbers))),
+    // Owner answer 255a: the research behind it, kept with the version, so an accepted finding from any card shows it;
+    // only the sources the owner accepts, so a source dropped never shows (the review of 5 November, finding 4).
+    ...(open || item.finding === null ? {} : researchField(canonicalResearchOf(item.finding, numbers, kept))),
   };
 }
 
@@ -3132,15 +3140,18 @@ function researchField(research: AtlasResearch | undefined): Pick<AtlasVersionCo
 }
 
 /**
- * A revised version's research behind it (owner answer 255a): the latest version's, whose figures' sources stay only
+ * A revised version's research behind it (owner answer 255a): the latest version's, with only the sources the revision
+ * keeps (`keeps`, when the owner keeps some: the review of 5 November, finding 4), and whose figures' sources stay only
  * while the figures do, since each names a figure by its place.
  */
-function revisedResearch(content: AtlasVersionContent, latest: AtlasVersionContent): AtlasVersionContent {
-  const research = content.research;
-  if (research?.figure_sources === undefined || stableJson(content.numbers) === stableJson(latest.numbers)) return content;
-  const { figure_sources: _figures, ...rest } = research;
-  const { research: _research, ...withoutResearch } = content;
-  return Object.keys(rest).length === 0 ? withoutResearch : { ...withoutResearch, research: rest };
+function revisedResearch(content: AtlasVersionContent, latest: AtlasVersionContent,
+  keeps?: (source: string) => boolean): AtlasVersionContent {
+  const { research: given, ...withoutResearch } = content;
+  const kept = given === undefined || keeps === undefined ? given : researchKeeping(given, keeps);
+  const figuresKept = kept?.figure_sources === undefined || stableJson(content.numbers) === stableJson(latest.numbers);
+  const { figure_sources: _figures, ...rest } = kept ?? {};
+  const research = kept === undefined ? undefined : figuresKept ? kept : rest;
+  return research === undefined || Object.keys(research).length === 0 ? withoutResearch : { ...withoutResearch, research };
 }
 
 /** Every text of an item as an accept would store it, for the dry run's privacy screen. */

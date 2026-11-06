@@ -22,6 +22,7 @@ import type {
 } from "@askrigor/evidence-repository";
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
+import { shownCommunity } from "../forum-thread-links.js";
 import { passesPageGuard } from "./page-guard.js";
 import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
@@ -528,7 +529,7 @@ function researchShown(fields: ResearchFields, shownSource: (source: string) => 
   });
   const signal = fields.forumSignal;
   const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
-    communities: signal.communities.filter(passesPageGuard),
+    communities: signal.communities.map(shownCommunity).filter(passesPageGuard),
     threadsRead: signal.threads_read,
     threads: signal.threads.filter(passesPageGuard),
     people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,
@@ -543,22 +544,28 @@ function researchShown(fields: ResearchFields, shownSource: (source: string) => 
 
 /**
  * An accepted finding's research behind it: its own version's (owner answer 255a), else its publication's version 3
- * fields (owner answer 252a), each erased with its F number's wording. Sources are named by the canonical sources with
- * the same identifier, with their newest check's retraction status.
+ * fields (owner answer 252a), each erased with its F number's wording. Only the finding's canonical sources show, named
+ * as the page names them, each with its newest check's retraction status (the review of 5 November, finding 4): a source
+ * the owner dropped at acceptance never shows, whatever the research or the publication holds of it.
  */
 function canonicalResearch(content: AtlasPageFinding["content"], publication: AtlasPagePublication,
   sources: readonly ShownSource[], canonicalSources: AtlasPageFinding["sources"]): Pick<ShownFinding, "research" | "forumSignal"> {
   const research = content.research;
-  const named = (source: string) => canonicalSourceOf(source, sources, publication.published);
-  if (research === undefined) return researchBehind(publication.published, named);
-  const listed = [...new Set([...(research.source_reading ?? []).map(({ source }) => source),
-    ...(research.backing ?? []).map(({ source }) => source)])];
+  const named = (source: string) => canonicalSourceOnly(source, sources);
   const retractionOf = (source: string) => {
     const identifier = sourceIdentifierOf(source);
     const same = identifier === undefined ? undefined : canonicalSources.find(({ identifiers }) =>
       identifiers.some(({ scheme, value }) => scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase()));
     return same?.retraction ?? null;
   };
+  if (research === undefined) {
+    const published = publication.published;
+    if (published === null || published.schema !== "askrigor.atlas-publication.v3") return { research: [], forumSignal: null };
+    return researchShown({ sources: published.sources, backing: published.backing ?? [],
+      reading: published.source_reading ?? [], retractionOf, forumSignal: published.forum_signal }, named);
+  }
+  const listed = [...new Set([...(research.source_reading ?? []).map(({ source }) => source),
+    ...(research.backing ?? []).map(({ source }) => source)])];
   return researchShown({ sources: listed, backing: research.backing ?? [], reading: research.source_reading ?? [],
     retractionOf, forumSignal: research.forum_signal }, named);
 }
@@ -633,16 +640,15 @@ function fromCanonical(
   };
 }
 
-/** A publication's source as an accepted finding's page names it: by the canonical source with the same identifier. */
-function canonicalSourceOf(source: string, sources: readonly ShownSource[], published: AtlasPublishedFinding | null):
-  ShownSource | null {
+/**
+ * A source of an accepted finding's research as its page names it: the canonical source with the same identifier, or
+ * none, so that only the sources the owner accepted show (the review of 5 November, finding 4).
+ */
+function canonicalSourceOnly(source: string, sources: readonly ShownSource[]): ShownSource | null {
   const identifier = sourceIdentifierOf(source);
   if (identifier === undefined) return null;
-  const same = sources.find(({ identifiers }) => identifiers.some(({ scheme, value }) =>
-    scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase()));
-  if (same !== undefined) return same;
-  const detail = published?.source_details?.find((entry) => entry.source === source);
-  return { identifiers: [identifier], title: detail?.title ?? null, year: detail?.year ?? null };
+  return sources.find(({ identifiers }) => identifiers.some(({ scheme, value }) =>
+    scheme === identifier.scheme && value.toLowerCase() === identifier.value.toLowerCase())) ?? null;
 }
 
 /**
@@ -659,14 +665,14 @@ function canonicalFigureSource(
 ): ShownSource | null {
   if (figureSources !== undefined) {
     const own = figureSources[index];
-    return own === undefined || own === null ? null : canonicalSourceOf(own, sources, published);
+    return own === undefined || own === null ? null : canonicalSourceOnly(own, sources);
   }
   if (published === null || published.schema !== "askrigor.atlas-publication.v3") return null;
   const same = (published.numbers ?? []).find((figure) => figure.outcome === entry.outcome &&
     figure.option === entry.option && figure.comparator === entry.comparator && figure.follow_up === entry.follow_up &&
     figure.option_events === entry.option_events && figure.option_total === entry.option_total &&
     figure.comparator_events === entry.comparator_events && figure.comparator_total === entry.comparator_total);
-  return same?.source === undefined ? null : canonicalSourceOf(same.source, sources, published);
+  return same?.source === undefined ? null : canonicalSourceOnly(same.source, sources);
 }
 
 /** What a publication shows, or undefined when it shows nowhere. */
