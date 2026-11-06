@@ -229,7 +229,14 @@ const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): R
 
 // What a harm or safety sentence rests on (owner questions 86 and 89; a share of
 // selected reports, lesson #25 by owner question 92).
-export const SAFETY_BASES = [
+export // The safety bases whose evidence gives no rate, by what the note calls it: for them, not_quantified fits only where no
+// source here measured or reported the harm at all (the owner regressions on #412's build, judged 6 Nov 2026: r325).
+const NO_RATE_BASES: Readonly<Partial<Record<string, string>>> = {
+  hazard_measurement: "A laboratory, animal or composition measurement",
+  case_reports: "A case report",
+  share_of_reports: "A share of selected reports"
+};
+const SAFETY_BASES = [
   "comparative_rates", "observed_rates", "share_of_reports", "case_reports", "hazard_measurement", "not_quantified"
 ] as const;
 
@@ -3463,10 +3470,25 @@ export function finalizeResearch(
     if (claim.basis !== "not_quantified") {
       // A share of selected reports may come from posts rather than a study.
       const studiesNeeded = claim.basis !== "share_of_reports";
-      if (claim.measured_exposure === undefined || (studiesNeeded && (claim.studies ?? []).length === 0)) {
-        // The exit is for a harm no source here gives a rate for: on 30 Oct r324 took it for a study whose rates its
-        // binary_results declared, and its answer then carried the false limit below beside a table of those rates.
-        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? rule`measured_exposure` : rule`studies`}: give what the cited evidence measured and the key sources it rests on, `, "or, when no source here gives a rate, declare basis not_quantified."));
+      const noStudies = studiesNeeded && (claim.studies ?? []).length === 0;
+      if (claim.measured_exposure === undefined || noStudies) {
+        // What the basis needs comes first, and not_quantified only where it fits. Its exit is for a harm no source here
+        // gives a rate for: on 30 Oct r324 took it for a study whose rates its binary_results declared, and its answer
+        // then carried the false limit below beside a table of those rates. A measurement, case reports or a share of
+        // reports give no rate and need none, so for them that exit fits nearly always: in the owner regressions on #412's
+        // build (judged 6 Nov 2026) r325 took it for two hazard_measurement warnings that only lacked what was measured,
+        // and lost the measurement's caveat. Exact: the declared basis picks the sentence; nothing reads the answer.
+        const give = claim.measured_exposure === undefined
+          ? joinRules("give measured_exposure first, ", claim.basis === "hazard_measurement"
+            ? "what the laboratory, animal or composition measurement measured: the substance, its form and amount, and the test"
+            : "what the cited evidence measured", noStudies ? ", and in studies the key sources it rests on." : ".")
+          : "give in studies the key sources it rests on.";
+        const noRate = NO_RATE_BASES[claim.basis];
+        const exit = noRate === undefined
+          ? " Declare basis not_quantified instead only when no source here gives a rate for this harm."
+          : ` ${noRate} gives no rate and needs none: declare basis not_quantified only when no source here measured or ` +
+            "reported this at all.";
+        requireDeclaration(joinRules(rule`${at} has basis ${claim.basis} without ${claim.measured_exposure === undefined ? noStudies ? rule`measured_exposure or studies` : rule`measured_exposure` : rule`studies`}: `, give, exit));
       }
       undeclaredStudies(at, claim.studies ?? []);
     }
