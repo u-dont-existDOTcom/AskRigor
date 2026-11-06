@@ -204,8 +204,9 @@ describe("a community declared searched or read needs this call's receipt for it
       }, { secret: SECRET }));
     const page = (url: string, claims: Record<string, string>) => sign("forum_thread_read",
       { u: forumThreadDigest(url), w: forumPageDigest(url), n: 2_000, v: "page", ...claims });
-    const severalPages = (id: string) => `Key source ${id} is a forum thread of several pages, which AskRigor counts as ` +
-      "part read however many of its pages were read: give read_depth partial_text.";
+    // Worded by what was seen (the review of #421): a one-page topic may link an adjacent topic with rel tags too.
+    const severalPages = (id: string) => `Key source ${id}'s page marks a page before or after it, so AskRigor counts ` +
+      "it as part read: give read_depth partial_text.";
     const first = "https://forum.example.org/health-fitness/q1234567-synthetic-weight-question";
     const second = `${first}?p=2`;
     // A whole thread on one page, read to its end: read in full.
@@ -245,8 +246,8 @@ describe("a community declared searched or read needs this call's receipt for it
     const laterPage = "https://www.longecity.org/forum/viewtopic.php?t=1063977&start=30";
     const second = sign("forum_thread_read", { u: forumThreadDigest(laterPage), ur: forumThreadDigest(asked),
       w: forumPageDigest(laterPage), pv: "1", pa: "0", n: 1_500, v: "page", e: "1" });
-    expect(cite([second]).next_steps[0]).toBe(`Key source ${asked} is a forum thread of several pages, which AskRigor ` +
-      "counts as part read however many of its pages were read: give read_depth partial_text.");
+    expect(cite([second]).next_steps[0]).toBe(`Key source ${asked}'s page marks a page before or after it, so AskRigor ` +
+      "counts it as part read: give read_depth partial_text.");
     // Without the link given in its receipt, the asked link has no receipt (and so no reading either).
     const unsigned = sign("forum_thread_read", { u: forumThreadDigest(landed), w: forumPageDigest(landed), pv: "0",
       pa: "0", n: 1_500, v: "page", e: "1" });

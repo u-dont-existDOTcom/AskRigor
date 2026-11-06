@@ -2978,9 +2978,10 @@ export function finalizeResearch(
       requireDeclaration(rule`Give key_sources.read_depth for ${source.id}: ${READ_DEPTH_VALUES.join(", ")}.`);
     } else if (source.read_depth === "full_text_read" && !read && threadRead &&
                threadOfPages.has(readThreadOf(source.id) ?? forumThreadDigest(source.id))) {
-      // A thread of several pages is part read, whatever was read: say so, so a run doesn't guess (the review of #421).
-      addBlockingStep("read_depth", "declaration", joinRules(rule`Key source ${source.id} is a forum thread of several `,
-        "pages, which AskRigor counts as part read however many of its pages were read: give read_depth partial_text."));
+      // A page that marks a page before or after it is part read, whatever was read: say what was seen, so a run doesn't
+      // guess (the review of #421; such marks may be a pager's or a link to an adjacent topic, so the step names neither).
+      addBlockingStep("read_depth", "declaration", joinRules(rule`Key source ${source.id}'s page marks a page before or `,
+        "after it, so AskRigor counts it as part read: give read_depth partial_text."));
     } else if ((source.read_depth === "full_text_audited" && !audited) ||
                (source.read_depth === "full_text_read" && !read)) {
       addBlockingStep("read_depth", "declaration", joinRules(joinRules(rule`Key source ${source.id} cannot support read_depth ${source.read_depth} with these receipts; `, rule`give read_depth ${read ? rule`full_text_read` : rule`partial_text or another lower value reflecting what was read`}, `), rule`or pass its matching research_receipt.`));
