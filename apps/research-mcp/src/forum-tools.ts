@@ -181,7 +181,14 @@ export function registerForumTools(
         // final check reads a thread read to its end as fully read, and one left part-way as part read (the third
         // check of 5 Nov 2026). A page cut at the reader's size limit, or a Reddit read that missed comments, is
         // part-way, as the result's own partial access status says (its fourth check).
-        e: data.more || data.next_page || data.truncated ? "0" : "1"
+        e: data.more || data.next_page || data.truncated ? "0" : "1",
+        // The next page the reader found on a forum page read whole (np, its thread digest), when that page is another
+        // link, as a thread's ?p=2 is: so the final check reads the pages, each read whole and named by the page before
+        // it, as one thread, read to its end when the last has nothing after it (the owner regressions on #412's build,
+        // judged 6 Nov 2026: r376-later-phase read both pages of a thread and could not declare it read in full). A
+        // page cut at the size limit names none, so its thread stays part read.
+        ...(!reddit && data.next_page !== undefined && !data.truncated && forumThreadDigest(data.next_page) !== readThread
+          ? { np: forumThreadDigest(data.next_page) } : {})
       }) : undefined;
       // 5 Nov 2026: the loop from people's reports to studies is asked for where reports were read (community-leads.ts),
       // and only there: a page the reader couldn't read raised no lead.

@@ -209,6 +209,29 @@ describe("forum tools", () => {
     }
   });
 
+  // The owner regressions on #412's build (judged 6 Nov 2026): r376-later-phase read both pages of a thread whose second
+  // page is another link (?p=2), and the final check could not tie them. A page read whole signs the next page the reader
+  // found there (np), when it is another link; a page cut at the size limit, or one whose next page is the same link
+  // once its page is set aside, signs none.
+  it("signs the next page of a page read whole, when it is another link", async () => {
+    const caller = await client();
+    const claimsOf = async (read: Record<string, unknown>) => {
+      page.mockResolvedValue({ url: "https://forum.example/health/q123-synthetic-question", access_state: "read",
+        page_text: "a".repeat(1_500), ...read });
+      const result = await caller.callTool({ name: "read_forum_thread",
+        arguments: { url: "https://forum.example/health/q123-synthetic-question" } });
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    const second = "https://forum.example/health/q123-synthetic-question?p=2";
+    expect(await claimsOf({ truncated: false, next_page: second })).toMatchObject({ e: "0", np: forumThreadDigest(second) });
+    expect(await claimsOf({ truncated: true, next_page: second })).not.toHaveProperty("np");
+    expect(await claimsOf({ truncated: false })).not.toHaveProperty("np");
+    expect(await claimsOf({ truncated: false, next_page: "https://forum.example/health/q123-synthetic-question?page=2" }))
+      .not.toHaveProperty("np");
+  });
+
   // A post on a person's profile (a subreddit named u_ and the user's name) signs u_ alone, so no receipt names a user.
   it("signs a profile post's subreddit as u_ alone, and no subreddit that isn't one", async () => {
     const caller = await client();

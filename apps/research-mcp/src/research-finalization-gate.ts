@@ -2078,13 +2078,37 @@ export function finalizeResearch(
     const thread = readThreadOf(url);
     return thread === undefined ? undefined : forumReads.get(thread);
   };
-  // Whether AskRigor's reader read each thread to its end, by the thread's digest: a read with nothing after it and
-  // nothing cut (e 1; the third check of 5 Nov 2026). A receipt from before the reader said counts as part-way, the
-  // under-claim, for the day such receipts live (its fourth check).
+  // A forum page read whole names the next page the reader found there when it is another link (np, its thread digest),
+  // as a thread's ?p=2 is: that page, read, belongs to the thread of the page before it (the owner regressions on #412's
+  // build, judged 6 Nov 2026: r376-later-phase read both pages of a thread, and the check asked for partial_text). Only
+  // a page read here that a read page named counts, by its own digest or the link it was sent on from.
+  const readPage = (digest: string): string | undefined =>
+    forumThreads.has(digest) ? digest : forumThreadAliases.get(digest);
+  const pageBefore = new Map<string, string>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_thread_read" || typeof claims.u !== "string" || typeof claims.np !== "string") continue;
+    const next = readPage(claims.np);
+    if (next !== undefined && next !== claims.u && !pageBefore.has(next)) pageBefore.set(next, claims.u);
+  }
+  /** A read page's thread: its first page, back through each page that named the next. */
+  const firstPageOf = (digest: string): string => {
+    const seen = new Set<string>();
+    let page = digest;
+    while (!seen.has(page) && pageBefore.has(page)) {
+      seen.add(page);
+      page = pageBefore.get(page)!;
+    }
+    return page;
+  };
+  // Whether AskRigor's reader read each thread to its end, by the digest of its first page: a read with nothing after it
+  // and nothing cut (e 1; the third check of 5 Nov 2026), on the thread's first page or a page each read page named as
+  // the next. A receipt from before the reader said counts as part-way, the under-claim, for the day such receipts live
+  // (its fourth check).
   const threadReadToEnd = new Map<string, boolean>();
   for (const { kind, claims } of verified) {
     if (kind !== "forum_thread_read" || typeof claims.u !== "string") continue;
-    threadReadToEnd.set(claims.u, threadReadToEnd.get(claims.u) === true || claims.e === "1");
+    const thread = firstPageOf(claims.u);
+    threadReadToEnd.set(thread, threadReadToEnd.get(thread) === true || claims.e === "1");
   }
   // A search the host answered WEBSITE_FORMAT_CHANGED (h) listed no thread in a form the reader knows: it counts only as
   // a search AskRigor couldn't make there, below.
@@ -2931,7 +2955,7 @@ export function finalizeResearch(
     // A forum thread AskRigor's reader read is read as its receipt signs: to its end, the plain full reading, and
     // otherwise part of it; a thread is never method-audited nor read as an abstract (the third check of 5 Nov 2026).
     const threadReading: AnswerReading | undefined = !threadRead ? undefined
-      : threadReadToEnd.get(readThreadOf(source.id) ?? forumThreadDigest(source.id)) === true ? "full_text_read"
+      : threadReadToEnd.get(firstPageOf(readThreadOf(source.id) ?? forumThreadDigest(source.id))) === true ? "full_text_read"
         : "partial_text";
     const read = audited || fullReads.length > 0 || threadReading === "full_text_read";
     // The review of 5 Nov 2026: every full reading was of a copy the AI found, which reads so, as an audit's does.

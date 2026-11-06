@@ -186,6 +186,42 @@ describe("a community declared searched or read needs this call's receipt for it
       "read_depth full_text_audited with these receipts; give read_depth full_text_read, or pass its matching research_receipt."]);
   });
 
+  // The owner regressions on #412's build (judged 6 Nov 2026): r376-later-phase read both pages of a thread whose second
+  // page is another link (?p=2), passed both receipts, and the check asked for partial_text. Pages each read whole, each
+  // named by the page before it (np), are one thread, read to its end when the last has nothing after it.
+  it("reads a thread whose pages were each read whole, to the last, as read in full", () => {
+    const first = "https://forum.example.org/health-fitness/q1234567-synthetic-weight-question";
+    const second = `${first}?p=2`;
+    const third = `${first}?p=3`;
+    const cite = (receipts: string[], depth = "full_text_read", reading = depth) =>
+      assertNextStepsContract(finalizeResearch({ ...input([], receipts),
+        key_sources: [...input([]).key_sources, { id: first, status: "lead_only", read_depth: depth, answer_marker: "Thread" }],
+        answer_draft: `${input([]).answer_draft}\n\n[Thread](${first}) (${reading === "full_text_read" ? "full text read"
+          : "part of the text read"}) describes the tea.`,
+        later_inputs: { source_reading: [{ source: DOI, reading: "full_text_audited", quote: AUDITED },
+          { source: first, reading, quote: reading === "full_text_read" ? "full text read" : "part of the text read" }] }
+      }, { secret: SECRET }));
+    const page = (url: string, claims: Record<string, string>) =>
+      sign("forum_thread_read", { u: forumThreadDigest(url), n: 2_000, v: "page", ...claims });
+    const firstPage = page(first, { e: "0", np: forumThreadDigest(second) });
+    const refused = `Key source ${first} cannot support read_depth full_text_read with these receipts; give read_depth ` +
+      "partial_text or another lower value reflecting what was read, or pass its matching research_receipt.";
+    // Both pages read, the second to its end: read in full.
+    expect(cite([firstPage, page(second, { e: "1" })]).next_steps).toEqual([]);
+    // Three pages, each named by the one before: read in full only once the last is read.
+    const middle = page(second, { e: "0", np: forumThreadDigest(third) });
+    expect(cite([firstPage, middle, page(third, { e: "1" })]).next_steps).toEqual([]);
+    expect(cite([firstPage, middle]).next_steps).toContain(refused);
+    // The second page unread, or read with nothing tying it to the first (a receipt from before np, or a first page cut
+    // at the size limit, which names no next page): part read, and partial_text passes.
+    expect(cite([firstPage]).next_steps).toContain(refused);
+    const untied = [page(first, { e: "0" }), page(second, { e: "1" })];
+    expect(cite(untied).next_steps).toContain(refused);
+    expect(cite(untied, "partial_text").next_steps).toEqual([]);
+    // A page named as the next but never read ties nothing: the third page alone is no part of this thread.
+    expect(cite([page(first, { e: "0", np: forumThreadDigest(third) }), page(second, { e: "1" })]).next_steps).toContain(refused);
+  });
+
   // The follow-up of 5 Nov 2026 (l34 on #412's build): a thread the site sent the reader on from to another of its pages
   // is that thread, by the link given (`ur`), so an answer citing the link given has its receipt.
   it("takes a key source thread by the link the site sent the reader on from", () => {

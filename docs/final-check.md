@@ -252,7 +252,10 @@ A key source the draft cites still needs at least one entry whose quote the draf
 reader read is read as its read receipt signs: to its end, "full text read", and part-way, "part of the text read" (the
 receipt now signs which, and a page cut at the reader's size limit, or a Reddit read that missed comments, is
 part-way; a receipt from before it said counts as part-way, the under-claim); a thread is never method-audited nor read
-as an abstract, so an audit claimed of one holds the answer back. The comparison is exact,
+as an abstract, so an audit claimed of one holds the answer back. A forum page read whole signs the next page the reader
+found there when that page is another link (a thread's `?p=2`), so pages each read whole, each named by the page before
+it, are one thread, read to its end when the last has nothing after it (the owner regressions on #412's build, judged 6
+November 2026: r376-later-phase read both pages of a thread and was asked for "part of the text read"). The comparison is exact,
 by the fixed readings (the review of 5 November 2026, after an answer saying "full text read" passed on a PubMed record
 alone): by how much of the source each read (an audit, a full text, part of it, its abstract, its record, a search's
 listing, nothing of it), and, for a full text, by whose copy, since a copy the AI found reads as less than one AskRigor
