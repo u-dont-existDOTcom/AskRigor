@@ -115,6 +115,7 @@ records decisions and their sources; it adds no authority to the list above.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-06-owner-answer-273a-production-release.md`: release of #422, how much of each study was read, closing questions and the findings that challenge the usual view, with the site update of 267b (owner answer 273a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answer-270a-production-release.md`: release of #421, the fixes from the owner-regression rerun (owner answer 270a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
   260a): HRP 20.6.40 (how each study was read, the study map, community leads), the owner's private page with its
