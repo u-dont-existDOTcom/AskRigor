@@ -225,6 +225,31 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research binary_resul
       binary_results: [declaration({ ...plain, harms_quote: chinese })] });
   });
 
+  // The review of #421: whole-word matching refused honest quotes beside a citation link glued to the last word, a
+  // superscript marker, or a letter of a script without case. A link's edges are word boundaries, a superscript is no
+  // digit of a word, and a cased letter runs on only into a cased letter, a decimal digit or a combining mark.
+  it("finds an honest declared quote beside a citation link, a superscript, or a script without case", async () => {
+    const plain = declaration({ quote: "After 12 weeks, 45 of 100 people taking the drug had a response, against 30 " +
+      "of 100 taking placebo.", nnt: undefined });
+    const shownAs = async (sentence: string, harms: string) => {
+      const result = await call({ answer_draft: `${plain.quote} ${sentence}`, binary_results: [declaration({ ...plain, harms_quote: harms })] });
+      return advisoryNotes(result).filter((note) => note.includes("does not show"));
+    };
+    const cases: Array<[string, string]> = [
+      [`${HARMS.slice(0, -1)}[1](https://example.org/a).`, HARMS],
+      [`${HARMS.slice(0, -1)}\u00B9.`, HARMS],
+      ["副作用はSSRI群とプラセボ群で同程度だった。", "SSRI群とプラセボ群で同程度だった"],
+      ["两组每日10mg的副作用相似。", "两组每日10mg"],
+      [HARMS, HARMS]
+    ];
+    for (const [sentence, harms] of cases) expect(await shownAs(sentence, harms), sentence).toEqual([]);
+    // A word or number running on stays refused.
+    expect(await shownAs("About 13% stopped the drug.", "3% stopped the drug.")).toHaveLength(1);
+    expect(await shownAs("Harmlessness was similar.", "Harm")).toHaveLength(1);
+    // A quote across a link's edge is still found in the text as the reader sees it.
+    expect(await shownAs("About 1[3% stopped](https://example.org/a).", "13% stopped")).toEqual([]);
+  });
+
   it("names a group with more events than people, and leaves its other numbers unchecked", async () => {
     blocked(await call({ binary_results: [declaration({ option_events: 101 })] }), [
       "binary_results[0] gives more events than people for the drug: option_events counts the people in that group " +

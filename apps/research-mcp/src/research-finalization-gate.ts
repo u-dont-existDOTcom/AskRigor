@@ -43,7 +43,7 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { displayedProse, linkTargets, visibleText } from "./displayed-prose.js";
+import { displayedProse, linkTargets, visibleText, visibleTextWithLinkEdges } from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
@@ -5099,7 +5099,9 @@ function quoteLocator(shownBlocks: readonly string[], { wholeWords = false }: { 
   (quote: string) => number[] {
   const quoteBlocks = shownBlocks.map((block) => ({
     targets: caveatText(linkTargets(block)),
-    text: caveatText(visibleText(block))
+    text: caveatText(visibleText(block)),
+    // Compared as whole words, a link's edges are boundaries too (the review of #421).
+    edged: wholeWords ? caveatText(visibleTextWithLinkEdges(block)) : undefined
   }));
   const contains = wholeWords ? (text: string, quote: string) => wholeOccurrence(text, quote)
     : (text: string, quote: string) => text.includes(quote);
@@ -5107,26 +5109,28 @@ function quoteLocator(shownBlocks: readonly string[], { wholeWords = false }: { 
     const byTarget = quoteForm(quote.replace(MARKDOWN_LINK, "$1"));
     const byText = quoteForm(quote.replace(MARKDOWN_LINK_TEXT, "$1"));
     if (!/[\p{L}\p{N}]/u.test(byTarget)) return [];
-    return quoteBlocks.flatMap(({ targets, text }, index) =>
-      contains(targets, byTarget) || contains(text, byText) ? [index] : []);
+    return quoteBlocks.flatMap(({ targets, text, edged }, index) =>
+      contains(targets, byTarget) || contains(text, byText) || (edged !== undefined && contains(edged, byText)) ? [index] : []);
   };
 }
 
 /**
  * Whether a quote occurs in normalized text as whole words (the owner regressions on #412's build, judged 6 Nov 2026): an
  * edge that is a letter of a script with letter case, which separates words with spaces, may not run on into another
- * letter, digit or mark, and an edge that is a digit, in any script, into another digit, so "3%" is not found in "13%"
- * nor "harm" in "harmless". Letters of scripts without case, which may not separate words, match anywhere, as
- * termOccurrences matches a term. Exact and the same in any language.
+ * such letter, a digit or a combining mark, and an edge that is a digit, in any script, into another digit, so "3%" is
+ * not found in "13%" nor "harm" in "harmless". A letter of a script without case, which may not separate words, is no
+ * run-on ("SSRI" in "はSSRI群"), and neither is a superscript ("placebo¹"), only a decimal digit (the review of #421).
+ * Letters of scripts without case match anywhere, as termOccurrences matches a term. Exact and the same in any language.
  */
 function wholeOccurrence(text: string, quote: string): boolean {
   if (quote === "") return false;
   const characters = Array.from(quote);
-  const wordCharacter = /[\p{L}\p{N}\p{M}]/u;
-  const digit = /\p{N}/u;
+  const digit = /\p{Nd}/u;
+  const mark = /\p{M}/u;
   const cased = (character: string): boolean => character.toLowerCase() !== character.toUpperCase();
   const edge = (inside: string, outside: string | undefined): boolean => outside === undefined ||
-    (cased(inside) ? !wordCharacter.test(outside) : digit.test(inside) ? !digit.test(outside) : true);
+    (cased(inside) ? !(cased(outside) || digit.test(outside) || mark.test(outside))
+      : digit.test(inside) ? !digit.test(outside) : true);
   const first = characters[0]!;
   const last = characters.at(-1)!;
   for (let index = text.indexOf(quote); index >= 0; index = text.indexOf(quote, index + 1)) {
