@@ -22,6 +22,12 @@ export interface AiBudget {
   settle(hold: BudgetHold, actualNanoUsd: number): Promise<void>;
 }
 
+/** A budget whose ledger can also be read without changing it: the Atlas account page shows whether a scout fits. */
+export interface ReadableAiBudget extends AiBudget {
+  /** What is left of the current UTC month's limit, in nano-USD; throws when the ledger is unavailable. */
+  remaining(): Promise<number>;
+}
+
 export interface BudgetReservation {
   commit(actualNanoUsd: number): Promise<void>;
   forfeit(): Promise<void>;
@@ -60,7 +66,7 @@ export interface FileAiBudgetOptions {
   now: () => Date;
 }
 
-const sharedBudgets = new Map<string, AiBudget>();
+const sharedBudgets = new Map<string, ReadableAiBudget>();
 
 interface AiBudgetLedger {
   schema_version: 1;
@@ -80,7 +86,7 @@ const ledgerSchema = z.strictObject({
 
 const LEDGER_UNAVAILABLE_MESSAGE = "AI budget ledger unavailable";
 
-class FileAiBudget implements AiBudget {
+class FileAiBudget implements ReadableAiBudget {
   private mutex: Promise<void> = Promise.resolve();
   private readonly parentDirectory: string;
   private readonly expectedUid: number;
@@ -125,6 +131,20 @@ class FileAiBudget implements AiBudget {
         } satisfies AiBudgetLedger;
         await this.writeLedger(chargedLedger);
         return this.createReservation(maximumNanoUsd, ledger.utc_month);
+      } catch {
+        throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
+      }
+    });
+  }
+
+  remaining(): Promise<number> {
+    // Read in the same queue as the writes, with the same checks; a missing ledger or an earlier month's is the whole
+    // limit, and nothing is written.
+    return this.serialized(async () => {
+      try {
+        await this.assertSafeParentDirectory();
+        const { ledger } = await this.loadLedger(this.safeNow());
+        return this.options.monthlyLimitNanoUsd - ledger.charged_nano_usd;
       } catch {
         throw new Error(LEDGER_UNAVAILABLE_MESSAGE);
       }
@@ -358,7 +378,7 @@ class FileAiBudget implements AiBudget {
   }
 }
 
-export function createFileAiBudget(options: FileAiBudgetOptions): AiBudget {
+export function createFileAiBudget(options: FileAiBudgetOptions): ReadableAiBudget {
   return new FileAiBudget(options);
 }
 
@@ -366,7 +386,7 @@ export function createFileAiBudget(options: FileAiBudgetOptions): AiBudget {
  * Returns one process-wide mutex owner for a ledger path. Multiple Action
  * services must not independently reserve against the same file.
  */
-export function createSharedFileAiBudget(options: FileAiBudgetOptions): AiBudget {
+export function createSharedFileAiBudget(options: FileAiBudgetOptions): ReadableAiBudget {
   const expectedUid = options.expectedUid ?? process.getuid?.();
   const key = JSON.stringify([
     options.ledgerPath,

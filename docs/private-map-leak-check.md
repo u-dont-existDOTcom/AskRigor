@@ -26,12 +26,15 @@ fixtures asks (invent numbers that match no private map).
 
 ## Where the maps are
 
-`ASKRIGOR_PRIVATE_COMMENT_MAPS` names a file, a folder of `comment-maps-*.md` files, or several of them separated by the
-platform's path delimiter. Unset, the check reads `~/claude-work/owner-pages/askrigor`, so pull that checkout after a map is
+`ASKRIGOR_PRIVATE_COMMENT_MAPS` names a file, a folder of `comment-maps-*.md` pages and its `comment-maps.json` store, or
+several of them separated by the platform's path delimiter. Unset, the check reads `~/claude-work/owner-pages/askrigor`, so pull that checkout after a map is
 added. Where no map is found or readable (CI, another computer, a sandbox that cannot reach the folder) the check says it
 was skipped and passes. Where pages are there but no map is recognized, it refuses: the layout may have changed and
-nothing would be protected. The reader starts a map at each line that links a video and takes "comments read: 400 of
-1,234" (or "all 87") and the numbers on the "Tried it" line, leaving rates out; `tests/private-map-leaks.test.ts` re-reads
+nothing would be protected. The page reader starts a map at each line that links a video and takes "comments read: 400 of
+1,234" (or "all 87") and the numbers on the "Tried it" line, leaving rates out. The store (schema
+`askrigor.comment-maps.v1`, which the owner's private Atlas view is rendered from) is read as well, so a page's layout
+can't hide a map: on 5 Nov 2026 six maps written on a page as one summary table, without video links, went unread
+until that was noticed; `tests/private-map-leaks.test.ts` re-reads
 the real pages on a machine that has them and fails if a map no longer has a sample and its outcome numbers.
 
 ## Using it

@@ -42,6 +42,31 @@ describe("persistent lesson AI budget", {
     expect(createSharedFileAiBudget(options)).toBe(createSharedFileAiBudget(options));
   });
 
+  it("reads what is left of the month without writing, as the Atlas account page does", async () => {
+    const { directory, ledgerPath } = await temporaryLedger();
+    let now = new Date("2026-08-13T10:00:00.000Z");
+    const budget = createFileAiBudget({
+      ledgerPath,
+      monthlyLimitNanoUsd: MONTHLY_AI_BUDGET_NANO_USD,
+      expectedUid: process.getuid?.(),
+      now: () => now,
+    });
+
+    await expect(budget.remaining()).resolves.toBe(MONTHLY_AI_BUDGET_NANO_USD);
+    await expect(lstat(ledgerPath)).rejects.toMatchObject({ code: "ENOENT" });
+    const reservation = await budget.reserve("gemini_youtube_scout", 49_500_000_000);
+    await reservation!.commit(49_250_000_000);
+    await expect(budget.remaining()).resolves.toBe(750_000_000);
+    const written = await readFile(ledgerPath, "utf8");
+    // A new month is the whole limit again; reading it writes nothing.
+    now = new Date("2026-09-01T00:00:00.000Z");
+    await expect(budget.remaining()).resolves.toBe(MONTHLY_AI_BUDGET_NANO_USD);
+    expect(await readFile(ledgerPath, "utf8")).toBe(written);
+    await chmod(directory, 0o777);
+    await expect(budget.remaining()).rejects.toThrow("AI budget ledger unavailable");
+    await chmod(directory, 0o700);
+  });
+
   it("serializes concurrent reservations so their total cannot exceed the limit", async () => {
     const { ledgerPath } = await temporaryLedger();
     const budget = createFileAiBudget({

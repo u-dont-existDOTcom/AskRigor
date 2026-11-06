@@ -5,7 +5,15 @@ import { basename, delimiter, dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { mapFilesFrom, MAPS_VARIABLE } from "../scripts/check-private-map-leaks.mts";
-import { buildIndex, numbersIn, parsePrivateMaps, redact, scanDiff } from "../scripts/lib/private-map-leaks.mts";
+import {
+  buildIndex,
+  MAPS_JSON_SCHEMA,
+  numbersIn,
+  parsePrivateMaps,
+  parsePrivateMapsJson,
+  redact,
+  scanDiff,
+} from "../scripts/lib/private-map-leaks.mts";
 
 // Every figure and ID below is invented, and was compared with the owner's private pages and found on none of them.
 const VIDEO_ONE = "Aq7_Zv-Lm3k";
@@ -33,6 +41,17 @@ Several more videos, after the list ends.
 `;
 
 const index = buildIndex(parsePrivateMaps(INVENTED_MAPS, "comment-maps-invented.md"));
+
+// The same two invented maps as the structured store holds them (owner-pages askrigor/comment-maps.json).
+const INVENTED_STORE = JSON.stringify({
+  schema: MAPS_JSON_SCHEMA,
+  maps: [
+    { video_id: VIDEO_ONE, label: "An invented routine", corpus: 7413, sampled: 350, tried: 53,
+      outcomes: { better: 41, no_change: 3, worse: 6, mixed: 3 } },
+    { video_id: VIDEO_TWO, label: "A second invented routine", corpus: 187, sampled: 187, tried: 36,
+      outcomes: { better: 24, no_change: 5, worse: 5, mixed: 2 } },
+  ],
+});
 
 // The format of `git log -p -U0 --format=%x01%H%n%B%x02`, with one new file per entry.
 function diffOf(files: Record<string, string[]>, message = "A change"): string[] {
@@ -98,6 +117,21 @@ describe("reading a private map", () => {
 
   it("recognizes nothing in a page without a linked video", () => {
     expect(parsePrivateMaps("# Notes\n\nNothing mapped yet: 350 of 7,413.\n", "comment-maps-x.md")).toEqual([]);
+  });
+
+  // 5 Nov 2026: six maps written on a page as one summary table, without video links, went unread until noticed.
+  it("reads the structured store as the pages read the same maps, whatever a page's layout", () => {
+    const fromStore = parsePrivateMapsJson(INVENTED_STORE, "comment-maps.json");
+    const fromPage = parsePrivateMaps(INVENTED_MAPS, "comment-maps-invented.md");
+    const fields = (maps: typeof fromStore) => maps.map(({ videoIds, sample, total, outcome }) => ({ videoIds, sample, total, outcome }));
+    expect(fields(fromStore)).toEqual(fields(fromPage));
+    expect(fromStore.map((map) => map.ordinal)).toEqual([1, 2]);
+  });
+
+  it("recognizes nothing in a store of another schema or a file that isn't JSON", () => {
+    expect(parsePrivateMapsJson(INVENTED_STORE.replace(MAPS_JSON_SCHEMA, "askrigor.comment-maps.v2"), "comment-maps.json")).toEqual([]);
+    expect(parsePrivateMapsJson("not json", "comment-maps.json")).toEqual([]);
+    expect(parsePrivateMapsJson(JSON.stringify({ schema: MAPS_JSON_SCHEMA }), "comment-maps.json")).toEqual([]);
   });
 });
 
@@ -221,6 +255,15 @@ describe("finding the private maps", () => {
     expect(mapFilesFrom({ [MAPS_VARIABLE]: join(folder, "maps") }).map((file) => file.slice(folder.length))).toEqual(["/maps/comment-maps-a.md", "/maps/comment-maps-b.md"]);
     expect(mapFilesFrom({ [MAPS_VARIABLE]: join(folder, "single.md") })).toEqual([join(folder, "single.md")]);
     expect(mapFilesFrom({ [MAPS_VARIABLE]: [join(folder, "single.md"), join(folder, "nowhere")].join(delimiter) })).toEqual([join(folder, "single.md")]);
+  });
+
+  it("reads a folder's maps store beside its pages", () => {
+    mkdirSync(join(folder, "with-store"));
+    writeFileSync(join(folder, "with-store", "comment-maps-a.md"), INVENTED_MAPS);
+    writeFileSync(join(folder, "with-store", "comment-maps.json"), INVENTED_STORE);
+    writeFileSync(join(folder, "with-store", "comment-maps-atlas.html"), "<p>a rendered view, not read</p>");
+    expect(mapFilesFrom({ [MAPS_VARIABLE]: join(folder, "with-store") }).map((file) => file.slice(folder.length)))
+      .toEqual(["/with-store/comment-maps-a.md", "/with-store/comment-maps.json"]);
   });
 
   it("counts a path that cannot be read as absent", () => {
@@ -423,7 +466,8 @@ describe("the owner's real private maps, where this machine has them", () => {
   it.skipIf(files.length === 0)("are still read: every map has a sample and its outcome counts", () => {
     const problems: string[] = [];
     for (const file of files) {
-      const maps = parsePrivateMaps(readFileSync(file, "utf8"), basename(file));
+      const text = readFileSync(file, "utf8");
+      const maps = file.endsWith(".json") ? parsePrivateMapsJson(text, basename(file)) : parsePrivateMaps(text, basename(file));
       if (maps.length === 0) problems.push(`${basename(file)} holds no map the reader recognizes`);
       for (const map of maps) {
         if (map.sample === null) problems.push(`map ${map.ordinal} of ${basename(file)} has no sample size`);

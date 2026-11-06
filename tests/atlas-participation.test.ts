@@ -28,6 +28,7 @@ import {
   openSession,
   openSignInState,
   participantKeyFor,
+  participantKeyForAccount,
   reportToken,
   reporterKeyFor,
   safeReturnPath,
@@ -363,6 +364,26 @@ describe("the participant key, the cookies and the tokens", () => {
     expect(openSignInState(settings, sealed, now)).toBeUndefined();
   });
 
+  it("seals the research account key with the session, and refuses one that is not its participant's", () => {
+    const service = new ResearchContributorAccessService({
+      store: {} as ResearchContributorAccessStore, identitySecret: settings.identitySecret,
+    });
+    const accountKey = service.accountKeyForSubject(SUBJECT);
+    const participantKey = participantKeyFor(settings, SUBJECT);
+    expect(participantKeyForAccount(settings, accountKey)).toBe(participantKey);
+    const session = newSession(participantKey, now, accountKey);
+    const sealed = sealSession(settings, session);
+    expect(sealed).not.toContain(accountKey.slice(0, 16));
+    expect(Buffer.from(sealed.slice(3), "base64url").toString("latin1")).not.toContain(accountKey.slice(0, 16));
+    expect(openSession(settings, sealed, now)).toEqual(session);
+    // Another account's key, or one AskRigor never derives, under this participant: a cookie that could only be forged.
+    for (const other of [service.accountKeyForSubject(OTHER_SUBJECT), accountKey.toUpperCase(), "a".repeat(63)]) {
+      expect(openSession(settings, sealSession(settings, newSession(participantKey, now, other)), now), other).toBeUndefined();
+    }
+    // A session sealed before sessions carried the key opens without one, as the account page reads it.
+    expect(openSession(settings, sealSession(settings, newSession(participantKey, now)), now)?.accountKey).toBeNull();
+  });
+
   it("ties each form's token to the session and its purpose, and a report token to the comment and the day", () => {
     const session = newSession("a".repeat(64), now);
     const other = newSession("a".repeat(64), now);
@@ -465,6 +486,10 @@ describe("signing in with the AskRigor login", () => {
     expect(exchange!.body.get("code_verifier")).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     const opened = openSession(f.settings, session.slice(session.indexOf("=") + 1), new Date());
     expect(opened?.participantKey).toBe(participantKeyFor(f.settings, SUBJECT));
+    // The account key the connector derives rides sealed in the session, for the account page's features.
+    expect(opened?.accountKey).toBe(new ResearchContributorAccessService({
+      store: {} as ResearchContributorAccessStore, identitySecret: f.settings.identitySecret,
+    }).accountKeyForSubject(SUBJECT));
     // Signed in, the finding page shows the forms; it is never cached.
     const page = await f.get("/atlas/findings/P-1001?done=signed-in", session);
     expect(page.body).toContain("You are signed in: you can vote and comment.");

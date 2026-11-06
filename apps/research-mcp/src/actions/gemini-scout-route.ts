@@ -20,7 +20,8 @@ import {
   type GeminiYoutubeCandidateValidationReceipt,
   type GeminiYoutubeScoutBackgroundAdvance,
   type GeminiYoutubeScoutBackgroundCheckpoint,
-  type GeminiYoutubeScoutData
+  type GeminiYoutubeScoutData,
+  type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -29,7 +30,8 @@ import {
   createSharedFileAiBudget,
   MONTHLY_AI_BUDGET_NANO_USD,
   type AiBudget,
-  type BudgetHold
+  type BudgetHold,
+  type ReadableAiBudget
 } from "../lessons/ai-budget.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
@@ -191,6 +193,8 @@ export type ResumableAutomatedGeminiScoutExecution =
       controller_boundary: {
         code: z.output<typeof automatedScoutBoundarySchema>["code"];
         retryable: boolean;
+        // Google refused to start the scout: its HTTP status and reason. Nothing ran, so nothing is charged.
+        never_started?: GeminiYoutubeScoutNeverStarted;
       };
     };
 
@@ -232,8 +236,8 @@ export function createAutomatedGeminiScoutActionRoute(
  * The owner's zero-spend policy (governance/chat-work-authority-policy.json):
  * Gemini runs only with a key the deployment declares has no billing.
  */
-export function geminiKeyDeclaredUnbilled(): boolean {
-  return process.env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
+export function geminiKeyDeclaredUnbilled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ASKRIGOR_GEMINI_BILLING?.trim() === "none";
 }
 
 /**
@@ -432,6 +436,7 @@ export async function executeAutomatedGeminiScout(
  * checkpoint without reserving again. A scout unfinished after its first call
  * keeps its whole reservation charged as a hold, and the call that completes
  * it settles the real cost against that hold, as a one-call scout commits it.
+ * A scout Google refuses to start is charged nothing.
  */
 export async function executeResumableAutomatedGeminiScout(
   input: z.output<typeof automatedScoutInputSchema>,
@@ -578,10 +583,16 @@ export async function executeResumableAutomatedGeminiScout(
     };
   }
   if (advance.kind === "boundary") {
-    if (reservation !== undefined) await reservation.forfeit();
+    if (reservation !== undefined) {
+      // Google refused the request that creates the job, so nothing ran and nothing is charged (the regression logs
+      // of 1-2 Nov 2026: 50 such refusals each forfeited $1). If the ledger cannot record that, all stays charged.
+      if (advance.never_started !== undefined) await reservation.commit(0).catch(() => undefined);
+      else await reservation.forfeit();
+    }
     return controllerBoundary(
       knownBoundaryCode(advance.frontier.error?.code),
-      advance.frontier.error?.retryable === true
+      advance.frontier.error?.retryable === true,
+      advance.never_started
     );
   }
 
@@ -638,9 +649,16 @@ const MAXIMUM_DEADLINE_ADVANCES = 12;
 
 function controllerBoundary(
   code: z.output<typeof automatedScoutBoundarySchema>["code"],
-  retryable: boolean
+  retryable: boolean,
+  neverStarted?: GeminiYoutubeScoutNeverStarted
 ): ResumableAutomatedGeminiScoutExecution {
-  return { controller_boundary: { code, retryable } };
+  return {
+    controller_boundary: {
+      code,
+      retryable,
+      ...(neverStarted === undefined ? {} : { never_started: neverStarted })
+    }
+  };
 }
 
 function heldResume(
@@ -1031,12 +1049,20 @@ export function geminiScoutReservationNanoUsd(
   return Math.ceil(searches + (GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD - searches) * ratio);
 }
 
-function productionAiBudget(): AiBudget {
-  const ledgerPath = process.env.ASKRIGOR_AI_BUDGET_LEDGER ?? "";
+/**
+ * What is left of this UTC month's AI budget, read from the scouts' own ledger without changing it: the Atlas account
+ * page says whether a scout still fits. Throws when the budget's settings or its ledger are unavailable.
+ */
+export async function geminiScoutBudgetLeftNanoUsd(env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  return await productionAiBudget(env).remaining();
+}
+
+function productionAiBudget(env: NodeJS.ProcessEnv = process.env): ReadableAiBudget {
+  const ledgerPath = env.ASKRIGOR_AI_BUDGET_LEDGER ?? "";
   if (!isAbsolute(ledgerPath) || normalize(ledgerPath) !== ledgerPath) {
     throw new Error("Gemini scout budget unavailable");
   }
-  const budgetUsd = process.env.ASKRIGOR_AI_MONTHLY_BUDGET_USD;
+  const budgetUsd = env.ASKRIGOR_AI_MONTHLY_BUDGET_USD;
   if (budgetUsd !== "50" && budgetUsd !== "50.00") {
     throw new Error("Gemini scout budget unavailable");
   }

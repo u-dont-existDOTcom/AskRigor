@@ -155,6 +155,8 @@ export async function fixture(options: {
   wrapStore?: (store: AtlasParticipationStore) => AtlasParticipationStore;
   /** The apex proxy's shared secret the handler expects with a forwarded address. */
   proxySecret?: string;
+  /** What the account page lists the signed-in reader's AskRigor features with; none by default. */
+  features?: AtlasParticipationRuntime["features"];
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -183,6 +185,7 @@ export async function fixture(options: {
           signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
             fetch: tenant.fetch },
           ...(options.limiters === undefined ? {} : { limiters: options.limiters }),
+          ...(options.features === undefined ? {} : { features: options.features }),
         },
       }),
     });
