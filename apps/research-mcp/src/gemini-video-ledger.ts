@@ -33,6 +33,12 @@ export interface GeminiVideoLedger {
   charge(seconds: number): Promise<VideoSecondsCharge>;
 }
 
+/** The file ledger, which can also be read without charging: the Atlas account page shows whether today's is used up. */
+export interface ReadableGeminiVideoLedger extends GeminiVideoLedger {
+  /** The seconds left today (Pacific time). Throws when the ledger is unavailable. */
+  remaining(): Promise<number>;
+}
+
 export interface FileGeminiVideoLedgerOptions {
   ledgerPath: string;
   expectedUid?: number;
@@ -48,19 +54,19 @@ const ledgerSchema = z.strictObject({
 });
 type Ledger = z.output<typeof ledgerSchema>;
 
-const sharedLedgers = new Map<string, GeminiVideoLedger>();
+const sharedLedgers = new Map<string, ReadableGeminiVideoLedger>();
 
 /**
  * The production ledger, beside ASKRIGOR_AI_BUDGET_LEDGER. One instance per
  * path, so every MCP server in this process charges through one queue.
  */
-export function productionGeminiVideoLedger(env: NodeJS.ProcessEnv = process.env): GeminiVideoLedger {
+export function productionGeminiVideoLedger(env: NodeJS.ProcessEnv = process.env): ReadableGeminiVideoLedger {
   const budgetLedger = env.ASKRIGOR_AI_BUDGET_LEDGER ?? "";
   if (!isAbsolute(budgetLedger) || normalize(budgetLedger) !== budgetLedger) throw new Error(UNAVAILABLE);
   return sharedGeminiVideoLedger({ ledgerPath: join(dirname(budgetLedger), LEDGER_FILE_NAME) });
 }
 
-export function sharedGeminiVideoLedger(options: FileGeminiVideoLedgerOptions): GeminiVideoLedger {
+export function sharedGeminiVideoLedger(options: FileGeminiVideoLedgerOptions): ReadableGeminiVideoLedger {
   const key = JSON.stringify([options.ledgerPath, options.expectedUid ?? process.getuid?.()]);
   let ledger = sharedLedgers.get(key);
   if (ledger === undefined) {
@@ -80,7 +86,7 @@ export function pacificDay(now: Date): string {
   }).format(now);
 }
 
-class FileGeminiVideoLedger implements GeminiVideoLedger {
+class FileGeminiVideoLedger implements ReadableGeminiVideoLedger {
   private queue: Promise<void> = Promise.resolve();
   private readonly directory: string;
   private readonly expectedUid: number;
@@ -110,6 +116,20 @@ class FileGeminiVideoLedger implements GeminiVideoLedger {
           updated_at: now.toISOString()
         });
         return { charged: true, remaining_seconds: remaining - seconds };
+      } catch {
+        throw new Error(UNAVAILABLE);
+      }
+    });
+  }
+
+  remaining(): Promise<number> {
+    // In the same queue as the charges, with the same checks; nothing is written.
+    return this.serialized(async () => {
+      try {
+        await this.assertSafeDirectory();
+        const now = this.now();
+        if (!Number.isFinite(now.getTime())) throw new Error(UNAVAILABLE);
+        return GEMINI_VIDEO_DAILY_LIMIT_SECONDS - (await this.load(now)).charged_seconds;
       } catch {
         throw new Error(UNAVAILABLE);
       }

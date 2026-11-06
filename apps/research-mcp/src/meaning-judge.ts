@@ -255,6 +255,8 @@ export interface MeaningJudgeCall {
 
 export interface MeaningJudge {
   readonly enabled: boolean;
+  /** The day's cap in USD while it is on (ASKRIGOR_MEANING_JUDGE_DAILY_CAP_USD); the Atlas account page shows it. */
+  readonly dailyCapUsd?: number;
   judge(bundle: MeaningJudgeBundle): Promise<MeaningJudgeCall>;
 }
 
@@ -456,6 +458,7 @@ export function createMeaningJudge(dependencies: MeaningJudgeDependencies = {}):
 
   return {
     enabled: true,
+    dailyCapUsd: cap,
     async judge(bundle) {
       const current = now();
       if (today() !== day) { day = today(); spent = 0; }

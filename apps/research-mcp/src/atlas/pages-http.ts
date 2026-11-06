@@ -8,6 +8,9 @@ import {
   PostgresAtlasPageSource,
   PostgresAtlasParticipationStore,
   PostgresAtlasReportStore,
+  PostgresResearchContributorAccessStore,
+  ResearchContributorAccessService,
+  researchAccountKeyForSubject,
   type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasReportStore,
@@ -15,6 +18,7 @@ import {
 
 import {
   atlasPagesEnabledFromEnv,
+  devAccountKeysFromEnv,
   livingEvidenceReuseConfigFromEnv,
   researchContributorAccessConfigFromEnv,
 } from "../config.js";
@@ -24,6 +28,11 @@ import {
   normalizeClientIp,
   type TokenBucketLimiter,
 } from "../rate-limit.js";
+import {
+  atlasServerFeaturesFromEnv,
+  loadAtlasAccountFeatures,
+  type AtlasFeaturesRuntime,
+} from "./account-features.js";
 import { announcingParticipationStore, atlasChanges, type AtlasChangeSignal } from "./change-signal.js";
 import { loadAtlasHealth, loadAtlasSubcategory, renderAtlasHealth, renderAtlasSubcategory } from "./health-pages.js";
 import { HEALTH } from "./health-tree.js";
@@ -458,6 +467,8 @@ export interface AtlasParticipationRuntime {
   signIn: AtlasSignInSettings;
   /** Each limit's bucket; ATLAS_PARTICIPATION_LIMITS by default. */
   limiters?: Partial<Record<keyof typeof ATLAS_PARTICIPATION_LIMITS, TokenBucketLimiter>>;
+  /** What the account page lists the signed-in reader's AskRigor features with; without it, it lists none. */
+  features?: AtlasFeaturesRuntime;
 }
 
 export interface CreateAtlasPagesHandlerOptions {
@@ -1004,10 +1015,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
     const { session, clear } = await currentSession(request, runtime, now, "read-as-signed-out");
     const reader = await readerFor(runtime, ACCOUNT_PATH, session, queryOf(request).get("done") ?? "");
     const token = (purpose: string) => csrfToken(runtime.settings, session!, purpose);
+    // The signed-in reader's AskRigor features, read for their own account only; a reader who is not signed in gets none.
+    const features = session === undefined || runtime.features === undefined ? null
+      : await loadAtlasAccountFeatures(runtime.features, session.accountKey, now);
     const page = checked({ status: 200, html: renderAtlasAccount({
       reader,
       tokens: session === undefined ? null : { name: token("name"), signOut: token("sign-out"),
         signOutEverywhere: token("sign-out-everywhere"), forget: token("forget") },
+      features,
     }) });
     write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
   };
@@ -1037,7 +1052,7 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         usedSignIns.set(state.state, state.expiresAt);
       }
       const signedIn = await finishSignIn({ settings: runtime.settings, signIn: runtime.signIn, query, state, now });
-      const session = newSession(signedIn.participantKey, now);
+      const session = newSession(signedIn.participantKey, now, signedIn.accountKey);
       redirect(response, 303, `${signedIn.returnPath}?done=signed-in`, [
         cookieHeader(ATLAS_SESSION_COOKIE, sealSession(runtime.settings, session), ATLAS_SESSION_SECONDS),
         clearLogin,
@@ -1379,6 +1394,14 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   });
 }
 
+/** What the research server shares with the pages, so they read as its connector does. */
+export interface AtlasPagesSharedParts {
+  /** The connector's research access service; without it the pages make their own, on the same access role. */
+  researchAccess?: AtlasFeaturesRuntime["research"];
+  /** The subjects the connector's owner review admits (ASKRIGOR_OAUTH_ALLOWED_SUBJECT). */
+  ownerSubjects?: ReadonlySet<string>;
+}
+
 /**
  * Votes, comments and sign-in from the environment, all or nothing: ASKRIGOR_ATLAS_PARTICIPATION=enabled; the session
  * key and the participant secret (ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL and ASKRIGOR_ATLAS_PARTICIPANT_SECRET_BASE64URL,
@@ -1386,9 +1409,12 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
  * identity secret the connector derives account keys with
  * and the access role's database; the Atlas's Auth0 application (ASKRIGOR_ATLAS_AUTH0_CLIENT_ID and
  * ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET); and the tenant the connector uses (ASKRIGOR_OAUTH_ISSUER_URL and
- * ASKRIGOR_OAUTH_JWKS_URL). Without any of them, undefined: the pages show no form and no sign-in link.
+ * ASKRIGOR_OAUTH_JWKS_URL). Without any of them, undefined: the pages show no form and no sign-in link. The account
+ * page's features read the research account through the connector's service, on the access role the participation
+ * store already uses, and the server's settings.
  */
-export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env): AtlasParticipationRuntime | undefined {
+export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, shared: AtlasPagesSharedParts = {}):
+  AtlasParticipationRuntime | undefined {
   if (env.ASKRIGOR_ATLAS_PARTICIPATION?.trim() !== "enabled") return undefined;
   try {
     const sessionKey = secretFromBase64Url(env.ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL);
@@ -1407,6 +1433,14 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env):
     // Three secrets for three uses: none may be another.
     const secrets = [sessionKey, participantSecret, access.identitySecret].map((secret) => Buffer.from(secret).toString("hex"));
     if (new Set(secrets).size !== secrets.length) return undefined;
+    // The owner's research account keys, derived once; a subject the derivation refuses is no one's.
+    const ownerAccountKeys = new Set([...shared.ownerSubjects ?? []].flatMap((subject) => {
+      try {
+        return [researchAccountKeyForSubject(access.identitySecret, subject)];
+      } catch {
+        return [];
+      }
+    }));
     return {
       settings: { publicOrigin, sessionKey, participantSecret, identitySecret: access.identitySecret },
       store: announcingParticipationStore(new PostgresAtlasParticipationStore({
@@ -1421,6 +1455,19 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env):
         ssl: access.ssl,
       }),
       signIn: { issuerUrl: issuer, clientId, clientSecret, jwks: createRemoteJWKSet(jwks) },
+      features: {
+        research: shared.researchAccess ?? new ResearchContributorAccessService({
+          store: new PostgresResearchContributorAccessStore({
+            connectionString: access.connectionString,
+            schema: access.schema,
+            ssl: access.ssl,
+          }),
+          identitySecret: access.identitySecret,
+        }),
+        server: atlasServerFeaturesFromEnv(env),
+        ownerAccountKeys,
+        devAccountKeys: () => devAccountKeysFromEnv(env.ASKRIGOR_DEV_ACCOUNT_KEYS),
+      },
     };
   } catch {
     return undefined;
@@ -1433,7 +1480,8 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env):
  * on without a usable reader configuration, every page answers 503 and the server runs on. Votes and comments come with
  * them when atlasParticipationFromEnv finds every part configured.
  */
-export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.env): AtlasPagesHandler {
+export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.env, shared: AtlasPagesSharedParts = {}):
+  AtlasPagesHandler {
   if (!atlasPagesEnabledFromEnv(env.ASKRIGOR_ATLAS_PAGES)) return createAtlasPagesHandler({ enabled: false });
   let source: AtlasPageSource | undefined;
   try {
@@ -1449,7 +1497,7 @@ export function createAtlasPagesHandlerFromEnv(env: NodeJS.ProcessEnv = process.
   } catch {
     source = undefined;
   }
-  const participation = atlasParticipationFromEnv(env);
+  const participation = atlasParticipationFromEnv(env, shared);
   // The proxy's secret, as the other secrets: 32 random bytes in canonical base64url, else none.
   const proxySecret = secretFromBase64Url(env.ASKRIGOR_ATLAS_PROXY_SECRET) === undefined ? null
     : env.ASKRIGOR_ATLAS_PROXY_SECRET!.trim();

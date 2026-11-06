@@ -269,6 +269,15 @@ export interface ResearchContributorAccessServiceOptions {
   randomUuid?: () => string;
 }
 
+/** An active account's mode and settings, as activeAccount reads them. */
+export interface ActiveResearchAccount {
+  mode: ResearchUseMode;
+  plainAnswerNote: boolean;
+  detailedLessonReports: boolean;
+  findingsSave: boolean;
+  noticeVersion: ResearchUseNoticeVersion | null;
+}
+
 export interface ResearchAccessView {
   status: "UNENROLLED" | "ACTIVE" | "REVOKED";
   mode: ResearchUseMode | null;
@@ -344,9 +353,15 @@ export class ResearchContributorAccessService {
   }
 
   async inspect(subject: string): Promise<ResearchAccessView> {
-    const account = await this.store.getAccount(
-      this.accountKeyForSubject(subject),
-    );
+    return await this.inspectByAccountKey(this.accountKeyForSubject(subject));
+  }
+
+  /**
+   * inspect, for an account key the caller derived from a verified subject: the Atlas account page reads the account
+   * of the person signed in there, whose session carries the key and never the subject.
+   */
+  async inspectByAccountKey(accountKey: string): Promise<ResearchAccessView> {
+    const account = await this.store.getAccount(accountKeyChecked(accountKey));
     if (account === null) {
       return accessView("UNENROLLED", null, null, null);
     }
@@ -438,14 +453,13 @@ export class ResearchContributorAccessService {
    */
   async activeAccount(
     subject: string,
-  ): Promise<{
-    mode: ResearchUseMode;
-    plainAnswerNote: boolean;
-    detailedLessonReports: boolean;
-    findingsSave: boolean;
-    noticeVersion: ResearchUseNoticeVersion | null;
-  }> {
-    const account = await this.enrolledAccount(subject);
+  ): Promise<ActiveResearchAccount> {
+    return await this.activeAccountByKey(this.accountKeyForSubject(subject));
+  }
+
+  /** activeAccount, for an account key the caller derived from a verified subject (as inspectByAccountKey). */
+  async activeAccountByKey(accountKey: string): Promise<ActiveResearchAccount> {
+    const account = await this.enrolledAccountByKey(accountKeyChecked(accountKey));
     if (outdatedFreeNotice(account)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -472,9 +486,12 @@ export class ResearchContributorAccessService {
 
   /** An account that chose a mode and is not revoked, whatever notice it accepted and whatever its entitlement. */
   private async enrolledAccount(subject: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
-    const account = await this.store.getAccount(
-      this.accountKeyForSubject(subject),
-    );
+    return await this.enrolledAccountByKey(this.accountKeyForSubject(subject));
+  }
+
+  /** enrolledAccount, by the account's key. */
+  private async enrolledAccountByKey(accountKey: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
+    const account = await this.store.getAccount(accountKey);
     if (account === null) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -1316,6 +1333,14 @@ function normalizeOAuthSubject(subject: string): string {
     throw new Error("OAUTH_SUBJECT_INVALID");
   }
   return subject;
+}
+
+/** An account key as researchAccountKeyForSubject writes it: 64 lowercase hexadecimal characters. */
+function accountKeyChecked(accountKey: string): string {
+  if (!/^[a-f0-9]{64}$/u.test(accountKey)) {
+    throw new ResearchAccessError("INVALID_REQUEST", "The research account key is not one AskRigor derives.");
+  }
+  return accountKey;
 }
 
 function outdatedFreeNotice(account: ResearchUseAccountRecord): boolean {

@@ -115,6 +115,9 @@ records decisions and their sources; it adds no authority to the list above.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-04-owner-answer-242a-production-release.md`: release of #412 (owner answer 242a): the review queue for
+  cards that weren't saved, HRP 20.6.38, lesson 54 and the kept pages; 35 tools unchanged, so no app refresh; acceptance, a
+  refused card through the live final check, what isn't shown live yet, and the rollback.
 - `audits/2026-11-04-owner-answer-241a-production-release.md`: release of #411 (owner answer 241a): the source line, HRP
   20.6.37, lessons 52 and 53, and saved cards that wait for the quick-answer test; 35 tools unchanged, so no app refresh;
   acceptance, a real paper through the source line, what isn't shown live yet, and the rollback.
@@ -174,6 +177,9 @@ records decisions and their sources; it adds no authority to the list above.
   pass by their second call, none never passes, 1 call fails on format; no pasted limits; the library route's errors
   from 43% to none; answers still changed after a passing check; three regression cards published when the account's
   saving was switched on from outside the run (owner questions 218 and 219).
+- `audits/2026-11-05-owner-regressions-412-judgment.md`: the owner regressions on #412's build `bf3581aa`: the 41
+  runs NCBI's PubMed outage spared (19 pass, 22 in part, none fails; 4 better and 1 worse than on #394's build),
+  the two sleep apnea cases, and the forum reader's two faults, fixed in #413; the 61 outage runs wait for a rerun.
 - `audits/2026-11-03-owner-regressions-394-judgment.md`: the owner regressions on #394's build `b9e658e2` against
   question 193's signals (85 cases: 40 pass, 44 in part, 1 fails; against #393's build 7 better, 12 worse, eight of
   them for the plain-answer note dropped after the check; the low-calorie runs 4, 6 and none fails, 1 not judged):
@@ -185,6 +191,17 @@ records decisions and their sources; it adds no authority to the list above.
   measured on #393's run as development data: 116 calls for USD 3.47, about USD 0.03 and 7 s a call; agreement with
   the judges' known cases 4 of 4 (YouTube comments), 33 of 35 (comparison backing), 13 of 14 (limits) and 5 of 5
   (findings that stand on their own); USD 16.30 in all for development; the rubric frozen for validation on #394's run.
+- `audits/2026-11-04-meaning-judge-validation.md`: the meaning judge's frozen rubric (`2026-11-02.6`) on #394's run as
+  validation: 111 calls for USD 3.20; against the judges' verdicts, read blind, comparison backing agrees on 68 of 90
+  items (21 of 35 problems caught, 8 of 55 sound items flagged; 33 of 35 in development); 12 of its 16 limit flags
+  hold, but it caught 1 of the 9 limits the judges named; the YouTube and stand-alone jobs had no labels (card saving
+  off) and were read by hand; production's judge stays off; #394's run is now development data.
+- `superpowers/plans/2026-11-05-next-build.md`: the build after #412: HRP 20.6.39 (owner answer 244a, the spread of
+  individual results in a trial); then the YouTube scout's budget and failures, figures as images, the features on the
+  account page, two final-check faults from the CPAP test, and the meaning judge's revision.
+- `superpowers/plans/2026-11-05-study-map.md`: the study map (UDA item of 31 Oct, owner request): a small map of the
+  studies behind a conclusion that combines them, checked only where the check is exact, as notes; waits for the
+  owner's yes to its HRP wording (question 249).
 - `superpowers/plans/2026-11-02-web-app-engine-trial.md`: the engine a web app would run on (owner answer 221): Claude
   Opus 5.5 through the Claude API drives AskRigor's tools, signed in as the dev account (owner answer 222a), refusing
   saves and account changes; the cases and the blind judging against ChatGPT's run; since the owner's question at

@@ -700,6 +700,26 @@ describe("MCP Gemini scout continuation", () => {
       text: "scout gemini youtube candidates could not complete: gemini_youtube_scout_request_failed (retryable)."
     }]);
   });
+
+  it("names Google's refusal to start the scout and sends the model to survey_youtube_community", async () => {
+    execute.mockResolvedValueOnce({
+      controller_boundary: {
+        code: "gemini_youtube_scout_request_failed",
+        retryable: false,
+        never_started: { http_status: 400, google_reason: "User location is not supported for the API use." }
+      }
+    });
+    const client = await connect();
+    const result = await client.callTool({ name: "scout_gemini_youtube_candidates", arguments: TARGET });
+    expect(result.isError).toBe(true);
+    expect(result.content).toEqual([{
+      type: "text",
+      text: "scout gemini youtube candidates could not complete: gemini_youtube_scout_request_failed. Google refused " +
+        "to start the scout (HTTP 400, Google's reason: \"User location is not supported for the API use.\"), so no " +
+        "search ran. Do not call scout_gemini_youtube_candidates again in this research; find videos with " +
+        "survey_youtube_community instead."
+    }]);
+  });
 });
 
 async function connect(): Promise<Client> {

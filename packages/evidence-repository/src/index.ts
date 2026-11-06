@@ -103,6 +103,7 @@ export {
   researchAccountReference,
   researchContributionProposalInputSchema,
   researchUseModeSchema,
+  type ActiveResearchAccount,
   type ContributionPrivacyBoundary,
   type FreeContributorAgreement,
   type PostgresResearchContributorAccessStoreOptions,

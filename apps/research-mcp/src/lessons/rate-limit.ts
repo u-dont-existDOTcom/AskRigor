@@ -15,8 +15,9 @@ export interface LessonAttemptLimiterOptions {
 
 const HOUR_MILLISECONDS = 60 * 60 * 1_000;
 const DAY_MILLISECONDS = 24 * HOUR_MILLISECONDS;
-const HOURLY_ATTEMPT_LIMIT = 20;
-const DAILY_ATTEMPT_LIMIT = 100;
+/** Each limiter's attempts, from every caller together; the lesson queue and the findings library each have one. */
+export const HOURLY_ATTEMPT_LIMIT = 20;
+export const DAILY_ATTEMPT_LIMIT = 100;
 const CLOCK_FAILURE_RETRY_SECONDS = 3_600;
 
 class FixedWindowLessonAttemptLimiter implements LessonAttemptLimiter {
