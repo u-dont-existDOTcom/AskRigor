@@ -11,7 +11,10 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    verified `forum_thread_read` receipt, matched by the thread's comparable link, and any link to the same thread is
    its link; it is not asked for a DOI, full text or lead (#394's run, 3 November 2026, refused two such threads). A
    note asks for a study a claim rests on to be added to `key_sources` only when this check would accept it there;
-   otherwise it asks for the study to be looked up first.
+   otherwise it asks for the study to be looked up first. A link leads to a key source when its decoded path contains
+   the source's DOI, or has its PMID or PMCID as a whole segment, or it is a page the source's receipts sign. A known
+   limit: a DOI is found in the path as text, so a link to a longer DOI that begins with the source's passes too
+   (10.1136/bmj.n712 for 10.1136/bmj.n71); the linked studies' note below names such a doi.org link's own paper.
 2. A study's declared `read_depth` matches its receipts, and an answer citing a key source says beside it how it was
    read, in its own words, which `source_reading` copies (5 November 2026, not yet released; below).
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
@@ -341,33 +344,42 @@ its abstract, and never said who paid for it. HRP's `StudyReadDepthDisclosure` a
 a study supports. Everything below is exact and computed from the verified receipts, the same in any language:
 identifiers and links are forms, not meanings.
 
-- One matcher reads the paper a link names (`paperNamedByLink`, the review of #422), for a key source's link under rule
-  1 and for the studies the draft links, as one whole identifier: a doi.org or dx.doi.org link's path, decoded, without
-  its query or fragment, read as acquisition reads a DOI; a PubMed, PubMed Central or Europe PMC page's PMID or PMCID,
-  from those sites' own address forms only; a page receipts sign for one paper (a DOI's registered landing page, a copy
-  AskRigor fetched), never one that receipts of two papers sign, which ties neither; and otherwise a DOI the check knows
-  (its receipts', its key sources' and the draft's own doi.org links'), found whole in a publisher's path or query,
-  decoded and in any case: after the address's start, a "/" or a "=", and before its end, a "/", "?", "#", "&", ";" or
-  a fixed list of view and file endings (`.pdf`, `.full`, `.abstract`, `.html`, `.epdf` and the like), the longest when
-  several are found. A DOI's suffix alone counts too, as a whole segment, when it holds a letter and a digit, no "/"
-  and at least five characters and no other known DOI shares it (BMJ's `/content/372/bmj.n71` for 10.1136/bmj.n71, or
-  Nature's `/articles/s41586-…`), so no bare number, which sites use for their own pages, reads as a DOI. A Markdown
-  link's destination is read as its own text, so the words after it never run into it, even with no space between
-  them, as in Japanese; a bare address ends at white space, and before the Latin, full-width or ideographic punctuation
-  that ends a sentence. Before it, a publisher's "/full" or ".pdf" was read as part of the DOI, a doi.org link kept its
-  query or fragment, and a key source's DOI matched a longer DOI that begins with it (10.1001/jama.2020.2276 in
-  10.1001/jama.2020.22760, bmj.n71 in bmj.n712).
-- The studies the draft links that aren't key sources (`linked_reading`), each a paper the matcher names; any other link
-  whose path or query holds a DOI names a paper no receipt shows was looked up. A link to a key source is that
-  source's, checked under rules 1 and 2 as before; forum threads, videos and registrations are not papers. Each paper is
-  listed once, up to 30, in the draft's order, named by its link's words and its identifier (or its link), with the
-  deepest reading its verified receipts show, in the words an answer gives it ("abstract only" for a PubMed record,
-  "found in a search, not read" for a search's listing, and so on), or "not looked up by AskRigor" when no receipt
-  ties it. The result names them on a line of their own after the key sources' ("The answer also links studies that
-  aren't key sources: say beside each how it was read too, in the answer's language, with no source_reading entry:
-  …"), a note lists those not looked up and asks to say so beside each or to look each up, and under a passing check
-  the panel lists them apart from the key studies: "Other studies the answer links, as AskRigor's receipts show them:
-  "Tanzania cohort" (…), not looked up by AskRigor; …". None of it is a step.
+- Rule 1, a key source's link, is as it was before (the review of #422, third round, after two rounds that tightened it
+  and newly refused correct links: a preprint's versioned page, a run-on bare link): a link counts for a key source when
+  its decoded path contains the source's DOI, or has its PMID or PMCID as a whole segment, or it is a page the source's
+  receipts sign, compared as thread links are. It is fed the identifiers it was fed before; the Europe PMC record groups
+  below tie the linked studies only. A doi.org or dx.doi.org link's query and fragment were never read, since a link's
+  path holds neither. A known limit, kept: a DOI is found in a path as text, so a link to a longer DOI that begins with
+  the source's counts too (10.1136/bmj.n712 for 10.1136/bmj.n71, or a preprint's DOI with v1 after it), and a PMID
+  counts as any whole segment of any address. A link to a longer DOI at doi.org is named by the linked studies below,
+  as a paper no receipt shows was looked up.
+- The studies the draft links that aren't key sources (`linked_reading`), each a paper a link names exactly (the
+  review of #422, third round), in this order: a page receipts of one paper sign (a DOI's registered landing page, a
+  copy AskRigor fetched), on any host, so a signed Europe PMC render, NCBI Bookshelf or preprint page is named; a
+  doi.org or dx.doi.org link's DOI, its path decoded, without its query or fragment, read as acquisition reads a DOI;
+  and a PubMed, PubMed Central or Europe PMC page in those sites' own address forms, with nothing after the
+  identifier: `pubmed.ncbi.nlm.nih.gov/<PMID>`, `ncbi.nlm.nih.gov/pubmed/<PMID>`, `ncbi.nlm.nih.gov/pmc/articles/<PMCID>`
+  or `/pmc/articles/pmid/<PMID>`, `pmc.ncbi.nlm.nih.gov/articles/<PMCID>`, `europepmc.org/article/` or `/abstract/`
+  with `MED/<PMID>` or `PMC/<PMCID>`, and `europepmc.org/articles/<PMCID>`. A page receipts of two papers sign names
+  neither. The same receipts tie a paper's identifiers as for rule 1, and a Europe PMC search's record groups tie each
+  record's too. A Markdown link is its destination exactly as written; a bare address is read up to white space and
+  trimmed of the punctuation a sentence ends it with (Latin, full-width and ideographic stops, closing quotes and
+  brackets), and names a paper only when white space, the line's end or an autolink's ">" follows it and no character
+  outside ASCII is left in it: run on into words with no space, as Chinese, Japanese and Korean text does, the address a
+  reader's link opens is unclear. A link to a key source's own paper is that source's, checked under rules 1 and 2 as
+  before, and so is a link rule 1 gives a key source that names no paper exactly; forum threads, videos and
+  registrations are not papers. Each paper is listed once, up to 30, in the draft's order, named by its link's words and
+  its identifier, with the deepest reading its verified receipts show, in the words an answer gives it ("abstract only"
+  for a PubMed record, "found in a search, not read" for a search's listing, and so on), or "not looked up by AskRigor"
+  when no receipt names it. The result names them on a line of their own after the key sources' ("The answer also links
+  studies that aren't key sources: say beside each how it was read too, in the answer's language, with no
+  source_reading entry: …"), a note lists those not looked up and asks to say so beside each or to look each up, and
+  under a passing check the panel lists them apart from the key studies: "Other studies the answer links, as AskRigor's
+  receipts show them: "Tanzania cohort" (…), not looked up by AskRigor; …". A link that holds a DOI but names no paper
+  exactly (a publisher's or a preprint server's address, where a version, a view or a longer DOI can follow the DOI,
+  or an unclear bare address) gets no reading, so never a wrong "not looked up": one note lists those links and says
+  each holds a DOI AskRigor can't match to a study exactly, so link each study by its doi.org or PubMed address, as a
+  Markdown link or followed by a space, for its reading to show. Any other link gets nothing. None of it is a step.
 - One research-wide sentence (`reading_summary`), with exact counts of distinct studies: methods audited (a study or
   review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
   and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose
@@ -380,21 +392,27 @@ identifiers and links are forms, not meanings.
   the AI passes again included, and the result says so beside the sentence and in its field's description. A
   PubMed search's identifiers are its records' PMIDs, one each; a Europe PMC search's receipt now groups each record's
   identifiers (`rg`: their places in its `ids`, or, for a record with no DOI, PMID or PMCID, its source and its own id's
-  place), which also ties them for the links above, as a PubMed record does. An older Europe PMC receipt that listed
-  records leaves the listed count out rather than estimate it, and ClinicalTrials.gov's registrations are never counted,
+  place), which also ties them for the linked studies above, as a PubMed record does, never for rule 1. An older
+  Europe PMC receipt that listed records leaves the listed count out rather than estimate it, and ClinicalTrials.gov's
+  registrations are never counted,
   since nothing ties a registration to its paper exactly. The result gives the sentence for the answer as written,
   translated when the answer is not in English, under every status with a research receipt; the panel shows it
   unfolded, as the line right after the status line, under the same statuses.
 - Beside the readings, the result says, as `StudyReadDepthDisclosure` words it, that it requires, beside each claim a
   study supports, what was read of that study, and, for each key study, who paid for it (or that the paper doesn't say),
   so these are not among the limits `LimitsNote` lets the answer choose to leave out. The limits themselves are
-  unchanged. With any reading or research receipt, the result also asks: "Link each study by its DOI or its PubMed page
-  when you can, so AskRigor can show how it was read; for a study linked otherwise, say its reading yourself."
+  unchanged. With any reading or research receipt, the result also asks: "Link each study by its doi.org or PubMed
+  address when you can, so AskRigor can show how it was read; for a study linked otherwise, say its reading yourself."
 
 No published tool definition changes: both results are runtime-only, and the search receipt's `rg` is a claim of a token
 the AI carries. Limits: a study linked by a page with no identifier in its address that no receipt signs (an OUP
 article page, a JAMA `/fullarticle/` number, a Lancet PII) gets no reading and no note, since code can't tell that such
-a page is a study, which is why the result asks for DOI or PubMed links; a paper listed under one identifier and read
+a page is a study, which is why the result asks for DOI or PubMed links; a study linked by a publisher's or a preprint
+server's address gets the note, not its reading, even when AskRigor read it; a Europe PMC record of another source (a
+preprint's PPR page) is named only when a receipt signs its page, since no receipt ties its own id to a DOI; a study
+linked by an identifier no receipt ties to the one it was read by (its PubMed page, when it was read by its DOI and no
+PubMed record was fetched) is "not looked up by AskRigor" until a lookup ties them, which the note asks for; a paper
+listed under one identifier and read
 under another that no receipt ties counts in both (a PubMed search lists PMIDs alone, so a study read by its DOI with no
 PubMed record fetched); a receipt the AI leaves out counts for nothing; and a text `continue_open_full_text` left
 unfinished has no receipt, since the reader signs one only for a text read to its end, so it is neither counted nor

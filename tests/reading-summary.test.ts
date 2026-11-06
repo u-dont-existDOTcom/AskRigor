@@ -168,11 +168,13 @@ describe("the studies an answer links that aren't key sources", () => {
     answer_draft: draft(STUDY,
       // A link to the key source by another of its pages is the key source's, and so is listed once, above.
       `The [same trial](https://pubmed.ncbi.nlm.nih.gov/31415926/) agreed.`,
-      `A [Tanzania; cohort](https://journal.example.org/doi/10.2000/unlooked) and [a cohort](https://pubmed.ncbi.nlm.nih.gov/${COHORT_PMID}/) ` +
+      `A [Tanzania; cohort](https://doi.org/10.2000/unlooked) and [a cohort](https://pubmed.ncbi.nlm.nih.gov/${COHORT_PMID}/) ` +
         `agreed, as did [its PMC copy](https://pmc.ncbi.nlm.nih.gov/articles/PMC1414213/), https://pubmed.ncbi.nlm.nih.gov/${RECORD_PMID}/ ` +
         `and [a publisher's page](${PUBLISHER}).`,
       `[A listed paper](https://www.ncbi.nlm.nih.gov/pubmed/11235813) and [the cohort's DOI](https://doi.org/${COHORT}) ` +
         "came up too.",
+      // A DOI in a publisher's address names no paper exactly (the review of #422, third round): one note, no reading.
+      "So did [a publisher's PDF](https://journal.example.org/doi/10.2000/elsewhere.pdf).",
       // Not papers: a forum, a video and a registration.
       "See [a forum](https://forum.example.org/t/123), [a video](https://www.youtube.com/watch?v=aaaaaaaaaaa) and " +
         "[a registration](https://clinicaltrials.gov/study/NCT01234567).")
@@ -183,8 +185,7 @@ describe("the studies an answer links that aren't key sources", () => {
     expect(result.status).toMatch(/^ready/u);
     expect(result.next_steps).toEqual([]);
     expect(result.linked_reading).toEqual([
-      { source: "https://journal.example.org/doi/10.2000/unlooked",
-        name: "\"Tanzania, cohort\" (https://journal.example.org/doi/10.2000/unlooked)", reading: "not_looked_up" },
+      { source: "10.2000/unlooked", name: "\"Tanzania, cohort\" (10.2000/unlooked)", reading: "not_looked_up" },
       { source: COHORT_PMID, name: `"a cohort" (${COHORT_PMID})`, reading: "abstract_only" },
       // Europe PMC's record ties the PMC copy to its DOI, which a search listed.
       { source: "PMC1414213", name: `"its PMC copy" (PMC1414213)`, reading: "found_in_search" },
@@ -193,8 +194,11 @@ describe("the studies an answer links that aren't key sources", () => {
         reading: "metadata_only" },
       { source: "11235813", name: "\"A listed paper\" (11235813)", reading: "found_in_search" }
     ]);
-    expect(advisoryNotes(result)).toContain(NOT_LOOKED_UP_NOTE(
-      "\"Tanzania, cohort\" (https://journal.example.org/doi/10.2000/unlooked)"));
+    expect(advisoryNotes(result)).toContain(NOT_LOOKED_UP_NOTE("\"Tanzania, cohort\" (10.2000/unlooked)"));
+    expect(advisoryNotes(result)).toContain("The answer links \"a publisher's PDF\" " +
+      "(https://journal.example.org/doi/10.2000/elsewhere.pdf): each holds a DOI, but AskRigor can't match it to a " +
+      "study exactly, so link each study by its doi.org or PubMed address, as a Markdown link or followed by a space, " +
+      "for its reading to show.");
   });
 
   it("names a key source's link no more, and names none without a draft or a link", () => {

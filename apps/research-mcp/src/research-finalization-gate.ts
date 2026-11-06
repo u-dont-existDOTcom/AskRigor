@@ -2807,12 +2807,21 @@ export function finalizeResearch(
   // One paper's identifiers and pages, as AskRigor's own receipts tie them: a PubMed record names its PMID, DOI and
   // PMC copy; a full-text reading or audit names the copy's identifiers and, when AskRigor fetched it, its URL; and
   // resolve_doi names the page a DOI is registered to. A link to any of them links the paper (#336's publisher and
-  // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it. A Europe PMC search's receipt ties each
-  // record's identifiers as the database lists them, as a PubMed record does (its record groups, since 6 Nov 2026).
+  // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it.
   const papers = new PaperLinks();
+  // The studies the answer links that aren't key sources (linked_reading) are tied apart, so that rule 1 is fed exactly
+  // what it was fed before 6 November 2026 (the review of #422, third round): the same receipts tie them, a Europe PMC
+  // search's receipt ties each record's identifiers too, as the database lists them (its record groups), and a page
+  // receipts of two papers sign names neither.
+  const linkedPapers = new LinkedPapers();
   for (const { kind, claims, issuedAt } of verified) {
-    if (PAPER_TIE_KINDS.has(kind)) papers.tie(claims);
-    if (kind === "literature_search") for (const record of searchRecords(claims, normalizeIdentifier) ?? []) papers.join(record);
+    if (PAPER_TIE_KINDS.has(kind)) {
+      papers.tie(claims);
+      linkedPapers.tie(claims);
+    }
+    if (kind === "literature_search") {
+      for (const record of searchRecords(claims, normalizeIdentifier) ?? []) linkedPapers.join(record);
+    }
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
       if (typeof claims.pmcid === "string" && claims.pmcid !== "") {
@@ -2898,11 +2907,10 @@ export function finalizeResearch(
   const leadSources: string[] = [];
   // DOI paths may contain parentheses; displayedProse already resolves a
   // Markdown link's delimiters, so its complete target survives extraction.
-  // A Markdown link's destination is read as its own text, so the words after it
-  // never run into it, even with no space between them, as in Chinese or Japanese
-  // (the review of #422: the shared matcher reads a link exactly); a bare address
-  // ends at white space, and its end is trimmed ("URL)." reads "URL").
-  const linksFor = (block: string): string[] => labeledLinks(block).map(({ url }) => url);
+  // The text after a target follows it directly, so a link in parentheses
+  // ("([label](URL)).") reads "URL))." until its end is trimmed.
+  const linksFor = (block: string): string[] =>
+    [...linkTargets(block).matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => trimLinkEnd(target));
   const studyLines = input.answer_draft === undefined ? [] : displayedProse(input.answer_draft, true)
     .flatMap((block) => block.split("\n"));
   const studyLinks = studyLines.flatMap(linksFor);
@@ -2930,7 +2938,7 @@ export function finalizeResearch(
     return { id, pubmedDoi, ids, linkIds, linkPages: papers.pages(linkIds) };
   };
   // The search-result, record, full-text, audit, lead and route-failure receipts naming a source's identifiers or pages.
-  const paperReceipts = ({ linkIds, linkPages }: ReturnType<typeof sourceLinks>): VerifiedReceipt[] => {
+  const paperReceipts = ({ linkIds, linkPages }: Pick<ReturnType<typeof sourceLinks>, "linkIds" | "linkPages">): VerifiedReceipt[] => {
     const receiptIds = [...new Set([...linkIds, ...linkPages.values()].map(normalizeIdentifier))];
     return verified.filter(({ kind, claims }) =>
       (PAPER_TIE_KINDS.has(kind) || kind === "literature_search" || kind === "full_text_lead" ||
@@ -2947,28 +2955,6 @@ export function finalizeResearch(
   const foundHere = (sourceId: string): boolean => paperReceipts(sourceLinks(sourceId)).length > 0 ||
     checkedInAtlas(sourceId) || threadReadHere(sourceId);
   const keyLinks = input.key_sources.map((source) => sourceLinks(source.id));
-  // One matcher for every link to a paper (the review of #422; paperNamedByLink): a key source's link (check 1) and the
-  // studies the answer links. It finds a DOI in a publisher's address only whole, among the DOIs this check knows: its
-  // receipts', its key sources' and those the answer's own doi.org links give.
-  const noDois = new KnownDois([]);
-  const knownDois = new KnownDois([
-    ...verified.flatMap(({ kind, claims }) => PAPER_TIE_KINDS.has(kind) || kind === "literature_search" ||
-      kind === "full_text_lead" || kind === "full_text_route_failure"
-      ? [text(claims.id), text(claims.doi), ...list(claims.ids)] : []).filter((value) => value !== "").map(normalizeIdentifier),
-    ...keyLinks.flatMap(({ linkIds }) => linkIds),
-    ...studyLinks.flatMap((link) => paperNamedByLink(link, noDois, () => undefined) ?? [])
-  ].filter(isDoi));
-  const namedByLink = new Map<string, string | undefined>();
-  const linkPaper = (link: string): string | undefined => {
-    if (!namedByLink.has(link)) namedByLink.set(link, paperNamedByLink(link, knownDois, (page) => papers.paperOfPage(page)));
-    return namedByLink.get(link);
-  };
-  // A key source's link names one of its identifiers, or is the web address it was given, or a page that is its alone.
-  const keyStudyLinked = (link: string, { linkIds }: { linkIds: readonly string[] }): boolean => {
-    const named = linkPaper(link);
-    return (named !== undefined && linkIds.includes(named)) ||
-      linkIds.some((id) => /^https?:\/\//iu.test(id) && paperPageKey(link) === paperPageKey(id));
-  };
   // How each key source was read, as this check verifies it, and which ones the draft cites, by a link its receipts tie
   // to it or by its identifier in the prose a reader sees (the owner, 5 Nov 2026; source-reading.ts).
   const readings: Array<AnswerReading | undefined> = [];
@@ -2981,7 +2967,7 @@ export function finalizeResearch(
   for (const [index, source] of input.key_sources.entries()) {
     const { id, pubmedDoi, ids, linkIds, linkPages } = keyLinks[index]!;
     const threadRead = threadReadHere(source.id);
-    const linked = (link: string): boolean => keyStudyLinked(link, keyLinks[index]!) ||
+    const linked = (link: string): boolean => keyStudyLinked(link, linkIds, linkPages) ||
       (threadRead && comparableUrl(link) === comparableUrl(source.id));
     const sourceReceipts = paperReceipts(keyLinks[index]!);
     if (sourceReceipts.length === 0 && !checkedInAtlas(source.id) && !threadRead) {
@@ -3042,7 +3028,7 @@ export function finalizeResearch(
       // naming a DOI, or tied to another key study, is another paper's.
       const untied = identified && !markerLinks.some((links) => links.some(linked))
         ? markerLinks.flat().find((link) => !linkNamesDoi(link) && !keyLinks.some((other, otherIndex) =>
-            otherIndex !== index && keyStudyLinked(link, other)))
+            otherIndex !== index && keyStudyLinked(link, other.linkIds, other.linkPages)))
             ?.replace(/[.,;:!?)\]]+$/u, "")
         : undefined;
       const pages = keyStudyPages(id, linkIds, linkPages);
@@ -3248,34 +3234,51 @@ export function finalizeResearch(
     }
   }
   // The studies the draft links that aren't key sources (the owner, 6 November 2026: a ChatGPT answer's "Tanzania
-  // cohort" link, a study a claim rests on, gave no reading at all). A link names a paper as the shared matcher reads it
-  // (paperNamedByLink: a doi.org, PubMed, PubMed Central or Europe PMC page, a page receipts of one paper sign, or a DOI
-  // this check knows, found whole in a publisher's address); any other link to a DOI names a paper no receipt shows was
-  // looked up. Each paper is given once, with the deepest reading its verified receipts show, in the words an answer
-  // gives it, or "not looked up by AskRigor". Exact, in any language: links and identifiers are forms, not meanings.
-  // Everything about them is a note: the six blocking checks don't name them, and a link to a key source is that
-  // source's, checked above. A page with no identifier in its address that no receipt signs (a JAMA /fullarticle/ page,
-  // a Lancet PII) names no paper here: code can't tell that it is a study.
+  // cohort" link, a study a claim rests on, gave no reading at all). Only a link that names one paper exactly names a
+  // study here (exactLinkPaper; the review of #422, third round): a page receipts of one paper sign, a doi.org link, or
+  // a PubMed, PubMed Central or Europe PMC page in those sites' own address forms. Each paper is given once, with the
+  // deepest reading its verified receipts show, in the words an answer gives it, or "not looked up by AskRigor" when no
+  // receipt names it. A link that holds a DOI in any other address (a publisher's, a preprint server's) gets one note
+  // instead, since a version, a view or a longer DOI can follow the DOI there; any other link gets nothing. Exact, in
+  // any language: links and identifiers are forms, not meanings. Everything about them is a note: the six blocking
+  // checks don't name them. A link to a key source's own paper is that source's, checked above, and so is a link rule 1
+  // gives a key source that names no paper exactly.
   const linkedReadings: LinkedReadingCheck[] = [];
   if (input.answer_draft !== undefined) {
+    const pageOf = (link: string): string | undefined => linkedPapers.paperOfPage(link);
+    // Each key source's paper as the linked studies tie it: its identifiers, and the paper its web address names.
+    const keyPapers = new Set<string>();
+    for (const { ids, linkIds } of keyLinks) {
+      for (const id of [...ids, ...linkIds]) {
+        const paper = /^https?:\/\//iu.test(id) ? exactLinkPaper(id, pageOf) : id;
+        if (paper !== undefined) for (const tied of linkedPapers.identifiers(paper)) keyPapers.add(tied);
+      }
+    }
     const keyLinked = (url: string): boolean => input.key_sources.some((source, index) =>
-      keyStudyLinked(url, keyLinks[index]!) ||
+      keyStudyLinked(url, keyLinks[index]!.linkIds, keyLinks[index]!.linkPages) ||
       (threadReadHere(source.id) && comparableUrl(url) === comparableUrl(source.id)));
     const listed = new Set<string>();
     const unlooked: string[] = [];
-    for (const { label, url } of studyLines.flatMap(labeledLinks)) {
-      if (linkedReadings.length >= LINKED_READINGS_SHOWN) break;
-      if (keyLinked(url)) continue;
-      const id = linkPaper(url);
-      if (id === undefined && !linkNamesDoi(url)) continue;
-      const links = id === undefined ? undefined : sourceLinks(id);
-      const names = links === undefined ? [comparableUrl(url)] : [...links.linkIds, ...links.linkPages.keys()];
+    // Links that hold a DOI but name no paper exactly, by their comparable form.
+    const inexact = new Map<string, string>();
+    for (const { label, url, clear } of studyLines.flatMap(labeledLinks)) {
+      const paper = clear ? exactLinkPaper(url, pageOf) : undefined;
+      if (paper === undefined) {
+        if (inexact.size < LINKED_READINGS_SHOWN && !inexact.has(comparableUrl(url)) && linkHoldsDoi(url) &&
+            !keyLinked(url)) {
+          inexact.set(comparableUrl(url), linkedStudyName(label, url));
+        }
+        continue;
+      }
+      if (keyPapers.has(paper) || linkedReadings.length >= LINKED_READINGS_SHOWN) continue;
+      const linkIds = linkedPapers.identifiers(paper);
+      const linkPages = linkedPapers.pages(linkIds);
+      const names = [...linkIds, ...linkPages.keys()];
       if (names.some((name) => listed.has(name))) continue;
       for (const name of names) listed.add(name);
-      const deepest = links === undefined ? undefined
-        : deepestShown(receiptReadings(paperReceipts(links), checkedInAtlas(id!)));
-      const name = linkedStudyName(label, id ?? url);
-      linkedReadings.push({ source: id ?? url, name, reading: deepest === undefined ? "not_looked_up"
+      const deepest = deepestShown(receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper)));
+      const name = linkedStudyName(label, paper);
+      linkedReadings.push({ source: paper, name, reading: deepest === undefined ? "not_looked_up"
         : declarableReading(deepest) });
       if (deepest === undefined) unlooked.push(name);
     }
@@ -3283,6 +3286,11 @@ export function finalizeResearch(
       addStep("answer_draft", joinRules(rule`The answer links ${unlooked.join("; ")}, which no receipt passed here ties `,
         "to a study AskRigor looked up: say beside each that AskRigor did not look it up, or look it up (resolve_doi ",
         "for a DOI, fetch_pubmed_record for a PMID) and pass its research_receipt."));
+    }
+    if (inexact.size > 0) {
+      addStep("answer_draft", joinRules(rule`The answer links ${[...inexact.values()].join("; ")}: each holds a DOI, `,
+        "but AskRigor can't match it to a study exactly, so link each study by its doi.org or PubMed address, as a ",
+        "Markdown link or followed by a space, for its reading to show."));
     }
   }
   // A key study's headline figures, as its audit recomputed them (owner
@@ -5697,6 +5705,23 @@ function paperPageKey(value: string): string {
   }
 }
 
+/**
+ * Structural check of one displayed link: its path contains the study's DOI or has its PMID or PMCID as a segment,
+ * or it is a page AskRigor's receipts tied to the study, compared as thread links are. Rule 1 reads links so, as it did
+ * before 6 November 2026 (the review of #422, third round). The path is read without its query and fragment, a
+ * doi.org link's included. A known limit: a DOI is found as text, so a link to a longer DOI that begins with it counts
+ * too (10.1136/bmj.n712 for 10.1136/bmj.n71), and a PMID counts as any whole segment of any address.
+ */
+function keyStudyLinked(link: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): boolean {
+  if (pages.has(paperPageKey(link)) || identifiers.some((id) => /^https?:\/\//iu.test(id) && paperPageKey(link) === paperPageKey(id))) return true;
+  let path: string;
+  try { path = decodeURIComponent(new globalThis.URL(link).pathname).toLowerCase(); }
+  catch { return false; }
+  return identifiers.some((id) => isDoi(id)
+    ? path.includes(id.toLowerCase())
+    : path.split("/").some((part) => part.replace(/[.,;:!?]+$/u, "") === id.toLowerCase()));
+}
+
 /** Whether a link's path or query names a DOI, so names its own paper. */
 function linkNamesDoi(link: string): boolean {
   try {
@@ -5707,165 +5732,112 @@ function linkNamesDoi(link: string): boolean {
   }
 }
 
-// The view and file endings a publisher puts after an article's identifier in its address ("/<DOI>.pdf",
-// "/bmj.n71.full.pdf"), one or more, each after a full stop, then the end of the address or one of its separators. An
-// exact list of forms: an identifier followed by anything else is not that identifier.
-const LINK_VIEW_ENDING = /(?:\.(?:abstract|epdf|epub|extract|full|fulltext|htm|html|long|pdf|short|summary|supplemental|supplementary|xml))+(?=$|[/?#&;])/uy;
-
-/** Whether an identifier found in a link's text at `at` ends there as a whole: at the end, a separator or a view ending. */
-function identifierEndsAt(text: string, at: number): boolean {
-  if (at === text.length || "/?#&;".includes(text[at]!)) return true;
-  LINK_VIEW_ENDING.lastIndex = at;
-  return LINK_VIEW_ENDING.test(text);
-}
-
 /**
- * The DOIs a check knows (its receipts', its key sources' and the answer's doi.org links'), for finding one whole in a
- * publisher's address: by registrant prefix, longest first, and by suffix for a suffix the address may carry alone
- * (BMJ's /content/372/bmj.n71 for 10.1136/bmj.n71): one with a letter and a digit, no "/", and at least five characters,
- * so no bare number, which other sites use for their own pages, reads as one. A suffix two known DOIs share names
- * neither.
+ * The paper a link names exactly, for the studies an answer links (the review of #422, third round), or undefined:
+ * - a page receipts of one paper sign, on any host, compared as receipts' pages are (pageOf), first;
+ * - a doi.org or dx.doi.org link's DOI: its path, decoded, without its query or fragment, read as acquisition reads it;
+ * - a PubMed, PubMed Central or Europe PMC page in those sites' own address forms, with nothing after the identifier
+ *   but a slash: pubmed.ncbi.nlm.nih.gov/PMID, ncbi.nlm.nih.gov/pubmed/PMID, ncbi.nlm.nih.gov/pmc/articles/PMCID or
+ *   /pmc/articles/pmid/PMID, pmc.ncbi.nlm.nih.gov/articles/PMCID, europepmc.org/article/ or /abstract/ MED/PMID or
+ *   PMC/PMCID, and europepmc.org/articles/PMCID.
+ * Any other address names no paper, a publisher's or a preprint server's that holds a DOI included: a version, a view
+ * or a longer DOI can follow the DOI there, and code can't tell which. A Europe PMC record of another source (a
+ * preprint's PPR page, say) is named only by a receipt that signs it: no receipt ties its own id to a DOI.
  */
-export class KnownDois {
-  private readonly byPrefix = new Map<string, string[]>();
-  private readonly bySuffix = new Map<string, string | null>();
-
-  constructor(dois: Iterable<string>) {
-    for (const doi of new Set([...dois].map((value) => value.toLowerCase()))) {
-      if (!/^10\.\d{4,9}\/./u.test(doi)) continue;
-      const slash = doi.indexOf("/");
-      const prefix = doi.slice(0, slash);
-      this.byPrefix.set(prefix, [...this.byPrefix.get(prefix) ?? [], doi]);
-      const suffix = doi.slice(slash + 1);
-      if (suffix.length >= 5 && !suffix.includes("/") && /\p{L}/u.test(suffix) && /\p{N}/u.test(suffix)) {
-        this.bySuffix.set(suffix, this.bySuffix.has(suffix) ? null : doi);
-      }
-    }
-    for (const list of this.byPrefix.values()) list.sort((left, right) => right.length - left.length);
-  }
-
-  /**
-   * The known DOI an address's text names as a whole identifier, the longest one when several do: it starts the text or
-   * follows "/" or "=", and ends as identifierEndsAt says. The whole DOI, or its suffix alone as a whole segment. Two
-   * different DOIs found at the same length name neither.
-   */
-  find(text: string): string | undefined {
-    const found = new Map<string, number>();
-    const starts = (at: number) => at === 0 || text[at - 1] === "/" || text[at - 1] === "=";
-    for (let at = text.indexOf("10."); at >= 0; at = text.indexOf("10.", at + 1)) {
-      if (!starts(at)) continue;
-      const slash = text.indexOf("/", at);
-      if (slash < 0) break;
-      for (const doi of this.byPrefix.get(text.slice(at, slash)) ?? []) {
-        if (text.startsWith(doi, at) && identifierEndsAt(text, at + doi.length)) {
-          found.set(doi, Math.max(found.get(doi) ?? 0, doi.length));
-          break;
-        }
-      }
-    }
-    if (this.bySuffix.size > 0) {
-      for (const separator of text.matchAll(/[/=]/gu)) {
-        const at = separator.index + 1;
-        const end = text.slice(at).search(/[/?#&;]/u);
-        const segment = end < 0 ? text.slice(at) : text.slice(at, at + end);
-        // The segment itself, then without each view ending it carries, shortest last.
-        for (let candidate = segment; candidate !== "";) {
-          const doi = this.bySuffix.get(candidate);
-          if (doi !== undefined && doi !== null && identifierEndsAt(text, at + candidate.length)) {
-            found.set(doi, Math.max(found.get(doi) ?? 0, candidate.length));
-            break;
-          }
-          const dot = candidate.lastIndexOf(".");
-          if (dot <= 0) break;
-          candidate = candidate.slice(0, dot);
-        }
-      }
-    }
-    let best: string | undefined;
-    let length = 0;
-    let tied = false;
-    for (const [doi, matched] of found) {
-      if (matched > length) [best, length, tied] = [doi, matched, false];
-      else if (matched === length) tied = true;
-    }
-    return tied ? undefined : best;
-  }
-}
-
-/**
- * The paper a link names, as one whole identifier (the review of #422: a publisher's "/full" and ".pdf" read as part of
- * the DOI, a doi.org link kept its query or fragment, and a DOI's link matched a longer DOI that begins with it). One
- * matcher for a key source's link (check 1) and the studies an answer links, exact and the same in any language:
- * - a doi.org or dx.doi.org link: its path, decoded, without its query or fragment, read as acquisition reads a DOI;
- * - a PubMed, PubMed Central or Europe PMC page: its PMID or PMCID, parsed from that site's own address forms;
- * - a page receipts signed for one paper (pageOf), never one that two papers' receipts sign;
- * - any other address: a known DOI found whole in its path or query, decoded, in any case (KnownDois).
- */
-export function paperNamedByLink(link: string, known: KnownDois, pageOf: (link: string) => string | undefined): string | undefined {
+export function exactLinkPaper(link: string, pageOf: (link: string) => string | undefined): string | undefined {
+  const signed = pageOf(link);
+  if (signed !== undefined) return signed;
   let url: URL;
   try {
     url = new globalThis.URL(link);
   } catch {
     return undefined;
   }
-  const decoded = (text: string) => {
-    try { return decodeURIComponent(text); } catch { return text; }
-  };
+  if (url.protocol !== "https:" && url.protocol !== "http:") return undefined;
   const host = url.hostname.toLowerCase().replace(/^www\./u, "");
-  const path = decoded(url.pathname);
   if (host === "doi.org" || host === "dx.doi.org") {
+    let path = url.pathname;
+    try {
+      path = decodeURIComponent(path);
+    } catch {
+      // An escape that decodes to no text leaves the path as given, as acquisition reads it (doiFromInput).
+    }
     const doi = normalizeIdentifier(path.replace(/^\/+/u, "").replace(/\/+$/u, ""));
     return isDoi(doi) ? doi : undefined;
   }
-  const segments = path.split("/").filter((segment) => segment !== "");
-  const lower = segments.map((segment) => segment.toLowerCase());
+  const parts = url.pathname.replace(/\/$/u, "").split("/").slice(1);
+  const lower = parts.map((part) => part.toLowerCase());
   const pmid = (value: string | undefined) => value !== undefined && /^[1-9]\d{0,8}$/u.test(value) ? value : undefined;
-  const pmcid = (value: string | undefined) => value !== undefined && /^pmc[1-9]\d{0,8}$/iu.test(value)
+  const pmcid = (value: string | undefined) => value !== undefined && /^PMC[1-9]\d{0,8}$/iu.test(value)
     ? value.toUpperCase() : undefined;
-  if (host === "pubmed.ncbi.nlm.nih.gov") return pmid(segments[0]);
-  if (host === "pmc.ncbi.nlm.nih.gov") return lower[0] === "articles" ? pmcid(segments[1]) : undefined;
-  if (host === "ncbi.nlm.nih.gov") {
-    return lower[0] === "pubmed" ? pmid(segments[1])
-      : lower[0] === "pmc" && lower[1] === "articles" ? pmcid(segments[2]) : undefined;
+  const at = (...path: string[]) => parts.length === path.length + 1 && path.every((part, index) => lower[index] === part);
+  const last = parts.at(-1);
+  switch (host) {
+    case "pubmed.ncbi.nlm.nih.gov":
+      return at() ? pmid(last) : undefined;
+    case "ncbi.nlm.nih.gov":
+      return at("pubmed") ? pmid(last) : at("pmc", "articles") ? pmcid(last)
+        : at("pmc", "articles", "pmid") ? pmid(last) : undefined;
+    case "pmc.ncbi.nlm.nih.gov":
+      return at("articles") ? pmcid(last) : undefined;
+    case "europepmc.org":
+      return at("articles") ? pmcid(last)
+        : at("article", "med") || at("abstract", "med") ? pmid(last)
+        : at("article", "pmc") || at("abstract", "pmc") ? pmcid(last) : undefined;
+    default:
+      return undefined;
   }
-  if (host === "europepmc.org") {
-    if (lower[0] === "articles") return pmcid(segments[1]);
-    if (lower[0] !== "article" && lower[0] !== "abstract") return undefined;
-    return lower[1] === "med" ? pmid(segments[2]) : lower[1] === "pmc" ? pmcid(segments[2]) : undefined;
-  }
-  const page = pageOf(link);
-  if (page !== undefined) return page;
-  const query = url.search.length > 1 ? `?${decoded(url.search.slice(1))}` : "";
-  return known.find(`${path}${query}`.toLowerCase());
 }
 
 /**
- * Each link a displayed line shows, with the words a reader sees for it: a Markdown link's text, or nothing for a bare
- * address. The link is trimmed as the gate's other link checks trim it.
+ * Whether a link holds a DOI as a token: "10.", four to nine digits, "/" and more, at the start of its decoded path or
+ * query or after a "/" or "=" in it.
  */
-function labeledLinks(line: string): Array<{ label: string; url: string }> {
-  const found: Array<{ label: string; url: string }> = [];
-  // A bare address ends before the ideographic and full-width punctuation a sentence in Chinese or Japanese ends it with
-  // ("https://doi.org/10.1000/x。"), as before Latin punctuation: no address ends with them.
-  const trimmed = (target: string) => {
-    let end = target;
-    for (let previous = ""; previous !== end;) {
-      previous = end;
-      end = trimLinkEnd(end.replace(/[\u2026\u3001\u3002\u3009\u300B\u300D\u300F\u3011\uFF01\uFF09\uFF0C\uFF0E\uFF1A\uFF1B\uFF1F]+$/u, ""));
-    }
-    return end;
-  };
-  const addresses = (text: string) => [...text.matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => trimmed(target));
+function linkHoldsDoi(link: string): boolean {
+  try {
+    const url = new globalThis.URL(link);
+    return /(?:^|[/=])10\.\d{4,9}\/[^/?#&\s]/u.test(decodeURIComponent(`${url.pathname}${url.search}`));
+  } catch {
+    return false;
+  }
+}
+
+// The punctuation a sentence ends a bare address with, in any script: closing quotes and guillemets, an ellipsis, and
+// the ideographic and full-width stops, commas, colons and closing brackets of Chinese, Japanese and Korean text, as
+// trimLinkEnd trims Latin punctuation. No DOI, PMID or PMCID ends with them.
+const SENTENCE_END_AFTER_LINK = /[\u00BB\u2019\u201C\u201D\u203A\u2026\u3001\u3002\u3009\u300B\u300D\u300F\u3011\uFF01\uFF09\uFF0C\uFF0E\uFF1A\uFF1B\uFF1F]+$/u;
+
+/**
+ * Each link a displayed line shows, in the line's order, with the words a reader sees for it, for the studies an
+ * answer links (rule 1 reads links as before, with linksFor). A Markdown link is its destination exactly as written,
+ * backslash escapes read, with its text; it is always clear. A bare address is read up to white space and trimmed of
+ * the punctuation a sentence ends it with, with no words; it is clear only when white space, the line's end or an
+ * autolink's closing ">" follows it and no character outside ASCII is left in it. Otherwise the sentence may run on
+ * into it with no space, as Chinese, Japanese and Korean text does, and code can't tell where the address a reader's
+ * link opens ends.
+ */
+function labeledLinks(line: string): Array<{ label: string; url: string; clear: boolean }> {
+  const found: Array<{ label: string; url: string; clear: boolean }> = [];
   const bare = (text: string) => {
-    for (const url of addresses(visibleText(text))) found.push({ label: "", url });
+    const shown = visibleText(text);
+    for (const match of shown.matchAll(/https?:\/\/[^\s<>]+/giu)) {
+      let url = match[0];
+      for (let previous = ""; previous !== url;) {
+        previous = url;
+        url = trimLinkEnd(url.replace(SENTENCE_END_AFTER_LINK, ""));
+      }
+      const after = shown[match.index + match[0].length];
+      const ended = after === undefined || /\s/u.test(after) || (after === ">" && shown[match.index - 1] === "<");
+      found.push({ label: "", url, clear: ended && /^[\x21-\x7E]+$/u.test(url) });
+    }
   };
   const link = new RegExp(`${LINK_OPEN}([^${LINK_OPEN}${LINK_TARGET}]*)${LINK_TARGET}([^${LINK_CLOSE}]*)${LINK_CLOSE}`, "gu");
-  // In the order the line shows them.
   let from = 0;
   for (const match of line.matchAll(link)) {
     bare(line.slice(from, match.index));
-    for (const url of addresses(match[2]!)) {
-      found.push({ label: visibleText(match[1]!).replace(/\s+/gu, " ").trim(), url });
+    const url = match[2]!.replace(/\\([!-/:-@[-`{-~])/gu, "$1");
+    if (/^https?:\/\//iu.test(url)) {
+      found.push({ label: visibleText(match[1]!).replace(/\s+/gu, " ").trim(), url, clear: true });
     }
     from = match.index + match[0].length;
   }
@@ -5888,15 +5860,61 @@ const PAPER_TIE_KINDS: ReadonlySet<string> = new Set([
 // The receipts that name the handle of a text AskRigor holds (owner answer 237a).
 const SOURCE_TEXT_KINDS: ReadonlySet<string> = new Set(["full_text_read", "study_audit", "review_audit"]);
 
-/**
- * One paper's identifiers and pages across receipts: each receipt joins the DOI, PMID and PMCID it names, and each page
- * it signs (a DOI's landing page, the copy AskRigor fetched, a web address it was given) belongs to that paper. A page
- * receipts of two different papers sign belongs to neither (the review of #422): it names no paper, and ties none.
- */
+/** One paper's identifiers and pages across receipts: each receipt joins the identifiers it names. */
 class PaperLinks {
+  private readonly parent = new Map<string, string>();
+  // Identifier -> the pages a receipt naming it signed, by their comparable form.
+  private readonly signedPages = new Map<string, Map<string, string>>();
+
+  tie(claims: Readonly<Record<string, string | string[]>>): void {
+    const ids = ["id", "doi", "pmid", "pmcid", "url"].flatMap((key) => {
+      const value = claims[key];
+      if (typeof value !== "string" || value === "") return [];
+      const id = normalizeIdentifier(value);
+      return isDoi(id) || isPmid(id) || isPmcid(id) || /^https?:\/\//iu.test(id) ? [id] : [];
+    });
+    if (ids.length === 0) return;
+    for (const id of ids.slice(1)) this.parent.set(this.root(id), this.root(ids[0]!));
+    for (const url of [claims.url, ...ids]) {
+      if (typeof url !== "string" || !/^https?:\/\//iu.test(url)) continue;
+      const pages = this.signedPages.get(ids[0]!) ?? new Map<string, string>();
+      pages.set(paperPageKey(url), url);
+      this.signedPages.set(ids[0]!, pages);
+    }
+  }
+
+  /** Every identifier tied to this one, itself included. */
+  identifiers(id: string): string[] {
+    const root = this.root(id);
+    return [id, ...[...this.parent.keys()].filter((other) => other !== id && this.root(other) === root)];
+  }
+
+  /** The pages receipts signed for any of these identifiers. */
+  pages(ids: readonly string[]): Map<string, string> {
+    return new Map(ids.flatMap((id) => [...(this.signedPages.get(id) ?? [])]));
+  }
+
+  private root(id: string): string {
+    let root = id;
+    while (this.parent.has(root) && this.parent.get(root) !== root) root = this.parent.get(root)!;
+    if (!this.parent.has(id)) this.parent.set(id, id);
+    return root;
+  }
+}
+
+/**
+ * One paper's identifiers and pages across receipts, for the studies an answer links (linked_reading; the review of
+ * #422): each receipt joins the DOI, PMID and PMCID it names, a Europe PMC search's record groups join each record's,
+ * and each page a receipt signs (a DOI's landing page, the copy AskRigor fetched, a web address it was given) belongs
+ * to that receipt's paper. A page receipts of two different papers sign belongs to neither: it names no paper, and ties
+ * none. Rule 1 reads PaperLinks, as before 6 November 2026, never this.
+ */
+class LinkedPapers {
   private readonly parent = new Map<string, string>();
   // Page key -> the page as signed, and one paper identifier for each receipt that signed it naming a paper.
   private readonly signers = new Map<string, { url: string; papers: string[] }>();
+  // Each paper's identifiers and pages, by its root, built once all receipts are tied.
+  private groups: Map<string, { ids: string[]; pages: Array<[string, string]> }> | undefined;
 
   tie(claims: Readonly<Record<string, string | string[]>>): void {
     const values = ["id", "doi", "pmid", "pmcid", "url"].flatMap((key) => {
@@ -5911,12 +5929,10 @@ class PaperLinks {
       if (papers.length > 0) entry.papers.push(papers[0]!);
       this.signers.set(key, entry);
     }
+    this.groups = undefined;
   }
 
-  /**
-   * Ties one search record's DOI, PMID and PMCID, as the database lists them together (a Europe PMC search's record
-   * groups, since 6 Nov 2026); it signs no page.
-   */
+  /** Ties one search record's DOI, PMID and PMCID, as the database lists them together; it signs no page. */
   join(ids: readonly string[]): void {
     const papers = ids.filter((id) => isDoi(id) || isPmid(id) || isPmcid(id));
     for (const id of papers) if (!this.parent.has(id)) this.parent.set(id, id);
@@ -5925,32 +5941,36 @@ class PaperLinks {
       const right = this.root(id);
       if (left !== right) this.parent.set(right, left);
     }
+    this.groups = undefined;
   }
 
   /** Every identifier tied to this one, itself included: its paper's identifiers and the pages that are its alone. */
   identifiers(id: string): string[] {
     const root = /^https?:\/\//iu.test(id) ? this.pageRoot(paperPageKey(id)) : this.root(id);
-    if (root === undefined) return [id];
-    const papers = [...this.parent.keys()].filter((other) => this.root(other) === root);
-    const pages = [...this.signers].filter(([key]) => this.pageRoot(key) === root).map(([, { url }]) => url);
-    return [...new Set([id, ...papers, ...pages])];
+    const group = root === undefined ? undefined : this.indexed().get(root);
+    return [...new Set([id, ...group?.ids ?? [], ...group?.pages.map(([, url]) => url) ?? []])];
   }
 
   /** The pages receipts signed for any of these identifiers' papers, each a page of that paper alone. */
   pages(ids: readonly string[]): Map<string, string> {
-    const roots = new Set(ids.flatMap((id) => {
-      if (!/^https?:\/\//iu.test(id)) return [this.root(id)];
-      const root = this.pageRoot(paperPageKey(id));
-      return root === undefined ? [] : [root];
-    }));
-    const keys = new Set(ids.filter((id) => /^https?:\/\//iu.test(id)).map(paperPageKey));
-    return new Map([...this.signers].filter(([key]) => keys.has(key) ||
-      (this.pageRoot(key) !== undefined && roots.has(this.pageRoot(key)!))).map(([key, { url }]) => [key, url]));
+    const pages = new Map<string, string>();
+    for (const id of ids) {
+      if (/^https?:\/\//iu.test(id) && this.signers.has(paperPageKey(id))) {
+        pages.set(paperPageKey(id), this.signers.get(paperPageKey(id))!.url);
+      }
+      const root = /^https?:\/\//iu.test(id) ? this.pageRoot(paperPageKey(id)) : this.root(id);
+      for (const [key, url] of root === undefined ? [] : this.indexed().get(root)?.pages ?? []) pages.set(key, url);
+    }
+    return pages;
   }
 
-  /** The paper a page some receipt signed belongs to, by its first identifier; none for a page of two papers. */
+  /**
+   * The paper a page some receipt signed belongs to, named by the first identifier of the first receipt that signed it;
+   * none for a page of two papers, or one no receipt naming a paper signed.
+   */
   paperOfPage(link: string): string | undefined {
-    return this.pageRoot(paperPageKey(link));
+    const key = paperPageKey(link);
+    return this.pageRoot(key) === undefined ? undefined : this.signers.get(key)!.papers[0];
   }
 
   /** The paper a page belongs to: undefined when no receipt naming a paper signed it, or receipts of two papers did. */
@@ -5959,6 +5979,23 @@ class PaperLinks {
     if (entry === undefined) return undefined;
     const roots = new Set(entry.papers.map((paper) => this.root(paper)));
     return roots.size === 1 ? [...roots][0] : undefined;
+  }
+
+  private indexed(): Map<string, { ids: string[]; pages: Array<[string, string]> }> {
+    if (this.groups !== undefined) return this.groups;
+    const groups = new Map<string, { ids: string[]; pages: Array<[string, string]> }>();
+    const group = (root: string) => {
+      const found = groups.get(root) ?? { ids: [], pages: [] };
+      groups.set(root, found);
+      return found;
+    };
+    for (const id of this.parent.keys()) group(this.root(id)).ids.push(id);
+    for (const [key, { url }] of this.signers) {
+      const root = this.pageRoot(key);
+      if (root !== undefined) group(root).pages.push([key, url]);
+    }
+    this.groups = groups;
+    return groups;
   }
 
   private root(id: string): string {

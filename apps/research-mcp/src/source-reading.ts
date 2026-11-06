@@ -351,11 +351,12 @@ export const STUDY_READING_DISCLOSURE = "HRP StudyReadDepthDisclosure requires, 
 
 /**
  * A study linked by a page with no identifier in its address that no receipt signs (a JAMA /fullarticle/ page, a Lancet
- * PII) is one the check can't name (the review of #422): code can't tell that such a page is a study. So the result asks
- * for links it can read, and for the answer's own words otherwise.
+ * PII) is one the check can't name (the review of #422), and so is one linked by a publisher's address that holds its
+ * DOI, after which a version, a view or a longer DOI can follow (its third round): the check reads doi.org and PubMed
+ * addresses exactly. So the result asks for links it can read, and for the answer's own words otherwise.
  */
-export const STUDY_LINK_GUIDANCE = "Link each study by its DOI or its PubMed page when you can, so AskRigor can show " +
-  "how it was read; for a study linked otherwise, say its reading yourself.";
+export const STUDY_LINK_GUIDANCE = "Link each study by its doi.org or PubMed address when you can, so AskRigor can " +
+  "show how it was read; for a study linked otherwise, say its reading yourself.";
 
 /**
  * The result's line naming each key source's reading up front, so the answer can say it before a check blocks, with
