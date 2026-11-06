@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { SOURCE_LINE_EXAMPLE, SOURCE_LINE_SHAPE_NOTE } from "../apps/research-mcp/src/final-check-messages.js";
 import { FINAL_CHECK_PANEL_RENDER_SOURCE } from "../apps/research-mcp/src/final-check-panel.js";
 import { meaningJudgeBundle, judgmentItems, MEANING_JUDGE_OUTPUT_SCHEMA } from "../apps/research-mcp/src/meaning-judge.js";
 import {
@@ -14,7 +15,7 @@ import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import {
   abstractDocument, lookUpSourceLines, quoteShown, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
-  sourceLineNotes, type SourceLine, type SourceLineDocument, type SourceLineRequest, type SourceLineTexts,
+  sourceLineNotes, sourceLineSchema, type SourceLine, type SourceLineDocument, type SourceLineRequest, type SourceLineTexts,
 } from "../apps/research-mcp/src/source-lines.js";
 import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
 import { acquireOpenFullText, type AcquireOpenFullTextRuntime } from "../packages/sources/src/index.js";
@@ -582,6 +583,33 @@ describe("the source line in the final check", () => {
     expect(bad.notes.join(" ")).toContain("source_lines");
   });
 
+  // The owner regressions on #412's build (judged 6 Nov 2026): 11 of 12 runs first sent their lines with field names of
+  // their own, which the check dropped, and each cost a check. A line left out for its shape gets the exact shape once,
+  // after its field notes; a line in that shape is looked up. No other name is read as one of the five.
+  it("shows the exact shape when a line is left out for it, and takes a line in that shape", () => {
+    expect(Object.keys(JSON.parse(SOURCE_LINE_EXAMPLE) as object)).toEqual(Object.keys(sourceLineSchema.shape));
+    expect(sourceLineSchema.safeParse(JSON.parse(SOURCE_LINE_EXAMPLE)).success).toBe(true);
+    const invented = { source_id: "10.1000/depth", claim: "Exercise eased knee pain a little.",
+      supporting_sentence: SENTENCE, conclusion_sentence: CONCLUSION, strongest_against: "A larger trial found none." };
+    const first = parseFinalizeResearchInput({ ...fixture(), later_inputs: { source_lines: [invented, line()] } });
+    expect(first.data?.source_lines).toEqual([line()]);
+    expect(first.notes).toContain("source_lines[0].source_id: dropped an unknown field.");
+    expect(first.notes.filter((note) => note === SOURCE_LINE_SHAPE_NOTE)).toHaveLength(1);
+    expect(first.notes.at(-1)).toBe(SOURCE_LINE_SHAPE_NOTE);
+    expect(SOURCE_LINE_SHAPE_NOTE).toContain(SOURCE_LINE_EXAMPLE);
+    // The note's shape, filled in, is what the next call sends: no shape note then.
+    const shaped = Object.fromEntries(Object.keys(JSON.parse(SOURCE_LINE_EXAMPLE) as object)
+      .map((field) => [field, line()[field as keyof SourceLine]]));
+    const second = parseFinalizeResearchInput({ ...fixture(), later_inputs: { source_lines: [shaped] } });
+    expect(second.data?.source_lines).toEqual([line()]);
+    expect(second.notes).not.toContain(SOURCE_LINE_SHAPE_NOTE);
+    // Not a list, it gets the shape too; an empty list only its own note.
+    expect(parseFinalizeResearchInput({ ...fixture(), later_inputs: { source_lines: line() } }).notes)
+      .toContain(SOURCE_LINE_SHAPE_NOTE);
+    expect(parseFinalizeResearchInput({ ...fixture(), later_inputs: { source_lines: [] } }).notes)
+      .not.toContain(SOURCE_LINE_SHAPE_NOTE);
+  });
+
   it("asks to look the lines up in the text the source's verified receipt names, once the check passes", () => {
     const result = finalizeResearch(fixture({ source_lines: [line()] }), { secret: SECRET });
     expect(result.status).toMatch(/^ready/u);
@@ -734,6 +762,8 @@ describe("the finalize_research tool", () => {
   it("names the optional field in every result, so an AI that hasn't read it learns of it", async () => {
     const { text } = await call(held(), fixture());
     expect(text).toContain("A key claim can carry a source line: later_inputs.source_lines");
+    // By its exact fields, with one line shown as the later shape takes it.
+    expect(text).toContain(`a list of lines such as ${SOURCE_LINE_EXAMPLE}, each with these five fields and no others`);
   });
 
   it("looks the lines up and tells the AI which it may mark as found", async () => {

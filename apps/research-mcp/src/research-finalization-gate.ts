@@ -11,7 +11,7 @@ import { REPORT_PROTOCOL_VERSIONS } from "./check-report-vocabulary.js";
 import { askrigorBuildCommitFromEnv } from "./config.js";
 import type { RunningVersions } from "./version.js";
 import { createHash } from "node:crypto";
-import { COMPLETE_CHECKS_TIP } from "./final-check-messages.js";
+import { COMPLETE_CHECKS_TIP, SOURCE_LINE_SHAPE_NOTE } from "./final-check-messages.js";
 import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./community-leads.js";
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
@@ -59,7 +59,7 @@ import {
 } from "./tool-list-currency.js";
 import type { MeaningJudgeSource, MeaningJudgment } from "./meaning-judge.js";
 import {
-  quoteShown, sourceLineCheckSchema, sourceLineNotes,
+  quoteShown, sourceLineCheckSchema, sourceLineNotes, sourceLineSchema,
   type SourceLineLookup, type SourceLineRequest
 } from "./source-lines.js";
 import {
@@ -1211,7 +1211,16 @@ export function parseFinalizeResearchInput(rawInput: unknown): z.ZodSafeParseRes
       leadPlaces = read.places;
     }
   }
-  const parsed = runtime.safeParse(salvageFinalizeInput(runtime, normalized, notes));
+  const salvaged = salvageFinalizeInput(runtime, normalized, notes);
+  // Owner answer 237a: a source line left out for its shape gets the exact shape once, after its field notes, so the next
+  // call's lines are looked up (the owner regressions on #412's build, judged 6 Nov 2026: 11 of 12 runs first sent their
+  // lines with field names of their own, and each cost a check). Exact: the line doesn't parse; no name is guessed.
+  const givenLines = normalized.source_lines;
+  if (givenLines !== undefined && (!Array.isArray(givenLines) ||
+      givenLines.some((line) => !sourceLineSchema.safeParse(line).success))) {
+    notes.push(SOURCE_LINE_SHAPE_NOTE);
+  }
+  const parsed = runtime.safeParse(salvaged);
   return { ...parsed, notes: [...new Set(notes)], droppedFindingsCard, ...(droppedFindingsCard ? { droppedCard } : {}),
     ...(studyMap === undefined || !parsed.success || parsed.data.study_map === undefined ? {} : { studyMap }),
     ...(leadPlaces === undefined ? {} : { leadPlaces }) };
