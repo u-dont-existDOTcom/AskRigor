@@ -18,6 +18,24 @@ export function decodedDoi(value: string): string {
   return value.replace(/%3c/giu, "<").replace(/%3e/giu, ">");
 }
 
+/**
+ * A DOI as given, read once and lower case, its pattern not checked: a doi.org link's path decoded in full, as a link's
+ * escapes are ("%28SICI%29…%3C…" is "(sici)…<…"), and a bare DOI's "%3C" and "%3E" alone (the review of #421: a link's
+ * other escapes reached Europe PMC and Unpaywall as they were). Reading the result again changes nothing.
+ */
+export function doiFromInput(value: string): string {
+  const trimmed = value.trim();
+  const link = /^https?:\/\/(?:dx\.)?doi\.org\//iu.exec(trimmed);
+  if (link === null) return decodedDoi(trimmed).toLowerCase();
+  let path = trimmed.slice(link[0].length);
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    // An escape that decodes to no text leaves the path as given.
+  }
+  return decodedDoi(path).toLowerCase();
+}
+
 /** A DOI with its "<" and ">" percent-escaped, the form acquire_open_full_text's published doi pattern takes. */
 export function escapedDoi(doi: string): string {
   return doi.replace(/</gu, "%3C").replace(/>/gu, "%3E");
@@ -49,7 +67,8 @@ export function normalizeDoiIdentifier(value: unknown): string | undefined {
       return undefined;
     }
     try {
-      doi = decodeURIComponent(url.pathname.slice(1));
+      // Decoded in full, then read as a bare DOI is, so reading the result again changes nothing.
+      doi = decodedDoi(decodeURIComponent(url.pathname.slice(1)));
     } catch {
       return undefined;
     }

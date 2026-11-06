@@ -27,7 +27,7 @@ import {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 
-import { decodedDoi, DOI_PATTERN, doiUrl } from "./doi.js";
+import { doiFromInput, DOI_PATTERN, doiUrl } from "./doi.js";
 import { admitFullText, titleVariants, verifyArticleIdentity, type AcquisitionState, type FrozenArticleIdentity, type FullTextAdmission, type PublicBasis } from "./full-text-admission.js";
 
 const MAX_PDF_PAGES = 1_000;
@@ -362,7 +362,7 @@ function normalizeText(value: string): string {
 }
 
 function normalizeDoi(value: string): string {
-  return decodedDoi(value.trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "")).toLowerCase();
+  return doiFromInput(value);
 }
 
 function attempt(

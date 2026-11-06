@@ -4,7 +4,7 @@ import { errorEnvelope, okEnvelope, type ProvenanceEnvelope } from "@askrigor/co
 
 import { type AuditableDocumentIndex, toAuditableDocumentIndex } from "./auditable-document-index.js";
 import { acquireCandidateFullText, acquireSuppliedCandidateFullText, type CandidateFullTextRuntime } from "./candidate-full-text.js";
-import { decodedDoi, DOI_PATTERN, doiUrl } from "./doi.js";
+import { doiFromInput, DOI_PATTERN, doiUrl } from "./doi.js";
 import { fetchEuropePmcFullText, type EuropePmcFullTextArticle } from "./europe-pmc-full-text.js";
 import { searchEuropePmc, type EuropePmcRecord } from "./europe-pmc.js";
 import { admitFullText, candidateUrlsSchema, candidateTextsSchema, checkPublicCopySearch, publicCopySearchSchema, titleVariants, hasFailedFullTextAcquisition, sourceClassRank, type AcquisitionState, type CandidateText, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate, type PublicCopySearch, type PublicCopySearchResult, type PublicBasis, type FullTextAdmission } from "./full-text-admission.js";
@@ -298,5 +298,5 @@ function overallCandidateState(candidates: FullTextCandidate[]): AcquisitionStat
   return priority.find((state) => candidates.some((candidate) => candidate.state === state)) ?? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH";
 }
 function normalizeDoi(value: string): string {
-  return decodedDoi(value.trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "")).toLowerCase();
+  return doiFromInput(value);
 }

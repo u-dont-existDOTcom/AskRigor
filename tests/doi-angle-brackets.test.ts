@@ -12,7 +12,7 @@ import { finalizeResearch, normalizeIdentifier } from "../apps/research-mcp/src/
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { canonicalDoiSchema } from "../packages/contracts/src/study-external-evidence.js";
 import {
-  decodedDoi, doiUrl, escapedDoi, normalizeDoiIdentifier, resolveDoi, resolveUnpaywallOpenAccess,
+  decodedDoi, doiFromInput, doiUrl, escapedDoi, normalizeDoiIdentifier, resolveDoi, resolveUnpaywallOpenAccess,
   type AcquireOpenFullTextRuntime
 } from "../packages/sources/src/index.js";
 
@@ -42,6 +42,35 @@ describe("DOIs with \"<\" or \">\"", () => {
   // The review of #421: decoding every escape at each of three layers read "10.1000/x%2541" as "10.1000/xa" by the time
   // it reached Unpaywall, made "%2522" a quote mark that the full-text route refused, and refused a literal "%20" that
   // used to be taken. Only "%3C" and "%3E" are read, so reading a DOI again changes nothing.
+  // The review of #421, round 2: a doi.org link escapes more than "<" and ">" ("%28SICI%29…%3A9%3C1083%3A%3A…%3B2-2");
+  // read only for those two, its other escapes reached Europe PMC and Unpaywall as they were. A doi.org link is decoded
+  // in full, once; a bare DOI only for "%3C" and "%3E"; and reading the result again changes nothing.
+  it("decodes a doi.org link in full, once, and a bare DOI only for its angle brackets", async () => {
+    const link = "https://doi.org/10.1002/%28SICI%291099-0000%2819990101%291%3A1%3C1%3A%3AAID-SYN1%3E3.0.CO%3B2-X";
+    expect(normalizeDoiIdentifier(link)).toBe(CANONICAL);
+    expect(doiFromInput(link)).toBe(CANONICAL);
+    expect(doiFromInput("10.1002/%28SICI%29x")).toBe("10.1002/%28sici%29x");
+    for (const given of [link, ESCAPED, SICI, "10.1000/x%2541", `https://doi.org/${CANONICAL.replace("<", "%253C")}`]) {
+      expect(doiFromInput(doiFromInput(given)), given).toBe(doiFromInput(given));
+      const once = normalizeDoiIdentifier(given);
+      if (once !== undefined) expect(normalizeDoiIdentifier(once), given).toBe(once);
+    }
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return new Response("{}", { status: 404 });
+    }));
+    const searchEuropePmc = vi.fn(async (_: { query: string }) => okEnvelope({ provider: "europe_pmc",
+      recordType: "europe_pmc_search_result", pagination: { exhausted: true }, returned: 0, accessStatus: "complete", data: [] }));
+    const { acquireOpenFullText } = await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources");
+    const result = await acquireOpenFullText({ doi: link }, { email: "research@example.org" },
+      { searchEuropePmc } as unknown as AcquireOpenFullTextRuntime);
+    expect(result.data.requested_doi).toBe(CANONICAL);
+    expect(searchEuropePmc.mock.calls.at(-1)?.[0].query).toBe(`DOI:"${CANONICAL}"`);
+    expect(requests.filter((url) => url.hostname === "api.unpaywall.org").map((url) => url.pathname))
+      .toEqual([`/v2/${encodeURIComponent(CANONICAL)}`]);
+  });
+
   it("reads only the escaped angle brackets, so a DOI read again is the same DOI", async () => {
     for (const doi of ["10.1000/x%2541", "10.1000/x%2522", "10.1000/a%20b", ESCAPED, `${ESCAPED}%253C`]) {
       const once = normalizeDoiIdentifier(doi);

@@ -6,13 +6,12 @@ import {
 } from "@askrigor/contracts";
 import { z } from "zod";
 
-import { decodedDoi, DOI_PATTERN, doiUrl } from "./doi.js";
+import { doiFromInput, DOI_PATTERN, doiUrl } from "./doi.js";
 import { upstreamFailureDetails, fetchJson, UpstreamHttpError } from "./http.js";
 
 const UNPAYWALL_API_ROOT = "https://api.unpaywall.org/v2";
-const doiSchema = z.string().trim().max(2_048).transform((value) =>
-  decodedDoi(value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "").trim()).toLowerCase()
-).refine((value) => DOI_PATTERN.test(value), "must be a valid DOI");
+const doiSchema = z.string().trim().max(2_048).transform((value) => doiFromInput(value))
+  .refine((value) => DOI_PATTERN.test(value), "must be a valid DOI");
 const configSchema = z.object({
   email: z.string().trim().email().max(320)
 }).strict();
@@ -242,7 +241,7 @@ function toOpenLocation(
 }
 
 function normalizeDoi(value: string): string {
-  return decodedDoi(value.replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "").trim()).toLowerCase();
+  return doiFromInput(value);
 }
 
 interface UnpaywallErrorDetails {
