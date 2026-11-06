@@ -18,6 +18,7 @@ import {
 } from "../apps/research-mcp/src/source-lines.js";
 import { extractHtmlText } from "../packages/sources/src/candidate-full-text.js";
 import { acquireOpenFullText, type AcquireOpenFullTextRuntime } from "../packages/sources/src/index.js";
+import { CARD } from "./helpers/findings-fixtures.js";
 import { syntheticArticleText, syntheticBody, syntheticPdf } from "./helpers/synthetic-full-text.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 
@@ -741,6 +742,37 @@ describe("the finalize_research tool", () => {
     expect(fullText).toHaveBeenCalledWith(HANDLE);
     expect(body.source_lines).toEqual([{ ...LOOKUP, label: "[Smith 2021]", shown: true }]);
     expect(text).toContain(`Both quotes were found for [Smith 2021]: beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}"`);
+  });
+
+  // The owner regressions on #412's build (judged 6 Nov 2026): a call whose later_inputs repeated the findings card given
+  // at the top level lost every later input with it, its source lines too, with a note naming the card alone (q130-rabies
+  // call 64, q136-weak-lead-given 65, q81 60, q135-urgent 59, q136-weak-lead 61, o356-ssris-years check 4). Each later
+  // input stands on its own: the lines are looked up, or their fields named, whatever else in later_inputs is dropped.
+  it("looks the lines up whatever else in later_inputs is dropped or replaced", async () => {
+    const card = { ...CARD };
+    const cases: Array<[string, Record<string, unknown>, Record<string, unknown>]> = [
+      ["the findings card repeated at the top level", { findings_card: card }, { findings_card: card }],
+      ["a findings card that doesn't parse", {}, { findings_card: { ...card, findings: "none" } }],
+      ["an unknown later input", {}, { answer_quotes: ["…"] }],
+      ["a published input given in later_inputs", {}, { research_depth: "deep" }],
+    ];
+    for (const [name, top, later] of cases) {
+      const fullText = vi.fn<SourceLineTexts["fullText"]>().mockReturnValue(PAPER);
+      const { body } = await call({ fullText, abstract: vi.fn() },
+        { ...fixture(), ...top, later_inputs: { ...later, source_lines: [line()] } });
+      expect(body.status, name).toMatch(/^ready/u);
+      expect(body.source_lines, name).toEqual([{ ...LOOKUP, label: "[Smith 2021]", shown: true }]);
+      expect((body.notes as string[] | undefined ?? []).some((note) => note.startsWith("later_inputs.source_lines")), name)
+        .toBe(false);
+    }
+    // A line that doesn't parse gets its field notes beside the repeated card's.
+    const { body } = await call(held(), { ...fixture(), findings_card: card,
+      later_inputs: { findings_card: card, source_lines: [{ ...line(), source: undefined, study_id: "10.1000/depth" }] } });
+    const notes = body.notes as string[];
+    expect(body.source_lines).toBeUndefined();
+    expect(notes).toContain("later_inputs.findings_card: findings_card is given both at the top level and in " +
+      "later_inputs: its later_inputs form, the newer one, is used.");
+    expect(notes).toContain("source_lines[0].study_id: dropped an unknown field.");
   });
 
   it("offers no mark when a quote wasn't found", async () => {
