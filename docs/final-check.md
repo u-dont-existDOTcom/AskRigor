@@ -93,6 +93,19 @@ and the result gives each on its own `Include as written, translated when the an
 Material limits stay in `limits` under passing, not-ready and stopped checks; the stopped-check completion tip is shown as written in `caveats`. The published schema and tool description now say the same thing, in this tool-list change.
 Missing or reworded limit text still creates no step.
 
+Closing questions (a lesson from the owner's comparison of 6 November 2026; not yet released). Free ChatGPT without
+AskRigor ended its tirzepatide answer with three numbered questions: whether tirzepatide was weighed as an alternative to
+CPAP or as an add-on; obesity, overweight or normal weight; and the person's AHI, with examples (15, 30, 50 or 70). It
+also said what it would do with the answers. AskRigor's answer asked only for the AHI and whether the person uses CPAP,
+and never about weight, though the trials and the US approval cover only people with obesity. HRP's
+`ComplexAnswerFooter` already asks for the pivot point or most decision-changing next data. So, under every status, the
+result's text guides the answer's close with one line (`CLOSING_QUESTIONS_GUIDANCE` in `final-check-messages.ts`): when
+the answer depends on the person's situation, it closes, before the lines the result puts at its end, with at most three
+questions whose answers would most change it: what they are deciding; whether they match the people the key studies
+enrolled (such as weight, age, severity or other conditions); and their key measurement, each easy to answer, with
+example answers, and saying what each answer would change. It applies to any field and any language. No word list or
+check reads the questions, so it creates no step and no note.
+
 The check line, unchecked line, checked-draft digest, second reading and stopped-check report still operate.
 When the server keeps shared answers and the caller has a research account, the result also carries a runtime-only
 `share_offer` (owner answer 200a): its `line`, the owner's sentence word for word, ends the delivered answer after the

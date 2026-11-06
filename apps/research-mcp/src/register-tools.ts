@@ -1,7 +1,9 @@
 import { registerForumTools } from "./forum-tools.js";
 import type { RedditReaderClient } from "./reddit-reader-client.js";
 import type { readForumPage } from "@askrigor/sources";
-import { FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE } from "./final-check-messages.js";
+import {
+  CLOSING_QUESTIONS_GUIDANCE, FINAL_CHECK_RUNTIME_DESCRIPTION, PASSING_LIMITS_GUIDANCE
+} from "./final-check-messages.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "./community-leads.js";
 import { findingsSaveOff, withLaterInputs } from "./later-inputs.js";
 import { openToolOutputSchema } from "./connector-input-schema.js";
@@ -2755,6 +2757,9 @@ function defineResearchOperations(
           // Owner answer 249a: the study map's shape, only with a passing check of an answer combining studies.
           (!passing || checkedInput === undefined || checkedInput.study_map !== undefined ||
             checkedInput.key_sources.length < 2 ? "" : `\n${STUDY_MAP_GUIDANCE}`) +
+          // The owner's comparison of 6 Nov 2026: the questions whose answers would most change the answer, under every
+          // status.
+          `\n${CLOSING_QUESTIONS_GUIDANCE}` +
           (result.plain_answer_note === undefined ? "" :
             `\nNear the end of the answer, before ${result.saved_line === undefined ? "" : "the saved line and "}the ` +
               "check line, give this note comparing the answer with the plain answer registered before research, its " +
