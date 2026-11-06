@@ -91,7 +91,7 @@ export {
   type RetractionStatus,
   type RetractionStatusData
 } from "./crossref.js";
-export { normalizeDoiIdentifier } from "./doi.js";
+export { decodedDoi, DOI_PATTERN, doiUrl, normalizeDoiIdentifier } from "./doi.js";
 export {
   lookupForrtReplicationRelationships,
   type ForrtReplicationLookupData,

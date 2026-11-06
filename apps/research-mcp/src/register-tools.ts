@@ -1323,7 +1323,7 @@ function defineResearchOperations(
         const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("pubmed", result.error) + angleBracketDoiNote(result.data),
           result
         ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
@@ -1364,7 +1364,8 @@ function defineResearchOperations(
         const reading = receipt === undefined ? "" : ` ${readingResultNote(READING_RESULT_WHEN.record,
           abstract ? "abstract_only" : "metadata_only")}`;
         return withResearchReceipt(pubmedToolResult(
-          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}`,
+          `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.${reading}` +
+            angleBracketDoiNote(result.data),
           result
         ), receipt);
       } catch (error) {
@@ -1403,7 +1404,7 @@ function defineResearchOperations(
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
-            smallLiteratureSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
+            smallLiteratureSearchNote(total) + literatureOutageNote("europe_pmc", result.error) + angleBracketDoiNote(result.data),
           { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
@@ -1502,7 +1503,7 @@ function defineResearchOperations(
         // Tie the page the DOI is registered to, so finalize_research can
         // accept a key study linked by that page.
         return withResearchReceipt(crossrefToolResult(
-          `Crossref DOI resolution finished with access status ${result.access_status}.`,
+          `Crossref DOI resolution finished with access status ${result.access_status}.${angleBracketDoiNote(result.data)}`,
           result
         ), typeof resolvedDoi === "string" && candidate?.landing_url !== undefined
           ? researchReceipt("doi_resolution", { doi: resolvedDoi.toLowerCase(), url: candidate.landing_url })
@@ -4014,6 +4015,28 @@ function youtubeCommunityAuditBudgets() {
     ...youtubeCommentBudgets(),
     maxElapsedMs: PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs
   };
+}
+
+/**
+ * The note for a literature result that lists a DOI with "<" or ">", as older SICI-form DOIs have (the owner regressions on
+ * #412's build, judged 6 Nov 2026: q126-42-group-average found a Wiley DOI in a Europe PMC search, and the app refused it
+ * at acquire_open_full_text's published doi pattern before the call reached AskRigor). The same DOI percent-escaped fits
+ * that pattern, and AskRigor reads it as the DOI; its newer form in later_inputs takes it as it is. Exact: the
+ * characters decide; nothing else is read.
+ */
+export function angleBracketDoiNote(data: unknown): string {
+  const records = Array.isArray(data) ? data : [data];
+  const dois = [...new Set(records.flatMap((record): unknown[] => {
+    if (record === null || typeof record !== "object") return [];
+    const { doi, resolved_doi: resolved, candidates } = record as { doi?: unknown; resolved_doi?: unknown; candidates?: unknown };
+    return [doi, resolved, ...(Array.isArray(candidates)
+      ? candidates.map((candidate: unknown) => (candidate as { doi?: unknown } | null)?.doi) : [])];
+  }).filter((doi): doi is string => typeof doi === "string" && /[<>]/u.test(doi)))];
+  if (dois.length === 0) return "";
+  const escaped = (doi: string) => doi.replace(/</gu, "%3C").replace(/>/gu, "%3E");
+  return ` ${dois.length === 1 ? "A DOI listed here has" : "DOIs listed here have"} "<" or ">", which ` +
+    "acquire_open_full_text's published doi pattern refuses: give it there with %3C for \"<\" and %3E for \">\" (" +
+    `${dois.slice(0, 3).map(escaped).join(", ")}), which AskRigor reads as the DOI, or as it is in later_inputs.doi.`;
 }
 
 function pubmedToolResult(

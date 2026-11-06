@@ -4,6 +4,7 @@ import { errorEnvelope, okEnvelope, type ProvenanceEnvelope } from "@askrigor/co
 
 import { type AuditableDocumentIndex, toAuditableDocumentIndex } from "./auditable-document-index.js";
 import { acquireCandidateFullText, acquireSuppliedCandidateFullText, type CandidateFullTextRuntime } from "./candidate-full-text.js";
+import { decodedDoi, DOI_PATTERN, doiUrl } from "./doi.js";
 import { fetchEuropePmcFullText, type EuropePmcFullTextArticle } from "./europe-pmc-full-text.js";
 import { searchEuropePmc, type EuropePmcRecord } from "./europe-pmc.js";
 import { admitFullText, candidateUrlsSchema, candidateTextsSchema, checkPublicCopySearch, publicCopySearchSchema, titleVariants, hasFailedFullTextAcquisition, sourceClassRank, type AcquisitionState, type CandidateText, type CandidateUrl, type FrozenArticleIdentity, type FullTextCandidate, type PublicCopySearch, type PublicCopySearchResult, type PublicBasis, type FullTextAdmission } from "./full-text-admission.js";
@@ -12,7 +13,6 @@ import { acquireUnpaywallFullText, type AcquireUnpaywallFullTextRuntime, extract
 import { upstreamFailureDetails } from "./http.js";
 import type { UnpaywallConfig } from "./unpaywall.js";
 
-const DOI_PATTERN = /^10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu;
 const PMCID_PATTERN = /^PMC[1-9]\d{0,15}$/u;
 const PMID_PATTERN = /^[1-9]\d{0,15}$/u;
 
@@ -208,7 +208,7 @@ export async function acquireOpenFullText(
         let inspection: FullTextAdmission | undefined;
         const index = await (runtime.candidateRuntime?.extractPdf ?? extractAuditablePdf)({
           doi, title: frozenIdentity.title, identity: frozenIdentity,
-          canonicalUrl: runtime.ownerLibrary.access === "public_only" ? publicBasis!.url : `https://doi.org/${doi}`,
+          canonicalUrl: runtime.ownerLibrary.access === "public_only" ? publicBasis!.url : doiUrl(doi),
           bytes: pdf.bytes, onInspection: (value) => { inspection = value; }
         });
         const admission = index === undefined ? inspection : admitFullText(index.blocks);
@@ -216,7 +216,7 @@ export async function acquireOpenFullText(
           attempts.push({ route: "owner_library", result: "indexed", identifier: doi });
           return indexed(requested, attempts, { ...index, source: { ...index.source,
             provider: "owner_library", retrieval_provider: "owner_library",
-            canonical_url: runtime.ownerLibrary.access === "public_only" ? publicBasis!.url : `https://doi.org/${doi}`,
+            canonical_url: runtime.ownerLibrary.access === "public_only" ? publicBasis!.url : doiUrl(doi),
             ...(runtime.ownerLibrary.access === "public_only" ? { public_basis: publicBasis } : {})
           } }, candidates.length === 0 ? undefined : candidates, publicCopySearch);
         }
@@ -255,7 +255,7 @@ export async function acquireOpenFullText(
   const failed = hasFailedFullTextAcquisition({ discovery_attempts: attempts, candidates, acquisition_state: state });
   return errorEnvelope({
     provider: "open_full_text", recordType: "open_full_text_acquisition", primaryIdentifier: identifier,
-    sourceIdentity: { canonical_url: doi !== undefined ? `https://doi.org/${doi}` : pmcid !== undefined
+    sourceIdentity: { canonical_url: doi !== undefined ? doiUrl(doi) : pmcid !== undefined
       ? `https://europepmc.org/articles/${pmcid}` : `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` }, pagination: { exhausted: true }, returned: 0,
     accessStatus: failed ? "error" : "partial", limitations: [boundary,
       "The citation remains a possibly useful lead requiring further investigation; unseen contents were not treated as evidence."],
@@ -298,5 +298,5 @@ function overallCandidateState(candidates: FullTextCandidate[]): AcquisitionStat
   return priority.find((state) => candidates.some((candidate) => candidate.state === state)) ?? "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH";
 }
 function normalizeDoi(value: string): string {
-  return value.trim().toLowerCase().replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "");
+  return decodedDoi(value.trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//iu, "")).toLowerCase();
 }

@@ -184,6 +184,8 @@ describe("later_inputs (owner answer 189a)", () => {
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
+        // The owner regressions on #412's build: doi's newer form, with the "<" and ">" of older SICI-form DOIs.
+        : operation.name === "acquire_open_full_text" ? ["doi"]
         // Owner answer 219b: the findings card's newer form, with each finding's YouTube-comments declaration.
         // Owner answer 237a: the source lines. Owner answer 249a: the study map. 5 Nov 2026: user_observations' newer form,
         // the leads people's reports raised, with the study search that followed each, and how each key source was read;

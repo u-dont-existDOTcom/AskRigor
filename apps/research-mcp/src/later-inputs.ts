@@ -4,6 +4,7 @@ import { z } from "zod";
 import { permissiveConnectorInputSchema, type ConnectorJsonSchema } from "./connector-input-schema.js";
 import { laterUserObservationSchema, openLeadsSchema, researchPlanSchema } from "./carried-state.js";
 import { communityLeadsSchema } from "./community-leads.js";
+import { runtimeActionDoiSchema } from "./actions/open-full-text-route.js";
 import { studyMethodAuditSubmissionSchema } from "./actions/study-method-audit.js";
 import { laterFindingsCardSchema } from "./findings/card.js";
 import type { ResearchOperationHandler } from "./research-operation.js";
@@ -104,6 +105,14 @@ const LATER_INPUT_SHAPES = Object.freeze({
     findings_card: laterFindingsCardSchema
       .describe("The card exactly as the last finalize_research call checked it, with each finding's " +
         "draws_on_youtube_comments as that call had it.")
+  },
+  // The owner regressions on #412's build (judged 6 Nov 2026): doi's newer form, which takes the "<" and ">" of older
+  // SICI-form DOIs, refused by the published pattern before a call reaches AskRigor. Percent-escaped (%3C, %3E), such a DOI
+  // fits the published field too.
+  acquire_open_full_text: {
+    doi: runtimeActionDoiSchema.optional()
+      .describe("doi's newer form, given here or at the top level, not both: a DOI with \"<\" or \">\", as older " +
+        "SICI-form DOIs have, such as 10.1002/(SICI)1097-0258(19980515)17:9<1083::AID-SIM794>3.0.CO;2-2.")
   },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()

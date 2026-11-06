@@ -22,7 +22,7 @@ import {
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
-import { normalizeProductName, productNameOccurs } from "@askrigor/sources";
+import { doiUrl, normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
   ADMINISTRATION_ROUTES,
@@ -5539,9 +5539,9 @@ const videoLink = (video: string, text: string): string => `[${text}](https://ww
  * identical ones.
  */
 function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>): string[] {
-  // A DOI may contain parentheses, which would end a Markdown link.
+  // A DOI may contain parentheses, which would end a Markdown link, and "<" or ">", which no link carries as they are.
   const link = (id: string) => `[this study](${isDoi(id)
-    ? `https://doi.org/${id.replace(/\(/gu, "%28").replace(/\)/gu, "%29")}`
+    ? doiUrl(id).replace(/\(/gu, "%28").replace(/\)/gu, "%29")
     : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`;
   // Studies whose lead receipt signed the same reason share one sentence, which
   // says what stopped the reading: a public copy read only in part is not one
@@ -5683,7 +5683,7 @@ class PaperLinks {
 function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
   const page = (identifier: string): string[] => isPmid(identifier) ? [`https://pubmed.ncbi.nlm.nih.gov/${identifier}/`]
     : isPmcid(identifier) ? [`https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`]
-    : isDoi(identifier) ? [`https://doi.org/${identifier}`]
+    : isDoi(identifier) ? [doiUrl(identifier)]
     : /^https?:\/\//iu.test(identifier) ? [identifier] : [];
   const candidates = [
     ...page(id),
