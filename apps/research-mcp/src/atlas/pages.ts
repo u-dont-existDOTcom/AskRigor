@@ -244,11 +244,16 @@ function relatedLink(related: ShownRelated): SafeHtml {
 // The layout ----------------------------------------------------------------------------------------------------------
 
 export const ACCOUNT_PATH = "/atlas/account";
+/** The owner's private page (owner-pages.ts): only the signed-in owner can open it, and only the owner is shown a link. */
+export const PRIVATE_PAGES_PATH = "/atlas/account/private";
 
-/** Reader state is supplied only while votes and comments are on; its name is untrusted text. */
+/**
+ * Reader state is supplied only while votes and comments are on; its name is untrusted text. `owner` is set only for
+ * the signed-in owner, whose pages are never cached, so the link to the private page is never shown to anyone else.
+ */
 export interface AtlasPageReader {
   signInHref: string;
-  viewer: null | { displayName: string | null };
+  viewer: null | { displayName: string | null; owner?: boolean };
   notice?: string | null;
   tenantSignOutHref?: string | null;
 }
@@ -263,7 +268,7 @@ export interface PageFrame {
   noindex?: boolean;
   title: string;
   description: string;
-  current?: "home" | "changes" | "account" | "findings" | "health" | "topics" | "map" | "search";
+  current?: "home" | "changes" | "account" | "private" | "findings" | "health" | "topics" | "map" | "search";
   reader?: AtlasPageReader;
   noReferrer?: boolean;
   body: SafeHtml;
@@ -299,7 +304,8 @@ ${reader === undefined ? "" : reader.viewer === null
     ? html`<li><a href="${reader.signInHref}">Sign in</a></li>
 ` : html`<li><a href="${ACCOUNT_PATH}"${current("account")}>Your account${reader.viewer.displayName
       ? html` (<bdi>${reader.viewer.displayName}</bdi>)` : ""}</a></li>
-`}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
+${reader.viewer.owner === true ? html`<li><a href="${PRIVATE_PAGES_PATH}"${current("private")}>Your private pages</a></li>
+` : ""}`}<li><a href="${CANONICAL_ORIGIN}/">AskRigor</a></li>
 </ul></nav>
 ${searchForm("atlas-header-query")}
 </div></header>
@@ -1403,6 +1409,8 @@ ${hiddenFields(tokens.name, ACCOUNT_PATH)}
 </form>`}
 <p><a href="${OWN_COMMENTS_PATH}">Your votes and comments</a>, to find and delete any of them</p>
 <p><a href="/atlas/account/reports">Your reports</a>, to see where each stands and take any of them down · <a href="/atlas/share">Share what worked for you</a></p>
+${viewer.owner === true ? html`<p><a href="${PRIVATE_PAGES_PATH}">Your private pages</a>: your comment maps, and your pages on GitHub. Only you see this link.</p>
+` : ""}
 <h2>What the Atlas keeps</h2>
 <p>The Atlas keeps your votes, your comments with the display name you choose, and your reports, under a key derived
 from your account, never your email address. Votes are shown only as totals; comments are public. It keeps no record

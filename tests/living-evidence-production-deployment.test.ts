@@ -120,6 +120,25 @@ describe("production living-evidence deployment", () => {
     expect(compose).not.toContain("annas-postgres");
   });
 
+  it("gives research-mcp the owner's maps folder read-only from the overlay, which every release installs (#418)", async () => {
+    const compose = await read("infra/living-evidence-production/compose.yaml");
+    const runbook = await read("infra/living-evidence-production/README.md");
+    // research-mcp's own volumes: from its volumes key to the next key at the same depth.
+    const service = compose.slice(compose.indexOf("  research-mcp:\n"), compose.indexOf("\n  living-evidence-postgres:\n"));
+    const volumes = service.slice(service.indexOf("    volumes:\n") + "    volumes:\n".length);
+    const mounts = [...volumes.slice(0, volumes.search(/^ {4}\S/mu)).matchAll(/^ {6}- (\S+)$/gmu)].map(([, mount]) => mount);
+    expect(mounts).toEqual([
+      "/opt/askrigor/state/reddit-reader:/run/askrigor-reddit-reader:ro",
+      "/opt/askrigor/state/private-comment-maps:/var/lib/askrigor-private-comment-maps:ro",
+    ]);
+    // The runbook quotes that mount, adds none by hand, and its setting names a file inside it.
+    expect(runbook).toContain(`\`${mounts[1]}\``);
+    expect(runbook).toContain("Add no mount by hand");
+    expect(runbook).not.toContain("Add to the `research-mcp` service a read-only bind mount");
+    expect(runbook).toContain(
+      "`ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE=/var/lib/askrigor-private-comment-maps/comment-maps.json`");
+  });
+
   it("creates a dedicated default-read-only role with no mutation grant", async () => {
     const init = await read("infra/living-evidence-production/init-reader.sh");
 

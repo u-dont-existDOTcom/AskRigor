@@ -11,6 +11,7 @@ import {
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReports,
   RESEARCH_USE_NOTICE_VERSION,
+  type AtlasPageSource,
   type AtlasParticipationStore,
   type AtlasPublicationDraft,
 } from "@askrigor/evidence-repository";
@@ -19,6 +20,7 @@ import { AtlasChangeSignal, announcingParticipationStore } from "../../apps/rese
 import {
   ATLAS_LOGIN_COOKIE,
   ATLAS_SESSION_COOKIE,
+  participantKeyFor,
   type AtlasParticipationSettings,
 } from "../../apps/research-mcp/src/atlas/participation.js";
 import {
@@ -155,6 +157,12 @@ export async function fixture(options: {
   wrapStore?: (store: AtlasParticipationStore) => AtlasParticipationStore;
   /** The apex proxy's shared secret the handler expects with a forwarded address. */
   proxySecret?: string;
+  /** The owner's private page: the subjects the owner signs in with (OWNER by default) and the maps file, if any. */
+  owner?: { subjects?: readonly string[]; commentMapsFile?: string } | false;
+  /** Wraps the page source the handler reads, such as to make it return what a store never would. */
+  wrapSource?: (source: AtlasPageSource) => AtlasPageSource;
+  /** No page reader at all, as when the living-evidence reader is not configured: the pages answer 503. */
+  noSource?: boolean;
   /** What the account page lists the signed-in reader's AskRigor features with; none by default. */
   features?: AtlasParticipationRuntime["features"];
 } = {}): Promise<Fixture> {
@@ -172,7 +180,8 @@ export async function fixture(options: {
     return createAtlasPagesHandler({
       enabled: true,
       publicOrigin: origin,
-      source: new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports }),
+      ...(options.noSource === true ? {} : { source: (options.wrapSource ?? ((inner) => inner))(
+        new InMemoryAtlasPageSource({ publications: published, participation: store, placements, reports })) }),
       signal,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
@@ -185,6 +194,10 @@ export async function fixture(options: {
           signIn: { issuerUrl: new URL(ISSUER), clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, jwks: tenant.jwks,
             fetch: tenant.fetch },
           ...(options.limiters === undefined ? {} : { limiters: options.limiters }),
+          ...(options.owner === false ? {} : { owner: {
+            participantKeys: new Set((options.owner?.subjects ?? [OWNER]).map((subject) => participantKeyFor(settings, subject))),
+            ...(options.owner?.commentMapsFile === undefined ? {} : { commentMapsFile: options.owner.commentMapsFile }),
+          } }),
           ...(options.features === undefined ? {} : { features: options.features }),
         },
       }),

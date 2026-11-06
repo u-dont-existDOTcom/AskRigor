@@ -1,14 +1,15 @@
 import { z } from "zod";
 
-import { ATLAS_CSS, html, page } from "./pages.js";
+import { ATLAS_CSS, html, page, type SafeHtml } from "./pages.js";
 
 /**
  * The owner's comment maps as an Atlas page, shown only to the owner until YouTube agrees (owner answer 227, 2 Nov 2026:
  * "i thought you were building this for me privately and then when yt ap[proves we can publish"; owner answer 208b).
- * Nothing here is served: scripts/render-private-comment-maps.mts renders the owner's private maps file to a file outside
- * this repository. A map holds counts, AskRigor's own labels, the video's ID and its channel's name, as the 31 Oct email
- * to YouTube describes: never comment text, commenters' names or keys, or comment IDs. A model judged each comment before;
- * code works out every share and range here from the counts.
+ * scripts/render-private-comment-maps.mts renders the owner's private maps file to a file outside this repository, and
+ * the owner's private Atlas page (owner-pages.ts, /atlas/account/private) shows the same maps, read from a file on the
+ * server, to the signed-in owner alone. A map holds counts, AskRigor's own labels, the video's ID and its channel's
+ * name, as the 31 Oct email to YouTube describes: never comment text, commenters' names or keys, or comment IDs. A model
+ * judged each comment before; code works out every share and range here from the counts.
  */
 
 const count = z.number().int().min(0).max(10_000_000);
@@ -131,6 +132,18 @@ export interface PrivateCommentMapsOptions {
   videoLinks: boolean;
 }
 
+/** Where the maps are shown, and the level of their headings. */
+export interface CommentMapsBlockOptions extends PrivateCommentMapsOptions {
+  /**
+   * "file": a page rendered to a file for the owner (renderPrivateCommentMaps), its sections under h2; "atlas": the
+   * owner's private page on askrigor.com, which only the signed-in owner can open, its sections under that page's h2.
+   */
+  shown: "file" | "atlas";
+}
+
+/** A heading of the block, one level below `level` for each step of `depth` (h2 and h3 in a file, h3 and h4 on the Atlas). */
+const heading = (options: CommentMapsBlockOptions, depth: 0 | 1) => (options.shown === "file" ? 2 : 3) + depth;
+
 const people = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
 const lasted = (map: CommentMap) => map.better_reports_lasted.months + map.better_reports_lasted.years;
 const thousands = (n: number) => n.toLocaleString("en-GB");
@@ -159,12 +172,13 @@ ${shown.map(leadItem)}</ul>`}${rest.length === 0 ? "" : html`<details><summary>$
 ${rest.map(leadItem)}</ul></details>`}`;
 }
 
-function mapSection(map: CommentMap, index: number, options: PrivateCommentMapsOptions) {
+function mapSection(map: CommentMap, index: number, options: CommentMapsBlockOptions) {
   const { outcomes, better_reports_lasted: held } = map;
   const sample = map.sample === "all" ? "every comment the API showed"
     : `the ${thousands(map.sampled)} whose IDs rank lowest by hash, chosen without regard to what they say`;
+  const level = heading(options, 1);
   return html`<section class="comment-map" id="map-${index + 1}" aria-labelledby="map-${index + 1}-title">
-<h3 id="map-${index + 1}-title">${map.label}</h3>
+<h${level} id="map-${index + 1}-title">${map.label}</h${level}>
 <p class="meta">${map.channel} · for ${map.problem} · mapped ${map.mapped_on}${options.videoLinks
     ? html` · <a href="https://www.youtube.com/watch?v=${map.video_id}">the video</a>` : ""}</p>
 <dl class="facts">
@@ -192,9 +206,10 @@ const figureCells = (map: CommentMap) => html`<td>${map.tried}</td><td>${map.out
 
 /** A problem with two or more videos: those with enough reports ranked, the others listed. Tables scroll inside the
  * Atlas's scroll container on a narrow screen, never the page. */
-function problemSection(ranking: ProblemRanking, index: number, link: (map: CommentMap) => ReturnType<typeof html>) {
+function problemSection(ranking: ProblemRanking, index: number, link: (map: CommentMap) => ReturnType<typeof html>,
+  level: number) {
   return html`<section aria-labelledby="problem-${index + 1}">
-<h3 id="problem-${index + 1}">${capitalized(ranking.problem)}</h3>
+<h${level} id="problem-${index + 1}">${capitalized(ranking.problem)}</h${level}>
 ${ranking.ranked.length === 0 ? "" : html`<div class="map-scroll"><table>
 <caption>Ranked by the low end of the range of those who said it helped</caption>
 <thead><tr><th scope="col">Video</th>${FIGURE_HEADINGS}</tr></thead>
@@ -209,11 +224,12 @@ ${ranking.ranked.map((map) => html`<tr><td>${link(map)} (${map.channel})</td>${f
 }
 
 /** The problems with one video mapped so far, in one table: nothing to rank them against yet. */
-function singleVideoProblems(rankings: readonly ProblemRanking[], link: (map: CommentMap) => ReturnType<typeof html>) {
+function singleVideoProblems(rankings: readonly ProblemRanking[], link: (map: CommentMap) => ReturnType<typeof html>,
+  level: number) {
   const rows = rankings.flatMap(({ problem, ranked, tooFew }) => [...ranked, ...tooFew].map((map) => ({ problem, map })))
     .sort((left, right) => left.problem.localeCompare(right.problem, "en"));
   return html`<section aria-labelledby="one-video">
-<h3 id="one-video">One video so far</h3>
+<h${level} id="one-video">One video so far</h${level}>
 <p>Each of these problems has one video mapped, so there is nothing to rank it against yet.</p>
 <div class="map-scroll"><table>
 <thead><tr><th scope="col">Problem</th><th scope="col">Video</th>${FIGURE_HEADINGS}</tr></thead>
@@ -226,30 +242,42 @@ ${rows.map(({ problem, map }) => html`<tr><td>${capitalized(problem)}</td><td>${
 `;
 }
 
-/** The owner's private page of comment maps: grouped by problem, ranked within each, then every map. */
-export function renderPrivateCommentMaps(file: CommentMapsFile, options: PrivateCommentMapsOptions): string {
+/**
+ * The maps as one block: the notice, the videos ranked within each problem, then every map, with headings below the
+ * page's own (h2 in a file, h3 on the owner's private Atlas page) and the notice saying where the page is.
+ */
+export function commentMapsBlock(file: CommentMapsFile, options: CommentMapsBlockOptions): SafeHtml {
   const maps = file.maps;
   const rankings = rankWithinProblems(maps);
   const link = (map: CommentMap) => html`<a href="#map-${maps.indexOf(map) + 1}">${map.label}</a>`;
   const videos = (ranking: ProblemRanking) => ranking.ranked.length + ranking.tooFew.length;
   const shared = rankings.filter((ranking) => videos(ranking) > 1);
   const single = rankings.filter((ranking) => videos(ranking) === 1);
-  const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
-<p class="eyebrow">Private: for AskRigor’s owner only</p>
-<h1>Comment maps</h1>
-<div class="notice">
-<p><strong>Not published.</strong> These maps are drawn from YouTube comments, so they stay private until YouTube agrees; AskRigor asked on 31 October 2026. Rendered on ${options.renderedOn} from ${maps.length} ${maps.length === 1 ? "map" : "maps"}. None of it is on askrigor.com.</p>
+  const level = heading(options, 0);
+  const count = `${maps.length} ${maps.length === 1 ? "map" : "maps"}`;
+  return html`<div class="notice">
+<p><strong>Not published.</strong> These maps are drawn from YouTube comments, so they stay private until YouTube agrees; AskRigor asked on 31 October 2026. ${options.shown === "file"
+    ? html`Rendered on ${options.renderedOn} from ${count}. None of it is on askrigor.com.`
+    : html`Read on ${options.renderedOn} from the ${count} installed on the server. Only you can open this page: anyone else is asked to sign in, or told there is no such page.`}</p>
 <p>Each count is of people who commented and said they tried the video’s method, never a success rate: people it helped may comment more, deleted comments can’t be seen, and most reports are from the first days. The range is the 95% range of the share who said it helped, worked out from the counts, so a small sample shows as uncertain. What else commenters credit are leads for a search of the studies, not verdicts.</p>
 </div>
 <section aria-labelledby="by-problem">
-<h2 id="by-problem">By problem</h2>
+<h${level} id="by-problem">By problem</h${level}>
 <p>A video is ranked only against others for the same problem, and only when at least ${RANK_MIN_TRIED} people said they tried its method.</p>
 ${shared.length === 0 ? html`<p>No problem has two videos mapped yet, so nothing is ranked.</p>
-` : shared.map((ranking, index) => problemSection(ranking, index, link))}${single.length === 0 ? ""
-    : singleVideoProblems(single, link)}</section>
+` : shared.map((ranking, index) => problemSection(ranking, index, link, level + 1))}${single.length === 0 ? ""
+    : singleVideoProblems(single, link, level + 1)}</section>
 <section aria-labelledby="the-maps">
-<h2 id="the-maps">The maps</h2>
+<h${level} id="the-maps">The maps</h${level}>
 ${maps.map((map, index) => mapSection(map, index, options))}</section>`;
+}
+
+/** The owner's private page of comment maps: grouped by problem, ranked within each, then every map. */
+export function renderPrivateCommentMaps(file: CommentMapsFile, options: PrivateCommentMapsOptions): string {
+  const body = html`<p class="breadcrumbs"><a href="/atlas">Atlas</a></p>
+<p class="eyebrow">Private: for AskRigor’s owner only</p>
+<h1>Comment maps</h1>
+${commentMapsBlock(file, { ...options, shown: "file" })}`;
   return page({
     path: null,
     noindex: true,
