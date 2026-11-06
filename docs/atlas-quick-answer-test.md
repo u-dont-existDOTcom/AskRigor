@@ -39,6 +39,63 @@ API money. It needs no review from the owner.
 Anything drawn from YouTube comments never reaches this test, since it is never published. A finding the tester can't
 judge safe to show goes to the owner instead.
 
+## Whether it challenges the usual view
+
+The owner, 6 November 2026: "we should also have a section for results that challenge mainstream consensus even if it's
+available with a standard ai answer, like this one", of a finding that after a year about half of people with obesity
+and moderate-to-severe sleep apnea reached remission or mild sleep apnea without daytime sleepiness on tirzepatide, when
+the usual advice is CPAP every night. So the tester makes one more judgment for each finding, apart from pass, headline
+and fail, which it neither changes nor depends on:
+
+1. Ask a second fresh helper, which has seen neither the card nor the quick answer, what most doctors and major
+   guidelines currently advise for the problem. Use step 2's question, with nothing of the finding, its option or its
+   result. It may run at most two web searches, it may not use AskRigor or the Atlas, and it names its source (a
+   guideline, a professional society's statement or a major review) with the source's link.
+2. Compare the finding's result with that usual view. The finding challenges it when its result goes against it: what
+   the usual view advises, for whom, or how well it says something works. A finding that only adds an option the usual
+   view doesn't mention doesn't challenge it; whether a quick answer misses it is what steps 3 and 4 judge. As in step
+   4, a finding isn't judged on its evidence's strength, which its limits state.
+3. When it challenges the usual view, mark it with `review_research_contribution`, action `mark_challenge`, and in
+   `later_inputs`: `items`, its P number; `usual_view`, the usual view in one plain line of at most 300 characters;
+   `usual_view_source_url`, the source's https link (never a YouTube link); `usual_view_source_label`, the source's name
+   as a reader should see it, such as the guideline and its year; and `quick_answer_verdict`, the finding's verdict from
+   step 4: `pass`, `headline` or `fail`. Only the reviewer login can mark, as with `keep_for_research`; the mark keeps
+   who marked it, as a digest of that login, and when. A mark whose texts hold contact details, a findings card's
+   reference or a YouTube link is refused, since the pages never show them: the link by the host a browser opens it at
+   (youtube.com, youtu.be, youtube-nocookie.com or youtube.googleapis.com, or a subdomain of one, so `youtube%2Ecom` or
+   full-width letters are YouTube too), and the texts with no control or format character, such as a text-direction
+   control or a zero-width space, which can make a text show something other than it holds. The zero-width non-joiner
+   and joiner (U+200C, U+200D) are taken in the usual view and its label, since Persian, the Indian scripts and emoji
+   sequences need them, and each text is checked without them, so neither can hide an address or a reference. The link
+   is kept as a browser opens it.
+4. Marking shows nothing: showing is still `show_on_pages`. Whether the daily task shows a marked finding right away is
+   the owner's to decide (question 272), so the method fits either answer:
+   - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages` whatever its
+     verdict, instead of step 5's `keep_for_research`;
+   - otherwise it goes to `keep_for_research` as step 5 says, with `, challenges the usual view` added at the end of
+     its reason (`owner answer 240a: quick-answer test, failed, challenges the usual view`), and waits for the owner;
+     `list_challenges` lists every marked finding, kept or shown, with its usual view, source and verdict.
+5. Add the usual view, its source and the judgment to the finding's log line (step 6), marked or not.
+
+`clear_challenge` takes a mark off, except from a finding that shows unreviewed only because it challenges the usual
+view (a headline or a fail): without its mark its page would say a quick AI answer misses it, so `clear_challenge`
+refuses it, naming it, until `keep_for_research` has kept it. A shown finding that carries a mark is listed on `/atlas/challenges`, "Findings
+that challenge the usual view" (linked from the Atlas's home page and its list of all findings), with the usual view and
+its source beside it and its own limits: how sure it is, whom it applies to and what would change it. Its page carries a
+box saying it challenges the usual view, with the view and its source. An unreviewed finding's status says, from the
+stored verdict, that a separate AI found a quick AI answer misses it (a pass), or that a quick AI answer may already
+give it and that it's shown because it challenges the usual view (a headline or a fail), and its box says the same. A
+finding kept for research is on no list, the section page included, and its page, its box too, says nothing of the
+quick-answer test. These pages are kept out of
+search engines like every page of an unreviewed finding. The pages show no one's login and no YouTube comment data.
+
+Limits: the usual view is one helper's answer from two searches, so it can miss a newer or a regional guideline; its
+source link shows where it came from. Whether a result goes against it is the tester's judgment, in any language; the
+code checks only the mark's form. A link's host is all the YouTube check reads, so a link shortener or a site's own
+redirect that leads to YouTube (bit.ly, t.co, a page's `?url=`) isn't seen; the pages' last check reads the same hosts.
+Every stored link a page writes (a mark's source, a forum thread, a glance row's source) is left out of the page when
+its host is YouTube's or its words would stop the page, so that one stored link never stops a whole page.
+
 ## What a shown card holds
 
 The owner, 5 November 2026: once published, a card "should not just have what's better than the regular answer, since

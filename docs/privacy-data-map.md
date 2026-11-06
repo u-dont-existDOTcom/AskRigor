@@ -1918,7 +1918,12 @@ The pages (section 4C) are built, not yet released, and switched off until
   shows an `ARF-` number, an account or contributor, an answer quote, a chat, a
   surface or model name, a link's rationale, or anything from YouTube, not even
   a count; a rendered page that holds a script, a card reference or a YouTube
-  link is not served. Nothing about a reader who does not sign in is stored,
+  link is not served. Every check reads a text as a reader sees it, without its
+  format characters (a zero-width space, a joiner, a soft hyphen), and a stored
+  row with a text or link the pages would refuse (a finding, a change's note, a
+  report, a glance row, another report's link) is left out of every page that
+  would show it, its own page answering 404, so no stored text can stop a page
+  (the review of #422, fourth round). Nothing about a reader who does not sign in is stored,
   logged or set as a cookie: the pages set them no cookie and keep no request
   log; the per-address rate limit holds, in memory only, a counter per address
   (an IPv6 address counted by its /64; at most 10,000, each dropped after 15
@@ -1945,6 +1950,19 @@ The pages (section 4C) are built, not yet released, and switched off until
   research: it stays in the research lookup and keeps its page, which says so and is kept out of search engines, but
   no list, topic, home page or search shows it. The row gains when it was kept and the owner's private reason, which
   no page reads. Nothing about a person is added.
+
+- **Challenges the usual view** (the owner, 6 November 2026; migration 0030; built, not yet released). The reviewer
+  login can mark a shown or kept publication (`mark_challenge`) as going against the usual view: the row gains the
+  usual view in one plain line of at most 300 characters, its source's label and https link, the quick-answer test's
+  verdict for the finding (`pass`, `headline` or `fail`), who marked it and when. Who marked it is `reviewer:` and 16
+  hex characters of a domain-separated SHA-256 of the reviewer login's OAuth subject, never the subject itself, and
+  no page reads it; the pages read the usual view, its source and the verdict, and show a shown finding's mark on its
+  page and on `/atlas/challenges`. A mark whose texts hold contact details, a findings card's reference or a YouTube
+  link (by the host a browser opens it at, youtube.googleapis.com included), or a control or format character such as
+  a text-direction control or a zero-width space, is refused; the zero-width non-joiner and joiner that Persian, the
+  Indian scripts and emoji sequences need are taken in the usual view and its label, and each text is checked without
+  them. `clear_challenge` removes the mark whole. The usual view is general text about what doctors and
+  guidelines advise, written by the tester or the owner; nothing about the person who asked is added.
 
 ## Atlas navigation and search
 
@@ -2428,7 +2446,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   (`dr`, the range the caller sent), and its
   record counts (and, for a Europe PMC query that searches within article
   sections, `ft`: the provider's section field codes it used, such as
-  `METHODS` or `TABLE`), a search receipt its access status, and a
+  `METHODS` or `TABLE`; and for any Europe PMC search, `rg`: each returned
+  record's public identifiers by their places in the receipt's own list, or,
+  for a record with no DOI, PMID or PMCID, the provider's source code and the
+  place of its own id, so the final check counts the studies a search listed;
+  6 November 2026, built, not yet released), a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. A study audit receipt also carries its figures check: the

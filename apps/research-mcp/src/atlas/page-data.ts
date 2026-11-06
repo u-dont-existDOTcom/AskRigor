@@ -7,6 +7,7 @@ import type {
   AtlasFindingDirection,
   AtlasFindingKind,
   AtlasLabel,
+  AtlasPageChallenge,
   AtlasPageOwnComment,
   AtlasPageOwnVote,
   AtlasPageParticipation,
@@ -23,7 +24,7 @@ import type {
 import { ATLAS_OWN_COMMENTS_PER_PAGE, ATLAS_OWN_VOTES_PER_PAGE } from "@askrigor/evidence-repository";
 
 import { shownCommunity } from "../forum-thread-links.js";
-import { passesPageGuard } from "./page-guard.js";
+import { opensYouTube, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
 import { claimStrength, type ClaimStrength } from "./strength.js";
 import {
   foldAtlasSearchTexts,
@@ -181,6 +182,25 @@ export interface ShownFinding {
   research: ShownResearchSource[];
   /** Owner answer 252a: what people report, from its publication's version 3 fields; null when it gives none. */
   forumSignal: ShownForumSignal | null;
+  /**
+   * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict, from its
+   * publication's challenge mark; null for none, or for a mark whose texts a page would refuse.
+   */
+  challenge: ShownChallenge | null;
+}
+
+/** A finding's challenge mark as its pages show it: never who marked it. */
+export type ShownChallenge = AtlasPageChallenge;
+
+/**
+ * A publication's challenge mark, or null when it has none, or one of its texts would stop a page (page-guard.ts) or its
+ * link opens YouTube by its host, as a browser reads it (the review of #422).
+ */
+function shownChallenge(publication: AtlasPagePublication): ShownChallenge | null {
+  const mark = publication.challenge ?? null;
+  return mark === null || ![mark.usualView, mark.sourceLabel, mark.sourceUrl].every(passesPageGuard) ||
+    opensYouTube(mark.sourceUrl) ? null
+    : { usualView: mark.usualView, sourceUrl: mark.sourceUrl, sourceLabel: mark.sourceLabel, verdict: mark.verdict };
 }
 
 /** The owner's "most important now" pick with its reason (decision 2a). */
@@ -466,6 +486,7 @@ function fromPublished(publication: AtlasPagePublication, published: AtlasPublis
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    challenge: shownChallenge(publication),
     ...researchBehind(published, shownSource),
   };
 }
@@ -531,7 +552,9 @@ function researchShown(fields: ResearchFields, shownSource: (source: string) => 
   const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
     communities: signal.communities.map(shownCommunity).filter(passesPageGuard),
     threadsRead: signal.threads_read,
-    threads: signal.threads.filter(passesPageGuard),
+    // Each thread link the page writes, left out when its words or the host a browser opens would stop the page (the
+    // review of #422, third round), so that no one stored link stops a whole page; the page's last check stays.
+    threads: signal.threads.filter((link) => passesPageGuard(link) && !opensYouTube(link)),
     people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,
       mixed: signal.people.mixed },
     quality: { ...signal.report_quality },
@@ -634,6 +657,7 @@ function fromCanonical(
     publishedAt: publication.publishedAt,
     stateChangedAt: publication.stateChangedAt,
     kept: publication.kept,
+    challenge: shownChallenge(publication),
     // Owner answers 252a and 255a: an accepted or edited finding shows the research behind it from its own version, or
     // from its publication's fields; both are erased with its F number's wording.
     ...canonicalResearch(content, publication, sources, finding.sources),
@@ -675,17 +699,21 @@ function canonicalFigureSource(
   return same?.source === undefined ? null : canonicalSourceOnly(same.source, sources);
 }
 
-/** What a publication shows, or undefined when it shows nowhere. */
+/**
+ * What a publication shows, or undefined when it shows nowhere: a finding with a text a page would refuse is left out
+ * of every page, its own included (the review of #422, fourth round: one stored text made every page listing it answer
+ * 503), as a comment, a thread link, a glance row or a pick is.
+ */
 function shownFindingOf(
   publication: AtlasPagePublication,
   findings: ReadonlyMap<string, AtlasPageFinding>,
   related: ReadonlyMap<string, RelatedFinding> = new Map(),
 ): ShownFinding | undefined {
-  if (publication.state === "unreviewed") {
-    return publication.published === null ? undefined : fromPublished(publication, publication.published);
-  }
   const finding = publication.atlasNumber === null ? undefined : findings.get(publication.atlasNumber);
-  return canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  const shown = publication.state === "unreviewed"
+    ? publication.published === null ? undefined : fromPublished(publication, publication.published)
+    : canonicalShows(finding) ? fromCanonical(publication, finding, related) : undefined;
+  return shown === undefined || !rowPassesPageGuard(shown) ? undefined : shown;
 }
 
 async function shownFindings(reads: AtlasPageReads, publications: readonly AtlasPagePublication[]): Promise<ShownFinding[]> {
@@ -914,6 +942,41 @@ export async function loadAtlasFindings(source: AtlasPageSource, options: {
     const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
     const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
     return { findings: visible, filter, before: more ? visible.at(-1)!.publicationNumber : null };
+  });
+}
+
+/** The findings that challenge the usual view (the owner, 6 Nov 2026), newest first, a page at a time. */
+export interface AtlasChallengesModel {
+  findings: ShownFinding[];
+  before: string | null;
+}
+
+/**
+ * The shown findings that carry a challenge mark (the owner, 6 Nov 2026: "we should also have a section for results
+ * that challenge mainstream consensus even if it's available with a standard ai answer"): never one kept for research,
+ * which no list shows, nor one whose mark a page would refuse.
+ */
+export async function loadAtlasChallenges(source: AtlasPageSource, options: { before?: string } = {}):
+  Promise<AtlasChallengesModel> {
+  return await source.read(async (reads) => {
+    const findings: ShownFinding[] = [];
+    let cursor = options.before;
+    for (;;) {
+      const publications = await reads.listPublications({ limit: READ_CHUNK, challengedOnly: true,
+        ...(cursor === undefined ? {} : { before: cursor }) });
+      for (const finding of await shownFindings(reads, publications)) {
+        if (finding.challenge === null) continue;
+        findings.push(finding);
+        if (findings.length > ATLAS_FINDINGS_PER_PAGE) break;
+      }
+      if (findings.length > ATLAS_FINDINGS_PER_PAGE || publications.length < READ_CHUNK) break;
+      const next = publications.at(-1)!.publicationNumber;
+      if (next === cursor) throw new Error("ATLAS_PAGE_CURSOR_STALLED");
+      cursor = next;
+    }
+    const more = findings.length > ATLAS_FINDINGS_PER_PAGE;
+    const visible = findings.slice(0, ATLAS_FINDINGS_PER_PAGE);
+    return { findings: visible, before: more ? visible.at(-1)!.publicationNumber : null };
   });
 }
 
@@ -1266,6 +1329,8 @@ export async function loadAtlasChanges(source: AtlasPageSource): Promise<AtlasCh
       });
     }
     for (const change of changes) {
+      // A change whose public note a page would refuse is left out, so it can't stop the page (the review of #422).
+      if (change.publicNote !== null && !passesPageGuard(change.publicNote)) continue;
       if (change.kind === "withdrawn") {
         // Withdrawn after acceptance: listed only if a publication had put it on the pages.
         if (onPages.has(change.atlasNumber)) {

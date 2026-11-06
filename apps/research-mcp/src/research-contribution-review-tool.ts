@@ -32,6 +32,7 @@ import {
 } from "./findings/atlas-review.js";
 import { atlasParticipationSchema } from "./atlas/participation-review.js";
 import { atlasKeptSchema } from "./atlas/kept-review.js";
+import { ATLAS_CHALLENGE_MARK_INPUTS, atlasChallengesSchema } from "./atlas/challenge-review.js";
 import { atlasPlacementsSchema } from "./atlas/placement-review.js";
 import { atlasReportsSchema } from "./atlas/report-review.js";
 import { atlasGlanceSchema } from "./atlas/glance-review.js";
@@ -81,10 +82,17 @@ export const researchContributionReviewInputSchema = z.object({
     return;
   }
   if (isAtlasReviewAction(value.action)) {
-    // Owner answers 229a and 231a: later_inputs.items goes only with keep_for_research and show_on_pages.
+    // Owner answers 229a and 231a: later_inputs.items goes only with keep_for_research and show_on_pages, and, since
+    // the owner's 6 Nov request, with mark_challenge and clear_challenge.
     if ((value as { items?: unknown }).items !== undefined && value.action !== "keep_for_research" &&
-      value.action !== "show_on_pages") {
+      value.action !== "show_on_pages" && value.action !== "mark_challenge" && value.action !== "clear_challenge") {
       context.addIssue({ code: "custom", message: `${value.action} does not take items` });
+    }
+    // The owner, 6 Nov: the usual view, its source and the quick-answer verdict go only with mark_challenge.
+    for (const field of ATLAS_CHALLENGE_MARK_INPUTS) {
+      if ((value as Record<string, unknown>)[field] !== undefined && value.action !== "mark_challenge") {
+        context.addIssue({ code: "custom", message: `${value.action} does not take ${field}` });
+      }
     }
     // Owner answer 229a: later_inputs.placements goes with place_items, and place_items needs it.
     const placements = (value as { placements?: unknown }).placements;
@@ -273,6 +281,8 @@ export const researchContributionReviewRuntimeOutputSchema = researchContributio
   reports: atlasReportsSchema.optional(),
   // The owner, 3 Nov: a problem's rows at a glance, runtime-only.
   glance: atlasGlanceSchema.optional(),
+  // The owner, 6 Nov: mark_challenge, clear_challenge and list_challenges, runtime-only (owner answer 189a).
+  challenges: atlasChallengesSchema.optional(),
   sharedAnswers: z.object({
     kept: z.array(sharedAnswerSummarySchema).optional(),
     answer: sharedAnswerSummarySchema.extend({
@@ -330,8 +340,11 @@ export function createResearchContributionReviewHandler(
         return reviewError("review_service_unavailable", "The Atlas review is not configured: it needs the review " +
           "database, the canonical reader and the findings repository. Nothing was recorded.");
       }
+      // The owner, 6 Nov: a challenge mark keeps who marked it, the reviewer login authorizeOwnerReview admitted, only
+      // as a digest (challenge-review.ts); it is never an input.
+      const reviewer = extra?.authInfo?.extra?.subject;
       return atlasToolResult(await options.atlas.review.run(
-        { ...parsed, action: parsed.action } as AtlasReviewRequest,
+        { ...parsed, action: parsed.action, ...(typeof reviewer === "string" ? { reviewer } : {}) } as AtlasReviewRequest,
         options.atlas.providers(),
       ));
     }
@@ -587,6 +600,7 @@ function atlasToolResult(result: AtlasReviewResult): CallToolResult {
     ...(result.placements === undefined ? {} : { placements: result.placements }),
     ...(result.reports === undefined ? {} : { reports: result.reports }),
     ...(result.glance === undefined ? {} : { glance: result.glance }),
+    ...(result.challenges === undefined ? {} : { challenges: result.challenges }),
     canonicalEvidenceChangedByThisCall: false,
     ...(result.error === undefined ? {} : { error: result.error }),
   });

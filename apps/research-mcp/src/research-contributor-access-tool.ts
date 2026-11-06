@@ -192,6 +192,11 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   sharedAnswerDeleted: z.boolean().optional(),
   // Owner answer 229a: the report sent to the Atlas, or taken down.
   atlasReport: atlasReportResultSchema.optional(),
+  // The owner's report of 6 Nov 2026 (runtime only, owner answer 189a): inspect's next step for an account whose research
+  // waits on the free-use notice.
+  next_step: z.string().optional()
+    .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
+      "ask; never accept it for them."),
 }).strict();
 
 /**
@@ -357,6 +362,20 @@ export const DETAILED_REPORTS_OFF = "Detailed lesson reports are off for this ac
 export const FINDINGS_SAVE_ON = "Findings-card saving is on for this dev account.";
 export const FINDINGS_SAVE_OFF = "Findings-card saving is off for this dev account; its final check still checks " +
   "the findings card and the answer.";
+
+/**
+ * What inspect asks of an account whose research waits on the free-use notice: one not enrolled, one revoked, or one
+ * active under an earlier notice, which inspect shows as not enrolled (the owner's report, 6 November 2026: when their
+ * login hadn't accepted the new notice, ChatGPT only told them they couldn't use AskRigor, and never showed the notice
+ * or asked them to agree). The research tools' refusal already says to call inspect and show the notice.
+ */
+export function noticeNextStep(): string {
+  return "Show the user this notice, word for word, and ask whether they accept it for free research (or use paid " +
+    "private access if they have it). Only after their yes, call manage_research_access with action " +
+    `accept_free_contributor and agreement {noticeVersion: "${RESEARCH_USE_NOTICE_VERSION}", ` +
+    "eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true, " +
+    "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+}
 
 /** What inspect asks of an account that registers a plain answer, before any research call. */
 export function plainAnswerRequest(note: boolean): string {
@@ -655,6 +674,9 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           plainAnswerRequested(settings.mode)
         ? { note: settings.plainAnswerNote }
         : undefined;
+      // Inspected, an account whose research waits on the notice is told to show it and ask, with the notice itself in
+      // the text too, for an app that shows the model a tool's text alone.
+      const nextStep = parsed.action === "inspect" && access.status !== "ACTIVE" ? noticeNextStep() : undefined;
       return {
         content: [{
           type: "text",
@@ -663,6 +685,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             : access.status === "REVOKED"
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
+            (nextStep === undefined ? "" : ` ${nextStep} The notice, ${access.noticeVersion}: ${access.notice}`) +
             (plain === undefined ? "" : ` ${plainAnswerRequest(plain.note)}`) +
             (settings === undefined
               ? ""
@@ -670,13 +693,14 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
-        structuredContent: manageResearchAccessOutputSchema.parse({
+        structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
           ok: true,
           access,
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
           accountReference,
+          ...(nextStep === undefined ? {} : { next_step: nextStep }),
         }),
       };
     } catch (error) {

@@ -110,6 +110,24 @@ as a write to MCP clients. Revocation blocks later research calls and withdraws
 every still-pending proposal from that account. It does not silently rewrite an
 already accepted deidentified canonical record.
 
+`inspect` returns the account's `access`: its status, mode, the current notice's
+version and the notice itself. For an account whose research waits on the notice
+(not enrolled, revoked, or active under an earlier notice, which `inspect` shows
+as `UNENROLLED`), the result also carries `next_step`, which its text repeats
+with the notice word for word: "Show the user this notice, word for word, and
+ask whether they accept it for free research (or use paid private access if
+they have it). Only after their yes, call manage_research_access with action
+accept_free_contributor and agreement {noticeVersion: "<the current version>",
+eligibleDeidentifiedResearchContributionRequired: true,
+prohibitedPrivateAndRawContentExcluded: true,
+proposalReviewAndNoAuthorityAcknowledged: true,
+paidPrivateAlternativeAcknowledged: true}. Never accept for them." (The owner's
+report of 6 November 2026: with their login not yet on the new notice, ChatGPT
+only told them they couldn't use AskRigor; it never showed the notice or asked
+them to agree.) `next_step` is a runtime-only result field; the published tool
+lists don't change. An active account's `inspect` and the other actions'
+results carry none.
+
 ## The plain answer first
 
 Owner answer 190a (2026-10-27), extending 140b: every account with active

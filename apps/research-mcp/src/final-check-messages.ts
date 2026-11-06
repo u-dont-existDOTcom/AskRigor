@@ -50,3 +50,14 @@ export const PASSING_LIMITS_GUIDANCE = "The panel lists every limit below beneat
   "states, in its own words, only those that change what this person should believe or do; if the checked draft " +
   "leaves out one that does, add it and call finalize_research again with the changed draft. The panel's limits, " +
   "for reference only and not to copy:";
+// The owner's comparison of 6 November 2026 (a lesson): free ChatGPT without AskRigor ended its tirzepatide answer with
+// three numbered questions (an alternative to CPAP or an add-on; obesity, overweight or normal weight; the person's AHI,
+// with examples) and said what it would do with the answers, while AskRigor's answer never asked about weight, though the
+// trials and the US approval cover only people with obesity. HRP ComplexAnswerFooter already asks for the most
+// decision-changing next data. Under every status; no word list or check reads the questions, in any field or language.
+export const CLOSING_QUESTIONS_GUIDANCE = "When the answer depends on the person's situation, close it, before the lines " +
+  "this result puts at its end, with at most three questions whose answers would most change it (HRP " +
+  "ComplexAnswerFooter: the most decision-changing next data): what they are deciding (for example, instead of what " +
+  "they use now, or as well as it); whether they match the people the key studies enrolled (such as weight, age, " +
+  "severity or other conditions); and their key measurement. Make each easy to answer, with example answers, and say " +
+  "what each answer would change.";

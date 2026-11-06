@@ -198,3 +198,56 @@ describe("free contributor notice v5 on both connector surfaces", () => {
     },
   );
 });
+
+// The owner's report, 6 Nov 2026: with their login not yet on the new notice, ChatGPT only told them they couldn't use
+// AskRigor; it never showed the notice or asked them to agree. inspect now gives such an account its next step.
+describe("inspect's next step for an account whose research waits on the notice", () => {
+  const NEXT_STEP = "Show the user this notice, word for word, and ask whether they accept it for free research (or use " +
+    "paid private access if they have it). Only after their yes, call manage_research_access with action " +
+    `accept_free_contributor and agreement {noticeVersion: "${V5}", eligibleDeidentifiedResearchContributionRequired: ` +
+    "true, prohibitedPrivateAndRawContentExcluded: true, proposalReviewAndNoAuthorityAcknowledged: true, " +
+    "paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+  const inspect = async (client: Client) =>
+    await client.callTool({ name: "manage_research_access", arguments: { action: "inspect" } });
+  const textOf = (result: Awaited<ReturnType<typeof inspect>>) => (result.content as Array<{ text: string }>)[0]!.text;
+
+  it.each(SURFACES)("on %s, a new account is told to show the notice and wait for the user's yes", async (surface) => {
+    const { store, connect } = await start();
+    const result = await inspect(await connect(surface, `new-on-${surface}`));
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ ok: true, access: { status: "UNENROLLED", noticeVersion: V5,
+      notice: RESEARCH_USE_NOTICE }, next_step: NEXT_STEP });
+    // The text the model reads holds the step and the notice itself, word for word.
+    expect(textOf(result)).toContain(NEXT_STEP);
+    expect(textOf(result)).toContain(`The notice, ${V5}: ${RESEARCH_USE_NOTICE}`);
+    // Inspecting accepts nothing.
+    expect(store.allAccounts()).toEqual([]);
+  });
+
+  it.each(SURFACES)("on %s, an account on the v4 notice gets the same step, and none once it accepts v5", async (surface) => {
+    const { store, service, connect } = await start();
+    const subject = `v4-next-step-on-${surface}`;
+    await seedEarlierAccount(store, service, subject, V4);
+    const client = await connect(surface, subject);
+    const before = await inspect(client);
+    expect(before.structuredContent).toMatchObject({ access: { status: "UNENROLLED" }, next_step: NEXT_STEP });
+    expect(store.allAccounts()).toEqual([expect.objectContaining({ noticeVersion: V4 })]);
+    await client.callTool({ name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+    const after = await inspect(client);
+    expect(after.structuredContent).toMatchObject({ access: { status: "ACTIVE", mode: "FREE_CONTRIBUTOR" } });
+    expect(after.structuredContent).not.toHaveProperty("next_step");
+    expect(textOf(after)).not.toContain("Show the user this notice");
+  });
+
+  it("gives a revoked account the step too, and none to the revoke itself", async () => {
+    const { connect } = await start();
+    const client = await connect("/mcp", "revoked-next-step");
+    await client.callTool({ name: "manage_research_access",
+      arguments: { action: "accept_free_contributor", agreement: agreement(V5) } });
+    const revoked = await client.callTool({ name: "manage_research_access", arguments: { action: "revoke" } });
+    expect(revoked.structuredContent).toMatchObject({ access: { status: "REVOKED" } });
+    expect(revoked.structuredContent).not.toHaveProperty("next_step");
+    expect((await inspect(client)).structuredContent).toMatchObject({ access: { status: "REVOKED" }, next_step: NEXT_STEP });
+  });
+});

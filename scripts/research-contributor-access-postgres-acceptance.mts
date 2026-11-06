@@ -1443,6 +1443,8 @@ const ATLAS_REPORT_ACCESS_FUNCTIONS = [
 const ATLAS_REPORT_REVIEW_FUNCTIONS = ["decide_atlas_report", "inspect_atlas_reports"] as const;
 // The owner, 3 Nov: migration 0027's three functions for a problem's rows at a glance.
 const ATLAS_GLANCE_FUNCTIONS = ["inspect_atlas_glance_rows", "propose_atlas_glance_row", "set_atlas_glance_row_state"] as const;
+// The owner, 6 Nov: migration 0030's two functions for findings that challenge the usual view.
+const ATLAS_CHALLENGE_FUNCTIONS = ["inspect_atlas_challenges", "mark_atlas_challenges"] as const;
 const ATLAS_PARTICIPATION_FUNCTIONS = [
   "atlas_session_current", "delete_atlas_comment", "end_atlas_sessions", "forget_atlas_participant",
   "inspect_atlas_participant", "post_atlas_comment", "report_atlas_comment", "set_atlas_display_name", "set_atlas_vote",
@@ -2656,6 +2658,90 @@ export async function verifyAtlasPublications(context: {
     }
     checks.push("atlas_publications_kept_for_research_stay_off_the_lists_and_in_the_lookup");
 
+    // The owner, 6 Nov 2026 (migration 0030): a challenge mark on a shown publication, read by the pages with its usual
+    // view, source and verdict but never who marked it; one that isn't shown can't be marked; a fail's mark stays while
+    // it shows, and a pass's is cleared whole; the table's check and the function refuse a mark that isn't one, written
+    // past the store's checks.
+    // The unpublished card's finding, kept and then shown again above, is the one shown publication here.
+    const challengePages = new PostgresAtlasPageSource({ connectionString: readerUrl, schema });
+    try {
+      const target = unpublished!.publicationNumber;
+      const mark = { usualView: "Most invented guidelines advise zentarine at 40 mg a day for everyone.",
+        sourceUrl: "https://guidelines.example.org/velmor-syndrome/2025", sourceLabel: "Invented Velmor guideline (2025)",
+        verdict: "fail" as const };
+      const marker = `reviewer:${atlasHex("synthetic-reviewer").slice(0, 16)}`;
+      const [view] = await store.markChallenges({ publicationNumbers: [target], mark, markedBy: marker, at: tick() });
+      const listedMarks = await store.inspectChallenges();
+      const read = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      let notMarkable = false;
+      try {
+        await store.markChallenges({ publicationNumbers: [setAside[0]!.publicationNumber], mark, markedBy: marker,
+          at: tick() });
+      } catch (error) {
+        notMarkable = error instanceof AtlasPublicationError && error.code === "NOT_MARKABLE";
+      }
+      const refusedBy = async (statement: () => Promise<unknown>, message: string) => {
+        try {
+          await statement();
+          return false;
+        } catch (error) {
+          return error instanceof Error && error.message.includes(message);
+        }
+      };
+      // Past the store's own checks, the table's check refuses a link that isn't https and a text-direction control or a
+      // zero-width character (the review of #422), and the review role's function refuses the same.
+      const update = (usualView: string, url: string, label: string) => () => admin.query(
+        `UPDATE ${schema}.atlas_publications SET challenge_usual_view = $3, challenge_source_url = $4, ` +
+        "challenge_source_label = $5, challenge_verdict = 'fail', challenge_marked_by = $1, challenge_marked_at = now() " +
+        "WHERE publication_number = $2", [marker, target, usualView, url, label]);
+      const constrained = await refusedBy(update("x", "http://example.org", "x"), "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("Guidelines \u202Egro.elpmaxe@namrevo\u202C", mark.sourceUrl, "x"),
+          "atlas_publications_v1_challenge_check") &&
+        await refusedBy(update("x", mark.sourceUrl, "Invented\u200Bguideline"), "atlas_publications_v1_challenge_check");
+      const functionRefuses = await asRole("askrigor_research_review", async (client) => refusedBy(() => client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, "Guidelines \u2066moc.ebutuoy\u2069 advise it.", mark.sourceUrl, mark.sourceLabel, marker]),
+      "ATLAS_PUBLICATION_INPUT_INVALID"));
+      // The zero-width non-joiner and joiner that Persian, the Indian scripts and emoji sequences need are taken in the
+      // usual view and its label, by the store, the table's check and the function, and read back as written; a link
+      // still holds neither (the review of #422, third round).
+      const joined = { ...mark, usualView: "بیشتر راهنماها می\u200Cگویند زنتارین ۴۰ میلی\u200Cگرم در روز.",
+        sourceLabel: "भारतीय दिशानिर्देश क्\u200Dष (2025) \u{1F469}\u200D\u2695\uFE0F" };
+      const [joinedView] = await store.markChallenges({ publicationNumbers: [target], mark: joined, markedBy: marker,
+        at: tick() });
+      const joinedRead = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      const joinedByFunction = await asRole("askrigor_research_review", async (client) => (await client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, joined.usualView, mark.sourceUrl, joined.sourceLabel, marker])).rows.length === 1);
+      const joinersTaken = joinedView?.mark?.usualView === joined.usualView &&
+        joinedView.mark.sourceLabel === joined.sourceLabel && isDeepStrictEqual(joinedRead[0]?.challenge, joined) &&
+        joinedByFunction &&
+        await refusedBy(update("x", "https://guidelines.example.org/a\u200Db", "x"), "atlas_publications_v1_challenge_check");
+      // Shown only for its challenge (a fail), its mark stays while it shows; a pass's clears.
+      let notClearable = false;
+      try {
+        await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
+      } catch (error) {
+        notClearable = error instanceof AtlasPublicationError && error.code === "NOT_CLEARABLE";
+      }
+      await store.markChallenges({ publicationNumbers: [target], mark: { ...mark, verdict: "pass" }, markedBy: marker,
+        at: tick() });
+      const [cleared] = await store.markChallenges({ publicationNumbers: [target], mark: null, markedBy: null, at: tick() });
+      const afterClear = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      assert(view?.mark?.verdict === "fail" && view.mark.markedBy === marker &&
+        listedMarks.map(({ publicationNumber }) => publicationNumber).join() === target &&
+        read.length === 1 && read[0]!.publicationNumber === target && isDeepStrictEqual(read[0]!.challenge, mark) &&
+        !JSON.stringify(read).includes(marker) && notMarkable && constrained && functionRefuses && joinersTaken &&
+        notClearable &&
+        cleared?.mark === null && afterClear.length === 0 && (await store.inspectChallenges()).length === 0,
+      `ATLAS_CHALLENGE_MARK_MISMATCH ${JSON.stringify({ view, read, notMarkable, constrained, functionRefuses,
+        joinersTaken, notClearable, cleared })}`);
+    } finally {
+      await challengePages.close();
+    }
+    checks.push("atlas_challenge_marks_are_kept_read_by_the_pages_without_who_marked_them_and_cleared_whole");
+    checks.push("atlas_challenge_marks_take_the_joiners_scripts_need_and_refuse_other_format_characters");
+
     await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
       findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });
     await store.decide({ cardNumber: 7003, findingNumber: 1, state: "accepted", atlasNumber: "F-1003", decidedAt: tick() });
@@ -2889,7 +2975,10 @@ export async function verifyAtlasPages(context: {
       read.listed.map(({ publicationNumber }) => publicationNumber).sort().join() ===
         [unreviewed, accepted, withdrawnAfter].sort().join() &&
         // kept (owner answers 229a and 231a) is whether a publication is kept for research; never the owner's reason.
-        read.listed.every((row) => columns(row) === "atlasNumber,kept,publicationNumber,published,publishedAt,state,stateChangedAt"),
+        // challenge (the owner, 6 Nov 2026) is its challenge mark's usual view, source and verdict; never who marked it.
+        read.listed.every((row) => columns(row) ===
+          "atlasNumber,challenge,kept,publicationNumber,published,publishedAt,state,stateChangedAt") &&
+        read.listed.every((row) => row.challenge === null),
       `ATLAS_PAGES_READ_WHAT_THEY_NEVER_SHOW ${JSON.stringify(read.listed.map(({ publicationNumber, state }) =>
         ({ publicationNumber, state })))}`,
     );
@@ -4083,6 +4172,7 @@ export async function verifyAtlasStorage(context: {
       executable.rows.map(({ proname }) => proname).join() ===
         [...ATLAS_REVIEW_FUNCTIONS, ...ATLAS_PUBLICATION_FUNCTIONS, ...ATLAS_MODERATION_FUNCTIONS,
           ...ATLAS_KEPT_FUNCTIONS, ...ATLAS_PLACEMENT_FUNCTIONS, ...ATLAS_REPORT_REVIEW_FUNCTIONS, ...ATLAS_GLANCE_FUNCTIONS,
+          ...ATLAS_CHALLENGE_FUNCTIONS,
           ...CONTRIBUTION_REVIEW_FUNCTIONS, ...HELD_REVIEW_FUNCTIONS].sort().join(),
       `ATLAS_REVIEW_ROLE_FUNCTIONS_MISMATCH ${executable.rows.map(({ proname }) => proname).join()}`,
     );

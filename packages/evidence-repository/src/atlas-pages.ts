@@ -45,6 +45,8 @@ import {
 import {
   atlasPublicationOrder,
   atlasPublishedFindingSchema,
+  validChallengeMark,
+  type AtlasChallengeMark,
   type AtlasPublishedFinding,
   type InMemoryAtlasPublicationStore,
 } from "./atlas-publications.js";
@@ -89,7 +91,15 @@ export interface AtlasPagePublication {
   stateChangedAt: string;
   /** Kept for AskRigor's research only (owner answers 229a and 231a): its page shows; no list does. */
   kept: boolean;
+  /**
+   * The owner, 6 Nov 2026: the usual view it challenges, with its source and the quick-answer test's verdict; null when
+   * it carries no challenge mark. Never who marked it.
+   */
+  challenge: AtlasPageChallenge | null;
 }
+
+/** A publication's challenge mark, as the pages read it (migration 0030). */
+export type AtlasPageChallenge = AtlasChallengeMark;
 
 export interface AtlasPagePublicationQuery {
   /** Keyset cursor: older than this publication in the requested order, including equal-time ties. */
@@ -103,6 +113,8 @@ export interface AtlasPagePublicationQuery {
   order?: "published" | "changed";
   /** Owner answers 229a and 231a: true reads the publications kept for research too (a page, the lookup). */
   includeKept?: boolean;
+  /** The owner, 6 Nov 2026: true reads only the publications that carry a challenge mark. */
+  challengedOnly?: boolean;
   /** 1 to ATLAS_PAGE_PUBLICATIONS_PER_READ. */
   limit: number;
 }
@@ -249,7 +261,8 @@ function validatePublicationQuery(query: AtlasPagePublicationQuery): Required<Pi
     (query.topicKey !== undefined && !TOPIC_KEY.test(query.topicKey)) ||
     (query.states !== undefined && !query.states.every((state) => (ATLAS_PAGE_STATES as readonly string[]).includes(state))) ||
     (query.order !== undefined && query.order !== "published" && query.order !== "changed") ||
-    (query.includeKept !== undefined && typeof query.includeKept !== "boolean")) {
+    (query.includeKept !== undefined && typeof query.includeKept !== "boolean") ||
+    (query.challengedOnly !== undefined && typeof query.challengedOnly !== "boolean")) {
     throw new AtlasPageQueryError();
   }
   return { ...query, order: query.order ?? "published" };
@@ -284,6 +297,7 @@ function pagePublicationOf(row: {
   publishedAt: string;
   stateChangedAt: string;
   kept: boolean;
+  challenge?: Partial<Record<keyof AtlasChallengeMark, unknown>> | null;
 }): AtlasPagePublication | undefined {
   const state = (ATLAS_PAGE_STATES as readonly string[]).includes(row.state) ? row.state as AtlasPageState : undefined;
   if (state === undefined || !PUBLICATION_NUMBER.test(row.publicationNumber)) return undefined;
@@ -299,7 +313,16 @@ function pagePublicationOf(row: {
     publishedAt: row.publishedAt,
     stateChangedAt: row.stateChangedAt,
     kept: row.kept,
+    challenge: pageChallengeOf(row.challenge),
   };
+}
+
+/** A challenge mark as the pages read it, or null for none, or one that does not read as migration 0030 holds it. */
+function pageChallengeOf(raw: Partial<Record<keyof AtlasChallengeMark, unknown>> | null | undefined): AtlasPageChallenge | null {
+  if (raw === null || raw === undefined || raw.usualView === null || raw.usualView === undefined) return null;
+  const mark = { usualView: raw.usualView, sourceUrl: raw.sourceUrl, sourceLabel: raw.sourceLabel,
+    verdict: raw.verdict } as AtlasChallengeMark;
+  return validChallengeMark(mark) ? mark : null;
 }
 
 const laterDay = (left: string, right: string | null) => right !== null && right > left ? right : left;
@@ -385,9 +408,11 @@ const changeKindSchema = z.enum(ATLAS_PAGE_CHANGE_KINDS);
 
 // PostgreSQL ---------------------------------------------------------------------------------------------------------
 
-// The only columns of atlas_publications a page reads.
+// The only columns of atlas_publications a page reads: since migration 0030, a challenge mark's usual view, source and
+// verdict too, never who marked it.
 const PAGE_PUBLICATION_COLUMNS = "listed.publication_number, listed.state, listed.atlas_number, listed.published_json, " +
-  "listed.published_at, listed.state_changed_at, listed.kept_for_research_at IS NOT NULL AS kept";
+  "listed.published_at, listed.state_changed_at, listed.kept_for_research_at IS NOT NULL AS kept, " +
+  "listed.challenge_usual_view, listed.challenge_source_url, listed.challenge_source_label, listed.challenge_verdict";
 
 function publicationsSql(order: "published" | "changed"): string {
   return `SELECT ${PAGE_PUBLICATION_COLUMNS}
@@ -398,6 +423,7 @@ function publicationsSql(order: "published" | "changed"): string {
      AND ($2::text[] IS NULL OR listed.publication_number = ANY($2::text[]))
      AND ($3::text[] IS NULL OR listed.atlas_number = ANY($3::text[]))
      AND ($7::boolean OR listed.kept_for_research_at IS NULL)
+     AND (NOT $8::boolean OR listed.challenge_marked_at IS NOT NULL)
      AND ($4::text IS NULL
           OR (listed.state = 'unreviewed' AND listed.published_json -> 'topic' ->> 'key' = $4::text)
           OR (listed.state IN ('accepted', 'edited') AND EXISTS (
@@ -536,6 +562,10 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         published_at: Date | string;
         state_changed_at: Date | string;
         kept: boolean;
+        challenge_usual_view?: string | null;
+        challenge_source_url?: string | null;
+        challenge_source_label?: string | null;
+        challenge_verdict?: string | null;
       }>(publicationsSql(query.order), [
         query.states === undefined ? null : [...query.states],
         query.publicationNumbers === undefined ? null : [...query.publicationNumbers],
@@ -544,6 +574,7 @@ function postgresReads(client: PoolClient): AtlasPageReads {
         query.limit,
         query.before ?? null,
         query.includeKept === true,
+        query.challengedOnly === true,
       ]);
       return result.rows.flatMap((row) => {
         const publication = pagePublicationOf({
@@ -554,6 +585,8 @@ function postgresReads(client: PoolClient): AtlasPageReads {
           publishedAt: instant(row.published_at),
           stateChangedAt: instant(row.state_changed_at),
           kept: row.kept === true,
+          challenge: { usualView: row.challenge_usual_view ?? null, sourceUrl: row.challenge_source_url ?? null,
+            sourceLabel: row.challenge_source_label ?? null, verdict: row.challenge_verdict ?? null },
         });
         return publication === undefined ? [] : [publication];
       });
@@ -870,6 +903,7 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           .filter((row) => (row.state === "unreviewed" && row.published !== null) ||
             row.state === "accepted" || row.state === "edited")
           .filter((row) => query.includeKept === true || !this.stores.publications.isKept(row.publicationNumber))
+          .filter((row) => query.challengedOnly !== true || this.stores.publications.challengeOf(row.publicationNumber) !== null)
           .filter((row) => (query.states === undefined || (query.states as readonly string[]).includes(row.state)) &&
             (query.publicationNumbers === undefined || query.publicationNumbers.includes(row.publicationNumber)) &&
             (query.atlasNumbers === undefined || (row.atlasNumber !== null && query.atlasNumbers.includes(row.atlasNumber))) &&
@@ -879,7 +913,8 @@ export class InMemoryAtlasPageSource implements AtlasPageSource {
           .sort((left, right) => time(right) - time(left) ||
             atlasPublicationOrder(right.publicationNumber) - atlasPublicationOrder(left.publicationNumber))
           .flatMap((row) => {
-            const publication = pagePublicationOf({ ...row, kept: this.stores.publications.isKept(row.publicationNumber) });
+            const publication = pagePublicationOf({ ...row, kept: this.stores.publications.isKept(row.publicationNumber),
+              challenge: this.stores.publications.challengeOf(row.publicationNumber) });
             return publication === undefined ? [] : [publication];
           })
           .slice(0, query.limit);

@@ -329,14 +329,15 @@ describe("the last check", () => {
     }
     // An address that puts YouTube's host on a page (in its sign-in link) is refused, as before.
     expect((await f.get("/atlas/topics/youtube.com")).response.status).toBe(503);
-    // A page whose data, against every store's rule, holds a YouTube address is refused to everyone, the owner too,
-    // while the owner's own page, which reads none of it, is served.
+    // A finding whose data, against every store's rule, holds a YouTube address is left out of every page, for
+    // everyone, the owner too: its own page answers 404 and the others serve without it (the review of #422, fourth
+    // round: a stored text never stops a page). The owner's own page, which reads none of it, is served.
     const leaking = await fixture({ owner: { commentMapsFile: await mapsFile() }, wrapSource: leakingYouTube });
     const sessions = [undefined, await leaking.signIn(SUBJECT), await leaking.signIn(OWNER)];
     for (const cookie of sessions) {
-      for (const path of ["/atlas/findings/P-1001", "/atlas"]) {
+      for (const [path, status] of [["/atlas/findings/P-1001", 404], ["/atlas", 200]] as const) {
         const page = await leaking.get(path, cookie);
-        expect(page.response.status, `${path} ${cookie === undefined ? "signed out" : "signed in"}`).toBe(503);
+        expect(page.response.status, `${path} ${cookie === undefined ? "signed out" : "signed in"}`).toBe(status);
         expect(page.body).not.toMatch(YOUTUBE);
       }
     }

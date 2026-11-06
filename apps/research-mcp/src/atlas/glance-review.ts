@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { HEALTH } from "./health-tree.js";
 import { sourceIdentifierOf } from "./page-data.js";
+import { opensYouTube } from "./page-guard.js";
 import { reportTextProblem } from "./report-pages.js";
 
 /**
@@ -78,7 +79,6 @@ export interface AtlasGlanceResult {
 
 const failure = (code: "invalid_request" | "item_not_found" | "decision_conflict", text: string): AtlasGlanceResult =>
   ({ ok: false, text, error: { code, message: text } });
-const YOUTUBE = /(?:^|\.)(?:youtube\.com|youtu\.be|youtube-nocookie\.com)$/u;
 
 /** Exact checks of a row: its texts as the reports' checks read them, and each source's form. */
 export function glanceRowProblems(row: GlanceRowInput): string[] {
@@ -96,7 +96,7 @@ export function glanceRowProblems(row: GlanceRowInput): string[] {
       parsed = undefined;
     }
     if (parsed === undefined || parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ||
-      parsed.port !== "" || YOUTUBE.test(parsed.hostname.toLowerCase())) {
+      parsed.port !== "" || opensYouTube(source)) {
       problems.push(`sources[${index}] is not a PMID, PMCID, DOI or NCT number, or a plain https address that isn't YouTube`);
     }
   });

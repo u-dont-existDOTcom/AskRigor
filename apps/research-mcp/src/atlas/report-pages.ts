@@ -12,7 +12,7 @@ import { containsCardReference } from "../findings/acceptance-checks.js";
 import { contactDetailKinds, hasDirectionControl, linkKinds } from "./contact-check.js";
 import { healthPath, HEALTH } from "./health-tree.js";
 import { sourceIdentifierOf } from "./page-data.js";
-import { pageGuardProblems } from "./page-guard.js";
+import { opensYouTube, pageGuardProblems, passesPageGuard, rowPassesPageGuard } from "./page-guard.js";
 import { displayNameProblem, normalizedDisplayName } from "./participation.js";
 import { ACCOUNT_PATH, html, page, sourceLink, type AtlasPageReader, type SafeHtml } from "./pages.js";
 
@@ -142,8 +142,6 @@ export const reportResearchSchema = z.object({
 }).strict();
 export type ReportResearch = z.infer<typeof reportResearchSchema>;
 
-const YOUTUBE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com"];
-
 /** Exact checks of a research block: what a schema cannot say. Each problem names its place. */
 export function reportResearchProblems(research: ReportResearch): string[] {
   const problems: string[] = [];
@@ -158,7 +156,7 @@ export function reportResearchProblems(research: ReportResearch): string[] {
     if (parsed === undefined || parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ||
       parsed.port !== "" || host.length === 0 || !host.includes(".")) {
       problems.push(`others[${index}].url is not a plain https address`);
-    } else if (YOUTUBE_HOSTS.some((youtube) => host === youtube || host.endsWith(`.${youtube}`))) {
+    } else if (opensYouTube(url)) {
       problems.push(`others[${index}].url is YouTube, which the Atlas never links`);
     } else if (pageGuardProblems(url).length > 0) {
       problems.push(`others[${index}].url is refused by the pages' check`);
@@ -197,12 +195,19 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "n
 
 function researchSection(stored: Record<string, unknown> | null): SafeHtml {
   const parsed = stored === null ? undefined : reportResearchSchema.safeParse(stored);
-  if (parsed === undefined || !parsed.success || reportResearchProblems(parsed.data).length > 0) {
+  // Another report whose link opens YouTube, by its host, or whose link or words a page would refuse is left out, as
+  // it may have been stored before a check read it so (the review of #422, fourth round), so it can neither stop the
+  // page nor hide the rest of the research.
+  const research = parsed === undefined || !parsed.success ? undefined : {
+    ...parsed.data,
+    others: parsed.data.others.filter(({ url, said }) => !opensYouTube(url) && passesPageGuard(url) &&
+      (said === undefined || passesPageGuard(said))),
+  };
+  if (research === undefined || reportResearchProblems(research).length > 0) {
     return html`<h2>The research around it</h2>
 <p>The research around this report isn’t done yet.</p>
 `;
   }
-  const research = parsed.data;
   const counts = outcomeCounts(research);
   return html`<h2>What others report</h2>
 ${research.others.length === 0 ? html`<p>No one else’s report was found yet.</p>`
@@ -220,6 +225,15 @@ ${research.studies.length === 0 ? html`<p>No study of this for this problem was 
 <h2>What isn’t known</h2>
 <p>${research.unknown ?? "Not stated."}</p>
 `;
+}
+
+/**
+ * Whether a published report's own texts (what it says, its display name and its AI warning) leave a page servable: a
+ * report with one that doesn't is left out of every page that would show it, its own included (the review of #422,
+ * fourth round), so that no stored text can stop a page. Its research is checked apart (researchSection).
+ */
+export function reportShowable(report: AtlasPageReport): boolean {
+  return rowPassesPageGuard({ text: report.text, displayName: report.displayName, aiWarning: report.aiWarning });
 }
 
 export interface AtlasReportPageView {
@@ -330,12 +344,16 @@ export function renderAtlasOwnReports(reports: readonly AtlasOwnReport[], tokens
     description: "The reports you sent to the Atlas.",
     body: html`<h1>Your reports</h1>
 ${reports.length === 0 ? html`<p>You haven’t sent a report. <a href="${SHARE_PATH}">Share what worked for you</a>.</p>`
-      : html`<ul class="own-reports">${reports.map((report) => html`<li>
-<p>${report.state === "published" ? html`<a href="${reportPath(report.publicId)}">${report.tried} for ${report.problem}</a>`
+      : html`<ul class="own-reports">${reports.map((report) => {
+        // A report whose words a page would refuse is named by its number alone, so its author can still take it down.
+        const shown = rowPassesPageGuard([report.tried, report.problem]);
+        return html`<li>
+<p>${!shown ? html`${report.publicId}` : report.state === "published" ? html`<a href="${reportPath(report.publicId)}">${report.tried} for ${report.problem}</a>`
           : report.state === "refused" ? html`${report.publicId}` : html`${report.tried} for ${report.problem}`} <span class="meta">(${report.publicId})</span></p>
 <p class="meta">${STATE_WORDS[report.state]}${report.refuseReason === null ? "" : html`: ${REFUSE_WORDS[report.refuseReason]}`}</p>
 <form method="post" action="${OWN_REPORTS_PATH}/${report.publicId}/delete"><input type="hidden" name="csrf" value="${tokens(report.publicId)}"><button type="submit">Take it down</button></form>
-</li>`)}</ul>`}
+</li>`;
+      })}</ul>`}
 <p><a href="${SHARE_PATH}">Share another</a> · <a href="${ACCOUNT_PATH}">Your account</a></p>
 ` });
 }

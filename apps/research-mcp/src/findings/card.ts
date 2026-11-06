@@ -8,6 +8,7 @@ import {
   ATLAS_SEARCHES_PER_FINDING,
   ATLAS_SUBJECT_MAX_CHARACTERS,
   ATLAS_SUBJECT_TYPES,
+  withoutFormatCharacters,
   type AtlasNumberEntry,
   type HeldYouTubeFindingContent
 } from "@askrigor/evidence-repository";
@@ -564,9 +565,13 @@ export function withoutYouTubeLinks(value: string): string {
   return value.replace(YOUTUBE_LINK, "$1 (YouTube video)").replace(YOUTUBE_URL, "(YouTube video)");
 }
 
-/** Whether a text names a YouTube host at all: a paper's quote that does is never stored (owner answers 170 and 252a). */
+/**
+ * Whether a text names a YouTube host at all: a paper's quote that does is never stored (owner answers 170 and 252a).
+ * The text is read as a reader sees it, without its format characters, as the Atlas pages read it (the review of #422,
+ * fourth round).
+ */
 export function holdsYouTubeReference(value: string): boolean {
-  return YOUTUBE_REFERENCE.test(value);
+  return YOUTUBE_REFERENCE.test(withoutFormatCharacters(value));
 }
 
 /**

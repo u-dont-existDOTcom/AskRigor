@@ -320,6 +320,21 @@ so that an erasure removes that column whole. No role, grant or table is added,
 and no row is changed; an earlier image ignores the column. Renumber it when the
 Atlas stack next takes in main.
 
+The owner, 6 November 2026 (built, not yet released): migration
+`0030_atlas_challenges` adds six nullable columns to `atlas_publications` (a
+challenge mark: the usual view, its source's label and https link, the
+quick-answer verdict, who marked it as `reviewer:` and 16 hex characters, and
+when), one check holding them together, and two review-role functions,
+`mark_atlas_challenges` and `inspect_atlas_challenges`. Its release: run the
+one-shot admin `migrate` before the new image serves, then re-run
+`/usr/local/bin/provision-research-review-role` inside the PostgreSQL container,
+which grants the two functions. No tool-list change: `mark_challenge`,
+`clear_challenge` and `list_challenges` are runtime actions of
+`review_research_contribution`, with their inputs in `later_inputs`. An image
+rollback below 0030 needs no drain: the earlier image never reads the columns
+and shows no mark. Undo no migration: 0030 stays, with its marks, and its grant
+script leaves the two grants in place, harmlessly.
+
 Image rollback hazard (the reviews of 5 November 2026): an image from before this
 release cannot parse three kinds of row this release writes.
 

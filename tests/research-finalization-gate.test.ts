@@ -40,6 +40,11 @@ import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messag
 // Pinned word for word: a lead receipt is signed only with the exact searches recorded.
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
 const LEAD_RECEIPT_ID_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
+// The owner, 6 Nov 2026: a study the answer links that isn't a key source, with no receipt tying it, is a note.
+// The review of #422, fourth round: looking the study up comes first.
+const NOT_LOOKED_UP_NOTE = (names: string) => `The answer links ${names}, for which AskRigor has no receipt. Look each ` +
+  "up (fetch_pubmed_record for a PMID, which ties it to its DOI; resolve_doi for a DOI) and pass its research_receipt. " +
+  "Only if you don't, say beside it that AskRigor did not look it up.";
 // #394's run: the check still said the full-text tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI
 // for a paper never tried (o355-scoped-list); since #394 acquire_open_full_text fetches by PMID or PMCID too.
 const NO_DOI_WORDING = /requires a DOI|without a DOI|lists no DOI|without DOIs/u;
@@ -2516,7 +2521,9 @@ describe("finalize_research gate", () => {
       "Try acquire_open_full_text for 4242 (DOI 10.1016/j.joca.2020.01.001) before treating it as lead_only; pass the research_receipt it returns. " +
         LEAD_RECEIPT_SEARCH_TEXT,
       "Key source WHO guideline 2024 has no answer_marker on the same line as its link in answer_draft; put its answer_marker there.",
-      "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer."
+      "Identify WHO guideline 2024 by DOI, PMID or PMCID, or leave it out of key_sources and label it unverified in the answer.",
+      // The draft links a study no key source names and no receipt here ties (the owner, 6 Nov 2026).
+      NOT_LOOKED_UP_NOTE('"Study" (10.1002/art.41142)')
     ]);
 
     // The PMID's DOI links it to an acquisition lead and to a validated audit.
@@ -3360,8 +3367,10 @@ describe("finalize_research gate", () => {
     // One step for each rejected receipt, with its own way out (UDA lane item
     // 2026-10-12-finalizer-bounded-completion-and-receipt-diagnostics), then the declaration the skip needs.
     const receiptSteps = advisoryNotes(result).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
-    expect(receiptSteps).toHaveLength(3);
+    // The draft's study link, with its receipt rejected, is one no receipt here ties (the owner, 6 Nov 2026).
+    expect(receiptSteps).toHaveLength(4);
     expect(receiptSteps.slice(0, 2)).toEqual([REJECTED_RECEIPT_STEPS.signature_invalid(0), REJECTED_RECEIPT_STEPS.malformed(1)]);
+    expect(receiptSteps).toContain(NOT_LOOKED_UP_NOTE('"Study" (10.1002/art.41142)'));
 
     // HRP ForumSignalNonTrigger: nonactivation is affirmative, for a question with no real-world outcome or an
     // emergency before triage. A question whether smelling geosmin helps is neither (owner report, 2026-09-30).

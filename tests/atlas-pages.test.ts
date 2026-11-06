@@ -49,8 +49,11 @@ import {
 } from "../apps/research-mcp/src/atlas/pages-http.js";
 import { planCardPublication, publishedFindingOf } from "../apps/research-mcp/src/atlas/publication.js";
 import { AtlasKeptReview } from "../apps/research-mcp/src/atlas/kept-review.js";
-import { KEPT_FOR_RESEARCH_LINE } from "../apps/research-mcp/src/atlas/pages.js";
-import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
+import { challengeMarker } from "../apps/research-mcp/src/atlas/challenge-review.js";
+import {
+  CHALLENGES_PATH, KEPT_FOR_RESEARCH_LINE, QUICK_ANSWER_MISSES_IT, SHOWN_AS_A_CHALLENGE
+} from "../apps/research-mcp/src/atlas/pages.js";
+import { loadAtlasChallenges, loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasPagesEnabledFromEnv } from "../apps/research-mcp/src/config.js";
 import {
   findingsCardDigest,
@@ -1138,7 +1141,7 @@ describe("the pages' PostgreSQL reads", () => {
     }));
     expect(result.publications).toEqual([{
       publicationNumber: "P-1001", state: "unreviewed", atlasNumber: null, published,
-      publishedAt: "2026-11-04T09:00:00.000Z", stateChangedAt: "2026-11-04T09:00:00.000Z", kept: false,
+      publishedAt: "2026-11-04T09:00:00.000Z", stateChangedAt: "2026-11-04T09:00:00.000Z", kept: false, challenge: null,
     }]);
     expect(result.findings).toEqual([]);
     expect(calls.slice(0, 3).map(({ sql }) => sql)).toEqual([
@@ -1149,15 +1152,17 @@ describe("the pages' PostgreSQL reads", () => {
     expect(calls.at(-1)!.sql).toBe("COMMIT");
     expect(released()).toBe(1);
     const select = calls.find(({ sql }) => sql.includes("FROM atlas_publications"))!;
-    // kept (owner answers 229a and 231a): whether it is kept for research, never the owner's reason for it.
-    expect(select.sql).toMatch(/^SELECT listed\.publication_number, listed\.state, listed\.atlas_number, listed\.published_json, listed\.published_at, listed\.state_changed_at, listed\.kept_for_research_at IS NOT NULL AS kept FROM atlas_publications listed WHERE/u);
+    // kept (owner answers 229a and 231a): whether it is kept for research, never the owner's reason for it; and a
+    // challenge mark's usual view, source and verdict (the owner, 6 Nov 2026), never who marked it.
+    expect(select.sql).toMatch(/^SELECT listed\.publication_number, listed\.state, listed\.atlas_number, listed\.published_json, listed\.published_at, listed\.state_changed_at, listed\.kept_for_research_at IS NOT NULL AS kept, listed\.challenge_usual_view, listed\.challenge_source_url, listed\.challenge_source_label, listed\.challenge_verdict FROM atlas_publications listed WHERE/u);
+    expect(select.sql).not.toContain("challenge_marked_by");
     expect(select.sql).toContain("ORDER BY listed.state_changed_at DESC");
-    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20, null, false]);
+    expect(select.values).toEqual([null, null, null, "velmor-syndrome", 20, null, false, false]);
     await source.read((reads) => reads.listPublications({ before: "P-1001", limit: 20 }));
     const cursorRead = calls.filter(({ sql }) => sql.includes("FROM atlas_publications")).at(-1)!;
     expect(cursorRead.sql).toContain("listed.published_at");
     expect(cursorRead.sql).toContain("substring(anchor.publication_number FROM 3)::bigint");
-    expect(cursorRead.values).toEqual([null, null, null, null, 20, "P-1001", false]);
+    expect(cursorRead.values).toEqual([null, null, null, null, 20, "P-1001", false, false]);
     for (const { sql } of calls) {
       expect(sql).not.toMatch(/card_number|card_sha256|owner_reason|kept_reason|held_because|withdrawn_because|finding_number|card_forgotten_at|texts_erased_at|'held'|'rejected'|'withdrawn'/u);
       expect(sql).not.toMatch(/\b(?:INSERT|UPDATE|DELETE|nextval)\b|inspect_atlas_publications|atlas_card_decisions|atlas_finding_intents/u);
@@ -2158,5 +2163,152 @@ describe("findings kept for AskRigor's research only (owner answers 229a and 231
     }
     expect((await loadAtlasFindings(source, { includeKept: true })).findings.map(({ publicationNumber }) => publicationNumber))
       .not.toContain(hidden.held);
+  });
+});
+
+// The owner, 6 Nov 2026: "we should also have a section for results that challenge mainstream consensus even if it's
+// available with a standard ai answer". A shown finding carrying a challenge mark is listed on its own section page with
+// the usual view and its source beside it, and its page says it challenges the usual view; its status says, from the
+// stored verdict, whether a quick AI answer may already give it.
+describe("findings that challenge the usual view", () => {
+  const MARK = {
+    usualView: "Most guidelines advise zentarine at 40 mg a day for every adult with Velmor syndrome.",
+    sourceUrl: "https://guidelines.example.org/velmor-syndrome/2025",
+    sourceLabel: "Invented Velmor Society guideline (2025)",
+    verdict: "fail" as const,
+  };
+  const USUAL_VIEW = `The usual view: Most guidelines advise zentarine at 40 mg a day for every adult with Velmor syndrome ` +
+    `(<a href="${MARK.sourceUrl}" rel="nofollow noopener noreferrer">${MARK.sourceLabel}</a>).`;
+  const marker = challengeMarker("auth0|owner");
+  const numbersOf = (findings: readonly { publicationNumber: string }[]) => findings.map(({ publicationNumber }) => publicationNumber);
+
+  it("lists the shown marked findings on a section page, with the usual view, its source and their limits", async () => {
+    const { store, source, shown } = await fixture();
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: MARK, markedBy: marker,
+      at: store.tick() });
+    await store.publications.markChallenges({ publicationNumbers: [shown.lowDose], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    expect(numbersOf((await loadAtlasChallenges(source)).findings).sort()).toEqual([shown.effect, shown.lowDose].sort());
+    const base = await serve(pages(source));
+    const page = await text(base, CHALLENGES_PATH);
+    expect(page.response.status).toBe(200);
+    expect(page.body).toContain("<h1>Findings that challenge the usual view</h1>");
+    expect(page.body).toContain('<meta name="robots" content="noindex">');
+    expect(page.body).toContain(USUAL_VIEW);
+    expect(page.body).toContain(`/atlas/findings/${shown.effect}"`);
+    expect(page.body).toContain(`/atlas/findings/${shown.lowDose}"`);
+    expect(page.body).not.toContain(`/atlas/findings/${shown.hip}"`);
+    // Its limits: how sure, for whom, and what would change it.
+    expect(page.body).toContain("How sure:");
+    expect(page.body).toContain("What would change it:");
+    // Never who marked it.
+    expect(page.body).not.toContain(marker);
+    // Linked from the home page and the findings index.
+    expect((await text(base, "/atlas")).body).toContain(`href="${CHALLENGES_PATH}"`);
+    expect((await text(base, "/atlas/findings")).body).toContain(`href="${CHALLENGES_PATH}"`);
+    expect(atlasRouteOf(CHALLENGES_PATH)).toEqual({ kind: "challenges" });
+  });
+
+  it("says from the stored verdict whether a quick AI answer may already give a shown finding", async () => {
+    const { store, source, shown } = await fixture();
+    // The runtime's stores announce each write, which drops the pages' cache; these write to the store itself.
+    const signal = new AtlasChangeSignal();
+    const base = await serve(pages(source, { signal }));
+    // Unmarked, a shown unreviewed finding passed the quick-answer test.
+    const before = (await text(base, `/atlas/findings/${shown.hip}`)).body;
+    expect(before).toContain(QUICK_ANSWER_MISSES_IT);
+    expect(before).not.toContain("It challenges the usual view");
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: MARK, markedBy: marker,
+      at: store.tick() });
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    signal.announce();
+    const failed = (await text(base, `/atlas/findings/${shown.effect}`)).body;
+    expect(failed).toContain(SHOWN_AS_A_CHALLENGE);
+    expect(failed).not.toContain(QUICK_ANSWER_MISSES_IT);
+    expect(failed).toContain('<h2 id="challenge">It challenges the usual view</h2>');
+    expect(failed).toContain(USUAL_VIEW);
+    expect(failed).toContain('<meta name="robots" content="noindex">');
+    const passed = (await text(base, `/atlas/findings/${shown.hip}`)).body;
+    expect(passed).toContain(QUICK_ANSWER_MISSES_IT);
+    expect(passed).toContain('<h2 id="challenge">It challenges the usual view</h2>');
+    // A headline is no pass either.
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: { ...MARK, verdict: "headline" },
+      markedBy: marker, at: store.tick() });
+    signal.announce();
+    expect((await text(base, `/atlas/findings/${shown.hip}`)).body).toContain(SHOWN_AS_A_CHALLENGE);
+  });
+
+  it("keeps a finding kept for research off the section page, and clears a mark off the pages", async () => {
+    const { store, source, shown } = await fixture();
+    await store.publications.keep({ publicationNumbers: [shown.effect], atlasNumbers: [], keep: true,
+      reason: "owner answer 240a", at: store.tick() });
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: MARK, markedBy: marker,
+      at: store.tick() });
+    // A pass, whose mark can be cleared while it shows.
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    expect(numbersOf((await loadAtlasChallenges(source)).findings)).toEqual([shown.hip]);
+    const signal = new AtlasChangeSignal();
+    const base = await serve(pages(source, { signal }));
+    // Its own page still says it challenges the usual view, and nothing at all of the quick-answer test (R4, the review
+    // of #422: the box said it, in other words than the status's).
+    const kept = (await text(base, `/atlas/findings/${shown.effect}`)).body;
+    expect(kept).toContain("It challenges the usual view");
+    expect(kept).not.toContain("quick AI answer");
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect], mark: { ...MARK, verdict: "pass" },
+      markedBy: marker, at: store.tick() });
+    signal.announce();
+    expect((await text(base, `/atlas/findings/${shown.effect}`)).body).not.toContain("quick AI answer");
+    await store.publications.markChallenges({ publicationNumbers: [shown.hip], mark: null, markedBy: null,
+      at: store.tick() });
+    signal.announce();
+    expect((await loadAtlasChallenges(source)).findings).toEqual([]);
+    expect((await text(base, CHALLENGES_PATH)).body).toContain("No finding on these pages challenges the usual view yet.");
+  });
+
+  it.each([
+    "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+    // R6 (the review of #422): a link a browser opens as YouTube, whatever its words.
+    "https://youtube%2Ecom/watch?v=aaaaaaaaaaa",
+    "https://ｙｏｕｔｕｂｅ.com/watch?v=aaaaaaaaaaa",
+  ])("leaves out a mark whose link is %s, so it never stops a page", async (link) => {
+    const { store, source, shown } = await fixture();
+    // The review action refuses such a mark; one written to the store directly is left out of every page.
+    await store.publications.markChallenges({ publicationNumbers: [shown.effect],
+      mark: { ...MARK, sourceUrl: link }, markedBy: marker, at: store.tick() });
+    expect((await loadAtlasChallenges(source)).findings).toEqual([]);
+    expect((await loadAtlasFinding(source, shown.effect))!.finding.challenge).toBeNull();
+    const base = await serve(pages(source));
+    const page = await text(base, `/atlas/findings/${shown.effect}`);
+    expect(page.response.status).toBe(200);
+    expect(page.body).not.toContain("It challenges the usual view");
+  });
+
+  it("reads only marked publications in PostgreSQL when asked, never who marked them", async () => {
+    const source = new PostgresAtlasPageSource({ connectionString: "postgres://reader@127.0.0.1/askrigor" });
+    const calls: Array<{ sql: string; values: unknown[] | undefined }> = [];
+    const client = {
+      query: async (sql: string, values?: unknown[]) => {
+        calls.push({ sql: sql.replace(/\s+/gu, " ").trim(), values });
+        return { rows: sql.includes("FROM atlas_publications") ? [{ publication_number: "P-1001", state: "unreviewed",
+          atlas_number: null, published_json: {
+            schema: "askrigor.atlas-publication.v1", topic: null, claim: "An invented claim.", certainty: "moderate",
+            applies_to: "Adults", kind: null, subject: null, subject_type: null, direction: null, numbers: null,
+            searches: null, sources: ["10.0000/synthetic-a"], why_not_usual: "Why.", what_would_change_it: "What.",
+            verified_bases: [], saved_on: "2026-11-04", askrigor_version: "0.1.0" },
+          published_at: new Date(SAVED_AT), state_changed_at: new Date(SAVED_AT), kept: false,
+          challenge_usual_view: MARK.usualView, challenge_source_url: MARK.sourceUrl,
+          challenge_source_label: MARK.sourceLabel, challenge_verdict: MARK.verdict }] : [], rowCount: 0 };
+      },
+      release: () => undefined,
+    };
+    (source as unknown as { pool: { connect: () => Promise<typeof client> } }).pool = { connect: async () => client };
+    const publications = await source.read((reads) => reads.listPublications({ challengedOnly: true, limit: 20 }));
+    expect(publications.map(({ challenge }) => challenge)).toEqual([MARK]);
+    const select = calls.find(({ sql }) => sql.includes("FROM atlas_publications"))!;
+    expect(select.sql).toContain("AND (NOT $8::boolean OR listed.challenge_marked_at IS NOT NULL)");
+    expect(select.sql).not.toContain("challenge_marked_by");
+    expect(select.values).toEqual([null, null, null, null, 20, null, false, true]);
   });
 });
