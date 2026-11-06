@@ -16,7 +16,7 @@ import {
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
-import { opensYouTube, passesPageGuard } from "./page-guard.js";
+import { opensYouTube, passesPageGuard, withoutFormatCharacters } from "./page-guard.js";
 import { textHoldReasons } from "./publication.js";
 
 /**
@@ -108,8 +108,10 @@ const itemOf = (view: AtlasChallengeView): AtlasChallenges["items"][number] => (
 });
 
 const PUBLICATION_NUMBER = /^P-[1-9][0-9]{3,}$/u;
-// A control character or a format character (Unicode's Cf: text-direction controls, zero-width characters and the like).
-const FORMAT_OR_CONTROL = /[\p{Cc}\p{Cf}]/u;
+// A control character or a format character (Unicode's Cf: text-direction controls, zero-width spaces and the like),
+// other than the zero-width non-joiner and joiner (U+200C, U+200D), which Persian, the Indian scripts and emoji
+// sequences need to be written correctly (the review of #422, third round).
+const FORMAT_OR_CONTROL = /(?![\u200C\u200D])[\p{Cc}\p{Cf}]/u;
 
 /** Why clear_challenge refuses a finding shown for its challenge, and what to do first. */
 const notClearable = (numbers: readonly string[]) => `${numbers.join(", ")} ${numbers.length === 1 ? "shows" : "show"} ` +
@@ -162,8 +164,8 @@ export class AtlasChallengeReview {
         .map((text) => text.trim());
       if (texts.some((text) => FORMAT_OR_CONTROL.test(text))) {
         return refused("The usual view, its source or its link holds a control or format character, such as a " +
-          "text-direction control or a zero-width character, which can make it show something other than it holds: " +
-          "write it without them; nothing was changed.");
+          "text-direction control or a zero-width space, which can make it show something other than it holds: " +
+          "write it without them (a zero-width joiner or non-joiner a script needs is taken); nothing was changed.");
       }
       // The link as a browser opens it, which the page shows.
       let link: string;
@@ -177,10 +179,11 @@ export class AtlasChallengeReview {
         return refused("mark_challenge needs the usual view and its source's label each on one plain line, within " +
           "their bounds, and its source's link as an https address; nothing was changed.");
       }
-      // What the pages never show, in any of the mark's texts: nothing would show the mark, so none is kept. The link's
-      // host is read as a browser reads it, so youtube%2Ecom or full-width letters are YouTube too.
+      // What the pages never show, in any of the mark's texts: nothing would show the mark, so none is kept. Each text
+      // is read as a reader sees it, without its format characters, so a joiner the text may hold can't hide an address
+      // or a reference, and the link's host as a browser reads it, so youtube%2Ecom or full-width letters are YouTube.
       if ([challenge.usualView, challenge.sourceLabel, challenge.sourceUrl, texts[2]!].some((text) =>
-        textHoldReasons(text.normalize("NFKC")).length > 0 || !passesPageGuard(text)) ||
+        textHoldReasons(withoutFormatCharacters(text).normalize("NFKC")).length > 0 || !passesPageGuard(text)) ||
         opensYouTube(texts[2]!) || opensYouTube(challenge.sourceUrl)) {
         return refused("The usual view, its source or its link holds what the Atlas pages never show (contact " +
           "details, a findings card's reference or a YouTube link); nothing was changed.");

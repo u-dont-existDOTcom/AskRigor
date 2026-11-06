@@ -390,13 +390,14 @@ export interface AtlasChallengeView {
   mark: (AtlasChallengeMark & { markedBy: string; markedAt: string }) | null;
 }
 
-// Control characters, and the format characters (Unicode's Cf: the text-direction controls, the zero-width characters
-// and the like), which can make a text show something other than it holds (the review of #422).
-const CHALLENGE_CONTROL = /[\p{Cc}\p{Cf}]/u;
+// Control characters, and the format characters (Unicode's Cf: the text-direction controls, the zero-width spaces and
+// the like), which can make a text show something other than it holds (the review of #422), but for the zero-width
+// non-joiner and joiner (U+200C, U+200D), which Persian, the Indian scripts and emoji sequences need (its third round).
+const CHALLENGE_CONTROL = /(?![\u200C\u200D])[\p{Cc}\p{Cf}]/u;
 
 /**
  * Whether a mark is as migration 0030 holds it: trimmed one-line texts within their bounds, with no control or format
- * character, an https link without either, and a verdict.
+ * character but the two joiners, an https link with neither, and a verdict.
  */
 export function validChallengeMark(mark: AtlasChallengeMark): boolean {
   const line = (text: unknown, max: number) => typeof text === "string" && text === text.trim() && text.length >= 1 &&

@@ -62,9 +62,12 @@ and fail, which it neither changes nor depends on:
    step 4: `pass`, `headline` or `fail`. Only the reviewer login can mark, as with `keep_for_research`; the mark keeps
    who marked it, as a digest of that login, and when. A mark whose texts hold contact details, a findings card's
    reference or a YouTube link is refused, since the pages never show them: the link by the host a browser opens it at
-   (so `youtube%2Ecom` or full-width letters are YouTube too), and the texts with no control or format character, such as
-   a text-direction control or a zero-width character, which can make a text show something other than it holds. The
-   link is kept as a browser opens it.
+   (youtube.com, youtu.be, youtube-nocookie.com or youtube.googleapis.com, or a subdomain of one, so `youtube%2Ecom` or
+   full-width letters are YouTube too), and the texts with no control or format character, such as a text-direction
+   control or a zero-width space, which can make a text show something other than it holds. The zero-width non-joiner
+   and joiner (U+200C, U+200D) are taken in the usual view and its label, since Persian, the Indian scripts and emoji
+   sequences need them, and each text is checked without them, so neither can hide an address or a reference. The link
+   is kept as a browser opens it.
 4. Marking shows nothing: showing is still `show_on_pages`. Whether the daily task shows a marked finding right away is
    the owner's to decide (question 272), so the method fits either answer:
    - if the owner says marked findings are shown right away, a marked finding goes to `show_on_pages` whatever its
@@ -88,7 +91,10 @@ search engines like every page of an unreviewed finding. The pages show no one's
 
 Limits: the usual view is one helper's answer from two searches, so it can miss a newer or a regional guideline; its
 source link shows where it came from. Whether a result goes against it is the tester's judgment, in any language; the
-code checks only the mark's form.
+code checks only the mark's form. A link's host is all the YouTube check reads, so a link shortener or a site's own
+redirect that leads to YouTube (bit.ly, t.co, a page's `?url=`) isn't seen; the pages' last check reads the same hosts.
+Every stored link a page writes (a mark's source, a forum thread, a glance row's source) is left out of the page when
+its host is YouTube's or its words would stop the page, so that one stored link never stops a whole page.
 
 ## What a shown card holds
 

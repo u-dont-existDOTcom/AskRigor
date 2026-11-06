@@ -2,6 +2,7 @@ import type { AtlasGlanceRow, AtlasPagePlacement, AtlasPageReport, AtlasPageSour
 
 import { HEALTH, healthPath, type AtlasCategory, type AtlasSubcategory } from "./health-tree.js";
 import { allShown, byStrength, oncePerFinding, sourceIdentifierOf, type ShownFinding } from "./page-data.js";
+import { opensYouTube, passesPageGuard } from "./page-guard.js";
 import { differenceRange } from "../difference-range.js";
 import { findingList, findingPath, html, outOf100, page, sourceLink, unreviewedOnly, type AtlasPageReader } from "./pages.js";
 import { SHARE_PATH, reportPath } from "./report-pages.js";
@@ -141,9 +142,20 @@ async function placedItems(source: AtlasPageSource, category: AtlasCategory): Pr
     return {
       findings: oncePerFinding(shown).map((finding) => ({ finding, subcategoryKey: placementOf(finding, placements, category) })),
       reports: (await reads.listReports()).map((report) => ({ report, subcategoryKey: subcategoryOf(report.publicId) })),
-      glanceRows: (await reads.listGlanceRows()).filter(({ categoryKey }) => categoryKey === category.key),
+      glanceRows: (await reads.listGlanceRows()).filter(({ categoryKey }) => categoryKey === category.key)
+        .filter(linksShowable),
     };
   });
+}
+
+/**
+ * Whether each of a row's sources the page writes as a link, one that isn't a study's identifier, leaves the page
+ * servable: its words and the host a browser opens (the review of #422, third round). A row with one that doesn't is
+ * left out, so that no one stored link stops the whole page; the page's last check stays.
+ */
+function linksShowable(row: AtlasGlanceRow): boolean {
+  return row.sources.every((source) => sourceIdentifierOf(source) !== undefined ||
+    (passesPageGuard(source) && !opensYouTube(source)));
 }
 
 export async function loadAtlasHealth(source: AtlasPageSource): Promise<AtlasHealthModel> {

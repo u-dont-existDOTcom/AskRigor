@@ -552,7 +552,9 @@ function researchShown(fields: ResearchFields, shownSource: (source: string) => 
   const forumSignal: ShownForumSignal | null = signal === undefined ? null : {
     communities: signal.communities.map(shownCommunity).filter(passesPageGuard),
     threadsRead: signal.threads_read,
-    threads: signal.threads.filter(passesPageGuard),
+    // Each thread link the page writes, left out when its words or the host a browser opens would stop the page (the
+    // review of #422, third round), so that no one stored link stops a whole page; the page's last check stays.
+    threads: signal.threads.filter((link) => passesPageGuard(link) && !opensYouTube(link)),
     people: { better: signal.people.better, noChange: signal.people.no_change, worse: signal.people.worse,
       mixed: signal.people.mixed },
     quality: { ...signal.report_quality },

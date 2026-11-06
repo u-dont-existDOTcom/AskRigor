@@ -12,7 +12,7 @@ import { containsCardReference } from "../findings/acceptance-checks.js";
 import { contactDetailKinds, hasDirectionControl, linkKinds } from "./contact-check.js";
 import { healthPath, HEALTH } from "./health-tree.js";
 import { sourceIdentifierOf } from "./page-data.js";
-import { pageGuardProblems } from "./page-guard.js";
+import { opensYouTube, pageGuardProblems } from "./page-guard.js";
 import { displayNameProblem, normalizedDisplayName } from "./participation.js";
 import { ACCOUNT_PATH, html, page, sourceLink, type AtlasPageReader, type SafeHtml } from "./pages.js";
 
@@ -142,8 +142,6 @@ export const reportResearchSchema = z.object({
 }).strict();
 export type ReportResearch = z.infer<typeof reportResearchSchema>;
 
-const YOUTUBE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com"];
-
 /** Exact checks of a research block: what a schema cannot say. Each problem names its place. */
 export function reportResearchProblems(research: ReportResearch): string[] {
   const problems: string[] = [];
@@ -158,7 +156,7 @@ export function reportResearchProblems(research: ReportResearch): string[] {
     if (parsed === undefined || parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" ||
       parsed.port !== "" || host.length === 0 || !host.includes(".")) {
       problems.push(`others[${index}].url is not a plain https address`);
-    } else if (YOUTUBE_HOSTS.some((youtube) => host === youtube || host.endsWith(`.${youtube}`))) {
+    } else if (opensYouTube(url)) {
       problems.push(`others[${index}].url is YouTube, which the Atlas never links`);
     } else if (pageGuardProblems(url).length > 0) {
       problems.push(`others[${index}].url is refused by the pages' check`);

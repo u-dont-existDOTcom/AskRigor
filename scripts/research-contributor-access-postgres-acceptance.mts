@@ -2702,6 +2702,21 @@ export async function verifyAtlasPublications(context: {
         "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
         [target, "Guidelines \u2066moc.ebutuoy\u2069 advise it.", mark.sourceUrl, mark.sourceLabel, marker]),
       "ATLAS_PUBLICATION_INPUT_INVALID"));
+      // The zero-width non-joiner and joiner that Persian, the Indian scripts and emoji sequences need are taken in the
+      // usual view and its label, by the store, the table's check and the function, and read back as written; a link
+      // still holds neither (the review of #422, third round).
+      const joined = { ...mark, usualView: "بیشتر راهنماها می\u200Cگویند زنتارین ۴۰ میلی\u200Cگرم در روز.",
+        sourceLabel: "भारतीय दिशानिर्देश क्\u200Dष (2025) \u{1F469}\u200D\u2695\uFE0F" };
+      const [joinedView] = await store.markChallenges({ publicationNumbers: [target], mark: joined, markedBy: marker,
+        at: tick() });
+      const joinedRead = await challengePages.read((reads) => reads.listPublications({ limit: 50, challengedOnly: true }));
+      const joinedByFunction = await asRole("askrigor_research_review", async (client) => (await client.query(
+        "SELECT * FROM mark_atlas_challenges(ARRAY[$1], $2, $3, $4, 'fail', $5, now())",
+        [target, joined.usualView, mark.sourceUrl, joined.sourceLabel, marker])).rows.length === 1);
+      const joinersTaken = joinedView?.mark?.usualView === joined.usualView &&
+        joinedView.mark.sourceLabel === joined.sourceLabel && isDeepStrictEqual(joinedRead[0]?.challenge, joined) &&
+        joinedByFunction &&
+        await refusedBy(update("x", "https://guidelines.example.org/a\u200Db", "x"), "atlas_publications_v1_challenge_check");
       // Shown only for its challenge (a fail), its mark stays while it shows; a pass's clears.
       let notClearable = false;
       try {
@@ -2716,14 +2731,16 @@ export async function verifyAtlasPublications(context: {
       assert(view?.mark?.verdict === "fail" && view.mark.markedBy === marker &&
         listedMarks.map(({ publicationNumber }) => publicationNumber).join() === target &&
         read.length === 1 && read[0]!.publicationNumber === target && isDeepStrictEqual(read[0]!.challenge, mark) &&
-        !JSON.stringify(read).includes(marker) && notMarkable && constrained && functionRefuses && notClearable &&
+        !JSON.stringify(read).includes(marker) && notMarkable && constrained && functionRefuses && joinersTaken &&
+        notClearable &&
         cleared?.mark === null && afterClear.length === 0 && (await store.inspectChallenges()).length === 0,
       `ATLAS_CHALLENGE_MARK_MISMATCH ${JSON.stringify({ view, read, notMarkable, constrained, functionRefuses,
-        notClearable, cleared })}`);
+        joinersTaken, notClearable, cleared })}`);
     } finally {
       await challengePages.close();
     }
     checks.push("atlas_challenge_marks_are_kept_read_by_the_pages_without_who_marked_them_and_cleared_whole");
+    checks.push("atlas_challenge_marks_take_the_joiners_scripts_need_and_refuse_other_format_characters");
 
     await store.publish({ cardNumber: 7003, cardSha256: atlasHex("synthetic-publication-card-c"),
       findings: [draft(1), draft(2)], publishedAt: tick(), revive: false });

@@ -44,7 +44,9 @@ export const ATLAS_OTHER_WEBSITE = "another website";
 export const ATLAS_THREAD_COMMUNITY = new RegExp(`^(?:r/(?!u_)[a-z0-9][a-z0-9_]{1,20}|${THREAD_HOST}|${ATLAS_OTHER_WEBSITE})$`, "u");
 
 type TextCheck = (max: number) => z.ZodType<string>;
-const YOUTUBE_HOST = /^\s*https?:\/\/(?:[^/?#@]*\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)(?:[:/?#]|$)/iu;
+// YouTube's hosts, as the pages' guard reads them (apps/research-mcp/src/atlas/page-guard.ts), youtube.googleapis.com,
+// its older embedded player's, among them (the review of #422, third round).
+const YOUTUBE_HOST = /^\s*https?:\/\/(?:[^/?#@]*\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be|youtube\.googleapis\.com)(?:[:/?#]|$)/iu;
 const peopleCount = z.number().int().nonnegative().max(100_000);
 
 /** The research behind a finding's schemas, for one store's text check. */

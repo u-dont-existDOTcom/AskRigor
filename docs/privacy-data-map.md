@@ -1953,8 +1953,10 @@ The pages (section 4C) are built, not yet released, and switched off until
   hex characters of a domain-separated SHA-256 of the reviewer login's OAuth subject, never the subject itself, and
   no page reads it; the pages read the usual view, its source and the verdict, and show a shown finding's mark on its
   page and on `/atlas/challenges`. A mark whose texts hold contact details, a findings card's reference or a YouTube
-  link (by the host a browser opens it at), or a control or format character such as a text-direction control or a
-  zero-width character, is refused. `clear_challenge` removes the mark whole. The usual view is general text about what doctors and
+  link (by the host a browser opens it at, youtube.googleapis.com included), or a control or format character such as
+  a text-direction control or a zero-width space, is refused; the zero-width non-joiner and joiner that Persian, the
+  Indian scripts and emoji sequences need are taken in the usual view and its label, and each text is checked without
+  them. `clear_challenge` removes the mark whole. The usual view is general text about what doctors and
   guidelines advise, written by the tester or the owner; nothing about the person who asked is added.
 
 ## Atlas navigation and search

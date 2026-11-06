@@ -5,13 +5,17 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   ATLAS_PUBLICATION_SCHEMA,
+  ATLAS_PUBLICATION_SCHEMA_V3,
   AtlasPublicationError,
   InMemoryAtlasCanonicalStore,
+  InMemoryAtlasGlanceRows,
   InMemoryAtlasPageSource,
   InMemoryAtlasPublicationStore,
   InMemoryAtlasReviewStore,
   PostgresAtlasPublicationStore,
   type AtlasChallengeMark,
+  type AtlasPagePublication,
+  type AtlasPageSource,
   type AtlasPublicationDraft,
   type AtlasPublishedFinding,
 } from "@askrigor/evidence-repository";
@@ -20,6 +24,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { AtlasChallengeReview, challengeMarker } from "../apps/research-mcp/src/atlas/challenge-review.js";
 import { atlasPageProblems, opensYouTube } from "../apps/research-mcp/src/atlas/page-guard.js";
+import { loadAtlasSubcategory, renderAtlasSubcategory } from "../apps/research-mcp/src/atlas/health-pages.js";
 import { loadAtlasFinding } from "../apps/research-mcp/src/atlas/page-data.js";
 import { renderAtlasFinding } from "../apps/research-mcp/src/atlas/pages.js";
 import { AtlasReview } from "../apps/research-mcp/src/findings/atlas-review.js";
@@ -40,6 +45,14 @@ const MARK: AtlasChallengeMark = {
   sourceUrl: "https://guidelines.example.org/velmor-syndrome/2025",
   sourceLabel: "Invented Velmor Society guideline (2025)",
   verdict: "fail",
+};
+
+// Texts that need the zero-width non-joiner or joiner (the review of #422, third round): "most guidelines say ... 40
+// milligrams a day" in Persian, a Hindi label with a joined conjunct, and a woman health worker emoji.
+const JOINED = {
+  persian: "بیشتر راهنماها می\u200Cگویند زنتارین ۴۰ میلی\u200Cگرم در روز.",
+  hindi: "भारतीय दिशानिर्देश क्\u200Dष (2025)",
+  emoji: "Doctors \u{1F469}\u200D\u2695\uFE0F advise zentarine at 40 mg.",
 };
 
 const published = (claim: string): AtlasPublishedFinding => ({
@@ -148,6 +161,20 @@ describe("the challenge mark in the publications store", () => {
     expect(await store.inspectChallenges()).toEqual([]);
   });
 
+  // The review of #422, third round: the zero-width non-joiner and joiner that Persian, the Indian scripts and emoji
+  // sequences need are taken in the usual view and its label; the link and every other format character stay refused.
+  it("takes the joiners Persian, Hindi and emoji sequences need, and reads them back as written", async () => {
+    const { store, shown } = await stored();
+    const joined = { ...MARK, usualView: JOINED.persian, sourceLabel: JOINED.hindi };
+    expect(await store.markChallenges({ publicationNumbers: [shown], mark: joined, markedBy: MARKER, at: LATER }))
+      .toMatchObject([{ publicationNumber: shown, mark: { usualView: JOINED.persian, sourceLabel: JOINED.hindi } }]);
+    const emoji = { ...MARK, usualView: JOINED.emoji };
+    expect(await store.markChallenges({ publicationNumbers: [shown], mark: emoji, markedBy: MARKER, at: LATER }))
+      .toMatchObject([{ mark: { usualView: JOINED.emoji } }]);
+    await expect(store.markChallenges({ publicationNumbers: [shown], at: LATER, markedBy: MARKER,
+      mark: { ...MARK, sourceUrl: "https://guidelines.example.org/velmor\u200D2025" } })).rejects.toMatchObject({ code: "INPUT_INVALID" });
+  });
+
   it("refuses a mark without who marked it, a marker that isn't a digest, and an F number", async () => {
     const { store, shown } = await stored();
     for (const change of [
@@ -250,7 +277,11 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     // R7: an address written reversed under a right-to-left override, which displays as an address.
     ["a reversed address under an override", { usual_view: "Guidelines advise writing to \u202Egro.elpmaxe@namrevo\u202C first." }],
     ["a reversed YouTube host in the label", { usual_view_source_label: "Invented guideline \u202Emoc.ebutuoy\u202C (2025)" }],
-    ["a zero-width joiner", { usual_view: "Guidelines advise you\u200Dtube.com videos." }],
+    // A joiner is taken (the third round), but never hides what the pages don't show: each text is read without it.
+    ["a zero-width joiner hiding a YouTube address", { usual_view: "Guidelines advise you\u200Dtube.com videos." }],
+    ["a zero-width non-joiner hiding an e-mail address", { usual_view: "Guidelines advise writing to velmor\u200C@example.org." }],
+    ["a zero-width joiner hiding a card reference", { usual_view_source_label: "As card ARF-\u200D0042 put it" }],
+    ["a zero-width space", { usual_view: "Guidelines advise zentarine\u200B at 40 mg." }],
     ["a word joiner", { usual_view_source_label: "Invented\u2060guideline" }],
     // R6: links a browser opens as YouTube, whatever their words.
     ["a percent-encoded full stop in the host", { usual_view_source_url: "https://youtube%2Ecom/watch?v=aaaaaaaaaaa" }],
@@ -258,11 +289,28 @@ describe("mark_challenge, clear_challenge and list_challenges", () => {
     ["a YouTube subdomain", { usual_view_source_url: "https://m.youtube.com/watch?v=aaaaaaaaaaa" }],
     ["youtu.be", { usual_view_source_url: "https://youtu.be/aaaaaaaaaaa" }],
     ["youtube-nocookie.com", { usual_view_source_url: "https://www.youtube-nocookie.com/embed/aaaaaaaaaaa" }],
+    // The third round: YouTube's older embedded player's host.
+    ["youtube.googleapis.com", { usual_view_source_url: "https://youtube.googleapis.com/v/aaaaaaaaaaa" }],
   ])("refuses %s, changing nothing", async (_name, change) => {
     const { run, store, shown } = await review();
     const result = await run.run({ ...mark([shown]), ...change } as Parameters<AtlasChallengeReview["run"]>[0]);
     expect(result).toMatchObject({ ok: false, error: { code: "invalid_request" } });
     expect(await store.inspectChallenges()).toEqual([]);
+  });
+
+  it.each([
+    ["a Persian usual view with its zero-width non-joiners", { usual_view: JOINED.persian }],
+    ["a Hindi label with a zero-width joiner", { usual_view_source_label: JOINED.hindi }],
+    ["an emoji sequence joined by a zero-width joiner", { usual_view: JOINED.emoji }],
+  ])("takes %s, as written, and shows it on the finding's page", async (_name, change) => {
+    const { run, store, shown } = await review();
+    const result = await run.run({ ...mark([shown]), ...change } as Parameters<AtlasChallengeReview["run"]>[0]);
+    expect(result.ok).toBe(true);
+    const written = Object.values(change)[0]!;
+    expect([store.challengeOf(shown)?.usualView, store.challengeOf(shown)?.sourceLabel]).toContain(written);
+    const source = new InMemoryAtlasPageSource({ publications: store, canonical: new InMemoryAtlasCanonicalStore() });
+    // The page writes the usual view without its closing full stop.
+    expect(renderAtlasFinding((await loadAtlasFinding(source, shown))!)).toContain(written.replace(/\.$/u, ""));
   });
 
   it("shows the mark's texts escaped, and its link as a browser opens it, with no markup of its own", async () => {
@@ -418,7 +466,11 @@ describe("the page guard and YouTube hosts", () => {
     ["https://m.youtube.com/watch?v=aaaaaaaaaaa", true],
     ["https://youtu.be/aaaaaaaaaaa", true],
     ["https://www.youtube-nocookie.com/embed/aaaaaaaaaaa", true],
+    ["https://youtube.googleapis.com/v/aaaaaaaaaaa", true],
+    ["https://www.youtube.googleapis.com/v/aaaaaaaaaaa", true],
+    ["https://you\u200Dtube.com/watch?v=aaaaaaaaaaa", true],
     ["https://guidelines.example.org/youtube-policy", false],
+    ["https://storage.googleapis.com/a-bucket/youtube.googleapis.txt", false],
     ["/atlas/findings/P-1001", false],
   ])("reads %s", (link, youtube) => {
     expect(opensYouTube(link)).toBe(youtube);
@@ -428,5 +480,59 @@ describe("the page guard and YouTube hosts", () => {
 
   it("reads a host, not words: another site whose name ends in youtube.com opens no YouTube page", () => {
     expect(opensYouTube("https://notyoutube.com/watch")).toBe(false);
+    expect(opensYouTube("https://notyoutube.googleapis.com/v/aaaaaaaaaaa")).toBe(false);
+  });
+
+  it("reads a page as a reader sees it: a format character hides no YouTube address, no card and no script", () => {
+    expect(atlasPageProblems("<p>Watch you\u200Dtube.com/watch?v=aaaaaaaaaaa</p>")).toEqual(["youtube_link"]);
+    expect(atlasPageProblems("<p>As card ARF-\u200B0042 put it</p>")).toEqual(["card_reference"]);
+    expect(atlasPageProblems("<p>بیشتر راهنماها می\u200Cگویند</p>")).toEqual([]);
+  });
+
+  // A limit, stated: only the host a link names is read, never where it leads.
+  it("doesn't follow a link shortener", () => {
+    expect(opensYouTube("https://bit.ly/3abcdEf")).toBe(false);
+  });
+});
+
+// F (the review of #422, third round): a stored link a page would write, and that opens YouTube by its host, is left out
+// of the page, as a link whose words would stop it already was, so that no one stored link stops the whole page; the
+// page's last check stays. Rows like these were stored before youtube.googleapis.com was read as YouTube.
+describe("stored links a page leaves out", () => {
+  const YOUTUBE_EMBED = "https://youtube.googleapis.com/t/123";
+
+  it("leaves out a forum thread whose host serves YouTube, and serves the page with the other thread", async () => {
+    const { store, shown } = await stored();
+    const memory = new InMemoryAtlasPageSource({ publications: store, canonical: new InMemoryAtlasCanonicalStore() });
+    // A page source returning a version 3 row whose forum signal holds that link, which no store takes today.
+    const source: AtlasPageSource = { read: (work) => memory.read((reads) => work({ ...reads,
+      listPublications: async (query) => (await reads.listPublications(query)).map((row): AtlasPagePublication =>
+        row.published === null ? row : { ...row, published: { ...row.published, schema: ATLAS_PUBLICATION_SCHEMA_V3,
+          forum_signal: { communities: ["r/inventedvelmor"], threads_read: 2,
+            threads: ["https://www.reddit.com/comments/abc123/", YOUTUBE_EMBED],
+            people: { better: 3, no_change: 1, worse: 0, mixed: 0 }, report_quality: { detailed: 1, measured: 1, bare: 2 },
+            studies: "support_not_located" } } }) })) };
+    const page = renderAtlasFinding((await loadAtlasFinding(source, shown))!);
+    expect(page).toContain('href="https://www.reddit.com/comments/abc123/"');
+    expect(page).not.toContain("googleapis");
+    expect(atlasPageProblems(page)).toEqual([]);
+  });
+
+  it("leaves out a glance row with a source whose host serves YouTube, and shows the others", async () => {
+    const glance = new InMemoryAtlasGlanceRows();
+    const row = { categoryKey: "health", subcategoryKey: "gut-health", rowClass: "practitioner" as const,
+      what: "An invented surgeon's published series for an invented fistula", result: "783 of 875 healed",
+      comparison: null, followUp: null, limits: "No matched comparison.", namesAPerson: false };
+    const ids = [
+      await glance.propose({ ...row, sources: ["https://journal.example/articles/invented-series"] }, AT),
+      await glance.propose({ ...row, what: "Another invented series", sources: ["PMID: 12345678", YOUTUBE_EMBED] }, AT),
+    ];
+    for (const id of ids) await glance.setState(id, "shown", AT);
+    const source = new InMemoryAtlasPageSource({ publications: new InMemoryAtlasPublicationStore(), glance });
+    const page = renderAtlasSubcategory((await loadAtlasSubcategory(source, "gut-health"))!);
+    expect(page).toContain("An invented surgeon");
+    expect(page).not.toContain("Another invented series");
+    expect(page).not.toContain("googleapis");
+    expect(atlasPageProblems(page)).toEqual([]);
   });
 });
