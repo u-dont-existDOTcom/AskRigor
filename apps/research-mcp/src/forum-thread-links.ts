@@ -173,6 +173,22 @@ export function sameSiteRedirect(given: string, read: string): boolean {
   return !(FRONT_PAGE_PATH.test(to.pathname.replace(/\/+$/u, "")) && to.search === "");
 }
 
+/**
+ * A forum site's digest, as a forum_page_unread receipt signs the site of a page the reader couldn't read (`sd`): of its
+ * registrable host, so the final check ties a community's declared access boundary to an attempt at its site, whatever
+ * page was tried (the owner regressions on #412's build, judged 6 Nov 2026). Undefined for a link with no domain name.
+ */
+export function forumSiteDigest(url: string): string | undefined {
+  let hostname: string;
+  try {
+    hostname = new globalThis.URL(url.trim()).hostname;
+  } catch {
+    return undefined;
+  }
+  const site = registrableHost(hostname);
+  return site === undefined ? undefined : digestOf(site);
+}
+
 /** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form
  * (`l`), so only the link as the reader read it is published (the recheck of #417). */
 export function forumLinkDigest(link: string): string {

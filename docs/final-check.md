@@ -349,6 +349,14 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   whose forum threads already need their `forum_thread_read` receipts there, and an entry of `community_searches` is not
   one. Platform `other` (sites the reader can't open, such as app-only ones), Facebook, Telegram, Discord, review sites
   and entries whose site refused access keep their own-web-search limit alone.
+- A forum or a patient organization with nothing read in any entry, declared `blocked`, `login_required` or
+  `retrieval_failed`, rests on the reader's attempt at its site: a page of it `read_forum_thread` couldn't read signs a
+  `forum_page_unread` receipt (the link's digest, what stopped the reader and the digest of the site's registrable host),
+  and any such receipt for the entry's site backs the boundary's limit. With none, the limit says only "A community not
+  read here: …", and a note asks for the reader's attempt, or for the community in `open_leads` as one not reached (the
+  owner regressions on #412's build, judged 6 November 2026: q135-urgent-treatment's limit said National Snakebite
+  Support blocked access, and no read of it had been tried). Reddit's reader answers for its own host, not a site's, so
+  subreddits keep their declared limits; a community read in part keeps the limits for its pages left unread.
 - A call marked `findings_save` `"off"` (in `later_inputs`, or at the top level for an older app) saves nothing, for
   every account kind, whatever the account's switch says: no findings card (reason `call_saving_off`), no private copy,
   no save offer and no research-map reminder or offer, and at a free contributor's check no staged analysis goes to the

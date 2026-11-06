@@ -442,11 +442,25 @@ describe("forum tools", () => {
     expect(JSON.stringify(result.content)).not.toContain("a@b.com");
     expect(search).not.toHaveBeenCalled();
   });
-  it.each(["robots_disallowed", "blocked", "needs_a_browser", "not_found", "unavailable"])("does not issue a receipt for %s", async (access_state) => {
+  // The owner regressions on #412's build (judged 6 Nov 2026): a community was declared blocked with no read of it tried.
+  // A forum page the reader couldn't read earns no read receipt, only one saying what stopped the reader, at which site
+  // (its registrable host's digest), so a declared access boundary rests on an attempt; Reddit's reader, which answers
+  // for its own host, signs none.
+  it.each(["robots_disallowed", "blocked", "needs_a_browser", "not_found", "unavailable"])("issues no read receipt for %s, only what stopped the reader", async (access_state) => {
     page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state });
-    const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url: "https://forum.example/thread/1" } });
+    const caller = await client();
+    const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: "https://www.forum.example/thread/1" } });
     expect(result.isError).not.toBe(true);
-    expect(result.structuredContent).not.toHaveProperty("research_receipt");
     expect(result.structuredContent).toMatchObject({ data: { access_state } });
+    const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+    expect(verified).toMatchObject({ ok: true, kind: "forum_page_unread", claims: {
+      u: forumThreadDigest("https://www.forum.example/thread/1"), s: access_state,
+      sd: createHash("sha256").update("forum.example", "utf8").digest("hex").slice(0, 16) } });
+    // Digests and the reader's state only, with the receipt's own order: no link, host or text.
+    expect(verified.ok && Object.keys(verified.claims).sort()).toEqual(["s", "sd", "t", "u"]);
+    expect(JSON.stringify(result.content)).toContain("it backs the access_boundary of the community this page belongs to");
+    thread.mockResolvedValue({ url: URL, access_state: "unavailable" });
+    expect((await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } })).structuredContent)
+      .not.toHaveProperty("research_receipt");
   });
 });
