@@ -70,8 +70,10 @@ invented and checked by code against the owner's private maps file to match none
 
 ## Release
 
-The runbook's step (`infra/living-evidence-production/README.md`, "The owner's private page"): the operator creates
-`/opt/askrigor/state/private-comment-maps` (UID and GID 1000, mode 0700), copies `comment-maps.json` there (mode 0600),
-mounts the folder read-only at `/var/lib/askrigor-private-comment-maps` in `research-mcp`, and sets
-`ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE`. The owner signs in to the Atlas with the reviewer login (the email-and-password
-login), or names their other login in `ASKRIGOR_ATLAS_OWNER_SUBJECT`.
+The runbook's step (`infra/living-evidence-production/README.md`, "The owner's private page"): before the deploy, the
+operator creates `/opt/askrigor/state/private-comment-maps` (UID and GID 1000, mode 0700), copies `comment-maps.json`
+there (mode 0600) and sets `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE`. The living-evidence overlay
+(`infra/living-evidence-production/compose.yaml`, which every release installs over the host's copy) mounts the folder
+read-only at `/var/lib/askrigor-private-comment-maps` in `research-mcp`, so no mount is added by hand and no release
+drops it. The owner signs in to the Atlas with the reviewer login (the email-and-password login), or names their other
+login in `ASKRIGOR_ATLAS_OWNER_SUBJECT`.

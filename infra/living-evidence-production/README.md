@@ -867,21 +867,29 @@ already in `runtime.env`): the Atlas checks ID tokens from the same tenant and
 takes their subject as it is, so the owner signing in to the Atlas with that
 same login is recognised with no new setting. If the owner signs in to the
 Atlas with another login, add `ASKRIGOR_ATLAS_OWNER_SUBJECT` with that login's
-exact Auth0 user ID (the tenant's user list shows it); both then count. Its
-release step, by the operator, never with the maps in chat, Git or a receipt:
+exact Auth0 user ID (the tenant's user list shows it); both then count. The
+overlay (`compose.yaml` here, which every release installs as
+`/opt/askrigor/compose.living-evidence.yaml`) gives `research-mcp` the maps
+folder, read-only, beside the Reddit reader's:
+`/opt/askrigor/state/private-comment-maps:/var/lib/askrigor-private-comment-maps:ro`.
+Add no mount by hand: the next release's overlay would replace the host's copy
+and drop it. Its release step, by the operator, before the deploy, never with
+the maps in chat, Git or a receipt:
 
 1. On the host, as root, create `/opt/askrigor/state/private-comment-maps`
-   owned by the service user (UID and GID 1000), mode `0700`.
+   owned by the service user (UID and GID 1000), mode `0700`. If a deploy of
+   this overlay came first, Docker has made the folder itself, empty and owned
+   by root: give it that owner and mode.
 2. Copy the owner-pages repository's `askrigor/comment-maps.json` there as
    `comment-maps.json`, owned by UID and GID 1000, mode `0600` (copy to a
    temporary name in the same folder, then rename, so a reader never sees half
    a file). Check it parses as `askrigor.comment-maps.v1` with
    `npx tsx scripts/render-private-comment-maps.mts <file> <page outside the
    repository>` on the owner's computer first.
-3. Add to the `research-mcp` service a read-only bind mount of that folder at
-   `/var/lib/askrigor-private-comment-maps`, and to `runtime.env`
+3. Add to `runtime.env`
    `ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE=/var/lib/askrigor-private-comment-maps/comment-maps.json`;
-   recreate `research-mcp` with both Compose files.
+   then deploy: recreate `research-mcp` with both Compose files, the overlay
+   being this release's.
 4. Check, through askrigor.com: `/atlas/account/private` signed out shows the
    account pages' sign-in prompt with their headers (`Cache-Control: private,
    no-store`, `Referrer-Policy: strict-origin-when-cross-origin`); signed in as
@@ -894,9 +902,14 @@ release step, by the operator, never with the maps in chat, Git or a receipt:
 
 To update the maps, repeat step 2: the page reads the file for each request. A
 missing file shows "No comment maps are installed", one that doesn't parse
-"can't be read". Rollback: remove the line and the mount and recreate
-`research-mcp`; delete the folder only on the owner's word. An image rollback
-needs no step: an earlier image has no such route and ignores both settings.
+"can't be read". Rollback: the mount now comes with the overlay, so rolling back
+means installing an earlier image, which has no such route and reads neither
+the setting nor the folder, or an earlier release's overlay, which has no such
+mount, and recreating `research-mcp` with both Compose files. To take only the
+maps off the page, remove the `runtime.env` line and recreate `research-mcp`:
+the page then says no maps are installed, and the mount stays, read by nothing.
+Either way the folder and its file stay until the owner says otherwise; delete
+them only on the owner's word.
 
 Rollback: remove the `ASKRIGOR_ATLAS_PARTICIPATION=enabled` line and recreate
 `research-mcp`; the forms, the sign-in link and the routes go, and the pages
