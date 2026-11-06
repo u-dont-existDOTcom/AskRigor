@@ -17,7 +17,7 @@ import {
 // DOI of that form, which names no real paper.
 const SICI = "10.1002/(SICI)1099-0000(19990101)1:1<1::AID-SYN1>3.0.CO;2-X";
 const CANONICAL = SICI.toLowerCase();
-const ESCAPED = SICI.replace("<", "%3C").replace(">", "%3E");
+const ESCAPED = SICI.replaceAll("<", "%3C").replaceAll(">", "%3E");
 const LINK = "https://doi.org/10.1002/(sici)1099-0000(19990101)1:1%3C1::aid-syn1%3E3.0.co;2-x";
 
 describe("DOIs with \"<\" or \">\"", () => {
@@ -89,7 +89,7 @@ describe("DOIs with \"<\" or \">\"", () => {
     expect(angleBracketDoiNote([{ doi: "10.1000/plain" }])).toBe("");
     const note = angleBracketDoiNote([{ doi: CANONICAL }, { doi: "10.1000/plain" }]);
     expect(note).toContain("acquire_open_full_text's published doi pattern refuses");
-    expect(note).toContain(CANONICAL.replace("<", "%3C").replace(">", "%3E"));
+    expect(note).toContain(CANONICAL.replaceAll("<", "%3C").replaceAll(">", "%3E"));
     expect(note).toContain("later_inputs.doi");
     expect(angleBracketDoiNote({ resolved_doi: CANONICAL, candidates: [{ doi: CANONICAL }] })).toContain("A DOI listed here");
   });
