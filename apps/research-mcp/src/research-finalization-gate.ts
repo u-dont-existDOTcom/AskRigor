@@ -2155,11 +2155,26 @@ export function finalizeResearch(
   // A search the reader's host answered WEBSITE_FORMAT_CHANGED: it has come back when Reddit found nothing for the words,
   // and when the reader was broken, so it shows only that AskRigor tried and couldn't search there, never that nothing
   // relevant was found (the recheck of 5 Nov 2026).
+  // What stopped AskRigor's page reader at each forum site, by the site's digest, each signed by a forum_page_unread receipt
+  // (the owner regressions on #412's build; the review of #421: only what the site said, never the reader's own refusal).
+  const forumSiteStates = new Map<string, Set<string>>();
+  for (const { kind, claims } of verified) {
+    if (kind !== "forum_page_unread" || text(claims.sd) === "" || text(claims.s) === "") continue;
+    const states = forumSiteStates.get(text(claims.sd)) ?? new Set<string>();
+    states.add(text(claims.s));
+    forumSiteStates.set(text(claims.sd), states);
+  }
+  const readerStops = (search: CommunitySearch) => readerStopsAt(search, forumSiteStates);
   const unsearchableSubreddits = new Set(verified.filter(({ kind, claims }) => kind === "forum_search" &&
     claims.h !== undefined).map(({ claims }) => text(claims.sr).toLowerCase()).filter((subreddit) => subreddit !== ""));
   for (const search of input.community_searches ?? []) {
-    if (!READER_PLATFORMS.has(search.platform) || (search.access_boundary !== undefined &&
-        !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary))) continue;
+    // An entry whose site refused access keeps its own-web-search limit alone; on a site the page reader reads, only where
+    // the reader's own refusal there is on record (the review of #421: a thread declared beside an unbacked block was
+    // asked for no receipt).
+    const refused = search.access_boundary !== undefined &&
+      !["no_relevant_results", "retrieval_failed"].includes(search.access_boundary) &&
+      (!SITE_READER_PLATFORMS.has(search.platform) || readerStops(search).fits);
+    if (!READER_PLATFORMS.has(search.platform) || refused) continue;
     const subreddit = search.platform === "reddit" ? subredditNamed(search.community) : undefined;
     const declared = search.threads_read.length > 0 ||
       (subreddit !== undefined && search.access_boundary === "no_relevant_results");
@@ -2497,12 +2512,9 @@ export function finalizeResearch(
             `their own: ${unfinished.map((video, index) => videoLink(video, `video ${index + 1}`)).join(", ")}.`);
       }
     }
-    // The forum sites whose pages the reader tried and couldn't read, each signed by a forum_page_unread receipt.
-    const forumSitesTried = new Set(verified.flatMap(({ kind, claims }) =>
-      kind === "forum_page_unread" && text(claims.sd) !== "" ? [text(claims.sd)] : []));
     ({ searched: communitiesSearched, read: communitiesRead, unverified: communitiesUnverified } =
       communityCoverage(input, youtubeResearched, { addStep, requireDeclaration, requireLimit, lanes: communityLanes },
-        options.redditThreads, forumReadUrls, forumSitesTried));
+        options.redditThreads, forumReadUrls, readerStops));
     commercialReviewCoverage(input, { addStep, requireDeclaration });
   }
 
@@ -5852,6 +5864,24 @@ const READER_PLATFORMS: ReadonlySet<string> = new Set(["reddit", "forum", "patie
 // reader answers for its own host, not the site's. And the declared boundaries that say a read was tried and stopped.
 const SITE_READER_PLATFORMS: ReadonlySet<string> = new Set(["forum", "patient_organization"]);
 const ATTEMPTED_BOUNDARIES: ReadonlySet<string> = new Set(["blocked", "login_required", "retrieval_failed"]);
+// The reader's stops that back each such boundary (the review of #421): a site that refused or disallowed the reader
+// blocked it; one that refused it or showed only a page needing a browser needs a login; one that failed to serve,
+// lacked the page or needed a browser could not be retrieved.
+const FITTING_READER_STOPS: Readonly<Record<string, ReadonlySet<string>>> = {
+  blocked: new Set(["blocked", "robots_disallowed"]),
+  login_required: new Set(["blocked", "needs_a_browser"]),
+  retrieval_failed: new Set(["unavailable", "not_found", "needs_a_browser"])
+};
+/** What the page reader's receipts show stopped it at an entry's site, and whether that backs the entry's boundary. */
+interface ReaderStops { states: string[]; fits: boolean }
+function readerStopsAt(search: CommunitySearch, siteStates: ReadonlyMap<string, ReadonlySet<string>>): ReaderStops {
+  const sites = new Set([search.url, ...search.threads_read.map(({ url }) => url)]
+    .flatMap((url) => url === undefined ? [] : [forumSiteDigest(url)])
+    .filter((site): site is string => site !== undefined));
+  const states = [...new Set([...sites].flatMap((site) => [...siteStates.get(site) ?? []]))].sort();
+  const fitting = search.access_boundary === undefined ? undefined : FITTING_READER_STOPS[search.access_boundary];
+  return { states, fits: fitting !== undefined && states.some((state) => fitting.has(state)) };
+}
 
 /** The post id of a full reddit.com thread link; undefined for short links and other pages. */
 function redditPostOf(url: string): string | undefined {
@@ -6248,7 +6278,7 @@ function communityCoverage(
   out: DeclarationSteps & { requireLimit: (text: RuleInput, ...sentences: string[]) => void; lanes: string[] },
   redditThreads?: ReadonlyMap<string, RedditThreadCheck>,
   forumReadUrls: ReadonlySet<string> = new Set(),
-  forumSitesTried: ReadonlySet<string> = new Set()
+  readerStops: (search: CommunitySearch) => ReaderStops = () => ({ states: [], fits: false })
 ): { searched: string[]; read: CommunityRead[]; unverified: number } {
   const communities = input.principal_communities;
   // Communities read, one entry per community however many searches it had.
@@ -6281,8 +6311,8 @@ function communityCoverage(
   const readByReader = new Set((input.community_searches ?? []).filter(({ threads_read }) =>
     threads_read.some(({ url }) => forumReadUrls.has(forumThreadDigest(url))))
     .map(({ community, platform }) => communityKey(community, platform)));
-  // Communities with a thread declared read in any entry, by the reader or the AI's own search: a boundary declared there
-  // stopped some of their pages, which the limits below word as they did.
+  // Communities with a thread declared read in any entry, the reader's or the AI's own search's: a declared boundary there
+  // stopped only some of their pages, which an unbacked boundary's limit says.
   const withThreads = new Set((input.community_searches ?? []).filter(({ threads_read }) => threads_read.length > 0)
     .map(({ community, platform }) => communityKey(community, platform)));
   for (const search of input.community_searches ?? []) {
@@ -6457,20 +6487,28 @@ function communityCoverage(
     if (search.access_boundary === "not_found") unfound.add(key);
     if (search.access_boundary === "not_found" || search.access_boundary === "supplied_by_user") unsearched.add(key);
     // A forum's or a patient organization's site, which the reader is made to read, refused or couldn't serve the pages
-    // of a community with nothing read there only by an attempt this call's receipts show (the owner regressions on #412's
-    // build, judged 6 Nov 2026: q135-urgent declared National Snakebite Support blocked with no read of it tried, and its
-    // limit said the community blocked access). With no attempt at the site, the limit says only that the community wasn't
-    // read here, and a note asks for the reader's attempt. A note, as the communities' other receipt notes are.
-    const untried = search.access_boundary !== undefined && ATTEMPTED_BOUNDARIES.has(search.access_boundary) &&
-      SITE_READER_PLATFORMS.has(search.platform) && !withThreads.has(key) && search.url !== undefined &&
-      !forumSitesTried.has(forumSiteDigest(search.url) ?? "");
-    if (untried) {
-      out.addStep("research", joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, `,
-        "but no receipt in this call shows AskRigor's reader tried its site: try one of its pages with read_forum_thread, ",
-        "which signs what stops it, and pass that research_receipt; if no read of it was tried, leave it out of ",
-        "community_searches and name it in open_leads as a community not reached."));
+    // of a community the reader read nothing of only as a receipt of the reader's own stop there shows, and only one whose
+    // state fits the declared boundary (the owner regressions on #412's build, judged 6 Nov 2026: q135-urgent declared
+    // National Snakebite Support blocked with no read of it tried, and its limit said the community blocked access; the
+    // review of #421: a thread declared from the AI's own search turned this off, and so did a receipt whatever it said).
+    // Without one, the limit says only what wasn't read, and a note asks for the reader's attempt. A note, as the
+    // communities' other receipt notes are.
+    const stops = search.access_boundary !== undefined && ATTEMPTED_BOUNDARIES.has(search.access_boundary) &&
+      SITE_READER_PLATFORMS.has(search.platform) && !readByReader.has(key) ? readerStops(search) : undefined;
+    if (stops !== undefined && !stops.fits) {
+      out.addStep("research", stops.states.length === 0
+        ? joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, `,
+          "but no receipt in this call shows AskRigor's reader tried its site: try one of its pages with read_forum_thread, ",
+          "which signs what stops it, and pass that research_receipt; if no read of it was tried, leave it out of ",
+          "community_searches and name it in open_leads as a community not reached.")
+        : joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, but `,
+          rule`AskRigor's reader was stopped at its site only as ${stops.states.join(", ")}, which that boundary doesn't fit: `,
+          "give the boundary that fits (blocked for blocked or robots_disallowed; login_required for blocked or ",
+          "needs_a_browser; retrieval_failed for unavailable, not_found or needs_a_browser), or try another of its pages."));
       out.requireLimit(rule`${name} was not read here; say so, without a reason no receipt shows.`,
-        `${completedCaveat("A community not read here:", name)} Reports there are not included.`);
+        withThreads.has(key)
+          ? `${completedCaveat("Some pages of a community were not read here:", name)} Reports on those pages are not included.`
+          : `${completedCaveat("A community not read here:", name)} Reports there are not included.`);
     } else if (search.access_boundary !== undefined) {
       const pagesLeft = readByReader.has(key) ? pagesLeftCaveat(name, search.access_boundary) : undefined;
       out.requireLimit(

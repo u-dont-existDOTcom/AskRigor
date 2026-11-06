@@ -1,5 +1,5 @@
 import { extractHtmlText } from "./candidate-full-text.js";
-import { fetchDiscoveredDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
+import { DiscoveredDocumentError, fetchDiscoveredDocument, UpstreamHttpError, type DiscoveredDocumentFetchRuntime } from "./http.js";
 import { parseRobotsTxt, robotsTxtAllows, type RobotsGroup } from "./robots-txt.js";
 
 export const FORUM_READER_USER_AGENT = "AskRigor/0.1 (research thread check; +https://askrigor.com)";
@@ -19,7 +19,12 @@ export interface ForumPageRuntime {
 
 export interface ForumPage {
   url: string;
-  access_state: "read" | "robots_disallowed" | "blocked" | "needs_a_browser" | "not_found" | "unavailable";
+  /**
+   * What came of the read. invalid: the reader refused the link itself before any request to the site (not https, a
+   * port or credentials, not a URL, or a destination outside the public internet), so the site said nothing (the review
+   * of #421: such a link read as unavailable, and its receipt backed a community's declared block).
+   */
+  access_state: "read" | "robots_disallowed" | "blocked" | "needs_a_browser" | "not_found" | "unavailable" | "invalid";
   title?: string;
   page_text?: string;
   truncated?: boolean;
@@ -30,12 +35,21 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
   let url: URL;
   try {
     url = new URL(value);
-    if (url.protocol !== "https:" || url.username || url.password || url.port) return { url: value, access_state: "unavailable" };
+    if (url.protocol !== "https:" || url.username || url.password || url.port) return { url: value, access_state: "invalid" };
     url.hash = "";
-  } catch { return { url: value, access_state: "unavailable" }; }
+  } catch { return { url: value, access_state: "invalid" }; }
   let robotsDenied = false;
   try {
-    if (!await allowedByRobots(url, runtime)) return { url: url.toString(), access_state: "robots_disallowed" };
+    let allowed: boolean;
+    try {
+      allowed = await allowedByRobots(url, runtime);
+    } catch (error) {
+      // The reader refused the site's own address before any request to it; a redirect's refusal, after the site
+      // answered, stays unavailable below.
+      if (error instanceof ForumLinkRefused) return { url: url.toString(), access_state: "invalid" };
+      throw error;
+    }
+    if (!allowed) return { url: url.toString(), access_state: "robots_disallowed" };
     const fetched = await fetchDocument(url.toString(), runtime, async (destination) => {
       if (!await allowedByRobots(destination, runtime)) {
         robotsDenied = true;
@@ -71,6 +85,9 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
   }
 }
 
+/** The reader refused a forum page's address before any request to its site. */
+class ForumLinkRefused extends Error {}
+
 async function allowedByRobots(url: URL, runtime: ForumPageRuntime): Promise<boolean> {
   const now = runtime.now ?? Date.now;
   const cached = robotsCache.get(url.host);
@@ -84,6 +101,11 @@ async function allowedByRobots(url: URL, runtime: ForumPageRuntime): Promise<boo
           const response = await fetchDocument(new URL("/robots.txt", url).toString(), runtime);
           rules = parseRobotsTxt(new TextDecoder().decode(response.bytes));
         } catch (error) {
+          // The reader's own refusal of the site's address, before any request: the site said nothing, so this is no
+          // robots.txt answer, and nothing is kept for the host.
+          if (error instanceof DiscoveredDocumentError && (error.code === "destination" || error.code === "invalid_url")) {
+            throw new ForumLinkRefused();
+          }
           rules = error instanceof UpstreamHttpError && error.status >= 400 && error.status < 500;
         }
         robotsCache.delete(url.host);

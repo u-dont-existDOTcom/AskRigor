@@ -349,14 +349,24 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   whose forum threads already need their `forum_thread_read` receipts there, and an entry of `community_searches` is not
   one. Platform `other` (sites the reader can't open, such as app-only ones), Facebook, Telegram, Discord, review sites
   and entries whose site refused access keep their own-web-search limit alone.
-- A forum or a patient organization with nothing read in any entry, declared `blocked`, `login_required` or
-  `retrieval_failed`, rests on the reader's attempt at its site: a page of it `read_forum_thread` couldn't read signs a
-  `forum_page_unread` receipt (the link's digest, what stopped the reader and the digest of the site's registrable host),
-  and any such receipt for the entry's site backs the boundary's limit. With none, the limit says only "A community not
-  read here: …", and a note asks for the reader's attempt, or for the community in `open_leads` as one not reached (the
-  owner regressions on #412's build, judged 6 November 2026: q135-urgent-treatment's limit said National Snakebite
-  Support blocked access, and no read of it had been tried). Reddit's reader answers for its own host, not a site's, so
-  subreddits keep their declared limits; a community read in part keeps the limits for its pages left unread.
+- A forum or a patient organization the reader read nothing of, declared `blocked`, `login_required` or
+  `retrieval_failed`, rests on the reader's own stop at its site: a page of it `read_forum_thread` asked the site for and
+  couldn't read signs a `forum_page_unread` receipt (the link's digest, what stopped the reader and the digest of the
+  site's host name, without a www or mobile prefix), and a receipt for the entry's site backs the boundary only when what
+  stopped the reader fits it: `blocked` by a refusal or robots.txt (`blocked`, `robots_disallowed`), `login_required` by
+  a refusal or a page that needs a browser (`blocked`, `needs_a_browser`), `retrieval_failed` by a page that failed, was
+  missing or needed a browser (`unavailable`, `not_found`, `needs_a_browser`). A link the reader refuses itself, before
+  any request to the site (not https, a port or credentials, a destination outside the public internet), answers
+  `invalid` and earns no receipt. Without a fitting receipt the limit says only "A community not read here: …" (or, where
+  threads were declared from the AI's own search, "Some pages of a community were not read here: …"), and a note asks
+  for the reader's attempt, names the stop that doesn't fit, or asks for the community in `open_leads` as one not reached
+  (the owner regressions on #412's build, judged 6 November 2026: q135-urgent-treatment's limit said National Snakebite
+  Support blocked access, and no read of it had been tried; the review of #421: a declared thread from the AI's own
+  search, or a receipt whatever it said, backed it too). A thread declared beside such a boundary needs its read receipt
+  like any other unless the reader's fitting stop at the site is on record. Reddit's reader answers for its own host, not
+  a site's, so subreddits keep their declared limits; a community the reader read in part keeps the limits for its pages
+  left unread. Limit: communities that share one host by path (healthunlocked.com/<community>) share its digest, so the
+  reader's stop at one of them backs another's boundary; forums hosted as subdomains of one service are each their own.
 - A call marked `findings_save` `"off"` (in `later_inputs`, or at the top level for an older app) saves nothing, for
   every account kind, whatever the account's switch says: no findings card (reason `call_saving_off`), no private copy,
   no save offer and no research-map reminder or offer, and at a free contributor's check no staged analysis goes to the

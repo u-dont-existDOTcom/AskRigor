@@ -1,5 +1,8 @@
 // Owner answer 195: these checks advise the model; only the five named integrity checks block.
-import { notesApartFromCommunityReminders as advisoryNotes, assertNextStepsContract } from "./helpers/finalize-next-steps-contract.js";
+import {
+  advisoryNotes as allNotes, assertNextStepsContract, COMMUNITY_WITHOUT_RECEIPT,
+  notesApartFromCommunityReminders as advisoryNotes
+} from "./helpers/finalize-next-steps-contract.js";
 import { atlasLookupFixture } from "./helpers/atlas-lookup-fixture.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -275,10 +278,23 @@ describe("communities named by the user and the visible check line", () => {
     expect(result.limits).toContain("Some pages of a community I read blocked access: Longevity Forum. Reports on those " +
       "pages are not included.");
     expect(result.limits.join(" ")).not.toContain("Reports there are not included");
-    // A thread declared read without the reader's receipt keeps the community's own boundary limit.
+    // A thread declared read without the reader's receipt no longer stands for the reader's attempt (the review of #421):
+    // with no receipt of the reader stopped at their sites, the boundaries' limits say only which pages weren't read.
     const declared = checked(boundaries(base()));
-    expect(declared.limits).toContain("A community whose pages could not be retrieved: Mineral Forum. Reports there are not included.");
-    expect(declared.limits).toContain("A community that blocked access: Longevity Forum. Reports there are not included.");
+    expect(declared.limits).toContain("Some pages of a community were not read here: Mineral Forum. Reports on those " +
+      "pages are not included.");
+    expect(declared.limits).toContain("Some pages of a community were not read here: Longevity Forum. Reports on those " +
+      "pages are not included.");
+    expect(declared.limits.join(" ")).not.toContain("blocked access");
+    // With the reader's own stop at each site on record, fitting each boundary, they stand as declared.
+    const stopped = (url: string, state: string) => sign("forum_page_unread", { u: forumThreadDigest(url), s: state,
+      sd: forumSiteDigest(url)! });
+    const backed = boundaries(base());
+    backed.receipts = [...backed.receipts, stopped("https://forum0.example/other", "unavailable"),
+      stopped("https://forum1.example/other", "robots_disallowed")];
+    const stands = checked(backed);
+    expect(stands.limits).toContain("A community whose pages could not be retrieved: Mineral Forum. Reports there are not included.");
+    expect(stands.limits).toContain("A community that blocked access: Longevity Forum. Reports there are not included.");
   });
   // The owner regressions on #412's build (judged 6 Nov 2026): r324-bacopa-rates' result said a LongeCity thread's
   // reports came from the AI's own web search, which AskRigor could not verify, though the reader read it: the site sent
@@ -320,23 +336,66 @@ describe("communities named by the user and the visible check line", () => {
       `${boundary}, but no receipt in this call shows AskRigor's reader tried its site: try one of its pages with ` +
       "read_forum_thread, which signs what stops it, and pass that research_receipt; if no read of it was tried, leave " +
       "it out of community_searches and name it in open_leads as a community not reached.";
-    const refused = sign("forum_page_unread", { u: forumThreadDigest(`${site}forum/stories`), s: "blocked",
-      sd: forumSiteDigest(`${site}forum/stories`)! });
-    for (const [boundary, caveat] of [["blocked", "A community that blocked access:"], ["login_required",
-      "A community that needs a login to read:"], ["retrieval_failed", "A community whose pages could not be retrieved:"]]) {
+    const stopped = (state: string, page = `${site}forum/stories`) => sign("forum_page_unread", { u: forumThreadDigest(page),
+      s: state, sd: forumSiteDigest(page)! });
+    // Each boundary with what backs it, and a stop it doesn't fit (the review of #421: any receipt backed any boundary).
+    const cases = [
+      ["blocked", "A community that blocked access:", ["blocked", "robots_disallowed"], "not_found"],
+      ["login_required", "A community that needs a login to read:", ["blocked", "needs_a_browser"], "unavailable"],
+      ["retrieval_failed", "A community whose pages could not be retrieved:", ["unavailable", "not_found", "needs_a_browser"],
+        "robots_disallowed"]
+    ] as const;
+    for (const [boundary, caveat, fitting, unfitting] of cases) {
       for (const platform of ["patient_organization", "forum"] as const) {
-        const untried = checked(withEntry(boundary!, platform));
+        const untried = checked(withEntry(boundary, platform));
         expect(untried.status, boundary).toBe("ready_with_limits");
         expect(untried.limits, boundary).toContain(notRead);
         expect(untried.limits.join("\n"), boundary).not.toContain(`${caveat} Synthetic Snakebite Support`);
-        expect(advisoryNotes(untried), boundary).toContain(untriedNote(boundary!));
-        // Any page of its site the reader tried and couldn't read backs it, whatever stopped the reader there.
-        const tried = checked(withEntry(boundary!, platform, [refused]));
-        expect(tried.limits, boundary).toContain(`${caveat} Synthetic Snakebite Support. Reports there are not included.`);
-        expect(tried.limits, boundary).not.toContain(notRead);
-        expect(advisoryNotes(tried).join("\n"), boundary).not.toContain("tried its site");
+        expect(advisoryNotes(untried), boundary).toContain(untriedNote(boundary));
+        // A page of its site the reader tried and was stopped at in a way that fits the boundary backs it.
+        for (const state of fitting) {
+          const tried = checked(withEntry(boundary, platform, [stopped(state)]));
+          expect(tried.limits, `${boundary} ${state}`).toContain(`${caveat} Synthetic Snakebite Support. Reports there are not included.`);
+          expect(tried.limits, `${boundary} ${state}`).not.toContain(notRead);
+          expect(advisoryNotes(tried).join("\n"), `${boundary} ${state}`).not.toContain("Synthetic Snakebite Support declares");
+        }
+        // A stop that doesn't fit it backs nothing, and the note names the stop.
+        const mismatched = checked(withEntry(boundary, platform, [stopped(unfitting)]));
+        expect(mismatched.limits, boundary).toContain(notRead);
+        expect(advisoryNotes(mismatched), boundary).toContain("community_searches for Synthetic Snakebite Support declares " +
+          `access_boundary ${boundary}, but AskRigor's reader was stopped at its site only as ${unfitting}, which that ` +
+          "boundary doesn't fit: give the boundary that fits (blocked for blocked or robots_disallowed; login_required for " +
+          "blocked or needs_a_browser; retrieval_failed for unavailable, not_found or needs_a_browser), or try another of " +
+          "its pages.");
       }
     }
+    const refused = stopped("blocked");
+    // A thread declared from the AI's own search beside the boundary doesn't stand for the reader's attempt; its limit
+    // then names only the pages not read (the review of #421).
+    const withThread = withEntry("blocked", "patient_organization");
+    withThread.community_searches!.at(-1)!.threads_read = [{ url: `${site}stories/1` }];
+    const ownSearch = checked(withThread);
+    expect(ownSearch.limits).toContain("Some pages of a community were not read here: Synthetic Snakebite Support. " +
+      "Reports on those pages are not included.");
+    expect(advisoryNotes(ownSearch)).toContain(untriedNote("blocked"));
+    // Its declared thread needs the reader's receipt too, as any declared thread does, unless the reader's own refusal
+    // at the site is on record.
+    const unreceipted = (result: ReturnType<typeof checked>) => allNotes(result)
+      .filter((note) => COMMUNITY_WITHOUT_RECEIPT.test(note) && note.includes("Synthetic Snakebite Support"));
+    expect(unreceipted(ownSearch)).toHaveLength(1);
+    withThread.receipts = [...withThread.receipts, refused];
+    const backedBlock = checked(withThread);
+    expect(backedBlock.limits).toContain("A community that blocked access: Synthetic Snakebite Support. Reports " +
+      "there are not included.");
+    expect(unreceipted(backedBlock)).toEqual([]);
+    // A forum hosted as a subdomain of one service is its own site: another forum there backs nothing.
+    const hosted = (forum: string) => sign("forum_page_unread", { u: forumThreadDigest(`https://${forum}.forums.example/t/1`),
+      s: "blocked", sd: forumSiteDigest(`https://${forum}.forums.example/t/1`)! });
+    const onService = withEntry("blocked", "forum", [hosted("other")]);
+    onService.community_searches!.at(-1)!.url = "https://snakebite.forums.example/";
+    expect(checked(onService).limits).toContain(notRead);
+    onService.receipts = [...onService.receipts, hosted("snakebite")];
+    expect(checked(onService).limits).not.toContain(notRead);
     // Another site's refusal backs nothing; nothing is asked where the page reader isn't made to read, or of a boundary
     // that says no read was tried.
     const elsewhere = sign("forum_page_unread", { u: forumThreadDigest("https://other.example.net/t/1"), s: "blocked",

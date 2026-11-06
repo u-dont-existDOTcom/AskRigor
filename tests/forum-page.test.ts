@@ -165,16 +165,18 @@ describe("public forum page reader", () => {
     expect((await readForumPage(data.url, data.runtime)).page_text).toBe(`${text}<a literal>`.trim());
   });
 
+  // The review of #421: a link the reader refuses itself, before any request to the site, is invalid, not unavailable or
+  // robots_disallowed, which the site would have said; read_forum_thread signs no receipt for it.
   it.each(["http://forum.example/thread", "not a URL", "https://user:password@forum.example/thread", "https://forum.example:8443/thread"])("does not request an invalid forum URL %s", async (url) => {
     const data = fixture();
-    expect((await readForumPage(url, data.runtime)).access_state).toBe("unavailable");
+    expect((await readForumPage(url, data.runtime)).access_state).toBe("invalid");
     expect(data.requests).toHaveLength(0);
   });
 
   it("rejects private destinations before a network request", async () => {
     const data = fixture();
     data.runtime.documentFetchRuntime!.resolveAddresses = async () => ["127.0.0.1"];
-    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("robots_disallowed");
+    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("invalid");
     expect(data.requests).toHaveLength(0);
   });
 

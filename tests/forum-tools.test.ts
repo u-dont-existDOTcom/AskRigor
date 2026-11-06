@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
 import { forumThreadDigest } from "../apps/research-mcp/src/research-finalization-gate.js";
-import { forumPageDigest } from "../apps/research-mcp/src/forum-thread-links.js";
+import { forumPageDigest, forumSiteDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
 import { createRedditReaderClient } from "../apps/research-mcp/src/reddit-reader-client.js";
@@ -462,5 +462,20 @@ describe("forum tools", () => {
     thread.mockResolvedValue({ url: URL, access_state: "unavailable" });
     expect((await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } })).structuredContent)
       .not.toHaveProperty("research_receipt");
+  });
+
+  // The review of #421: the reader's own refusal of a link, before any request to the site, says nothing of the site, so
+  // it signs no receipt; and a site is its host, so forums hosted as subdomains of one service are each their own.
+  it("signs nothing for a link the reader refuses itself, and keys a site on its host", async () => {
+    const caller = await client({ forumPageReader: (await vi.importActual<typeof import("@askrigor/sources")>("@askrigor/sources")).readForumPage });
+    for (const url of ["http://www.forum.example/thread/1", "https://www.forum.example:8443/thread/1",
+      "https://user:secret@www.forum.example/thread/1"]) {
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent, url).toMatchObject({ data: { access_state: "invalid" } });
+      expect(result.structuredContent, url).not.toHaveProperty("research_receipt");
+    }
+    expect(forumSiteDigest("https://www.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/other"));
+    expect(forumSiteDigest("https://alpha.forums.example/t/1")).not.toBe(forumSiteDigest("https://beta.forums.example/t/1"));
+    expect(forumSiteDigest("https://192.0.2.1/t/1")).toBeUndefined();
   });
 });

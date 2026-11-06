@@ -175,18 +175,22 @@ export function sameSiteRedirect(given: string, read: string): boolean {
 
 /**
  * A forum site's digest, as a forum_page_unread receipt signs the site of a page the reader couldn't read (`sd`): of its
- * registrable host, so the final check ties a community's declared access boundary to an attempt at its site, whatever
- * page was tried (the owner regressions on #412's build, judged 6 Nov 2026). Undefined for a link with no domain name.
+ * host name, lower case, without a www or mobile prefix, as the final check names a community's site, so a community's
+ * declared access boundary is tied to an attempt at its own site, whatever page there was tried (the owner regressions
+ * on #412's build, judged 6 Nov 2026). Not of the registrable host: forums hosted as subdomains of one service
+ * (name.proboards.com) are each their own site (the review of #421). Communities that share one host by path
+ * (healthunlocked.com/<community>) share it here too: an attempt at one of them backs another's boundary, a limit
+ * docs/final-check.md states. Undefined for a link with no domain name.
  */
 export function forumSiteDigest(url: string): string | undefined {
   let hostname: string;
   try {
-    hostname = new globalThis.URL(url.trim()).hostname;
+    hostname = new globalThis.URL(url.trim()).hostname.toLowerCase().replace(/\.$/u, "");
   } catch {
     return undefined;
   }
-  const site = registrableHost(hostname);
-  return site === undefined ? undefined : digestOf(site);
+  if (registrableHost(hostname) === undefined) return undefined;
+  return digestOf(hostname.replace(/^(?:(?:www|m|mobile|mbasic|touch|web|amp)\.)+/u, ""));
 }
 
 /** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form
