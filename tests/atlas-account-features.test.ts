@@ -23,7 +23,7 @@ import {
   type AtlasServerFeatures,
 } from "../apps/research-mcp/src/atlas/account-features.js";
 import { atlasParticipationFromEnv } from "../apps/research-mcp/src/atlas/pages-http.js";
-import { atlasPageProblems } from "../apps/research-mcp/src/atlas/pages.js";
+import { PRIVATE_PAGES_PATH, atlasPageProblems } from "../apps/research-mcp/src/atlas/pages.js";
 import {
   ATLAS_SESSION_COOKIE,
   newSession,
@@ -228,6 +228,19 @@ describe("Your AskRigor features on the account page", () => {
     expect(featureOf(theirs, "meaning-judge")).toMatchObject({ on: "On", forYou: expect.stringContaining(
       "Your account is one of the owner's dev accounts: once a final check passes, Claude") });
     expect(theirs).not.toContain("Free contributor use, under");
+  });
+
+  it("gives the owner both their features and the link to their private pages, and no one else that link", async () => {
+    // The owner's private page (#418) and this list share the account page: the owner gets both, a reader only the list.
+    const { f } = await atlas();
+    const ids = (body: string) => [...body.matchAll(/id="feature-([a-z-]+)"/gu)].map((match) => match[1]);
+    const owners = (await f.get("/atlas/account", await f.signIn(OWNER))).body;
+    expect(atlasPageProblems(owners)).toEqual([]);
+    expect(ids(owners)).toEqual(IDS);
+    expect(owners).toContain(`<p><a href="${PRIVATE_PAGES_PATH}">Your private pages</a>: your comment maps, and your pages on GitHub.`);
+    const readers = (await f.get("/atlas/account", await f.signIn(SUBJECT))).body;
+    expect(ids(readers)).toEqual(IDS);
+    expect(readers).not.toContain(PRIVATE_PAGES_PATH);
   });
 
   it("words each state of research access as inspect reports it, and what needs it", async () => {

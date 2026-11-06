@@ -69,11 +69,13 @@ import {
 } from "./page-data.js";
 import { escapeHtml, passesPageGuard } from "./page-guard.js";
 import { renderAtlasCommentMaps } from "./comment-maps-page.js";
+import { ownerPageProblems, readPrivateCommentMaps, renderAtlasOwnerPages } from "./owner-pages.js";
 import {
   ATLAS_CSS,
   ACCOUNT_PATH,
   COMMENT_MAPS_PATH,
   OWN_COMMENTS_PATH,
+  PRIVATE_PAGES_PATH,
   atlasPageProblems,
   findingPath,
   renderAtlasAccount,
@@ -110,6 +112,7 @@ import {
   normalizedDisplayName,
   openSession,
   openSignInState,
+  participantKeyFor,
   publicOriginFrom,
   readCookie,
   readForm,
@@ -248,7 +251,9 @@ export type AtlasRoute =
   | { kind: "share" }
   | { kind: "own-reports" }
   | { kind: "report-answer"; publicId: string }
-  | { kind: "take-down-report"; publicId: string };
+  | { kind: "take-down-report"; publicId: string }
+  // The owner's private page (owner-pages.ts): the signed-in owner's alone.
+  | { kind: "private-pages" };
 
 type FormRoute = Extract<AtlasRoute, { kind: "sign-out" | "sign-out-everywhere" | "vote" | "comment" |
   "delete-comment" | "report-comment" | "rename" | "forget" | "report-answer" | "take-down-report" }>;
@@ -298,6 +303,7 @@ export function atlasRouteOf(pathname: string, participation = false): AtlasRout
   if (pathname === "/atlas/account/delete") return { kind: "forget" };
   if (pathname === ACCOUNT_PATH) return { kind: "account" };
   if (pathname === "/atlas/account/comments") return { kind: "own-comments" };
+  if (pathname === PRIVATE_PAGES_PATH) return { kind: "private-pages" };
   if (pathname === SHARE_PATH) return { kind: "share" };
   if (pathname === OWN_REPORTS_PATH) return { kind: "own-reports" };
   const answer = REPORT_ANSWER_ROUTE.exec(pathname);
@@ -469,6 +475,16 @@ export interface AtlasParticipationRuntime {
   limiters?: Partial<Record<keyof typeof ATLAS_PARTICIPATION_LIMITS, TokenBucketLimiter>>;
   /** What the account page lists the signed-in reader's AskRigor features with; without it, it lists none. */
   features?: AtlasFeaturesRuntime;
+  /** The owner's private page; without it, no one is the owner, and the page answers every signed-in reader 404. */
+  owner?: AtlasOwnerRuntime;
+}
+
+/** Who the owner is on the Atlas, and what the owner's private page reads (owner-pages.ts). */
+export interface AtlasOwnerRuntime {
+  /** The participant keys of the subjects the owner signs in with (participantKeyFor of each). */
+  participantKeys: ReadonlySet<string>;
+  /** The private comment maps file on the server (ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE), read for each request; or none. */
+  commentMapsFile?: string;
 }
 
 export interface CreateAtlasPagesHandlerOptions {
@@ -661,11 +677,17 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
   /** A stored name is untrusted and must pass the same last check as a comment's name. */
   const shownName = (name: string | null) => name === null ? null : passesPageGuard(name) ? name : "";
 
+  /** Whether a current session is the owner's: its participant key is one of the owner's (participantKeyFor). */
+  const isOwner = (session: AtlasSession | undefined) => session !== undefined &&
+    participation?.owner?.participantKeys.has(session.participantKey) === true;
+
   const readerFor = async (runtime: AtlasParticipationRuntime, path: string, session: AtlasSession | undefined,
     done = ""): Promise<AtlasPageReader> => ({
     signInHref: signInHref(runtime.settings, path),
     viewer: session === undefined ? null : {
       displayName: shownName((await runtime.store.inspectParticipant(session.participantKey))?.displayName ?? null),
+      // Only the signed-in owner's header links the private page; a signed-in page is never cached.
+      ...(isOwner(session) ? { owner: true } : {}),
     },
     notice: noticeOf(done),
     tenantSignOutHref: session === undefined && (done === "signed-out" || done === "signed-out-everywhere")
@@ -747,7 +769,9 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       : await readerFor(participation, findingPath(publicationNumber), session)) });
     const view = participationView(model, session, now, extras);
     const reader = signedOutReader(findingPath(publicationNumber));
-    if (reader !== undefined && view?.viewer) reader.viewer = { displayName: view.viewer.displayName };
+    if (reader !== undefined && view?.viewer) {
+      reader.viewer = { displayName: view.viewer.displayName, ...(isOwner(session) ? { owner: true } : {}) };
+    }
     return checked({ status: extras.status ?? 200, html: renderAtlasFinding(model, view, reader) });
   };
 
@@ -1025,6 +1049,39 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
       features,
     }) });
     write(response, page.status, HTML, page.html, { "cache-control": PRIVATE, vary: "Cookie" }, clear);
+  };
+
+  /**
+   * The owner's private page (owner-pages.ts): signed out, the account pages' sign-in prompt, with their headers; signed
+   * in as anyone but the owner, the Atlas's own "Not found", the page and headers of an address with no page; the owner,
+   * the page, read afresh, never cached, kept out of search engines and sending no referrer (the only response that
+   * sets Referrer-Policy: no-referrer, which the apex Caddy leaves as it is). Its maps' video links are the one exception
+   * to the last check, and on this page alone (ownerPageProblems): a page that still fails it is shown without the maps.
+   * It reads no Atlas data, so it answers while the page reader is not configured.
+   */
+  const ownerPagesRoute = async (request: IncomingMessage, response: ServerResponse, runtime: AtlasParticipationRuntime,
+    now: Date) => {
+    const { session, clear } = await currentSession(request, runtime, now, "read-as-signed-out");
+    const ownerHeaders = { "cache-control": PRIVATE, vary: "Cookie", "x-robots-tag": "noindex, nofollow",
+      "referrer-policy": "no-referrer" };
+    if (session === undefined) {
+      messageFor(await readerFor(runtime, PRIVATE_PAGES_PATH, session))(response, 200, "Your account",
+        "Sign in with your AskRigor account to see this page.", signInHref(runtime.settings, PRIVATE_PAGES_PATH), clear,
+        "Sign in with your AskRigor account");
+      return;
+    }
+    if (!isOwner(session)) {
+      await failurePage(request, response, 404, renderAtlasNotFound);
+      return;
+    }
+    const reader = await readerFor(runtime, PRIVATE_PAGES_PATH, session);
+    const readOn = now.toISOString().slice(0, 10);
+    const maps = await readPrivateCommentMaps(runtime.owner?.commentMapsFile);
+    let rendered = renderAtlasOwnerPages({ maps, readOn }, reader);
+    if (ownerPageProblems(rendered).length > 0) {
+      rendered = checked({ status: 200, html: renderAtlasOwnerPages({ maps: { state: "unreadable" }, readOn }, reader) }).html;
+    }
+    write(response, 200, HTML, rendered, ownerHeaders, clear);
   };
 
   /** A form that needs a sign-in it does not have: the page links to signing in, as a form cannot leave this site. */
@@ -1314,6 +1371,15 @@ export function createAtlasPagesHandler(options: CreateAtlasPagesHandlerOptions)
         }
         return true;
       }
+      if (participation !== undefined && route.kind === "private-pages") {
+        // The owner's page reads no Atlas data (the review of #418, finding 3): it needs no page reader.
+        try {
+          await ownerPagesRoute(request, response, participation, clock());
+        } catch {
+          if (!response.headersSent) plainFailure(response, 503, renderAtlasUnavailable());
+        }
+        return true;
+      }
       if (source === undefined) {
         plainFailure(response, 503, renderAtlasUnavailable());
         return true;
@@ -1411,7 +1477,8 @@ export interface AtlasPagesSharedParts {
  * ASKRIGOR_ATLAS_AUTH0_CLIENT_SECRET); and the tenant the connector uses (ASKRIGOR_OAUTH_ISSUER_URL and
  * ASKRIGOR_OAUTH_JWKS_URL). Without any of them, undefined: the pages show no form and no sign-in link. The account
  * page's features read the research account through the connector's service, on the access role the participation
- * store already uses, and the server's settings.
+ * store already uses, and the server's settings. The owner's private page comes with them when an owner subject is set
+ * (atlasOwnerFromEnv); a bad owner setting leaves only that page without an owner.
  */
 export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, shared: AtlasPagesSharedParts = {}):
   AtlasParticipationRuntime | undefined {
@@ -1433,6 +1500,8 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, 
     // Three secrets for three uses: none may be another.
     const secrets = [sessionKey, participantSecret, access.identitySecret].map((secret) => Buffer.from(secret).toString("hex"));
     if (new Set(secrets).size !== secrets.length) return undefined;
+    const settings: AtlasParticipationSettings = { publicOrigin, sessionKey, participantSecret, identitySecret: access.identitySecret };
+    const owner = atlasOwnerFromEnv(env, settings);
     // The owner's research account keys, derived once; a subject the derivation refuses is no one's.
     const ownerAccountKeys = new Set([...shared.ownerSubjects ?? []].flatMap((subject) => {
       try {
@@ -1442,7 +1511,8 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, 
       }
     }));
     return {
-      settings: { publicOrigin, sessionKey, participantSecret, identitySecret: access.identitySecret },
+      settings,
+      ...(owner === undefined ? {} : { owner }),
       store: announcingParticipationStore(new PostgresAtlasParticipationStore({
         connectionString: access.connectionString,
         schema: access.schema,
@@ -1472,6 +1542,31 @@ export function atlasParticipationFromEnv(env: NodeJS.ProcessEnv = process.env, 
   } catch {
     return undefined;
   }
+}
+
+// A subject as the connector binds one (oauth-resource-server.ts): no white space or control character, at most 512.
+const OWNER_SUBJECT = /^[^\s\u0000-\u001f\u007f]{1,512}$/u;
+
+/**
+ * The owner on the Atlas, from the environment: the subjects the owner signs in with, as participant keys. The
+ * connector's owner subject (ASKRIGOR_OAUTH_ALLOWED_SUBJECT, the subject case review is limited to) is the owner's: the
+ * Atlas's sign-in checks ID tokens from the same tenant (ASKRIGOR_OAUTH_ISSUER_URL) and takes their subject as it is, so
+ * the same login gives the same subject. ASKRIGOR_ATLAS_OWNER_SUBJECT names another login of the owner's, for an owner who
+ * signs in to the Atlas otherwise. A value that is not a subject is left out; none, and no one is the owner. The private
+ * comment maps file (ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE) is a path on the server, outside the image.
+ */
+export function atlasOwnerFromEnv(env: NodeJS.ProcessEnv, settings: AtlasParticipationSettings): AtlasOwnerRuntime | undefined {
+  const participantKeys = new Set([env.ASKRIGOR_OAUTH_ALLOWED_SUBJECT, env.ASKRIGOR_ATLAS_OWNER_SUBJECT].flatMap((subject) => {
+    if (subject === undefined || !OWNER_SUBJECT.test(subject)) return [];
+    try {
+      return [participantKeyFor(settings, subject)];
+    } catch {
+      return [];
+    }
+  }));
+  if (participantKeys.size === 0) return undefined;
+  const mapsFile = env.ASKRIGOR_PRIVATE_COMMENT_MAPS_FILE?.trim();
+  return { participantKeys, ...(mapsFile === undefined || mapsFile === "" ? {} : { commentMapsFile: mapsFile }) };
 }
 
 /**
