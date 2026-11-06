@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import {
   COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
-import { ANSWER_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
+import { ANSWER_READING_LABELS, LINKED_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
 
 export const FINAL_CHECK_PANEL_URI = "ui://askrigor/final-check.html";
 /**
@@ -53,6 +53,10 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // each key study was read, as the check verified it, so the reader sees it even when the answer is reworded: the
 // readings AskRigor's receipts show, and apart, the AI's own account of the others, with what the receipts do show of
 // them (the review of 5 Nov 2026).
+// The owner, 6 Nov ("make sure we get it working so it tells you to what extent it read the studies"): under every status
+// with research receipts, the line after the verdict says how much of the research AskRigor read, counted exactly from
+// the receipts, unfolded; and what was checked lists, apart from the key studies, the other studies the answer links,
+// each with the reading AskRigor's receipts show, or that AskRigor did not look it up.
 export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
@@ -60,6 +64,7 @@ const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
 const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
 const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
 const SHOWN_READING_LABELS = ${JSON.stringify(SHOWN_READING_LABELS)};
+const LINKED_READING_LABELS = ${JSON.stringify(LINKED_READING_LABELS)};
 function sourceLineOutcome(line) {
   const place = line.text === "abstract" ? "the paper's abstract"
     : line.text === "search_copy" ? "a copy the AI supplied, not one AskRigor fetched itself" : "the paper's full text";
@@ -116,6 +121,9 @@ function renderFinalCheck(doc, structuredContent) {
     parent.appendChild(element);
     return element;
   };
+  const summary = result.reading_summary && typeof result.reading_summary === "object"
+    ? result.reading_summary.sentence : undefined;
+  if (typeof summary === "string" && summary.trim() !== "") appendText("p", summary);
   const fold = (summary) => {
     const details = doc.createElement("details");
     appendText("summary", summary, details);
@@ -151,6 +159,12 @@ function renderFinalCheck(doc, structuredContent) {
         entry.name + ", " + ANSWER_READING_LABELS[entry.reading] +
         (entry.reading !== "other_tool" && Object.hasOwn(SHOWN_READING_LABELS, entry.receipts)
           ? " (AskRigor's receipts show: " + SHOWN_READING_LABELS[entry.receipts] + ")" : "")).join("; ") + ".", checked);
+    }
+    const linked = Array.isArray(result.linked_reading) ? result.linked_reading.filter((entry) => entry &&
+      typeof entry.name === "string" && Object.hasOwn(LINKED_READING_LABELS, entry.reading)) : [];
+    if (linked.length > 0) {
+      appendText("p", "Other studies the answer links, as AskRigor's receipts show them: " + linked.map((entry) =>
+        entry.name + ", " + LINKED_READING_LABELS[entry.reading]).join("; ") + ".", checked);
     }
     if (typeof result.checked_answer === "string") {
       const figures = answerFigures(result.checked_answer);

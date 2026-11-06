@@ -2428,7 +2428,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   (`dr`, the range the caller sent), and its
   record counts (and, for a Europe PMC query that searches within article
   sections, `ft`: the provider's section field codes it used, such as
-  `METHODS` or `TABLE`), a search receipt its access status, and a
+  `METHODS` or `TABLE`; and for any Europe PMC search, `rg`: each returned
+  record's public identifiers by their places in the receipt's own list, or,
+  for a record with no DOI, PMID or PMCID, the provider's source code and the
+  place of its own id, so the final check counts the studies a search listed;
+  6 November 2026, built, not yet released), a search receipt its access status, and a
   one-call community audit receipt the IDs of the videos whose comments its
   response returned, and a per-video audit receipt how many comments its final
   view returned. A study audit receipt also carries its figures check: the

@@ -16,9 +16,11 @@ import { communityLeadVideo, leadKey, leadPhrase, readCommunityLeads } from "./c
 import { ABSENCE_SWEEP_RULES, nameFormInQuery, sameName } from "./absence-searches.js";
 import {
   answerReadingRule, DECLARABLE_WITHOUT_RECEIPT, declarableReading, deepestShown, identifierShown, judgeSourceReading,
-  readingShown, receiptReadings, sourceReadingCheckSchema, verifiedAnswerReading, type AnswerReading,
-  type ShownReading, type SourceReadingCheck, type SourceReadingQuote
+  LINKED_READINGS_SHOWN, linkedReadingCheckSchema, readingShown, receiptReadings, sourceReadingCheckSchema,
+  verifiedAnswerReading, type AnswerReading, type LinkedReadingCheck, type ShownReading, type SourceReadingCheck,
+  type SourceReadingQuote
 } from "./source-reading.js";
+import { readingSummarySchema, researchReadingSummary, searchRecords } from "./reading-summary.js";
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
@@ -43,7 +45,9 @@ import {
   strictConnectorInputSchema,
   type ConnectorJsonSchema
 } from "./connector-input-schema.js";
-import { displayedProse, linkTargets, visibleText, visibleTextWithLinkEdges } from "./displayed-prose.js";
+import {
+  displayedProse, LINK_CLOSE, LINK_OPEN, LINK_TARGET, linkTargets, visibleText, visibleTextWithLinkEdges
+} from "./displayed-prose.js";
 import {
   advanceCheckRound,
   CHECK_ROUND_LIMIT,
@@ -1711,6 +1715,16 @@ export const finalizeResearchOutputSchema = finalizeResearchRetainedOutputSchema
     .describe("For each key source whose reading this check knows: its id, how a limit names it, and how it was read, " +
       "from its verified receipts and accepted read_depth. The answer says it beside each study it cites, and the " +
       "panel lists it under a passing check."),
+  // The owner, 6 Nov 2026, runtime only (owner answer 189a): the studies the answer links that aren't key sources.
+  linked_reading: z.array(linkedReadingCheckSchema).max(LINKED_READINGS_SHOWN).optional()
+    .describe("For each study the answer links that isn't a key source: its identifier (or its link), how the answer " +
+      "names it, and the deepest reading its verified receipts show, or not_looked_up when no receipt ties it. The " +
+      "answer says it beside the study; it never holds the answer back."),
+  // The owner, 6 Nov 2026, runtime only (owner answer 189a): how much of the research AskRigor read, counted exactly.
+  reading_summary: readingSummarySchema.optional()
+    .describe("With research receipts: the distinct studies AskRigor's verified receipts show read, by how deep, and " +
+      "those its searches listed and it didn't read (left out unless every search receipt names its records), with " +
+      "the sentence the answer gives, translated when it is not in English."),
   // Owner answer 249a, runtime only (owner answer 189a): what the check of the study map found.
   study_map: studyMapCheckSchema.optional()
     .describe("For a passing check with study_map: each study's receipt, text, group of people and registry numbers, " +
@@ -2792,10 +2806,12 @@ export function finalizeResearch(
   // One paper's identifiers and pages, as AskRigor's own receipts tie them: a PubMed record names its PMID, DOI and
   // PMC copy; a full-text reading or audit names the copy's identifiers and, when AskRigor fetched it, its URL; and
   // resolve_doi names the page a DOI is registered to. A link to any of them links the paper (#336's publisher and
-  // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it.
+  // Europe PMC pages). A lead receipt's PMCID is left out: no copy confirmed it. A Europe PMC search's receipt ties each
+  // record's identifiers as the database lists them, as a PubMed record does (its record groups, since 6 Nov 2026).
   const papers = new PaperLinks();
   for (const { kind, claims, issuedAt } of verified) {
     if (PAPER_TIE_KINDS.has(kind)) papers.tie(claims);
+    if (kind === "literature_search") for (const record of searchRecords(claims, normalizeIdentifier) ?? []) papers.join(record);
     if (kind === "pubmed_record" && typeof claims.pmid === "string") {
       pubmedDois.set(normalizeIdentifier(claims.pmid), typeof claims.doi === "string" ? normalizeIdentifier(claims.doi) : "");
       if (typeof claims.pmcid === "string" && claims.pmcid !== "") {
@@ -3205,6 +3221,48 @@ export function finalizeResearch(
             "The answer may say so beside it."));
         }
       }
+    }
+  }
+  // The studies the draft links that aren't key sources (the owner, 6 November 2026: a ChatGPT answer's "Tanzania
+  // cohort" link, a study a claim rests on, gave no reading at all). A link names a paper by its form (a doi.org,
+  // PubMed, PubMed Central or Europe PMC page), as a page a receipt ties to a paper, or by a DOI a receipt names; any
+  // other link to a DOI names a paper no receipt shows was looked up. Each paper is given once, with the deepest reading
+  // its verified receipts show, in the words an answer gives it, or "not looked up by AskRigor". Exact, in any
+  // language: links and identifiers are forms, not meanings. Everything about them is a note: the six blocking checks
+  // don't name them, and a link to a key source is that source's, checked above.
+  const linkedReadings: LinkedReadingCheck[] = [];
+  if (input.answer_draft !== undefined) {
+    const keyLinked = (url: string): boolean => input.key_sources.some((source, index) =>
+      keyStudyLinked(url, keyLinks[index]!.linkIds, keyLinks[index]!.linkPages) ||
+      (threadReadHere(source.id) && comparableUrl(url) === comparableUrl(source.id)));
+    // The DOIs AskRigor's receipts name, which a publisher's page may carry in its path.
+    const receiptDois = [...new Set(verified.flatMap(({ kind, claims }) => PAPER_TIE_KINDS.has(kind) ||
+      kind === "literature_search" || kind === "full_text_lead" || kind === "full_text_route_failure"
+      ? [text(claims.id), text(claims.doi), ...list(claims.ids)] : [])
+      .filter((value) => value !== "").map(normalizeIdentifier).filter(isDoi))];
+    const listed = new Set<string>();
+    const unlooked: string[] = [];
+    for (const { label, url } of studyLines.flatMap(labeledLinks)) {
+      if (linkedReadings.length >= LINKED_READINGS_SHOWN) break;
+      if (keyLinked(url)) continue;
+      const id = paperIdentifierOfLink(url) ?? papers.paperOfPage(url) ??
+        receiptDois.find((doi) => linkNamesThisDoi(url, doi));
+      if (id === undefined && !linkNamesDoi(url)) continue;
+      const links = id === undefined ? undefined : sourceLinks(id);
+      const names = links === undefined ? [comparableUrl(url)] : [...links.linkIds, ...links.linkPages.keys()];
+      if (names.some((name) => listed.has(name))) continue;
+      for (const name of names) listed.add(name);
+      const deepest = links === undefined ? undefined
+        : deepestShown(receiptReadings(paperReceipts(links), checkedInAtlas(id!)));
+      const name = linkedStudyName(label, id ?? url);
+      linkedReadings.push({ source: id ?? url, name, reading: deepest === undefined ? "not_looked_up"
+        : declarableReading(deepest) });
+      if (deepest === undefined) unlooked.push(name);
+    }
+    if (unlooked.length > 0) {
+      addStep("answer_draft", joinRules(rule`The answer links ${unlooked.join("; ")}, which no receipt passed here ties `,
+        "to a study AskRigor looked up: say beside each that AskRigor did not look it up, or look it up (resolve_doi ",
+        "for a DOI, fetch_pubmed_record for a PMID) and pass its research_receipt."));
     }
   }
   // A key study's headline figures, as its audit recomputed them (owner
@@ -4564,6 +4622,11 @@ export function finalizeResearch(
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
   if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
   if (sourceReadings.length > 0) output.source_reading = sourceReadings;
+  if (linkedReadings.length > 0) output.linked_reading = linkedReadings;
+  // The owner, 6 Nov 2026: how much of the research AskRigor read, counted exactly from the verified receipts, under
+  // every status that has research receipts (reading-summary.ts).
+  const readingSummary = researchReadingSummary(verified, normalizeIdentifier);
+  if (readingSummary !== undefined) output.reading_summary = readingSummary;
   // This research's map (owner answer 143a): filed here; offered with the save, for submit_research_contribution after
   // the user's yes; or, for a free contributor whose research did such work, not filed, which the note says to do.
   // None of them holds back the answer.
@@ -5637,6 +5700,79 @@ function linkNamesDoi(link: string): boolean {
   }
 }
 
+/**
+ * The paper a link names by its form alone (the owner, 6 Nov 2026: the studies an answer links that aren't key
+ * sources), exactly: a doi.org link's DOI, read as acquisition reads it; a PubMed page's PMID (pubmed.ncbi.nlm.nih.gov,
+ * ncbi.nlm.nih.gov/pubmed, or Europe PMC's MED pages); and a PMCID that is a whole segment of the link's path, as
+ * PubMed Central's and Europe PMC's pages give it. Any other page names a paper only where a receipt ties it, or by a
+ * DOI a receipt names, which the caller checks.
+ */
+function paperIdentifierOfLink(link: string): string | undefined {
+  let url: URL;
+  let path: string;
+  try {
+    url = new globalThis.URL(link);
+    path = decodeURIComponent(url.pathname);
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./u, "");
+  if (host === "doi.org" || host === "dx.doi.org") {
+    const doi = normalizeIdentifier(link);
+    return isDoi(doi) ? doi : undefined;
+  }
+  const segments = path.split("/").filter((segment) => segment !== "");
+  const pmcid = segments.find((segment) => /^PMC\d{1,9}$/iu.test(segment));
+  if (pmcid !== undefined) return pmcid.toUpperCase();
+  const pmid = host === "pubmed.ncbi.nlm.nih.gov" && segments.length === 1 ? segments[0]
+    : host === "ncbi.nlm.nih.gov" && segments.length === 2 && segments[0]!.toLowerCase() === "pubmed" ? segments[1]
+    : host === "europepmc.org" && segments.length === 3 && ["article", "abstract"].includes(segments[0]!.toLowerCase()) &&
+      segments[1]!.toUpperCase() === "MED" ? segments[2] : undefined;
+  return pmid !== undefined && /^[1-9]\d{0,8}$/u.test(pmid) ? pmid : undefined;
+}
+
+/** Whether a link's path or query names this DOI as a whole, as identifierShown reads a DOI in prose. */
+function linkNamesThisDoi(link: string, doi: string): boolean {
+  try {
+    const url = new globalThis.URL(link);
+    return identifierShown(decodeURIComponent(`${url.pathname}${url.search}`), doi);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Each link a displayed line shows, with the words a reader sees for it: a Markdown link's text, or nothing for a bare
+ * address. The link is trimmed as the gate's other link checks trim it.
+ */
+function labeledLinks(line: string): Array<{ label: string; url: string }> {
+  const found: Array<{ label: string; url: string }> = [];
+  const addresses = (text: string) => [...text.matchAll(/https?:\/\/[^\s<>]+/giu)].map(([target]) => trimLinkEnd(target));
+  const bare = (text: string) => {
+    for (const url of addresses(visibleText(text))) found.push({ label: "", url });
+  };
+  const link = new RegExp(`${LINK_OPEN}([^${LINK_OPEN}${LINK_TARGET}]*)${LINK_TARGET}([^${LINK_CLOSE}]*)${LINK_CLOSE}`, "gu");
+  // In the order the line shows them.
+  let from = 0;
+  for (const match of line.matchAll(link)) {
+    bare(line.slice(from, match.index));
+    for (const url of addresses(match[2]!)) {
+      found.push({ label: visibleText(match[1]!).replace(/\s+/gu, " ").trim(), url });
+    }
+    from = match.index + match[0].length;
+  }
+  bare(line.slice(from));
+  return found;
+}
+
+/** How a linked study is named: the answer's words for its link, then its identifier, or the identifier alone. */
+function linkedStudyName(label: string, id: string): string {
+  // A semicolon separates the studies in the result's line and the panel's, so one in a label becomes a comma.
+  const words = [...label.replace(/[;；]/gu, ",")].slice(0, 80).join("").trim();
+  return words === "" || words.toLowerCase() === id.toLowerCase() || /^https?:\/\//iu.test(words) ? id
+    : `"${words}" (${id})`;
+}
+
 // Receipts that tie one paper's identifiers, and sometimes a page, together (see PaperLinks).
 const PAPER_TIE_KINDS: ReadonlySet<string> = new Set([
   "pubmed_record", "doi_resolution", "full_text_read", "study_audit", "review_audit"
@@ -5667,6 +5803,15 @@ class PaperLinks {
     }
   }
 
+  /**
+   * Ties one search record's DOI, PMID and PMCID, as the database lists them together (a Europe PMC search's record
+   * groups, since 6 Nov 2026); it signs no page.
+   */
+  join(ids: readonly string[]): void {
+    const papers = ids.filter((id) => isDoi(id) || isPmid(id) || isPmcid(id));
+    for (const id of papers.slice(1)) this.parent.set(this.root(id), this.root(papers[0]!));
+  }
+
   /** Every identifier tied to this one, itself included. */
   identifiers(id: string): string[] {
     const root = this.root(id);
@@ -5676,6 +5821,16 @@ class PaperLinks {
   /** The pages receipts signed for any of these identifiers. */
   pages(ids: readonly string[]): Map<string, string> {
     return new Map(ids.flatMap((id) => [...(this.signedPages.get(id) ?? [])]));
+  }
+
+  /** The paper a page some receipt signed belongs to, by one of its identifiers: a DOI, PMID or PMCID when it has one. */
+  paperOfPage(link: string): string | undefined {
+    const key = paperPageKey(link);
+    for (const [id, pages] of this.signedPages) {
+      if (!pages.has(key)) continue;
+      return this.identifiers(id).find((one) => !/^https?:\/\//iu.test(one)) ?? id;
+    }
+    return undefined;
   }
 
   private root(id: string): string {

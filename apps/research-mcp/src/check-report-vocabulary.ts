@@ -1830,6 +1830,7 @@ export const REPORT_CODE_NAMES: ReadonlySet<string> = new Set([
   "not_free_contributor",
   "not_indexed",
   "not_loaded",
+  "not_looked_up",
   "not_material",
   "not_needed",
   "not_public",

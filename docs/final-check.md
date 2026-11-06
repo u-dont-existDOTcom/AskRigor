@@ -32,7 +32,8 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
 landscape coverage, Atlas lookups, community reports and their counts, the leads people's reports raised and the study
-searches that followed them, omitted carried lists and tool-list currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
+searches that followed them, the studies the answer links that no receipt shows were looked up, omitted carried lists
+and tool-list currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
 note its turn's checks gave, and a later check of that turn leaves those out, with one line saying how many and that a
 note still stands unless the draft or the call's declarations already meet it; a note whose words changed is new, and
 the next turn gives notes again. Notes on the call's own input or the conversation's continuity (input problems,
@@ -316,6 +317,55 @@ figure reading (the next build's item 2), which isn't built: no receipt yet show
 quote's words are the AI's, as above; where they sit is not checked; a lower declared depth the receipts can't show
 (part of a text, an abstract no record shows) stands as the AI's account, listed apart; and a key source with no
 `read_depth` and no receipt showing a reading has no reading, so the result and the panel leave it out.
+
+To what extent AskRigor read the studies (the owner, 6 November 2026: "make sure we get it working so it tells you to
+what extent it read the studies"; not yet released) adds two runtime results, one receipt claim, and no blocking rule.
+Two ChatGPT answers (free plan, think mode) made with AskRigor that morning, after the readings above went live, said
+some studies' readings and not others: a selenium-for-HIV answer's "Tanzania cohort" link, a study a claim rested on,
+gave none, and neither said how many studies the research found against how many it read; a tirzepatide answer never
+said how its main trial was read, missed the trial's most decision-relevant result, which is in its full text and not
+its abstract, and never said who paid for it. HRP's `StudyReadDepthDisclosure` already asks for both, beside the claim
+a study supports. Everything below is exact and computed from the verified receipts, the same in any language:
+identifiers and links are forms, not meanings.
+
+- The studies the draft links that aren't key sources (`linked_reading`). A link names a paper by its form (a doi.org
+  link's DOI, read as acquisition reads it; a PubMed page's PMID, at pubmed.ncbi.nlm.nih.gov, ncbi.nlm.nih.gov/pubmed
+  or Europe PMC's MED pages; a PMCID that is a whole segment of its path), as a page a receipt ties to a paper (a DOI's
+  registered landing page, a copy AskRigor fetched), or by a DOI a receipt names, whole in its path or query; any other
+  link whose path or query holds a DOI names a paper no receipt shows was looked up. A link to a key source is that
+  source's, checked under rules 1 and 2 as before; forum threads, videos and registrations are not papers. Each paper is
+  listed once, up to 30, in the draft's order, named by its link's words and its identifier (or its link), with the
+  deepest reading its verified receipts show, in the words an answer gives it ("abstract only" for a PubMed record,
+  "found in a search, not read" for a search's listing, and so on), or "not looked up by AskRigor" when no receipt
+  ties it. The result names them on a line of their own after the key sources' ("The answer also links studies that
+  aren't key sources: say beside each how it was read too, in the answer's language, with no source_reading entry:
+  …"), a note lists those not looked up and asks to say so beside each or to look each up, and under a passing check
+  the panel lists them apart from the key studies: "Other studies the answer links, as AskRigor's receipts show them:
+  "Tanzania cohort" (…), not looked up by AskRigor; …". None of it is a step.
+- One research-wide sentence (`reading_summary`), with exact counts of distinct studies: methods audited (a study or
+  review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
+  and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose
+  abstract alone was readable); a count of copies the AI found is named within its own; and, only when every search
+  receipt names its records exactly, the studies the searches listed that AskRigor didn't read. For example: "AskRigor
+  read 3 studies in full and checked their methods, and 3 more only as abstracts; its searches listed 41 others it
+  didn't read." A study is one by its identifiers as the receipts tie them, counted once at its deepest reading. A
+  PubMed search's identifiers are its records' PMIDs, one each; a Europe PMC search's receipt now groups each record's
+  identifiers (`rg`: their places in its `ids`, or, for a record with no DOI, PMID or PMCID, its source and its own id's
+  place), which also ties them for the links above, as a PubMed record does. An older Europe PMC receipt that listed
+  records leaves the listed count out rather than estimate it, and ClinicalTrials.gov's registrations are never counted,
+  since nothing ties a registration to its paper exactly. The result gives the sentence for the answer as written,
+  translated when the answer is not in English, under every status with a research receipt; the panel shows it
+  unfolded, as the line right after the status line, under the same statuses.
+- Beside the readings, the result says that `StudyReadDepthDisclosure` requires each of them, and who paid for the study
+  (or that the paper, or the part read, doesn't say), beside the claim the study supports, so they are not among the
+  limits `LimitsNote` lets the answer choose to leave out. The limits themselves are unchanged.
+
+No published tool definition changes: both results are runtime-only, and the search receipt's `rg` is a claim of a token
+the AI carries. Limits: a paper listed under one identifier and read under another that no receipt ties counts in both
+(a PubMed search lists PMIDs alone, so a study read by its DOI with no PubMed record fetched); a receipt the AI leaves
+out counts for nothing; and a text `continue_open_full_text` left unfinished has no receipt, since the reader signs one
+only for a text read to its end, so it is neither counted nor sized: "part of the text read" can't yet say how much,
+though the reader knows how many of a document's parts it delivered.
 
 Three lessons from the free Claude test of 5 November 2026 (Claude Sonnet with AskRigor, on Piliostigma reticulatum
 leaves; not yet released) add notes, two later inputs, a marker and no blocking rule. The answer passed the check saying

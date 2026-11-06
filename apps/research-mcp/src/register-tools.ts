@@ -15,7 +15,11 @@ import {
   abstractDocument, lookUpSourceLines, quoteCache, SOURCE_LINE_CONFIRMED, sourceLineConfirmed, sourceLineDocument,
   type SourceLineTexts
 } from "./source-lines.js";
-import { READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance } from "./source-reading.js";
+import {
+  linkedReadingGuidance, READING_RESULT_WHEN, readingResultNote, receiptReadingNote, sourceReadingGuidance,
+  STUDY_READING_DISCLOSURE
+} from "./source-reading.js";
+import { europePmcRecordGroups } from "./reading-summary.js";
 import { SMALL_LITERATURE_SEARCH_NOTE, SPARSE_SEARCH_NOTE } from "./absence-searches.js";
 import {
   lateStudyMapLookup, lookUpStudyMap, registryRecordOf, STUDY_MAP_GUIDANCE, type StudyMapTexts
@@ -2736,6 +2740,14 @@ function defineResearchOperations(
           result.must_report.map((lane) => `\nThe answer must report: ${lane}`).join("") +
           // The owner, 5 Nov 2026: each key source's reading, up front, so the answer says it before a check blocks.
           (result.source_reading === undefined ? "" : `\n${sourceReadingGuidance(result.source_reading)}`) +
+          // The owner, 6 Nov 2026: the studies the answer links that aren't key sources, then why no reading is a limit the
+          // answer may leave out, then how much AskRigor read in all.
+          (result.linked_reading === undefined ? "" :
+            `\n${linkedReadingGuidance(result.linked_reading, result.source_reading !== undefined)}`) +
+          (result.source_reading === undefined && result.linked_reading === undefined ? "" :
+            `\n${STUDY_READING_DISCLOSURE}`) +
+          (result.reading_summary === undefined ? "" : "\nGive this sentence in the answer, as written (translated when " +
+            `the answer is not in English), so the reader sees how much AskRigor read: ${result.reading_summary.sentence}`) +
           (result.source_lines?.some(sourceLineConfirmed) !== true ? "" :
             `\nBoth quotes were found for ${result.source_lines.filter(sourceLineConfirmed).map(({ label }) => label).join(", ")}: ` +
               `beside each of these lines, and no other, the answer may show "${SOURCE_LINE_CONFIRMED}", translated ` +
@@ -3054,14 +3066,18 @@ function literatureSearchReceipt(
 ): string | undefined {
   if (result.error !== undefined) return undefined;
   const sections = source === "europepmc" ? europePmcSections(query) : [];
+  const records = Array.isArray(result.data) ? result.data as Record<string, unknown>[] : [];
+  // Bind only identifiers actually returned by this search, never caller-supplied candidates.
+  const ids = [...new Set(records.flatMap((record) => ["doi", "pmid", "pmcid", "nct_id", "id"].flatMap((key) =>
+    typeof record[key] === "string" ? [record[key] as string] : [])))];
   return researchReceipt("literature_search", {
     src: source,
     q: discoveryQueryDigest([query]),
     ret: result.pagination.returned,
-    // Bind only identifiers actually returned by this search, never caller-supplied candidates.
-    ids: Array.isArray(result.data) ? [...new Set(result.data.flatMap((record: Record<string, unknown>) =>
-      ["doi", "pmid", "pmcid", "nct_id", "id"].flatMap((key) =>
-        typeof record[key] === "string" ? [record[key] as string] : [])))] : [],
+    ids,
+    // The owner, 6 Nov 2026: each Europe PMC record's identifiers, by their places in ids, so the final check counts the
+    // studies a search listed exactly (reading-summary.ts). A PubMed record carries its PMID alone.
+    ...(source === "europepmc" && records.length > 0 ? { rg: europePmcRecordGroups(records, ids) } : {}),
     ...(sections.length === 0 ? {} : { ft: sections }),
     ...(total === undefined ? {} : { n: total }),
     ...(dateRange === undefined ? {} : { dr: `${dateRange.start}/${dateRange.end}` })

@@ -309,6 +309,46 @@ export function receiptReadingNote(receipt: string | undefined, secret: string |
 }
 
 /**
+ * A study the draft links that isn't a key source (the owner, 6 November 2026: a ChatGPT answer's "Tanzania cohort"
+ * link, a study a claim rests on, gave no reading at all). Its reading is the deepest its verified receipts show, in the
+ * words an answer gives it, or, when no receipt ties it, "not looked up by AskRigor". It needs no source_reading entry,
+ * and everything about it is a note.
+ */
+export const LINKED_READINGS = [...ANSWER_READINGS, "not_looked_up"] as const;
+export type LinkedReading = typeof LINKED_READINGS[number];
+export const LINKED_READING_LABELS: Readonly<Record<LinkedReading, string>> = Object.freeze({
+  ...ANSWER_READING_LABELS, not_looked_up: "not looked up by AskRigor"
+});
+/** The most linked studies a result names. */
+export const LINKED_READINGS_SHOWN = 30;
+export const linkedReadingCheckSchema = z.object({
+  source: z.string(),
+  name: z.string(),
+  reading: z.enum(LINKED_READINGS)
+}).strict();
+export type LinkedReadingCheck = z.output<typeof linkedReadingCheckSchema>;
+
+/**
+ * The result's line naming each linked study's reading up front, beside the key sources' line: the answer says it
+ * beside each, and no source_reading entry is asked for.
+ */
+export function linkedReadingGuidance(readings: readonly LinkedReadingCheck[], afterKeySources: boolean): string {
+  return (afterKeySources ? "The answer also links studies that aren't key sources: say beside each how it was read " +
+    "too, in the answer's language, with no source_reading entry: "
+    : "Say beside each study the answer links how it was read, in the answer's language; studies that aren't key " +
+      "sources need no source_reading entry: ") +
+    readings.map(({ name, reading }) => `${name}, "${LINKED_READING_LABELS[reading]}"`).join("; ") + ".";
+}
+
+/**
+ * Beside the readings (the owner, 6 November 2026): HRP StudyReadDepthDisclosure asks for each reading and who paid,
+ * beside the claim the study supports, so neither is a limit the answer may choose to leave out under LimitsNote.
+ */
+export const STUDY_READING_DISCLOSURE = "HRP StudyReadDepthDisclosure requires each of these readings, and who paid for " +
+  "the study (or that the paper, or the part read, doesn't say), beside the claim the study supports, so they are not " +
+  "among the limits the answer may choose to leave out.";
+
+/**
  * The result's line naming each key source's reading up front, so the answer can say it before a check blocks, with
  * the reading's name for source_reading, and, for a reading AskRigor's receipts don't show, what they do show.
  */
