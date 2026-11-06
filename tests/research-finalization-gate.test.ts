@@ -41,9 +41,10 @@ import { COMPLETE_CHECKS_TIP } from "../apps/research-mcp/src/final-check-messag
 const LEAD_RECEIPT_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact DOI and the exact title, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
 const LEAD_RECEIPT_ID_SEARCH_TEXT = "A lead receipt needs the public-copy search recorded: search for the exact PMCID (or the PMID, when it has none) and the exact title, as the acquisition result lists them, then pass those searches as public_copy_search and any public copy found as candidate_urls.";
 // The owner, 6 Nov 2026: a study the answer links that isn't a key source, with no receipt tying it, is a note.
-const NOT_LOOKED_UP_NOTE = (names: string) => `The answer links ${names}, which no receipt passed here ties to a study ` +
-  "AskRigor looked up: say beside each that AskRigor did not look it up, or look it up (resolve_doi for a DOI, " +
-  "fetch_pubmed_record for a PMID) and pass its research_receipt.";
+// The review of #422, fourth round: looking the study up comes first.
+const NOT_LOOKED_UP_NOTE = (names: string) => `The answer links ${names}, for which AskRigor has no receipt. Look each ` +
+  "up (fetch_pubmed_record for a PMID, which ties it to its DOI; resolve_doi for a DOI) and pass its research_receipt. " +
+  "Only if you don't, say beside it that AskRigor did not look it up.";
 // #394's run: the check still said the full-text tool requires a DOI (n389-forum-depth), and a limit blamed a missing DOI
 // for a paper never tried (o355-scoped-list); since #394 acquire_open_full_text fetches by PMID or PMCID too.
 const NO_DOI_WORDING = /requires a DOI|without a DOI|lists no DOI|without DOIs/u;

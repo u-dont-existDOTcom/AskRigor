@@ -63,9 +63,10 @@ const input = (overrides: Record<string, unknown> = {}): Record<string, unknown>
 });
 const check = (overrides: Record<string, unknown> = {}) =>
   assertNextStepsContract(finalizeResearch(input(overrides), { secret: SECRET }));
-const NOT_LOOKED_UP_NOTE = (names: string) => `The answer links ${names}, which no receipt passed here ties to a study ` +
-  "AskRigor looked up: say beside each that AskRigor did not look it up, or look it up (resolve_doi for a DOI, " +
-  "fetch_pubmed_record for a PMID) and pass its research_receipt.";
+// The review of #422, fourth round: looking the study up comes first.
+const NOT_LOOKED_UP_NOTE = (names: string) => `The answer links ${names}, for which AskRigor has no receipt. Look each ` +
+  "up (fetch_pubmed_record for a PMID, which ties it to its DOI; resolve_doi for a DOI) and pass its research_receipt. " +
+  "Only if you don't, say beside it that AskRigor did not look it up.";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
@@ -197,8 +198,7 @@ describe("the studies an answer links that aren't key sources", () => {
     expect(advisoryNotes(result)).toContain(NOT_LOOKED_UP_NOTE("\"Tanzania, cohort\" (10.2000/unlooked)"));
     expect(advisoryNotes(result)).toContain("The answer links \"a publisher's PDF\" " +
       "(https://journal.example.org/doi/10.2000/elsewhere.pdf): each holds a DOI, but AskRigor can't match it to a " +
-      "study exactly, so link each study by its doi.org or PubMed address, as a Markdown link or followed by a space, " +
-      "for its reading to show.");
+      "study exactly, so link each study by its doi.org or PubMed address in a Markdown link, for its reading to show.");
   });
 
   it("names a key source's link no more, and names none without a draft or a link", () => {

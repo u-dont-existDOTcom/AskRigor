@@ -362,24 +362,31 @@ identifiers and links are forms, not meanings.
   or `/pmc/articles/pmid/<PMID>`, `pmc.ncbi.nlm.nih.gov/articles/<PMCID>`, `europepmc.org/article/` or `/abstract/`
   with `MED/<PMID>` or `PMC/<PMCID>`, and `europepmc.org/articles/<PMCID>`. A page receipts of two papers sign names
   neither. The same receipts tie a paper's identifiers as for rule 1, and a Europe PMC search's record groups tie each
-  record's too. A Markdown link is its destination exactly as written; a bare address is read up to white space and
-  trimmed of the punctuation a sentence ends it with (Latin, full-width and ideographic stops, closing quotes and
-  brackets), and names a paper only when white space, the line's end or an autolink's ">" follows it and no character
-  outside ASCII is left in it: run on into words with no space, as Chinese, Japanese and Korean text does, the address a
-  reader's link opens is unclear. A link to a key source's own paper is that source's, checked under rules 1 and 2 as
+  record's too. A Markdown link is its destination exactly as written, and an autolink in angle brackets is exact too;
+  a bare address is read up to white space and trimmed of the punctuation a sentence ends it with (Latin, full-width
+  and ideographic stops, closing quotes and brackets), and names a paper only when white space or the line's end
+  follows it and no character outside ASCII is left in it: run on into words with no space, as Chinese, Japanese and
+  Korean text does, the address a reader's link opens is unclear. Even then a bare doi.org address's end is only as
+  exact as its trimming (a table's "|", an italic "_" or a possessive's "'s" can run on into its DOI: the review of
+  #422, fourth round), so a bare address whose DOI no receipt names gets the note below, never "not looked up"; a
+  PubMed, PubMed Central or Europe PMC address takes no other character into its identifier. A link to a key source's own paper is that source's, checked under rules 1 and 2 as
   before, and so is a link rule 1 gives a key source that names no paper exactly; forum threads, videos and
   registrations are not papers. Each paper is listed once, up to 30, in the draft's order, named by its link's words and
   its identifier, with the deepest reading its verified receipts show, in the words an answer gives it ("abstract only"
   for a PubMed record, "found in a search, not read" for a search's listing, and so on), or "not looked up by AskRigor"
   when no receipt names it. The result names them on a line of their own after the key sources' ("The answer also links
   studies that aren't key sources: say beside each how it was read too, in the answer's language, with no
-  source_reading entry: …"), a note lists those not looked up and asks to say so beside each or to look each up, and
-  under a passing check the panel lists them apart from the key studies: "Other studies the answer links, as AskRigor's
-  receipts show them: "Tanzania cohort" (…), not looked up by AskRigor; …". A link that holds a DOI but names no paper
-  exactly (a publisher's or a preprint server's address, where a version, a view or a longer DOI can follow the DOI,
-  or an unclear bare address) gets no reading, so never a wrong "not looked up": one note lists those links and says
-  each holds a DOI AskRigor can't match to a study exactly, so link each study by its doi.org or PubMed address, as a
-  Markdown link or followed by a space, for its reading to show. Any other link gets nothing. None of it is a step.
+  source_reading entry: …"), and a note lists those not looked up, its first ask to look each up: "The answer links
+  …, for which AskRigor has no receipt. Look each up (fetch_pubmed_record for a PMID, which ties it to its DOI;
+  resolve_doi for a DOI) and pass its research_receipt. Only if you don't, say beside it that AskRigor did not look it
+  up." (The review of #422, fourth round: a PubMed page of a study read by its DOI, with nothing tying the two, is "not
+  looked up" only until its record is fetched.) Under a passing check the panel lists them apart from the key studies:
+  "Other studies the answer links, as AskRigor's receipts show them: "Tanzania cohort" (…), not looked up by AskRigor;
+  …". A link that holds a DOI but names no paper exactly (a publisher's or a preprint server's address, where a
+  version, a view or a longer DOI can follow the DOI, an unclear bare address, or a bare address whose DOI no receipt
+  names) gets no reading, so never a wrong "not looked up": one note lists those links and says each holds a DOI
+  AskRigor can't match to a study exactly, so link each study by its doi.org or PubMed address in a Markdown link, for
+  its reading to show. Any other link gets nothing. None of it is a step.
 - One research-wide sentence (`reading_summary`), with exact counts of distinct studies: methods audited (a study or
   review audit), read in full (a reading to its end), part of the text (a lead whose copy was readable only in part),
   and abstract or record only (a PubMed record, with its abstract or without one, a DOI's record, or a lead whose

@@ -37,9 +37,11 @@ const check = (key: string, receipts: string[], ...paragraphs: string[]) =>
 // Rule 1's own steps about a key source's link; the linked studies' notes are apart.
 const ruleOneSteps = (result: FinalizeResearchOutput) =>
   result.next_steps.filter((step) => step.includes("has no link in the answer") || step.includes(" is linked by "));
-const NOT_LOOKED_UP = "which no receipt passed here ties to a study AskRigor looked up";
+const NOT_LOOKED_UP = "for which AskRigor has no receipt";
+const LOOK_UP_FIRST = "Look each up (fetch_pubmed_record for a PMID, which ties it to its DOI; resolve_doi for a DOI) " +
+  "and pass its research_receipt. Only if you don't, say beside it that AskRigor did not look it up.";
 const NOT_EXACT = "each holds a DOI, but AskRigor can't match it to a study exactly, so link each study by its doi.org " +
-  "or PubMed address, as a Markdown link or followed by a space, for its reading to show.";
+  "or PubMed address in a Markdown link, for its reading to show.";
 
 const MEDRXIV = "10.1101/2020.04.10.20060723";
 const BIORXIV = "10.1101/2020.03.22.002386";
@@ -270,8 +272,7 @@ describe("the studies an answer links: tied to a paper by exact forms alone", ()
       { source: "27182819", name: "\"B\" (27182819)", reading: "not_looked_up" },
     ]);
     expect(advisoryNotes(result).filter((note) => note.includes(NOT_LOOKED_UP))).toEqual([
-      `The answer links "A" (10.2000/unlooked-x); "B" (27182819), ${NOT_LOOKED_UP}: say beside each that AskRigor did ` +
-        "not look it up, or look it up (resolve_doi for a DOI, fetch_pubmed_record for a PMID) and pass its research_receipt.",
+      `The answer links "A" (10.2000/unlooked-x); "B" (27182819), ${NOT_LOOKED_UP}. ${LOOK_UP_FIRST}`,
     ]);
   });
 
@@ -303,6 +304,32 @@ describe("the studies an answer links: tied to a paper by exact forms alone", ()
       const result = other(read, line);
       expect(result.linked_reading, line).toBeUndefined();
       expect(advisoryNotes(result).join(" "), line).toContain(NOT_EXACT);
+    }
+  });
+
+  // The review of #422, fourth round: a bare address's end is only as exact as its trimming, so Markdown's own marks or a
+  // word after an apostrophe can run on into its DOI ("X|", "X_", "X's"). A bare address whose DOI no receipt names is
+  // never "not looked up": it gets the note. A Markdown link's and an autolink's ends are exact.
+  it("never says a bare address's DOI was not looked up: a table's |, an italic _ or a possessive can run on into it", () => {
+    const doi = "10.1000/final-other";
+    const read = [sign("full_text_read", { doi, content: "b".repeat(16) })];
+    for (const line of [`| Study | Link |\n|---|---|\n| Other |https://doi.org/${doi}|`, `Other agreed: _https://doi.org/${doi}_.`,
+      `https://doi.org/${doi}'s results agreed.`, "Another agreed: https://doi.org/10.2000/bare-unlooked and more."]) {
+      const result = other(read, line);
+      expect(result.linked_reading, line).toBeUndefined();
+      expect(advisoryNotes(result).join(" "), line).not.toContain(NOT_LOOKED_UP);
+      expect(advisoryNotes(result).join(" "), line).toContain(NOT_EXACT);
+    }
+    // Where a receipt names the DOI a bare address gives, after its sentence's punctuation, its reading shows.
+    for (const line of [`| Study | Link |\n|---|---|\n| Other | https://doi.org/${doi} |`, `Other agreed: **https://doi.org/${doi}**.`,
+      `Other agreed (https://doi.org/${doi}), and more.`]) {
+      expect(other(read, line).linked_reading, line).toEqual([{ source: doi, name: doi, reading: "full_text_read" }]);
+    }
+    // A Markdown link or an autolink to a DOI no receipt names is "not looked up", the note asking to look it up first.
+    for (const line of ["[Another](https://doi.org/10.2000/bare-unlooked) agreed.", "See <https://doi.org/10.2000/bare-unlooked>."]) {
+      const result = other(read, line);
+      expect(result.linked_reading?.map(({ reading }) => reading), line).toEqual(["not_looked_up"]);
+      expect(advisoryNotes(result).join(" "), line).toContain(LOOK_UP_FIRST);
     }
   });
 

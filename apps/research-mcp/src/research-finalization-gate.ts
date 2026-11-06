@@ -3261,13 +3261,15 @@ export function finalizeResearch(
     const unlooked: string[] = [];
     // Links that hold a DOI but name no paper exactly, by their comparable form.
     const inexact = new Map<string, string>();
-    for (const { label, url, clear } of studyLines.flatMap(labeledLinks)) {
+    const noteInexact = (label: string, url: string) => {
+      if (inexact.size < LINKED_READINGS_SHOWN && !inexact.has(comparableUrl(url))) {
+        inexact.set(comparableUrl(url), linkedStudyName(label, url));
+      }
+    };
+    for (const { label, url, clear, bare } of studyLines.flatMap(labeledLinks)) {
       const paper = clear ? exactLinkPaper(url, pageOf) : undefined;
       if (paper === undefined) {
-        if (inexact.size < LINKED_READINGS_SHOWN && !inexact.has(comparableUrl(url)) && linkHoldsDoi(url) &&
-            !keyLinked(url)) {
-          inexact.set(comparableUrl(url), linkedStudyName(label, url));
-        }
+        if (linkHoldsDoi(url) && !keyLinked(url)) noteInexact(label, url);
         continue;
       }
       if (keyPapers.has(paper) || linkedReadings.length >= LINKED_READINGS_SHOWN) continue;
@@ -3275,22 +3277,32 @@ export function finalizeResearch(
       const linkPages = linkedPapers.pages(linkIds);
       const names = [...linkIds, ...linkPages.keys()];
       if (names.some((name) => listed.has(name))) continue;
-      for (const name of names) listed.add(name);
       const deepest = deepestShown(receiptReadings(paperReceipts({ linkIds, linkPages }), checkedInAtlas(paper)));
+      // A bare doi.org address whose DOI no receipt names may hold the text after it (a table's "|", an italic "_", a
+      // possessive's "'s": the review of #422, fourth round), so it is never "not looked up": it gets the note instead.
+      // A Markdown link's or an autolink's end is exact, and so is a PubMed, PubMed Central or Europe PMC address's,
+      // whose identifier takes no other character.
+      if (deepest === undefined && bare && isDoi(paper)) {
+        if (!keyLinked(url)) noteInexact(label, url);
+        continue;
+      }
+      for (const name of names) listed.add(name);
       const name = linkedStudyName(label, paper);
       linkedReadings.push({ source: paper, name, reading: deepest === undefined ? "not_looked_up"
         : declarableReading(deepest) });
       if (deepest === undefined) unlooked.push(name);
     }
+    // The first thing to do is to look a study up (the review of #422, fourth round): a PubMed page of a study read by
+    // its DOI, with nothing yet tying the two, is "not looked up" only until its record is fetched.
     if (unlooked.length > 0) {
-      addStep("answer_draft", joinRules(rule`The answer links ${unlooked.join("; ")}, which no receipt passed here ties `,
-        "to a study AskRigor looked up: say beside each that AskRigor did not look it up, or look it up (resolve_doi ",
-        "for a DOI, fetch_pubmed_record for a PMID) and pass its research_receipt."));
+      addStep("answer_draft", joinRules(rule`The answer links ${unlooked.join("; ")}, for which AskRigor has no receipt. `,
+        "Look each up (fetch_pubmed_record for a PMID, which ties it to its DOI; resolve_doi for a DOI) and pass its ",
+        "research_receipt. Only if you don't, say beside it that AskRigor did not look it up."));
     }
     if (inexact.size > 0) {
       addStep("answer_draft", joinRules(rule`The answer links ${[...inexact.values()].join("; ")}: each holds a DOI, `,
-        "but AskRigor can't match it to a study exactly, so link each study by its doi.org or PubMed address, as a ",
-        "Markdown link or followed by a space, for its reading to show."));
+        "but AskRigor can't match it to a study exactly, so link each study by its doi.org or PubMed address in a ",
+        "Markdown link, for its reading to show."));
     }
   }
   // A key study's headline figures, as its audit recomputed them (owner
@@ -5810,14 +5822,15 @@ const SENTENCE_END_AFTER_LINK = /[\u00BB\u2019\u201C\u201D\u203A\u2026\u3001\u30
 /**
  * Each link a displayed line shows, in the line's order, with the words a reader sees for it, for the studies an
  * answer links (rule 1 reads links as before, with linksFor). A Markdown link is its destination exactly as written,
- * backslash escapes read, with its text; it is always clear. A bare address is read up to white space and trimmed of
- * the punctuation a sentence ends it with, with no words; it is clear only when white space, the line's end or an
- * autolink's closing ">" follows it and no character outside ASCII is left in it. Otherwise the sentence may run on
- * into it with no space, as Chinese, Japanese and Korean text does, and code can't tell where the address a reader's
- * link opens ends.
+ * backslash escapes read, with its text; it is always clear, and so is an autolink in angle brackets. A bare address
+ * is read up to white space and trimmed of the punctuation a sentence ends it with, with no words; it is clear only
+ * when white space or the line's end follows it and no character outside ASCII is left in it. Otherwise the sentence
+ * may run on into it with no space, as Chinese, Japanese and Korean text does, and code can't tell where the address a
+ * reader's link opens ends. Even when clear, a bare address's end is only as exact as its trimming: Markdown's own
+ * marks (a table's "|", an italic "_") or a word joined by an apostrophe can still run on into it.
  */
-function labeledLinks(line: string): Array<{ label: string; url: string; clear: boolean }> {
-  const found: Array<{ label: string; url: string; clear: boolean }> = [];
+function labeledLinks(line: string): Array<{ label: string; url: string; clear: boolean; bare: boolean }> {
+  const found: Array<{ label: string; url: string; clear: boolean; bare: boolean }> = [];
   const bare = (text: string) => {
     const shown = visibleText(text);
     for (const match of shown.matchAll(/https?:\/\/[^\s<>]+/giu)) {
@@ -5827,8 +5840,9 @@ function labeledLinks(line: string): Array<{ label: string; url: string; clear: 
         url = trimLinkEnd(url.replace(SENTENCE_END_AFTER_LINK, ""));
       }
       const after = shown[match.index + match[0].length];
-      const ended = after === undefined || /\s/u.test(after) || (after === ">" && shown[match.index - 1] === "<");
-      found.push({ label: "", url, clear: ended && /^[\x21-\x7E]+$/u.test(url) });
+      const autolink = after === ">" && shown[match.index - 1] === "<";
+      const ended = after === undefined || /\s/u.test(after) || autolink;
+      found.push({ label: "", url, clear: ended && /^[\x21-\x7E]+$/u.test(url), bare: !autolink });
     }
   };
   const link = new RegExp(`${LINK_OPEN}([^${LINK_OPEN}${LINK_TARGET}]*)${LINK_TARGET}([^${LINK_CLOSE}]*)${LINK_CLOSE}`, "gu");
@@ -5837,7 +5851,7 @@ function labeledLinks(line: string): Array<{ label: string; url: string; clear: 
     bare(line.slice(from, match.index));
     const url = match[2]!.replace(/\\([!-/:-@[-`{-~])/gu, "$1");
     if (/^https?:\/\//iu.test(url)) {
-      found.push({ label: visibleText(match[1]!).replace(/\s+/gu, " ").trim(), url, clear: true });
+      found.push({ label: visibleText(match[1]!).replace(/\s+/gu, " ").trim(), url, clear: true, bare: false });
     }
     from = match.index + match[0].length;
   }
