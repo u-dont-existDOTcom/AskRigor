@@ -203,8 +203,9 @@ describe("a community declared searched or read needs this call's receipt for it
     expect(cite([redirected]).next_steps).toEqual([]);
     // Without the link given in its receipt, the asked link has no receipt (and so no reading either).
     const unsigned = sign("forum_thread_read", { u: forumThreadDigest(landed), n: 1_500, v: "page", e: "1" });
-    expect(cite([unsigned]).next_steps[0]).toMatch(new RegExp(
-      `^Key source ${asked.replace(/[.?]/gu, "\\$&")} has no receipt showing it was found or looked up`));
+    // Compared as a prefix, not a pattern built from the link (CodeQL: a link is no regular expression).
+    const unreceipted = `Key source ${asked} has no receipt showing it was found or looked up`;
+    expect(cite([unsigned]).next_steps[0]?.slice(0, unreceipted.length)).toBe(unreceipted);
   });
 
   it("still holds a thread given as a key source to its read receipt, under the sources check", () => {
@@ -217,7 +218,8 @@ describe("a community declared searched or read needs this call's receipt for it
     }, { secret: SECRET }));
     expect(result.status).toBe("ready");
     expect(asSource.status).toBe("not_ready");
-    expect(asSource.next_steps).toEqual([expect.stringMatching(new RegExp(`^Key source ${THREAD.replace(/[.?]/gu, "\\$&")} ` +
-      "has no receipt showing it was found or looked up"))]);
+    const unreceipted = `Key source ${THREAD} has no receipt showing it was found or looked up`;
+    expect(asSource.next_steps).toHaveLength(1);
+    expect(asSource.next_steps[0]?.slice(0, unreceipted.length)).toBe(unreceipted);
   });
 });
