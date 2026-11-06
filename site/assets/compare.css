@@ -206,6 +206,11 @@
 .steps { padding-left: 1.3rem; }
 .roadmap { padding-left: 1.2rem; }
 .roadmap li { margin: 0.6rem 0; }
+#why details, #whats-new details { border-top: 1px solid var(--line); padding: 0.55rem 0; }
+#why details:last-of-type, #whats-new details:last-of-type { border-bottom: 1px solid var(--line); }
+#why summary, #whats-new summary { cursor: pointer; font-weight: 600; padding: 0.2rem 0; }
+#why summary:focus-visible, #whats-new summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 0.25rem; }
+#why details .roadmap, #whats-new details .roadmap { margin: 0.4rem 0 0.2rem; }
 .steps li { margin: 0.45rem 0; }
 .try { margin-top: 2.5rem; padding: 1.5rem; border: 1px solid var(--gain); border-radius: 0.85rem; background: linear-gradient(var(--gain-soft), var(--gain-soft)), var(--surface); }
 .try h2 { margin-top: 0; }

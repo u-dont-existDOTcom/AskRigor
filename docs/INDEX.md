@@ -21,6 +21,10 @@ hashes, status records, release notes, plans, generated excerpts, and lesson
 summaries are downstream receipts. None can replace, truncate, or amend either
 complete XML protocol.
 
+`design-decisions.md` is the quick reference of design decisions: what was
+chosen, why, what wasn't, and when. Read it before redesigning anything. It
+records decisions and their sources; it adds no authority to the list above.
+
 ## Validation and release
 
 - [Forum reader build](superpowers/plans/2026-11-01-forum-reader.md): public-page and Reddit readers, signed thread/search receipts, privacy boundaries and release preparation; two added tools require one app refresh at release

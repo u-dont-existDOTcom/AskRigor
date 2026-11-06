@@ -165,6 +165,13 @@ separate from live checks. Run the complete applicable gate, inspect results,
 review the final diff, update release/privacy documentation when affected, and
 complete lesson closeout before reporting completion.
 
+Before redesigning anything, read `docs/design-decisions.md`: what was chosen,
+why, what wasn't, and when. When the owner decides something a later change
+could undo, add or edit its entry. Every production release record in
+`docs/audits/` gets its line in the roadmap's "What's new"
+(`site/roadmap/index.html`), or its date in the comment for releases people
+wouldn't notice; `npm run test:run` checks it.
+
 ### Release completion and plugin synchronization
 
 For an authorized product change, source merge is an intermediate state. Keep

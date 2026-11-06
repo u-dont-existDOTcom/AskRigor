@@ -96,6 +96,10 @@ const pageRequirements = [
     canonical: "https://askrigor.com/roadmap",
     fragments: [
       "What we're building.",
+      '<section id="why">',
+      "Why it works this way",
+      '<section id="whats-new">',
+      "What's new",
       "Tell us what you think",
       "doesn't diagnose, treat or prescribe"
     ]
@@ -264,6 +268,49 @@ function validateHtml(path: string, html: string, requirement: (typeof pageRequi
   return { errors, internalLinks };
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+] as const;
+
+const RELEASE_RECORD = /^(\d{4})-(\d{2})-(\d{2})-.+-production-release\.md$/u;
+
+/**
+ * Every production release record has its line in the roadmap's "What's new" (the owner, 6 Nov 2026: release notes
+ * people will notice, kept with the roadmap). A record in docs/audits named YYYY-MM-DD-...-production-release.md needs a
+ * fold in the roadmap's whats-new section whose summary is that day, written "4 November 2026". An exact check of
+ * dates and names only: what the notes say is the author's call.
+ */
+export function validateWhatsNew(roadmapHtml: string, releaseRecords: readonly string[]): string[] {
+  const section = /<section id="whats-new">([\s\S]*?)<\/section>/u.exec(roadmapHtml)?.[1];
+  if (section === undefined) return [pathError("roadmap/index.html", 'is missing its "What\'s new" section (<section id="whats-new">)')];
+  const summaries = new Set([...section.matchAll(/<summary>([^<]+)<\/summary>/gu)].map((match) => match[1].trim()));
+  // A release with nothing people would notice (dependency updates, internal fixes) is named in one comment instead:
+  // <!-- Releases people wouldn't notice: 2026-10-11, ... -->
+  const quiet = new Set(
+    [...section.matchAll(/<!-- Releases people wouldn't notice: ([0-9, -]+) -->/gu)]
+      .flatMap((match) => match[1].split(",").map((date) => date.trim()))
+      .filter((date) => date !== "")
+  );
+  const errors: string[] = [];
+  for (const record of [...releaseRecords].sort()) {
+    const match = RELEASE_RECORD.exec(record);
+    if (!match) continue;
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      errors.push(pathError(`docs/audits/${record}`, "has an impossible date in its name"));
+      continue;
+    }
+    const expected = `${day} ${MONTH_NAMES[month - 1]} ${match[1]}`;
+    if (quiet.has(`${match[1]}-${match[2]}-${match[3]}`)) continue;
+    if (!summaries.has(expected)) {
+      errors.push(pathError("roadmap/index.html", `"What's new" has no fold for the release recorded in docs/audits/${record}: add <summary>${expected}</summary> with what people will notice`));
+    }
+  }
+  return errors;
+}
+
 function validateBrandMark(svg: string): string[] {
   const errors: string[] = [];
   const required = [
@@ -345,6 +392,22 @@ export async function validatePublicSite(root: URL): Promise<SiteValidationResul
     errors.push(...validateCss(await readFile(resolve(rootPath, "assets/site.css"), "utf8")));
   } catch {
     // The required-file error above is the stable diagnostic for a missing stylesheet.
+  }
+
+  // Release notes: checked when the repository's release records sit beside the site (always in the repository and
+  // CI; a site folder copied elsewhere has none to compare).
+  let releaseRecords: string[] | undefined;
+  try {
+    releaseRecords = await readdir(resolve(rootPath, "../docs/audits"));
+  } catch {
+    releaseRecords = undefined;
+  }
+  if (releaseRecords !== undefined) {
+    try {
+      errors.push(...validateWhatsNew(await readFile(resolve(rootPath, "roadmap/index.html"), "utf8"), releaseRecords));
+    } catch {
+      // A missing roadmap is reported with the expected files above.
+    }
   }
 
   return { pages: 8, internalLinks, errors: errors.sort((left, right) => left.localeCompare(right)) };

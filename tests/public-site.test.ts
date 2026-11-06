@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { validatePublicSite, validateRobots } from "../scripts/validate-public-site.mts";
+import { validatePublicSite, validateRobots, validateWhatsNew } from "../scripts/validate-public-site.mts";
 
 const rootFile = (file: string) =>
   pathToFileURL(resolve(fileURLToPath(new URL("../", import.meta.url)), file));
@@ -22,6 +22,25 @@ describe("AskRigor public site", () => {
     expect(result.errors).toEqual([]);
     expect(result.pages).toBe(8);
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
+  });
+
+  it("needs a What's new fold for every production release record (the owner, 6 Nov 2026)", () => {
+    const roadmap = [
+      '<section id="whats-new">',
+      "<details open><summary>4 November 2026</summary><ul><li>A change people notice.</li></ul></details>",
+      "<!-- Releases people wouldn't notice: 2026-10-11 -->",
+      "</section>"
+    ].join("");
+    expect(validateWhatsNew(roadmap, [
+      "2026-11-04-owner-answer-240a-production-release.md",
+      "2026-10-11-maintenance-production-release.md",
+      "2026-11-03-owner-regressions-394-judgment.md"
+    ])).toEqual([]);
+    const missing = validateWhatsNew(roadmap, ["2026-11-06-next-build-production-release.md"]);
+    expect(missing).toHaveLength(1);
+    expect(missing[0]).toContain("docs/audits/2026-11-06-next-build-production-release.md");
+    expect(missing[0]).toContain("<summary>6 November 2026</summary>");
+    expect(validateWhatsNew("<main></main>", [])[0]).toContain("is missing its \"What's new\" section");
   });
 
   it("counts only same-origin anchor navigation links", async () => {
