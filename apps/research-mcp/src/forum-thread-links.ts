@@ -212,8 +212,18 @@ export function forumSiteDigest(url: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (registrableHost(hostname) === undefined) return undefined;
-  return digestOf(hostname.replace(/^(?:(?:www|m|mobile|mbasic|touch|web|amp)\.)+/u, ""));
+  const registrable = registrableHost(hostname);
+  if (registrable === undefined) return undefined;
+  // A www or mobile label comes off only while the rest is the same registrable host: web.de and mobile.de are sites of
+  // their own, not "de" (the review of #421).
+  let site = hostname;
+  for (let label = /^(?:www|m|mobile|mbasic|touch|web|amp)\./u.exec(site); label !== null;
+    label = /^(?:www|m|mobile|mbasic|touch|web|amp)\./u.exec(site)) {
+    const rest = site.slice(label[0].length);
+    if (registrableHost(rest) !== registrable) break;
+    site = rest;
+  }
+  return digestOf(site);
 }
 
 /** A published link's digest, as a forum page's forum_thread_read receipt signs the link it read in its published form

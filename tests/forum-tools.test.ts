@@ -492,6 +492,9 @@ describe("forum tools", () => {
     }
     expect(forumSiteDigest("https://www.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/other"));
     expect(forumSiteDigest("https://alpha.forums.example/t/1")).not.toBe(forumSiteDigest("https://beta.forums.example/t/1"));
+    // A www or mobile label comes off only while the rest is the same registrable host (the review of #421).
+    expect(forumSiteDigest("https://web.de/forum")).not.toBe(forumSiteDigest("https://mobile.de/forum"));
+    expect(forumSiteDigest("https://m.forum.example/t/1")).toBe(forumSiteDigest("https://forum.example/t/1"));
     expect(forumSiteDigest("https://192.0.2.1/t/1")).toBeUndefined();
   });
 });
