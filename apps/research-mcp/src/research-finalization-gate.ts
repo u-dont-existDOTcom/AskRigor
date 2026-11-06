@@ -22,7 +22,7 @@ import {
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
-import { decodedDoi, doiUrl, escapedDoi, normalizeProductName, productNameOccurs } from "@askrigor/sources";
+import { decodedDoi, doiFromInput, doiUrl, escapedDoi, normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
   ADMINISTRATION_ROUTES,
@@ -6856,9 +6856,10 @@ function recordVideoAudit(
 export function normalizeIdentifier(value: string): string {
   const trimmed = value.trim();
   const doi = trimmed.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
-  // "%3C" and "%3E" read as "<" and ">", as acquisition reads them, so a SICI-form DOI given escaped, as the published doi
-  // pattern needs it, is the DOI its receipts sign (the review of #421: such a key source matched none of its receipts).
-  if (/^10\.\d{4,9}\//u.test(doi)) return decodedDoi(doi).toLowerCase();
+  // Read as acquisition reads it (doiFromInput): a doi.org link decoded in full, a bare DOI's "%3C" and "%3E" read as "<"
+  // and ">", so a key source given as either form is the DOI its receipts sign (the review of #421: an escaped DOI, then
+  // a doi.org link with other escapes, matched none of its receipts).
+  if (/^10\.\d{4,9}\//u.test(doi)) return doiFromInput(/^https?:\/\//iu.test(trimmed) ? trimmed : doi);
   const pmcid = /^(?:pmcid:?\s*)?(pmc\d+)$/iu.exec(trimmed);
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
   const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);

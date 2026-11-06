@@ -185,7 +185,11 @@ describe("the final check with such a DOI", () => {
   const linked = `[Trial](${LINK.replaceAll("(", "%28").replaceAll(")", "%29")}) (${AUDITED}) tested it.`;
 
   it("matches a key source given in any form to the receipts signing the DOI", () => {
-    for (const keyId of [CANONICAL, SICI, ESCAPED, `https://doi.org/${ESCAPED}`]) {
+    // A doi.org link with escapes beyond the angle brackets is read as acquisition reads it, in full (the review of #421).
+    const link = "https://doi.org/10.1002/%28SICI%291099-0000%2819990101%291%3A1%3C1%3A%3AAID-SYN1%3E3.0.CO%3B2-X";
+    expect(normalizeIdentifier(link)).toBe(CANONICAL);
+    expect(sourceIdKey(link)).toBe(sourceIdKey(CANONICAL));
+    for (const keyId of [CANONICAL, SICI, ESCAPED, `https://doi.org/${ESCAPED}`, link]) {
       const result = finalizeResearch(input(keyId, linked) as never, { secret: SECRET });
       expect(result.status, keyId).toBe("ready");
       expect(result.next_steps, keyId).toEqual([]);
