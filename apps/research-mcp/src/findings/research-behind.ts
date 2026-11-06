@@ -11,6 +11,7 @@ import {
   type AtlasSourceFigures,
   type AtlasSourceReading,
 } from "@askrigor/evidence-repository";
+import { decodedDoi } from "@askrigor/sources";
 import { z } from "zod";
 
 import { contactDetailKinds } from "../atlas/contact-check.js";
@@ -595,12 +596,13 @@ function isYouTubeLink(value: string): boolean {
 
 /**
  * A source identifier as two forms of it are compared, as the final check compares them: a DOI lower case without its
- * resolver prefix, a PMCID upper case, a PMID's digits; anything else trimmed and lower case.
+ * resolver prefix, with "%3C" and "%3E" read as "<" and ">" as acquisition reads them (the review of #421), a PMCID upper
+ * case, a PMID's digits; anything else trimmed and lower case.
  */
 export function sourceIdKey(value: string): string {
   const trimmed = value.trim();
   const doi = trimmed.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
-  if (/^10\.\d{4,9}\//u.test(doi)) return doi.toLowerCase();
+  if (/^10\.\d{4,9}\//u.test(doi)) return decodedDoi(doi).toLowerCase();
   const pmcid = /^(?:pmcid:?\s*)?(pmc\d+)$/iu.exec(trimmed);
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
   const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);

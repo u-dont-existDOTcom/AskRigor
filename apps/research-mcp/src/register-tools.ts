@@ -58,6 +58,7 @@ import {
   type PubmedRecord,
   checkRetractionStatus,
   resolveDoi,
+  escapedDoi,
   searchClinicalTrials,
   searchEuropePmc,
   searchPubmed,
@@ -4033,10 +4034,9 @@ export function angleBracketDoiNote(data: unknown): string {
       ? candidates.map((candidate: unknown) => (candidate as { doi?: unknown } | null)?.doi) : [])];
   }).filter((doi): doi is string => typeof doi === "string" && /[<>]/u.test(doi)))];
   if (dois.length === 0) return "";
-  const escaped = (doi: string) => doi.replace(/</gu, "%3C").replace(/>/gu, "%3E");
   return ` ${dois.length === 1 ? "A DOI listed here has" : "DOIs listed here have"} "<" or ">", which ` +
     "acquire_open_full_text's published doi pattern refuses: give it there with %3C for \"<\" and %3E for \">\" (" +
-    `${dois.slice(0, 3).map(escaped).join(", ")}), which AskRigor reads as the DOI, or as it is in later_inputs.doi.`;
+    `${dois.slice(0, 3).map(escapedDoi).join(", ")}), which AskRigor reads as the DOI, or as it is in later_inputs.doi.`;
 }
 
 function pubmedToolResult(

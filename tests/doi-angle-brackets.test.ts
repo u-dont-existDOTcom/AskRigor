@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   acquireOpenFullTextActionInputSchema, acquireOpenFullTextRuntimeInputSchema
 } from "../apps/research-mcp/src/actions/open-full-text-route.js";
+import { sourceIdKey } from "../apps/research-mcp/src/findings/research-behind.js";
 import { angleBracketDoiNote } from "../apps/research-mcp/src/register-tools.js";
+import { finalizeResearch, normalizeIdentifier } from "../apps/research-mcp/src/research-finalization-gate.js";
+import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { canonicalDoiSchema } from "../packages/contracts/src/study-external-evidence.js";
 import {
   decodedDoi, doiUrl, escapedDoi, normalizeDoiIdentifier, resolveDoi, resolveUnpaywallOpenAccess,
@@ -126,6 +129,56 @@ describe("DOIs with \"<\" or \">\"", () => {
     expect(note).toContain(CANONICAL.replaceAll("<", "%3C").replaceAll(">", "%3E"));
     expect(note).toContain("later_inputs.doi");
     expect(angleBracketDoiNote({ resolved_doi: CANONICAL, candidates: [{ doi: CANONICAL }] })).toContain("A DOI listed here");
+  });
+});
+
+// The review of #421: acquisition reads "%3C" and "%3E", so its receipts sign the "<" form, and the result note asks for the
+// escaped form; the final check compared key sources only lower-cased, so a key source given escaped matched none of its
+// receipts and held the answer back, and the doi.org link it offered was escaped twice ("%253C").
+describe("the final check with such a DOI", () => {
+  const SECRET = "doi-angle-brackets-final-check-secret-0123456789";
+  const AUDITED = "full text read, methods audited by AskRigor";
+  const REASON = "Synthetic fixture isolates the DOI forms.";
+  const NA = { status: "not_applicable" as const, reason: REASON };
+  const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Parameters<typeof issueResearchReceipt>[1]) =>
+    issueResearchReceipt(kind, claims, { secret: SECRET });
+  const input = (keyId: string, draft: string, receipts = [sign("study_audit", { doi: CANONICAL, content: "a".repeat(16) })],
+    keySource: Record<string, unknown> = { status: "validated", read_depth: "full_text_audited" }) => ({
+    receipts, research_target: "Synthetic SICI-form DOI", research_depth: "deep", treatment_choice: "not_compared",
+    community_evidence: "not_relevant", not_relevant_basis: "emergency_before_triage", not_relevant_reason: REASON,
+    commercial_review_applicability: NA, intervention_identity: NA, lab_preparation: NA,
+    full_text_search: { status: "not_needed", reason: REASON },
+    key_sources: [{ id: keyId, answer_marker: "Trial", ...keySource }],
+    absence_claims: [], scale_results: [], binary_results: [], user_observations: [], proposed_tests: [], key_terms: [],
+    safety_claims: [], safety_question: false, mechanism_claims: [], recommendations: [], answer_draft: draft,
+    later_inputs: { source_reading: [{ source: keyId, reading: "full_text_audited", quote: AUDITED }] }
+  });
+  const linked = `[Trial](${LINK.replaceAll("(", "%28").replaceAll(")", "%29")}) (${AUDITED}) tested it.`;
+
+  it("matches a key source given in any form to the receipts signing the DOI", () => {
+    for (const keyId of [CANONICAL, SICI, ESCAPED, `https://doi.org/${ESCAPED}`]) {
+      const result = finalizeResearch(input(keyId, linked) as never, { secret: SECRET });
+      expect(result.status, keyId).toBe("ready");
+      expect(result.next_steps, keyId).toEqual([]);
+    }
+    expect(normalizeIdentifier(ESCAPED)).toBe(CANONICAL);
+    expect(sourceIdKey(ESCAPED)).toBe(sourceIdKey(SICI));
+    expect(sourceIdKey(`https://doi.org/${ESCAPED}`)).toBe(CANONICAL);
+  });
+
+  it("offers its doi.org link escaped once, and names it escaped where it asks for an acquisition", () => {
+    const unlinked = finalizeResearch(input(ESCAPED, `Trial (${AUDITED}) tested it.`) as never, { secret: SECRET });
+    const step = unlinked.next_steps.find((text) => text.startsWith(`Key study ${ESCAPED} has no link in the answer`));
+    expect(step).toContain(LINK);
+    expect(step).not.toContain("%253");
+    // A lead whose PubMed record lists a PubMed Central copy the attempt didn't try: the call it asks for names the DOI
+    // in the form the published doi pattern takes.
+    const lead = finalizeResearch(input(ESCAPED, linked.replace(AUDITED, "abstract only"), [
+      sign("full_text_lead", { doi: CANONICAL, state: "NO_COPY_FOUND_AFTER_EXPANDED_SEARCH" }),
+      sign("pubmed_record", { pmid: "40123499", doi: CANONICAL, pmcid: "PMC7654321" })
+    ], { status: "lead_only", read_depth: "abstract_only" }) as never, { secret: SECRET });
+    const asked = [...lead.next_steps, ...(lead.notes ?? [])].find((text) => text.includes("PubMed lists an open copy"));
+    expect(asked).toContain(`call acquire_open_full_text with DOI ${escapedDoi(CANONICAL)} and pmcid PMC7654321`);
   });
 });
 

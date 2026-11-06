@@ -22,7 +22,7 @@ import {
 
 import { z } from "zod";
 import { droppedInputNotes, inputPath, salvageFinalizeInput } from "./salvage-finalize-input.js";
-import { doiUrl, normalizeProductName, productNameOccurs } from "@askrigor/sources";
+import { decodedDoi, doiUrl, escapedDoi, normalizeProductName, productNameOccurs } from "@askrigor/sources";
 
 import {
   ADMINISTRATION_ROUTES,
@@ -2876,7 +2876,8 @@ export function finalizeResearch(
     const openCopy = pmcidFor(id);
     if (doi === undefined || openCopy === undefined || attempts.get(doi)?.has(openCopy)) return false;
     addStep("research", 
-      joinRules(joinRules(rule`PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not `, rule`try: call acquire_open_full_text with DOI ${doi} and pmcid ${openCopy}, then audit it, or pass the new `), rule`research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_RULE}`)
+      // A DOI with "<" or ">" is named escaped, the form the published doi pattern takes (the review of #421).
+      joinRules(joinRules(rule`PubMed lists an open copy of ${sourceId} in PubMed Central (${openCopy}) that the full-text attempt did not `, rule`try: call acquire_open_full_text with DOI ${escapedDoi(doi)} and pmcid ${openCopy}, then audit it, or pass the new `), rule`research_receipt if it still finds no full text. ${LEAD_RECEIPT_SEARCH_RULE}`)
     );
     return true;
   };
@@ -5545,7 +5546,7 @@ const videoLink = (video: string, text: string): string => `[${text}](https://ww
 function unreadStudiesCaveats(studies: ReadonlyMap<string, string | undefined>): string[] {
   // A DOI may contain parentheses, which would end a Markdown link, and "<" or ">", which no link carries as they are.
   const link = (id: string) => `[this study](${isDoi(id)
-    ? doiUrl(id).replace(/\(/gu, "%28").replace(/\)/gu, "%29")
+    ? doiUrl(decodedDoi(id)).replace(/\(/gu, "%28").replace(/\)/gu, "%29")
     : isPmid(id) ? `https://pubmed.ncbi.nlm.nih.gov/${id}/` : `https://www.ncbi.nlm.nih.gov/pmc/articles/${id}/`})`;
   // Studies whose lead receipt signed the same reason share one sentence, which
   // says what stopped the reading: a public copy read only in part is not one
@@ -5687,7 +5688,7 @@ class PaperLinks {
 function keyStudyPages(id: string, identifiers: readonly string[], pages: ReadonlyMap<string, string>): string[] {
   const page = (identifier: string): string[] => isPmid(identifier) ? [`https://pubmed.ncbi.nlm.nih.gov/${identifier}/`]
     : isPmcid(identifier) ? [`https://pmc.ncbi.nlm.nih.gov/articles/${identifier}/`]
-    : isDoi(identifier) ? [doiUrl(identifier)]
+    : isDoi(identifier) ? [doiUrl(decodedDoi(identifier))]
     : /^https?:\/\//iu.test(identifier) ? [identifier] : [];
   const candidates = [
     ...page(id),
@@ -6824,7 +6825,9 @@ function recordVideoAudit(
 export function normalizeIdentifier(value: string): string {
   const trimmed = value.trim();
   const doi = trimmed.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)/iu, "");
-  if (/^10\.\d{4,9}\//u.test(doi)) return doi.toLowerCase();
+  // "%3C" and "%3E" read as "<" and ">", as acquisition reads them, so a SICI-form DOI given escaped, as the published doi
+  // pattern needs it, is the DOI its receipts sign (the review of #421: such a key source matched none of its receipts).
+  if (/^10\.\d{4,9}\//u.test(doi)) return decodedDoi(doi).toLowerCase();
   const pmcid = /^(?:pmcid:?\s*)?(pmc\d+)$/iu.exec(trimmed);
   if (pmcid !== null) return pmcid[1]!.toUpperCase();
   const pmid = /^(?:pmid:?\s*)?(\d{1,9})$/iu.exec(trimmed);
