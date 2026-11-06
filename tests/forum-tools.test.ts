@@ -483,6 +483,48 @@ describe("forum tools", () => {
       .not.toHaveProperty("research_receipt");
   });
 
+  // The review of #421: a page answering 401 asks for a login. The published states are fixed, so the result says
+  // blocked, with a sentence saying a login is needed, and the receipt signs login_required, which alone backs a
+  // community's login_required boundary.
+  it("publishes a 401 as blocked, says a login is needed, and signs login_required", async () => {
+    page.mockResolvedValue({ url: "https://forum.example/thread/1", access_state: "login_required" });
+    const result = await (await client()).callTool({ name: "read_forum_thread",
+      arguments: { url: "https://forum.example/thread/1" } });
+    expect(result.isError).not.toBe(true);
+    expect(result.structuredContent).toMatchObject({ data: { access_state: "blocked" } });
+    expect(JSON.stringify(result.content)).toContain("The site answered that this page needs a login (HTTP 401).");
+    expect(verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET }))
+      .toMatchObject({ ok: true, kind: "forum_page_unread", claims: { s: "login_required" } });
+  });
+
+  // The review of #421: a pager without rel tags still links its thread's later pages. A page linking a later page of its
+  // own thread (the same comparable link, a page after the first) has a page after it; links to other threads, or to the
+  // thread's first page, are none.
+  it("reads a page linking a later page of its own thread as one of several", async () => {
+    const caller = await client();
+    const claimsOf = async (url: string, links: string[]) => {
+      page.mockResolvedValue({ url, access_state: "read", page_text: "a".repeat(1_500), truncated: false,
+        ...(links.length === 0 ? {} : { later_page_links: links }) });
+      const result = await caller.callTool({ name: "read_forum_thread", arguments: { url } });
+      expect(result.structuredContent!.data).not.toHaveProperty("later_page_links");
+      const verified = verifyResearchReceipt(result.structuredContent!.research_receipt as string, { secret: SECRET });
+      if (!verified.ok) throw new Error("unverified");
+      return verified.claims;
+    };
+    for (const [url, later] of [
+      ["https://forum.example/showthread.php?tid=77", "https://forum.example/showthread.php?tid=77&page=2"],
+      ["https://forum.example/showthread.php?t=88", "https://forum.example/showthread.php?t=88&page=2"],
+      ["https://forum.example/viewtopic.php?f=4&t=99", "https://forum.example/viewtopic.php?f=4&t=99&start=15"],
+      ["https://forum.example/thema/55", "https://forum.example/thema/55?page=2"]
+    ]) {
+      expect(await claimsOf(url!, [later!]), url).toMatchObject({ pa: "1", e: "0" });
+    }
+    // Another thread's later page is no page of this one.
+    expect(await claimsOf("https://forum.example/showthread.php?tid=77", ["https://forum.example/showthread.php?tid=78&page=2"]))
+      .toMatchObject({ pa: "0", e: "1" });
+    expect(await claimsOf("https://forum.example/thema/55", [])).toMatchObject({ pa: "0", e: "1" });
+  });
+
   // The review of #421: the reader's own refusal of a link, before any request to the site, says nothing of the site, so
   // it signs no receipt; and a site is its host, so forums hosted as subdomains of one service are each their own.
   it("signs nothing for a link the reader refuses itself, and keys a site on its host", async () => {

@@ -111,10 +111,15 @@ describe("public forum page reader", () => {
     expect(data.requests[2]!.at - data.requests[1]!.at).toBeGreaterThanOrEqual(1_000);
   });
 
-  // The review of #421: only exact refusals are blocked; a busy or failing site is unavailable.
-  it.each([401, 403, 451])("reports blocked HTTP %i without text", async (status) => {
+  // The review of #421: only exact refusals are blocked, a 401 asks for a login, and a busy or failing site is unavailable.
+  it.each([403, 451])("reports blocked HTTP %i without text", async (status) => {
     const data = fixture({ status });
     expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "blocked" });
+  });
+
+  it("reports HTTP 401 as needing a login, without text", async () => {
+    const data = fixture({ status: 401 });
+    expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "login_required" });
   });
 
   it.each([406, 429, 500, 503])("reports unavailable HTTP %i without text", async (status) => {
@@ -132,18 +137,26 @@ describe("public forum page reader", () => {
     expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "unavailable" });
   });
 
+  // The review of #421: a bot challenge is known by its markup only, never by its title's words, which a real thread
+  // may have ("Just a moment of dizziness…").
   it.each([
-    page.replace("<body>", '<body><div class="cf-chl-container"></div>'),
-    page.replace("<body>", '<body><script>window._cf_chl_opt = {}</script>'),
-    page.replace("Thread &amp; replies", "Just a moment"),
-    page.replace("Thread &amp; replies", "Just a moment..."),
-    page.replace("Thread &amp; replies", "jUsT a MoMeNt..."),
-    page.replace("Thread &amp; replies", "ATTENTION REQUIRED!"),
-    page.replace("Thread &amp; replies", "Please finish this CAPTCHA")
+    page.replaceAll("<body>", '<body><div class="cf-chl-container"></div>'),
+    page.replaceAll("<body>", '<body><script>window._cf_chl_opt = {}</script>'),
+    page.replaceAll("<body>", '<body><form id="challenge-form" action="/" method="POST"></form>')
   ])("reports the specified challenge markers without text", async (html) => {
     const data = fixture({ page: html });
     expect(await readForumPage(data.url, data.runtime)).toEqual({ url: data.url, access_state: "blocked" });
     expect(data.requests).toHaveLength(2);
+  });
+
+  it.each([
+    page.replaceAll("Thread &amp; replies", "Just a moment of dizziness after a dose change"),
+    page.replaceAll("Thread &amp; replies", "ATTENTION REQUIRED: my results"),
+    page.replaceAll("Thread &amp; replies", "Is this CAPTCHA safe?"),
+    page.replaceAll("<body>", "<body><p>The page said window._cf_chl_opt and cf-chl-widget before it loaded.</p>")
+  ])("reads a page whose words only mention a challenge", async (html) => {
+    const data = fixture({ page: html });
+    expect((await readForumPage(data.url, data.runtime)).access_state).toBe("read");
   });
 
   it("reads an ordinary long page containing challenge-platform", async () => {
@@ -199,6 +212,31 @@ describe("public forum page reader", () => {
       expect(read.page_after === true, markup).toBe(after);
       expect(read.next_page, markup).toBe(next === undefined ? undefined : `${data.url}${next}`);
     }
+  });
+
+  // The review of #421: pagers without rel tags (MyBB's, vBulletin 3's, phpBB 3.0's, a "Weiter ›" link) still link the
+  // later pages of their thread, by the page each link picks. The reader lists such links on its own host; the caller
+  // keeps those of the page's own thread.
+  it("lists the page's links to a page after the first, on its own host", async () => {
+    const pagers: Array<[string, string, string]> = [
+      ["/showthread.php?tid=77", `<a href="showthread.php?tid=77&amp;page=2" class="pagination_page">2</a>`,
+        "/showthread.php?tid=77&page=2"],
+      ["/showthread.php?t=88", `<a class="smallfont" href="showthread.php?t=88&amp;page=2">&gt;</a>`,
+        "/showthread.php?t=88&page=2"],
+      ["/viewtopic.php?f=4&t=99", `<a href="./viewtopic.php?f=4&amp;t=99&amp;start=15">2</a>`,
+        "/viewtopic.php?f=4&t=99&start=15"],
+      ["/thema/55", `<nav><a href="/thema/55?page=2">Weiter ›</a></nav>`, "/thema/55?page=2"]
+    ];
+    for (const [path, pager, later] of pagers) {
+      const data = fixture({ page: page.replaceAll("</body>", `${pager}</body>`) });
+      const origin = new URL(data.url).origin;
+      const read = await readForumPage(`${origin}${path}`, data.runtime);
+      expect(read.later_page_links, path).toEqual([`${origin}${later}`]);
+    }
+    // A first page's own link, another host's, and a link inside a script or comment are none.
+    const none = fixture({ page: page.replaceAll("</body>", `<a href="?page=1">1</a><a href="https://elsewhere.example/t?page=2">x</a>` +
+      `<script>var a = '<a href="?page=3">3</a>';</script><!-- <a href="?page=4">4</a> --></body>`) });
+    expect((await readForumPage(none.url, none.runtime)).later_page_links).toBeUndefined();
   });
 
   it("does not extract a next-page link from scripts or comments", async () => {

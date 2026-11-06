@@ -26,12 +26,14 @@ export interface ForumPage {
   url: string;
   /**
    * What came of the read, by exact signals only (the review of #421). robots_disallowed: the site's robots.txt, fetched
-   * and parsed, disallows the page. blocked: the page answered 401, 403 or 451, or a bot challenge. not_found: 404 or 410.
+   * and parsed, disallows the page. login_required: the page answered 401. blocked: it answered 403 or 451, or served a
+   * bot challenge, known by its markup (Cloudflare's), never by its title's words. not_found: 404 or 410.
    * unavailable: anything else that stopped it, a robots.txt that couldn't be reached and a refusal on a redirect from
    * the site among them. invalid: the reader refused the link itself before any request (not https, a port or
    * credentials, not a URL, or an address outside the public internet), so the site said nothing.
    */
-  access_state: "read" | "robots_disallowed" | "blocked" | "needs_a_browser" | "not_found" | "unavailable" | "invalid";
+  access_state: "read" | "robots_disallowed" | "blocked" | "login_required" | "needs_a_browser" | "not_found" |
+    "unavailable" | "invalid";
   title?: string;
   page_text?: string;
   truncated?: boolean;
@@ -43,6 +45,38 @@ export interface ForumPage {
    */
   page_before?: boolean;
   page_after?: boolean;
+  /**
+   * The page's links, on its own host, to a page after the first by the page its link picks (start>0, page>1,
+   * /page-N>1), at most 50: a pager without rel tags (MyBB's, vBulletin 3's, phpBB 3.0's, a "Weiter ›" link). The caller
+   * keeps those of the page's own thread (the review of #421).
+   */
+  later_page_links?: string[];
+}
+
+// The parameters, and the path's end, that pick a page of a thread: phpBB's start, vBulletin's and Discourse's page, a
+// page count or offset elsewhere, XenForo's /page-2.
+const PAGE_PARAMETER = /^(?:start|page|pg|offset)$/iu;
+
+/**
+ * Whether a link picks a page of its thread after the first, by the parameter or the path's end that picks a page
+ * (phpBB's start=30, vBulletin's or Discourse's page=2, XenForo's /page-2): exact and structural. A page picked some
+ * other way (a site's own ?p=2) is known only by the page's own rel tags (the review of #421).
+ */
+export function pagePickedAfterFirst(url: string): boolean {
+  let link: URL;
+  try {
+    link = new URL(url.trim());
+  } catch {
+    return false;
+  }
+  const after = (key: string, value: string): boolean => {
+    if (!/^[0-9]{1,9}$/u.test(value)) return false;
+    const number = Number(value);
+    return /^(?:start|offset)$/iu.test(key) ? number > 0 : number > 1;
+  };
+  if ([...link.searchParams].some(([key, value]) => PAGE_PARAMETER.test(key) && after(key, value))) return true;
+  const suffix = /\/page[-/]?([0-9]{1,9})\/?$/iu.exec(link.pathname)?.[1];
+  return suffix !== undefined && Number(suffix) > 1;
 }
 
 export async function readForumPage(value: string, runtime: ForumPageRuntime = {}): Promise<ForumPage> {
@@ -78,25 +112,23 @@ export async function readForumPage(value: string, runtime: ForumPageRuntime = {
     const extracted = contentType === "text/plain" ? { text: html.trim() } : extractHtmlText(html);
     const titleMarkup = html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/iu)?.[1];
     const title = titleMarkup === undefined ? extracted.title : extractHtmlText(`<h1>${titleMarkup}</h1>`).title;
-    const challengeTitle = title?.toLowerCase();
-    if (html.includes("_cf_chl_opt") || html.includes("cf-chl-") ||
-        challengeTitle?.startsWith("just a moment") || challengeTitle?.includes("captcha") ||
-        challengeTitle?.startsWith("attention required")) {
-      return { url: fetched.finalUrl, access_state: "blocked" };
-    }
+    // A bot challenge, by its markup only: never by a title's words, which a real thread may have ("Just a moment of
+    // dizziness…", the review of #421).
+    if (challengeMarkup(html)) return { url: fetched.finalUrl, access_state: "blocked" };
     if (extracted.text.length < 1_500) return { url: fetched.finalUrl, access_state: "needs_a_browser" };
     const next = contentType === "text/plain" ? undefined : linkedPage(html, new URL(fetched.finalUrl));
     const marked = contentType === "text/plain" ? { before: false, after: false } : pagesMarked(html);
+    const later = contentType === "text/plain" ? [] : laterPageLinks(html, new URL(fetched.finalUrl));
     return { url: fetched.finalUrl, access_state: "read", ...(title === undefined ? {} : { title }),
       page_text: extracted.text.slice(0, MAXIMUM_CHARACTERS), truncated: extracted.text.length > MAXIMUM_CHARACTERS,
       ...(next === undefined ? {} : { next_page: next }), ...(marked.before ? { page_before: true } : {}),
-      ...(marked.after ? { page_after: true } : {}) };
+      ...(marked.after ? { page_after: true } : {}), ...(later.length === 0 ? {} : { later_page_links: later }) };
   } catch (error) {
     if (robotsDenied) return { url: url.toString(), access_state: "robots_disallowed" };
-    // Only exact refusals are blocked: 401 and 403 refuse the reader, 451 refuses the page for legal reasons. A busy or
+    // Only exact refusals: 401 asks for a login; 403 refuses the reader, and 451 the page for legal reasons. A busy or
     // failing site (429, 503 and the rest) is unavailable (the review of #421).
     const state = error instanceof UpstreamHttpError
-      ? [401, 403, 451].includes(error.status) ? "blocked"
+      ? error.status === 401 ? "login_required" : [403, 451].includes(error.status) ? "blocked"
         : [404, 410].includes(error.status) ? "not_found" : "unavailable"
       : !requested && refusedBeforeRequest(error) ? "invalid" : "unavailable";
     return { url: url.toString(), access_state: state };
@@ -242,6 +274,36 @@ function linkedPage(html: string, base: URL): string | undefined {
     } catch { /* An invalid linked page does not prevent reading this page. */ }
   }
   return undefined;
+}
+
+/**
+ * Whether a page is a bot challenge, by its markup: Cloudflare's challenge script (window._cf_chl_opt inside a script
+ * element), an element whose class or id is one of its cf-chl- names, or its challenge form. Text that only mentions them
+ * is no challenge, nor is any title.
+ */
+function challengeMarkup(html: string): boolean {
+  return /<script\b[^>]*>(?:(?!<\/script)[\s\S])*_cf_chl_opt/iu.test(html) ||
+    /<[a-z][\w-]*\s[^>]*\b(?:class|id)\s*=\s*["']?[^"'>]*\bcf-chl-/iu.test(html) ||
+    /<form\b[^>]*\bid\s*=\s*["']?challenge-form\b/iu.test(html);
+}
+
+/** The page's links on its own host, over https, to a page after the first by the page each picks; at most 50. */
+function laterPageLinks(html: string, base: URL): string[] {
+  const links = new Set<string>();
+  for (const tag of markupWithoutUnreadParts(html).matchAll(/<a\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu)) {
+    const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/iu.exec(tag[0]);
+    const value = href?.[1] ?? href?.[2] ?? href?.[3];
+    if (value === undefined) continue;
+    try {
+      const link = new URL(extractHtmlText(`<h1>${value}</h1>`).title!, base);
+      link.hash = "";
+      if (link.protocol === "https:" && link.host === base.host && pagePickedAfterFirst(link.toString())) {
+        links.add(link.toString());
+      }
+    } catch { /* An invalid link names no page. */ }
+    if (links.size >= 50) break;
+  }
+  return [...links];
 }
 
 /**

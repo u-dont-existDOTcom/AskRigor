@@ -338,10 +338,12 @@ describe("communities named by the user and the visible check line", () => {
       "it out of community_searches and name it in open_leads as a community not reached.";
     const stopped = (state: string, page = `${site}forum/stories`) => sign("forum_page_unread", { u: forumThreadDigest(page),
       s: state, sd: forumSiteDigest(page)! });
-    // Each boundary with what backs it, and a stop it doesn't fit (the review of #421: any receipt backed any boundary).
+    // Each boundary with what backs it, and a stop it doesn't fit (the review of #421: any receipt backed any boundary;
+    // then, a 403 or a challenge backed login_required, and the short-page guess backed it too).
     const cases = [
-      ["blocked", "A community that blocked access:", ["blocked", "robots_disallowed"], "not_found"],
-      ["login_required", "A community that needs a login to read:", ["blocked", "needs_a_browser"], "unavailable"],
+      ["blocked", "A community that blocked access:", ["blocked", "robots_disallowed"], "login_required"],
+      ["login_required", "A community that needs a login to read:", ["login_required"], "blocked"],
+      ["login_required", "A community that needs a login to read:", ["login_required"], "needs_a_browser"],
       ["retrieval_failed", "A community whose pages could not be retrieved:", ["unavailable", "not_found", "needs_a_browser"],
         "robots_disallowed"]
     ] as const;
@@ -365,8 +367,7 @@ describe("communities named by the user and the visible check line", () => {
         expect(advisoryNotes(mismatched), boundary).toContain("community_searches for Synthetic Snakebite Support declares " +
           `access_boundary ${boundary}, but AskRigor's reader was stopped at its site only as ${unfitting}, which that ` +
           "boundary doesn't fit: give the boundary that fits (blocked for blocked or robots_disallowed; login_required for " +
-          "blocked or needs_a_browser; retrieval_failed for unavailable, not_found or needs_a_browser), or try another of " +
-          "its pages.");
+          "login_required; retrieval_failed for unavailable, not_found or needs_a_browser), or try another of its pages.");
       }
     }
     const refused = stopped("blocked");

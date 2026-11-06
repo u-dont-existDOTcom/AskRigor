@@ -5858,12 +5858,12 @@ const READER_PLATFORMS: ReadonlySet<string> = new Set(["reddit", "forum", "patie
 // reader answers for its own host, not the site's. And the declared boundaries that say a read was tried and stopped.
 const SITE_READER_PLATFORMS: ReadonlySet<string> = new Set(["forum", "patient_organization"]);
 const ATTEMPTED_BOUNDARIES: ReadonlySet<string> = new Set(["blocked", "login_required", "retrieval_failed"]);
-// The reader's stops that back each such boundary (the review of #421): a site that refused or disallowed the reader
-// blocked it; one that refused it or showed only a page needing a browser needs a login; one that failed to serve,
-// lacked the page or needed a browser could not be retrieved.
+// The reader's stops that back each such boundary, by exact signals (the review of #421): a site that refused the reader
+// (403, 451, a bot challenge) or whose robots.txt disallows the page blocked it; one that answered 401 asks for a login;
+// one that failed to serve, lacked the page or showed too little text to read could not be retrieved.
 const FITTING_READER_STOPS: Readonly<Record<string, ReadonlySet<string>>> = {
   blocked: new Set(["blocked", "robots_disallowed"]),
-  login_required: new Set(["blocked", "needs_a_browser"]),
+  login_required: new Set(["login_required"]),
   retrieval_failed: new Set(["unavailable", "not_found", "needs_a_browser"])
 };
 /** What the page reader's receipts show stopped it at an entry's site, and whether that backs the entry's boundary. */
@@ -6497,8 +6497,8 @@ function communityCoverage(
           "community_searches and name it in open_leads as a community not reached.")
         : joinRules(rule`community_searches for ${name} declares access_boundary ${search.access_boundary}, but `,
           rule`AskRigor's reader was stopped at its site only as ${stops.states.join(", ")}, which that boundary doesn't fit: `,
-          "give the boundary that fits (blocked for blocked or robots_disallowed; login_required for blocked or ",
-          "needs_a_browser; retrieval_failed for unavailable, not_found or needs_a_browser), or try another of its pages."));
+          "give the boundary that fits (blocked for blocked or robots_disallowed; login_required for login_required; ",
+          "retrieval_failed for unavailable, not_found or needs_a_browser), or try another of its pages."));
       out.requireLimit(rule`${name} was not read here; say so, without a reason no receipt shows.`,
         withThreads.has(key)
           ? `${completedCaveat("Some pages of a community were not read here:", name)} Reports on those pages are not included.`
