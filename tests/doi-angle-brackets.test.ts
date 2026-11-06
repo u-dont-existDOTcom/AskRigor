@@ -65,7 +65,7 @@ describe("DOIs with \"<\" or \">\"", () => {
       expect(result.data.requested_doi, doi).toBe(doi);
       expect(searchEuropePmc.mock.calls.at(-1)?.[0].query, doi).toBe(`DOI:"${doi}"`);
       // Unpaywall is asked for the same DOI, so the route is tried rather than refused for the input.
-      expect(requests.filter((url) => url.includes("api.unpaywall.org")).map((url) => new URL(url).pathname), doi)
+      expect(requests.filter((url) => new URL(url).hostname === "api.unpaywall.org").map((url) => new URL(url).pathname), doi)
         .toEqual([`/v2/${encodeURIComponent(doi)}`]);
     }
   });
