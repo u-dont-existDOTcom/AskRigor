@@ -451,6 +451,16 @@ describe("looking a source line's quotes up", () => {
       .toMatchObject({ sentence: "not_checked", conclusion: "found", reason: "too_short" });
   });
 
+  // #412's run: 9 of 15 lines in one part gave one passage as both quotes, and the answers showed that both were found.
+  it("looks one passage given as both quotes up once, and doesn't count it as both found", async () => {
+    const same = await lookUp(line({ conclusion: SENTENCE }));
+    expect(same).toMatchObject({ sentence: "found", conclusion: "not_checked", reason: "same_quote" });
+    expect(sourceLineConfirmed({ ...same, label: "[1]", shown: true })).toBe(false);
+    // Spacing, case and closing punctuation don't make it a second quote.
+    expect(await lookUp(line({ conclusion: `  ${SENTENCE.toUpperCase()}.` })))
+      .toMatchObject({ conclusion: "not_checked", reason: "same_quote" });
+  });
+
   it("names a line for a source that isn't a key source", async () => {
     expect(await lookUp(line(), held(), request({ keySource: false })))
       .toEqual({ source: "10.1000/depth", sentence: "not_checked", conclusion: "not_checked", reason: "not_a_key_source" });
@@ -522,6 +532,7 @@ describe("what the AI is told", () => {
   it.each([
     ["not_a_key_source", /isn't in key_sources/u], ["no_text", /fetched no text of \[1\]/u],
     ["text_unavailable", /couldn't read the abstract/u], ["text_expired", /acquire_open_full_text/u], ["too_short", /too short/u],
+    ["same_quote", /are the same text, so only one passage was looked up/u],
   ] as const)("explains %s", (reason, wording) => {
     expect(sourceLineNotes(check({ sentence: "not_checked", conclusion: "not_checked", reason }))[0]).toMatch(wording);
   });
@@ -670,6 +681,12 @@ describe("the panel", () => {
       .toContain("[Smith 2021]: the paper's sentence NOT found, its conclusion found (Discussion), in the paper's full text.");
     expect(panel({ ...labelled, text: "search_copy" }).join(" ")).not.toContain("✓ both");
     expect(panel({ ...labelled, text: "search_copy" }).join(" ")).toContain("a copy the AI supplied, not one AskRigor fetched itself");
+  });
+
+  it("says when one passage was given as both quotes", () => {
+    expect(panel({ ...labelled, conclusion: "not_checked", conclusion_section: undefined, reason: "same_quote" }).join(" "))
+      .toContain("the paper's sentence found (Results), given again as its conclusion, so only one passage was looked up, " +
+        "in the paper's full text.");
   });
 
   it.each([

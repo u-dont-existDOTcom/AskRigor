@@ -163,6 +163,8 @@ export async function fixture(options: {
   wrapSource?: (source: AtlasPageSource) => AtlasPageSource;
   /** No page reader at all, as when the living-evidence reader is not configured: the pages answer 503. */
   noSource?: boolean;
+  /** What the account page lists the signed-in reader's AskRigor features with; none by default. */
+  features?: AtlasParticipationRuntime["features"];
 } = {}): Promise<Fixture> {
   const published = await publications();
   const store = new InMemoryAtlasParticipation(published);
@@ -196,6 +198,7 @@ export async function fixture(options: {
             participantKeys: new Set((options.owner?.subjects ?? [OWNER]).map((subject) => participantKeyFor(settings, subject))),
             ...(options.owner?.commentMapsFile === undefined ? {} : { commentMapsFile: options.owner.commentMapsFile }),
           } }),
+          ...(options.features === undefined ? {} : { features: options.features }),
         },
       }),
     });

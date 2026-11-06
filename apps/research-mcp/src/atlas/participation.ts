@@ -75,10 +75,15 @@ const PARTICIPANT_KEY = /^[a-f0-9]{64}$/u;
 
 /**
  * The participant key of a signed-in subject: the account key the connector derives (researchAccountKeyForSubject),
- * then an HMAC of it under the participant secret. The pages store only this key, never the subject or the account key.
+ * then an HMAC of it under the participant secret. The Atlas's tables store only this key, never the subject or the
+ * account key; the account key rides only in the reader's own sealed session cookie.
  */
 export function participantKeyFor(settings: AtlasParticipationSettings, subject: string): string {
-  const accountKey = researchAccountKeyForSubject(settings.identitySecret, subject);
+  return participantKeyForAccount(settings, researchAccountKeyForSubject(settings.identitySecret, subject));
+}
+
+/** The participant key of an account key: the HMAC participantKeyFor takes of it. */
+export function participantKeyForAccount(settings: AtlasParticipationSettings, accountKey: string): string {
   return createHmac("sha256", Buffer.from(settings.participantSecret))
     .update("askrigor:atlas-participant:v1\u0000", "utf8")
     .update(accountKey, "utf8")
@@ -143,34 +148,40 @@ function open(key: Buffer, name: string, value: string | undefined): unknown {
 
 /**
  * A signed-in reader: their participant key, the session's own random id, which binds the CSRF tokens, and when they
- * signed in, which signing out everywhere or deleting everything compares against.
+ * signed in, which signing out everywhere or deleting everything compares against. Since the account page lists the
+ * reader's AskRigor features (owner, 5 Nov 2026), it also carries their research account key, sealed with the rest, so
+ * that page can read that one account; a session sealed before then has none, and the page asks for a new sign-in.
  */
 export interface AtlasSession {
   participantKey: string;
   sessionId: string;
   signedInAt: number;
   expiresAt: number;
+  accountKey: string | null;
 }
 
 const SESSION_ID = /^[A-Za-z0-9_-]{22}$/u;
+const ACCOUNT_KEY = PARTICIPANT_KEY;
 
-export function newSession(participantKey: string, now: Date): AtlasSession {
+export function newSession(participantKey: string, now: Date, accountKey: string | null = null): AtlasSession {
   return { participantKey, sessionId: randomBytes(16).toString("base64url"), signedInAt: now.getTime(),
-    expiresAt: now.getTime() + ATLAS_SESSION_SECONDS * 1_000 };
+    expiresAt: now.getTime() + ATLAS_SESSION_SECONDS * 1_000, accountKey };
 }
 
 export function sealSession(settings: AtlasParticipationSettings, session: AtlasSession): string {
   return seal(keysOf(settings).session, ATLAS_SESSION_COOKIE,
-    { p: session.participantKey, s: session.sessionId, i: session.signedInAt, e: session.expiresAt });
+    { p: session.participantKey, s: session.sessionId, i: session.signedInAt, e: session.expiresAt,
+      ...(session.accountKey === null ? {} : { a: session.accountKey }) });
 }
 
 /**
- * The session a cookie holds, or undefined when it is missing, altered, foreign or expired. Whether it was ended since
- * (signing out everywhere, deleting everything) is the store's to say (sessionCurrent).
+ * The session a cookie holds, or undefined when it is missing, altered, foreign or expired, or when the account key it
+ * carries is not the one its participant key was derived from. Whether it was ended since (signing out everywhere,
+ * deleting everything) is the store's to say (sessionCurrent).
  */
 export function openSession(settings: AtlasParticipationSettings, value: string | undefined, now: Date): AtlasSession | undefined {
   const payload = open(keysOf(settings).session, ATLAS_SESSION_COOKIE, value) as
-    { p?: unknown; s?: unknown; i?: unknown; e?: unknown } | undefined;
+    { p?: unknown; s?: unknown; i?: unknown; e?: unknown; a?: unknown } | undefined;
   if (payload === undefined || typeof payload.p !== "string" || !PARTICIPANT_KEY.test(payload.p) ||
     typeof payload.s !== "string" || !SESSION_ID.test(payload.s) || typeof payload.e !== "number" ||
     !Number.isFinite(payload.e) || payload.e <= now.getTime() || payload.e > now.getTime() + ATLAS_SESSION_SECONDS * 1_000 ||
@@ -178,7 +189,12 @@ export function openSession(settings: AtlasParticipationSettings, value: string 
     payload.i !== payload.e - ATLAS_SESSION_SECONDS * 1_000) {
     return undefined;
   }
-  return { participantKey: payload.p, sessionId: payload.s, signedInAt: payload.i, expiresAt: payload.e };
+  if (payload.a !== undefined && (typeof payload.a !== "string" || !ACCOUNT_KEY.test(payload.a) ||
+    participantKeyForAccount(settings, payload.a) !== payload.p)) {
+    return undefined;
+  }
+  return { participantKey: payload.p, sessionId: payload.s, signedInAt: payload.i, expiresAt: payload.e,
+    accountKey: typeof payload.a === "string" ? payload.a : null };
 }
 
 /** What signing in carries from the login to the callback: state, nonce, PKCE verifier and where to return. */

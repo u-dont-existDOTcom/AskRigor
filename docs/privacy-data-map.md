@@ -663,7 +663,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Server logs | In routine operation the application emits a startup line only. A disabled-by-default MCP connector diagnostic can be enabled temporarily by a maintainer. It emits only a fixed route class, HTTP method class, coarse header/media-presence classes, selected JSON-RPC phase class, completion class, and response status. It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. The temporary connector diagnostic is restricted to a troubleshooting window and must be disabled by recreating the diagnostic container after the needed receipt is captured; its active container log is not a durable research-session store. Infrastructure retention and backups follow each provider's configured policy and are outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target, any language tag and public scout instructions sent to Gemini; the public watch URL of a video the person gave, with fixed reading instructions or the fixed one-time follow-up, sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. The low-level Gemini route uses `store:false`; the controlled path uses `background:true`/`store:true` and requests deletion immediately after consumption. Only the first interaction can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing, backups, or policy-required retention. Phase D1 itself does not expose or deploy the new internal adapters. |
 | Owner-library InfoAccess request and PDF transfer | Only the requested DOI is sent to the free `get_article_pdf` MCP tool, authenticated with the dedicated server token. The returned download URL, byte size, SHA-256 and at most 64 MiB of PDF bytes are checked in memory within a deadline 40 seconds after the `acquire_open_full_text` call started (at most 120 seconds), so the call returns before the 60 seconds a client waits for a tool. The server sends one request at a time, waits out a busy answer for at most 45 seconds of that deadline, and sends no request with less than 10 seconds of it left. No question, health detail or account identity is sent. | Enabled only with both `ASKRIGOR_INFOACCESS_URL` and `ASKRIGOR_INFOACCESS_TOKEN`. The library is consulted only when no public copy was admitted. Access is decided from the verified sign-in: configured reviewer/owner subject, or an active research account (free contributor, or paid private with a currently active entitlement) and a same-call public basis. Free accounts have had this route since owner answer 157a (2026-10-22); before it, only paid private accounts did. An unregistered or revoked account, a free account that has not accepted the current notice, and a paid account whose entitlement has lapsed have no route. Every account's library reads share InfoAccess's rate limits with the owner's own InfoAccess use; a rate-limited request is a route failure, not a completed lead and never a statement that the paper is inaccessible, and a later attempt can try again. The token is never logged or sent to the PDF download host; the private download URL never appears in client output. No paid InfoAccess tool is called. PDF bytes and transfer metadata are not persisted; extracted admitted text follows the bounded handle retention above. The public privacy notice's sentence on the operator's study library was owner-approved (question 62) and is effective October 10, 2026; owner answer 157a extends it to free accounts under the same condition ("for a free or paying account only while the same study is publicly available elsewhere"), and the notice's effective date is set to that change's release day. |
-| Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini scout reserves at most $1 before provider execution; a dev account's Gemini 4 trial (owner answer 146b) reserves the same scout at that model's prices, about $1.97 through November and $3.52 from 1 December, and its trial arm travels in its continuation token. A background scout charges that maximum at job start as a hold; later polls do not reserve again, and the call that completes it settles its real cost, the same usage-based amount a one-call scout commits, refunding the rest to the hold's UTC month once (nothing once that month has ended). A boundary, failure, over-budget result, stopped, expired or abandoned scout, or a settlement this file cannot record keeps the whole hold charged, as does a scout started before holds existed. The hold (a random hold identity, the amount held and its UTC month) travels with the scout in the MCP continuation token or the research-session checkpoint, never in this file; to refund each hold once, the server process remembers the current month's settled hold identities in memory only (none survive a restart). |
+| Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini scout reserves at most $1 before provider execution; a dev account's Gemini 4 trial (owner answer 146b) reserves the same scout at that model's prices, about $1.97 through November and $3.52 from 1 December, and its trial arm travels in its continuation token. A background scout charges that maximum at job start as a hold; later polls do not reserve again, and the call that completes it settles its real cost, the same usage-based amount a one-call scout commits, refunding the rest to the hold's UTC month once (nothing once that month has ended). A boundary, failure, over-budget result, stopped, expired or abandoned scout, or a settlement this file cannot record keeps the whole hold charged, as does a scout started before holds existed. A scout whose start Google refuses (an HTTP 4xx other than 401, 402, 403 and 429, before any job exists) releases its reservation and is charged nothing. The hold (a random hold identity, the amount held and its UTC month) travels with the scout in the MCP continuation token or the research-session checkpoint, never in this file; to refund each hold once, the server process remembers the current month's settled hold identities in memory only (none survive a restart). |
 | Gemini video daily ledger | Pacific calendar day, fixed 8-hour daily limit, total video seconds charged that day, update time, and schema version | Owner-only mode-0600 file beside the AI budget ledger. It contains no video ID, title, request, report, identity, or credential. Each Gemini video reading charges its video's whole length before it starts, a charge is never refunded, and a reading that would pass the limit is refused. The count restarts each Pacific day, when Google's daily quotas reset. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
 | Phase G/K2 research-session controller checkpoint | Opaque execution ID; sensitive research target and diagnosis-status enum; exact protocol identities; module/operation/controller state; public candidate/video/channel/source metadata; bounded semantic screening/program/audit/transfer/treatment annotations; source-linked de-identified creator/community findings; exact study/review method findings and claim capabilities; the bounded reader report and its digest; compact coverage receipts, source identities, hashes, directives, limitations, unresolved state, and final-audit basis. While Gemini background scouting is unfinished it may also contain one opaque interaction ID, phase, poll count, bounded public executed-query receipts, aggregate usage counters, conservative charged amount, and its budget hold (a random hold identity, the amount held and its UTC month), which the completing call settles against the aggregate budget ledger. It excludes raw chat, transcript/comment/return-search text, commenter identity, article blocks/full text, raw provider bodies, Gemini responses, credentials, keys, cookies, and private sources. | With reviewed checkpoint configuration, one AES-256-GCM authenticated envelope is written per session to a mode-`0700` directory with mode-`0600` files; development without it uses the bounded in-memory adapter. Retention is 72 hours idle and seven days absolute, at most 1,024 sessions, 16 MiB plaintext and 24 MiB stored. It has no configured backup, rejects capacity rather than evicting unexpired sessions, physically removes expired files during access, inventory, and service startup and with an hourly sweep, supports internal deletion, and is single-writer/single-host only. The background checkpoint and its hold are removed when scouting completes or reaches a recognized boundary; a resumed scout stopped before completion keeps them until its interaction is deleted, and each consumed provider interaction receives a deletion request. The report remains below the Action response budget. K2 changes only the authenticated Custom GPT Action projection; MCP remains unchanged. |
@@ -1264,8 +1264,8 @@ goes ahead; a save that has not finished within ten seconds is reported as
 unconfirmed, and the answer goes ahead while it completes.
 
 A free contributor's card that wasn't saved is kept privately for a second look,
-so that a finding isn't lost on a technicality (the owner, 4 November 2026; built,
-not yet released): a card the final check refused, a card that didn't read as one,
+so that a finding isn't lost on a technicality (the owner, 4 November 2026; live
+since that day, owner answer 242a): a card the final check refused, a card that didn't read as one,
 a checked card whose answer hadn't passed, and a card whose save failed. It is one
 issue in the same private repository, labeled `unsaved-card` alone, so no card
 list, publisher or page reads it, and it is never published. It holds what stopped
@@ -2052,9 +2052,11 @@ While it is off, the pages show no participation form or sign-in link and keep n
   PKCE, asking only for `openid`: no email address, name or profile is
   requested. The callback exchanges the code with the application's secret and
   the PKCE verifier, verifies the ID token (signature against the tenant's
-  keys, issuer, audience, nonce and expiry) and keeps nothing of it but the
-  participant key derived from its subject; the token, the subject, the account
-  key and every other claim are dropped at once. Signing out of the Atlas
+  keys, issuer, audience, nonce and expiry) and keeps nothing of it but two
+  keys derived from its subject: the participant key, and the research account
+  key the connector derives, which goes only into the sealed session cookie
+  (below); the token, the subject and every other claim are dropped at once.
+  Signing out of the Atlas
   clears its cookie; the page then offers a plain link that also signs out of
   the tenant's own login in that browser, which the Atlas does not do by itself.
 - **The login cookie** (`__Host-askrigor-atlas-login`, path `/`, 10 minutes,
@@ -2069,15 +2071,21 @@ While it is off, the pages show no participation form or sign-in link and keep n
 - **The session cookie** (`__Host-askrigor-atlas`, path `/`, 30 days,
   HttpOnly, Secure, SameSite=Lax), set only at sign-in: the participant key, a
   random session ID that the forms' tokens are bound to, when the reader signed
-  in, and its expiry, encrypted and authenticated. Signing out clears it; an
+  in, its expiry and, since 5 November 2026, the reader's research account key
+  (the one the connector derives from the same subject), encrypted and
+  authenticated; the reader's browser holds it but cannot read it. A cookie
+  whose account key is not the one its participant key was derived from is read
+  as no session; one sealed before 5 November has no account key, and its
+  account page asks the reader to sign in again to see their features. Signing out clears it; an
   altered or expired one, or a request carrying two of them, is read as no
   session, and the cookie is cleared; changing the session key
   (`ASKRIGOR_ATLAS_SESSION_KEY_BASE64URL`) signs everyone out. A signed-in
   reader's home, changes, topic and finding pages read it for the header and
   are rendered for them with `Cache-Control: private, no-store` and
   `Vary: Cookie`. `/atlas/account` also reads it and is never cached, whether
-  signed in or out; it holds the account controls and links to their own votes
-  and comments. Known action notices also bypass the shared page cache.
+  signed in or out; it holds the account controls, links to their own votes
+  and comments, and lists their AskRigor features (below). Known action notices
+  also bypass the shared page cache.
 - **Ended sessions** (`atlas_session_ends`): "Sign out everywhere", and
   deleting everything one holds, end every session signed in before them, in
   every browser. The server keeps, for each participant who did, a SHA-256 hash
@@ -2092,7 +2100,32 @@ While it is off, the pages show no participation form or sign-in link and keep n
   review names a commenter only by a tag (`U-` and 12 hexadecimal characters of
   a SHA-256 of the key). The same person in the apps and the Atlas is one
   participant, but the Atlas tables never hold their research account's key,
-  and the research tables hold nothing of the Atlas.
+  and the research tables hold nothing of the Atlas; only the reader's own
+  sealed session cookie carries the account key, for the account page's
+  features.
+- **Your AskRigor features** (`/atlas/account`, owner request of 5 November
+  2026): shown only to the signed-in reader, on their own account page, which
+  is never cached. For each AskRigor feature it says whether the feature is on
+  for their account, who pays for it and its limit, in words only. At each view
+  the page reads one research account, by the account key the session carries,
+  through the research access service the connector uses, on the access role
+  the Atlas already uses (`askrigor_research_access`: no new grant, migration or
+  tool): its status, mode and the current notice version, as
+  `manage_research_access` with action inspect reports them, an active
+  account's switches (the plain-answer note, detailed lesson reports and
+  findings-card saving) and whether a paid private entitlement is still active.
+  In memory it compares the key with the dev accounts' references
+  (`ASKRIGOR_DEV_ACCOUNT_KEYS`) and with the owner's account key, derived from
+  the owner subject (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`), only to say whether the
+  reader is a dev account or the owner. It reads which server features are set
+  up (the forum reader, YouTube, Gemini with its no-billing declaration, the
+  meaning judge, the owner library, shared answers, the findings library), as
+  whether each setting is present, never its value, and whether this month's
+  AI budget and today's Gemini video time are used up, from their ledgers,
+  without writing to them. The page writes no account key, account reference or
+  other identifier; nothing is stored or logged, and no other account is read.
+  A reader who is not signed in gets no features; when the account cannot be
+  read, the page says so and shows none.
 - **A participant's row** (`atlas_participants`, migration
   `0022_atlas_votes_comments`): the key, the tag, the random salt of their
   comments' marks, the display name chosen with the first comment, whether and
@@ -2614,6 +2647,11 @@ pending-proposal stores have their own strict contracts and authority boundaries
   YouTube search, at most four per call (100 quota units each), and returns
   only the matching public video IDs, titles and channels plus the titles it
   could not match.
+  When Google refuses the request that would start the scout (an HTTP 4xx
+  other than 401, 402, 403 and 429), no search runs and nothing is charged;
+  the refusal's text gives the HTTP status and quotes Google's own error
+  message, on one line, cut to 300 characters and with the configured key
+  removed, for the calling model only. AskRigor stores none of it.
 - The MCP `extract_youtube_video_claims` tool ("check this video", AskRigor#248)
   takes only a video ID or YouTube link, an optional time, or its own
   continuation token; strict input refuses any other field, so no question or

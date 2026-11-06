@@ -17,7 +17,8 @@ vi.mock("@modelcontextprotocol/sdk/client/stdio.js", async (original) => {
     }
   } };
 });
-import { createRedditReaderClient, redditReaderFromEnv, type RedditReaderClient } from "../apps/research-mcp/src/reddit-reader-client.js";
+import { createRedditReaderClient, redditReaderFromEnv, resetRedditReaderRateLimitForTests, type RedditReaderClient }
+  from "../apps/research-mcp/src/reddit-reader-client.js";
 
 const URL = "https://www.reddit.com/r/synthetic/comments/abc123/title/?context=1";
 const fixture = fileURLToPath(new globalThis.URL("./fixtures/reddit-reader-server.mjs", import.meta.url));
@@ -34,6 +35,7 @@ async function fake(mode = "normal", options: { busyWaitMs?: number; deadlineMs?
   return { client, log, records };
 }
 afterEach(async () => {
+  resetRedditReaderRateLimitForTests();
   await Promise.all(clients.splice(0).map((client) => client.close()));
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true })));
   spawned.length = 0;
@@ -211,6 +213,21 @@ describe("Reddit stdio reader", () => {
       .toEqual({ access_state: "busy", url: URL, retry_after_seconds: 5, host_code: "BROWSER_BUSY" });
     expect(await (await fake("error-not a code")).client.searchThreads({ query: "synthetic" }))
       .toEqual({ access_state: "unavailable", threads: [], returned: 0 });
+  });
+  // #412's run (5 Nov): three spells of Reddit limiting the host, each reported only as "unavailable", after which runs
+  // called the communities blocked.
+  it("answers Reddit's rate limit as a wait of about a minute, and sends the host nothing until it ends", async () => {
+    const limited = await fake("error-RATE_LIMITED");
+    expect(await limited.client.readThread(URL))
+      .toEqual({ access_state: "busy", url: URL, retry_after_seconds: 60, host_code: "RATE_LIMITED" });
+    // Another client of this process waits too, without asking the host.
+    const other = await fake();
+    const answered = await other.client.searchThreads({ query: "synthetic" });
+    expect(answered).toMatchObject({ access_state: "busy", threads: [], returned: 0, host_code: "RATE_LIMITED" });
+    expect(answered.retry_after_seconds).toBeGreaterThanOrEqual(55);
+    expect((await other.records().catch(() => [])).filter((record) => record.event === "start")).toHaveLength(0);
+    resetRedditReaderRateLimitForTests();
+    expect((await other.client.searchThreads({ query: "synthetic" })).returned).toBe(7);
   });
   it("rejects malformed data without reconnecting", async () => {
     const { client, records } = await fake("malformed");

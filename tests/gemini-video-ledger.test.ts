@@ -48,6 +48,18 @@ describe("Gemini video daily ledger", () => {
     expect(await ledger().charge(600)).toEqual({ charged: true, remaining_seconds: 28_200 });
   });
 
+  it("reads the seconds left today without charging, as the Atlas account page does", async () => {
+    expect(await ledger().remaining()).toBe(GEMINI_VIDEO_DAILY_LIMIT_SECONDS);
+    await ledger().charge(28_000);
+    expect(await ledger().remaining()).toBe(800);
+    const saved = await readFile(join(directory, "gemini-video-seconds.json"), "utf8");
+    clock = new Date("2026-10-04T07:00:00Z");
+    expect(await ledger().remaining()).toBe(GEMINI_VIDEO_DAILY_LIMIT_SECONDS);
+    expect(await readFile(join(directory, "gemini-video-seconds.json"), "utf8")).toBe(saved);
+    await chmod(directory, 0o777);
+    await expect(ledger().remaining()).rejects.toThrow("Gemini video ledger unavailable");
+  });
+
   it("refuses rather than resets when the clock goes back a day", async () => {
     await ledger().charge(60);
     clock = new Date("2026-10-02T12:00:00Z");

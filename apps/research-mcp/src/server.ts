@@ -464,8 +464,12 @@ export function createAskRigorHttpServer(
   // The Atlas review's database pools and GitHub App token: made once per process, and only while it is open.
   const atlasReviewEnabled = options.atlasReviewEnabled ?? atlasReviewEnabledFromEnv();
   const atlasReview = options.atlasReview ?? (atlasReviewEnabled ? createAtlasReviewFromEnv() : undefined);
-  // The public Atlas pages: every /atlas path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled.
-  const atlasPagesHandler = options.atlasPagesHandler ?? createAtlasPagesHandlerFromEnv();
+  // The public Atlas pages: every /atlas path answers 404 unless ASKRIGOR_ATLAS_PAGES=enabled. The account page reads the
+  // signed-in reader's research account through the connector's own service, and knows the owner as its review does.
+  const atlasPagesHandler = options.atlasPagesHandler ?? createAtlasPagesHandlerFromEnv(process.env, {
+    ...(researchContributorAccessService === undefined ? {} : { researchAccess: researchContributorAccessService }),
+    ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
+  });
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>

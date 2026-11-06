@@ -115,6 +115,43 @@ export function parsePrivateMaps(markdown: string, source: string): PrivateMap[]
   return maps;
 }
 
+// The structured store the owner's private Atlas view of the maps is rendered from (owner-pages
+// askrigor/comment-maps.json). Reading it as well as the pages means a page's layout can't hide a map: on 5 Nov 2026
+// six maps written on the page as one summary table, without video links, were not read until that was noticed.
+export const MAPS_JSON_SCHEMA = "askrigor.comment-maps.v1";
+
+export function parsePrivateMapsJson(text: string, source: string): PrivateMap[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  if (typeof data !== "object" || data === null || (data as { schema?: unknown }).schema !== MAPS_JSON_SCHEMA) return [];
+  const entries = (data as { maps?: unknown }).maps;
+  if (!Array.isArray(entries)) return [];
+  const count = (value: unknown): string | null =>
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  const maps: PrivateMap[] = [];
+  for (const entry of entries) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const map = entry as { video_id?: unknown; sampled?: unknown; corpus?: unknown; tried?: unknown; outcomes?: unknown };
+    const outcomes = (typeof map.outcomes === "object" && map.outcomes !== null ? map.outcomes : {}) as Record<string, unknown>;
+    const videoId = typeof map.video_id === "string" && /^[A-Za-z0-9_-]{11}$/.test(map.video_id) ? map.video_id : null;
+    maps.push({
+      source,
+      ordinal: maps.length + 1,
+      videoIds: videoId === null ? [] : [videoId],
+      sample: count(map.sampled),
+      total: count(map.corpus),
+      // In the order of a page's "Tried it" line: people, better, no change, worse, mixed.
+      outcome: [map.tried, outcomes.better, outcomes.no_change, outcomes.worse, outcomes.mixed]
+        .map(count).filter((value): value is string => value !== null),
+    });
+  }
+  return maps;
+}
+
 interface MapProfile {
   // Counts of two digits or more: sample, total and outcome numbers.
   distinct: ReadonlySet<string>;

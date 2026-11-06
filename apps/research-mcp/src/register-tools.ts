@@ -75,7 +75,8 @@ import {
   GEMINI_YOUTUBE_SCOUT_MAX_REDISCOVERY_LEADS,
   GEMINI_MODEL_TRIAL_ARMS,
   geminiModelTrialSetting,
-  type GeminiModelTrialArm
+  type GeminiModelTrialArm,
+  type GeminiYoutubeScoutNeverStarted
 } from "@askrigor/sources";
 import { z } from "zod";
 import { EUROPE_PMC_SECTIONS, EUROPE_PMC_FULL_TEXT_COVERAGE, europePmcSections } from "./europe-pmc-sections.js";
@@ -1281,7 +1282,7 @@ function defineResearchOperations(
         const total = pubmedTotal(result);
         return withResearchReceipt(pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total),
+            sparseSearchNote(total) + literatureOutageNote("pubmed", result.error),
           result
         ), literatureSearchReceipt("pubmed", query, result, total, date_range));
       } catch (error) {
@@ -1354,7 +1355,7 @@ function defineResearchOperations(
         const total = europePmcTotal(result);
         return withResearchReceipt(europePmcToolResult(
           `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.` +
-            sparseSearchNote(total),
+            sparseSearchNote(total) + literatureOutageNote("europe_pmc", result.error),
           { ...result, ...scope }
         ), literatureSearchReceipt("europepmc", query, result, total, date_range));
       } catch (error) {
@@ -2206,14 +2207,14 @@ function defineResearchOperations(
         ? undefined
         : { arm, model: trialSetting.model, thinking: trialSetting.thinking };
       if ("controller_boundary" in execution) {
-        const { code, retryable } = execution.controller_boundary;
+        const { code, retryable, never_started: neverStarted } = execution.controller_boundary;
         return scoutError(code, retryable, code === "research_target_not_population_level"
           ? `Start a new scout without the continuation_token. ${SCOUT_TARGET_GUIDANCE} ${
             researchTargetScreenRefusal(target.research_target)}`.trimEnd()
           : code === "gemini_youtube_scout_credits_depleted"
             ? "AskRigor's Gemini key has used up its prepaid credits, so the scout cannot run until its billing is " +
               "fixed. Use survey_youtube_community instead."
-            : undefined);
+            : neverStarted === undefined ? undefined : scoutNeverStartedGuidance(neverStarted));
       }
       if ("controller_progress" in execution) {
         const budgetHold = execution.controller_progress.budget_hold;
@@ -2995,6 +2996,33 @@ function sparseSearchNote(total: number | undefined): string {
       "a mixed exposure, and citation chains.";
 }
 
+// The owner regression run of 5 Nov 2026: from 03:49 UTC NCBI's PubMed search failed for everyone (HTTP 500 at
+// NCBI's end), and Europe PMC often failed from AskRigor's server, while each result said only "access status error";
+// some answers then never said a source could not be searched. When the provider's own service fails, the result says
+// so, names the other index, and asks the answer to say so if the failure lasts. A refusal of the query itself (a 4xx)
+// or of access gets no such note.
+export const PUBMED_OUTAGE_NOTE = " PubMed's search did not work (NCBI's side, not this query), so this search shows " +
+  "nothing about whether studies exist. Search Europe PMC instead: its records include PubMed's (source MED), and " +
+  "fetch_pubmed_record may still read a record by its PMID. If PubMed stays unavailable, say in the answer that PubMed " +
+  "itself could not be searched.";
+export const EUROPE_PMC_OUTAGE_NOTE = " Europe PMC's search did not work (its side, not this query), so this search " +
+  "shows nothing about whether studies exist. Search PubMed instead with search_pubmed; a search within full-text " +
+  "sections needs Europe PMC, so try that later. If Europe PMC stays unavailable, say in the answer that it could not " +
+  "be searched.";
+
+export function literatureOutageNote(
+  provider: "pubmed" | "europe_pmc",
+  error: { code: string; http_status?: number } | undefined
+): string {
+  if (error === undefined) {
+    return "";
+  }
+  const providerSide = ["upstream_unavailable", "response_invalid", "rate_limited", "unreachable"]
+    .some((kind) => error.code === `${provider}_${kind}`) ||
+    (error.code === `${provider}_request_failed` && error.http_status === undefined);
+  return !providerSide ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
 // Claude clients abandon a tool call after 60 seconds. Provider polling ends
 // by 40 seconds; title searches start only if their timeout ends by 55.
 const MCP_SCOUT_POLL_WINDOW_MS = 40_000;
@@ -3097,6 +3125,12 @@ const SCOUT_SPEND_GUIDANCE =
   "(ASKRIGOR_GEMINI_BILLING=none). Use survey_youtube_community instead.";
 const SCOUT_DELETION_RETRY =
   "Its stored search could not be deleted yet; call again later with the same continuation_token to delete it.";
+// Google refused the request that would start the scout, so no search ran; the same request would be refused again.
+function scoutNeverStartedGuidance(refusal: GeminiYoutubeScoutNeverStarted): string {
+  const reason = refusal.google_reason === undefined ? "" : `, Google's reason: ${JSON.stringify(refusal.google_reason)}`;
+  return `Google refused to start the scout (HTTP ${refusal.http_status}${reason}), so no search ran. Do not call ` +
+    "scout_gemini_youtube_candidates again in this research; find videos with survey_youtube_community instead.";
+}
 // How to fix a target the population screen refused. The screen reads
 // English, so the target is written in English and the language goes apart.
 const SCOUT_TARGET_GUIDANCE =

@@ -11,6 +11,7 @@ import {
   describeFinding,
   MESSAGE_PATH,
   parsePrivateMaps,
+  parsePrivateMapsJson,
   redact,
   scanDiff,
   type Finding,
@@ -25,7 +26,7 @@ import {
 // The hook is .githooks/pre-push; it stays off until the owner runs `git config core.hooksPath .githooks`.
 
 export const MAPS_VARIABLE = "ASKRIGOR_PRIVATE_COMMENT_MAPS";
-const MAP_FILE = /^comment-maps-.*\.md$/;
+const MAP_FILE = /^comment-maps(?:-.*\.md|\.json)$/;
 const MAX_LISTED_FINDINGS = 20;
 // `range` hands its arguments to `git log`, some of whose options write files, so only revisions and these pass.
 const REVISION_OPTION = /^--(?:not|all|branches|tags|remotes(?:=\S*)?)$/;
@@ -43,7 +44,7 @@ export function defaultMapsDirectory(home: string = homedir()): string {
 }
 
 // The variable holds files or folders (several with the platform's path delimiter); a folder contributes its
-// comment-maps-*.md files. A path that cannot be read counts as absent.
+// comment-maps-*.md pages and its comment-maps.json store. A path that cannot be read counts as absent.
 export function mapFilesFrom(environment: NodeJS.ProcessEnv, home: string = homedir()): string[] {
   const configured = environment[MAPS_VARIABLE];
   const entries = configured === undefined || configured === ""
@@ -139,7 +140,8 @@ function loadMaps(files: string[]): { maps: PrivateMap[]; empty: string[] } {
   const maps: PrivateMap[] = [];
   const empty: string[] = [];
   for (const file of files) {
-    const found = parsePrivateMaps(readFileSync(file, "utf8"), basename(file));
+    const text = readFileSync(file, "utf8");
+    const found = file.endsWith(".json") ? parsePrivateMapsJson(text, basename(file)) : parsePrivateMaps(text, basename(file));
     if (found.length === 0) empty.push(basename(file));
     maps.push(...found);
   }
@@ -170,7 +172,8 @@ export async function runPrivateMapCheck(argv: string[], io: CheckIo): Promise<n
     if (maps.length === 0) {
       io.stderr(
         "Push refused: private comment maps are here but none was recognized, so the check cannot protect them. "
-        + "The page's layout may have changed (scripts/lib/private-map-leaks.mts parsePrivateMaps).\n",
+        + "The page's layout or the store's schema may have changed (scripts/lib/private-map-leaks.mts parsePrivateMaps, "
+        + "parsePrivateMapsJson).\n",
       );
       return 1;
     }

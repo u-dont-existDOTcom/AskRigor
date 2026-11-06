@@ -24,7 +24,9 @@ const IDLE_MS = 5 * 60_000;
  * The page a search asks the host for. Without a size the host returned 7 threads (#394's run: 138 of 148 searches,
  * none with a next page), so "found" counted a page and could not tell a niche topic from a busy one. 25 is Reddit's
  * own default page (its maximum is 100): a fuller page without asking Reddit for more than one, and 25 titles leave
- * the AI a choice without filling its context. The host's next-page token gives the next 25.
+ * the AI a choice without filling its context. The host's next-page token gives the next 25. The host still returns
+ * what Reddit's rendered search page shows first, whatever size is asked (#412's run: 132 of 144 searches returned
+ * exactly 7, none with a next page; a direct search asking for 25 on 5 Nov returned 7), so a short page is no total.
  */
 export const SEARCH_PAGE_SIZE = 25;
 const SORT = ["relevance", "hot", "top", "new", "comments"] as const;
@@ -46,8 +48,19 @@ const HOST_FAILURES: ReadonlyMap<string, FailureState> = new Map([
   // Another client holds the host's one browser: the host reads one page at a time, for every client.
   ["BROWSER_BUSY", "busy"],
   // Reddit refuses the read: its network-security block page, or a private community.
-  ["ACCESS_DENIED", "blocked"], ["NOT_PUBLIC", "blocked"]
+  ["ACCESS_DENIED", "blocked"], ["NOT_PUBLIC", "blocked"],
+  // Reddit is limiting how often the host may ask, for a few minutes: a wait, not a block (#412's run, 5 Nov: three
+  // spells of a few minutes, each reported only as "unavailable", after which runs called the communities blocked).
+  ["RATE_LIMITED", "busy"]
 ]);
+/** How long a rate limit holds every call of this process back, when the host gives no time: about a minute. */
+const RATE_LIMIT_WAIT_SECONDS = 60;
+// Until then, calls answer busy without asking the host, so Reddit gets no requests while it is limiting them.
+let rateLimitedUntil = 0;
+/** For hermetic tests only: forget a rate limit an earlier test met. */
+export function resetRedditReaderRateLimitForTests(): void {
+  rateLimitedUntil = 0;
+}
 const HOST_CODE = /^[A-Z][A-Z0-9_]{1,63}$/u;
 export interface RedditReaderComment {
   id: string; parent_id: string; depth: number; person?: string; is_original_poster: boolean;
@@ -185,6 +198,11 @@ export function createRedditReaderClient(options: {
       // Only a code's name passes on, never the host's message.
       const code = error !== undefined && HOST_CODE.test(error.code) ? error.code : undefined;
       const state = (code === undefined ? undefined : HOST_FAILURES.get(code)) ?? "unavailable";
+      if (code === "RATE_LIMITED") {
+        const seconds = Math.min(300, Math.max(30, Math.ceil(error?.retry_after_seconds ?? RATE_LIMIT_WAIT_SECONDS)));
+        rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + seconds * 1_000);
+        throw new ReaderError("busy", seconds, code);
+      }
       throw new ReaderError(state, state === "busy" ? Math.min(120, Math.max(5, Math.ceil(error?.retry_after_seconds ?? 5)))
         : undefined, code);
     }
@@ -212,6 +230,8 @@ export function createRedditReaderClient(options: {
         throw new ReaderError("busy", Math.min(120, Math.max(5, Math.ceil(line.indexOf(place) * TYPICAL_CALL_MS / 1_000))));
       }
       clearTimeout(idleTimer);
+      const limited = rateLimitedUntil - Date.now();
+      if (limited > 0) throw new ReaderError("busy", Math.max(5, Math.ceil(limited / 1_000)), "RATE_LIMITED");
       return await work(AbortSignal.timeout(Math.max(0, end - Date.now())), end);
     } finally {
       clearTimeout(waiting);
