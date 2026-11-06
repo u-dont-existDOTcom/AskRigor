@@ -227,16 +227,16 @@ const RECEIPT_REJECTION_STEPS: Readonly<Record<ResearchReceiptRejection, RuleInp
 const rejectedReceiptStep = (index: number, reason: ResearchReceiptRejection): RuleInput =>
   joinRules(rule`receipts[${index}] ${RECEIPT_REJECTION_STEPS[reason]}. Leaving it out is allowed; work that rests only on it `, rule`then needs its call again.`);
 
-// What a harm or safety sentence rests on (owner questions 86 and 89; a share of
-// selected reports, lesson #25 by owner question 92).
-export // The safety bases whose evidence gives no rate, by what the note calls it: for them, not_quantified fits only where no
+// The safety bases whose evidence gives no rate, by what the note calls it: for them, not_quantified fits only where no
 // source here measured or reported the harm at all (the owner regressions on #412's build, judged 6 Nov 2026: r325).
 const NO_RATE_BASES: Readonly<Partial<Record<string, string>>> = {
   hazard_measurement: "A laboratory, animal or composition measurement",
   case_reports: "A case report",
   share_of_reports: "A share of selected reports"
 };
-const SAFETY_BASES = [
+// What a harm or safety sentence rests on (owner questions 86 and 89; a share of
+// selected reports, lesson #25 by owner question 92).
+export const SAFETY_BASES = [
   "comparative_rates", "observed_rates", "share_of_reports", "case_reports", "hazard_measurement", "not_quantified"
 ] as const;
 
