@@ -137,6 +137,7 @@ import type {
 } from "./findings/service.js";
 import { findingsKeptLine, KEPT_FOR_REVIEW, unsavedCardNote, type UnsavedCardWhy } from "./findings/unsaved-card.js";
 import {
+  forTextClients,
   protocolErrorResult,
   protocolRequestError,
   successfulToolResult
@@ -3893,8 +3894,11 @@ export function registerTools(
   const operations = Object.keys(options).length === 0
     ? RESEARCH_OPERATIONS
     : collectResearchOperations(options);
+  // Every tool on every MCP surface (/mcp, /mcp/claude, /mcp/gemini) is registered here and nowhere else, so each
+  // result reaches a client that reads only text with its payload in the text too (lesson #59, tool-result.ts). The
+  // Custom GPT Action adapter calls operation.execute itself and returns structured output alone.
   for (const operation of operations) {
-    register(operation.name, operation.mcpConfig, operation.execute);
+    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute));
   }
 }
 

@@ -224,6 +224,10 @@ Not done: silently dropping paid features; a line about anything nobody can buy 
 Why: ChatGPT keeps an app's tool list until someone presses Refresh, and AskRigor used to change its list nearly every release, stranding open chats.\
 Not done: changing a published field or description in between (such fixes wait in tool-list-changes-waiting.md). · Decided: 27 Oct 2026 (owner answer 189a); apps told when to refresh since 22 Oct.
 
+**Every tool result also carries its payload as text, except in ChatGPT, which shows the model both; a protocol page's bytes go in raw, so an app that reads only text can check them.**\
+Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research.\
+Not done: patches tool by tool; guessing the app from anything else; changing the tool list. · Decided: 7 Nov 2026 (lesson #59's build; not yet released).
+
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\
 Decided: 27 Sep 2026; 17 Oct (the owner).

@@ -10,6 +10,18 @@ AskRigor's existing MCP endpoint (`/mcp`) serves ChatGPT. ChatGPT links accounts
 - **Same research account.** The same Auth0 user (`sub`) reaches the same research-access enrollment as in ChatGPT.
 - **Off by default.** The surface stays off (404) until `ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID` is set. `/mcp` behaves exactly as before.
 
+## What the model sees
+
+Claude's apps differ in which part of a tool result they hand the model. Claude Code (2.1.312, read from its own code
+on 7 November 2026) gives the model a result's structured content as JSON and leaves out its text blocks, unless a
+setting on Anthropic's side turns that around; a Claude agent harness gave the model only the text (lesson #59). So
+every AskRigor result also carries its structured content as text, after the tool's own text: the JSON, or for a
+`load_protocol` page, the other fields' JSON and then the page's exact bytes, which hash to `scope_sha256`. Only a
+call carrying ChatGPT's signals gets the tool's text alone (`apps/research-mcp/src/tool-result.ts`; the privacy data
+map's "Payload text"). Whichever part an app hands over, it holds the whole payload, within the sizes results were
+built to. Guidance written only in a result's text, such as the reminders after a receipt, still reaches only apps
+that read the text.
+
 ## Auth0 (owner, once)
 
 1. **Create the API.** Name it `AskRigor MCP (Claude)` and set its identifier to `https://mcp.askrigor.com/mcp/claude` (RS256). Add the permissions `research:use` and `cases:review`, and allow offline access. The tenant's Resource Parameter Compatibility Profile is already on, so Claude's `resource=` parameter maps to this API.

@@ -16,6 +16,7 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withSourceReading } from "./helpers/source-reading.js";
+import { builtContent } from "./helpers/text-payload.js";
 
 // The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
 // source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
@@ -169,7 +170,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       expect(output.notes).toContain(instruction);
       expect(output.limits).toContain(limit);
       expect(output.limits).not.toContain(instruction);
-      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
+      expect(builtContent(result)).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
       const panel = render(output);
       const checked = fold(panel, "What AskRigor checked");
       expect(checked.textContent).toContain(limit);
@@ -229,7 +230,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         checked_answer: input.answer_draft,
         next_steps: [], limits: [communitySkipCaveat(input.not_relevant_reason!)], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
-      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
+      expect(builtContent(result)).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
       // The panel draws from the structured result; nothing is sent only for it.
       expect(result._meta).toBeUndefined();
     } finally { await client.close(); await server.close(); }

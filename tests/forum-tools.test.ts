@@ -10,6 +10,7 @@ import { forumThreadDigest } from "../apps/research-mcp/src/research-finalizatio
 import { forumPageDigest, forumSiteDigest } from "../apps/research-mcp/src/forum-thread-links.js";
 import { verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import type { RegisterToolsOptions } from "../apps/research-mcp/src/register-tools.js";
+import { builtContent } from "./helpers/text-payload.js";
 import { createRedditReaderClient } from "../apps/research-mcp/src/reddit-reader-client.js";
 
 const account = vi.hoisted(() => vi.fn());
@@ -262,13 +263,20 @@ describe("forum tools", () => {
       expect(result.structuredContent!.research_receipt as string).not.toMatch(/jane/iu);
     }
   });
-  it("returns a long thread only in structured content, with a summary and guidance in text", async () => {
+  // Lesson #59: a client that reads only text gets the thread after the summary; ChatGPT, which shows the model the
+  // structured content too, gets the summary and guidance alone.
+  it("returns a long thread in structured content, with a summary and guidance in text, and the thread in text only where ChatGPT's signals are absent", async () => {
     const post = "SYNTHETIC_LONG_PUBLIC_THREAD_".repeat(3_000);
     thread.mockResolvedValue({ access_state: "read", url: URL, post_text: post, comments: [], comments_read: 0 });
-    const result = await (await client()).callTool({ name: "read_forum_thread", arguments: { url: URL } });
+    const caller = await client();
+    const chatGpt = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL }, _meta: { "openai/locale": "en-US" } });
+    expect(chatGpt.content).toHaveLength(1);
+    expect((chatGpt.content[0] as { text: string }).text).not.toContain("SYNTHETIC_LONG_PUBLIC_THREAD_");
+    const result = await caller.callTool({ name: "read_forum_thread", arguments: { url: URL } });
     expect(result.isError).not.toBe(true);
     expect(result.structuredContent).toMatchObject({ data: { post_text: post } });
-    expect(result.content).toHaveLength(1);
+    expect(builtContent(result)).toHaveLength(1);
+    expect((result.content.at(-1) as { text: string }).text).toContain(post);
     const text = (result.content[0] as { text: string }).text;
     expect(text).toContain("Forum thread reading returned 0 comment(s); access status read.");
     expect(text).not.toContain("SYNTHETIC_LONG_PUBLIC_THREAD_");

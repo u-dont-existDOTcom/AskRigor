@@ -3,6 +3,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAskRigorServer } from "../apps/research-mcp/src/server.js";
+import { builtContent } from "./helpers/text-payload.js";
 import {
   EUROPE_PMC_OUTAGE_NOTE,
   PUBMED_OUTAGE_NOTE,
@@ -70,7 +71,7 @@ describe("a literature index's own failure is named in the result (5 Nov 2026)",
     const result = await client.callTool({ name: "search_pubmed", arguments: { query: "didgeridoo sleep apnoea" } });
 
     expect(result.isError).toBe(true);
-    expect(result.content).toEqual([{
+    expect(builtContent(result)).toEqual([{
       type: "text",
       text: `PubMed search returned 0 PMID record(s); access status error.${PUBMED_OUTAGE_NOTE}`
     }]);
@@ -85,7 +86,7 @@ describe("a literature index's own failure is named in the result (5 Nov 2026)",
 
     const result = await client.callTool({ name: "search_pubmed", arguments: { query: "didgeridoo[[" } });
 
-    expect(result.content).toEqual([{
+    expect(builtContent(result)).toEqual([{
       type: "text",
       text: "PubMed search returned 0 PMID record(s); access status error."
     }]);
