@@ -45,7 +45,7 @@ describe("AskRigor public site", () => {
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    expect(result.internalLinks).toBe(101);
+    expect(result.internalLinks).toBe(102);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {
@@ -177,14 +177,14 @@ describe("AskRigor public site", () => {
     expect(privacy.split(paragraph)).toHaveLength(2);
     expect(privacy).not.toContain("answer's research question");
     expect(privacy).not.toContain("owner's review");
-    expect(privacy).toContain("Effective November 6, 2026");
+    expect(privacy).toContain("Effective November 7, 2026");
     expect(privacy).toContain("public forum websites (the page’s link), Reddit (a thread’s link or deidentified search words");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective November 6, 2026",
+      "Effective November 7, 2026",
       "AskRigor may also read a study from its operator's own study library: for the operator's own research, and for a free or paying account only while the same study is publicly available elsewhere. The library receives only the study's DOI, with no question, health detail, or account information.",
       "Optional lesson feedback",
       "separate consent",
@@ -247,7 +247,7 @@ describe("AskRigor public site", () => {
         "needed. Deletion removes the card and everything that ties it to you; findings from the card that " +
         "AskRigor’s owner has already accepted are written without you, so they stay while they are valid, as " +
         "described above.",
-      "Effective November 6, 2026",
+      "Effective November 7, 2026",
     ]) expect(privacy).toContain(fragment);
     const terms = await pageHtml("site/terms/index.html");
     for (const fragment of [

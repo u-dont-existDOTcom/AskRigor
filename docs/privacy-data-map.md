@@ -2793,3 +2793,19 @@ names; missing-rule prose passes the existing lesson privacy screen. The answer 
 report and the lesson stores it as a separate fixed section, outside generalization and the duplicate fingerprint.
 Invalid names or incomplete declarations return `correction_rule_refused` / `invalid_preventing_rule`. These
 connector fields do not broaden the Action's request shape or preserve raw incidents.
+
+## Emails, research job requests and payments (7 November 2026)
+
+The owner, 7 Nov 2026: bigger research jobs are asked for by email and quoted by hand.
+
+- The Support page's "Ask for a quote" button is a `mailto:` link to joel@askrigor.com with a fixed subject and four
+  fixed questions. The public site runs no scripts and has no forms (its content security policy sets
+  `form-action 'none'`), so nothing a person types reaches AskRigor's website, research servers, databases or logs.
+- Mail for askrigor.com is forwarded by the domain registrar's email forwarding to the owner's mailbox. Mayan Roots LLC
+  uses a request to reply, to quote and to do the job asked for. A quote says, before it is accepted, which AI services
+  will read the question and whether anything from the job may be published.
+- Stripe processes payments through the Support page's payment link under its own policy; Mayan Roots LLC receives the
+  payer's name, email address and the amount. A Bitcoin payment is public on Bitcoin's network.
+- The emails and payment details never enter AskRigor's research repository, the Atlas or any AskRigor log; whether
+  any research from a job is published is settled in its quote. The privacy notice's section "Emails, research jobs
+  and payments" (effective November 7, 2026) says so publicly.

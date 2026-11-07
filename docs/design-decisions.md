@@ -250,9 +250,13 @@ Not done: leading with "free". · Decided: 5 Nov 2026 (the owner).
 Why: free ChatGPT can't add an app by its address while Claude's free plan can add one custom connector, and one piece of research makes dozens of tool calls.\
 Decided: 5 Nov 2026 (owner answer 258a; the owner on "Always allow").
 
-**Money for AskRigor is support for its development, through GitHub Sponsors and a Stripe payment link, not a donation.**\
+**Money for AskRigor is support for its development, through GitHub Sponsors, a Stripe payment link and a Bitcoin address, not a donation.**\
 Why: it goes to Mayan Roots LLC, which builds AskRigor, and isn't tax-deductible.\
-Not done: calling it a donation. · Decided: 6 Nov 2026 (owner answer 264a).
+Not done: calling it a donation; CoinPayments for any coin, which needs the owner's own merchant account first. · Decided: 6 Nov 2026 (owner answer 264a); the Bitcoin address, 6 Nov (the owner).
+
+**Bigger research jobs: people ask for a quote by email from the Support page, the owner quotes each job by hand, and nothing is charged unless the quote is accepted.**\
+Why: the owner, 7 Nov: "just a request form for now then and i'll do custom quotes by hand". Site pages run no scripts or forms, so the request is an email with four questions filled in, and the site stores nothing. A quote says how the job will be done, which AI services will read the question and whether anything from it may be published.\
+Not done, for now: automatic prices, and paid alerts, which people can set up as an alert job on their own AI with AskRigor (the owner: "prob no point on that, idk"). · Decided: 7 Nov 2026 (the owner).
 
 **The roadmap is public and open to comments; AskRigor's AI reads each one into the plan, and a person reviews anything that isn't clearly good.**\
 Why: the owner asked for a public roadmap of the short- and long-range plans that people can comment on.\
