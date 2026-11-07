@@ -32,3 +32,29 @@ full-text pages, and `load_protocol`'s summary claimed "exact canonical bytes" i
   sees"), `docs/design-decisions.md`, and the UDA item's two synthetic cases in `docs/owner-regressions.md`.
 - **Still uncertain:** whether claude.ai's chat hands the model text, structured content or both, and whether any app
   measures the whole result against a size limit; the first release checks a protocol page and an audit there.
+
+## B. The notice asked again only when it collects or publishes more (the owner, 6 Nov): built
+
+The owner: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's
+annoying". The plan the owner was told: the owner's own logins accept a new version automatically, by the owner's
+standing instruction, recorded as such; everyone else is asked again only when a version collects or publishes more.
+
+- **Materiality, declared with each version:** `RESEARCH_USE_NOTICE_CHANGES`
+  (`packages/evidence-repository/src/research-use-notice-changes.ts`), every version with `material` and what changed;
+  all five so far are material. `researchUseNoticeCovered` (exact, on versions): a yes covers the current notice when
+  every version after it is not material. The access check, the findings library's thread links and the Atlas's
+  publish-on-save check read it; nothing is written for a carried-forward yes.
+- **The owner's login:** the subject `ASKRIGOR_OAUTH_ALLOWED_SUBJECT` names (the owner's review already admits only it;
+  the Atlas's owner page reads it the same way). `server.ts` passes it to the access service as `ownerSubjects`. Dev
+  accounts are a test role and are never treated as the owner's. Only an active free account behind a material version
+  is accepted for; nothing is enrolled, reactivated or switched.
+- **The record:** migration `0031_research_notice_acceptance` (`notice_accepted_by`, `notice_accepted_at` = `activated_at`,
+  a trigger that clears the pair when a write moves `activated_at` without it, a check on the two values, a one-time
+  `PERSON` backfill), the access role's column grant, and `access.acceptance` in `inspect` (runtime only) with a
+  sentence in its text; the Atlas account page words it exactly.
+- **Tests:** `tests/research-use-notice-materiality.test.ts` (the list, coverage on synthetic histories, the owner's
+  instruction and other people's accounts, through `/mcp` and `/mcp/claude`), `tests/research-use-notice-carry-forward.test.ts`
+  (a stand-in wording-only version 5, end to end), and the Docker PostgreSQL acceptance
+  (`npm run contributor-access:postgres-acceptance`, check `notice_acceptance_recorded_by_person_or_owner_standing_instruction_cleared_when_stale`);
+  the v4 and v5 rollback acceptances still pass with 0031 in place.
+- **Release:** migrate, re-run `provision-research-access-role`, then the image (`infra/living-evidence-production/README.md`).

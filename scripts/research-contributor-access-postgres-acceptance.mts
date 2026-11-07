@@ -420,6 +420,11 @@ async function verify(
     }
     checks.push("notice_v5_admitted_and_v1_v2_v3_v4_accounts_accept_it_before_research");
 
+    // The owner, 6 November 2026: migration 0031 records how a free account's notice was accepted, by the person or by
+    // the owner's standing instruction for the owner's own login, at activated_at; a write that changes activated_at
+    // without it (an image from before 0031) clears both, and only the two named ways are admitted.
+    await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
+
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
     // its own guard refuses a paid private row without it and anything but a map with it.
@@ -687,6 +692,120 @@ async function verify(
       admin.end(),
     ]);
   }
+}
+
+const OWNER_SUBJECT = "auth0|synthetic-postgres-owner-login";
+const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
+
+async function verifyNoticeAcceptance(context: {
+  admin: Pool;
+  restricted: Pool;
+  store: PostgresResearchContributorAccessStore;
+  adminUrl: string;
+  checks: string[];
+}): Promise<void> {
+  const { admin, restricted, store, adminUrl, checks } = context;
+  const applied = await admin.query(
+    `SELECT migration_id FROM ${SCHEMA}.schema_migrations WHERE migration_id = '0031_research_notice_acceptance'`,
+  );
+  assert(applied.rowCount === 1, "MIGRATION_0031_NOT_APPLIED");
+  const columns = await admin.query<{ column_name: string; data_type: string; is_nullable: string }>(
+    `SELECT column_name, data_type, is_nullable FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = 'research_use_accounts'
+        AND column_name IN ('notice_accepted_by', 'notice_accepted_at')
+      ORDER BY column_name`,
+    [SCHEMA],
+  );
+  assert(JSON.stringify(columns.rows) === JSON.stringify([
+    { column_name: "notice_accepted_at", data_type: "timestamp with time zone", is_nullable: "YES" },
+    { column_name: "notice_accepted_by", data_type: "text", is_nullable: "YES" },
+  ]), "MIGRATION_0031_COLUMNS_MISMATCH");
+  const row = async (subject: string, service: ResearchContributorAccessService) => (await admin.query<{
+    notice_version: string | null; notice_accepted_by: string | null; same_time: boolean | null; activated_at: Date | null;
+  }>(
+    `SELECT notice_version, notice_accepted_by, notice_accepted_at = activated_at AS same_time, activated_at
+       FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+    [service.accountKeyForSubject(subject)],
+  )).rows[0];
+  const at = (iso: string) => () => iso;
+  const person = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET, now: at(NOW) });
+  const owner = new ResearchContributorAccessService({
+    store, identitySecret: IDENTITY_SECRET, now: at("2026-09-01T02:30:00.000Z"), ownerSubjects: new Set([OWNER_SUBJECT]),
+  });
+
+  // The person's own yes, written through the access role.
+  await person.acceptFreeContributor(OWNER_SUBJECT, FREE_AGREEMENT);
+  const own = await row(OWNER_SUBJECT, person);
+  assert(own?.notice_accepted_by === "PERSON" && own.same_time === true, "PERSON_ACCEPTANCE_NOT_RECORDED");
+
+  // Under an earlier notice (as the v1 to v4 loop above sets one), the owner's login accepts the current one by the
+  // standing instruction, recorded with its time; another person's login under the same service is asked as before.
+  const earlier = async (subject: string) => admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts
+        SET notice_version = $2, agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(subject), EARLIER_NOTICES[3]],
+  );
+  await earlier(OWNER_SUBJECT);
+  assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "NOTICE_CHANGE_ALONE_CLEARED_ACCEPTANCE");
+  const ownerView = await owner.inspect(OWNER_SUBJECT);
+  assert(ownerView.status === "ACTIVE" && ownerView.acceptance?.acceptedBy === STANDING &&
+    ownerView.acceptance.acceptedAt === "2026-09-01T02:30:00.000Z", "OWNER_STANDING_ACCEPTANCE_NOT_SHOWN");
+  const standing = await row(OWNER_SUBJECT, owner);
+  assert(standing?.notice_version === RESEARCH_USE_NOTICE_VERSION && standing.notice_accepted_by === STANDING &&
+    standing.same_time === true && standing.activated_at?.toISOString() === "2026-09-01T02:30:00.000Z",
+  "OWNER_STANDING_ACCEPTANCE_NOT_RECORDED");
+  const otherSubject = "auth0|synthetic-postgres-not-the-owner";
+  await person.acceptFreeContributor(otherSubject, FREE_AGREEMENT);
+  await earlier(otherSubject);
+  assert((await owner.inspect(otherSubject)).status === "UNENROLLED", "OTHER_PERSON_ACCEPTED_BY_OWNER_INSTRUCTION");
+  await expectCode(() => owner.requireActive(otherSubject), "RESEARCH_ACCESS_REQUIRED");
+  const other = await row(otherSubject, owner);
+  assert(other?.notice_version === EARLIER_NOTICES[3] && other.notice_accepted_by === "PERSON",
+    "OTHER_PERSON_ROW_CHANGED");
+
+  // A write from an image that knows neither column moves activated_at alone: the trigger clears the pair.
+  await admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts
+        SET activated_at = activated_at + interval '1 minute', updated_at = updated_at + interval '1 minute'
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  );
+  const stale = await row(OWNER_SUBJECT, owner);
+  assert(stale?.notice_accepted_by === null && stale.same_time === null, "STALE_ACCEPTANCE_NOT_CLEARED");
+  assert((await owner.inspect(OWNER_SUBJECT)).acceptance?.acceptedBy === null, "UNRECORDED_ACCEPTANCE_NOT_SHOWN_AS_NULL");
+  await expectPgErrorMessage(() => admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts SET notice_accepted_by = 'SOMEONE_ELSE', notice_accepted_at = activated_at
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  ), "research_use_accounts_notice_acceptance_check");
+  // The access role writes the pair, and still no account key.
+  await restricted.query(
+    `UPDATE ${SCHEMA}.research_use_accounts SET notice_accepted_by = 'PERSON', notice_accepted_at = activated_at
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  );
+  assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "ACCESS_ROLE_CANNOT_WRITE_ACCEPTANCE");
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_use_accounts SET account_key = account_key`));
+
+  // Revoking clears it; migrating again changes no row and backfills nothing.
+  await owner.revoke(OWNER_SUBJECT);
+  const revoked = await row(OWNER_SUBJECT, owner);
+  assert(revoked?.notice_accepted_by === null && revoked.same_time === null, "REVOKED_ACCEPTANCE_NOT_CLEARED");
+  const before = await admin.query(
+    `SELECT account_key, notice_accepted_by, notice_accepted_at FROM ${SCHEMA}.research_use_accounts ORDER BY account_key`,
+  );
+  const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema: SCHEMA });
+  try {
+    await repository.migrate();
+  } finally {
+    await repository.close();
+  }
+  const after = await admin.query(
+    `SELECT account_key, notice_accepted_by, notice_accepted_at FROM ${SCHEMA}.research_use_accounts ORDER BY account_key`,
+  );
+  assert(JSON.stringify(after.rows) === JSON.stringify(before.rows), "MIGRATION_0031_RERUN_CHANGED_ROWS");
+  checks.push("notice_acceptance_recorded_by_person_or_owner_standing_instruction_cleared_when_stale");
 }
 
 const PROMOTION_SUBJECT = "auth0|synthetic-postgres-promotion-user";

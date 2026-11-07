@@ -41,7 +41,9 @@ import {
   type ResearchContributionCheck,
 } from "./research-contribution-check.js";
 
+import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
+export { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange };
 
 export const RESEARCH_USE_NOTICE_VERSION =
   "free-contributor-v5-2026-11-05" as const;
@@ -69,6 +71,37 @@ const researchUseNoticeVersionSchema = z.enum([
 ]);
 
 export type ResearchUseNoticeVersion = z.infer<typeof researchUseNoticeVersionSchema>;
+
+/**
+ * Whether a yes to the `accepted` notice covers the current one: it is the current notice, or every version after it
+ * changed only wording. Exact: the versions and their declared materiality decide; nothing else is read.
+ */
+export function researchUseNoticeCovered(
+  accepted: string | null | undefined,
+  changes: readonly ResearchUseNoticeChange[] = RESEARCH_USE_NOTICE_CHANGES,
+): boolean {
+  const index = changes.findIndex(({ version }) => version === accepted);
+  return index >= 0 && changes.slice(index + 1).every(({ material }) => !material);
+}
+
+/**
+ * How the notice an account holds was accepted: by the person, or, for the owner's own login only, by the owner's
+ * standing instruction of 6 November 2026 ("can we make it so that i don't have to keep accepting the askrigor notice
+ * every time you update?"). The stored value names the instruction's date.
+ */
+export const NOTICE_ACCEPTED_BY = ["PERSON", "OWNER_STANDING_INSTRUCTION_2026_11_06"] as const;
+export type NoticeAcceptedBy = typeof NOTICE_ACCEPTED_BY[number];
+const noticeAcceptedBySchema = z.enum(NOTICE_ACCEPTED_BY);
+
+/** A free account's yes, as inspect shows it: what was accepted, when, how, and whether it covers the current notice. */
+export interface ResearchUseNoticeAcceptance {
+  noticeVersion: ResearchUseNoticeVersion;
+  acceptedAt: string;
+  /** null for a row an image from before migration 0031 last wrote: its way of acceptance was not recorded. */
+  acceptedBy: NoticeAcceptedBy | null;
+  /** "accepted": the current notice itself; "carried_forward": an earlier one, with only wording changed since. */
+  current: "accepted" | "carried_forward";
+}
 
 // Version 5 (owner answer 253a, 2026-11-05), word for word as the owner chose it: a card's summary of what public
 // online communities reported holds the communities, counts of what people reported and links to the forum threads
@@ -157,6 +190,11 @@ export interface ResearchUseAccountRecord {
    * revokeAccount never change it; setFindingsSave does. The connector permits only dev accounts to change it.
    */
   findingsSave?: boolean;
+  /**
+   * How a free account's notice was accepted (NOTICE_ACCEPTED_BY), at activatedAt; null when not recorded or not a free
+   * account. saveAccount writes it with the notice; an image from before migration 0031 leaves it unrecorded.
+   */
+  noticeAcceptedBy?: NoticeAcceptedBy | null;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -267,6 +305,12 @@ export interface ResearchContributorAccessServiceOptions {
   identitySecret: Uint8Array;
   now?: () => string;
   randomUuid?: () => string;
+  /**
+   * The owner's own sign-in subjects: the one ASKRIGOR_OAUTH_ALLOWED_SUBJECT names, which the owner's review admits.
+   * Their free accounts accept each new notice by the owner's standing instruction (NOTICE_ACCEPTED_BY), recorded as
+   * such; no other account ever does, whatever list it is on.
+   */
+  ownerSubjects?: ReadonlySet<string>;
 }
 
 /** An active account's mode and settings, as activeAccount reads them. */
@@ -283,6 +327,8 @@ export interface ResearchAccessView {
   mode: ResearchUseMode | null;
   noticeVersion: typeof RESEARCH_USE_NOTICE_VERSION;
   notice: string;
+  /** An active free account's yes: the notice it holds, when and how it was accepted, and whether it was carried forward. */
+  acceptance?: ResearchUseNoticeAcceptance;
   contributionRequired: boolean;
   privateEntitlementRequired: boolean;
   paidCheckoutAvailable: false;
@@ -337,6 +383,8 @@ export class ResearchContributorAccessService {
   private readonly identitySecret: Buffer;
   private readonly now: () => string;
   private readonly createUuid: () => string;
+  /** The owner's own accounts, derived once from ownerSubjects; a subject the derivation refuses is no one's. */
+  private readonly ownerAccountKeys: ReadonlySet<string>;
 
   constructor(options: ResearchContributorAccessServiceOptions) {
     if (options.identitySecret.byteLength < 32) {
@@ -346,6 +394,13 @@ export class ResearchContributorAccessService {
     this.identitySecret = Buffer.from(options.identitySecret);
     this.now = options.now ?? (() => new Date().toISOString());
     this.createUuid = options.randomUuid ?? randomUUID;
+    this.ownerAccountKeys = new Set([...options.ownerSubjects ?? []].flatMap((subject) => {
+      try {
+        return [researchAccountKeyForSubject(this.identitySecret, subject)];
+      } catch {
+        return [];
+      }
+    }));
   }
 
   accountKeyForSubject(subject: string): string {
@@ -361,11 +416,12 @@ export class ResearchContributorAccessService {
    * of the person signed in there, whose session carries the key and never the subject.
    */
   async inspectByAccountKey(accountKey: string): Promise<ResearchAccessView> {
-    const account = await this.store.getAccount(accountKeyChecked(accountKey));
-    if (account === null) {
+    const stored = await this.store.getAccount(accountKeyChecked(accountKey));
+    if (stored === null) {
       return accessView("UNENROLLED", null, null, null);
     }
-    // A free account that accepted an earlier notice is shown the current one to accept.
+    const account = await this.withStandingAcceptance(stored);
+    // A free account whose notice has changed materially since its yes is shown the current one to accept.
     if (outdatedFreeNotice(account)) {
       return accessView("UNENROLLED", null, null, account.updatedAt);
     }
@@ -374,6 +430,7 @@ export class ResearchContributorAccessService {
       account.mode,
       account.activatedAt,
       account.updatedAt,
+      noticeAcceptance(account),
     );
   }
 
@@ -385,7 +442,7 @@ export class ResearchContributorAccessService {
     const accountKey = this.accountKeyForSubject(subject);
     const prior = await this.store.getAccount(accountKey);
     const at = this.now();
-    await this.store.saveAccount({
+    const record: ResearchUseAccountRecord = {
       accountKey,
       status: "ACTIVE",
       mode: "FREE_CONTRIBUTOR",
@@ -395,8 +452,10 @@ export class ResearchContributorAccessService {
       revokedAt: null,
       createdAt: prior?.createdAt ?? at,
       updatedAt: at,
-    });
-    return accessView("ACTIVE", "FREE_CONTRIBUTOR", at, at);
+      noticeAcceptedBy: "PERSON",
+    };
+    await this.store.saveAccount(record);
+    return accessView("ACTIVE", "FREE_CONTRIBUTOR", at, at, noticeAcceptance(record));
   }
 
   async activatePaidPrivate(subject: string): Promise<ResearchAccessView> {
@@ -419,6 +478,7 @@ export class ResearchContributorAccessService {
       revokedAt: null,
       createdAt: prior?.createdAt ?? at,
       updatedAt: at,
+      noticeAcceptedBy: null,
     });
     return accessView("ACTIVE", "PAID_PRIVATE", at, at);
   }
@@ -437,6 +497,7 @@ export class ResearchContributorAccessService {
       revokedAt: at,
       createdAt: prior?.createdAt ?? at,
       updatedAt: at,
+      noticeAcceptedBy: null,
     });
     return accessView("REVOKED", null, null, at);
   }
@@ -463,7 +524,7 @@ export class ResearchContributorAccessService {
     if (outdatedFreeNotice(account)) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
-        "AskRigor's free contributor notice has changed. Show the current notice and let the user accept it, or use an entitled paid-private account, before using AskRigor research tools.",
+        "AskRigor's free contributor notice has changed. It now collects or publishes more than the notice this account accepted, so show the current notice and let the user accept it, or use an entitled paid-private account, before using AskRigor research tools.",
       );
     }
     if (
@@ -491,7 +552,8 @@ export class ResearchContributorAccessService {
 
   /** enrolledAccount, by the account's key. */
   private async enrolledAccountByKey(accountKey: string): Promise<ResearchUseAccountRecord & { mode: ResearchUseMode }> {
-    const account = await this.store.getAccount(accountKey);
+    const stored = await this.store.getAccount(accountKey);
+    const account = stored === null ? null : await this.withStandingAcceptance(stored);
     if (account === null) {
       throw new ResearchAccessError(
         "RESEARCH_ACCESS_REQUIRED",
@@ -505,6 +567,33 @@ export class ResearchContributorAccessService {
       );
     }
     return { ...account, mode: account.mode };
+  }
+
+  /**
+   * The account under the current notice. The owner's own active free account, when the notice has changed materially
+   * since its last yes, accepts the current notice now by the owner's standing instruction of 6 November 2026, and the
+   * row records that: the notice, its agreement, the time and how (NOTICE_ACCEPTED_BY). Any other account, and an owner
+   * account that is revoked, paid private or already covered, is returned as stored.
+   */
+  private async withStandingAcceptance(account: ResearchUseAccountRecord): Promise<ResearchUseAccountRecord> {
+    if (!outdatedFreeNotice(account) || !this.ownerAccountKeys.has(account.accountKey)) return account;
+    const at = this.now();
+    const accepted: ResearchUseAccountRecord = {
+      ...account,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      agreement: freeContributorAgreementSchema.parse({
+        noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+        eligibleDeidentifiedResearchContributionRequired: true,
+        prohibitedPrivateAndRawContentExcluded: true,
+        proposalReviewAndNoAuthorityAcknowledged: true,
+        paidPrivateAlternativeAcknowledged: true,
+      }),
+      activatedAt: at,
+      updatedAt: at,
+      noticeAcceptedBy: "OWNER_STANDING_INSTRUCTION_2026_11_06",
+    };
+    await this.store.saveAccount(accepted);
+    return accepted;
   }
 
   /**
@@ -873,7 +962,7 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
               activated_at, revoked_at, created_at, updated_at,
-              plain_answer_note, detailed_lesson_reports, findings_save
+              plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
@@ -914,12 +1003,15 @@ implements ResearchContributorAccessStore {
     return result.rowCount !== 0;
   }
 
+  // How the notice was accepted goes with the acceptance time, activated_at: migration 0031's trigger clears the pair
+  // whenever a write changes activated_at without it, as an image from before 0031 does, so a stale value never stays.
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
+    const acceptedBy = record.noticeAcceptedBy ?? null;
     await this.pool.query(
       `INSERT INTO ${this.schema}.research_use_accounts
         (account_key, status, mode, notice_version, agreement_json,
-         activated_at, revoked_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+         activated_at, revoked_at, created_at, updated_at, notice_accepted_by, notice_accepted_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (account_key) DO UPDATE SET
          status = EXCLUDED.status,
          mode = EXCLUDED.mode,
@@ -927,7 +1019,9 @@ implements ResearchContributorAccessStore {
          agreement_json = EXCLUDED.agreement_json,
          activated_at = EXCLUDED.activated_at,
          revoked_at = EXCLUDED.revoked_at,
-         updated_at = EXCLUDED.updated_at`,
+         updated_at = EXCLUDED.updated_at,
+         notice_accepted_by = EXCLUDED.notice_accepted_by,
+         notice_accepted_at = EXCLUDED.notice_accepted_at`,
       [
         record.accountKey,
         record.status,
@@ -938,6 +1032,8 @@ implements ResearchContributorAccessStore {
         record.revokedAt,
         record.createdAt,
         record.updatedAt,
+        acceptedBy,
+        acceptedBy === null ? null : record.activatedAt,
       ],
     );
   }
@@ -1039,8 +1135,8 @@ implements ResearchContributorAccessStore {
       await client.query(
         `INSERT INTO ${this.schema}.research_use_accounts
           (account_key, status, mode, notice_version, agreement_json,
-           activated_at, revoked_at, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+           activated_at, revoked_at, created_at, updated_at, notice_accepted_by, notice_accepted_at)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, NULL, NULL)
          ON CONFLICT (account_key) DO UPDATE SET
            status = EXCLUDED.status,
            mode = EXCLUDED.mode,
@@ -1048,7 +1144,9 @@ implements ResearchContributorAccessStore {
            agreement_json = EXCLUDED.agreement_json,
            activated_at = EXCLUDED.activated_at,
            revoked_at = EXCLUDED.revoked_at,
-           updated_at = EXCLUDED.updated_at`,
+           updated_at = EXCLUDED.updated_at,
+           notice_accepted_by = NULL,
+           notice_accepted_at = NULL`,
         [
           record.accountKey,
           record.status,
@@ -1095,6 +1193,7 @@ interface ResearchUseAccountRow {
   plain_answer_note: boolean;
   detailed_lesson_reports: boolean;
   findings_save: boolean;
+  notice_accepted_by: string | null;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -1147,6 +1246,7 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     // Only an explicit true turns detailed lesson reports on.
     detailedLessonReports: row.detailed_lesson_reports === true,
     findingsSave: row.findings_save !== false,
+    noticeAcceptedBy: row.notice_accepted_by === null ? null : noticeAcceptedBySchema.parse(row.notice_accepted_by),
   };
 }
 
@@ -1343,10 +1443,23 @@ function accountKeyChecked(accountKey: string): string {
   return accountKey;
 }
 
+/** An active free account whose yes no longer covers the current notice: a version since collects or publishes more. */
 function outdatedFreeNotice(account: ResearchUseAccountRecord): boolean {
   return account.status === "ACTIVE" &&
     account.mode === "FREE_CONTRIBUTOR" &&
-    account.noticeVersion !== RESEARCH_USE_NOTICE_VERSION;
+    !researchUseNoticeCovered(account.noticeVersion);
+}
+
+/** An active free account's yes, as inspect shows it; undefined for any other account. */
+function noticeAcceptance(account: ResearchUseAccountRecord): ResearchUseNoticeAcceptance | undefined {
+  if (account.status !== "ACTIVE" || account.mode !== "FREE_CONTRIBUTOR" || account.noticeVersion === null ||
+      account.activatedAt === null || !researchUseNoticeCovered(account.noticeVersion)) return undefined;
+  return {
+    noticeVersion: account.noticeVersion,
+    acceptedAt: account.activatedAt,
+    acceptedBy: account.noticeAcceptedBy ?? null,
+    current: account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? "accepted" : "carried_forward",
+  };
 }
 
 function accessView(
@@ -1354,12 +1467,14 @@ function accessView(
   mode: ResearchUseMode | null,
   activatedAt: string | null,
   updatedAt: string | null,
+  acceptance?: ResearchUseNoticeAcceptance,
 ): ResearchAccessView {
   return {
     status,
     mode,
     noticeVersion: RESEARCH_USE_NOTICE_VERSION,
     notice: RESEARCH_USE_NOTICE,
+    ...(acceptance === undefined ? {} : { acceptance }),
     contributionRequired: mode === "FREE_CONTRIBUTOR",
     privateEntitlementRequired: mode === "PAID_PRIVATE" || status === "UNENROLLED",
     paidCheckoutAvailable: false,

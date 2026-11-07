@@ -310,6 +310,18 @@ image). Undo no migration: 0028 stays and widens only the notice check.
 `npm run contributor-access:notice-v5-rollback-acceptance` checks the pair with
 real PostgreSQL in Docker, including v1 to v4 accounts.
 
+The owner, 6 November 2026 (built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-07-next-build.md`): a new notice version asks again only when it collects or
+publishes more, and the owner's own login (`ASKRIGOR_OAUTH_ALLOWED_SUBJECT`) accepts each new one by the owner's
+standing instruction. Migration `0031_research_notice_acceptance` adds `notice_accepted_by` and
+`notice_accepted_at` to `research_use_accounts`, backfills `PERSON` at `activated_at` for active free accounts the
+first time it runs, and adds a trigger that clears both whenever a write moves `activated_at` without them, and a
+check admitting only `PERSON` and `OWNER_STANDING_INSTRUCTION_2026_11_06`. Its release: run the one-shot admin
+`migrate`, then re-run `/usr/local/bin/provision-research-access-role` inside the PostgreSQL container (the grant
+now names both columns), before the image that reads them serves. An earlier image never reads the columns, so a
+rollback needs no step; its writes leave the pair cleared, which reads as "not recorded", and the notice hold and
+restore scripts leave it cleared too. Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

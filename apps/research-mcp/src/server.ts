@@ -445,6 +445,9 @@ export function createAskRigorHttpServer(
             ssl: researchContributorAccessConfig.ssl,
           }),
           identitySecret: researchContributorAccessConfig.identitySecret,
+          // The owner's own login (ASKRIGOR_OAUTH_ALLOWED_SUBJECT), whose free account accepts each new notice by the
+          // owner's standing instruction of 6 November 2026; no other account does.
+          ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
         }));
   const researchContributionReviewConfig =
     options.researchContributionReviewService === undefined

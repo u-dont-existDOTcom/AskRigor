@@ -154,7 +154,8 @@ records decisions and their sources; it adds no authority to the list above.
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
 - `superpowers/plans/2026-11-07-next-build.md`: the build after #429: every tool result's payload in text too, except
-  for ChatGPT (lesson #59); built on `claude/next-build-20261107`, not yet released.
+  for ChatGPT (lesson #59), and the free-use notice asked again only when it collects or publishes more, the owner's
+  own login accepting by standing instruction; built on `claude/next-build-20261107`, not yet released.
 - `superpowers/plans/2026-11-04-review-queue.md`: the private queue for cards that weren't saved, why it's in the findings
   repository, what it keeps and leaves out, and GPT Pro's review of the lanes' message.
 - `superpowers/plans/2026-11-04-what-people-want.md`: the source line, meaning judge job 5, HRP 20.6.37's draft wording

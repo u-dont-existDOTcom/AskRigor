@@ -2,6 +2,7 @@ import type {
   ActiveResearchAccount,
   ResearchAccessView,
   ResearchContributorAccessService,
+  ResearchUseNoticeAcceptance,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -59,6 +60,8 @@ export interface AtlasResearchAccount {
   mode: ResearchAccessView["mode"];
   /** The current free-use notice, as inspect reports it. */
   noticeVersion: string;
+  /** An active free account's yes, as inspect reports it: the notice it holds, and how it was accepted. */
+  acceptance?: ResearchUseNoticeAcceptance;
   /** An active account's switches; null when it is not active, or its paid private entitlement lapsed. */
   settings: Pick<ActiveResearchAccount, "plainAnswerNote" | "detailedLessonReports" | "findingsSave"> | null;
   /** A paid private account whose entitlement is no longer active: inspect still says active, the research tools refuse. */
@@ -133,6 +136,7 @@ async function researchAccountOf(runtime: AtlasFeaturesRuntime, accountKey: stri
     status: access.status,
     mode: access.mode,
     noticeVersion: access.noticeVersion,
+    ...(access.acceptance === undefined ? {} : { acceptance: access.acceptance }),
     settings,
     entitlementLapsed,
     devAccount: isDevAccount(accountKey, runtime.devAccountKeys()),
@@ -172,12 +176,30 @@ function nextMonth(now: Date): string {
   return `1 ${MONTHS[next.getUTCMonth()]} ${next.getUTCFullYear()}`;
 }
 
+/**
+ * The notice an active free account holds, in words, exactly as it was accepted (the owner, 6 Nov 2026): by the person,
+ * or for the owner's own login by the owner's standing instruction; and whether that yes carries forward to a newer
+ * notice that changed only in wording.
+ */
+function acceptedNotice(account: AtlasResearchAccount): string {
+  const acceptance = account.acceptance;
+  if (acceptance === undefined) return `under the free-use notice you accepted: ${noticeWords(account.noticeVersion)}.`;
+  const held = acceptance.acceptedBy === "OWNER_STANDING_INSTRUCTION_2026_11_06"
+    ? `under the free-use notice ${noticeWords(acceptance.noticeVersion)}, accepted for you by your standing instruction ` +
+      "of 6 Nov 2026."
+    : `under the free-use notice you accepted: ${noticeWords(acceptance.noticeVersion)}.`;
+  return acceptance.current === "carried_forward"
+    ? `${held} The notice has changed only in wording since, so your yes carries forward to ` +
+      `${noticeWords(account.noticeVersion)}.`
+    : held;
+}
+
 function researchAccess(account: AtlasResearchAccount): Pick<AtlasFeatureRow, "on" | "forYou" | "whoPays"> {
   const notice = noticeWords(account.noticeVersion);
   if (account.settings !== null && account.mode === "FREE_CONTRIBUTOR") {
     return {
       on: true,
-      forYou: `Free contributor use, under the free-use notice you accepted: ${notice}.`,
+      forYou: `Free contributor use, ${acceptedNotice(account)}`,
       whoPays: "No one pays money: free use is reciprocal. What AskRigor learns from your research is saved for its " +
         "research library, and your findings cards are published in the Atlas.",
     };
@@ -203,7 +225,8 @@ function researchAccess(account: AtlasResearchAccount): Pick<AtlasFeatureRow, "o
     forYou: account.status === "REVOKED"
       ? `You turned research access off. Before you research again, your AI app asks you to choose free contributor ` +
         `use, under the free-use notice (${notice}), or paid private use.`
-      : `Not chosen yet, or AskRigor's free-use notice changed since you accepted it. Before research, your AI app ` +
+      : `Not chosen yet, or AskRigor's free-use notice now collects or publishes more than the one you accepted. ` +
+        "Before research, your AI app " +
         `shows you the current notice (${notice}) and asks you to choose free contributor use or paid private use.`,
     whoPays: "Free contributor use costs nothing: it is reciprocal. Paid private use needs a paid private entitlement, " +
       "which AskRigor doesn't sell online yet.",

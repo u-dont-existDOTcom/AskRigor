@@ -172,6 +172,10 @@ Not done: YouTube's unofficial transcript interface. · Decided: 2 to 3 Oct 2026
 Why: the privacy page promises it, and keeping people's health text would need a new promise and a retention period.\
 Not done: even a one-line error log without a privacy-page change; keeping real users' answers to learn from. · Decided: 3 Oct 2026 (owner question 31); 25 Oct (reading history); 2 Nov (quick answer).
 
+**A new free-use notice asks again only when it collects or publishes more than the one a person accepted; a wording-only version carries their yes forward, and the owner's own login accepts each new version by the owner's standing instruction.**\
+Why: the owner, 6 Nov: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's annoying". Each version declares in code, reviewed with it, whether it is material; the record keeps what was accepted, when and how (by the person, carried forward, or by the owner's instruction).\
+Not done: treating dev accounts or any login but the one the owner's review admits as the owner's; enrolling, reactivating or switching a login for the owner; judging materiality from the notice's words. · Decided: 6 Nov 2026 (the owner); built 7 Nov, not yet released.
+
 **A question and answer are shared for improvement only when the person says yes and confirms the exact de-identified copy, which is kept encrypted with nothing naming the account, for 90 days, and deleted sooner with its code.**\
 Why: the owner, 30 Oct: "we aren't logging every question/answer but just the ones users send for improvement".\
 Decided: 30 Oct 2026 (owner answer 200a).

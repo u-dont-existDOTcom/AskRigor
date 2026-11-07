@@ -4,6 +4,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   CONTRIBUTION_PROBLEM_LIMITS,
   CONTRIBUTION_PROBLEM_RULES,
+  NOTICE_ACCEPTED_BY,
   RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
   RESEARCH_MAP_CONSENT,
   RESEARCH_USE_NOTICE,
@@ -20,6 +21,7 @@ import {
   researchFrontierContributionSchema,
   topicLinkContributionSchema,
   type CanonicalIdentityReader,
+  type ResearchAccessView,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -182,8 +184,20 @@ export const manageResearchAccessOutputSchema = z.object({
 const manageResearchAccessRuntimeInputSchema = manageResearchAccessInputSchema.safeExtend(
   laterInputShape("manage_research_access"));
 
+/**
+ * An active free account's yes, as inspect returns it at runtime (the owner, 6 November 2026; owner answer 189a keeps the
+ * published access shape): the notice it holds, when and how it was accepted, and whether it carries forward.
+ */
+const noticeAcceptanceSchema = z.object({
+  noticeVersion: noticeVersionSchema,
+  acceptedAt: z.string(),
+  acceptedBy: z.enum(NOTICE_ACCEPTED_BY).nullable(),
+  current: z.enum(["accepted", "carried_forward"]),
+}).strict();
+
 /** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
 export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.safeExtend({
+  access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
     code: z.string(),
     expiresAt: z.string(),
@@ -375,6 +389,24 @@ export function noticeNextStep(): string {
     `accept_free_contributor and agreement {noticeVersion: "${RESEARCH_USE_NOTICE_VERSION}", ` +
     "eligibleDeidentifiedResearchContributionRequired: true, prohibitedPrivateAndRawContentExcluded: true, " +
     "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
+}
+
+/**
+ * How an active free account holds the current notice, when its text should say so (the owner, 6 November 2026): a yes
+ * to an earlier notice that carries forward, since every version after it changed only wording, or the owner's
+ * standing instruction for the owner's own login. Empty for a yes the person gave to the current notice.
+ */
+export function noticeAcceptanceSentence(acceptance: ResearchAccessView["acceptance"]): string {
+  if (acceptance === undefined) return "";
+  const standing = acceptance.acceptedBy === "OWNER_STANDING_INSTRUCTION_2026_11_06"
+    ? ` The owner's standing instruction of 6 November 2026 accepted notice ${acceptance.noticeVersion} for this login ` +
+      `at ${acceptance.acceptedAt}.`
+    : "";
+  const carried = acceptance.current === "carried_forward"
+    ? ` This account's yes to notice ${acceptance.noticeVersion} carries forward to ${RESEARCH_USE_NOTICE_VERSION}, ` +
+      "which changed only wording."
+    : "";
+  return `${standing}${carried}`;
 }
 
 /** What inspect asks of an account that registers a plain answer, before any research call. */
@@ -681,7 +713,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         content: [{
           type: "text",
           text: (access.status === "ACTIVE"
-            ? `AskRigor research access is active in ${access.mode === "FREE_CONTRIBUTOR" ? "free contributor" : "paid private"} mode.`
+            ? `AskRigor research access is active in ${access.mode === "FREE_CONTRIBUTOR" ? "free contributor" : "paid private"} mode.` +
+              noticeAcceptanceSentence(access.acceptance)
             : access.status === "REVOKED"
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +

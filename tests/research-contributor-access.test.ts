@@ -416,10 +416,10 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
     await service.setPlainAnswerNote(SUBJECT, true);
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: true });
-    // Only the choice is kept: no text field joins the account row.
+    // Only the choice is kept: no text field joins the account row (how the notice was accepted is the row's own).
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeVersion", "plainAnswerNote", "revokedAt",
-      "status", "updatedAt"
+      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeAcceptedBy", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt"
     ]);
   });
 
@@ -449,8 +449,8 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: false });
     // Only the choice is kept: no report or text field joins the account row.
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
-      "plainAnswerNote", "revokedAt", "status", "updatedAt"
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeAcceptedBy",
+      "noticeVersion", "plainAnswerNote", "revokedAt", "status", "updatedAt"
     ]);
   });
 
@@ -477,8 +477,8 @@ describe("research contributor access", () => {
       findingsSave: true, plainAnswerNote: false, detailedLessonReports: true,
     });
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode", "noticeVersion",
-      "plainAnswerNote", "revokedAt", "status", "updatedAt",
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode",
+      "noticeAcceptedBy", "noticeVersion", "plainAnswerNote", "revokedAt", "status", "updatedAt",
     ]);
   });
 
