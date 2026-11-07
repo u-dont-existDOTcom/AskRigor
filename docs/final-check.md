@@ -521,6 +521,26 @@ checking them (`apps/research-mcp/src/absence-searches.ts`):
   gave way to the out-of-date top-level card, which was saved): its later form is read, and a card that doesn't parse is
   kept privately, with its note, as before. Other tools still refuse a call whose `later_inputs` has a problem.
 
+AskRigor#431 (7 November 2026; built, not yet released) adds two notes, one later input and no blocking rule. A ChatGPT
+run fact-checked a video whose 22 claims `extract_youtube_video_claims` listed, answered a few of them, cited with
+markers no reader could follow and never called `finalize_research`:
+
+- **Every listed claim accounted for.** Each claim the extraction lists has an id, the video's ID and its place in the
+  list (`<video>#3`), which the reading's `youtube_video_claims` receipt fixes exactly (the video and how many claims it
+  listed); the extraction's text says the answer accounts for every claim and is unchecked until this check runs.
+  `later_inputs.claim_coverage` gives each id's status: `assessed`, `limited` (with `reason`, a few words),
+  `unresolved` or `not_addressed`. The check compares the ids with the receipts passed here, using each video's latest
+  reading in claims mode: a listed claim with no status, or declared `not_addressed`, is a note, which says that the
+  answer must call itself partial at its start and name the claims it did not assess; an id no receipt lists, and a
+  `limited` entry without a reason, are notes too. Limit: whether the answer really assesses a claim is meaning, which
+  the check doesn't judge; it reads only the declared statuses, and claims a person pastes as text have no ids.
+- **The app's own citation markers.** A draft holding ChatGPT's tool-citation markers (exact tokens such as
+  `turn0search3` or `turn2view1`, which render as chips inside ChatGPT and never resolve for a reader elsewhere) gets a
+  note to replace each with the source's link or remove it. Exact token pattern only (`citation-markers.ts`): "turn",
+  its number, one of ChatGPT's result kinds (search, view, news, fetch, image, file, product, finance, sports, weather,
+  time, forecast) and the result's number, also when run together. Limits: another kind or another app's marker form is
+  not caught, and a link to a source the research never read is the sources check's question, not this one.
+
 Owner answer 219b (2 November 2026) adds one declaration and no blocking rule: each finding of a findings card may
 say whether it draws on YouTube comments (`draws_on_youtube_comments`, true or false). The published card stays fixed
 (owner answer 189a), so the declaration is a field of the card's later shape: the AI sends the whole card in

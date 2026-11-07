@@ -192,7 +192,9 @@ describe("later_inputs (owner answer 189a)", () => {
         // from the free Claude test of 5 Nov 2026, the name forms searched before a not-found claim, search_coverage's
         // newer form with other_journals, and the marker that turns a test run's card saving off; from its review, the
         // key name as the answer writes it, which a name form must differ from.
-        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage", "findings_save"]
+        : operation.name === "finalize_research" ? ["community_evidence", "treatment_choice", "open_leads", "another_pass_estimate", "findings_card", "source_lines", "study_map", "user_observations", "community_leads", "source_reading", "name_forms", "key_name", "search_coverage",
+          // AskRigor#431: each listed video claim's status, a note only.
+          "claim_coverage", "findings_save"]
           : operation.name === "save_research_findings" ? ["findings_card"]
           // The recheck of 5 Nov 2026: a test run's audits are marked, so nothing of them is held for the review inbox.
           : operation.name === "validate_study_method_audit" ? ["audit", "findings_save"]

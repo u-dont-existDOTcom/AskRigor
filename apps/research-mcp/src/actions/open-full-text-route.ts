@@ -42,6 +42,7 @@ import {
   type OpenFullTextHandleState,
   type OpenFullTextHandleStore
 } from "./open-full-text-handle-store.js";
+import { verifyAuditSource } from "./audit-source.js";
 import {
   resolveStudyAuditReuse,
   studyAuditRepositoryReuseProjectionSchema,
@@ -554,12 +555,8 @@ export function createOpenFullTextExecutor(
       const submission = noticeMethodAuditSubmissionSchema.parse(audit);
       const state = store.read(parsedHandle);
       if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
-      if (
-        submission.source_primary_identifier !== state.index.source.primary_identifier ||
-        submission.source_content_sha256 !== state.index.source.content_sha256
-      ) {
-        throw new Error("Publication notice audit source identity or completeness mismatch");
-      }
+      // A notice is audited on any copy that names it, so completeness is not checked here.
+      verifyAuditSource("Publication notice audit", state.index.source, submission, false);
       const knownBlocks = new Set(state.index.blocks.map(({ block_id }) => block_id));
       if (submission.evidence_block_ids.some((block) => !knownBlocks.has(block))) {
         throw new Error("Publication notice audit cited an unknown source block");

@@ -47,6 +47,7 @@ import {
   createAskRigorServer,
 } from "../apps/research-mcp/src/server.js";
 import { builtContent } from "./helpers/text-payload.js";
+import { ONE_REPORT_PER_INCIDENT } from "../apps/research-mcp/src/lessons/connector-tool.js";
 
 const validCandidate = {
   category: "missing_sources",
@@ -538,7 +539,7 @@ describe("consequential lesson Action", () => {
     try {
       const saved = await client.callTool({ name: "submit_lesson_candidate", arguments: connectorCandidate });
       expect(saved.isError).not.toBe(true);
-      expect(builtContent(saved)).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
       expect(saved.structuredContent).toEqual(submitted());
       expect(received).toEqual([connectorCandidate]);
 
@@ -599,7 +600,7 @@ describe("consequential lesson Action", () => {
         arguments: { ...connectorCandidate, related_issue: 357 },
       });
       expect(saved.isError).not.toBe(true);
-      expect(builtContent(saved)).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
       expect(saved.structuredContent).toEqual(submitted());
       expect(received).toEqual([{ ...connectorCandidate, related_issue: 357 }]);
 
@@ -775,7 +776,7 @@ describe("detailed lesson reports on the connector", () => {
 
     const saved = await submit({ ...connectorCandidate, detailed_report: report }, "auth0|on");
     expect(saved.isError).not.toBe(true);
-    expect(builtContent(saved)).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+    expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
     expect(saved.structuredContent).toEqual(submitted());
     expect(queued).toEqual([expect.objectContaining({ source: "connector", detailedReport: report })]);
     expect(queued[0]!.candidate).not.toHaveProperty("detailed_report");

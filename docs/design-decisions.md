@@ -188,6 +188,10 @@ Not done: unlocking or scraping services that get past these checks. · Decided:
 Why: a report goes out on the person's behalf, so they see it and say yes first, and the owner didn't want long reports in chat unless the person turns them on.\
 Decided: 12 Oct 2026 (owner answer 78a); 17 Oct (109a); 21 Oct (154).
 
+**One report per incident: a defect that can be debugged gets one detailed bug report, and a preference, feature request or style feedback one lesson, never both.**\
+Why: the owner, in AskRigor#431: "Use one reporting path per problem; do not duplicate the same incident as both a bug report and a lesson candidate", after a run proposed both for one failure.\
+Not done: changing the protocols or the skill for it without the owner's approval (the rule is in AskRigor's results and docs). · Decided: 7 Nov 2026 (the owner, AskRigor#431); built, not yet released.
+
 **Serious rare harms are searched by name, apart from common side effects, and a harm not searched is reported as not checked, never as absent.**\
 Why: the owner, 20 Oct, on making it optional: "wouldn't that basically make it optional and then someone might die?"\
 Decided: 20 Oct 2026 (owner answer 128b); a harm search behind safety claims is one of the six stopping checks since 29 Oct.

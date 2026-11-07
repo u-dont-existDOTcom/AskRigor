@@ -116,6 +116,8 @@ import {
   type ResearchReceiptKind,
   type ResearchReceiptRejection
 } from "./research-receipts.js";
+import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
+import { untraceableCitationNote } from "./citation-markers.js";
 
 /**
  * Server-side completion gate for MCP research (finalize_research).
@@ -2685,6 +2687,12 @@ export function finalizeResearch(
     const thread = forumThreadDigest(source);
     return forumReadUrls.has(thread) || declaredLinks.has(thread);
   };
+  // AskRigor#431: every claim extract_youtube_video_claims listed is accounted for (later_inputs.claim_coverage), and the
+  // draft holds none of the app's own citation markers. Both are exact checks, and notes only: the six blocking checks
+  // stay six (owner answers 193a, 195a and 217b).
+  for (const note of claimCoverageNotes(extractedClaimIds(verified), input.claim_coverage)) addStep("declaration", note);
+  const markerNote = untraceableCitationNote(input.answer_draft);
+  if (markerNote !== undefined) addStep("declaration", markerNote);
   const communityLeads = input.community_leads ?? [];
   // Each entry by its place as given, though an entry before it was left out.
   const leadAt = (index: number): string => `community_leads[${parsed.leadPlaces?.[index] ?? index}]`;

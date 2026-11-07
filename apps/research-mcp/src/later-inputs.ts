@@ -19,6 +19,7 @@ import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
+import { claimCoverageSchema } from "./claim-coverage.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -96,6 +97,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "what the searches covered " +
         "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
         "PMC don't index, which AskRigor can't see."),
+    // AskRigor#431: a video fact-check accounts for every claim extract_youtube_video_claims listed (notes only).
+    claim_coverage: claimCoverageSchema.optional()
+      .describe("For each claim extract_youtube_video_claims listed (its id, such as dQw4w9WgXcQ#3): assessed, " +
+        "limited (with reason, a few words), unresolved, or not_addressed. AskRigor checks the ids against this " +
+        "call's extraction receipts; a claim with no status or not_addressed is a note, and the answer then calls " +
+        "itself partial."),
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +

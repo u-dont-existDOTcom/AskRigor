@@ -58,3 +58,28 @@ standing instruction, recorded as such; everyone else is asked again only when a
   (`npm run contributor-access:postgres-acceptance`, check `notice_acceptance_recorded_by_person_or_owner_standing_instruction_cleared_when_stale`);
   the v4 and v5 rollback acceptances still pass with 0031 in place.
 - **Release:** migrate, re-run `provision-research-access-role`, then the image (`infra/living-evidence-production/README.md`).
+
+## C. The fact-check repairs from issue #431: built
+
+A ChatGPT run fact-checked a video with 22 extracted claims, answered a few, left a refused study audit unrepaired,
+cited with markers no reader could follow and never called `finalize_research`; asked to report it, it proposed both a
+bug report and a lesson.
+
+- **C1, repairable audit errors** (`apps/research-mcp/src/actions/audit-source.ts`): the study, review and
+  publication-notice audits check the identifier, the content SHA-256 and (but for a notice) completeness each on its
+  own; `AuditSourceMismatchError` names each failed check with the value sent and the acquisition's own, and says the
+  audit stays open until resubmitted. `invokeOpenFullTextMcp` returns it as the tool's text (an error result, since a
+  structured one would not fit the published output schema); the Custom GPT Action is unchanged.
+  `tests/audit-source-repair.test.ts`: a DOI sent for a PMCID-acquired document names the PMCID; resubmitted, it passes.
+- **C2, claim coverage, a note** (`claim-coverage.ts`): each extracted claim has a runtime `id` (`<video>#<n>`, fixed by
+  the receipt's video and n); the extraction's text asks the answer to account for every claim and says it is
+  unchecked until `finalize_research` runs; `later_inputs.claim_coverage` takes each id's status, and an exact check
+  against the receipts notes any claim with no status or `not_addressed`, saying the answer must call itself partial.
+- **C3, the app's citation markers, a note** (`citation-markers.ts`): exact ChatGPT marker tokens in `answer_draft`.
+- **C4, one report per incident:** in `submit_lesson_candidate`'s saved results, and beside the stopped check's and the
+  correction's report instructions. Not in the protocol XML or the skill, which need the owner's approval: the rule would
+  also belong in Universal `corrections_and_calibration` (its correction-report paragraph) and its correction-report
+  self-check, and in the skill's reporting lines.
+- **C5:** `docs/owner-regressions.md`, "A many-claim video fact-check, and one report per incident (issue #431)".
+- **Docs:** `docs/final-check.md` (two notes, no blocking rule), the privacy data map's request-local rows,
+  `docs/design-decisions.md`.

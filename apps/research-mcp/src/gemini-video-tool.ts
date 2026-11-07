@@ -30,6 +30,7 @@ import {
   type VideoContinuationState
 } from "./gemini-video-continuation.js";
 import { successfulToolResult } from "./tool-result.js";
+import { VIDEO_CLAIM_ID, videoClaimId } from "./claim-coverage.js";
 
 /**
  * extract_youtube_video_claims: Gemini reads one public YouTube video and
@@ -139,8 +140,12 @@ const publishedVideoClaimsOutputSchema = z.object({
   source_note: z.string().optional(),
   research_receipt: z.string().optional()
 }).strict();
+// AskRigor#431: each claim's id, the video's ID and its place in the list ("<video>#3"), which the extraction's
+// receipt (video and n) fixes exactly, so finalize_research can account for every claim (later_inputs.claim_coverage).
+const publishedVideoClaimSchema = publishedVideoClaimsOutputSchema.shape.claims.unwrap().element;
 // Owner answer 189a: the published output stays open for these later fields, without changing tools/list.
 export const extractYoutubeVideoClaimsOutputSchema = publishedVideoClaimsOutputSchema.extend({
+  claims: z.array(publishedVideoClaimSchema.extend({ id: z.string().regex(VIDEO_CLAIM_ID) })).optional(),
   sponsorships: z.array(geminiVideoRelationshipSchema.extend({ link: z.string().optional() })).optional(),
   caveats: z.array(geminiVideoCaveatSchema.extend({ link: z.string(), time_outside_video: z.literal(true).optional() })).optional()
 }).meta(z.toJSONSchema(publishedVideoClaimsOutputSchema, { target: "draft-7" }));
@@ -456,12 +461,24 @@ function completedResult(
         ? `Gemini listed ${claims} health claim(s) in the video` +
           (output.more_claims_not_listed === true ? ", and the video makes more it did not list" : "") +
           ". These are what the video says, as Gemini heard it: check each material claim with the other tools, " +
-          "and give each one's quote with its link."
+          "and give each one's quote with its link." + claimCoverageGuidance(videoId, claims)
         : `Gemini reported what is said and shown at ${output.at}. Give the quote with its link.`,
       output
     ),
     receipt: { video: videoId, mode: report.mode, n: claims }
   };
+}
+
+/**
+ * AskRigor#431: a fact-check of a video with 22 claims answered a few and never ran the final check. The answer accounts
+ * for every claim listed, and finalize_research checks the ids exactly against this reading's receipt.
+ */
+function claimCoverageGuidance(videoId: string, claims: number): string {
+  if (claims === 0) return "";
+  const ids = claims === 1 ? videoClaimId(videoId, 1) : `${videoClaimId(videoId, 1)} to ${videoClaimId(videoId, claims)}`;
+  return ` The answer accounts for every claim listed (${ids}): each one assessed, limited with its reason, or ` +
+    "unresolved, and says it is partial when any is not addressed. Give finalize_research each id's status in " +
+    "later_inputs.claim_coverage. Until finalize_research checks the answer, it is unchecked.";
 }
 
 function passFields(
@@ -499,9 +516,10 @@ function claimsFields(report: GeminiVideoClaimsReport, videoId: string, duration
   report = geminiVideoClaimsReportSchema.parse(report);
   return {
     spoken_language: report.spoken_language,
-    claims: report.claims.map((claim) => {
+    claims: report.claims.map((claim, index) => {
       const time = timeLink(claim.start, videoId, duration);
       return {
+        id: videoClaimId(videoId, index + 1),
         start: claim.start,
         link: time.link,
         speaker: claim.speaker,

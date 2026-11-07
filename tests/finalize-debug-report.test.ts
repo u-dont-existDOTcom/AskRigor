@@ -167,6 +167,9 @@ describe("the final check's private debug report", () => {
       rule: "corrections[0]'s wrong statement still appears in the answer outside its change sentence: correct it everywhere, including headings, tables and summaries.", omitted_characters: 0 });
     expect(uncheckedAnswerInstructions(result)).toContain("If the user says yes");
     expect(uncheckedAnswerInstructions(result)).toContain("pass check_report_token exactly as returned");
+    // AskRigor#431: one report per incident, so the bug report is not doubled by a lesson.
+    expect(uncheckedAnswerInstructions(result)).toContain("do not rewrite the server report. It is this incident's " +
+      "one report: send no separate lesson about it.");
   });
 });
 

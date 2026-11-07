@@ -32,6 +32,8 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt, verifyResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
+import { claimCoverageNotes } from "../apps/research-mcp/src/claim-coverage.js";
+import { ruleText } from "../apps/research-mcp/src/check-rules.js";
 
 
 // AskRigor#359: a person asked whether a video's 2-minute "gentle fascia hopping" routine is the most important daily
@@ -202,8 +204,11 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
     expect(result.isError).not.toBe(true);
     return assertNextStepsContract(result.structuredContent as FinalizeResearchOutput);
   };
+  // AskRigor#431's claim-coverage note, which a reading that listed claims adds, is tested on its own
+  // (claim-coverage-and-citation-markers.test.ts); these cases look at the named target's notes.
+  const claimCoverage = (step: string) => /^Of the \d+ video claim\(s\) extract_youtube_video_claims listed, /u.test(step);
   const steps = async (overrides: Partial<FinalizeResearchInput> = {}) =>
-    advisoryNotes((await call(overrides))).filter((step) => step !== TOOL_LIST_REFRESH_HINT);
+    advisoryNotes((await call(overrides))).filter((step) => step !== TOOL_LIST_REFRESH_HINT && !claimCoverage(step));
 
   describe("T1b: a compound routine judged by studies of other exercises", () => {
     it("needs the caveats that the video was not watched and that the studies are indirect, and holds back a draft without them", async () => {
@@ -440,7 +445,10 @@ describe.each(["gate", "MCP endpoint"] as const)("finalize_research named_target
       for (const receipt of [unread, read, pending]) {
         const result = await call({ receipts: [receipt, audit(JUMPS), reviewAudit(SNACKS)], named_target: undefined,
           key_sources: unmatched, answer_draft: `${STUDY_LINES}\n\n${UNWATCHED}` });
-        expect(advisoryNotes(result)).toEqual([REQUIRED, TOOL_LIST_REFRESH_HINT]);
+        // AskRigor#431: a reading that listed claims also asks for each one's status, as a note.
+        const coverage = receipt === read
+          ? claimCoverageNotes([1, 2, 3].map((n) => `${VIDEO}#${n}`), undefined).map(ruleText) : [];
+        expect(advisoryNotes(result)).toEqual([...coverage, REQUIRED, TOOL_LIST_REFRESH_HINT]);
         expect(result.next_step_kinds).toEqual([]);
       }
       // Without it, a video that was not read still has its caveat, from its title and description.

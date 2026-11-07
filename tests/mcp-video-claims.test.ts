@@ -287,6 +287,13 @@ describe("extract_youtube_video_claims", () => {
       on_screen_citations: [{ start: "05:02", link: `https://www.youtube.com/watch?v=${VIDEO}&t=302s` }]
     });
     expect(output.claims[0]).toMatchObject({ start: "04:10", link: `https://www.youtube.com/watch?v=${VIDEO}&t=250s` });
+    // AskRigor#431: each claim's id is the video and its place, which the receipt (video, n) fixes, and the text asks the
+    // answer to account for every claim in finalize_research's later_inputs.claim_coverage.
+    expect(output.claims.map(({ id }) => id)).toEqual([`${VIDEO}#1`, `${VIDEO}#2`]);
+    expect((done.result.content as Array<{ text: string }>)[0]!.text).toContain(` The answer accounts for every claim ` +
+      `listed (${VIDEO}#1 to ${VIDEO}#2): each one assessed, limited with its reason, or unresolved, and says it is ` +
+      "partial when any is not addressed. Give finalize_research each id's status in later_inputs.claim_coverage. " +
+      "Until finalize_research checks the answer, it is unchecked.");
     // A time past the end is Gemini's mistake: flagged and linked to the start, never moved.
     expect(output.claims[1]).toMatchObject({
       start: "21:00", link: `https://www.youtube.com/watch?v=${VIDEO}`, time_outside_video: true
