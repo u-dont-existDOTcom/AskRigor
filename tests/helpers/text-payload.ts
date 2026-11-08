@@ -40,11 +40,23 @@ export function textOnly(result: ReceivedResult): string[] {
 }
 
 /**
+ * Claude Code puts a result bigger than this in a file instead of the conversation (its MCP documentation, "MCP output
+ * limits"). Measured on 8 Nov 2026 with Claude Code 2.1.312: it counts the part it shows the model, the structured
+ * content, so an 82,745-character result whose structured part was 41,119 stayed inline.
+ */
+export const CLAUDE_CODE_INLINE_CHARACTERS = 50_000;
+/** The largest tool result claude.ai and Claude Desktop take, over the whole result (Claude's connector documentation). */
+export const CLAUDE_APP_RESULT_CHARACTERS = 150_000;
+
+/**
  * The bytes each kind of client takes in from a result received without ChatGPT's signals: ChatGPT shows the model
  * both the content it gets (resultForClient's ChatGPT form) and the structured content, so the whole result counts;
- * a client that reads only text takes in the text blocks alone.
+ * a client that reads only text takes in the text blocks alone; Claude Code shows the structured content alone; and a
+ * Claude app that takes the whole result takes both, as received. Bytes are never fewer than characters, so a limit in
+ * characters holds when these do.
  */
-export function clientViewBytes(result: ReceivedResult & { isError?: boolean }, tool?: string): { chatGpt: number; textOnly: number } {
+export function clientViewBytes(result: ReceivedResult & { isError?: boolean }, tool?: string):
+  { chatGpt: number; textOnly: number; structured: number; whole: number } {
   const chatGpt = resultForClient(tool ?? "", {
     content: builtContent(result, tool),
     ...(result.structuredContent === undefined ? {} : { structuredContent: result.structuredContent as Record<string, unknown> }),
@@ -53,5 +65,7 @@ export function clientViewBytes(result: ReceivedResult & { isError?: boolean }, 
   return {
     chatGpt: Buffer.byteLength(JSON.stringify(chatGpt), "utf8"),
     textOnly: textOnly(result).reduce((total, text) => total + Buffer.byteLength(text, "utf8"), 0),
+    structured: result.structuredContent === undefined ? 0 : Buffer.byteLength(JSON.stringify(result.structuredContent), "utf8"),
+    whole: Buffer.byteLength(JSON.stringify({ content: result.content, structuredContent: result.structuredContent }), "utf8"),
   };
 }

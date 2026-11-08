@@ -76,7 +76,7 @@ describe("the app's own citation markers", () => {
     }
     expect(ruleText(untraceableCitationNote("A claim turn1search0.")!)).toBe("The draft holds the app's own citation " +
       "markers (turn1search0), which no reader can open: replace each with the link of the source it stands for, or " +
-      "remove it, and call finalize_research again with the changed draft.");
+      "remove it, before the answer is given.");
     expect(untraceableCitationNote("A claim [Study](https://doi.org/10.5555/x).")).toBeUndefined();
   });
 });

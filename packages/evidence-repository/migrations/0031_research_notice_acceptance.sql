@@ -70,6 +70,7 @@ BEGIN
         (notice_accepted_by IS NULL AND notice_accepted_at IS NULL)
         OR (
           mode = 'FREE_CONTRIBUTOR'
+          AND notice_accepted_at IS NOT NULL
           AND notice_accepted_at = activated_at
           AND notice_accepted_by IN ('PERSON', 'OWNER_STANDING_INSTRUCTION_2026_11_06')
         )

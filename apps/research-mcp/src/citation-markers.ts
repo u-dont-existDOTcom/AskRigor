@@ -27,7 +27,8 @@ export function untraceableCitationNote(draft: string | undefined): CheckRule | 
   if (markers.length === 0) return undefined;
   const shown = markers.length <= SHOWN ? markers.join(", ")
     : `${markers.slice(0, SHOWN).join(", ")} and ${markers.length - SHOWN} more`;
+  // No "call again" here: the note prints under every status, a stopped check's included, which says not to call again
+  // in this turn (the review of 7 Nov); a passing check's own text already says to check a changed draft again.
   return joinRules(rule`The draft holds the app's own citation markers (${shown}), which no reader can open: `,
-    "replace each with the link of the source it stands for, or remove it, and call finalize_research again with the ",
-    "changed draft.");
+    "replace each with the link of the source it stands for, or remove it, before the answer is given.");
 }

@@ -30,8 +30,8 @@ full-text pages, and `load_protocol`'s summary claimed "exact canonical bytes" i
   surface); `tests/helpers/text-payload.ts` lets older tests compare the text the tool built.
 - **Docs:** the privacy data map ("Payload text" and "Which app made a call"), `docs/claude-connector.md` ("What the model
   sees"), `docs/design-decisions.md`, and the UDA item's two synthetic cases in `docs/owner-regressions.md`.
-- **Still uncertain:** whether claude.ai's chat hands the model text, structured content or both, and whether any app
-  measures the whole result against a size limit; the first release checks a protocol page and an audit there.
+- **Still uncertain:** whether claude.ai's chat hands the model text, structured content or both; the first release
+  checks a protocol page and an audit there. The sizes were measured on 8 Nov (below, finding 1).
 
 ## B. The notice asked again only when it collects or publishes more (the owner, 6 Nov): built
 
@@ -83,3 +83,34 @@ bug report and a lesson.
 - **C5:** `docs/owner-regressions.md`, "A many-claim video fact-check, and one report per incident (issue #431)".
 - **Docs:** `docs/final-check.md` (two notes, no blocking rule), the privacy data map's request-local rows,
   `docs/design-decisions.md`.
+
+## The independent review of 7 Nov, and its fixes (8 Nov)
+
+The review of `2dff293b..cbd90d46` found five problems and three it could not confirm. The owner, 8 Nov: "Yes, fix
+them".
+
+1. **Results about doubled for apps other than ChatGPT, past the 50,000 characters recorded for Claude clients.**
+   Measured: Claude Code 2.1.312 counts only the part it shows the model (the HRP core page's structured content,
+   41,119 characters, in an 82,745-character result that stayed inline), and claude.ai and Claude Desktop take about
+   150,000 characters in all. `tests/helpers/text-payload.ts` names both limits; `tests/text-only-clients.test.ts` holds
+   each part of every protocol page under 50,000 and the whole under 150,000, and `tests/mcp-tools.test.ts` does the same
+   for the protocol loops and a full video audit. The Atlas lookup's cap went from 52,000 to 46,000 bytes
+   (`ATLAS_LOOKUP_MAX_BYTES`), so its structured part and its text copy each stay under 50,000.
+2. **The owner's automatic acceptance could undo a revoke or a switch to paid made at the same moment.** It now saves
+   only onto the row as it was read (`saveAccountIfUnchanged`: status, mode, notice version and update time, the time to
+   the millisecond), reads the row again when it changed, and stops after a second change, leaving the row as stored.
+   `tests/research-use-notice-standing-race.test.ts` (four cases) and the PostgreSQL acceptance's
+   `standing_acceptance_saved_only_onto_the_row_as_read`.
+3. **An acceptance whose way wasn't recorded was worded as the person's own yes.** The Atlas account page and
+   `inspect`'s text now say how it was accepted wasn't recorded.
+4. **Read-only tools write the owner's acceptance.** Kept, with the reason in the code: it is recorded on the first call
+   that relies on it, since an acceptance relied on and not recorded would be worse.
+5. **The citation-marker note said to call `finalize_research` again, which a stopped check forbids.** The clause is gone;
+   a passing check's own text already asks for a new check of a changed draft.
+
+Of the three it could not confirm: 0031's check let a row with `PERSON` and no time through, and now requires the time
+(edited in place, since 0031 never ran in production); detection by User-Agent may also catch OpenAI's Responses API,
+which then gets the text alone (a limit in `docs/claude-connector.md`); the claim-coverage note applies to any run that
+extracted claims, not only fact-checks, which is the design. The review's test gaps stay: nothing tests `ownerSubjects`'
+wiring in `server.ts` and `pages-http.ts` (the review read it as correct), and the carry-forward test reads `dist/`, so it
+needs `tsc -b` first, as `npm run verify` does.

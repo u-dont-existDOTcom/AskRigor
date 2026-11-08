@@ -281,6 +281,11 @@ export interface ProposalSubmission extends ProposalInsertResult {
 export interface ResearchContributorAccessStore {
   getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null>;
   saveAccount(record: ResearchUseAccountRecord): Promise<void>;
+  /**
+   * Saves the record only while the stored row still has the status, mode, notice version and update time it had when
+   * `read` was read; false, and nothing written, when it changed in between.
+   */
+  saveAccountIfUnchanged(record: ResearchUseAccountRecord, read: ResearchUseAccountRecord): Promise<boolean>;
   hasActivePrivateEntitlement(accountKey: string, at: string): Promise<boolean>;
   insertProposal(
     record: ResearchContributionProposalRecord,
@@ -421,6 +426,8 @@ export class ResearchContributorAccessService {
       return accessView("UNENROLLED", null, null, null);
     }
     const account = await this.withStandingAcceptance(stored);
+    // Gone between the reads, as no AskRigor write does: shown as never enrolled.
+    if (account === null) return accessView("UNENROLLED", null, null, null);
     // A free account whose notice has changed materially since its yes is shown the current one to accept.
     if (outdatedFreeNotice(account)) {
       return accessView("UNENROLLED", null, null, account.updatedAt);
@@ -575,25 +582,32 @@ export class ResearchContributorAccessService {
    * row records that: the notice, its agreement, the time and how (NOTICE_ACCEPTED_BY). Any other account, and an owner
    * account that is revoked, paid private or already covered, is returned as stored.
    */
-  private async withStandingAcceptance(account: ResearchUseAccountRecord): Promise<ResearchUseAccountRecord> {
-    if (!outdatedFreeNotice(account) || !this.ownerAccountKeys.has(account.accountKey)) return account;
-    const at = this.now();
-    const accepted: ResearchUseAccountRecord = {
-      ...account,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
-      agreement: freeContributorAgreementSchema.parse({
+  private async withStandingAcceptance(account: ResearchUseAccountRecord): Promise<ResearchUseAccountRecord | null> {
+    // Saved onto the row as it was read (the review of 7 Nov): a revoke or a switch to paid private that lands between
+    // the read and the write is kept, and the account is read again. It is recorded on the first research call that
+    // relies on it, a read-only tool's included, since an acceptance relied on and not recorded would be worse.
+    let read: ResearchUseAccountRecord | null = account;
+    for (let attempt = 0; attempt < 2 && read !== null; attempt += 1) {
+      if (!outdatedFreeNotice(read) || !this.ownerAccountKeys.has(read.accountKey)) return read;
+      const at = this.now();
+      const accepted: ResearchUseAccountRecord = {
+        ...read,
         noticeVersion: RESEARCH_USE_NOTICE_VERSION,
-        eligibleDeidentifiedResearchContributionRequired: true,
-        prohibitedPrivateAndRawContentExcluded: true,
-        proposalReviewAndNoAuthorityAcknowledged: true,
-        paidPrivateAlternativeAcknowledged: true,
-      }),
-      activatedAt: at,
-      updatedAt: at,
-      noticeAcceptedBy: "OWNER_STANDING_INSTRUCTION_2026_11_06",
-    };
-    await this.store.saveAccount(accepted);
-    return accepted;
+        agreement: freeContributorAgreementSchema.parse({
+          noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+          eligibleDeidentifiedResearchContributionRequired: true,
+          prohibitedPrivateAndRawContentExcluded: true,
+          proposalReviewAndNoAuthorityAcknowledged: true,
+          paidPrivateAlternativeAcknowledged: true,
+        }),
+        activatedAt: at,
+        updatedAt: at,
+        noticeAcceptedBy: "OWNER_STANDING_INSTRUCTION_2026_11_06",
+      };
+      if (await this.store.saveAccountIfUnchanged(accepted, read)) return accepted;
+      read = await this.store.getAccount(read.accountKey);
+    }
+    return read;
   }
 
   /**
@@ -789,6 +803,14 @@ implements ResearchContributorAccessStore {
 
   async saveAccount(record: ResearchUseAccountRecord): Promise<void> {
     this.accounts.set(record.accountKey, this.keepingSettings(record));
+  }
+
+  async saveAccountIfUnchanged(record: ResearchUseAccountRecord, read: ResearchUseAccountRecord): Promise<boolean> {
+    const stored = this.accounts.get(record.accountKey);
+    if (stored === undefined || stored.status !== read.status || stored.mode !== read.mode ||
+        stored.noticeVersion !== read.noticeVersion || stored.updatedAt !== read.updatedAt) return false;
+    this.accounts.set(record.accountKey, this.keepingSettings(record));
+    return true;
   }
 
   async setPlainAnswerNote(accountKey: string, enabled: boolean): Promise<boolean> {
@@ -1036,6 +1058,39 @@ implements ResearchContributorAccessStore {
         acceptedBy === null ? null : record.activatedAt,
       ],
     );
+  }
+
+  // Only onto the row as it was read: the same status, mode, notice version and update time, the time compared to the
+  // millisecond, as AskRigor writes it. A revoke or a mode switch in between changes them, and nothing is written.
+  async saveAccountIfUnchanged(record: ResearchUseAccountRecord, read: ResearchUseAccountRecord): Promise<boolean> {
+    const acceptedBy = record.noticeAcceptedBy ?? null;
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET status = $2, mode = $3, notice_version = $4, agreement_json = $5::jsonb, activated_at = $6,
+              revoked_at = $7, updated_at = $8, notice_accepted_by = $9, notice_accepted_at = $10
+        WHERE account_key = $1
+          AND status = $11
+          AND mode IS NOT DISTINCT FROM $12
+          AND notice_version IS NOT DISTINCT FROM $13
+          AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $14::timestamptz)`,
+      [
+        record.accountKey,
+        record.status,
+        record.mode,
+        record.noticeVersion,
+        JSON.stringify(record.agreement ?? {}),
+        record.activatedAt,
+        record.revokedAt,
+        record.updatedAt,
+        acceptedBy,
+        acceptedBy === null ? null : record.activatedAt,
+        read.status,
+        read.mode,
+        read.noticeVersion,
+        read.updatedAt,
+      ],
+    );
+    return result.rowCount === 1;
   }
 
   async hasActivePrivateEntitlement(

@@ -9,6 +9,11 @@ import { loadAtlasFindings, loadAtlasSearch, loadAtlasTopic, NOT_CHECKED_LABEL, 
 import { atlasSearchQuery } from "./search.js";
 import { atlasPageUrl, atlasReceiptFinding } from "./reuse.js";
 
+// The lookup's structured content, at most. Claude Code shows a result inline up to 50,000 characters, counted in the
+// part it shows, and a client that reads only text gets the tool's line and this JSON again (lesson #59), so it stays
+// under that with room for the line (the review of 7 Nov; it was 52,000).
+export const ATLAS_LOOKUP_MAX_BYTES = 46_000;
+
 /** Keeps the 33-tool catalog: search_research_frontiers now searches the public Atlas as well as its stored plans. */
 export const atlasLookupInputSchema = z.object({
   query: z.string().optional().describe("Words to search in the Atlas, exactly as its pages do: at most 300 characters and 20 words, in any language."),
@@ -195,7 +200,7 @@ export async function lookupAtlas(raw: unknown, dependencies: AtlasLookupDepende
       if (!(error instanceof Error) || error.message !== "Research receipt exceeds its size limit" || !dropFinding()) throw error;
       continue;
     }
-    if (Buffer.byteLength(JSON.stringify(output), "utf8") <= 52_000) break;
+    if (Buffer.byteLength(JSON.stringify(output), "utf8") <= ATLAS_LOOKUP_MAX_BYTES) break;
     const catalog = output.frontier_catalog;
     if (catalog !== undefined && catalog.data.matches.length > 0) {
       catalog.data.matches.pop(); catalog.data.result_count = catalog.data.matches.length;

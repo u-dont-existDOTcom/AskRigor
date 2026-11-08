@@ -18,9 +18,20 @@ setting on Anthropic's side turns that around; a Claude agent harness gave the m
 every AskRigor result also carries its structured content as text, after the tool's own text: the JSON, or for a
 `load_protocol` page, the other fields' JSON and then the page's exact bytes, which hash to `scope_sha256`. Only a
 call carrying ChatGPT's signals gets the tool's text alone (`apps/research-mcp/src/tool-result.ts`; the privacy data
-map's "Payload text"). Whichever part an app hands over, it holds the whole payload, within the sizes results were
-built to. Guidance written only in a result's text, such as the reminders after a receipt, still reaches only apps
-that read the text.
+map's "Payload text"). Whichever part an app hands over, it holds the whole payload.
+
+Sizes, measured on 8 November 2026: Claude Code 2.1.312, run against a local server, kept the HRP core page in the
+conversation although the whole result was 82,745 characters, because it counts only the part it shows the model (there
+the structured content, 41,119 characters) against its 50,000-character limit, past which it saves a result to a file.
+claude.ai and Claude Desktop take a result of up to about 150,000 characters in all (Claude's connector documentation).
+The tests hold each part of every protocol page and of a full video audit under 50,000 characters and the whole under
+150,000 (`tests/text-only-clients.test.ts`, `tests/mcp-tools.test.ts`), and the Atlas lookup keeps its structured
+content under 46,000 bytes. A higher Claude Code limit would need `_meta["anthropic/maxResultSizeChars"]` in the tool
+list, which is frozen. Not checked: whether OpenAI's Responses API, which may send the same `openai-mcp/` User-Agent and
+so get the text alone, shows its model the structured content too.
+
+Guidance written only in a result's text, such as the reminders after a receipt, still reaches only apps that read the
+text.
 
 ## Auth0 (owner, once)
 

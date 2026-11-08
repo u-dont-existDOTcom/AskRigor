@@ -788,6 +788,29 @@ async function verifyNoticeAcceptance(context: {
   assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "ACCESS_ROLE_CANNOT_WRITE_ACCEPTANCE");
   await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_use_accounts SET account_key = account_key`));
 
+  // The standing acceptance is saved only onto the row as it was read (the review of 7 Nov), through the access role:
+  // an unchanged row takes it; a revoke that lands between the read and the save is kept, and nothing is written.
+  const ownerKey = owner.accountKeyForSubject(OWNER_SUBJECT);
+  const acceptedFrom = (read: NonNullable<Awaited<ReturnType<typeof store.getAccount>>>, time: string) => ({
+    ...read, noticeVersion: RESEARCH_USE_NOTICE_VERSION, activatedAt: time, updatedAt: time,
+    noticeAcceptedBy: STANDING as typeof read.noticeAcceptedBy,
+  });
+  await earlier(OWNER_SUBJECT);
+  const unchanged = await store.getAccount(ownerKey);
+  assert(unchanged !== null, "OWNER_ROW_MISSING");
+  assert(await store.saveAccountIfUnchanged(acceptedFrom(unchanged!, "2026-09-01T02:35:00.000Z"), unchanged!),
+    "GUARDED_SAVE_REFUSED_AN_UNCHANGED_ROW");
+  await earlier(OWNER_SUBJECT);
+  const read = await store.getAccount(ownerKey);
+  await person.revoke(OWNER_SUBJECT);
+  assert(!await store.saveAccountIfUnchanged(acceptedFrom(read!, "2026-09-01T02:40:00.000Z"), read!),
+    "GUARDED_SAVE_UNDID_A_REVOKE");
+  const kept = await admin.query<{ status: string; mode: string | null }>(
+    `SELECT status, mode FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`, [ownerKey]);
+  assert(kept.rows[0]?.status === "REVOKED" && kept.rows[0].mode === null, "REVOKE_UNDONE_BY_STANDING_ACCEPTANCE");
+  await expectCode(() => owner.requireActive(OWNER_SUBJECT), "RESEARCH_ACCESS_REVOKED");
+  checks.push("standing_acceptance_saved_only_onto_the_row_as_read");
+
   // Revoking clears it; migrating again changes no row and backfills nothing.
   await owner.revoke(OWNER_SUBJECT);
   const revoked = await row(OWNER_SUBJECT, owner);

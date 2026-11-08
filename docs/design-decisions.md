@@ -174,7 +174,7 @@ Not done: even a one-line error log without a privacy-page change; keeping real 
 
 **A new free-use notice asks again only when it collects or publishes more than the one a person accepted; a wording-only version carries their yes forward, and the owner's own login accepts each new version by the owner's standing instruction.**\
 Why: the owner, 6 Nov: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's annoying". Each version declares in code, reviewed with it, whether it is material; the record keeps what was accepted, when and how (by the person, carried forward, or by the owner's instruction).\
-Not done: treating dev accounts or any login but the one the owner's review admits as the owner's; enrolling, reactivating or switching a login for the owner; judging materiality from the notice's words. · Decided: 6 Nov 2026 (the owner); built 7 Nov, not yet released.
+Not done: treating dev accounts or any login but the one the owner's review admits as the owner's; enrolling, reactivating or switching a login for the owner; judging materiality from the notice's words; writing over a revoke or a switch to paid made at the same moment (the acceptance saves only onto the row as read). · Decided: 6 Nov 2026 (the owner); built 7 Nov, not yet released.
 
 **A question and answer are shared for improvement only when the person says yes and confirms the exact de-identified copy, which is kept encrypted with nothing naming the account, for 90 days, and deleted sooner with its code.**\
 Why: the owner, 30 Oct: "we aren't logging every question/answer but just the ones users send for improvement".\
@@ -233,8 +233,8 @@ Why: ChatGPT keeps an app's tool list until someone presses Refresh, and AskRigo
 Not done: changing a published field or description in between (such fixes wait in tool-list-changes-waiting.md). · Decided: 27 Oct 2026 (owner answer 189a); apps told when to refresh since 22 Oct.
 
 **Every tool result also carries its payload as text, except in ChatGPT, which shows the model both; a protocol page's bytes go in raw, so an app that reads only text can check them.**\
-Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research.\
-Not done: patches tool by tool; guessing the app from anything else; changing the tool list. · Decided: 7 Nov 2026 (lesson #59's build; not yet released).
+Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research. Each part stays under 50,000 characters, which Claude Code counts in the part it shows, and the whole under the about 150,000 claude.ai takes (measured 8 Nov).\
+Not done: patches tool by tool; guessing the app from anything else; changing the tool list, a higher Claude Code limit included. · Decided: 7 Nov 2026 (lesson #59's build; not yet released).
 
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\

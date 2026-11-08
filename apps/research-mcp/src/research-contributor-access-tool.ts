@@ -401,7 +401,9 @@ export function noticeAcceptanceSentence(acceptance: ResearchAccessView["accepta
   const standing = acceptance.acceptedBy === "OWNER_STANDING_INSTRUCTION_2026_11_06"
     ? ` The owner's standing instruction of 6 November 2026 accepted notice ${acceptance.noticeVersion} for this login ` +
       `at ${acceptance.acceptedAt}.`
-    : "";
+    : acceptance.acceptedBy === null
+      ? ` How notice ${acceptance.noticeVersion} was accepted for this login wasn't recorded.`
+      : "";
   const carried = acceptance.current === "carried_forward"
     ? ` This account's yes to notice ${acceptance.noticeVersion} carries forward to ${RESEARCH_USE_NOTICE_VERSION}, ` +
       "which changed only wording."

@@ -35,7 +35,12 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
-import { builtContent, clientViewBytes } from "./helpers/text-payload.js";
+import {
+  builtContent,
+  CLAUDE_APP_RESULT_CHARACTERS,
+  CLAUDE_CODE_INLINE_CHARACTERS,
+  clientViewBytes,
+} from "./helpers/text-payload.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -698,6 +703,10 @@ describe("AskRigor MCP tools", () => {
       expect(bytes.chatGpt).toBeLessThanOrEqual(40_000);
       expect(bytes.chatGpt).toBeGreaterThan(38_000);
       expect(bytes.textOnly).toBeLessThanOrEqual(40_000);
+      // Claude Code shows the structured content alone, inline up to its limit; claude.ai takes the whole (the review of
+      // 7 Nov, measured 8 Nov: tests/helpers/text-payload.ts).
+      expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+      expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -3151,7 +3160,9 @@ describe("AskRigor MCP tools", () => {
         expect(result.isError).not.toBe(true);
         const bytes = clientViewBytes(result, "load_protocol");
         expect(bytes.chatGpt).toBeLessThan(60_000);
-        expect(bytes.textOnly).toBeLessThan(60_000);
+        expect(bytes.textOnly).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
         texts.push((result.structuredContent as { text: string }).text);
       }
       expect(texts.join("")).toBe(canonicalText);
@@ -3355,7 +3366,9 @@ describe("AskRigor MCP tools", () => {
       for (const result of [first, second]) {
         const bytes = clientViewBytes(result, "load_protocol");
         expect(bytes.chatGpt).toBeLessThan(60_000);
-        expect(bytes.textOnly).toBeLessThan(60_000);
+        expect(bytes.textOnly).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
       }
     } finally {
       await server.close();

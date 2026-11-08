@@ -16,7 +16,13 @@ import {
   isChatGptCall, PROTOCOL_PAGE_IN_STRUCTURED_CONTENT, PROTOCOL_PAGE_IN_TEXT, resultForClient,
 } from "../apps/research-mcp/src/tool-result.js";
 import { FROZEN_TOOL_LIST_SURFACES, frozenSurfaceServer } from "../scripts/freeze-tool-lists.mts";
-import { builtContent, textOnly } from "./helpers/text-payload.js";
+import {
+  builtContent,
+  CLAUDE_APP_RESULT_CHARACTERS,
+  CLAUDE_CODE_INLINE_CHARACTERS,
+  clientViewBytes,
+  textOnly,
+} from "./helpers/text-payload.js";
 
 // Lesson #59 (7 Nov 2026): an app that hands the model only a result's content text never saw a payload kept only in
 // structuredContent. Every result now carries it in text too, except for ChatGPT, which shows the model both.
@@ -88,6 +94,29 @@ describe("a client that reads only content text (lesson #59)", () => {
     const core = protocolSections("hrp", canonical.toString("utf8")).filter(({ core: isCore }) => isCore);
     expect(pages.join("")).toBe(core.map(({ byte_start, byte_end_exclusive }) =>
       canonical.subarray(byte_start, byte_end_exclusive).toString("utf8")).join("\n\n"));
+  });
+
+  it("keeps each part of every protocol page under Claude Code's inline limit, and the whole under the apps' limit", async () => {
+    // The review of 7 Nov: the text copy doubles a result. Claude Code counts the part it shows (structured content, or
+    // the text where a setting turns it round), and claude.ai and Desktop take a whole result up to their limit, so
+    // each part and the whole are held to those, for every page of every protocol and section.
+    const client = await connected();
+    const sizes: string[] = [];
+    for (const args of [{ protocol: "universal", section: "core" }, { protocol: "hrp", section: "core" },
+      { protocol: "universal", section: "index" }, { protocol: "hrp", section: "index" }, { protocol: "universal" },
+      { protocol: "hrp" }]) {
+      for (let page = 1; ; page += 1) {
+        const result = await client.callTool({ name: "load_protocol", arguments: { ...args, page } });
+        expect(result.isError).not.toBe(true);
+        const bytes = clientViewBytes(result, "load_protocol");
+        sizes.push(`${JSON.stringify(args)} page ${page}: text ${bytes.textOnly}, structured ${bytes.structured}, whole ${bytes.whole}`);
+        expect(bytes.textOnly, sizes.at(-1)).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.structured, sizes.at(-1)).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.whole, sizes.at(-1)).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
+        if ((result.structuredContent as { complete?: boolean }).complete !== false) break;
+      }
+    }
+    expect(sizes.length).toBeGreaterThan(6);
   });
 
   it("gets the index in text, listing every section with its fields", async () => {

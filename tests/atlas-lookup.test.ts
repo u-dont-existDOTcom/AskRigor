@@ -1,7 +1,7 @@
 import { advisoryNotes } from "./helpers/finalize-next-steps-contract.js";
 import { describe, expect, it } from "vitest";
 import { InMemoryAtlasPageSource, InMemoryAtlasPublicationStore, type AtlasPageSource, type AtlasPageFinding } from "@askrigor/evidence-repository";
-import { atlasLookupInputSchema, lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
+import { ATLAS_LOOKUP_MAX_BYTES, atlasLookupInputSchema, lookupAtlas } from "../apps/research-mcp/src/atlas/lookup-tool.js";
 import { loadAtlasSearch } from "../apps/research-mcp/src/atlas/page-data.js";
 import { atlasSearchQuery } from "../apps/research-mcp/src/atlas/search.js";
 import { ATLAS_LOOKUP_FAILED_CAVEAT, atlasReceiptFinding, atlasSourceDigest, checkAtlasReuse, uncheckedAtlasCaveat } from "../apps/research-mcp/src/atlas/reuse.js";
@@ -158,7 +158,7 @@ describe("Atlas lookup through the existing public search tool", () => {
     }) };
     const output = await lookupAtlas({ query: "zentarine", research_target: TARGET, limit: 20 }, { source: large, reader, receipt, now });
     expect(output.findings.length).toBeGreaterThan(0); expect(output.findings.length).toBeLessThan(20);
-    expect(output.has_more).toBe(true); expect(Buffer.byteLength(JSON.stringify(output))).toBeLessThanOrEqual(52_000);
+    expect(output.has_more).toBe(true); expect(Buffer.byteLength(JSON.stringify(output))).toBeLessThanOrEqual(ATLAS_LOOKUP_MAX_BYTES);
     const signed = verified(output.research_receipt!).claims.found as string[];
     expect(signed.map((row) => row.split("|")[0])).toEqual(output.findings.map((f) => f.publication_number));
   });

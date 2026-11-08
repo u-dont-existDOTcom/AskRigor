@@ -187,7 +187,10 @@ function acceptedNotice(account: AtlasResearchAccount): string {
   const held = acceptance.acceptedBy === "OWNER_STANDING_INSTRUCTION_2026_11_06"
     ? `under the free-use notice ${noticeWords(acceptance.noticeVersion)}, accepted for you by your standing instruction ` +
       "of 6 Nov 2026."
-    : `under the free-use notice you accepted: ${noticeWords(acceptance.noticeVersion)}.`;
+    : acceptance.acceptedBy === null
+      // A row a hold or restore script, or an image from before migration 0031, last wrote: how isn't known.
+      ? `under the free-use notice ${noticeWords(acceptance.noticeVersion)}. How it was accepted wasn't recorded.`
+      : `under the free-use notice you accepted: ${noticeWords(acceptance.noticeVersion)}.`;
   return acceptance.current === "carried_forward"
     ? `${held} The notice has changed only in wording since, so your yes carries forward to ` +
       `${noticeWords(account.noticeVersion)}.`
