@@ -45,7 +45,7 @@ describe("AskRigor public site", () => {
 
   it("counts only same-origin anchor navigation links", async () => {
     const result = await validatePublicSite(rootFile("site/"));
-    expect(result.internalLinks).toBe(102);
+    expect(result.internalLinks).toBe(103);
   });
 
   it("discloses connected research and the bounded legacy checkpoint", async () => {

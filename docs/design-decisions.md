@@ -248,6 +248,10 @@ Decided: 28 Oct 2026 (owner answer 192c); still waiting, 5 Nov (258a).
 Why: not recorded beyond the owner's choice; releases bundle several lessons.\
 Decided: 21 Oct 2026 (owner answer 148a).
 
+**Dependabot's updates merge without asking once their full checks pass, several in one branch when main's up-to-date rule would make each wait for the next; merging releases nothing.**\
+Why: the owner, 7 Nov (answer 276a), after six updates waited for a `@dependabot rebase` that never came.\
+Not done: releasing an update without the owner's yes; merging one whose checks failed or never started. · Decided: 7 Nov 2026 (owner answer 276a).
+
 **After each release the owner's regression list runs, a release waits while a run is going so the build under test doesn't change, and test runs never save or show cards.**\
 Why: a run is what shows whether fixes work in real conversations, and test cards aren't real findings.\
 Not done: calling a case fixed after one good run (it needs two passing runs in a row). · Decided: 24 Oct 2026 (test cards set aside, 171); 26 Oct (185b); 29 Oct (193a); 5 Nov (247a; test marker, 257a).
