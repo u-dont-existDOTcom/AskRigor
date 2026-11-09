@@ -216,6 +216,18 @@ list as it is), all on the MCP connector, and none a blocking check:
   `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
   as they are.
 
+## The call record (owner answer 280a, 9 November 2026; built, not yet released)
+
+So a person can tell "never called" from "called and refused" (AskRigor#434), the server keeps a content-free record of
+each MCP tool call from a signed-in research account: the account key, the time, the tool, `manage_research_access`'s
+action, the route, whether ChatGPT's signals came with it, the outcome (answered, refused with its fixed code, or
+failed) and the time taken. Migration `0032_research_call_record` holds it; each row is deleted 7 days after its call,
+by the account's next call and an hourly sweep. The runtime-only action `list_calls` shows the account its own calls,
+newest first, and `inspect` names the action when the server keeps a record. Recording never delays or changes a
+result, and a failed write is dropped silently. Calls without a valid sign-in and Custom GPT Action calls are not
+recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
+SELECT and DELETE on the table only, and the canonical reader none.
+
 ## Detailed lesson reports
 
 Owner question 154 (2026-10-21): "i would not give everyone a long report like

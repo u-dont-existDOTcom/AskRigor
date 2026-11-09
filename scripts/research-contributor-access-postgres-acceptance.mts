@@ -26,6 +26,8 @@ import {
   PostgresEvidenceRepository,
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
+  PostgresResearchCallRecordStore,
+  RESEARCH_CALL_RECORD_RETENTION_MS,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
   RESEARCH_MAP_CONSENT,
@@ -459,6 +461,7 @@ async function verify(
     // the owner's standing instruction for the owner's own login, at activated_at; a write that changes activated_at
     // without it (an image from before 0031) clears both, and only the two named ways are admitted.
     await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
+    await verifyCallRecord({ admin, restricted, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -731,6 +734,74 @@ async function verify(
 
 const OWNER_SUBJECT = "auth0|synthetic-postgres-owner-login";
 const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
+
+async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
+  const { admin, restricted, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0032_research_call_record'`);
+  assert(applied.rowCount === 1, "MIGRATION_0032_NOT_APPLIED");
+  const record = new PostgresResearchCallRecordStore(restricted, SCHEMA);
+  const at = new Date("2026-11-09T11:52:03.000Z");
+  const before = new Date(at.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS);
+  const accountKey = "synthetic-call-record-own-key";
+  const otherKey = "synthetic-call-record-other-key";
+  const entry = { accountKey, receivedAt: at, tool: "manage_research_access", action: "inspect",
+    route: "/mcp" as const, chatgpt: true, outcome: "answered" as const, code: null, durationMs: 400 };
+  await record.record(entry);
+  await record.record({ ...entry, accountKey: otherKey });
+  const snapshot = async () => JSON.stringify({
+    rows: (await admin.query(`SELECT * FROM ${SCHEMA}.research_call_record ORDER BY account_key, received_at`)).rows,
+    table: (await admin.query(`SELECT c.oid, c.relfilenode, c.relacl, a.attname, a.atttypid, a.attnotnull
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+      WHERE n.nspname = $1 AND c.relname = 'research_call_record' ORDER BY a.attnum`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid = '${SCHEMA}.research_call_record'::regclass ORDER BY conname`)).rows,
+    indexes: (await admin.query(`SELECT indexname, indexdef FROM pg_indexes
+      WHERE schemaname = $1 AND tablename = 'research_call_record' ORDER BY indexname`, [SCHEMA])).rows,
+  });
+  const original = await snapshot();
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0032_research_call_record.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "CALL_RECORD_MIGRATION_NOT_IDEMPOTENT");
+
+  for (const privilege of ["INSERT", "SELECT", "DELETE", "UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+    const result = await restricted.query<{ allowed: boolean }>(
+      `SELECT has_table_privilege(current_user, $1, $2) AS allowed`, [`${SCHEMA}.research_call_record`, privilege]);
+    assert(result.rows[0]?.allowed === ["INSERT", "SELECT", "DELETE"].includes(privilege),
+      "CALL_RECORD_ROLE_PRIVILEGES_WRONG");
+  }
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_call_record SET duration_ms = 1`));
+  await expectPermissionDenied(() => restricted.query(`TRUNCATE ${SCHEMA}.research_call_record`));
+  await expectPermissionDenied(() => restricted.query(`ALTER TABLE ${SCHEMA}.research_call_record ADD COLUMN forbidden text`));
+  const reader = await admin.query<{ allowed: boolean }>(
+    `SELECT has_table_privilege('askrigor_reader', $1, 'SELECT') AS allowed`, [`${SCHEMA}.research_call_record`]);
+  assert(reader.rows[0]?.allowed === false, "CALL_RECORD_EXPOSED_TO_CANONICAL_READER");
+
+  const values: unknown[] = [accountKey, at, "load_protocol", null, "/mcp", false, "answered", null, 0];
+  for (const [index, bad] of [[2, "Bad tool"], [2, "a".repeat(65)], [3, "Bad action"], [7, "Bad code"],
+    [4, "/actions"], [6, "unknown"], [8, -1], [8, 86_400_001]] as const) {
+    const invalid = [...values];
+    invalid[index] = bad;
+    await expectCode(() => restricted.query(`INSERT INTO ${SCHEMA}.research_call_record
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, invalid), "23514");
+  }
+  const own = await record.list(accountKey, at);
+  assert(own.length === 1 && own[0]?.accountKey === accountKey && own[0]?.tool === entry.tool,
+    "CALL_RECORD_ACCOUNT_ISOLATION_FAILED");
+  await record.record({ ...entry, receivedAt: new Date(before.getTime() - 1) });
+  await record.record({ ...entry, accountKey: otherKey, receivedAt: new Date(before.getTime() - 1) });
+  await record.record({ ...entry, receivedAt: before });
+  await record.record({ ...entry, receivedAt: new Date(before.getTime() + 1) });
+  assert((await record.list(accountKey, at)).length === 2, "CALL_RECORD_SEVEN_DAY_BOUNDARY_WRONG");
+  assert(await record.sweep(at) === 2, "CALL_RECORD_SWEEP_COUNT_WRONG");
+  assert(await record.sweep(at) === 0, "CALL_RECORD_SWEEP_NOT_IDEMPOTENT");
+  assert(await record.sweep(new Date(at.getTime() + 1)) === 1, "CALL_RECORD_SWEEP_BOUNDARY_WRONG");
+  await restricted.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key IN ($1, $2)`, [accountKey, otherKey]);
+  checks.push("call_record_kept_7_days_own_account_only");
+}
 
 async function verifyNoticeAcceptance(context: {
   admin: Pool;

@@ -26,6 +26,8 @@ import {
   type CanonicalIdentityReader,
   type ResearchAccessView,
   type ResearchSteering,
+  type ResearchCallRecordStore,
+  RESEARCH_CALL_RECORD_RETENTION_DAYS,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -122,6 +124,7 @@ export const manageResearchAccessInputSchema = z.object({
     // Owner answer 279a (9 Nov 2026): the account's research style, and the menu of next tasks (runtime only).
     "set_research_steering",
     "plan_research",
+    "list_calls",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -216,7 +219,17 @@ const noticeAcceptanceSchema = z.object({
 }).strict();
 
 /** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
-export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.safeExtend({
+export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.extend({
+  error: researchAccessErrorSchema.extend({
+    code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable")]),
+  }).optional(),
+  calls: z.array(z.object({
+    received_at: z.iso.datetime(), tool: z.string(), action: z.string().nullable(),
+    route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
+    outcome: z.enum(["answered", "refused", "failed"]), code: z.string().nullable(),
+    duration_ms: z.number().int().min(0).max(86_400_000),
+  }).strict()).max(500).optional(),
+  retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
   access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
     code: z.string(),
@@ -350,6 +363,7 @@ export const submitResearchContributionOutputSchema = z.object({
 
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
+  callRecord?: ResearchCallRecordStore;
   resourceMetadataUrl?: URL;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
@@ -467,6 +481,10 @@ export function plainAnswerRequest(note: boolean): string {
     "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
     (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
+
+// Owner answer 280a (9 Nov 2026): inspect names the call record, so the AI can answer "did AskRigor get my request?"
+export const CALL_RECORD_SENTENCE = "When the person asks whether AskRigor received their calls, action list_calls " +
+  "lists the calls AskRigor received from this signed-in account in the last 7 days, without their content.";
 
 // Owner answer 279a (9 Nov 2026): the framing goes with the plain answer, before any research call.
 const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
@@ -602,6 +620,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
   ): Promise<CallToolResult> => {
     const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return auth.error;
+    if (input.action === "list_calls") {
+      if (options.callRecord === undefined || options.service === undefined) {
+        const message = "This AskRigor server keeps no call record, so there is nothing to show.";
+        return { content: [{ type: "text", text: message }], isError: true,
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+            ok: false, error: { code: "call_record_unavailable", message },
+          }) };
+      }
+      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
+      const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
+        action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
+        code: entry.code, duration_ms: entry.durationMs }));
+      const count = calls.length === 0
+        ? "AskRigor received no calls from this signed-in account in the last 7 days."
+        : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
+      const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
+        "This call itself appears from the next listing.", ...calls.map((call) =>
+        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? "" : ` (${call.action})`} · ` +
+        `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
+        `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
+      return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: true, calls, retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
+      }) };
+    }
     if (options.service === undefined) {
       return accessError(
         "research_access_service_unavailable",
@@ -800,6 +842,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
             (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
+            (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessRuntimeOutputSchema.parse({

@@ -63,6 +63,8 @@ GRANT SELECT ON TABLE living_evidence.research_private_entitlements
   TO askrigor_research_access;
 GRANT SELECT, INSERT ON TABLE living_evidence.research_contribution_proposals
   TO askrigor_research_access;
+GRANT INSERT, SELECT, DELETE ON TABLE living_evidence.research_call_record
+  TO askrigor_research_access;
 GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals(
   text, timestamptz
 ) TO askrigor_research_access;

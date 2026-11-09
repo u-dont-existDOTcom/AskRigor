@@ -1,5 +1,66 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ProtocolName } from "@askrigor/protocol";
+import type { ResearchCallRecordEntry, ResearchCallRecordStore } from "@askrigor/evidence-repository";
+import type { ResearchOperationExtra } from "./research-operation.js";
+
+export interface CallRecordingOptions {
+  store: ResearchCallRecordStore;
+  accountKeyForCall: (extra: unknown) => string | undefined;
+  actionForCall: (tool: string, input: unknown) => string | null;
+  route: ResearchCallRecordEntry["route"];
+}
+
+const pendingCallWrites = new WeakMap<ResearchCallRecordStore, Set<Promise<void>>>();
+
+/** Test/closeout seam: wait for background writes to this store without changing request-path timing. */
+export async function waitForPendingCallRecords(store: ResearchCallRecordStore): Promise<void> {
+  const pending = pendingCallWrites.get(store);
+  while (pending !== undefined && pending.size > 0) await Promise.all([...pending]);
+}
+
+function enqueueCallRecord(store: ResearchCallRecordStore, entry: ResearchCallRecordEntry): void {
+  let pending = pendingCallWrites.get(store);
+  if (pending === undefined) {
+    pending = new Set();
+    pendingCallWrites.set(store, pending);
+  }
+  // The queued work captures only the disclosed entry, never the input, result, extra, or exception.
+  const write = Promise.resolve().then(() => store.record(entry)).catch(() => undefined);
+  pending.add(write);
+  void write.then(() => pending.delete(write));
+}
+
+function startCallRecord(tool: string, input: unknown, extra: unknown, recording?: CallRecordingOptions) {
+  if (recording === undefined) return undefined;
+  try {
+    const receivedAt = new Date();
+    const started = performance.now();
+    const request = extra as ResearchOperationExtra | undefined;
+    if (request?.surface === "action") return undefined;
+    const accountKey = recording.accountKeyForCall(extra);
+    if (accountKey === undefined) return undefined;
+    const action = recording.actionForCall(tool, input);
+    const base = {
+      accountKey, receivedAt, tool, action,
+      route: recording.route, chatgpt: isChatGptCall(extra),
+    };
+    return (result: CallToolResult | undefined) => {
+      try {
+        let code: string | null = null;
+        const outcome = result === undefined ? "failed" : result.isError === true ? "refused" : "answered";
+        if (outcome === "refused") {
+          const structured = result!.structuredContent;
+          const error = structured?.error;
+          const nested = error !== null && typeof error === "object" ? (error as Record<string, unknown>).code : undefined;
+          code = [nested, structured?.code].find((value): value is string =>
+            typeof value === "string" && /^[a-z][a-z0-9_]{0,63}$/u.test(value)) ?? "other";
+        }
+        enqueueCallRecord(recording.store, { ...base, outcome, code,
+          durationMs: Math.min(86_400_000, Math.max(0, Math.round(performance.now() - started))) });
+      } catch { /* A call record must never affect a tool result or emit a log. */ }
+    };
+  } catch { return undefined; }
+}
 
 /*
  * Lesson #59 (7 Nov 2026): some MCP clients give the model only a result's content text, never its structuredContent
@@ -83,9 +144,21 @@ function withSummarySentence(content: CallToolResult["content"], sentence: strin
 /** Wraps one tool's MCP handler so each result reaches the calling client as resultForClient shapes it. */
 export function forTextClients<Input, Extra>(
   tool: string,
-  execute: (input: Input, extra?: Extra) => Promise<CallToolResult>
+  execute: (input: Input, extra?: Extra) => Promise<CallToolResult>,
+  recording?: CallRecordingOptions,
 ): (input: Input, extra?: Extra) => Promise<CallToolResult> {
-  return async (input, extra) => resultForClient(tool, await execute(input, extra), isChatGptCall(extra));
+  return async (input, extra) => {
+    const finish = startCallRecord(tool, input, extra, recording);
+    let result: CallToolResult;
+    try {
+      result = await execute(input, extra);
+    } catch (error) {
+      finish?.(undefined);
+      throw error;
+    }
+    finish?.(result);
+    return resultForClient(tool, result, isChatGptCall(extra));
+  };
 }
 
 export function successfulToolResult(
