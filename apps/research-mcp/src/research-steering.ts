@@ -199,6 +199,17 @@ export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditi
   "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
   "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
 /**
+ * The timing runs of 9 Nov 2026: in the made-up antivenom emergency, the run framed, screened, showed a menu and
+ * researched for 17 minutes, first saying plainly not to delay the antivenom at minute 9.6. HRP already forbids it
+ * (ParallelEmergencyAndAdjunctQuestions, NoEmergencyWarningOvercorrection); whether a question is urgent is the model's
+ * judgment.
+ */
+export const URGENT_FIRST = "If the question is about an emergency happening now, or a decision that can't wait, give " +
+  "the person the urgent action from your plain answer in your first lines, before any research call, menu or question " +
+  "about how to spend the time; research only after that, and only what could still change the action " +
+  "(HRP ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection).";
+
+/**
  * The owner, 9 Nov 2026 (a reply in the Inbox on the Syrian rue oil check): the oil that held the alkaloids was extracted
  * with hexane, which nobody sells, so a person asking about the oil most likely means seeds steeped in a household oil,
  * and the AI should confirm that with them. It applies HRP's WholeInterventionIdentityTrace (the tested against the sold
@@ -235,13 +246,13 @@ const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the A
  */
 export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
   if (framing === undefined) {
-    return "Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
+    return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
       "likely means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to " +
       "three questions whose answers could change what to research. " + FORM_PEOPLE_USE + " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
-  const parts: string[] = [`Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
+  const parts: string[] = [URGENT_FIRST, `Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
   if (doubts.length > 0) {
     parts.push(`Say plainly near the start of your reply what looks inverted or unclear (${doubts.map((doubt) =>
       JSON.stringify(doubt)).join("; ")}), and which reading you take.`);

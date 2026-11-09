@@ -26,6 +26,7 @@ import {
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
   RESEARCH_MENU_SHAPE,
+  URGENT_FIRST,
   planTaskSchema,
   researchMenuSchema,
   PLAN_TASK_MINUTES,
@@ -304,6 +305,18 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       }
       expect(framingGuidance(steering, undefined)).toContain(PEOPLE_FIRST_WHEN_USED);
     }
+  });
+
+  // The timing runs of 9 Nov 2026: the antivenom emergency got a menu and 17 minutes of research before its answer.
+  it("puts an emergency's urgent action before any research call or menu, first in every framing guidance", () => {
+    const framings = [undefined, { likely_question: "Should they wait?" },
+      { likely_question: "Should they wait?", premise_doubts: ["x"], redirecting_questions: ["Which antivenom?"] }];
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      for (const framing of framings) {
+        expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, framing).startsWith(URGENT_FIRST)).toBe(true);
+      }
+    }
+    expect(URGENT_FIRST).toContain("ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection");
   });
 
   // The owner, 9 Nov 2026 (Inbox reply): nobody sells the hexane-extracted seed oil, so ask which form the person has.
