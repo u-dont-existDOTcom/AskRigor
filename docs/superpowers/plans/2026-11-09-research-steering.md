@@ -166,9 +166,13 @@ Owner answer 283a (9 Nov): build it as a new input of the existing search tools,
 `search_europe_pmc` with `later_inputs.index` `all_journals` searches OpenAlex (`packages/sources/src/openalex.ts`),
 with its own receipt source `openalex`, counted by the final check as the source beyond PubMed and Europe PMC; the
 screen names it for plant, food, farming and traditional remedies. OpenAlex holds the 1999 paper (looked up by its
-DOI), but its title's broken spacing kept it off the first page of the English and French searches tried on 9 Nov;
-the index finds many other oil and seed papers PubMed lacks. Keyless use shares about 100 searches a day per server
-address; an `OPENALEX_API_KEY` the owner gets for free raises it, once added to the server's settings by the owner.
+DOI); its title's broken spacing kept it off the first page of broad English and French searches, but a live check
+of the adapter at 18:50 UTC with a French search limited to 1995 to 2003 ("huile Peganum harmala Zygophyllaceae")
+found it first, as the limitation text advises (search in the paper's own language). The index finds many other oil
+and seed papers PubMed lacks. Keyless use shares about 100 searches a day per server address; the owner made a free
+key on 9 Nov (its own allowance, about 1,000 searches a day, nothing prepaid), which goes into the server's settings
+as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by a script as owner answer 177a
+allowed for the Atlas secret.
 The privacy notice names OpenAlex: date it on the release day.
 
 ## Not done
