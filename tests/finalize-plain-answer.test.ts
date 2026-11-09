@@ -396,7 +396,10 @@ describe("finalize_research compares the answer with the plain answer registered
         `restore the note when the receipt verifies.${later}`],
       [[audit(), plainReceipt(2_500)], "after_research", afterResearch],
       [[plainReceipt(1_000, CLAIMS, "Another question"), audit()], "other_target", "The plain answer passed was " +
-        `registered for another research target, so the answer ends without the note comparing it with this research.${later}`],
+        "registered for another research target, so the answer ends without the note comparing it with this research. " +
+        "If it is the quick answer to this same question, worded differently here, call again with research_target word " +
+        "for word as given to register_plain_answer (only case and spacing are ignored); its result quoted it." +
+        later],
       [[plainReceipt(1_000, CLAIMS, TARGET, plainAnswerAccountBinding(SECRET, "b".repeat(64))), audit()], "other_account",
         `The plain answer passed was registered by another account, so the answer ends without the note comparing it with one.${later}`],
       // Research began with the earliest receipt passed, whatever it was made for: a study audit names no research
@@ -604,6 +607,10 @@ describe("manage_research_access and finalize_research through the connector (ow
       "first receipt, so one registered after research began is not compared; if one for this research target was " +
       "registered before the research began, pass that receipt too.");
     expect(text(registered)).not.toContain("registered before research:");
+    // #434 (8 Nov 2026): the result quotes the target it signed, so a later turn can give the check the same words.
+    expect(text(registered)).toContain(`Research target, as signed: ${JSON.stringify(TARGET)}. Give finalize_research ` +
+      "this research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one " +
+      "can't be matched to this plain answer, and the answer then ends without the comparison.");
 
     const refused = async (input: Record<string, unknown>, problems: string[]) => {
       const result = await manage(input, "auth0|dev");

@@ -16,7 +16,7 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    limit: a DOI is found in the path as text, so a link to a longer DOI that begins with the source's passes too
    (10.1136/bmj.n712 for 10.1136/bmj.n71); the linked studies' note below names such a doi.org link's own paper.
 2. A study's declared `read_depth` matches its receipts, and an answer citing a key source says beside it how it was
-   read, in its own words, which `source_reading` copies (5 November 2026, not yet released; below).
+   read, in its own words, which `source_reading` copies (5 November 2026, released 6 November 2026; below).
 3. Declared `binary_results` arithmetic is correct, and a figure shown in the answer agrees with its declared counts.
 4. Declared `safety_claims` have a `harm_screen` naming at least one harm actually searched. Duplicates, other
    values, quotes and a `not_found` query without a receipt produce notes. The harms and source types searched
@@ -29,14 +29,21 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    entries' own problems (an unshown quote, nothing behind a change) stay notes, and the note gives such a claim
    as "This research did not check that." When the account turned the note off, a missing comparison stays a
    note. A plain answer whose receipt is not passed cannot be required: AskRigor keeps no copy of it, only the
-   signed digests of its claims in the receipt it hands back.
+   signed digests of its claims in the receipt it hands back. The plain answer is matched to the research by
+   `research_target`, word for word but for case and spacing, so its registration result quotes the target it signed,
+   and a check given other words says how to call again with the registered ones (AskRigor#434, 8 November 2026, built,
+   not yet released: after the person said "continue", a check given the question in other words found no plain answer
+   for it, and the panel said nothing). Whether two wordings ask the same question stays the AI's to judge. Under a
+   passing check with no note, the panel says in one line why there is no comparison (no plain answer passed, one
+   registered for other words or after the research began, or one from another account), unless the person turned the
+   note off.
 
 `FINAL_CHECK_BLOCKING_RULES` in `research-finalization-gate.ts` names this set. A single admission point checks
 every proposed step against it. All other diagnostics return once in `notes`, worded for the AI to act on:
 missing declarations, wording and quote guidance, key terms, unfinished research or leads, discovery and
 landscape coverage, Atlas lookups, community reports and their counts, the leads people's reports raised and the study
 searches that followed them, the studies the answer links that no receipt shows were looked up, omitted carried lists
-and tool-list currency. Once means once per turn (5 November 2026, not yet released): the carried state keeps a short digest of each
+and tool-list currency. Once means once per turn (5 November 2026, released 6 November 2026): the carried state keeps a short digest of each
 note its turn's checks gave, and a later check of that turn leaves those out, with one line saying how many and that a
 note still stands unless the draft or the call's declarations already meet it; a note whose words changed is new, and
 the next turn gives notes again. Notes on the call's own input or the conversation's continuity (input problems,
@@ -96,7 +103,7 @@ and the result gives each on its own `Include as written, translated when the an
 Material limits stay in `limits` under passing, not-ready and stopped checks; the stopped-check completion tip is shown as written in `caveats`. The published schema and tool description now say the same thing, in this tool-list change.
 Missing or reworded limit text still creates no step.
 
-Closing questions (a lesson from the owner's comparison of 6 November 2026; not yet released). Free ChatGPT without
+Closing questions (a lesson from the owner's comparison of 6 November 2026; released 6 November 2026). Free ChatGPT without
 AskRigor ended its tirzepatide answer with three numbered questions: whether tirzepatide was weighed as an alternative to
 CPAP or as an add-on; obesity, overweight or normal weight; and the person's AHI, with examples (15, 30, 50 or 70). It
 also said what it would do with the answers. AskRigor's answer asked only for the AHI and whether the person uses CPAP,
@@ -197,7 +204,7 @@ the AI that names the link each answer calls for. Every finding is a note naming
 consumes no round; what the shared deadline allowed is kept.
 
 The loop from people's reports to studies (the owner, 5 November 2026: "make sure that our feedback loop is working
-between forum signal and studies"; not yet released) adds one optional later input and no blocking rule
+between forum signal and studies"; released 6 November 2026) adds one optional later input and no blocking rule
 (`apps/research-mcp/src/community-leads.ts`). HRP already asks for the loop: `CommunityToFormalHypothesisTransfer` turns
 repeated or high-value community observations into study searches, `FormalAbsenceCannotEraseCommunitySignal` records
 how studies relate to the signal, and `MatchedContradictionAndOutcomeAlignment` lets a study contradict reports only when
@@ -240,7 +247,7 @@ next.
 
 How each study was read, said beside it (the owner, 5 November 2026: "make sure askrigor is enforcing that the AI tells
 people what it actually read, like 'In this study (abstract read/full text read/full text and images analyzed)' that will
-make it much easier to understand the evidentiary basis"; not yet released) adds one later input and no blocking rule:
+make it much easier to understand the evidentiary basis"; released 6 November 2026) adds one later input and no blocking rule:
 the read-depth check (rule 2) now covers the answer's words too (`apps/research-mcp/src/source-reading.ts`). HRP's
 `StudyReadDepthDisclosure` already asks the answer to say beside each supporting study what was actually read, and the
 check already held each declared `read_depth` to its receipts, but nothing made the answer say it. `source_reading`,
@@ -335,7 +342,7 @@ quote's words are the AI's, as above; where they sit is not checked; a lower dec
 `read_depth` and no receipt showing a reading has no reading, so the result and the panel leave it out.
 
 To what extent AskRigor read the studies (the owner, 6 November 2026: "make sure we get it working so it tells you to
-what extent it read the studies"; not yet released) adds two runtime results, one receipt claim, and no blocking rule.
+what extent it read the studies"; released 6 November 2026) adds two runtime results, one receipt claim, and no blocking rule.
 Two ChatGPT answers (free plan, think mode) made with AskRigor that morning, after the readings above went live, said
 some studies' readings and not others: a selenium-for-HIV answer's "Tanzania cohort" link, a study a claim rested on,
 gave none, and neither said how many studies the research found against how many it read; a tirzepatide answer never
@@ -427,7 +434,7 @@ sized: "part of the text read" can't yet say how much, though the reader knows h
 delivered.
 
 Three lessons from the free Claude test of 5 November 2026 (Claude Sonnet with AskRigor, on Piliostigma reticulatum
-leaves; not yet released) add notes, two later inputs, a marker and no blocking rule. The answer passed the check saying
+leaves; released 6 November 2026) add notes, two later inputs, a marker and no blocking rule. The answer passed the check saying
 no mammal toxicity study exists: it had missed a paper whose title spells the plant "Pilostigma" and a 2022 study in a
 journal neither PubMed nor Europe PMC indexes. HRP already asks for those searches (`UserNamedInterventionSweep`,
 `HistoricalVocabularyAndCitationBackchain`, `NoHumanEvidenceAbsenceClaimBeforeSweep`), so the work is delivering and

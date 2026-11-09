@@ -10,6 +10,19 @@ export const FINAL_CHECK_PANEL_SCOPE = "AskRigor's final check confirms that the
   "or whether the conclusions are right.";
 export const FINAL_CHECK_PANEL_DIFFERENCE_LEAD = "Before researching, the AI wrote down the quick answer it would have " +
   "given. What the research confirmed, corrected or qualified in it, and what backs each:";
+// The owner, 8 Nov 2026 (#434: "i'm confused by the askrigor panel not showing me what a regular answer was going to
+// give"): when a research account's checked answer has no note comparing it with the quick answer, the panel says why,
+// by finalize_research's plain_answer.status, instead of showing nothing. note_off is the person's own choice and shows
+// nothing.
+export const FINAL_CHECK_PANEL_NO_COMPARISON = {
+  no_receipt: "No comparison with a quick answer this time: no quick answer was written down before the research, or " +
+    "the AI didn't pass its record to the check.",
+  other_target: "No comparison with a quick answer this time: the quick answer was written down for a differently " +
+    "worded question, so AskRigor couldn't match it to this research.",
+  after_research: "No comparison with a quick answer this time: the quick answer was written down after the research " +
+    "began, so it can't show what a quick answer would have said.",
+  other_account: "No comparison with a quick answer this time: the quick answer was written down from another account.",
+} as const;
 // Owner answer 237a (4 November 2026): above the panel's list of the quotes looked up.
 export const FINAL_CHECK_PANEL_SOURCE_LINES_LEAD = "The quotes behind key claims, looked up word for word. Finding a " +
   "quote shows the words are there, not that they are a fair summary of the paper:";

@@ -5482,8 +5482,12 @@ const PLAIN_ANSWER_REASONS = {
     `when the receipt verifies.${NEXT_PLAIN_ANSWER}`,
   other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
     `comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  // #434 (8 Nov 2026): a check given the question in other words after a "continue" lost the comparison, and nothing
+  // said how to get it back. Whether two wordings ask the same question is the AI's to judge, not this check's.
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
-    `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
+    "note comparing it with this research. If it is the quick answer to this same question, worded differently here, " +
+    "call again with research_target word for word as given to register_plain_answer (only case and spacing are " +
+    `ignored); its result quoted it.${NEXT_PLAIN_ANSWER}`,
   after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
     "cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for this " +
     "research target was registered before the research began, pass its research_receipt with the others: the check " +

@@ -860,6 +860,11 @@ async function registerPlainAnswer(
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
     "it. Claims: " + plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +
+    // #434 (8 Nov 2026): a final check given the question in other words, after the person said "continue", found no
+    // plain answer for it, and the answer ended without the comparison.
+    `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
+    "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
+    "matched to this plain answer, and the answer then ends without the comparison. " +
     (account.note ? NOTE_ON : NOTE_OFF);
   return {
     content: [
