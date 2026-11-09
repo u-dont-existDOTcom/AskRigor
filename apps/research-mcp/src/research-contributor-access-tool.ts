@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  ADJUSTMENT_DETAILS,
   CONTRIBUTION_PROBLEM_LIMITS,
   CONTRIBUTION_PROBLEM_RULES,
   NOTICE_ACCEPTED_BY,
+  RESEARCH_STYLES,
   RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
   RESEARCH_MAP_CONSENT,
   RESEARCH_USE_NOTICE,
@@ -20,8 +22,10 @@ import {
   researchContributionShapeTemplate,
   researchFrontierContributionSchema,
   topicLinkContributionSchema,
+  researchSteeringSchema,
   type CanonicalIdentityReader,
   type ResearchAccessView,
+  type ResearchSteering,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -45,6 +49,19 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { laterInputShape } from "./later-inputs.js";
+import {
+  COULD_CHANGE,
+  PLAN_TASK_KINDS,
+  RESEARCH_LOOPS,
+  framingGuidance,
+  planResearch,
+  planResearchText,
+  steeringInspectText,
+  steeringSentence,
+  type Framing,
+  type ResearchMenuInput,
+  type ResearchSteeringInput,
+} from "./research-steering.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -102,6 +119,9 @@ export const manageResearchAccessInputSchema = z.object({
     // Owner answer 229a: a person's report of what worked for them, to the Atlas, and its take-down (runtime only).
     "share_report",
     "take_down_report",
+    // Owner answer 279a (9 Nov 2026): the account's research style, and the menu of next tasks (runtime only).
+    "set_research_steering",
+    "plan_research",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -211,6 +231,26 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   next_step: z.string().optional()
     .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
       "ask; never accept it for them."),
+  // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made.
+  steering: researchSteeringSchema.optional(),
+  researchMenu: z.object({
+    tasks: z.array(z.object({
+      n: z.number().int(),
+      task: z.string(),
+      kind: z.enum(PLAN_TASK_KINDS),
+      could_change: z.enum(COULD_CHANGE),
+      loop: z.enum(RESEARCH_LOOPS).optional(),
+      minutes: z.tuple([z.number(), z.number()]).nullable(),
+    }).strict()),
+    recommended: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()),
+    recommended_minutes: z.tuple([z.number(), z.number()]),
+    next: z.enum(["ask", "go_on"]),
+    style: z.enum(RESEARCH_STYLES),
+    check_back_minutes: z.number().int(),
+    adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
+    minutes_since_plain_answer: z.number().int().optional(),
+    target_matches_plain_answer: z.boolean().optional(),
+  }).strict().optional(),
 }).strict();
 
 /**
@@ -347,6 +387,11 @@ export interface PlainAnswerOptions {
    * server cannot sign receipts.
    */
   sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
+  /**
+   * Reads a plain-answer research receipt this account signed: its research target's digest and its issue time; undefined
+   * when it is not a valid plain-answer receipt of this account, or this server cannot verify receipts.
+   */
+  read?: (receipt: string, accountKey: string) => { target: string; issuedAt: string } | undefined;
 }
 
 /** Whether this mode has active research access and registers a plain answer (owner answer 190a). */
@@ -420,8 +465,14 @@ export function plainAnswerRequest(note: boolean): string {
     `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
     "plainAnswer.researchTarget, the research target you will give finalize_research. AskRigor signs it with the " +
     "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
-    (note ? NOTE_ON : NOTE_OFF);
+    (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
+
+// Owner answer 279a (9 Nov 2026): the framing goes with the plain answer, before any research call.
+const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
+  "means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to three " +
+  "questions whose answers could change what to research (none when it is clear). The result says whether to ask the " +
+  "person before researching.";
 
 /**
  * Whether this connection's research calls will be accepted, and if not, why
@@ -651,8 +702,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "findingsSave goes only with action set_findings_save, which needs it.",
         );
       }
+      if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
+        return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
+      }
+      if ((parsed.action === "plan_research") !== (parsed.researchMenu !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.researchMenu goes only with action plan_research, which needs it.",
+        );
+      }
+      if ((parsed.action === "set_research_steering") !== (parsed.researchSteering !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.researchSteering goes only with action set_research_steering, which needs it.",
+        );
+      }
       if (parsed.action === "register_plain_answer") {
-        return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer);
+        return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
+          parsed.framing);
+      }
+      if (parsed.action === "set_research_steering") {
+        return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
+      }
+      if (parsed.action === "plan_research") {
+        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -726,6 +799,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
+            (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -734,6 +808,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
+          ...(settings === undefined ? {} : { steering: settings.steering }),
           accountReference,
           ...(nextStep === undefined ? {} : { next_step: nextStep }),
         }),
@@ -803,12 +878,12 @@ async function plainAnswerAccount(
   service: ResearchContributorAccessService,
   subject: string,
   plain: PlainAnswerOptions | undefined,
-): Promise<{ accountKey: string; note: boolean } | undefined> {
+): Promise<{ accountKey: string; note: boolean; steering: ResearchSteering } | undefined> {
   if (plain === undefined) return undefined;
   const accountKey = service.accountKeyForSubject(subject);
   const account = await service.activeAccount(subject);
   return plainAnswerRequested(account.mode)
-    ? { accountKey, note: account.plainAnswerNote }
+    ? { accountKey, note: account.plainAnswerNote, steering: account.steering }
     : undefined;
 }
 
@@ -824,6 +899,7 @@ async function registerPlainAnswer(
   subject: string,
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
+  framing?: Framing,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -865,7 +941,9 @@ async function registerPlainAnswer(
     `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
     "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
     "matched to this plain answer, and the answer then ends without the comparison. " +
-    (account.note ? NOTE_ON : NOTE_OFF);
+    (account.note ? NOTE_ON : NOTE_OFF) + " " +
+    // Owner answer 279a: what to do next, by the framing and the account's research style.
+    framingGuidance(account.steering, framing);
   return {
     content: [
       { type: "text", text: summary },
@@ -876,6 +954,65 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
+    }),
+  };
+}
+
+/** Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. */
+async function setResearchSteering(
+  service: ResearchContributorAccessService,
+  subject: string,
+  change: ResearchSteeringInput,
+): Promise<CallToolResult> {
+  if (change.style === undefined && change.checkBackMinutes === undefined && change.adjustmentDetail === undefined) {
+    return accessError("invalid_request", "later_inputs.researchSteering needs at least one of style, " +
+      "checkBackMinutes and adjustmentDetail.");
+  }
+  const steering = await service.setResearchSteering(subject, change);
+  return {
+    content: [{ type: "text", text: `${steeringSentence(steering)} This applies to this account's research until ` +
+      "the person changes it." }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, steering }),
+  };
+}
+
+/**
+ * The menu of next tasks after a quick screen (owner answer 279a): each task's time range, a recommendation, and whether
+ * to ask the person first, by the account's research style. With the plain answer's receipt, it also checks that the
+ * research target is the registered one (AskRigor#434) and says how long ago the plain answer was registered. Nothing
+ * of the plan is stored.
+ */
+async function planResearchAction(
+  service: ResearchContributorAccessService,
+  subject: string,
+  plan: ResearchMenuInput,
+  plain: PlainAnswerOptions | undefined,
+): Promise<CallToolResult> {
+  const account = await service.activeAccount(subject);
+  const accountKey = service.accountKeyForSubject(subject);
+  const read = plan.plain_answer_receipt === undefined ? undefined : plain?.read?.(plan.plain_answer_receipt, accountKey);
+  const problems: string[] = [];
+  if (plan.plain_answer_receipt !== undefined && read === undefined) {
+    problems.push("later_inputs.researchMenu.plain_answer_receipt is not a current plain-answer receipt of this " +
+      "account, so the research target and the time since were not checked.");
+  }
+  const outOfRange = [...(plan.allocation ?? []).map(({ task }) => task), ...(plan.done ?? [])]
+    .filter((task) => task > plan.tasks.length);
+  if (outOfRange.length > 0) {
+    problems.push(`Task numbers ${[...new Set(outOfRange)].join(", ")} are past the ${plan.tasks.length} tasks given; ` +
+      "they were left out.");
+  }
+  const result = planResearch(plan, account.steering, read === undefined ? undefined : {
+    matches: read.target === researchTargetDigest(plan.research_target),
+    minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
+  });
+  return {
+    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? [])) +
+      (problems.length === 0 ? "" : ` ${problems.join(" ")}`) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true,
+      researchMenu: result,
+      ...(problems.length === 0 ? {} : { problems }),
     }),
   };
 }

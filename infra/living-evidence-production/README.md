@@ -322,6 +322,17 @@ now names both columns), before the image that reads them serves. An earlier ima
 rollback needs no step; its writes leave the pair cleared, which reads as "not recorded", and the notice hold and
 restore scripts leave it cleared too. Undo no migration.
 
+Owner answers 279a and 280a (9 November 2026; built, not yet released; plan
+`../../docs/superpowers/plans/2026-11-09-research-steering.md`): migration `0032_research_call_record` adds the
+content-free call record (`research_call_record`, each row deleted 7 days after its call), and
+`0033_research_steering` adds each account's research style (`research_style`, `check_back_minutes`,
+`adjustment_detail`, with defaults and a check). The privacy page change for the call record goes live with the site
+before or with the image, with its effective date set to the release day. Release: run the one-shot admin `migrate`,
+then re-run `/usr/local/bin/provision-research-access-role` (the grant now names the three style columns and the call
+record table), before the image that uses them serves. An earlier image reads neither, but it doesn't sweep the call
+record either, so a rollback below this image empties the table (`TRUNCATE living_evidence.research_call_record`)
+to keep the 7-day promise. Undo no migration.
+
 Owner answers 254a and 255a (2026-11-05; built, not yet released; plan
 `../../docs/superpowers/plans/2026-11-05-atlas-research-behind.md`): migration
 `0029_atlas_research_behind` admits `forum_read` among the verified bases of

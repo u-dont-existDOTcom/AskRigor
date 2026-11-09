@@ -55,7 +55,8 @@ GRANT SELECT, INSERT ON TABLE living_evidence.research_use_accounts
 -- Account writes and settings only; no UPDATE right on the account key or creation time. Migration 0031 adds how a
 -- free account's notice was accepted (the owner, 6 November 2026).
 GRANT UPDATE (status, mode, notice_version, agreement_json, activated_at, revoked_at, updated_at,
-  plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by, notice_accepted_at)
+  plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by, notice_accepted_at,
+  research_style, check_back_minutes, adjustment_detail)
   ON TABLE living_evidence.research_use_accounts
   TO askrigor_research_access;
 GRANT SELECT ON TABLE living_evidence.research_private_entitlements

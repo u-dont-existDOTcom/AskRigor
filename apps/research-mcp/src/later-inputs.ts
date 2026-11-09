@@ -20,6 +20,7 @@ import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
+import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -149,6 +150,17 @@ const LATER_INPUT_SHAPES = Object.freeze({
     atlasReport: atlasReportShareSchema.optional()
       .describe("With share_report: the report exactly as the person saw and confirmed it, with its research."),
     reportNumber: reportNumberSchema.optional(),
+    // Owner answer 279a (9 Nov 2026): the framing given with the plain answer, the menu of next tasks after a quick
+    // screen, and the account's research style.
+    framing: framingSchema.optional()
+      .describe("With register_plain_answer: the question the person most likely means, premises that look inverted " +
+        "or unclear, and questions that could redirect the research."),
+    researchMenu: researchMenuSchema.optional()
+      .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
+        "what each could change, and the person's allocation once given."),
+    researchSteering: researchSteeringInputSchema.optional()
+      .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
+        "of them."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

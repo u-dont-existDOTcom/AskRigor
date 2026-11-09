@@ -117,6 +117,28 @@ describe("finalize_research compares the answer with the plain answer registered
     ] })).toMatchObject({ next_steps: [], plain_answer: { status: "registered" } });
   });
 
+  // Owner answer 279a (AskRigor#434: "every user would want to know why that 52 minutes was really worthwhile"): the
+  // note ends with how long the research took, from its first research receipt to this check, by the signed times.
+  it("ends the note with how long the research took, from its first research receipt to the check", () => {
+    const at = (minutesAgo: number) => ({ secret: SECRET, now: () => new Date(Date.now() - minutesAgo * 60_000) });
+    const plainAt = (minutesAgo: number) => issueResearchReceipt("plain_answer", {
+      claims: CLAIMS.map(plainAnswerClaimDigest), text: sha256(PLAIN_TEXT), target: researchTargetDigest(TARGET),
+      acct: ACCOUNT, t: 1_000
+    }, at(minutesAgo));
+    const auditAt = (minutesAgo: number) => issueResearchReceipt("study_audit", {
+      id: DOI, status: "complete_no_unresolved_fields", t: 2_000
+    }, at(minutesAgo));
+    expect(check({ receipts: [plainAt(53), auditAt(52)] }).plain_answer_note)
+      .toBe(`${NOTE} The research took about 52 minutes, from its first research call to this check.`);
+    expect(check({ receipts: [plainAt(2), auditAt(1)] }).plain_answer_note)
+      .toBe(`${NOTE} The research took about 1 minute, from its first research call to this check.`);
+    // Under a minute says nothing; the plain answer's own time is not research.
+    expect(check({ receipts: [plainAt(90), auditAt(0)] }).plain_answer_note).toBe(NOTE);
+    expect(check({ receipts: [plainAt(201), auditAt(200)] }).plain_answer_note).toBe(`${NOTE} The research ran for ` +
+      "about 3 hours from its first research call to this check, which may include time spent waiting for the " +
+      "person's replies.");
+  });
+
   // Owner answer 221: any audited study is accepted as backing, so the meaning judge, on the owner's dev accounts, reads
   // whether each change the note credits is really backed by what it names. Its doubts are notes only.
   it("gives the meaning judge the entries the note credits, and adds its doubts as notes only", () => {
@@ -561,7 +583,10 @@ describe("manage_research_access and finalize_research through the connector (ow
       "most 250 characters each); and plainAnswer.researchTarget, the research target you will give finalize_research. " +
       "AskRigor signs it with the time. Then treat each claim as something to check, confirm or correct, and look " +
       "beyond the claims too. The final check then writes a short note comparing the checked answer with this plain " +
-      "answer, for the end of the answer.");
+      "answer, for the end of the answer. With it, give later_inputs.framing: likely_question, the question the " +
+      "person most likely means; premise_doubts, anything in it that looks inverted or unclear; and " +
+      "redirecting_questions, up to three questions whose answers could change what to research (none when it is " +
+      "clear). The result says whether to ask the person before researching.");
     const inactive = await manage({ action: "inspect" }, "auth0|new");
     expect(inactive.structuredContent).not.toHaveProperty("plainAnswer");
     expect(text(inactive)).not.toContain("register_plain_answer");

@@ -335,6 +335,41 @@ async function verify(
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
 
+    // Owner answer 279a: the research style is three stored choices on the account row (0033): balanced, 10 minutes and
+    // flagged adjustments by default, which the restricted role changes, which saving the account again leaves as they
+    // are, and whose check refuses any other value.
+    const steeringMigration = await admin.query(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations WHERE migration_id = '0033_research_steering'`,
+    );
+    assert(steeringMigration.rowCount === 1, "MIGRATION_0033_NOT_APPLIED");
+    const steeringDefault = (await service.activeAccount(PAID_SUBJECT)).steering;
+    assert(
+      steeringDefault.style === "balanced" && steeringDefault.checkBackMinutes === 10 &&
+        steeringDefault.adjustmentDetail === "flagged",
+      "RESEARCH_STEERING_DEFAULTS_MISMATCH",
+    );
+    await service.setResearchSteering(PAID_SUBJECT, { style: "guided", checkBackMinutes: 30 });
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    const steeringKept = (await service.activeAccount(PAID_SUBJECT)).steering;
+    assert(
+      steeringKept.style === "guided" && steeringKept.checkBackMinutes === 30 && steeringKept.adjustmentDetail === "flagged",
+      "RESEARCH_STEERING_CHANGED_BY_SAVE",
+    );
+    await service.setResearchSteering(PAID_SUBJECT, { adjustmentDetail: "all" });
+    assert((await service.activeAccount(PAID_SUBJECT)).steering.adjustmentDetail === "all", "RESEARCH_STEERING_NOT_CHANGED");
+    let steeringRefused = false;
+    try {
+      await admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts SET check_back_minutes = 0 WHERE account_key = $1`,
+        [service.accountKeyForSubject(PAID_SUBJECT)],
+      );
+    } catch {
+      steeringRefused = true;
+    }
+    assert(steeringRefused, "RESEARCH_STEERING_CHECK_NOT_ENFORCED");
+    await service.setResearchSteering(PAID_SUBJECT, { style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged" });
+    checks.push("research_steering_stored_with_defaults_and_kept_by_save");
+
     // Owner answer 171, default 5: only a setting, on by default; the access role can change it, not identity columns.
     const findingsSaveMigration = await admin.query(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations

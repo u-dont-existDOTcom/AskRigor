@@ -6,8 +6,12 @@ a typo for its opposite, the panel showed no comparison with the quick answer, a
 AskRigor at all. The owner asked for research that frames the question first, asks only what could redirect it, screens
 cheaply, then lets the person allocate the remaining time by numbered task, with progress shown while it works.
 
-Status: two fixes are built (below, A); the restructure (B) waits for the owner's answer on the owner questions page.
-Nothing here changes the tool list (owner answer 189a).
+Status (9 Nov, 13:00 UTC): A is built. The owner answered 279a ("279a except i'm not sure it's useful to show the user
+what each key observational study adjusted for since that could be quite a lot of variables... this could be another
+preference they can set globally, but default balanced mode might only mention the adjustments you think on a quick
+check look potentially inappropriate or controversial and might warrant further investigation") and 280a (the call
+record, 7 days, shown only to that account, privacy page first). B's first stage is built (below, "Built on 9 Nov");
+each stage is released only with the owner's yes. Nothing here changes the tool list (owner answer 189a).
 
 ## What the report says, checked against the code and the protocols
 
@@ -77,6 +81,53 @@ with no API spend, adopted only if adherence measurably improves.
 **Measuring whether it's worth it** (the owner: "every user would want to know why that 52 minutes was really
 worthwhile"): for the regression questions, record the time and compare the quick answer with AskRigor's, blind to
 which is which: what the research changed, what errors it caught, and which a person would rather have read.
+
+## Built on 9 Nov (stage 1 of B, and the call record)
+
+- **The research style** (`set_research_steering`, `inspect`; migration `0033_research_steering`): guided, balanced
+  (default) or autonomous; check back after 10 minutes by default (1 to 120); adjusted variables `flagged` (default,
+  the owner's change) or `all`.
+- **The framing with the plain answer** (`later_inputs.framing` on `register_plain_answer`): the result says whether
+  to ask before researching, by the style; the inspect request asks for the framing.
+- **The menu** (`plan_research`, `later_inputs.researchMenu`): time ranges by kind and sources, the recommendation,
+  ask or go on by the style, the person's allocation, done tasks, the line before each task, how to resume after a
+  stop, a task for each lead between people's reports and studies (`loop`), and the adjusted-variables look worded by
+  the account's choice. With the plain answer's receipt it checks the research target (AskRigor#434) and gives the
+  minutes since.
+- **The research time** at the end of the quick-answer note, from the receipts' signed times.
+- **The call record** (owner answer 280a; built by Codex on `claude/call-record-20261109` from an exact brief, reviewed
+  here): see `docs/privacy-data-map.md`, "The call record".
+- Tests: `tests/research-steering.test.ts`, `tests/finalize-plain-answer.test.ts` (the research time), the PostgreSQL
+  acceptance's `research_steering_stored_with_defaults_and_kept_by_save`.
+
+### What happens when the person stops the AI and redirects it (the owner's question, 9 Nov)
+
+Stopping and then writing the new direction is the safer way, as the owner already does. Nothing the research needs
+lives only in the stopped turn's working memory: the menu and the line before each task are visible text, which stays
+in the chat after a stop; `plan_research` is called again with the tasks done and the new allocation; and the research
+target stays the registered one, which `plan_research` checks against the plain answer's receipt. What a stop loses is
+the step in flight: a tool call cut off returns no receipt, so that step is redone. Whether ChatGPT keeps a stopped
+turn's tool results for the next turn is its own behavior, which AskRigor can't see; the visible menu covers the case
+where it doesn't. A message sent while the AI is still working reaches it only between its steps, in ChatGPT's own way,
+so stopping first stays the more reliable way to steer.
+
+### The time estimates
+
+`PLAN_TASK_MINUTES` are starting planning ranges per source (a search 1 to 2 minutes, a paper read in full 3 to 6, a
+method audit 8 to 15, a forum thread 2 to 6, a video's comments 5 to 15). Before release, the regression runs replace
+them with measured times: each run's receipts carry signed times, and the call record shows each call's duration.
+
+### Next stages
+
+1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right
+   questions (the sodium question first), whether the menu appears before long tasks, whether the loop tasks appear
+   and run, the time each run takes, and a blind comparison of the quick answer with AskRigor's.
+2. Calibrate `PLAN_TASK_MINUTES` from those runs.
+3. HRP text, for the owner's approval with the exact words: under `CausalInferenceDiscipline`, the quick look at each
+   key observational study's adjustments with the owner's display rule; in the orchestration gate, that AskRigor's
+   next-step results apply the person's research style. Drafted when the measurements show what the results alone
+   don't do.
+4. Loading the protocol one stage at a time, as an experiment against today's loading.
 
 ## Not done
 

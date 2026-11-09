@@ -186,6 +186,36 @@ the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not
 and Gemini's catalog does not list it. Neither the plain answer nor its comparison
 is sent to the second reader or saved in a findings card or the Atlas.
 
+## Research the person can steer (owner answer 279a, 9 November 2026; built, not yet released)
+
+From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
+list as it is), all on the MCP connector, and none a blocking check:
+
+- **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
+  most likely means, up to three things in it that look inverted or unclear, and up to three questions whose answers
+  could redirect the research. Its result says what to do next by the account's research style: ask those questions
+  and wait (guided and balanced), say which reading it takes and keep them for the first check-back (autonomous),
+  confirm the question in one line (guided, with nothing to ask), or go on; then screen cheaply and call
+  `plan_research`. Without a framing, the result asks for one next time. The framing is not stored or signed.
+- **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
+  (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
+  studies or the model's own time range), the person's allocation once given, the tasks done, and optionally the plain
+  answer's receipt. Each task gets a time range from its kind's planning estimate per source (`PLAN_TASK_MINUTES` in
+  `apps/research-mcp/src/research-steering.ts`, starting values until the regression runs measure them); tasks that
+  could change the conclusion are recommended first, then those that could change how sure it is, within the
+  check-back allowance; detail alone is never recommended. Guided always shows the menu and waits; balanced does when
+  the recommended tasks would take more than about five minutes; autonomous goes on and checks back after the
+  allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
+  after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
+  the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
+  target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
+  of the menu is stored.
+- **The research style.** `set_research_steering` takes `later_inputs.researchSteering` (`style`: `guided`, `balanced`
+  or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
+  account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,
+  `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
+  as they are.
+
 ## Detailed lesson reports
 
 Owner question 154 (2026-10-21): "i would not give everyone a long report like

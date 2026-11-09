@@ -4665,7 +4665,10 @@ export function finalizeResearch(
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
-    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
+    if (passed && note && compared !== undefined) {
+      output.plain_answer_note = plainAnswerNote(compared, draft!) +
+        researchTimeSentence(verified, options.now?.() ?? new Date());
+    }
   }
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
   if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
@@ -5446,6 +5449,26 @@ function registeredPlainAnswer(
     .sort((left, right) => receiptOrder(left) - receiptOrder(right) || left.index - right.index)
     .at(-1);
   return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
+}
+
+/**
+ * How long the research took, for the end of the plain-answer note (owner answer 279a, from the owner's report
+ * AskRigor#434: "every user would want to know why that 52 minutes was really worthwhile"): from the earliest research
+ * receipt passed here to this check, by the receipts' signed issue times. Nothing under a minute; past three hours, in
+ * hours, with the reminder that it may include time spent waiting for the person.
+ */
+function researchTimeSentence(verified: readonly VerifiedReceipt[], now: Date): string {
+  const times = verified.filter(({ kind }) => !NOT_RESEARCH_KINDS.has(kind))
+    .map(({ issuedAt }) => Date.parse(issuedAt)).filter(Number.isFinite);
+  if (times.length === 0) return "";
+  const minutes = Math.round((now.getTime() - Math.min(...times)) / 60_000);
+  if (minutes < 1) return "";
+  if (minutes > 180) {
+    return ` The research ran for about ${Math.round(minutes / 60)} hours from its first research call to this check, ` +
+      "which may include time spent waiting for the person's replies.";
+  }
+  return ` The research took about ${minutes} ${minutes === 1 ? "minute" : "minutes"}, from its first research call ` +
+    "to this check.";
 }
 
 // Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final

@@ -164,6 +164,42 @@ export type ResearchContributionProposalKind =
   | "SOURCE_ANALYSIS"
   | "TOPIC_LINK";
 
+/**
+ * The research style an account sets once, for every research it runs (owner answer 279a, 9 November 2026, from the
+ * owner's report AskRigor#434). style is how often the AI stops to ask the person: guided asks at the framing and before
+ * every long task; balanced, the default, asks only questions that could redirect the research and shows the menu of
+ * next tasks when the rest would take more than about five minutes; autonomous goes on through the passes and checks
+ * back after checkBackMinutes. adjustmentDetail is what the answer says about the variables each key observational study
+ * adjusted for: flagged, the default, only those that look doubtful on a quick check ("default balanced mode might only
+ * mention the adjustments you think on a quick check look potentially inappropriate or controversial"), or all. None of
+ * them overrides a safety, privacy or truthfulness rule.
+ */
+export const RESEARCH_STYLES = ["guided", "balanced", "autonomous"] as const;
+export type ResearchStyle = typeof RESEARCH_STYLES[number];
+export const ADJUSTMENT_DETAILS = ["flagged", "all"] as const;
+export type AdjustmentDetail = typeof ADJUSTMENT_DETAILS[number];
+export const CHECK_BACK_MINUTES = Object.freeze({ min: 1, max: 120 });
+export interface ResearchSteering {
+  style: ResearchStyle;
+  checkBackMinutes: number;
+  adjustmentDetail: AdjustmentDetail;
+}
+export const DEFAULT_RESEARCH_STEERING: Readonly<ResearchSteering> = Object.freeze({
+  style: "balanced",
+  checkBackMinutes: 10,
+  adjustmentDetail: "flagged",
+});
+export const researchSteeringSchema = z.object({
+  style: z.enum(RESEARCH_STYLES),
+  checkBackMinutes: z.number().int().min(CHECK_BACK_MINUTES.min).max(CHECK_BACK_MINUTES.max),
+  adjustmentDetail: z.enum(ADJUSTMENT_DETAILS),
+}).strict();
+
+/** An account's research style, with the defaults for what it never set. */
+export function researchSteeringOf(account: Pick<ResearchUseAccountRecord, "researchSteering"> | null | undefined): ResearchSteering {
+  return { ...DEFAULT_RESEARCH_STEERING, ...(account?.researchSteering ?? {}) };
+}
+
 export interface ResearchUseAccountRecord {
   accountKey: string;
   status: "ACTIVE" | "REVOKED";
@@ -195,6 +231,11 @@ export interface ResearchUseAccountRecord {
    * account. saveAccount writes it with the notice; an image from before migration 0031 leaves it unrecorded.
    */
   noticeAcceptedBy?: NoticeAcceptedBy | null;
+  /**
+   * The account's research style (owner answer 279a); absent means the defaults, DEFAULT_RESEARCH_STEERING. saveAccount
+   * and revokeAccount never change it; setResearchSteering does.
+   */
+  researchSteering?: ResearchSteering;
 }
 
 export interface ResearchPrivateEntitlementRecord {
@@ -303,6 +344,8 @@ export interface ResearchContributorAccessStore {
   setDetailedLessonReports(accountKey: string, enabled: boolean): Promise<boolean>;
   /** Sets the account's findings-card saving; false when the account has no row. */
   setFindingsSave(accountKey: string, enabled: boolean): Promise<boolean>;
+  /** Sets the account's research style, all three parts; false when the account has no row. */
+  setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -325,6 +368,7 @@ export interface ActiveResearchAccount {
   detailedLessonReports: boolean;
   findingsSave: boolean;
   noticeVersion: ResearchUseNoticeVersion | null;
+  steering: ResearchSteering;
 }
 
 export interface ResearchAccessView {
@@ -549,6 +593,7 @@ export class ResearchContributorAccessService {
       detailedLessonReports: account.detailedLessonReports === true,
       findingsSave: account.findingsSave ?? true,
       noticeVersion: account.noticeVersion,
+      steering: researchSteeringOf(account),
     };
   }
 
@@ -638,6 +683,26 @@ export class ResearchContributorAccessService {
       );
     }
     return enabled;
+  }
+
+  /**
+   * Changes an active account's research style (owner answer 279a): the parts given replace the stored ones, the others
+   * stay. Only the choice is stored. Returns the style as stored.
+   */
+  async setResearchSteering(subject: string, change: Partial<ResearchSteering>): Promise<ResearchSteering> {
+    await this.requireActive(subject);
+    const accountKey = this.accountKeyForSubject(subject);
+    const steering = researchSteeringSchema.parse({
+      ...researchSteeringOf(await this.store.getAccount(accountKey)),
+      ...Object.fromEntries(Object.entries(change).filter(([, value]) => value !== undefined)),
+    });
+    if (!await this.store.setResearchSteering(accountKey, steering)) {
+      throw new ResearchAccessError(
+        "RESEARCH_ACCESS_REQUIRED",
+        "Choose free contributor mode or activate an existing paid private entitlement before using AskRigor research tools.",
+      );
+    }
+    return steering;
   }
 
   /**
@@ -834,6 +899,13 @@ implements ResearchContributorAccessStore {
     return true;
   }
 
+  async setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean> {
+    const account = this.accounts.get(accountKey);
+    if (account === undefined) return false;
+    this.accounts.set(accountKey, { ...account, researchSteering: { ...steering } });
+    return true;
+  }
+
   /**
    * The record as saved: with the account's settings, which only their setters change (setPlainAnswerNote,
    * setDetailedLessonReports and setFindingsSave).
@@ -843,6 +915,7 @@ implements ResearchContributorAccessStore {
       plainAnswerNote: _ignoredNote,
       detailedLessonReports: _ignoredReports,
       findingsSave: _ignoredFindingsSave,
+      researchSteering: _ignoredSteering,
       ...saved
     } = structuredClone(record);
     const prior = this.accounts.get(record.accountKey);
@@ -851,6 +924,7 @@ implements ResearchContributorAccessStore {
       ...(prior?.plainAnswerNote === undefined ? {} : { plainAnswerNote: prior.plainAnswerNote }),
       ...(prior?.detailedLessonReports === undefined ? {} : { detailedLessonReports: prior.detailedLessonReports }),
       ...(prior?.findingsSave === undefined ? {} : { findingsSave: prior.findingsSave }),
+      ...(prior?.researchSteering === undefined ? {} : { researchSteering: { ...prior.researchSteering } }),
     };
   }
 
@@ -984,7 +1058,8 @@ implements ResearchContributorAccessStore {
     const result = await this.pool.query<ResearchUseAccountRow>(
       `SELECT account_key, status, mode, notice_version, agreement_json,
               activated_at, revoked_at, created_at, updated_at,
-              plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by
+              plain_answer_note, detailed_lesson_reports, findings_save, notice_accepted_by,
+              research_style, check_back_minutes, adjustment_detail
          FROM ${this.schema}.research_use_accounts
         WHERE account_key = $1`,
       [accountKey],
@@ -1021,6 +1096,17 @@ implements ResearchContributorAccessStore {
           SET findings_save = $2
         WHERE account_key = $1`,
       [accountKey, enabled],
+    );
+    return result.rowCount !== 0;
+  }
+
+  // saveAccount and revokeAccount leave the research style as it is: a new row takes the columns' defaults (0033).
+  async setResearchSteering(accountKey: string, steering: ResearchSteering): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ${this.schema}.research_use_accounts
+          SET research_style = $2, check_back_minutes = $3, adjustment_detail = $4
+        WHERE account_key = $1`,
+      [accountKey, steering.style, steering.checkBackMinutes, steering.adjustmentDetail],
     );
     return result.rowCount !== 0;
   }
@@ -1249,6 +1335,9 @@ interface ResearchUseAccountRow {
   detailed_lesson_reports: boolean;
   findings_save: boolean;
   notice_accepted_by: string | null;
+  research_style: string;
+  check_back_minutes: number;
+  adjustment_detail: string;
 }
 
 const PROPOSAL_COLUMNS = `proposal_id, account_key, proposal_kind, payload_sha256,
@@ -1302,6 +1391,11 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
     detailedLessonReports: row.detailed_lesson_reports === true,
     findingsSave: row.findings_save !== false,
     noticeAcceptedBy: row.notice_accepted_by === null ? null : noticeAcceptedBySchema.parse(row.notice_accepted_by),
+    researchSteering: researchSteeringSchema.parse({
+      style: row.research_style,
+      checkBackMinutes: row.check_back_minutes,
+      adjustmentDetail: row.adjustment_detail,
+    }),
   };
 }
 

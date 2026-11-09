@@ -18,6 +18,14 @@ Not done: the old fixed minimum of eight videos and six programs. · Decided: 27
 Why: the owner wants people to see how the answer is better than a plain AI answer.\
 Not done: keeping a copy of the quick answer (see Privacy and safety). · Decided: 20 Oct 2026 (owner answer 140b); free accounts too, 27 Oct (190a); kept when one claim went unchecked, 1 Nov (210b).
 
+**Research the person can steer: the framing goes with the quick answer, a cheap screen ends in a numbered menu of next tasks with times, and each account sets its research style once: guided, balanced (the default) or autonomous, with a check-back allowance of 10 minutes.**\
+Why: the owner's report AskRigor#434 (8 Nov): a 52-minute run stayed on a question asked backwards and gave less than the one-minute quick answer. The owner asked to frame first, ask only what could redirect the research, screen, then share out the time by task number ("1. 5 min, 2. 4 min, 7. 1 min"). HRP already had these steps and none ran, so AskRigor's results now say them where the AI acts: `register_plain_answer` takes the framing, `plan_research` makes the menu, and the quick-answer note says how long the research took.\
+Not done: refusing research tools out of order before the soft version is measured; a web app that runs the research (about $5 to $10 a question); keeping any research plan on the server; time estimates from anything but planning ranges until the regression runs measure them. · Decided: 9 Nov 2026 (owner answer 279a); built 9 Nov, not yet released.
+
+**What each key observational study adjusted for: the AI looks at each variable's likely role, and the answer mentions only adjustments that look doubtful on a quick check, unless the person chose to see all of them.**\
+Why: the owner, 9 Nov, answering 279: listing every adjusted variable "could be quite a lot of variables... default balanced mode might only mention the adjustments you think on a quick check look potentially inappropriate or controversial and might warrant further investigation".\
+Not done: every adjusted variable by default; a blocking check. · Decided: 9 Nov 2026 (owner answer 279a).
+
 **The answer opens with a short answer, and lists first the safest options that could work.**\
 Why: answers ran through their methods before the practical part, and the owner asked for the safest things to try first, "which are generally not drugs anyway".\
 Not done: a blanket "non-drug first" rule. · Decided: 15 Oct 2026 (owner answer 93a); 17 Oct (121a).
@@ -120,6 +128,10 @@ Decided: 4 Nov 2026 (owner answer 242a).
 
 ## People's reports and forums
 
+**The loop between people's reports and studies is a numbered task the person sees on the menu: a study search for something people reported, or a look at people's reports for something a study found.**\
+Why: the owner, 9 Nov: "make sure we have the forum to study feedback loop in place when warranted, i really think that is a key feature that i've been asking for for a long time". On 5 Nov, judges reading 18 runs found 19 of 98 report leads searched in studies; a declaration checked only at the end didn't make the loop happen.\
+Not done: a blocking check; a loop task for a question with no people's-report side. · Decided: 9 Nov 2026 (the owner); built 9 Nov, not yet released.
+
 **People's own reports of what worked come first, Earth Clinic style, with AskRigor's research around each; reports come through a person's own AI or the Atlas form.**\
 Why: the owner, 3 Nov: people submitting what worked for them, "like earthclinic, but with the additional research around it", is one of the Atlas's main points.\
 Not done: an Atlas built mainly from AI-found study findings (the 2 Nov plan). · Decided: 3 Nov 2026 (the owner; owner answer 229a).
@@ -170,7 +182,11 @@ Not done: YouTube's unofficial transcript interface. · Decided: 2 to 3 Oct 2026
 
 **AskRigor keeps nothing of people's conversations by default: no request log (only a startup line), no copy of the quick answer (only signed fingerprints of its claims, which the AI carries), and no reading history on the Atlas.**\
 Why: the privacy page promises it, and keeping people's health text would need a new promise and a retention period.\
-Not done: even a one-line error log without a privacy-page change; keeping real users' answers to learn from. · Decided: 3 Oct 2026 (owner question 31); 25 Oct (reading history); 2 Nov (quick answer).
+Not done: even a one-line error log without a privacy-page change; keeping real users' answers to learn from. · Decided: 3 Oct 2026 (owner question 31); 25 Oct (reading history); 2 Nov (quick answer). The content-free call record below is the one exception, with its own privacy-page change (9 Nov).
+
+**A record of the calls AskRigor receives from each signed-in account, without their content, kept 7 days and shown only to that account.**\
+Why: the owner's report AskRigor#434: twice a free ChatGPT account answered without calling AskRigor, and nothing could tell "never called" from "called and refused". Each entry holds the tool, the time, the route, whether ChatGPT's signals came with it, the outcome and the time taken.\
+Not done: arguments, results, IP addresses, user agents or tokens; calls without a valid sign-in; showing it to anyone but the account, the owner included; keeping it past 7 days. · Decided: 9 Nov 2026 (owner answer 280a); privacy page changed first; built 9 Nov, not yet released.
 
 **A new free-use notice asks again only when it collects or publishes more than the one a person accepted; a wording-only version carries their yes forward, and the owner's own login accepts each new version by the owner's standing instruction.**\
 Why: the owner, 6 Nov: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's annoying". Each version declares in code, reviewed with it, whether it is material; the record keeps what was accepted, when and how (by the person, carried forward, or by the owner's instruction).\

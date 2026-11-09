@@ -33,7 +33,10 @@ Owner answers 193a and 195a (29 October 2026) limited `finalize_research` to fiv
    `research_target`, word for word but for case and spacing, so its registration result quotes the target it signed,
    and a check given other words says how to call again with the registered ones (AskRigor#434, 8 November 2026, built,
    not yet released: after the person said "continue", a check given the question in other words found no plain answer
-   for it, and the panel said nothing). Whether two wordings ask the same question stays the AI's to judge. Under a
+   for it, and the panel said nothing). Whether two wordings ask the same question stays the AI's to judge. The note
+   ends with how long the research took, from the earliest research receipt passed to the check, by the receipts'
+   signed times: nothing under a minute, minutes up to three hours, and past that hours with a reminder that it may
+   include time spent waiting for the person (owner answer 279a, 9 November 2026, built, not yet released). Under a
    passing check with no note, the panel says in one line why there is no comparison (no plain answer passed, one
    registered for other words or after the research began, or one from another account), unless the person turned the
    note off.

@@ -2030,6 +2030,17 @@ function defineResearchOperations(
               ? undefined
               : researchReceipt("plain_answer", { ...claims, acct: plainAnswerAccountBinding(secret, accountKey) });
           },
+          // Owner answer 279a: plan_research checks the research target against the plain answer's (AskRigor#434).
+          read: (receipt, accountKey) => {
+            const secret = researchReceiptSecretFromEnv();
+            if (secret === undefined) return undefined;
+            const verified = verifyResearchReceipt(receipt, { secret });
+            if (!verified.ok || verified.kind !== "plain_answer") return undefined;
+            const { acct, target } = verified.claims;
+            return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
+              ? { target, issuedAt: verified.issued_at }
+              : undefined;
+          },
         },
       }),
     }),
