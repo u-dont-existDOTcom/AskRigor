@@ -1,0 +1,31 @@
+{
+  "purpose": "Owner answer 282a of 9 November 2026: WordsAreNotSizes, in StatisticalAndClinicalInterpretation, says a source's significant, rich, high, substantial or strong is not a size, with the stress test RichSourceWithoutAnAmount after RelativeEffectWithoutAbsoluteTranslation, outside the core (HRP 20.6.41).",
+  "hrp": {
+    "from": {
+      "version": "20.6.40",
+      "sha256": "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
+    },
+    "to": {
+      "version": "20.6.41",
+      "sha256": "e1705d3e958ea5d01936dbb9a8bf431139738ece551a111b69ba5d13b71595f9"
+    },
+    "edits": [
+      [
+        "version=\"20.6.40\" revisionDate=\"2026-11-05\"",
+        "version=\"20.6.41\" revisionDate=\"2026-11-09\""
+      ],
+      [
+        " <RevisionHistory>\n",
+        " <RevisionHistory>\n  <Revision version=\"20.6.41\" priority=\"Critical\">\n   Owner answer 282a of 9 November 2026, from the owner's Syrian rue oil comparison, where three answers took an\n   abstract's \"rich\" for a strong oil and the amounts were only in the paper's table, outside the core, which is\n   unchanged: WordsAreNotSizes, in StatisticalAndClinicalInterpretation, says a source's significant, rich, high,\n   substantial or strong is not a size; and the stress test RichSourceWithoutAnAmount.\n  </Revision>\n"
+      ],
+      [
+        "  <Rule name=\"MetaAnalysisInputQuality\" priority=\"Critical\">",
+        "  <Rule name=\"WordsAreNotSizes\" priority=\"Critical\">\n   A source's significant, rich, high, substantial or strong, in any language, is not a size. Find which sense it has:\n   statistically significant (give the size, its units, the comparison and its interval), a large amount (give the\n   measured amount and compare it with what the question needs, such as the amount in a usual dose), or only detected.\n   When the abstract gives no number, look for it in the full text; until it is found, say beside the claim that the\n   size is unknown, in either direction, and don't let the word carry the conclusion. Write significant in the answer\n   only with its sense and its number.\n  </Rule>\n\n  <Rule name=\"MetaAnalysisInputQuality\" priority=\"Critical\">"
+      ],
+      [
+        "    relative measure alone.\n   </ExpectedBehavior>\n  </Case>\n",
+        "    relative measure alone.\n   </ExpectedBehavior>\n  </Case>\n\n  <Case id=\"RichSourceWithoutAnAmount\">\n   <Prompt>\n    An abstract calls a solvent-extracted seed oil a rich source of the seed's MAO-inhibiting alkaloids, with no\n    amount, and the person asks whether the oil works as strongly as the seed tea.\n   </Prompt>\n   <ExpectedBehavior>\n    Say the abstract gives no amount, get the table from the full text, and compare the amount per gram of oil with\n    the seeds and with a usual tea; until then call the strength unknown, not weak and not strong, and keep the\n    interaction warning.\n   </ExpectedBehavior>\n  </Case>\n"
+      ]
+    ]
+  }
+}

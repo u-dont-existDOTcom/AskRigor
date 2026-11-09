@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.6.40" revisionDate="2026-11-05" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.6.41" revisionDate="2026-11-09" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Clinical-Management Preservation, Patient-Specific Intervention Safety Reconciliation, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Patient-History and Recurrence-Evidence Integrity, Longitudinal Causal-Constraint Preservation, Phenotype–Etiology Separation, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -51,6 +51,12 @@
 </InstructionObligationLifecycle>
 
  <RevisionHistory>
+  <Revision version="20.6.41" priority="Critical">
+   Owner answer 282a of 9 November 2026, from the owner's Syrian rue oil comparison, where three answers took an
+   abstract's "rich" for a strong oil and the amounts were only in the paper's table, outside the core, which is
+   unchanged: WordsAreNotSizes, in StatisticalAndClinicalInterpretation, says a source's significant, rich, high,
+   substantial or strong is not a size; and the stress test RichSourceWithoutAnAmount.
+  </Revision>
   <Revision version="20.6.40" priority="High">
    Owner answers 249a, 250a and 251a of 5 November 2026, outside the core, which is unchanged:
    StudyMapForCombinedEvidence, after DuplicateAndDataLineageAudit, keeps the studies behind a conclusion that combines
@@ -4076,6 +4082,15 @@
    than infer a split.
   </Rule>
 
+  <Rule name="WordsAreNotSizes" priority="Critical">
+   A source's significant, rich, high, substantial or strong, in any language, is not a size. Find which sense it has:
+   statistically significant (give the size, its units, the comparison and its interval), a large amount (give the
+   measured amount and compare it with what the question needs, such as the amount in a usual dose), or only detected.
+   When the abstract gives no number, look for it in the full text; until it is found, say beside the claim that the
+   size is unknown, in either direction, and don't let the word carry the conclusion. Write significant in the answer
+   only with its sense and its number.
+  </Rule>
+
   <Rule name="MetaAnalysisInputQuality" priority="Critical">
    A pooled estimate cannot repair systematically biased inputs, incompatible endpoints, or incomparable populations.
   </Rule>
@@ -7302,6 +7317,18 @@ Final integrated synthesis rule:
     Define risk ratio, identify the reference group and follow-up, and provide group-specific event counts, absolute risks, or
     risk difference when available. If baseline risk is unavailable, state that absolute impact cannot be recovered from the
     relative measure alone.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="RichSourceWithoutAnAmount">
+   <Prompt>
+    An abstract calls a solvent-extracted seed oil a rich source of the seed's MAO-inhibiting alkaloids, with no
+    amount, and the person asks whether the oil works as strongly as the seed tea.
+   </Prompt>
+   <ExpectedBehavior>
+    Say the abstract gives no amount, get the table from the full text, and compare the amount per gram of oil with
+    the seeds and with a usual tea; until then call the strength unknown, not weak and not strong, and keep the
+    interaction warning.
    </ExpectedBehavior>
   </Case>
 

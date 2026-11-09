@@ -152,16 +152,17 @@ Built:
 
 - `WORDS_ARE_NOT_SIZES` at the screen and at the menu: a source's significant, rich, high, substantial or strong, in
   any language, is not a size; find the sense and the number and compare it with what the question needs, or say the
-  source gives none. It applies HRP's `effect_magnitude` and `NumericExposureOverridesAmbiguousLabels`; an HRP rule of
-  its own waits for the owner's approval of its words.
+  source gives none. It applies HRP's `effect_magnitude` and `NumericExposureOverridesAmbiguousLabels`, and since
+  owner answer 282a (9 Nov) HRP 20.6.41's own `WordsAreNotSizes`, with the stress test `RichSourceWithoutAnAmount`,
+  outside the core (on the next-build branch).
 - `PEOPLE_FIRST_WHEN_USED` at the screen, and `PEOPLE_TASK_MISSING` on a first menu with no task reading people's
   reports: when HRP's `ForumSignalDefaultTrigger` applies, such as for a widely used old remedy, people's reports come
   from the start, beside the studies (`NoFixedStudiesThenCommunitySequence`). Whether the trigger applies is the model's
   judgment; AskRigor checks only the task kinds.
 
-Found, for a later build: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a
-journal neither indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route
-then read it.
+Found: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a journal neither
+indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route then read it.
+Owner answer 283a (9 Nov): build it as a new input of the existing search tools, so no app needs a refresh.
 
 ## Not done
 

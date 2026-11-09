@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { coreSectionNames, getProtocolManifest, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
+import { coreSectionNames, loadProtocol, protocolNamedElements, protocolSections } from "@askrigor/protocol";
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
-import { undoResponseSpreadHrp, undoStudyMapSingleLeadsHrp } from "./helpers/undo-read-depth.js";
+import { undoResponseSpreadHrp, undoStudyMapSingleLeadsHrp, undoWordsAreNotSizesHrp } from "./helpers/undo-read-depth.js";
 
 const FIXTURE = "./fixtures/protocol-edits/2026-11-05-study-map-single-leads-hrp.json";
 const hash = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -112,16 +112,16 @@ describe("owner answers 249a, 250a and 251a: HRP 20.6.40", () => {
     expect(sections(text)).toEqual(sections(prior));
   });
 
-  it("binds the current manifest and first revision to these bytes, and reverses to 20.6.39's", async () => {
-    const text = await loadProtocol("hrp");
+  it("binds 20.6.40's version line and first revision to these bytes, and reverses to 20.6.39's", async () => {
+    // HRP 20.6.40 as it was released, from today's bytes (owner answer 282a made 20.6.41).
+    const text = await undoWordsAreNotSizesHrp(await loadProtocol("hrp"));
     const { hrp } = JSON.parse(await readFile(new URL(FIXTURE, import.meta.url), "utf8")) as {
       hrp: { from: { version: string; sha256: string }; to: { version: string; sha256: string }; edits: Array<[string, string]> };
     };
     expect(XMLValidator.validate(text)).toBe(true);
     expect(hrp.to.version).toBe("20.6.40");
-    expect(await getProtocolManifest("hrp")).toEqual({
-      name: "HRP", version: hrp.to.version, revisionDate: "2026-11-05", sha256: hrp.to.sha256,
-    });
+    expect(hash(text)).toBe(hrp.to.sha256);
+    expect(text).toContain(`version="${hrp.to.version}" revisionDate="2026-11-05"`);
     expect([...text.matchAll(/<Revision version="([^"]+)"/gu)].slice(0, 2).map((match) => match[1]))
       .toEqual(["20.6.40", "20.6.39"]);
     const revision = text.match(/<Revision version="20\.6\.40" priority="High">([\s\S]*?)<\/Revision>/u)?.[1] ?? "";
