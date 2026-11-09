@@ -32,6 +32,8 @@ import {
 import { withCommunitySkip } from "./helpers/community-skip.js";
 import { withSourceReading } from "./helpers/source-reading.js";
 import { CARD } from "./helpers/findings-fixtures.js";
+// The owner, 9 Nov 2026 (Inbox reply): the form people actually buy or make, asked for with the framing.
+import { FORM_PEOPLE_USE } from "../apps/research-mcp/src/research-steering.js";
 
 // Owner answer 190a (2026-10-27) extends 140b to every active account. Originally, 140b (2026-10-20): "for paid and dev accounts at once. Before research, the AI writes the short answer
 // it would give without AskRigor's tools and AskRigor signs it with the time; the research checks each of its claims
@@ -586,7 +588,7 @@ describe("manage_research_access and finalize_research through the connector (ow
       "answer, for the end of the answer. With it, give later_inputs.framing: likely_question, the question the " +
       "person most likely means; premise_doubts, anything in it that looks inverted or unclear; and " +
       "redirecting_questions, up to three questions whose answers could change what to research (none when it is " +
-      "clear). The result says whether to ask the person before researching.");
+      "clear). The result says whether to ask the person before researching. " + FORM_PEOPLE_USE);
     const inactive = await manage({ action: "inspect" }, "auth0|new");
     expect(inactive.structuredContent).not.toHaveProperty("plainAnswer");
     expect(text(inactive)).not.toContain("register_plain_answer");
