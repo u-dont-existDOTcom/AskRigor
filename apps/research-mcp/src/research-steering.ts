@@ -199,6 +199,17 @@ export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditi
   "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
   "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
 /**
+ * The owner, 9 Nov 2026 (a reply in the Inbox on the Syrian rue oil check): the oil that held the alkaloids was extracted
+ * with hexane, which nobody sells, so a person asking about the oil most likely means seeds steeped in a household oil,
+ * and the AI should confirm that with them. It applies HRP's WholeInterventionIdentityTrace (the tested against the sold
+ * version) and UserReportedUseFidelity (the form actually used); which forms matter is the model's judgment.
+ */
+export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, such as an extract, an oil, a tea or a " +
+  "dose form, the likely question is about the form people can actually buy or make: check what is sold or commonly " +
+  "made, and when the forms differ much in strength, ask which form the person has as a redirecting question and, " +
+  "until they say, answer for each form (HRP WholeInterventionIdentityTrace and UserReportedUseFidelity).";
+
+/**
  * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
  * case's first plan_research call was refused, 12 of 22 in all, because the model guessed the fields (what_it_could_change,
  * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal.
@@ -226,7 +237,7 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
   if (framing === undefined) {
     return "Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
       "likely means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to " +
-      "three questions whose answers could change what to research. " + SCREEN_FIRST;
+      "three questions whose answers could change what to research. " + FORM_PEOPLE_USE + " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];

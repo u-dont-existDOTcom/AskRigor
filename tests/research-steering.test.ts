@@ -20,6 +20,7 @@ import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/resear
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
   COULD_CHANGE,
+  FORM_PEOPLE_USE,
   PEOPLE_FIRST_WHEN_USED,
   PEOPLE_TASK_MISSING,
   PLAN_TASK_KINDS,
@@ -303,6 +304,14 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       }
       expect(framingGuidance(steering, undefined)).toContain(PEOPLE_FIRST_WHEN_USED);
     }
+  });
+
+  // The owner, 9 Nov 2026 (Inbox reply): nobody sells the hexane-extracted seed oil, so ask which form the person has.
+  it("asks for the form people actually buy or make, when the answer turns on it, with the plain answer's request", async () => {
+    const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
+    for (const note of [true, false]) expect(plainAnswerRequest(note).endsWith(FORM_PEOPLE_USE)).toBe(true);
+    expect(framingGuidance(DEFAULT_RESEARCH_STEERING, undefined)).toContain(FORM_PEOPLE_USE);
+    expect(FORM_PEOPLE_USE).toContain("WholeInterventionIdentityTrace and UserReportedUseFidelity");
   });
 
   // The timing runs of 9 Nov 2026: every case's first plan_research call was refused, the model guessing the fields.

@@ -55,6 +55,7 @@ import {
   COULD_CHANGE,
   PLAN_TASK_KINDS,
   RESEARCH_LOOPS,
+  FORM_PEOPLE_USE,
   framingGuidance,
   planResearch,
   planResearchText,
@@ -490,7 +491,7 @@ export const CALL_RECORD_SENTENCE = "When the person asks whether AskRigor recei
 const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
   "means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to three " +
   "questions whose answers could change what to research (none when it is clear). The result says whether to ask the " +
-  "person before researching.";
+  "person before researching. " + FORM_PEOPLE_USE;
 
 /**
  * Whether this connection's research calls will be accepted, and if not, why
