@@ -40,6 +40,7 @@ import {
   type PublicEvidenceGapIntakeService,
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
+  type ResearchCallRecordStore,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -136,11 +137,14 @@ import type {
   UnsavedCardResult,
 } from "./findings/service.js";
 import { findingsKeptLine, KEPT_FOR_REVIEW, unsavedCardNote, type UnsavedCardWhy } from "./findings/unsaved-card.js";
+import { AuditSourceMismatchError } from "./actions/audit-source.js";
 import {
+  forTextClients,
   protocolErrorResult,
   protocolRequestError,
   successfulToolResult
 } from "./tool-result.js";
+import { researchCallRecordingOptions } from "./research-call-recording.js";
 import {
   automatedScoutInputSchema,
   deleteResumedGeminiScoutInteraction,
@@ -891,6 +895,7 @@ export interface RegisterToolsOptions {
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
+  researchCallRecord?: ResearchCallRecordStore;
   researchContributionReviewService?: ResearchContributionReviewService;
   /** The owner's findings actions for the Atlas: their stores, canonical reader and GitHub inbox. */
   atlasReview?: AtlasReview;
@@ -1018,7 +1023,8 @@ export function uncheckedAnswerInstructions(result: FinalizeResearchOutput): str
       "result: do not call finalize_research again in this turn, and give the answer now.") +
     (result.check_report_token === undefined ? "" :
       "\nIf the user says yes to sending this bug report, pass check_report_token exactly as returned to " +
-      "submit_lesson_candidate; do not rewrite the server report.") +
+      "submit_lesson_candidate; do not rewrite the server report. It is this incident's one report: send no separate " +
+      "lesson about it.") +
     "\nAn answer given before this check passes says at its start that it is partial, gives no ranking or verdict " +
     "that a step still open could change, " +
     (reasons.length === 0 ? "" : `says before its last line, in plain words, ${reasons.join("; and ")}; `) +
@@ -2009,6 +2015,7 @@ function defineResearchOperations(
     },
     createManageResearchAccessHandler({
       service: options.researchContributorAccessService,
+      callRecord: options.researchCallRecord,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
@@ -2026,6 +2033,17 @@ function defineResearchOperations(
             return secret === undefined
               ? undefined
               : researchReceipt("plain_answer", { ...claims, acct: plainAnswerAccountBinding(secret, accountKey) });
+          },
+          // Owner answer 279a: plan_research checks the research target against the plain answer's (AskRigor#434).
+          read: (receipt, accountKey) => {
+            const secret = researchReceiptSecretFromEnv();
+            if (secret === undefined) return undefined;
+            const verified = verifyResearchReceipt(receipt, { secret });
+            if (!verified.ok || verified.kind !== "plain_answer") return undefined;
+            const { acct, target } = verified.claims;
+            return acct === plainAnswerAccountBinding(secret, accountKey) && typeof target === "string"
+              ? { target, issuedAt: verified.issued_at }
+              : undefined;
           },
         },
       }),
@@ -2788,7 +2806,8 @@ function defineResearchOperations(
               `${result.share_offer.line}\n${result.share_offer.on_yes}`) +
           ((checkedInput?.corrections ?? []).some(({ by_user, report }) => by_user === true && report !== undefined)
             ? "\nWhen the user agrees to send the correction report, pass its preventing_rule and any missing_rule " +
-              "exactly as shown to submit_lesson_candidate."
+              "exactly as shown to submit_lesson_candidate. It is this correction's one report: send no separate " +
+              "lesson about it."
             : "") +
           (result.previous_check === undefined ? "" :
             `\nThe previous final check in this conversation did not pass (${result.previous_check.open.join(", ") || "steps open"}), ` +
@@ -3676,11 +3695,24 @@ async function invokeOpenFullTextMcp(
     candidate.operationId === operationId
   );
   if (route === undefined) throw new Error("Open full-text MCP route is missing");
-  const result = await route.handle({
-    request: {} as never,
-    clientIp: "mcp",
-    body
-  });
+  let result: Awaited<ReturnType<typeof route.handle>>;
+  try {
+    result = await route.handle({
+      request: {} as never,
+      clientIp: "mcp",
+      body
+    });
+  } catch (error) {
+    // AskRigor#431: an audit whose source doesn't match the acquired document says which check failed and the values
+    // to resubmit with, in the text, since a structured error would not fit the tool's output schema.
+    if (error instanceof AuditSourceMismatchError) {
+      return {
+        content: [{ type: "text", text: `${operationId.replaceAll("_", " ")} did not validate the audit. ${error.message}` }],
+        isError: true
+      };
+    }
+    throw error;
+  }
   if (result.status !== 200) {
     return {
       content: [{
@@ -3893,8 +3925,14 @@ export function registerTools(
   const operations = Object.keys(options).length === 0
     ? RESEARCH_OPERATIONS
     : collectResearchOperations(options);
+  // Every tool on every MCP surface (/mcp, /mcp/claude, /mcp/gemini) is registered here and nowhere else, so each
+  // result reaches a client that reads only text with its payload in the text too (lesson #59, tool-result.ts). The
+  // Custom GPT Action adapter calls operation.execute itself and returns structured output alone.
   for (const operation of operations) {
-    register(operation.name, operation.mcpConfig, operation.execute);
+    const recording = options.researchCallRecord === undefined || options.researchContributorAccessService === undefined
+      ? undefined : researchCallRecordingOptions(options.researchCallRecord,
+        options.researchContributorAccessService, options.mcpSurface ?? "/mcp");
+    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute, recording));
   }
 }
 

@@ -10,6 +10,29 @@ AskRigor's existing MCP endpoint (`/mcp`) serves ChatGPT. ChatGPT links accounts
 - **Same research account.** The same Auth0 user (`sub`) reaches the same research-access enrollment as in ChatGPT.
 - **Off by default.** The surface stays off (404) until `ASKRIGOR_OAUTH_CLAUDE_CLIENT_ID` is set. `/mcp` behaves exactly as before.
 
+## What the model sees
+
+Claude's apps differ in which part of a tool result they hand the model. Claude Code (2.1.312, read from its own code
+on 7 November 2026) gives the model a result's structured content as JSON and leaves out its text blocks, unless a
+setting on Anthropic's side turns that around; a Claude agent harness gave the model only the text (lesson #59). So
+every AskRigor result also carries its structured content as text, after the tool's own text: the JSON, or for a
+`load_protocol` page, the other fields' JSON and then the page's exact bytes, which hash to `scope_sha256`. Only a
+call carrying ChatGPT's signals gets the tool's text alone (`apps/research-mcp/src/tool-result.ts`; the privacy data
+map's "Payload text"). Whichever part an app hands over, it holds the whole payload.
+
+Sizes, measured on 8 November 2026: Claude Code 2.1.312, run against a local server, kept the HRP core page in the
+conversation although the whole result was 82,745 characters, because it counts only the part it shows the model (there
+the structured content, 41,119 characters) against its 50,000-character limit, past which it saves a result to a file.
+claude.ai and Claude Desktop take a result of up to about 150,000 characters in all (Claude's connector documentation).
+The tests hold each part of every protocol page and of a full video audit under 50,000 characters and the whole under
+150,000 (`tests/text-only-clients.test.ts`, `tests/mcp-tools.test.ts`), and the Atlas lookup keeps its structured
+content under 46,000 bytes. A higher Claude Code limit would need `_meta["anthropic/maxResultSizeChars"]` in the tool
+list, which is frozen. Not checked: whether OpenAI's Responses API, which may send the same `openai-mcp/` User-Agent and
+so get the text alone, shows its model the structured content too.
+
+Guidance written only in a result's text, such as the reminders after a receipt, still reaches only apps that read the
+text.
+
 ## Auth0 (owner, once)
 
 1. **Create the API.** Name it `AskRigor MCP (Claude)` and set its identifier to `https://mcp.askrigor.com/mcp/claude` (RS256). Add the permissions `research:use` and `cases:review`, and allow offline access. The tenant's Resource Parameter Compatibility Profile is already on, so Claude's `resource=` parameter maps to this API.

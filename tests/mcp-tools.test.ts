@@ -35,6 +35,12 @@ import { youtubeCommunitySurveyOutputSchema } from "../apps/research-mcp/src/you
 import { COMMUNITY_RESEARCH_REMINDER, VIDEO_COMMENT_MAP_REMINDER, expectCommunityRemindersInTextOnly }
   from "./helpers/community-result-reminders.js";
 import { COMMUNITY_LEADS_GUIDANCE } from "../apps/research-mcp/src/community-leads.js";
+import {
+  builtContent,
+  CLAUDE_APP_RESULT_CHARACTERS,
+  CLAUDE_CODE_INLINE_CHARACTERS,
+  clientViewBytes,
+} from "./helpers/text-payload.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -691,9 +697,16 @@ describe("AskRigor MCP tools", () => {
       const returned = (result.structuredContent as { records_returned_for_analysis: number }).records_returned_for_analysis;
       expect(returned).toBeGreaterThan(100);
       expect(returned).toBeLessThan(250);
-      const bytes = Buffer.byteLength(JSON.stringify(result), "utf8");
-      expect(bytes).toBeLessThanOrEqual(40_000);
-      expect(bytes).toBeGreaterThan(38_000);
+      // The budget covers what each kind of client takes in (lesson #59): ChatGPT, the whole result; a client that
+      // reads only text, its text, which then carries the structured content's JSON.
+      const bytes = clientViewBytes(result);
+      expect(bytes.chatGpt).toBeLessThanOrEqual(40_000);
+      expect(bytes.chatGpt).toBeGreaterThan(38_000);
+      expect(bytes.textOnly).toBeLessThanOrEqual(40_000);
+      // Claude Code shows the structured content alone, inline up to its limit; claude.ai takes the whole (the review of
+      // 7 Nov, measured 8 Nov: tests/helpers/text-payload.ts).
+      expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+      expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
     } finally {
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
@@ -890,7 +903,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: `YouTube community survey returned 1 deduplicated candidate video(s). ${COMMUNITY_RESEARCH_REMINDER}`
       }]);
@@ -1109,7 +1122,7 @@ describe("AskRigor MCP tools", () => {
 
       expect(second.isError).not.toBe(true);
       const researchReceipt = (second.structuredContent as { research_receipt: string }).research_receipt;
-      expect(second.content).toEqual([{
+      expect(builtContent(second)).toEqual([{
         type: "text",
         text: `YouTube video audit retrieved 6 record(s) cumulatively; this video's comments lock pass (this video only). ${COMMUNITY_RESEARCH_REMINDER} ${VIDEO_COMMENT_MAP_REMINDER} ` +
           "This lock covers retrieving these YouTube comments only; other communities and the final check are separate. " +
@@ -1180,7 +1193,7 @@ describe("AskRigor MCP tools", () => {
 
       expect(upstream).not.toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "YouTube video audit retrieved 0 record(s) cumulatively; this video's comments lock block (this video only). Error: youtube_video_community_audit_failed. YouTube video community audit failed before reaching a valid completion state."
       }]);
@@ -1614,7 +1627,7 @@ describe("AskRigor MCP tools", () => {
 
       expect(upstream).not.toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "YouTube search returned 0 video record(s); access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
@@ -1646,7 +1659,7 @@ describe("AskRigor MCP tools", () => {
 
       expect(upstream).not.toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "YouTube video retrieval finished with access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
@@ -1763,7 +1776,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(search.isError).not.toBe(true);
-      expect(search.content).toEqual([{
+      expect(builtContent(search)).toEqual([{
         type: "text",
         text: "YouTube search returned 1 video record(s); access status complete."
       }]);
@@ -1774,7 +1787,7 @@ describe("AskRigor MCP tools", () => {
         data: [{ video_id: "XpZHKGGCK-o", published_at: "2025-01-02T03:04:05Z" }]
       });
       expect(video.isError).not.toBe(true);
-      expect(video.content).toEqual([{
+      expect(builtContent(video)).toEqual([{
         type: "text",
         text: "YouTube video retrieval finished with access status api_visible_complete."
       }]);
@@ -2008,7 +2021,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         // 5 Nov 2026: comments that came back raise leads for studies, so the result asks for the loop.
         text: `YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete. ${COMMUNITY_LEADS_GUIDANCE}`
@@ -2106,7 +2119,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial. " +
           "Query-bounded: matches show only comments that contain these terms. Zero or few matches are no evidence " +
@@ -2137,7 +2150,7 @@ describe("AskRigor MCP tools", () => {
         arguments: { video_id_or_url: "XpZHKGGCK-o" }
       });
       expect(missingKey.isError).toBe(true);
-      expect(missingKey.content).toEqual([{
+      expect(builtContent(missingKey)).toEqual([{
         type: "text",
         text: "YouTube comment retrieval returned 0 comment/reply record(s); access status inaccessible. Error: youtube_api_key_missing. YouTube retrieval cannot run until the server-side API key is configured."
       }]);
@@ -2156,7 +2169,7 @@ describe("AskRigor MCP tools", () => {
         arguments: { video_id_or_url: "XpZHKGGCK-o" }
       });
       expect(disabled.isError).toBe(true);
-      expect(disabled.content).toEqual([{
+      expect(builtContent(disabled)).toEqual([{
         type: "text",
         text: "YouTube comment retrieval returned 0 comment/reply record(s); access status comments_disabled. Error: youtube_comments_disabled. YouTube top-level comment retrieval stopped before every API-visible page could be exhausted."
       }]);
@@ -2190,7 +2203,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "YouTube comment retrieval returned 5 comment/reply record(s); access status partial. Error: youtube_access_denied. Reply counts did not reconcile for 2 top-level comment(s). YouTube reply retrieval stopped before every expected reply corpus could be exhausted."
       }]);
@@ -2259,7 +2272,7 @@ describe("AskRigor MCP tools", () => {
       }
       const missing = await client.callTool({ name: "check_retraction_status", arguments: {} });
       expect(missing.isError).toBe(true);
-      expect(missing.content).toEqual([{ type: "text", text: "Give the DOI to inspect as identifier." }]);
+      expect(builtContent(missing)).toEqual([{ type: "text", text: "Give the DOI to inspect as identifier." }]);
       expect(missing.structuredContent).toMatchObject({
         data: { status: "unknown" }, error: { code: "crossref_identifier_missing" }
       });
@@ -2288,7 +2301,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "Crossref DOI resolution finished with access status metadata_only."
       }]);
@@ -2321,7 +2334,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "Crossref retraction-status lookup finished with status unknown; access status error."
       }]);
@@ -2533,7 +2546,7 @@ describe("AskRigor MCP tools", () => {
       // Few records: the result says what to try before calling anything not found, in the owner's words (owner report,
       // 2026-09-30), then what to search (the free Claude test of 5 Nov 2026: the key name's other forms and a source
       // beyond PubMed and Europe PMC).
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: `PubMed search returned 2 PMID record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
@@ -2608,7 +2621,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: `Europe PMC search returned 2 record(s); access status complete.${SPARSE_SEARCH_NOTE}${NOT_FOUND_SEARCHES_NOTE}`
       }]);
@@ -2839,7 +2852,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "Europe PMC search returned 0 record(s); access status inaccessible."
       }]);
@@ -2882,7 +2895,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "PubMed search returned 0 PMID record(s); access status inaccessible."
       }]);
@@ -2929,7 +2942,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "PubMed record 40123456 retrieval failed; access status error."
       }]);
@@ -2978,7 +2991,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "ClinicalTrials.gov search returned 1 study record(s); access status complete."
       }]);
@@ -3006,7 +3019,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "ClinicalTrials.gov study NCT99999999 retrieval finished with access status not_found."
       }]);
@@ -3049,7 +3062,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).not.toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "ClinicalTrials.gov study NCT01234567 retrieval finished with access status api_visible_complete."
       }]);
@@ -3080,7 +3093,7 @@ describe("AskRigor MCP tools", () => {
       const result = await pending;
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{
+      expect(builtContent(result)).toEqual([{
         type: "text",
         text: "ClinicalTrials.gov search returned 0 study record(s); access status error."
       }]);
@@ -3132,7 +3145,7 @@ describe("AskRigor MCP tools", () => {
         scope_sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
-      expect(first.content).toEqual([
+      expect(builtContent(first, "load_protocol")).toEqual([
         {
           type: "text",
           text: `Loaded complete canonical HRP text, page 1 of ${pageCount} (exact canonical bytes). Call load_protocol again with page 2 to continue.`
@@ -3145,7 +3158,11 @@ describe("AskRigor MCP tools", () => {
           arguments: { protocol: "hrp", page }
         });
         expect(result.isError).not.toBe(true);
-        expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThan(60_000);
+        const bytes = clientViewBytes(result, "load_protocol");
+        expect(bytes.chatGpt).toBeLessThan(60_000);
+        expect(bytes.textOnly).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
         texts.push((result.structuredContent as { text: string }).text);
       }
       expect(texts.join("")).toBe(canonicalText);
@@ -3238,7 +3255,7 @@ describe("AskRigor MCP tools", () => {
       expect(ruleContent.text).toBe(exact(ruleContent));
       expect(ruleContent.scope_bytes).toBe(Buffer.byteLength(ruleContent.text, "utf8"));
       expect(ruleContent.text).toMatch(/^<Rule name="ResolveConflictsBeforeRecommendationOrRanking"[^>]*>[\s\S]*<\/Rule>$/u);
-      expect((rule.content as Array<{ text: string }>)[0]!.text).toMatch(
+      expect((builtContent(rule, "load_protocol") as Array<{ text: string }>)[0]!.text).toMatch(
         /^Loaded HRP Rule ResolveConflictsBeforeRecommendationOrRanking in section \w+, page 1 of 1 \(exact canonical bytes\)\.$/u
       );
 
@@ -3297,7 +3314,7 @@ describe("AskRigor MCP tools", () => {
       });
       expect(core.structuredContent).not.toHaveProperty("byte_start");
       const { manifest } = core.structuredContent as { manifest: { name: string } };
-      expect((core.content as Array<{ text: string }>)[0]!.text).toBe(
+      expect((builtContent(core, "load_protocol") as Array<{ text: string }>)[0]!.text).toBe(
         `Loaded ${manifest.name} ${sections.map(({ name }) => name).join(", ")}, page 1 of 1 ` +
           "(exact canonical bytes of each, in this order, a blank line between two)."
       );
@@ -3346,7 +3363,13 @@ describe("AskRigor MCP tools", () => {
       expect(firstContent.text + secondContent.text).toBe(
         [exact("CrowdSourcedAndClinicalSignalAudit"), exact("ResearchOrchestrationAndModeSelectionGate")].join("\n\n")
       );
-      for (const result of [first, second]) expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThan(60_000);
+      for (const result of [first, second]) {
+        const bytes = clientViewBytes(result, "load_protocol");
+        expect(bytes.chatGpt).toBeLessThan(60_000);
+        expect(bytes.textOnly).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.structured).toBeLessThanOrEqual(CLAUDE_CODE_INLINE_CHARACTERS);
+        expect(bytes.whole).toBeLessThanOrEqual(CLAUDE_APP_RESULT_CHARACTERS);
+      }
     } finally {
       await server.close();
     }
@@ -3389,7 +3412,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(result.content).toEqual([
+      expect(builtContent(result)).toEqual([
         {
           type: "text",
           text: "Protocol operation failed: Protocol SHA-256 mismatch"

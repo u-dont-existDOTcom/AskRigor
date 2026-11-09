@@ -6,6 +6,7 @@ import {
   InMemoryResearchContributorAccessStore,
   RESEARCH_USE_NOTICE,
   RESEARCH_USE_NOTICE_VERSION,
+  DEFAULT_RESEARCH_STEERING,
   ResearchAccessError,
   ResearchContributorAccessService,
   PAID_PRIVATE_MAP_ONLY,
@@ -400,12 +401,12 @@ describe("research contributor access", () => {
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: false, findingsSave: true,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, steering: DEFAULT_RESEARCH_STEERING,
     });
     await expect(service.setPlainAnswerNote(SUBJECT, false)).resolves.toBe(false);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: false, detailedLessonReports: false, findingsSave: true,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, steering: DEFAULT_RESEARCH_STEERING,
     });
     // Accepting again saves the account row anew; the choice is the account's, not the agreement's.
     await service.acceptFreeContributor(SUBJECT, agreement());
@@ -416,10 +417,10 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false });
     await service.setPlainAnswerNote(SUBJECT, true);
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: true });
-    // Only the choice is kept: no text field joins the account row.
+    // Only the choice is kept: no text field joins the account row (how the notice was accepted is the row's own).
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeVersion", "plainAnswerNote", "revokedAt",
-      "status", "updatedAt"
+      "accountKey", "activatedAt", "agreement", "createdAt", "mode", "noticeAcceptedBy", "noticeVersion",
+      "plainAnswerNote", "revokedAt", "status", "updatedAt"
     ]);
   });
 
@@ -433,7 +434,7 @@ describe("research contributor access", () => {
     await expect(service.setDetailedLessonReports(SUBJECT, true)).resolves.toBe(true);
     await expect(service.activeAccount(SUBJECT)).resolves.toEqual({
       mode: "FREE_CONTRIBUTOR", plainAnswerNote: true, detailedLessonReports: true, findingsSave: true,
-      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION, steering: DEFAULT_RESEARCH_STEERING,
     });
     // Each setting changes only itself.
     await service.setPlainAnswerNote(SUBJECT, false);
@@ -449,8 +450,8 @@ describe("research contributor access", () => {
     await expect(service.activeAccount(SUBJECT)).resolves.toMatchObject({ plainAnswerNote: false, detailedLessonReports: false });
     // Only the choice is kept: no report or text field joins the account row.
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeVersion",
-      "plainAnswerNote", "revokedAt", "status", "updatedAt"
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "mode", "noticeAcceptedBy",
+      "noticeVersion", "plainAnswerNote", "revokedAt", "status", "updatedAt"
     ]);
   });
 
@@ -477,8 +478,8 @@ describe("research contributor access", () => {
       findingsSave: true, plainAnswerNote: false, detailedLessonReports: true,
     });
     expect(Object.keys(store.allAccounts()[0]!).sort()).toEqual([
-      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode", "noticeVersion",
-      "plainAnswerNote", "revokedAt", "status", "updatedAt",
+      "accountKey", "activatedAt", "agreement", "createdAt", "detailedLessonReports", "findingsSave", "mode",
+      "noticeAcceptedBy", "noticeVersion", "plainAnswerNote", "revokedAt", "status", "updatedAt",
     ]);
   });
 

@@ -2,8 +2,11 @@ import { createHash } from "node:crypto";
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
+  ADJUSTMENT_DETAILS,
   CONTRIBUTION_PROBLEM_LIMITS,
   CONTRIBUTION_PROBLEM_RULES,
+  NOTICE_ACCEPTED_BY,
+  RESEARCH_STYLES,
   RESEARCH_ACCOUNT_REFERENCE_CHARACTERS,
   RESEARCH_MAP_CONSENT,
   RESEARCH_USE_NOTICE,
@@ -19,7 +22,12 @@ import {
   researchContributionShapeTemplate,
   researchFrontierContributionSchema,
   topicLinkContributionSchema,
+  researchSteeringSchema,
   type CanonicalIdentityReader,
+  type ResearchAccessView,
+  type ResearchSteering,
+  type ResearchCallRecordStore,
+  RESEARCH_CALL_RECORD_RETENTION_DAYS,
 } from "@askrigor/evidence-repository";
 import { z } from "zod";
 
@@ -43,6 +51,19 @@ import {
   sentencesOf,
 } from "./research-finalization-gate.js";
 import { laterInputShape } from "./later-inputs.js";
+import {
+  COULD_CHANGE,
+  PLAN_TASK_KINDS,
+  RESEARCH_LOOPS,
+  framingGuidance,
+  planResearch,
+  planResearchText,
+  steeringInspectText,
+  steeringSentence,
+  type Framing,
+  type ResearchMenuInput,
+  type ResearchSteeringInput,
+} from "./research-steering.js";
 import type { ResearchOperationExtra } from "./research-operation.js";
 import {
   SHARED_ANSWER_KEPT,
@@ -100,6 +121,10 @@ export const manageResearchAccessInputSchema = z.object({
     // Owner answer 229a: a person's report of what worked for them, to the Atlas, and its take-down (runtime only).
     "share_report",
     "take_down_report",
+    // Owner answer 279a (9 Nov 2026): the account's research style, and the menu of next tasks (runtime only).
+    "set_research_steering",
+    "plan_research",
+    "list_calls",
   ]),
   agreement: freeContributorAgreementSchema.extend({ noticeVersion: noticeVersionSchema }).strict().optional(),
   plainAnswer: plainAnswerInputSchema.optional()
@@ -182,8 +207,30 @@ export const manageResearchAccessOutputSchema = z.object({
 const manageResearchAccessRuntimeInputSchema = manageResearchAccessInputSchema.safeExtend(
   laterInputShape("manage_research_access"));
 
+/**
+ * An active free account's yes, as inspect returns it at runtime (the owner, 6 November 2026; owner answer 189a keeps the
+ * published access shape): the notice it holds, when and how it was accepted, and whether it carries forward.
+ */
+const noticeAcceptanceSchema = z.object({
+  noticeVersion: noticeVersionSchema,
+  acceptedAt: z.string(),
+  acceptedBy: z.enum(NOTICE_ACCEPTED_BY).nullable(),
+  current: z.enum(["accepted", "carried_forward"]),
+}).strict();
+
 /** Its results as the server checks them: the published fields and the shared answer's (owner answer 200a). */
-export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.safeExtend({
+export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutputSchema.extend({
+  error: researchAccessErrorSchema.extend({
+    code: z.union([researchAccessErrorSchema.shape.code, z.literal("call_record_unavailable")]),
+  }).optional(),
+  calls: z.array(z.object({
+    received_at: z.iso.datetime(), tool: z.string(), action: z.string().nullable(),
+    route: z.enum(["/mcp", "/mcp/claude", "/mcp/gemini"]), chatgpt: z.boolean(),
+    outcome: z.enum(["answered", "refused", "failed"]), code: z.string().nullable(),
+    duration_ms: z.number().int().min(0).max(86_400_000),
+  }).strict()).max(500).optional(),
+  retention_days: z.literal(RESEARCH_CALL_RECORD_RETENTION_DAYS).optional(),
+  access: researchAccessViewSchema.safeExtend({ acceptance: noticeAcceptanceSchema.optional() }).optional(),
   sharedAnswer: z.object({
     code: z.string(),
     expiresAt: z.string(),
@@ -197,6 +244,26 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
   next_step: z.string().optional()
     .describe("With inspect, for an account that is not active on the current notice: show the user the notice and " +
       "ask; never accept it for them."),
+  // Owner answer 279a (runtime only): the account's research style, and the menu plan_research made.
+  steering: researchSteeringSchema.optional(),
+  researchMenu: z.object({
+    tasks: z.array(z.object({
+      n: z.number().int(),
+      task: z.string(),
+      kind: z.enum(PLAN_TASK_KINDS),
+      could_change: z.enum(COULD_CHANGE),
+      loop: z.enum(RESEARCH_LOOPS).optional(),
+      minutes: z.tuple([z.number(), z.number()]).nullable(),
+    }).strict()),
+    recommended: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()),
+    recommended_minutes: z.tuple([z.number(), z.number()]),
+    next: z.enum(["ask", "go_on"]),
+    style: z.enum(RESEARCH_STYLES),
+    check_back_minutes: z.number().int(),
+    adjustment_detail: z.enum(ADJUSTMENT_DETAILS),
+    minutes_since_plain_answer: z.number().int().optional(),
+    target_matches_plain_answer: z.boolean().optional(),
+  }).strict().optional(),
 }).strict();
 
 /**
@@ -296,6 +363,7 @@ export const submitResearchContributionOutputSchema = z.object({
 
 export interface ResearchContributorToolOptions {
   service?: ResearchContributorAccessService;
+  callRecord?: ResearchCallRecordStore;
   resourceMetadataUrl?: URL;
   /** What happened to this request's sign-in on /mcp; undefined without OAuth. */
   signIn?: SignInState;
@@ -333,6 +401,11 @@ export interface PlainAnswerOptions {
    * server cannot sign receipts.
    */
   sign: (claims: ResearchReceiptClaims, accountKey: string) => string | undefined;
+  /**
+   * Reads a plain-answer research receipt this account signed: its research target's digest and its issue time; undefined
+   * when it is not a valid plain-answer receipt of this account, or this server cannot verify receipts.
+   */
+  read?: (receipt: string, accountKey: string) => { target: string; issuedAt: string } | undefined;
 }
 
 /** Whether this mode has active research access and registers a plain answer (owner answer 190a). */
@@ -377,6 +450,26 @@ export function noticeNextStep(): string {
     "proposalReviewAndNoAuthorityAcknowledged: true, paidPrivateAlternativeAcknowledged: true}. Never accept for them.";
 }
 
+/**
+ * How an active free account holds the current notice, when its text should say so (the owner, 6 November 2026): a yes
+ * to an earlier notice that carries forward, since every version after it changed only wording, or the owner's
+ * standing instruction for the owner's own login. Empty for a yes the person gave to the current notice.
+ */
+export function noticeAcceptanceSentence(acceptance: ResearchAccessView["acceptance"]): string {
+  if (acceptance === undefined) return "";
+  const standing = acceptance.acceptedBy === "OWNER_STANDING_INSTRUCTION_2026_11_06"
+    ? ` The owner's standing instruction of 6 November 2026 accepted notice ${acceptance.noticeVersion} for this login ` +
+      `at ${acceptance.acceptedAt}.`
+    : acceptance.acceptedBy === null
+      ? ` How notice ${acceptance.noticeVersion} was accepted for this login wasn't recorded.`
+      : "";
+  const carried = acceptance.current === "carried_forward"
+    ? ` This account's yes to notice ${acceptance.noticeVersion} carries forward to ${RESEARCH_USE_NOTICE_VERSION}, ` +
+      "which changed only wording."
+    : "";
+  return `${standing}${carried}`;
+}
+
 /** What inspect asks of an account that registers a plain answer, before any research call. */
 export function plainAnswerRequest(note: boolean): string {
   const { textCharacters, claims, claimCharacters } = PLAIN_ANSWER_LIMITS;
@@ -386,8 +479,18 @@ export function plainAnswerRequest(note: boolean): string {
     `whole sentences each copied exactly from it (at most ${claimCharacters} characters each); and ` +
     "plainAnswer.researchTarget, the research target you will give finalize_research. AskRigor signs it with the " +
     "time. Then treat each claim as something to check, confirm or correct, and look beyond the claims too. " +
-    (note ? NOTE_ON : NOTE_OFF);
+    (note ? NOTE_ON : NOTE_OFF) + " " + FRAMING_REQUEST;
 }
+
+// Owner answer 280a (9 Nov 2026): inspect names the call record, so the AI can answer "did AskRigor get my request?"
+export const CALL_RECORD_SENTENCE = "When the person asks whether AskRigor received their calls, action list_calls " +
+  "lists the calls AskRigor received from this signed-in account in the last 7 days, without their content.";
+
+// Owner answer 279a (9 Nov 2026): the framing goes with the plain answer, before any research call.
+const FRAMING_REQUEST = "With it, give later_inputs.framing: likely_question, the question the person most likely " +
+  "means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to three " +
+  "questions whose answers could change what to research (none when it is clear). The result says whether to ask the " +
+  "person before researching.";
 
 /**
  * Whether this connection's research calls will be accepted, and if not, why
@@ -517,6 +620,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
   ): Promise<CallToolResult> => {
     const auth = authorizedSubject(extra, options.resourceMetadataUrl, options.signIn);
     if ("error" in auth) return auth.error;
+    if (input.action === "list_calls") {
+      if (options.callRecord === undefined || options.service === undefined) {
+        const message = "This AskRigor server keeps no call record, so there is nothing to show.";
+        return { content: [{ type: "text", text: message }], isError: true,
+          structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+            ok: false, error: { code: "call_record_unavailable", message },
+          }) };
+      }
+      const entries = await options.callRecord.list(options.service.accountKeyForSubject(auth.subject), new Date());
+      const calls = entries.map((entry) => ({ received_at: entry.receivedAt.toISOString(), tool: entry.tool,
+        action: entry.action, route: entry.route, chatgpt: entry.chatgpt, outcome: entry.outcome,
+        code: entry.code, duration_ms: entry.durationMs }));
+      const count = calls.length === 0
+        ? "AskRigor received no calls from this signed-in account in the last 7 days."
+        : `AskRigor received ${calls.length === 500 ? "at least " : ""}${calls.length} ${calls.length === 1 ? "call" : "calls"} from this signed-in account in the last 7 days.`;
+      const text = [count + " Times are UTC. A call made without signing in isn't recorded. " +
+        "This call itself appears from the next listing.", ...calls.map((call) =>
+        `${call.received_at.slice(0, 19).replace("T", " ")} UTC · ${call.tool}${call.action === null ? "" : ` (${call.action})`} · ` +
+        `${call.outcome}${call.outcome === "refused" ? ` [${call.code}]` : ""} · ${(call.duration_ms / 1_000).toFixed(1)} s · ` +
+        `${call.chatgpt ? "ChatGPT" : "other app"} · ${call.route}`)].join("\n");
+      return { content: [{ type: "text", text }], structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+        ok: true, calls, retention_days: RESEARCH_CALL_RECORD_RETENTION_DAYS,
+      }) };
+    }
     if (options.service === undefined) {
       return accessError(
         "research_access_service_unavailable",
@@ -617,8 +744,30 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           "findingsSave goes only with action set_findings_save, which needs it.",
         );
       }
+      if (parsed.framing !== undefined && parsed.action !== "register_plain_answer") {
+        return accessError("invalid_request", "later_inputs.framing goes only with action register_plain_answer.");
+      }
+      if ((parsed.action === "plan_research") !== (parsed.researchMenu !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.researchMenu goes only with action plan_research, which needs it.",
+        );
+      }
+      if ((parsed.action === "set_research_steering") !== (parsed.researchSteering !== undefined)) {
+        return accessError(
+          "invalid_request",
+          "later_inputs.researchSteering goes only with action set_research_steering, which needs it.",
+        );
+      }
       if (parsed.action === "register_plain_answer") {
-        return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer);
+        return await registerPlainAnswer(options.service, auth.subject, parsed.plainAnswer!, options.plainAnswer,
+          parsed.framing);
+      }
+      if (parsed.action === "set_research_steering") {
+        return await setResearchSteering(options.service, auth.subject, parsed.researchSteering!);
+      }
+      if (parsed.action === "plan_research") {
+        return await planResearchAction(options.service, auth.subject, parsed.researchMenu!, options.plainAnswer);
       }
       if (parsed.action === "set_plain_answer_note") {
         return await setPlainAnswerNote(options.service, auth.subject, parsed.plainAnswerNote!, options.plainAnswer);
@@ -681,7 +830,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
         content: [{
           type: "text",
           text: (access.status === "ACTIVE"
-            ? `AskRigor research access is active in ${access.mode === "FREE_CONTRIBUTOR" ? "free contributor" : "paid private"} mode.`
+            ? `AskRigor research access is active in ${access.mode === "FREE_CONTRIBUTOR" ? "free contributor" : "paid private"} mode.` +
+              noticeAcceptanceSentence(access.acceptance)
             : access.status === "REVOKED"
               ? "AskRigor research access is revoked."
               : "Choose free contributor mode or activate an existing paid private entitlement before research use.") +
@@ -691,6 +841,8 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
               ? ""
               : ` ${settings.detailedLessonReports ? DETAILED_REPORTS_ON : DETAILED_REPORTS_OFF}`) +
             (settings === undefined || !devAccount ? "" : ` ${settings.findingsSave ? FINDINGS_SAVE_ON : FINDINGS_SAVE_OFF}`) +
+            (settings === undefined ? "" : ` ${steeringInspectText(settings.steering)}`) +
+            (options.callRecord === undefined ? "" : ` ${CALL_RECORD_SENTENCE}`) +
             ` This account's reference, to give the user only when they ask for it: ${accountReference}.`,
         }],
         structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
@@ -699,6 +851,7 @@ function manageResearchAccess(options: ResearchContributorToolOptions) {
           ...(plain === undefined ? {} : { plainAnswer: { requested: true, note: plain.note } }),
           ...(settings === undefined ? {} : { detailedLessonReports: settings.detailedLessonReports }),
           ...(settings === undefined || !devAccount ? {} : { findingsSave: settings.findingsSave }),
+          ...(settings === undefined ? {} : { steering: settings.steering }),
           accountReference,
           ...(nextStep === undefined ? {} : { next_step: nextStep }),
         }),
@@ -768,12 +921,12 @@ async function plainAnswerAccount(
   service: ResearchContributorAccessService,
   subject: string,
   plain: PlainAnswerOptions | undefined,
-): Promise<{ accountKey: string; note: boolean } | undefined> {
+): Promise<{ accountKey: string; note: boolean; steering: ResearchSteering } | undefined> {
   if (plain === undefined) return undefined;
   const accountKey = service.accountKeyForSubject(subject);
   const account = await service.activeAccount(subject);
   return plainAnswerRequested(account.mode)
-    ? { accountKey, note: account.plainAnswerNote }
+    ? { accountKey, note: account.plainAnswerNote, steering: account.steering }
     : undefined;
 }
 
@@ -789,6 +942,7 @@ async function registerPlainAnswer(
   subject: string,
   plainAnswer: z.infer<typeof plainAnswerInputSchema>,
   plain: PlainAnswerOptions | undefined,
+  framing?: Framing,
 ): Promise<CallToolResult> {
   const account = await plainAnswerAccount(service, subject, plain);
   if (account === undefined) return accessError("plain_answer_not_requested", plain === undefined ? PLAIN_ANSWER_SURFACE_UNAVAILABLE : PLAIN_ANSWER_NOT_REQUESTED);
@@ -825,7 +979,14 @@ async function registerPlainAnswer(
     "this research_receipt to finalize_research with the others; there, plain_answer_comparison gives each claim, " +
     "copied exactly as listed here, with whether the research confirmed, corrected or qualified it, or did not check " +
     "it. Claims: " + plainAnswer.claims.map((claim, number) => `${number} ${JSON.stringify(claim)}`).join("; ") + ". " +
-    (account.note ? NOTE_ON : NOTE_OFF);
+    // #434 (8 Nov 2026): a final check given the question in other words, after the person said "continue", found no
+    // plain answer for it, and the answer ended without the comparison.
+    `Research target, as signed: ${JSON.stringify(plainAnswer.researchTarget)}. Give finalize_research this ` +
+    "research_target word for word, in a later turn too (only case and spacing are ignored): a reworded one can't be " +
+    "matched to this plain answer, and the answer then ends without the comparison. " +
+    (account.note ? NOTE_ON : NOTE_OFF) + " " +
+    // Owner answer 279a: what to do next, by the framing and the account's research style.
+    framingGuidance(account.steering, framing);
   return {
     content: [
       { type: "text", text: summary },
@@ -836,6 +997,66 @@ async function registerPlainAnswer(
       ok: true,
       plainAnswer: { requested: true, note: account.note, claims: count },
       research_receipt: receipt,
+    }),
+  };
+}
+
+/** Changes the account's research style when the person asks (owner answer 279a); only the choice is stored. */
+async function setResearchSteering(
+  service: ResearchContributorAccessService,
+  subject: string,
+  change: ResearchSteeringInput,
+): Promise<CallToolResult> {
+  if (change.style === undefined && change.checkBackMinutes === undefined && change.adjustmentDetail === undefined) {
+    return accessError("invalid_request", "later_inputs.researchSteering needs at least one of style, " +
+      "checkBackMinutes and adjustmentDetail.");
+  }
+  const steering = await service.setResearchSteering(subject, change);
+  return {
+    content: [{ type: "text", text: `${steeringSentence(steering)} This applies to this account's research until ` +
+      "the person changes it." }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({ ok: true, steering }),
+  };
+}
+
+/**
+ * The menu of next tasks after a quick screen (owner answer 279a): each task's time range, a recommendation, and whether
+ * to ask the person first, by the account's research style. With the plain answer's receipt, it also checks that the
+ * research target is the registered one (AskRigor#434) and says how long ago the plain answer was registered. Nothing
+ * of the plan is stored.
+ */
+async function planResearchAction(
+  service: ResearchContributorAccessService,
+  subject: string,
+  plan: ResearchMenuInput,
+  plain: PlainAnswerOptions | undefined,
+): Promise<CallToolResult> {
+  const account = await service.activeAccount(subject);
+  const accountKey = service.accountKeyForSubject(subject);
+  const read = plan.plain_answer_receipt === undefined ? undefined : plain?.read?.(plan.plain_answer_receipt, accountKey);
+  const problems: string[] = [];
+  if (plan.plain_answer_receipt !== undefined && read === undefined) {
+    problems.push("later_inputs.researchMenu.plain_answer_receipt is not a current plain-answer receipt of this " +
+      "account, so the research target and the time since were not checked.");
+  }
+  const outOfRange = [...(plan.allocation ?? []).map(({ task }) => task), ...(plan.done ?? [])]
+    .filter((task) => task > plan.tasks.length);
+  if (outOfRange.length > 0) {
+    problems.push(`Task numbers ${[...new Set(outOfRange)].join(", ")} are past the ${plan.tasks.length} tasks given; ` +
+      "they were left out.");
+  }
+  const result = planResearch(plan, account.steering, read === undefined ? undefined : {
+    matches: read.target === researchTargetDigest(plan.research_target),
+    minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
+  });
+  return {
+    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? []),
+      plan.allocation !== undefined && plan.allocation.length > 0) +
+      (problems.length === 0 ? "" : ` ${problems.join(" ")}`) }],
+    structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
+      ok: true,
+      researchMenu: result,
+      ...(problems.length === 0 ? {} : { problems }),
     }),
   };
 }

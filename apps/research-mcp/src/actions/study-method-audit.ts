@@ -14,6 +14,7 @@ import {
 import { z } from "zod";
 
 import { ADMINISTRATION_ROUTES } from "../administration-routes.js";
+import { verifyAuditSource } from "./audit-source.js";
 import { extractUnsignedNumbers, firstNumberReadings, includesAbsoluteNumber } from "../unicode-numbers.js";
 import {
   computeStudyExternalEvidenceBundleHash,
@@ -396,13 +397,7 @@ export function validateStudyMethodAudit(
 ): StudyMethodAuditReceipt {
   const index = normalizeDocumentIndex(rawIndex);
   const submission = studyMethodAuditSubmissionSchema.parse(rawSubmission);
-  if (
-    submission.source_primary_identifier !== index.source.primary_identifier ||
-    submission.source_content_sha256 !== index.source.content_sha256 ||
-    index.source.document_completeness !== "full_text_with_body"
-  ) {
-    throw new Error("Study audit source identity or completeness mismatch");
-  }
+  verifyAuditSource("Study audit", index.source, submission);
 
   const knownBlockIds = new Set(index.blocks.map(({ block_id }) => block_id));
   const citedBlockIds = new Set<string>();
@@ -532,13 +527,7 @@ function verifySourceIdentityAndCompleteness(
   index: AuditableDocumentIndex,
   submission: Pick<StudyMethodAuditSubmission, "source_primary_identifier" | "source_content_sha256">
 ): void {
-  if (
-    submission.source_primary_identifier !== index.source.primary_identifier ||
-    submission.source_content_sha256 !== index.source.content_sha256 ||
-    index.source.document_completeness !== "full_text_with_body"
-  ) {
-    throw new Error("Study audit source identity or completeness mismatch");
-  }
+  verifyAuditSource("Study audit", index.source, submission);
 }
 
 function externalEvidenceItemKeys(

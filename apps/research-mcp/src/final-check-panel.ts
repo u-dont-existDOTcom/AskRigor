@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
-  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_NO_COMPARISON, FINAL_CHECK_PANEL_SCOPE,
+  FINAL_CHECK_PANEL_SOURCE_LINES_LEAD,
 } from "./final-check-messages.js";
 import { ANSWER_READING_LABELS, LINKED_READING_LABELS, SHOWN_READING_LABELS } from "./source-reading.js";
 
@@ -53,6 +54,9 @@ export function inlineFinalCheckAppBundle(bundle: string): string {
 // each key study was read, as the check verified it, so the reader sees it even when the answer is reworded: the
 // readings AskRigor's receipts show, and apart, the AI's own account of the others, with what the receipts do show of
 // them (the review of 5 Nov 2026).
+// The owner, 8 Nov (#434, "i'm confused by the askrigor panel not showing me what a regular answer was going to give"):
+// under a passing check with no quick-answer note, one line says why there is no comparison, unless the person turned
+// the note off.
 // The owner, 6 Nov ("make sure we get it working so it tells you to what extent it read the studies"): under every status
 // with research receipts, the line after the verdict says how much of the research AskRigor read, counted exactly from
 // the receipts, unfolded; and what was checked lists, apart from the key studies, the other studies the answer links,
@@ -61,6 +65,7 @@ export const FINAL_CHECK_PANEL_RENDER_SOURCE = String.raw`
 const COMPLETE_CHECKS_TIP = ${JSON.stringify(COMPLETE_CHECKS_TIP)};
 const CHECK_SCOPE = ${JSON.stringify(FINAL_CHECK_PANEL_SCOPE)};
 const DIFFERENCE_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_DIFFERENCE_LEAD)};
+const NO_COMPARISON = ${JSON.stringify(FINAL_CHECK_PANEL_NO_COMPARISON)};
 const SOURCE_LINES_LEAD = ${JSON.stringify(FINAL_CHECK_PANEL_SOURCE_LINES_LEAD)};
 const ANSWER_READING_LABELS = ${JSON.stringify(ANSWER_READING_LABELS)};
 const SHOWN_READING_LABELS = ${JSON.stringify(SHOWN_READING_LABELS)};
@@ -137,6 +142,9 @@ function renderFinalCheck(doc, structuredContent) {
       const difference = fold("How this answer differs from a quick answer");
       appendText("p", DIFFERENCE_LEAD, difference);
       appendText("p", result.plain_answer_note, difference);
+    } else {
+      const plain = result.plain_answer && typeof result.plain_answer === "object" ? result.plain_answer.status : undefined;
+      if (typeof plain === "string" && Object.hasOwn(NO_COMPARISON, plain)) appendText("p", NO_COMPARISON[plain]);
     }
     const sources = result.sources && typeof result.sources === "object" ? result.sources : {};
     const community = result.community && typeof result.community === "object" ? result.community : {};

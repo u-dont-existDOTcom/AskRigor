@@ -3,7 +3,7 @@ import { atlasBasisFromReceipt,
 } from "./card.js";
 import { createHash, createHmac } from "node:crypto";
 
-import { RESEARCH_USE_NOTICE_VERSION, type HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
+import { researchUseNoticeCovered, type HeldYouTubeFindingsStore } from "@askrigor/evidence-repository";
 
 import { GitHubApiError } from "../lessons/github-app.js";
 import type { LessonAttemptLimiter } from "../lessons/rate-limit.js";
@@ -308,10 +308,11 @@ export class FindingsSaveService {
         ...heldFindingsFromReceipt(receipt.claims.held, input.findings_card.findings.length),
       ]);
       // Owner answer 253a: a forum signal keeps its threads' links only for an account whose consent covers them: a
-      // free contributor who accepted notice version 5, or a paid private user's yes to this save, under the privacy page
-      // that says so. A free contributor still on an earlier notice keeps none.
+      // free contributor whose yes covers the current notice (version 5, or an earlier yes no version since changed
+      // materially; the owner, 6 Nov 2026), or a paid private user's yes to this save, under the privacy page that says
+      // so. A free contributor still on an earlier notice keeps none.
       const threadLinks = context.account?.mode === "PAID_PRIVATE" ||
-        (context.account?.mode === "FREE_CONTRIBUTOR" && context.account.noticeVersion === RESEARCH_USE_NOTICE_VERSION);
+        (context.account?.mode === "FREE_CONTRIBUTOR" && researchUseNoticeCovered(context.account.noticeVersion));
       // The review of 5 November (finding 1): a Reddit thread's community and link come only from the subreddit its
       // reader's receipt signed, which the final check signed again for each of the card's threads.
       const threadCommunities = threadCommunitiesFromReceipt(receipt.claims.ft, input.findings_card);

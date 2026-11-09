@@ -253,8 +253,8 @@ describe("Your AskRigor features on the account page", () => {
 
     let body = await page();
     expect(featureOf(body, "research-access")).toMatchObject({ on: "Off", forYou: "Not chosen yet, or AskRigor's free-use " +
-      "notice changed since you accepted it. Before research, your AI app shows you the current notice (version 5, of " +
-      "5 Nov 2026) and asks you to choose free contributor use or paid private use." });
+      "notice now collects or publishes more than the one you accepted. Before research, your AI app shows you the " +
+      "current notice (version 5, of 5 Nov 2026) and asks you to choose free contributor use or paid private use." });
     expect(needsAccess(body)).toBe(9);
     expect(featureOf(body, "meaning-judge").forYou).toBe("It runs only for the owner's dev accounts.");
 
@@ -263,7 +263,7 @@ describe("Your AskRigor features on the account page", () => {
     await store.saveAccount({ accountKey, status: "ACTIVE", mode: "FREE_CONTRIBUTOR",
       noticeVersion: EARLIER_RESEARCH_USE_NOTICE_VERSIONS[2], agreement: agreement(EARLIER_RESEARCH_USE_NOTICE_VERSIONS[2]),
       activatedAt: NOW, revokedAt: null, createdAt: NOW, updatedAt: NOW });
-    expect(featureOf(await page(), "research-access").forYou).toMatch(/^Not chosen yet, or AskRigor's free-use notice changed/u);
+    expect(featureOf(await page(), "research-access").forYou).toMatch(/^Not chosen yet, or AskRigor's free-use notice now collects or publishes more/u);
 
     await service.revoke(SUBJECT);
     body = await page();

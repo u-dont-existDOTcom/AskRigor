@@ -69,6 +69,7 @@ import { communitySkipCaveat } from "./helpers/community-skip.js";
 import { FakeGitHub } from "./helpers/fake-github-findings.js";
 import { CARD, parsedCard } from "./helpers/findings-fixtures.js";
 import { withSourceReading } from "./helpers/source-reading.js";
+import { builtContent } from "./helpers/text-payload.js";
 
 const SECRET = "findings-library-test-secret-0123456789";
 const NOW = new Date("2026-09-30T12:00:00.000Z");
@@ -983,7 +984,7 @@ describe("finalize_research, save_research_findings and the findings library", (
       findings_card: CHECKED_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save",
     }, "auth0|paid");
     expect(saved.isError).not.toBe(true);
-    expect(saved.content).toEqual([{ type: "text", text: "Saved for review as ARF-0042." }]);
+    expect(builtContent(saved)).toEqual([{ type: "text", text: "Saved for review as ARF-0042." }]);
     expect(calls).toHaveLength(1);
     expect(calls[0]![0]).toEqual({
       findings_card: findingsCardSchema.parse(CHECKED_CARD),
@@ -1285,7 +1286,7 @@ describe("finalize_research, save_research_findings and the findings library", (
         user_consent: "yes_to_this_save" }, subject);
       expect(refused.isError).toBe(true);
       expect(refused.structuredContent).toEqual({ status: "call_saving_off", retryable: false });
-      expect(refused.content).toEqual([{ type: "text", text: "Not saved: the finalize_research call that checked " +
+      expect(builtContent(refused)).toEqual([{ type: "text", text: "Not saved: the finalize_research call that checked " +
         "this card was marked findings_save \"off\", as a test run is, so its card is never saved." }]);
     }
     expect(calls).toEqual([]);
@@ -1548,7 +1549,7 @@ describe("finalize_research, save_research_findings and the findings library", (
     const refused = await save({ findings_card: PERSONAL_CARD, finalization_receipt: receipt, user_consent: "yes_to_this_save" }, "auth0|paid");
     expect(refused.isError).toBe(true);
     expect(refused.structuredContent).toEqual({ status: "personal_only", retryable: false });
-    expect(refused.content).toEqual([{
+    expect(builtContent(refused)).toEqual([{
       type: "text",
       text: "Not saved: the card declares its findings personal only, and AskRigor's findings library keeps only " +
         "findings that would help other people.",

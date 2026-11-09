@@ -62,6 +62,38 @@ the accounts revoked, so the person can accept v4 there;
 restores each account still exactly in the held state. The Docker acceptance is
 `npm run contributor-access:notice-v5-rollback-acceptance`.
 
+### Asked again only when the notice collects or publishes more (the owner, 6 November 2026)
+
+The owner: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's
+annoying". Built, not yet released:
+
+- **Each version declares whether it is material.** `RESEARCH_USE_NOTICE_CHANGES`
+  (`packages/evidence-repository/src/research-use-notice-changes.ts`) lists every version, oldest first, with
+  `material` (it collects or publishes more than the version before it) and what changed. The change that adds a
+  version adds its entry, and its review checks the declaration: no code can tell from the words. Every version so far
+  is material. Tests hold the list to the versions the access schema admits.
+- **A wording-only version carries a yes forward.** An account's yes covers the current notice when every version
+  after the one it accepted is not material (`researchUseNoticeCovered`, exact on versions). Such an account is
+  active; nothing is written, so its row still says what the person accepted, when and how, and `inspect` returns
+  `access.acceptance` with `current: "carried_forward"`, its text adding "This account's yes to notice <version>
+  carries forward to <current>, which changed only wording." A material version asks again, as before, and research
+  tools refuse with `RESEARCH_ACCESS_REQUIRED` and "It now collects or publishes more than the notice this account
+  accepted". The findings library's thread links and the Atlas's publish-on-save check read the same coverage.
+- **The owner's own login accepts each new version by the owner's standing instruction.** The owner's login is the one
+  subject `ASKRIGOR_OAUTH_ALLOWED_SUBJECT` names, which the owner's review already admits; the service derives its
+  account key once (`ownerSubjects`). Dev accounts are a test role, not an identity, and are never treated as the
+  owner's. When that login's active free account meets a material version, the service accepts the current notice
+  for it and records it: the notice version, its agreement, `activated_at` (the time) and `notice_accepted_by`
+  `OWNER_STANDING_INSTRUCTION_2026_11_06`. It never enrolls, reactivates or switches a login: a never-enrolled,
+  revoked or paid private owner login stays as it is. `inspect` says so: "The owner's standing instruction of 6
+  November 2026 accepted notice <version> for this login at <time>."
+- **The record.** Migration `0031_research_notice_acceptance` adds `notice_accepted_by` (`PERSON` or
+  `OWNER_STANDING_INSTRUCTION_2026_11_06`) and `notice_accepted_at`, always equal to `activated_at`. A person's
+  `accept_free_contributor` writes `PERSON`; the first run backfills `PERSON` for active free accounts, since until now
+  only a person's yes made one. A trigger clears the pair whenever a write moves `activated_at` without it (an image
+  from before 0031, or the hold and restore scripts), so a stale way of acceptance never stays: `acceptedBy` then reads
+  `null`, not recorded. `access.acceptance` is runtime-only; the published tool lists don't change.
+
 Version 4 (owner answer 171) kept every other sentence of v3 and made exactly
 these three changes:
 
@@ -153,6 +185,48 @@ setting removes only the note: the plain answer still guides the research. Only
 the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not,
 and Gemini's catalog does not list it. Neither the plain answer nor its comparison
 is sent to the second reader or saved in a findings card or the Atlas.
+
+## Research the person can steer (owner answer 279a, 9 November 2026; built, not yet released)
+
+From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
+list as it is), all on the MCP connector, and none a blocking check:
+
+- **The framing, with the plain answer.** `register_plain_answer` takes `later_inputs.framing`: the question the person
+  most likely means, up to three things in it that look inverted or unclear, and up to three questions whose answers
+  could redirect the research. Its result says what to do next by the account's research style: ask those questions
+  and wait (guided and balanced), say which reading it takes and keep them for the first check-back (autonomous),
+  confirm the question in one line (guided, with nothing to ask), or go on; then screen cheaply and call
+  `plan_research`. Without a framing, the result asks for one next time. The framing is not stored or signed.
+- **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
+  (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
+  studies or the model's own time range), the person's allocation once given, the tasks done, and optionally the plain
+  answer's receipt. Each task gets a time range from its kind's planning estimate per source (`PLAN_TASK_MINUTES` in
+  `apps/research-mcp/src/research-steering.ts`, starting values until the regression runs measure them); tasks that
+  could change the conclusion are recommended first, then those that could change how sure it is, within the
+  check-back allowance; detail alone is never recommended. Guided always shows the menu and waits; balanced does when
+  the recommended tasks would take more than about five minutes; autonomous goes on and checks back after the
+  allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
+  after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
+  the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
+  target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
+  of the menu is stored.
+- **The research style.** `set_research_steering` takes `later_inputs.researchSteering` (`style`: `guided`, `balanced`
+  or `autonomous`; `checkBackMinutes`: 1 to 120; `adjustmentDetail`: `flagged` or `all`), any of them, for an active
+  account; `inspect` shows it. Migration `0033_research_steering` stores the three choices on `research_use_accounts`,
+  `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
+  as they are.
+
+## The call record (owner answer 280a, 9 November 2026; built, not yet released)
+
+So a person can tell "never called" from "called and refused" (AskRigor#434), the server keeps a content-free record of
+each MCP tool call from a signed-in research account: the account key, the time, the tool, `manage_research_access`'s
+action, the route, whether ChatGPT's signals came with it, the outcome (answered, refused with its fixed code, or
+failed) and the time taken. Migration `0032_research_call_record` holds it; each row is deleted 7 days after its call,
+by the account's next call and an hourly sweep. The runtime-only action `list_calls` shows the account its own calls,
+newest first, and `inspect` names the action when the server keeps a record. Recording never delays or changes a
+result, and a failed write is dropped silently. Calls without a valid sign-in and Custom GPT Action calls are not
+recorded. The privacy page and `docs/privacy-data-map.md` ("The call record") describe it; the access role has INSERT,
+SELECT and DELETE on the table only, and the canonical reader none.
 
 ## Detailed lesson reports
 
@@ -562,6 +636,10 @@ It cannot grant an entitlement, accept/reject a proposal, write canonical
 evidence, delete/truncate data, create objects, or read unrelated repository
 tables.
 
+Migration `0031_research_notice_acceptance.sql` (the owner, 6 November 2026) adds how a free account's notice was
+accepted, `notice_accepted_by` and `notice_accepted_at`, with its trigger and check (above, "Asked again only when the
+notice collects or publishes more"); the access role's column grant names both.
+
 Migration `0010_research_contribution_review.sql` adds the
 `research_contribution_promotions` outbox and two security-definer functions.
 Migration `0012_research_contribution_merging.sql` adds the `FAILED` state,
@@ -645,6 +723,10 @@ the primary ChatGPT/Codex plugin is the supported surface for this slice.
   minute accepted-intent scheduler are deployed. The timer processes at most
   one already accepted exact-hash intent per activation; manual invocation
   remains available for immediate handling or rollback operation.
+- Whether a notice version is material is declared by hand in its change and checked in review; a version marked
+  wording-only that in fact collects more would carry yeses forward wrongly.
+- A row an image from before migration 0031 last wrote, or one the notice hold and restore scripts moved, shows its way
+  of acceptance as not recorded (`acceptedBy` `null`) until the person or the owner's instruction accepts again.
 - The deterministic privacy screen cannot recognize every indirect identifier.
 - Pending proposal retention is operator-managed rather than automatically
   expiring in this slice.

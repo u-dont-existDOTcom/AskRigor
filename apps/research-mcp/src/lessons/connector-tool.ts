@@ -79,6 +79,15 @@ export const connectorLessonInputSchema = connectorLessonCandidateSchema
     ),
   });
 
+/**
+ * One report per incident (AskRigor#431, the owner's requirement there): a run that found its own failure proposed both
+ * a bug report and a lesson for it. A defect that can be debugged gets one detailed bug report; a preference, feature
+ * request or style feedback gets one lesson; never both for one incident.
+ */
+export const ONE_REPORT_PER_INCIDENT = "One report per incident: a defect that can be debugged (a failed or wrong " +
+  "step, a tool or check that misbehaved) gets one detailed bug report, and a preference, feature request or style " +
+  "feedback gets one lesson, never both, so send nothing more about this incident.";
+
 /** The lesson Action's public receipt: no issue number, URL, lesson text or fingerprint. */
 export const connectorLessonOutputSchema = z.object({
   status: z.enum([
@@ -112,11 +121,11 @@ export function connectorLessonToolResult(raw: ConnectorLessonSubmissionResult):
   const result = parsed.success ? parsed.data : UNAVAILABLE;
   switch (result.status) {
     case "submitted":
-      return receipt(`Lesson saved for review as ${result.candidate_id}.`, result, false);
+      return receipt(`Lesson saved for review as ${result.candidate_id}. ${ONE_REPORT_PER_INCIDENT}`, result, false);
     case "existing_candidate":
       return receipt(
         `This lesson matches ${result.candidate_id}, already in review; it has now been reported ` +
-          `${result.occurrence_count} time(s).`,
+          `${result.occurrence_count} time(s). ${ONE_REPORT_PER_INCIDENT}`,
         result,
         false,
       );

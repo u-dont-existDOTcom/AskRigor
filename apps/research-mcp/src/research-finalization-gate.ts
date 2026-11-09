@@ -116,6 +116,8 @@ import {
   type ResearchReceiptKind,
   type ResearchReceiptRejection
 } from "./research-receipts.js";
+import { claimCoverageNotes, extractedClaimIds } from "./claim-coverage.js";
+import { untraceableCitationNote } from "./citation-markers.js";
 
 /**
  * Server-side completion gate for MCP research (finalize_research).
@@ -2685,6 +2687,12 @@ export function finalizeResearch(
     const thread = forumThreadDigest(source);
     return forumReadUrls.has(thread) || declaredLinks.has(thread);
   };
+  // AskRigor#431: every claim extract_youtube_video_claims listed is accounted for (later_inputs.claim_coverage), and the
+  // draft holds none of the app's own citation markers. Both are exact checks, and notes only: the six blocking checks
+  // stay six (owner answers 193a, 195a and 217b).
+  for (const note of claimCoverageNotes(extractedClaimIds(verified), input.claim_coverage)) addStep("declaration", note);
+  const markerNote = untraceableCitationNote(input.answer_draft);
+  if (markerNote !== undefined) addStep("declaration", markerNote);
   const communityLeads = input.community_leads ?? [];
   // Each entry by its place as given, though an entry before it was left out.
   const leadAt = (index: number): string => `community_leads[${parsed.leadPlaces?.[index] ?? index}]`;
@@ -4657,7 +4665,10 @@ export function finalizeResearch(
         ? { status: "registered", claims: plainAnswer.claims.length }
         : { status: "note_off", claims: plainAnswer.claims.length, reason: PLAIN_ANSWER_REASONS.note_off };
     // The account's setting removes the note only: the plain answer is still compared with the answer.
-    if (passed && note && compared !== undefined) output.plain_answer_note = plainAnswerNote(compared, draft!);
+    if (passed && note && compared !== undefined) {
+      output.plain_answer_note = plainAnswerNote(compared, draft!) +
+        researchTimeSentence(verified, options.now?.() ?? new Date());
+    }
   }
   if (sourceLineChecks.length > 0) output.source_lines = sourceLineChecks;
   if (studyMapCheck !== undefined) output.study_map = studyMapCheck;
@@ -5440,6 +5451,26 @@ function registeredPlainAnswer(
   return latest === undefined ? { status: "after_research" } : { status: "registered", claims: list(latest.claims.claims) };
 }
 
+/**
+ * How long the research took, for the end of the plain-answer note (owner answer 279a, from the owner's report
+ * AskRigor#434: "every user would want to know why that 52 minutes was really worthwhile"): from the earliest research
+ * receipt passed here to this check, by the receipts' signed issue times. Nothing under a minute; past three hours, in
+ * hours, with the reminder that it may include time spent waiting for the person.
+ */
+function researchTimeSentence(verified: readonly VerifiedReceipt[], now: Date): string {
+  const times = verified.filter(({ kind }) => !NOT_RESEARCH_KINDS.has(kind))
+    .map(({ issuedAt }) => Date.parse(issuedAt)).filter(Number.isFinite);
+  if (times.length === 0) return "";
+  const minutes = Math.round((now.getTime() - Math.min(...times)) / 60_000);
+  if (minutes < 1) return "";
+  if (minutes > 180) {
+    return ` The research ran for about ${Math.round(minutes / 60)} hours from its first research call to this check, ` +
+      "which may include time spent waiting for the person's replies.";
+  }
+  return ` The research took about ${minutes} ${minutes === 1 ? "minute" : "minutes"}, from its first research call ` +
+    "to this check.";
+}
+
 // Receipts that are no part of the research a map maps (owner answer 143a): a plain answer written before it, a final
 // check of it and a map filed after it.
 const NOT_RESEARCH_KINDS: ReadonlySet<ResearchReceiptKind> = new Set(["plain_answer", "finalization", "research_map"]);
@@ -5474,8 +5505,12 @@ const PLAIN_ANSWER_REASONS = {
     `when the receipt verifies.${NEXT_PLAIN_ANSWER}`,
   other_account: "The plain answer passed was registered by another account, so the answer ends without the note " +
     `comparing it with one.${NEXT_PLAIN_ANSWER}`,
+  // #434 (8 Nov 2026): a check given the question in other words after a "continue" lost the comparison, and nothing
+  // said how to get it back. Whether two wordings ask the same question is the AI's to judge, not this check's.
   other_target: "The plain answer passed was registered for another research target, so the answer ends without the " +
-    `note comparing it with this research.${NEXT_PLAIN_ANSWER}`,
+    "note comparing it with this research. If it is the quick answer to this same question, worded differently here, " +
+    "call again with research_target word for word as given to register_plain_answer (only case and spacing are " +
+    `ignored); its result quoted it.${NEXT_PLAIN_ANSWER}`,
   after_research: "The plain answer passed was registered after a research receipt passed here was issued, so it " +
     "cannot show what a quick answer would have said, and the answer ends without the note. If a plain answer for this " +
     "research target was registered before the research began, pass its research_receipt with the others: the check " +

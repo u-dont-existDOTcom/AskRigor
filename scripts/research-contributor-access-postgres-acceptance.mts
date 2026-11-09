@@ -26,6 +26,8 @@ import {
   PostgresEvidenceRepository,
   PostgresHeldYouTubeFindingsStore,
   PostgresResearchContributorAccessStore,
+  PostgresResearchCallRecordStore,
+  RESEARCH_CALL_RECORD_RETENTION_MS,
   PostgresResearchContributionPromotionRunner,
   PostgresResearchContributionReviewStore,
   RESEARCH_MAP_CONSENT,
@@ -335,6 +337,41 @@ async function verify(
     assert(freeReports.rows[0]?.detailed_lesson_reports === false, "REVOKED_ACCOUNT_DETAILED_LESSON_REPORTS_CHANGED");
     checks.push("detailed_lesson_reports_stored_off_by_default_and_kept_by_save");
 
+    // Owner answer 279a: the research style is three stored choices on the account row (0033): balanced, 10 minutes and
+    // flagged adjustments by default, which the restricted role changes, which saving the account again leaves as they
+    // are, and whose check refuses any other value.
+    const steeringMigration = await admin.query(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations WHERE migration_id = '0033_research_steering'`,
+    );
+    assert(steeringMigration.rowCount === 1, "MIGRATION_0033_NOT_APPLIED");
+    const steeringDefault = (await service.activeAccount(PAID_SUBJECT)).steering;
+    assert(
+      steeringDefault.style === "balanced" && steeringDefault.checkBackMinutes === 10 &&
+        steeringDefault.adjustmentDetail === "flagged",
+      "RESEARCH_STEERING_DEFAULTS_MISMATCH",
+    );
+    await service.setResearchSteering(PAID_SUBJECT, { style: "guided", checkBackMinutes: 30 });
+    await service.activatePaidPrivate(PAID_SUBJECT);
+    const steeringKept = (await service.activeAccount(PAID_SUBJECT)).steering;
+    assert(
+      steeringKept.style === "guided" && steeringKept.checkBackMinutes === 30 && steeringKept.adjustmentDetail === "flagged",
+      "RESEARCH_STEERING_CHANGED_BY_SAVE",
+    );
+    await service.setResearchSteering(PAID_SUBJECT, { adjustmentDetail: "all" });
+    assert((await service.activeAccount(PAID_SUBJECT)).steering.adjustmentDetail === "all", "RESEARCH_STEERING_NOT_CHANGED");
+    let steeringRefused = false;
+    try {
+      await admin.query(
+        `UPDATE ${SCHEMA}.research_use_accounts SET check_back_minutes = 0 WHERE account_key = $1`,
+        [service.accountKeyForSubject(PAID_SUBJECT)],
+      );
+    } catch {
+      steeringRefused = true;
+    }
+    assert(steeringRefused, "RESEARCH_STEERING_CHECK_NOT_ENFORCED");
+    await service.setResearchSteering(PAID_SUBJECT, { style: "balanced", checkBackMinutes: 10, adjustmentDetail: "flagged" });
+    checks.push("research_steering_stored_with_defaults_and_kept_by_save");
+
     // Owner answer 171, default 5: only a setting, on by default; the access role can change it, not identity columns.
     const findingsSaveMigration = await admin.query(
       `SELECT migration_id FROM ${SCHEMA}.schema_migrations
@@ -419,6 +456,12 @@ async function verify(
       ), "research_use_accounts_free_notice_check");
     }
     checks.push("notice_v5_admitted_and_v1_v2_v3_v4_accounts_accept_it_before_research");
+
+    // The owner, 6 November 2026: migration 0031 records how a free account's notice was accepted, by the person or by
+    // the owner's standing instruction for the owner's own login, at activated_at; a write that changes activated_at
+    // without it (an image from before 0031) clears both, and only the two named ways are admitted.
+    await verifyNoticeAcceptance({ admin, restricted, store, adminUrl, checks });
+    await verifyCallRecord({ admin, restricted, checks });
 
     // Owner answer 143a: a paid private account files only this research's map, and only under the user's yes to the
     // answer's offer. The database stores that finalization receipt's SHA-256, never the receipt, and takes it once;
@@ -687,6 +730,211 @@ async function verify(
       admin.end(),
     ]);
   }
+}
+
+const OWNER_SUBJECT = "auth0|synthetic-postgres-owner-login";
+const STANDING = "OWNER_STANDING_INSTRUCTION_2026_11_06";
+
+async function verifyCallRecord(context: { admin: Pool; restricted: Pool; checks: string[] }): Promise<void> {
+  const { admin, restricted, checks } = context;
+  const applied = await admin.query(`SELECT migration_id FROM ${SCHEMA}.schema_migrations
+    WHERE migration_id = '0032_research_call_record'`);
+  assert(applied.rowCount === 1, "MIGRATION_0032_NOT_APPLIED");
+  const record = new PostgresResearchCallRecordStore(restricted, SCHEMA);
+  const at = new Date("2026-11-09T11:52:03.000Z");
+  const before = new Date(at.getTime() - RESEARCH_CALL_RECORD_RETENTION_MS);
+  const accountKey = "synthetic-call-record-own-key";
+  const otherKey = "synthetic-call-record-other-key";
+  const entry = { accountKey, receivedAt: at, tool: "manage_research_access", action: "inspect",
+    route: "/mcp" as const, chatgpt: true, outcome: "answered" as const, code: null, durationMs: 400 };
+  await record.record(entry);
+  await record.record({ ...entry, accountKey: otherKey });
+  const snapshot = async () => JSON.stringify({
+    rows: (await admin.query(`SELECT * FROM ${SCHEMA}.research_call_record ORDER BY account_key, received_at`)).rows,
+    table: (await admin.query(`SELECT c.oid, c.relfilenode, c.relacl, a.attname, a.atttypid, a.attnotnull
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+      WHERE n.nspname = $1 AND c.relname = 'research_call_record' ORDER BY a.attnum`, [SCHEMA])).rows,
+    constraints: (await admin.query(`SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint
+      WHERE conrelid = '${SCHEMA}.research_call_record'::regclass ORDER BY conname`)).rows,
+    indexes: (await admin.query(`SELECT indexname, indexdef FROM pg_indexes
+      WHERE schemaname = $1 AND tablename = 'research_call_record' ORDER BY indexname`, [SCHEMA])).rows,
+  });
+  const original = await snapshot();
+  const migration = (await readFile(resolve("packages/evidence-repository/migrations/0032_research_call_record.sql"), "utf8"))
+    .replaceAll("__SCHEMA__", SCHEMA);
+  await admin.query(migration);
+  await admin.query(migration);
+  assert(await snapshot() === original, "CALL_RECORD_MIGRATION_NOT_IDEMPOTENT");
+
+  for (const privilege of ["INSERT", "SELECT", "DELETE", "UPDATE", "TRUNCATE", "REFERENCES", "TRIGGER"]) {
+    const result = await restricted.query<{ allowed: boolean }>(
+      `SELECT has_table_privilege(current_user, $1, $2) AS allowed`, [`${SCHEMA}.research_call_record`, privilege]);
+    assert(result.rows[0]?.allowed === ["INSERT", "SELECT", "DELETE"].includes(privilege),
+      "CALL_RECORD_ROLE_PRIVILEGES_WRONG");
+  }
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_call_record SET duration_ms = 1`));
+  await expectPermissionDenied(() => restricted.query(`TRUNCATE ${SCHEMA}.research_call_record`));
+  await expectPermissionDenied(() => restricted.query(`ALTER TABLE ${SCHEMA}.research_call_record ADD COLUMN forbidden text`));
+  const reader = await admin.query<{ allowed: boolean }>(
+    `SELECT has_table_privilege('askrigor_reader', $1, 'SELECT') AS allowed`, [`${SCHEMA}.research_call_record`]);
+  assert(reader.rows[0]?.allowed === false, "CALL_RECORD_EXPOSED_TO_CANONICAL_READER");
+
+  const values: unknown[] = [accountKey, at, "load_protocol", null, "/mcp", false, "answered", null, 0];
+  for (const [index, bad] of [[2, "Bad tool"], [2, "a".repeat(65)], [3, "Bad action"], [7, "Bad code"],
+    [4, "/actions"], [6, "unknown"], [8, -1], [8, 86_400_001]] as const) {
+    const invalid = [...values];
+    invalid[index] = bad;
+    await expectCode(() => restricted.query(`INSERT INTO ${SCHEMA}.research_call_record
+      (account_key, received_at, tool, action, route, chatgpt, outcome, code, duration_ms)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, invalid), "23514");
+  }
+  const own = await record.list(accountKey, at);
+  assert(own.length === 1 && own[0]?.accountKey === accountKey && own[0]?.tool === entry.tool,
+    "CALL_RECORD_ACCOUNT_ISOLATION_FAILED");
+  await record.record({ ...entry, receivedAt: new Date(before.getTime() - 1) });
+  await record.record({ ...entry, accountKey: otherKey, receivedAt: new Date(before.getTime() - 1) });
+  await record.record({ ...entry, receivedAt: before });
+  await record.record({ ...entry, receivedAt: new Date(before.getTime() + 1) });
+  assert((await record.list(accountKey, at)).length === 2, "CALL_RECORD_SEVEN_DAY_BOUNDARY_WRONG");
+  assert(await record.sweep(at) === 2, "CALL_RECORD_SWEEP_COUNT_WRONG");
+  assert(await record.sweep(at) === 0, "CALL_RECORD_SWEEP_NOT_IDEMPOTENT");
+  assert(await record.sweep(new Date(at.getTime() + 1)) === 1, "CALL_RECORD_SWEEP_BOUNDARY_WRONG");
+  await restricted.query(`DELETE FROM ${SCHEMA}.research_call_record WHERE account_key IN ($1, $2)`, [accountKey, otherKey]);
+  checks.push("call_record_kept_7_days_own_account_only");
+}
+
+async function verifyNoticeAcceptance(context: {
+  admin: Pool;
+  restricted: Pool;
+  store: PostgresResearchContributorAccessStore;
+  adminUrl: string;
+  checks: string[];
+}): Promise<void> {
+  const { admin, restricted, store, adminUrl, checks } = context;
+  const applied = await admin.query(
+    `SELECT migration_id FROM ${SCHEMA}.schema_migrations WHERE migration_id = '0031_research_notice_acceptance'`,
+  );
+  assert(applied.rowCount === 1, "MIGRATION_0031_NOT_APPLIED");
+  const columns = await admin.query<{ column_name: string; data_type: string; is_nullable: string }>(
+    `SELECT column_name, data_type, is_nullable FROM information_schema.columns
+      WHERE table_schema = $1 AND table_name = 'research_use_accounts'
+        AND column_name IN ('notice_accepted_by', 'notice_accepted_at')
+      ORDER BY column_name`,
+    [SCHEMA],
+  );
+  assert(JSON.stringify(columns.rows) === JSON.stringify([
+    { column_name: "notice_accepted_at", data_type: "timestamp with time zone", is_nullable: "YES" },
+    { column_name: "notice_accepted_by", data_type: "text", is_nullable: "YES" },
+  ]), "MIGRATION_0031_COLUMNS_MISMATCH");
+  const row = async (subject: string, service: ResearchContributorAccessService) => (await admin.query<{
+    notice_version: string | null; notice_accepted_by: string | null; same_time: boolean | null; activated_at: Date | null;
+  }>(
+    `SELECT notice_version, notice_accepted_by, notice_accepted_at = activated_at AS same_time, activated_at
+       FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`,
+    [service.accountKeyForSubject(subject)],
+  )).rows[0];
+  const at = (iso: string) => () => iso;
+  const person = new ResearchContributorAccessService({ store, identitySecret: IDENTITY_SECRET, now: at(NOW) });
+  const owner = new ResearchContributorAccessService({
+    store, identitySecret: IDENTITY_SECRET, now: at("2026-09-01T02:30:00.000Z"), ownerSubjects: new Set([OWNER_SUBJECT]),
+  });
+
+  // The person's own yes, written through the access role.
+  await person.acceptFreeContributor(OWNER_SUBJECT, FREE_AGREEMENT);
+  const own = await row(OWNER_SUBJECT, person);
+  assert(own?.notice_accepted_by === "PERSON" && own.same_time === true, "PERSON_ACCEPTANCE_NOT_RECORDED");
+
+  // Under an earlier notice (as the v1 to v4 loop above sets one), the owner's login accepts the current one by the
+  // standing instruction, recorded with its time; another person's login under the same service is asked as before.
+  const earlier = async (subject: string) => admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts
+        SET notice_version = $2, agreement_json = jsonb_set(agreement_json, '{noticeVersion}', to_jsonb($2::text))
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(subject), EARLIER_NOTICES[3]],
+  );
+  await earlier(OWNER_SUBJECT);
+  assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "NOTICE_CHANGE_ALONE_CLEARED_ACCEPTANCE");
+  const ownerView = await owner.inspect(OWNER_SUBJECT);
+  assert(ownerView.status === "ACTIVE" && ownerView.acceptance?.acceptedBy === STANDING &&
+    ownerView.acceptance.acceptedAt === "2026-09-01T02:30:00.000Z", "OWNER_STANDING_ACCEPTANCE_NOT_SHOWN");
+  const standing = await row(OWNER_SUBJECT, owner);
+  assert(standing?.notice_version === RESEARCH_USE_NOTICE_VERSION && standing.notice_accepted_by === STANDING &&
+    standing.same_time === true && standing.activated_at?.toISOString() === "2026-09-01T02:30:00.000Z",
+  "OWNER_STANDING_ACCEPTANCE_NOT_RECORDED");
+  const otherSubject = "auth0|synthetic-postgres-not-the-owner";
+  await person.acceptFreeContributor(otherSubject, FREE_AGREEMENT);
+  await earlier(otherSubject);
+  assert((await owner.inspect(otherSubject)).status === "UNENROLLED", "OTHER_PERSON_ACCEPTED_BY_OWNER_INSTRUCTION");
+  await expectCode(() => owner.requireActive(otherSubject), "RESEARCH_ACCESS_REQUIRED");
+  const other = await row(otherSubject, owner);
+  assert(other?.notice_version === EARLIER_NOTICES[3] && other.notice_accepted_by === "PERSON",
+    "OTHER_PERSON_ROW_CHANGED");
+
+  // A write from an image that knows neither column moves activated_at alone: the trigger clears the pair.
+  await admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts
+        SET activated_at = activated_at + interval '1 minute', updated_at = updated_at + interval '1 minute'
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  );
+  const stale = await row(OWNER_SUBJECT, owner);
+  assert(stale?.notice_accepted_by === null && stale.same_time === null, "STALE_ACCEPTANCE_NOT_CLEARED");
+  assert((await owner.inspect(OWNER_SUBJECT)).acceptance?.acceptedBy === null, "UNRECORDED_ACCEPTANCE_NOT_SHOWN_AS_NULL");
+  await expectPgErrorMessage(() => admin.query(
+    `UPDATE ${SCHEMA}.research_use_accounts SET notice_accepted_by = 'SOMEONE_ELSE', notice_accepted_at = activated_at
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  ), "research_use_accounts_notice_acceptance_check");
+  // The access role writes the pair, and still no account key.
+  await restricted.query(
+    `UPDATE ${SCHEMA}.research_use_accounts SET notice_accepted_by = 'PERSON', notice_accepted_at = activated_at
+      WHERE account_key = $1`,
+    [owner.accountKeyForSubject(OWNER_SUBJECT)],
+  );
+  assert((await row(OWNER_SUBJECT, owner))?.notice_accepted_by === "PERSON", "ACCESS_ROLE_CANNOT_WRITE_ACCEPTANCE");
+  await expectPermissionDenied(() => restricted.query(`UPDATE ${SCHEMA}.research_use_accounts SET account_key = account_key`));
+
+  // The standing acceptance is saved only onto the row as it was read (the review of 7 Nov), through the access role:
+  // an unchanged row takes it; a revoke that lands between the read and the save is kept, and nothing is written.
+  const ownerKey = owner.accountKeyForSubject(OWNER_SUBJECT);
+  const acceptedFrom = (read: NonNullable<Awaited<ReturnType<typeof store.getAccount>>>, time: string) => ({
+    ...read, noticeVersion: RESEARCH_USE_NOTICE_VERSION, activatedAt: time, updatedAt: time,
+    noticeAcceptedBy: STANDING as typeof read.noticeAcceptedBy,
+  });
+  await earlier(OWNER_SUBJECT);
+  const unchanged = await store.getAccount(ownerKey);
+  assert(unchanged !== null, "OWNER_ROW_MISSING");
+  assert(await store.saveAccountIfUnchanged(acceptedFrom(unchanged!, "2026-09-01T02:35:00.000Z"), unchanged!),
+    "GUARDED_SAVE_REFUSED_AN_UNCHANGED_ROW");
+  await earlier(OWNER_SUBJECT);
+  const read = await store.getAccount(ownerKey);
+  await person.revoke(OWNER_SUBJECT);
+  assert(!await store.saveAccountIfUnchanged(acceptedFrom(read!, "2026-09-01T02:40:00.000Z"), read!),
+    "GUARDED_SAVE_UNDID_A_REVOKE");
+  const kept = await admin.query<{ status: string; mode: string | null }>(
+    `SELECT status, mode FROM ${SCHEMA}.research_use_accounts WHERE account_key = $1`, [ownerKey]);
+  assert(kept.rows[0]?.status === "REVOKED" && kept.rows[0].mode === null, "REVOKE_UNDONE_BY_STANDING_ACCEPTANCE");
+  await expectCode(() => owner.requireActive(OWNER_SUBJECT), "RESEARCH_ACCESS_REVOKED");
+  checks.push("standing_acceptance_saved_only_onto_the_row_as_read");
+
+  // Revoking clears it; migrating again changes no row and backfills nothing.
+  await owner.revoke(OWNER_SUBJECT);
+  const revoked = await row(OWNER_SUBJECT, owner);
+  assert(revoked?.notice_accepted_by === null && revoked.same_time === null, "REVOKED_ACCEPTANCE_NOT_CLEARED");
+  const before = await admin.query(
+    `SELECT account_key, notice_accepted_by, notice_accepted_at FROM ${SCHEMA}.research_use_accounts ORDER BY account_key`,
+  );
+  const repository = new PostgresEvidenceRepository({ connectionString: adminUrl, schema: SCHEMA });
+  try {
+    await repository.migrate();
+  } finally {
+    await repository.close();
+  }
+  const after = await admin.query(
+    `SELECT account_key, notice_accepted_by, notice_accepted_at FROM ${SCHEMA}.research_use_accounts ORDER BY account_key`,
+  );
+  assert(JSON.stringify(after.rows) === JSON.stringify(before.rows), "MIGRATION_0031_RERUN_CHANGED_ROWS");
+  checks.push("notice_acceptance_recorded_by_person_or_owner_standing_instruction_cleared_when_stale");
 }
 
 const PROMOTION_SUBJECT = "auth0|synthetic-postgres-promotion-user";

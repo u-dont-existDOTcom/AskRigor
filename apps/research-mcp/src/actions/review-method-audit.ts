@@ -9,6 +9,8 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { verifyAuditSource } from "./audit-source.js";
+
 export const REVIEW_METHOD_AUDIT_DOMAINS = [
   "source_identity_protocol_and_registration",
   "search_sources_dates_and_reproducibility",
@@ -145,13 +147,7 @@ export function validateReviewMethodAudit(
 ): ReviewMethodAuditReceipt {
   const index = normalizeDocumentIndex(rawIndex);
   const submission = reviewMethodAuditSubmissionSchema.parse(rawSubmission);
-  if (
-    submission.source_primary_identifier !== index.source.primary_identifier ||
-    submission.source_content_sha256 !== index.source.content_sha256 ||
-    index.source.document_completeness !== "full_text_with_body"
-  ) {
-    throw new Error("Review audit source identity or completeness mismatch");
-  }
+  verifyAuditSource("Review audit", index.source, submission);
 
   const knownBlockIds = new Set(index.blocks.map(({ block_id }) => block_id));
   const citedBlockIds = new Set<string>();

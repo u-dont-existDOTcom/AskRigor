@@ -28,10 +28,12 @@ export const COMMUNITY_LEAD_LIMITS = {
 } as const;
 
 // The result text of the tools that read people's reports (read_forum_thread, and the YouTube comment tools) asks for
-// the loop where the reports are read; the final check asks again when the declaration is missing.
+// the loop where the reports are read; the final check asks again when the declaration is missing. Since owner answer
+// 279a (the owner, 9 Nov 2026: "make sure we have the forum to study feedback loop in place when warranted"), the
+// search is also a task on the person's menu, where they see it and can give it time.
 export const COMMUNITY_LEADS_GUIDANCE = "Turn each option, dose, form, responder group or harm these reports raise " +
-  "that the question didn't name into a study search, and declare it in finalize_research's " +
-  "later_inputs.community_leads.";
+  "that the question didn't name into a study search, as a task on the person's menu (manage_research_access " +
+  "plan_research, loop people_to_studies), and declare it in finalize_research's later_inputs.community_leads.";
 
 export const communityLeadSchema = z.object({
   // A lead names something, so it holds a letter or digit in some script; "..." names nothing (review of 5 Nov 2026).

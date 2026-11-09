@@ -4,7 +4,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
-  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_SCOPE, PASSING_LIMITS_GUIDANCE,
+  COMPLETE_CHECKS_TIP, FINAL_CHECK_PANEL_DIFFERENCE_LEAD, FINAL_CHECK_PANEL_NO_COMPARISON, FINAL_CHECK_PANEL_SCOPE,
+  PASSING_LIMITS_GUIDANCE,
 } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   FINAL_CHECK_PANEL_URI, FINAL_CHECK_PANEL_RENDER_SOURCE, FINAL_CHECK_PANEL_BOOTSTRAP_SOURCE,
@@ -16,6 +17,7 @@ import {
 } from "../apps/research-mcp/src/research-finalization-gate.js";
 import { issueResearchReceipt } from "../apps/research-mcp/src/research-receipts.js";
 import { withSourceReading } from "./helpers/source-reading.js";
+import { builtContent } from "./helpers/text-payload.js";
 
 // The owner, 5 Nov 2026: an answer says beside each key study it cites how it was read, its words copied in
 // source_reading. These fixtures isolate other checks, so each call gets the shared helper's reading words.
@@ -169,7 +171,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
       expect(output.notes).toContain(instruction);
       expect(output.limits).toContain(limit);
       expect(output.limits).not.toContain(instruction);
-      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
+      expect(builtContent(result)).toEqual([{ type: "text", text: expect.stringContaining(instruction) }]);
       const panel = render(output);
       const checked = fold(panel, "What AskRigor checked");
       expect(checked.textContent).toContain(limit);
@@ -229,7 +231,7 @@ describe.each(["/mcp", "/mcp/claude"] as const)("final check panel on %s", (mcpS
         checked_answer: input.answer_draft,
         next_steps: [], limits: [communitySkipCaveat(input.not_relevant_reason!)], sources: { validated: ["10.1000/depth"], lead_only: [] },
       });
-      expect(result.content).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
+      expect(builtContent(result)).toEqual([{ type: "text", text: expect.stringContaining("Research finalization: ready_with_limits; 0 next step(s), 1 limit(s) to state;") }]);
       // The panel draws from the structured result; nothing is sent only for it.
       expect(result._meta).toBeUndefined();
     } finally { await client.close(); await server.close(); }
@@ -474,6 +476,27 @@ describe("rendered final check result", () => {
       expect(render({ status, plain_answer_note: empty }).textContent).not.toContain("How this answer differs");
     }
     expect(render({ status: "not_ready", plain_answer_note: note }).textContent).not.toContain("How this answer differs");
+  });
+
+  // The owner, 8 Nov (#434): a passing check with no quick-answer note said nothing about it, so a research account's
+  // person couldn't tell the comparison had failed. One line now says why; the person's own note_off shows nothing.
+  it.each(["ready", "ready_with_limits"])("says why there is no quick-answer comparison, for %s", (status) => {
+    for (const [plain, sentence] of Object.entries(FINAL_CHECK_PANEL_NO_COMPARISON)) {
+      const root = render({ status, plain_answer: { status: plain, reason: "for the AI" } });
+      expect(root.children.map(({ tagName, textContent }) => [tagName, textContent])[1]).toEqual(["p", sentence]);
+      expect(root.textContent).not.toContain("How this answer differs");
+      expect(root.textContent).not.toContain("for the AI");
+    }
+    expect(render({ status, plain_answer: { status: "note_off" } }).textContent).not.toContain("No comparison");
+    expect(render({ status }).textContent).not.toContain("No comparison");
+    for (const odd of [{ status: "toString" }, { status: 7 }, "other_target", null]) {
+      expect(render({ status, plain_answer: odd }).textContent).not.toContain("No comparison");
+    }
+    const noted = render({ status, plain_answer: { status: "registered", claims: 1 }, plain_answer_note: "Quick: 40%." });
+    expect(noted.textContent).toContain("How this answer differs");
+    expect(noted.textContent).not.toContain("No comparison");
+    expect(render({ status: "not_ready", plain_answer: { status: "other_target" } }).textContent)
+      .not.toContain("No comparison");
   });
 
   // Owner answer 220a (2 Nov): AskRigor never sees the answer written after the check, so what was checked lists the

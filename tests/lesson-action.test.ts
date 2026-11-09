@@ -46,6 +46,8 @@ import {
   createAskRigorHttpServer,
   createAskRigorServer,
 } from "../apps/research-mcp/src/server.js";
+import { builtContent } from "./helpers/text-payload.js";
+import { ONE_REPORT_PER_INCIDENT } from "../apps/research-mcp/src/lessons/connector-tool.js";
 
 const validCandidate = {
   category: "missing_sources",
@@ -537,7 +539,7 @@ describe("consequential lesson Action", () => {
     try {
       const saved = await client.callTool({ name: "submit_lesson_candidate", arguments: connectorCandidate });
       expect(saved.isError).not.toBe(true);
-      expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
       expect(saved.structuredContent).toEqual(submitted());
       expect(received).toEqual([connectorCandidate]);
 
@@ -598,7 +600,7 @@ describe("consequential lesson Action", () => {
         arguments: { ...connectorCandidate, related_issue: 357 },
       });
       expect(saved.isError).not.toBe(true);
-      expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+      expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
       expect(saved.structuredContent).toEqual(submitted());
       expect(received).toEqual([{ ...connectorCandidate, related_issue: 357 }]);
 
@@ -662,7 +664,7 @@ describe("detailed lesson reports on the connector", () => {
     proposalReviewAndNoAuthorityAcknowledged: true as const,
     paidPrivateAlternativeAcknowledged: true as const,
   };
-  const text = (result: CallToolResult) => (result.content as Array<{ text: string }>).map(({ text }) => text).join("\n");
+  const text = (result: CallToolResult) => (builtContent(result) as Array<{ text: string }>).map(({ text }) => text).join("\n");
 
   async function accounts() {
     const store = new InMemoryResearchContributorAccessStore();
@@ -774,7 +776,7 @@ describe("detailed lesson reports on the connector", () => {
 
     const saved = await submit({ ...connectorCandidate, detailed_report: report }, "auth0|on");
     expect(saved.isError).not.toBe(true);
-    expect(saved.content).toEqual([{ type: "text", text: "Lesson saved for review as ARL-0042." }]);
+    expect(builtContent(saved)).toEqual([{ type: "text", text: `Lesson saved for review as ARL-0042. ${ONE_REPORT_PER_INCIDENT}` }]);
     expect(saved.structuredContent).toEqual(submitted());
     expect(queued).toEqual([expect.objectContaining({ source: "connector", detailedReport: report })]);
     expect(queued[0]!.candidate).not.toHaveProperty("detailed_report");
@@ -833,7 +835,7 @@ describe("detailed lesson reports on the connector", () => {
       });
       expect(notSaved.isError).toBe(true);
       expect(notSaved.structuredContent).toEqual(refused);
-      expect(notSaved.content).toEqual([{ type: "text", text: REFUSED_TEXT }]);
+      expect(builtContent(notSaved)).toEqual([{ type: "text", text: REFUSED_TEXT }]);
       expect(queued).toHaveLength(0);
 
       // A report over 10,000 characters in all is refused by the tool's own schema before the lesson service.

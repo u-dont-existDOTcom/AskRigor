@@ -419,6 +419,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     for (const error of result.errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log("Validated AskRigor public site: 8 pages");
+    console.log(`Validated AskRigor public site: ${pageRequirements.length} pages`);
   }
 }

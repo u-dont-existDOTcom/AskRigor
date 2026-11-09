@@ -19,6 +19,8 @@ import { reportVerdictSchema } from "./atlas/report-review.js";
 import { atlasReportShareSchema, reportNumberSchema } from "./atlas/report-door.js";
 import { glanceRowIdSchema, glanceRowInputSchema } from "./atlas/glance-review.js";
 import { challengeMarkInputShape } from "./atlas/challenge-review.js";
+import { claimCoverageSchema } from "./claim-coverage.js";
+import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
@@ -96,6 +98,12 @@ const LATER_INPUT_SHAPES = Object.freeze({
         "what the searches covered " +
         "beyond the indexed databases, and other_journals when your own web search covered journals PubMed and Europe " +
         "PMC don't index, which AskRigor can't see."),
+    // AskRigor#431: a video fact-check accounts for every claim extract_youtube_video_claims listed (notes only).
+    claim_coverage: claimCoverageSchema.optional()
+      .describe("For each claim extract_youtube_video_claims listed (its id, such as dQw4w9WgXcQ#3): assessed, " +
+        "limited (with reason, a few words), unresolved, or not_addressed. AskRigor checks the ids against this " +
+        "call's extraction receipts; a claim with no status or not_addressed is a note, and the answer then calls " +
+        "itself partial."),
     // The free Claude test of 5 Nov 2026: a test run's cards are never saved. It can only turn saving off.
     findings_save: findingsSaveMarkerSchema
       .describe("off: save no findings card from this call, whatever the account's setting, as a test run does. It " +
@@ -142,6 +150,17 @@ const LATER_INPUT_SHAPES = Object.freeze({
     atlasReport: atlasReportShareSchema.optional()
       .describe("With share_report: the report exactly as the person saw and confirmed it, with its research."),
     reportNumber: reportNumberSchema.optional(),
+    // Owner answer 279a (9 Nov 2026): the framing given with the plain answer, the menu of next tasks after a quick
+    // screen, and the account's research style.
+    framing: framingSchema.optional()
+      .describe("With register_plain_answer: the question the person most likely means, premises that look inverted " +
+        "or unclear, and questions that could redirect the research."),
+    researchMenu: researchMenuSchema.optional()
+      .describe("With plan_research, after a quick screen: the research target, the next tasks with their kind and " +
+        "what each could change, and the person's allocation once given."),
+    researchSteering: researchSteeringInputSchema.optional()
+      .describe("With set_research_steering, when the person asks: style, checkBackMinutes and adjustmentDetail, any " +
+        "of them."),
   },
   review_research_contribution: {
     sharedAnswerId: sharedAnswerIdSchema.optional()

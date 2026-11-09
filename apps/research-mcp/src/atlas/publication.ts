@@ -8,9 +8,9 @@ import {
   ATLAS_THREAD_COMMUNITY,
   ATLAS_THREAD_LINK,
   ATLAS_VERIFIED_BASES,
-  RESEARCH_USE_NOTICE_VERSION,
   atlasPublishedFindingSchema,
   atlasResearchSchema,
+  researchUseNoticeCovered,
   withoutFormatCharacters,
   type AtlasDecisionView,
   type AtlasNumberEntry,
@@ -95,13 +95,14 @@ export function cardPublicationProblems(
 }
 
 /**
- * The saving account's checks: free contributor mode and the current notice (RESEARCH_USE_NOTICE_VERSION, never a
- * literal: the notice that says cards are published as soon as they are saved). A dev account's cards publish like
- * everyone's (owner answer 196a, 29 Oct 2026): a regression run switches its card saving off instead.
+ * The saving account's checks: free contributor mode and a yes that covers the current notice (the notice that says
+ * cards are published as soon as they are saved): RESEARCH_USE_NOTICE_VERSION itself, never a literal, or an earlier
+ * version no version since changed materially (researchUseNoticeCovered; the owner, 6 Nov 2026). A dev account's cards
+ * publish like everyone's (owner answer 196a, 29 Oct 2026): a regression run switches its card saving off instead.
  */
 export function accountPublicationProblems(account: FindingsSaveAccount | undefined): CardPublicationProblem[] {
   if (account === undefined || account.mode !== "FREE_CONTRIBUTOR") return ["not_free_contributor"];
-  return account.noticeVersion === RESEARCH_USE_NOTICE_VERSION ? [] : ["notice_not_current"];
+  return researchUseNoticeCovered(account.noticeVersion) ? [] : ["notice_not_current"];
 }
 
 /**

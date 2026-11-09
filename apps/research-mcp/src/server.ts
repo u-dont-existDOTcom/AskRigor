@@ -5,6 +5,7 @@ import {
   type ServerResponse
 } from "node:http";
 import type { SharedAnswers } from "./shared-answers.js";
+import { startResearchCallRecordSweep } from "./research-call-recording.js";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
@@ -18,6 +19,7 @@ import {
   PostgresResearchContributionReviewStore,
   ResearchContributionReviewService,
   ResearchContributorAccessService,
+  type ResearchCallRecordStore,
 } from "@askrigor/evidence-repository";
 
 import {
@@ -127,6 +129,7 @@ import { createAtlasPagesHandlerFromEnv, type AtlasPagesHandler } from "./atlas/
 export type McpToolCatalogProfile = "standard" | "gemini";
 
 export interface AskRigorMcpServerOptions {
+  researchCallRecord?: ResearchCallRecordStore;
   infoAccess?: InfoAccessClient;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
@@ -207,6 +210,7 @@ function semverBuildMetadata(running: RunningVersions): string {
 }
 
 export interface AskRigorHttpServerOptions {
+  researchCallRecord?: ResearchCallRecordStore;
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
   researchActionsEnabled?: boolean;
@@ -434,17 +438,25 @@ export function createAskRigorHttpServer(
     options.researchContributorAccessService === undefined
       ? researchContributorAccessConfigFromEnv()
       : undefined;
+  const researchAccessStore = researchContributorAccessConfig === undefined
+    ? undefined
+    : new PostgresResearchContributorAccessStore({
+        connectionString: researchContributorAccessConfig.connectionString,
+        schema: researchContributorAccessConfig.schema,
+        ssl: researchContributorAccessConfig.ssl,
+      });
+  // Owner answer 280a: the content-free call record, on the research-access database and pool.
+  const researchCallRecord = options.researchCallRecord ?? researchAccessStore?.callRecordStore();
   const researchContributorAccessService =
     options.researchContributorAccessService ??
-    (researchContributorAccessConfig === undefined
+    (researchContributorAccessConfig === undefined || researchAccessStore === undefined
       ? undefined
       : new ResearchContributorAccessService({
-          store: new PostgresResearchContributorAccessStore({
-            connectionString: researchContributorAccessConfig.connectionString,
-            schema: researchContributorAccessConfig.schema,
-            ssl: researchContributorAccessConfig.ssl,
-          }),
+          store: researchAccessStore,
           identitySecret: researchContributorAccessConfig.identitySecret,
+          // The owner's own login (ASKRIGOR_OAUTH_ALLOWED_SUBJECT), whose free account accepts each new notice by the
+          // owner's standing instruction of 6 November 2026; no other account does.
+          ...(oauthResourceServer === undefined ? {} : { ownerSubjects: oauthResourceServer.reviewerSubjects }),
         }));
   const researchContributionReviewConfig =
     options.researchContributionReviewService === undefined
@@ -493,6 +505,7 @@ export function createAskRigorHttpServer(
     () => undefined,
   );
   const mcpServerOptions = (profile?: McpToolCatalogProfile, signIn?: SignInState): AskRigorMcpServerOptions => ({
+    researchCallRecord,
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl,
     allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
@@ -506,6 +519,7 @@ export function createAskRigorHttpServer(
     ...(options.sharedAnswers === undefined ? {} : { sharedAnswers: options.sharedAnswers }),
   });
   const claudeMcpServerOptions = (signIn?: SignInState): AskRigorMcpServerOptions => ({
+    researchCallRecord,
     publicEvidenceGapReviewService,
     oauthResourceMetadataUrl: claudeOAuthResourceServer === undefined
       ? undefined
@@ -541,7 +555,7 @@ export function createAskRigorHttpServer(
     ? options.createMcpServer("standard", signIn)
     : createAskRigorServer("standard", { ...claudeMcpServerOptions(signIn), runningVersions, toolListVersion });
 
-  return createServer(async (request, response) => {
+  const httpServer = createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
     if (pathname === undefined) {
       if (!atlasPagesHandler.refuseTarget(request, response)) response.writeHead(404).end();
@@ -783,6 +797,11 @@ export function createAskRigorHttpServer(
       releasePermit();
     }
   });
+  if (researchCallRecord !== undefined) {
+    const sweepTimer = startResearchCallRecordSweep(researchCallRecord);
+    httpServer.once("close", () => clearInterval(sweepTimer));
+  }
+  return httpServer;
 }
 
 function exactOriginFormPath(target: string | undefined): string | undefined {

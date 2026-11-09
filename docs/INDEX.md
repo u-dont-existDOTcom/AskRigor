@@ -115,6 +115,7 @@ records decisions and their sources; it adds no authority to the list above.
 - `youtube-channel-registry.md`: the seed of the YouTube channel registry (owner's idea, 30 Oct): 74 channels by
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
+- `audits/2026-11-07-owner-answer-275a-production-release.md`: the site update of #423 and #429, the Support page's Bitcoin address and research-job requests and the privacy notice's new section (owner answer 275a, 7 Nov 2026).
 - `audits/2026-11-06-owner-answer-273a-production-release.md`: release of #422, how much of each study was read, closing questions and the findings that challenge the usual view, with the site update of 267b (owner answer 273a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answer-270a-production-release.md`: release of #421, the fixes from the owner-regression rerun (owner answer 270a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
@@ -153,6 +154,11 @@ records decisions and their sources; it adds no authority to the list above.
 - `audits/2026-10-30-owner-regressions-judgment.md`: the owner regressions on #381's build `9e35397b`, #384's baseline
   (85 cases: 48 pass, 32 in part, 1 fails, 4 not judged; the 11 low-calorie runs apart: 5, 4 and 2 fail); question
   193's signals: 2 of 105 checks pass by their second call, 5 never pass, 121 calls fail on format.
+- `superpowers/plans/2026-11-07-next-build.md`: the build after #429: every tool result's payload in text too, except
+  for ChatGPT (lesson #59); the free-use notice asked again only when it collects or publishes more, the owner's
+  own login accepting by standing instruction; and issue #431's fact-check repairs (repairable audit errors, claim
+  coverage and citation-marker notes, one report per incident); built on `claude/next-build-20261107`, not yet
+  released.
 - `superpowers/plans/2026-11-04-review-queue.md`: the private queue for cards that weren't saved, why it's in the findings
   repository, what it keeps and leaves out, and GPT Pro's review of the lanes' message.
 - `superpowers/plans/2026-11-04-what-people-want.md`: the source line, meaning judge job 5, HRP 20.6.37's draft wording
