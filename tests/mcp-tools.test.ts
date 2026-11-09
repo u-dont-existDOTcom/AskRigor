@@ -129,7 +129,8 @@ afterEach(async () => {
 const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
   "the components of a mixed exposure, and citation chains.";
 const NOT_FOUND_SEARCHES_NOTE = " Before saying studies don't exist, also search the key name's other spellings and " +
-  "older names, and a source beyond PubMed and Europe PMC: your own web search finds journals they don't index, and " +
+  "older names, and a source beyond PubMed and Europe PMC: search_europe_pmc with later_inputs.index \"all_journals\" " +
+  "searches OpenAlex, a free index of nearly all journals, your own web search finds journals they don't index, and " +
   "search_clinical_trials covers trial registries (HRP UserNamedInterventionSweep, " +
   "HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).";
 
@@ -3134,15 +3135,15 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.6.40",
-          revisionDate: "2026-11-05",
-          sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
+          version: "20.6.41",
+          revisionDate: "2026-11-09",
+          sha256: "e1705d3e958ea5d01936dbb9a8bf431139738ece551a111b69ba5d13b71595f9"
         },
         scope: "full",
         page: 1,
         next_page: 2,
         complete: false,
-        scope_sha256: "afd3d881356337dd9190f6189b986469a4075e54a36c89855cd51fbf4769a7c1"
+        scope_sha256: "e1705d3e958ea5d01936dbb9a8bf431139738ece551a111b69ba5d13b71595f9"
       });
       const pageCount = (first.structuredContent as { page_count: number }).page_count;
       expect(builtContent(first, "load_protocol")).toEqual([

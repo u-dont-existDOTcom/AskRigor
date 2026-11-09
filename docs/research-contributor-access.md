@@ -65,7 +65,7 @@ restores each account still exactly in the held state. The Docker acceptance is
 ### Asked again only when the notice collects or publishes more (the owner, 6 November 2026)
 
 The owner: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's
-annoying". Built, not yet released:
+annoying". Released 9 November 2026:
 
 - **Each version declares whether it is material.** `RESEARCH_USE_NOTICE_CHANGES`
   (`packages/evidence-repository/src/research-use-notice-changes.ts`) lists every version, oldest first, with
@@ -186,7 +186,7 @@ the MCP connector (`/mcp` and `/mcp/claude`) has this; Custom GPT Actions do not
 and Gemini's catalog does not list it. Neither the plain answer nor its comparison
 is sent to the second reader or saved in a findings card or the Atlas.
 
-## Research the person can steer (owner answer 279a, 9 November 2026; built, not yet released)
+## Research the person can steer (owner answer 279a, 9 November 2026; released the same day)
 
 From the owner's report AskRigor#434. Three runtime-only actions and inputs (owner answer 189a keeps the published tool
 list as it is), all on the MCP connector, and none a blocking check:
@@ -216,7 +216,7 @@ list as it is), all on the MCP connector, and none a blocking check:
   `balanced`, 10 and `flagged` by default, with a check on their values; saving or revoking the account leaves them
   as they are.
 
-## The call record (owner answer 280a, 9 November 2026; built, not yet released)
+## The call record (owner answer 280a, 9 November 2026; released the same day)
 
 So a person can tell "never called" from "called and refused" (AskRigor#434), the server keeps a content-free record of
 each MCP tool call from a signed-in research account: the account key, the time, the tool, `manage_research_access`'s

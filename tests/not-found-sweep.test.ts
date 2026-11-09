@@ -31,7 +31,7 @@ const REASON = "Synthetic fixture isolates the not-found searches.";
 const NOT_APPLICABLE = { status: "not_applicable" as const, reason: REASON };
 const sign = (kind: Parameters<typeof issueResearchReceipt>[0], claims: Parameters<typeof issueResearchReceipt>[1]) =>
   issueResearchReceipt(kind, claims, { secret: SECRET });
-const searched = (query: string, src: "pubmed" | "europepmc" | "ctgov" = "pubmed") =>
+const searched = (query: string, src: "pubmed" | "europepmc" | "ctgov" | "openalex" = "pubmed") =>
   sign("literature_search", { src, q: discoveryQueryDigest([query]), ret: 2, n: 2 });
 const input = (overrides: Record<string, unknown> = {}, later: Record<string, unknown> = {}) => ({
   receipts: [sign("study_audit", { doi: DOI, content: "a".repeat(16) }), searched(`${NAME} toxicity`)],
@@ -60,7 +60,9 @@ const FORMS_ASK_NAMED = FORMS_ASK.replace(", and the key name as the answer writ
 // With forms searched here and only the key name missing, the ask is for it alone (the recheck of 5 Nov 2026).
 const KEY_NAME_ASK = "give the key name as the answer writes it in later_inputs.key_name, copied from answer_draft, so " +
   "the other names searched in name_forms count";
-const BEYOND_ASK = "search a source beyond PubMed and Europe PMC: your own web search finds journals they don't index " +
+// Owner answer 283a (9 Nov 2026): the ask names the free all-journal index first.
+const BEYOND_ASK = "search a source beyond PubMed and Europe PMC: search_europe_pmc with later_inputs.index all_journals " +
+  "searches OpenAlex, a free index of nearly all journals, or your own web search finds journals they don't index " +
   "(then give other_journals in later_inputs.search_coverage), and search_clinical_trials covers trial registries";
 const sweep = (...asks: string[]) => `The answer says something was not found: before saying so, ${ABSENCE_SWEEP_RULES} ` +
   `ask you to ${asks.join("; and ")}.`;
@@ -108,6 +110,16 @@ describe("the searches before a not-found claim: the final check", () => {
     expect(sweepNotes(result)).toEqual([sweep(BEYOND_ASK)]);
     expect(result.limits).toContain(notFoundLimit("citation chains, grey literature and journals outside PubMed and " +
       "Europe PMC"));
+  });
+
+  // Owner answer 283a (9 Nov 2026): a verified OpenAlex search is the source beyond PubMed and Europe PMC, with no
+  // declaration needed, and the limit names it among the searches made.
+  it("takes a verified all-journal search as journals outside PubMed and Europe PMC covered", () => {
+    const result = check({ receipts: [...input().receipts as string[], searched(`${NAME} toxicity`, "openalex")] });
+    expect(sweepNotes(result)).toEqual([sweep(FORMS_ASK)]);
+    expect(result.limits).toContain("Where this answer says something was not found, it means the searches made here " +
+      "(PubMed and OpenAlex (all journals)) did not find it, and they did not cover older or variant terms, citation " +
+      "chains and grey literature; that is not evidence that it does not exist.");
   });
 
   it("takes other_journals from search_coverage's newer form, at the top level or in later_inputs", () => {
@@ -257,8 +269,9 @@ describe("the searches before a not-found claim: a small search's result", () =>
   it("keeps the owner's words of 30 Sep 2026, then names the other forms, a source beyond the indexes and HRP's rules", () => {
     expect(SMALL_LITERATURE_SEARCH_NOTE).toBe(" Few records: before saying anything was not found, try synonyms, older " +
       "or variant terms, the components of a mixed exposure, and citation chains. Before saying studies don't exist, " +
-      "also search the key name's other spellings and older names, and a source beyond PubMed and Europe PMC: your " +
-      "own web search finds journals they don't index, and search_clinical_trials covers trial registries (HRP " +
+      "also search the key name's other spellings and older names, and a source beyond PubMed and Europe PMC: " +
+      "search_europe_pmc with later_inputs.index \"all_journals\" searches OpenAlex, a free index of nearly all " +
+      "journals, your own web search finds journals they don't index, and search_clinical_trials covers trial registries (HRP " +
       "UserNamedInterventionSweep, HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).");
   });
 });

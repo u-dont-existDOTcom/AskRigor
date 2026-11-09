@@ -19,9 +19,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
+  COULD_CHANGE,
+  FORM_PEOPLE_USE,
   PEOPLE_FIRST_WHEN_USED,
   PEOPLE_TASK_MISSING,
   PLAN_TASK_KINDS,
+  RESEARCH_LOOPS,
+  RESEARCH_MENU_SHAPE,
+  URGENT_FIRST,
+  planTaskSchema,
+  researchMenuSchema,
   PLAN_TASK_MINUTES,
   WORDS_ARE_NOT_SIZES,
   adjustmentGuidance,
@@ -220,8 +227,8 @@ const menu = (overrides: Partial<ResearchMenuInput> = {}): ResearchMenuInput =>
 describe("the menu of next tasks after a quick screen (owner answer 279a)", () => {
   it("estimates each task from its kind and sources, or the model's own range", () => {
     expect(Object.keys(PLAN_TASK_MINUTES).sort()).toEqual(PLAN_TASK_KINDS.filter((kind) => kind !== "other").sort());
-    expect(taskMinutes({ task: "x x x", kind: "full_text", could_change: "conclusion" })).toEqual([3, 6]);
-    expect(taskMinutes({ task: "x x x", kind: "full_text", sources: 3, could_change: "conclusion" })).toEqual([9, 18]);
+    expect(taskMinutes({ task: "x x x", kind: "full_text", could_change: "conclusion" })).toEqual([1, 3]);
+    expect(taskMinutes({ task: "x x x", kind: "full_text", sources: 3, could_change: "conclusion" })).toEqual([3, 8]);
     expect(taskMinutes({ task: "x x x", kind: "abstract_screen", sources: 20, could_change: "detail" })).toEqual([4, 10]);
     expect(taskMinutes({ task: "x x x", kind: "abstract_screen", could_change: "detail" })).toEqual([0.5, 1]);
     expect(taskMinutes({ task: "x x x", kind: "other", could_change: "detail" })).toBeNull();
@@ -230,16 +237,16 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
 
   it("recommends what could change the conclusion first, within the check-back allowance, never detail alone", () => {
     const result = planResearch(menu(), DEFAULT_RESEARCH_STEERING);
-    // 1 (conclusion, 3-6: 5 min), then 2 (confidence, 2-4: 3 min); 4 (1-2: 2 min) would pass 10 minutes in all.
-    expect(result.recommended).toEqual([{ task: 1, minutes: 5 }, { task: 2, minutes: 3 }, { task: 4, minutes: 2 }]);
-    expect(result.recommended_minutes).toEqual([6, 12]);
+    // 1 (conclusion, 1-3: 2 min), then 2 (confidence, 1-5: 3 min) and 4 (0.5-3: 2 min): 7 minutes, within 10.
+    expect(result.recommended).toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }, { task: 4, minutes: 2 }]);
+    expect(result.recommended_minutes).toEqual([3, 11]);
     // Balanced asks when the recommended tasks would take more than about five minutes.
     expect(result.next).toBe("ask");
     const short = planResearch(menu({ tasks: [TASKS[3]!] }), DEFAULT_RESEARCH_STEERING);
-    expect(short).toMatchObject({ recommended: [{ task: 1, minutes: 2 }], recommended_minutes: [1, 2], next: "go_on" });
+    expect(short).toMatchObject({ recommended: [{ task: 1, minutes: 2 }], recommended_minutes: [0.5, 3], next: "go_on" });
     // A smaller allowance keeps the first task even when it alone is longer.
-    expect(planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, checkBackMinutes: 2 }).recommended)
-      .toEqual([{ task: 1, minutes: 5 }]);
+    expect(planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, checkBackMinutes: 1 }).recommended)
+      .toEqual([{ task: 1, minutes: 2 }]);
     // Detail only: nothing recommended.
     expect(planResearch(menu({ tasks: [TASKS[2]!] }), DEFAULT_RESEARCH_STEERING).recommended).toEqual([]);
   });
@@ -255,10 +262,11 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(allocated).toMatchObject({ next: "go_on", recommended: [{ task: 3, minutes: 4 }, { task: 4, minutes: 1 }],
       recommended_minutes: [5, 5] });
     const words = planResearchText(allocated, new Set([1]));
-    expect(words).toContain("1. Read the 2018 cohort's full text: could change the conclusion; about 3 to 6 min (done).");
+    expect(words).toContain("1. Read the 2018 cohort's full text: could change the conclusion; about 1 to 3 min (done).");
     expect(words).toContain("4. Search studies for the muscle cramps people reported: could change how sure the " +
-      "answer is, studies checked for what people reported; about 1 to 2 min.");
-    expect(words).toContain("Recommended: 3. 4 min, 4. 1 min, about 5 min in all.");
+      "answer is, studies checked for what people reported; about 0.5 to 3 min.");
+    expect(words).toContain("Recommended: 3. 4 min, 4. 1 min, about 5 min in all. Then the final check and writing " +
+      "the answer: about 4 to 10 min.");
     expect(words).toContain("Do these tasks now, in this order, each within its minutes");
     const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
     expect(asked).toContain("such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their own words, or \"you decide\". Wait " +
@@ -298,6 +306,46 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       }
       expect(framingGuidance(steering, undefined)).toContain(PEOPLE_FIRST_WHEN_USED);
     }
+  });
+
+  // The timing runs of 9 Nov 2026: the antivenom emergency got a menu and 17 minutes of research before its answer.
+  it("puts an emergency's urgent action before any research call or menu, first in every framing guidance", () => {
+    const framings = [undefined, { likely_question: "Should they wait?" },
+      { likely_question: "Should they wait?", premise_doubts: ["x"], redirecting_questions: ["Which antivenom?"] }];
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      for (const framing of framings) {
+        expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, framing).startsWith(URGENT_FIRST)).toBe(true);
+      }
+    }
+    expect(URGENT_FIRST).toContain("ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection");
+  });
+
+  // The owner, 9 Nov 2026 (Inbox reply): nobody sells the hexane-extracted seed oil, so ask which form the person has.
+  it("asks for the form people actually buy or make, when the answer turns on it, with the plain answer's request", async () => {
+    const { plainAnswerRequest } = await import("../apps/research-mcp/src/research-contributor-access-tool.js");
+    for (const note of [true, false]) expect(plainAnswerRequest(note).endsWith(FORM_PEOPLE_USE)).toBe(true);
+    expect(framingGuidance(DEFAULT_RESEARCH_STEERING, undefined)).toContain(FORM_PEOPLE_USE);
+    expect(FORM_PEOPLE_USE).toContain("WholeInterventionIdentityTrace and UserReportedUseFidelity");
+  });
+
+  // The timing runs of 9 Nov 2026: every case's first plan_research call was refused, the model guessing the fields.
+  it("names the menu's every field and value at the screen, and takes a menu written in that shape", () => {
+    const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done"),
+      ...Object.keys(planTaskSchema.shape)];
+    for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
+      expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
+    }
+    expect(RESEARCH_MENU_SHAPE).toContain("allocation and done come only after the person answers or stops you");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, undefined)).toContain(RESEARCH_MENU_SHAPE);
+    }
+    expect(researchMenuSchema.safeParse({ research_target: "Does the oil act like the tea?", plain_answer_receipt: "rr1~x",
+      provisional_answer: "Unknown so far.", tasks: [{ task: "Read the oil study's table", kind: "full_text",
+        could_change: "conclusion", sources: 1 }, { task: "Read what people who took the oil report", kind: "forum_thread",
+        could_change: "confidence", sources: 3, loop: "studies_to_people" }] }).success).toBe(true);
+    const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
+    expect(asked).toContain("then call plan_research again with their allocation as a list of {task, minutes}; for " +
+      "\"you decide\", the recommended tasks and minutes.");
   });
 
   it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", () => {

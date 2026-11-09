@@ -62,19 +62,30 @@ export type ResearchSteeringInput = z.output<typeof researchSteeringInputSchema>
 
 /**
  * The kinds of task a menu holds, each with a planning estimate in minutes per source (a search, an abstract, a paper,
- * a thread, a video or a registry record), low and high. They are starting values, to be replaced by the times measured
- * on the owner's regression runs before release (docs/superpowers/plans/2026-11-09-research-steering.md).
+ * a thread, a video or a registry record), low and high. Calibrated on 9 Nov 2026 from 14 of the owner's regression
+ * questions run through Codex's AskRigor app on the live build (13 go-ahead menus): the research after each go-ahead
+ * menu, split by kind of task and divided by the sources its tasks declared; low and high hold about the middle half of
+ * what was measured (docs/superpowers/plans/2026-11-09-research-steering.md, "The time estimates"). The starting values
+ * (a paper 3 to 6 minutes, a thread 2 to 6, an audit 8 to 15, a video's comments 5 to 15) were two to five times too
+ * long. One model at a high effort, fitted on the runs it is checked against: later runs confirm or correct it. A kind
+ * no measured task declared keeps its starting value (abstract_screen).
  */
 export const PLAN_TASK_MINUTES = Object.freeze({
-  study_search: [1, 2],
+  study_search: [0.5, 2.5],
   abstract_screen: [0.2, 0.5],
-  full_text: [3, 6],
-  method_audit: [8, 15],
-  forum_thread: [2, 6],
-  video_comments: [5, 15],
-  video_claims: [3, 8],
-  trial_registry: [1, 3],
+  full_text: [1, 2.5],
+  method_audit: [2, 4],
+  forum_thread: [0.5, 1.5],
+  video_comments: [1, 4],
+  video_claims: [1, 3],
+  trial_registry: [0.3, 1],
 } as const satisfies Record<string, readonly [number, number]>);
+/**
+ * After the tasks, the final check and writing the answer: 4.0 to 8.7 minutes in the middle half of the 13 measured
+ * go-ahead menus (median 6.7). The menu says it beside the tasks; it isn't part of the five minutes that decide whether
+ * to ask first.
+ */
+export const ANSWER_MINUTES = Object.freeze([4, 10] as const);
 export const PLAN_TASK_KINDS = ["study_search", "abstract_screen", "full_text", "method_audit", "forum_thread",
   "video_comments", "video_claims", "trial_registry", "other"] as const;
 export type PlanTaskKind = (typeof PLAN_TASK_KINDS)[number];
@@ -191,11 +202,54 @@ export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own repo
   "task near the top for what people who used it report about this effect, and call plan_research again before " +
   "showing the menu.";
 
+/**
+ * Owner answer 283a (9 Nov 2026): the paper that decided the owner's Syrian rue question sat in a journal PubMed and
+ * Europe PMC don't index. Which questions reach such journals is the model's judgment.
+ */
+export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditional remedy, or a question PubMed's " +
+  "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
+  "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
+/**
+ * The timing runs of 9 Nov 2026: in the made-up antivenom emergency, the run framed, screened, showed a menu and
+ * researched for 17 minutes, first saying plainly not to delay the antivenom at minute 9.6. HRP already forbids it
+ * (ParallelEmergencyAndAdjunctQuestions, NoEmergencyWarningOvercorrection); whether a question is urgent is the model's
+ * judgment.
+ */
+export const URGENT_FIRST = "If the question is about an emergency happening now, or a decision that can't wait, give " +
+  "the person the urgent action from your plain answer in your first lines, before any research call, menu or question " +
+  "about how to spend the time; research only after that, and only what could still change the action " +
+  "(HRP ParallelEmergencyAndAdjunctQuestions and NoEmergencyWarningOvercorrection).";
+
+/**
+ * The owner, 9 Nov 2026 (a reply in the Inbox on the Syrian rue oil check): the oil that held the alkaloids was extracted
+ * with hexane, which nobody sells, so a person asking about the oil most likely means seeds steeped in a household oil,
+ * and the AI should confirm that with them. It applies HRP's WholeInterventionIdentityTrace (the tested against the sold
+ * version) and UserReportedUseFidelity (the form actually used); which forms matter is the model's judgment.
+ */
+export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, such as an extract, an oil, a tea or a " +
+  "dose form, the likely question is about the form people can actually buy or make: check what is sold or commonly " +
+  "made, and when the forms differ much in strength, ask which form the person has as a redirecting question and, " +
+  "until they say, answer for each form (HRP WholeInterventionIdentityTrace and UserReportedUseFidelity).";
+
+/**
+ * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
+ * case's first plan_research call was refused, 12 of 22 in all, because the model guessed the fields (what_it_could_change,
+ * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal.
+ */
+export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
+  "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
+  "provisional_answer, what the screen suggests, in a few sentences; and tasks, the next tasks the screen found, in " +
+  "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
+  "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
+  "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
+  "people_to_studies or studies_to_people, only for a task between people's reports and studies; and minutes, [low, " +
+  "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
+  "field: allocation and done come only after the person answers or stops you.";
 const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the Atlas, with no full-text reading, long " +
   "threads or video audits yet, ending with a provisional short answer. " + PEOPLE_FIRST_WHEN_USED + " " +
-  WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action plan_research and later_inputs.researchMenu: " +
-  "the next tasks the screen found, each with its kind, what it could change and how many sources it covers. AskRigor " +
-  "gives each a time range and says whether to ask the person first.";
+  ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action " +
+  "plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time range and says whether to ask the " +
+  "person first.";
 
 /**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
@@ -203,13 +257,13 @@ const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the A
  */
 export function framingGuidance(steering: ResearchSteering, framing: Framing | undefined): string {
   if (framing === undefined) {
-    return "Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
+    return URGENT_FIRST + " Give later_inputs.framing with the plain answer next time: likely_question, the question the person most " +
       "likely means; premise_doubts, anything in it that looks inverted or unclear; and redirecting_questions, up to " +
-      "three questions whose answers could change what to research. " + SCREEN_FIRST;
+      "three questions whose answers could change what to research. " + FORM_PEOPLE_USE + " " + SCREEN_FIRST;
   }
   const doubts = framing.premise_doubts ?? [];
   const questions = framing.redirecting_questions ?? [];
-  const parts: string[] = [`Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
+  const parts: string[] = [URGENT_FIRST, `Framing: the person most likely means ${JSON.stringify(framing.likely_question)}.`];
   if (doubts.length > 0) {
     parts.push(`Say plainly near the start of your reply what looks inverted or unclear (${doubts.map((doubt) =>
       JSON.stringify(doubt)).join("; ")}), and which reading you take.`);
@@ -365,7 +419,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       `${range(result.recommended_minutes)} in all.`;
   const parts = [
     "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
-      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation,
+      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
+      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
   ];
   if (!allocated && !result.tasks.some(readsPeoplesReports)) parts.push(PEOPLE_TASK_MISSING);
   if (result.target_matches_plain_answer === false) {
@@ -382,7 +437,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       "The recommended tasks would take more than about five minutes, so show") + " the menu and ask how to spend " +
       "the time: they may answer with task numbers and minutes, such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their " +
       "own words, or \"you decide\". Wait for the answer before any of these tasks, then call plan_research again " +
-      "with their allocation.");
+      "with their allocation as a list of {task, minutes}; for \"you decide\", the recommended tasks and minutes.");
   } else if (result.style === "autonomous") {
     parts.push("The person chose autonomous research: show the menu as what you are doing and go on with the " +
       `recommended tasks. Check back with them after about ${result.check_back_minutes} minutes of research, or ` +

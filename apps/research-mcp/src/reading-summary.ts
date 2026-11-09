@@ -169,7 +169,8 @@ export function searchRecords(
   const source = text(claims.src);
   if (source === "ctgov") return [];
   if (source === "pubmed") return ids.map((id) => [normalize(id)]);
-  if (source !== "europepmc") return undefined;
+  // Owner answer 283a: OpenAlex records are grouped as Europe PMC's are, their own ids kept apart by their source.
+  if (source !== "europepmc" && source !== "openalex") return undefined;
   if (claims.rg === undefined) return text(claims.ret) === "0" || ids.length === 0 ? [] : undefined;
   const records: string[][] = [];
   for (const group of list(claims.rg)) {
@@ -177,7 +178,7 @@ export function searchRecords(
     if (own !== null) {
       const id = ids[Number(own[2])];
       if (id === undefined) return undefined;
-      records.push([`europepmc:${own[1]}:${id}`]);
+      records.push([`${source}:${own[1]}:${id}`]);
       continue;
     }
     if (!/^\d+(?:\.\d+)*$/u.test(group)) return undefined;

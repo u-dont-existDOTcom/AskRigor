@@ -19,60 +19,68 @@ async function undoRecordedEdits(text: string, protocol: "hrp" | "universal", fi
 }
 
 export async function undoOwnerQuestion161Hrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3(?:[23]" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) {
+  if (/version="20\.6\.(?:3(?:[23]" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoOwnerAnswer193Hrp(text);
   }
   return undoRecordedEdits(text, "hrp", "2026-10-22-owner-question-161-hrp.json");
 }
 
 export async function undoOwnerAnswer193Hrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3(?:3" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) {
+  if (/version="20\.6\.(?:3(?:3" revisionDate="2026-10-29|4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoLesson51AndUda444Hrp(text);
   }
   return undoRecordedEdits(text, "hrp", "2026-10-29-owner-answer-193-hrp.json");
 }
 
 export async function undoLesson51AndUda444Hrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3(?:4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) {
+  if (/version="20\.6\.(?:3(?:4" revisionDate="2026-10-30|5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoOwnerAnswer205Hrp(text);
   }
   return undoRecordedEdits(text, "hrp", "2026-10-29-lesson-51-and-uda-444-hrp.json");
 }
 
 export async function undoOwnerAnswer205Hrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3(?:5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) {
+  if (/version="20\.6\.(?:3(?:5" revisionDate="2026-10-31|6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
     text = await undoCommunitySearchAndVideoCommentMapHrp(text);
   }
   return undoRecordedEdits(text, "hrp", "2026-10-30-owner-answer-205-hrp.json");
 }
 
 export async function undoCommunitySearchAndVideoCommentMapHrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3(?:6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) text = await undoForumReaderHrp(text);
+  if (/version="20\.6\.(?:3(?:6" revisionDate="2026-11-01|[78]" revisionDate="2026-11-04)|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoForumReaderHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-10-31-community-search-and-video-comment-map-hrp.json");
 }
 
 export async function undoForumReaderHrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:3[78]" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) text = await undoWhatPeopleWantHrp(text);
+  if (/version="20\.6\.(?:3[78]" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoWhatPeopleWantHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-01-forum-reader-hrp.json");
 }
 
 export async function undoWhatPeopleWantHrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:38" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05)"/u.test(text)) text = await undoCardRuleWordingHrp(text);
+  if (/version="20\.6\.(?:38" revisionDate="2026-11-04|(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoCardRuleWordingHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-04-what-people-want-hrp.json");
 }
 
 export async function undoCardRuleWordingHrp(text: string): Promise<string> {
-  if (/version="20\.6\.(?:39|40)" revisionDate="2026-11-05"/u.test(text)) text = await undoResponseSpreadHrp(text);
+  if (/version="20\.6\.(?:(?:39|40)" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) text = await undoResponseSpreadHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-04-card-rule-wording-hrp.json");
 }
 
 export async function undoResponseSpreadHrp(text: string): Promise<string> {
-  if (text.includes('version="20.6.40" revisionDate="2026-11-05"')) text = await undoStudyMapSingleLeadsHrp(text);
+  if (/version="20\.6\.(?:40" revisionDate="2026-11-05|41" revisionDate="2026-11-09)"/u.test(text)) {
+    text = await undoStudyMapSingleLeadsHrp(text);
+  }
   return undoRecordedEdits(text, "hrp", "2026-11-05-response-spread-hrp.json");
 }
 
 export async function undoStudyMapSingleLeadsHrp(text: string): Promise<string> {
+  if (text.includes('version="20.6.41" revisionDate="2026-11-09"')) text = await undoWordsAreNotSizesHrp(text);
   return undoRecordedEdits(text, "hrp", "2026-11-05-study-map-single-leads-hrp.json");
+}
+
+/** Owner answer 282a (9 Nov 2026): HRP 20.6.41's WordsAreNotSizes and RichSourceWithoutAnAmount, undone to 20.6.40. */
+export async function undoWordsAreNotSizesHrp(text: string): Promise<string> {
+  return undoRecordedEdits(text, "hrp", "2026-11-09-words-are-not-sizes-hrp.json");
 }
 
 export async function undoOwnerQuestion149Hrp(text: string): Promise<string> {

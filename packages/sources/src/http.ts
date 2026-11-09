@@ -13,6 +13,8 @@ export const ALLOWED_UPSTREAM_HOSTS = new Set([
   "www.googleapis.com",
   "generativelanguage.googleapis.com",
   "api.unpaywall.org",
+  // Owner answer 283a (9 Nov 2026): OpenAlex's works search, the free all-journal index.
+  "api.openalex.org",
   // Only Reddit's public embed endpoint, to check a cited thread's subreddit and title.
   "www.reddit.com",
 ]);

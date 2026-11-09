@@ -3928,7 +3928,11 @@ export function finalizeResearch(
       }
     } else {
       // A name form searched here covers older or variant terms, as a declared historical_terms does.
-      const covered = new Set<string>([...(input.search_coverage ?? []), ...(nameFormsSearched > 0 ? ["historical_terms"] : [])]);
+      // Owner answer 283a: a verified OpenAlex search covers journals outside PubMed and Europe PMC, as a declared
+      // other_journals does.
+      const allJournalsSearched = verified.some(({ kind, claims }) => kind === "literature_search" && claims.src === "openalex");
+      const covered = new Set<string>([...(input.search_coverage ?? []), ...(nameFormsSearched > 0 ? ["historical_terms"] : []),
+        ...(allJournalsSearched ? ["other_journals"] : [])]);
       // Before something is called not found, the sweep HRP already asks for (absence-searches.ts): the key name's other
       // forms, searched here, and a source beyond PubMed and Europe PMC. A note: no seventh blocking check.
       if (notLocated) {
@@ -3940,9 +3944,10 @@ export function finalizeResearch(
               "each with search_pubmed or search_europe_pmc, and give each in later_inputs.name_forms as {form, query}, ",
               "with that search's exact query", keyNameShown ? "" : joinRules(", and the key name as the answer writes ",
                 "it in later_inputs.key_name"))]),
-          ...(covered.has("other_journals") ? [] : [joinRules("search a source beyond PubMed and Europe PMC: your own ",
-            "web search finds journals they don't index (then give other_journals in later_inputs.search_coverage), and ",
-            "search_clinical_trials covers trial registries")])
+          ...(covered.has("other_journals") ? [] : [joinRules("search a source beyond PubMed and Europe PMC: ",
+            "search_europe_pmc with later_inputs.index all_journals searches OpenAlex, a free index of nearly all journals, ",
+            "or your own web search finds journals they don't index (then give other_journals in ",
+            "later_inputs.search_coverage), and search_clinical_trials covers trial registries")])
         ];
         if (asks.length > 0) {
           addStep("research", joinRules(`The answer says something was not found: before saying so, ${ABSENCE_SWEEP_RULES} `,
@@ -7039,7 +7044,9 @@ function communityCoverage(
 const LITERATURE_SOURCES = [
   { id: "pubmed", name: "PubMed" },
   { id: "europepmc", name: "Europe PMC" },
-  { id: "ctgov", name: "ClinicalTrials.gov" }
+  { id: "ctgov", name: "ClinicalTrials.gov" },
+  // Owner answer 283a: search_europe_pmc with later_inputs.index all_journals.
+  { id: "openalex", name: "OpenAlex (all journals)" }
 ] as const;
 // What a search can cover beyond the indexed databases, as the caveat names it.
 const SEARCH_COVERAGE = [

@@ -22,6 +22,9 @@ import { challengeMarkInputShape } from "./atlas/challenge-review.js";
 import { claimCoverageSchema } from "./claim-coverage.js";
 import { framingSchema, researchMenuSchema, researchSteeringInputSchema } from "./research-steering.js";
 
+/** search_europe_pmc's later index (owner answer 283a): europe_pmc, the default, or all_journals (OpenAlex). */
+export const SEARCH_INDEXES = ["europe_pmc", "all_journals"] as const;
+
 /**
  * Owner answer 189a: published tool definitions stay fixed. A new input gets a later shape entry; a newer form
  * of an existing input (enum, nested field or relaxed limit) redeclares that input in the later shape. Either
@@ -122,6 +125,15 @@ const LATER_INPUT_SHAPES = Object.freeze({
     doi: runtimeActionDoiSchema.optional()
       .describe("doi's newer form, given here or at the top level, not both: a DOI with \"<\" or \">\", as older " +
         "SICI-form DOIs have, such as 10.1002/(SICI)1097-0258(19980515)17:9<1083::AID-SIM794>3.0.CO;2-2.")
+  },
+  // Owner answer 283a (9 Nov 2026): the same search over OpenAlex, a free index of nearly all journals, for papers in
+  // journals PubMed and Europe PMC don't index (the 1999 Syrian rue oil paper was in one).
+  search_europe_pmc: {
+    index: z.enum(SEARCH_INDEXES).optional()
+      .describe("all_journals: search OpenAlex, a free index of nearly all journals, instead of Europe PMC, for papers " +
+        "in journals PubMed and Europe PMC don't index, such as many plant, food, farming and regional journals. " +
+        "Only the query, date_range, page_size (up to 50) and cursor go to OpenAlex. europe_pmc, the default, " +
+        "searches Europe PMC.")
   },
   search_youtube: {
     channel_id: z.string().regex(/^UC[A-Za-z0-9_-]{22}$/u).optional()

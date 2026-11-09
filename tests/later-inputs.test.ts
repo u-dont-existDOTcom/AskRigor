@@ -184,6 +184,8 @@ describe("later_inputs (owner answer 189a)", () => {
   it("declares channel filtering as a later input and rejects unknown keys with the exact allowed names", async () => {
     for (const operation of RESEARCH_OPERATIONS) {
       const expected = operation.name === "search_youtube" ? ["channel_id"]
+        // Owner answer 283a: the same search over OpenAlex, the free all-journal index.
+        : operation.name === "search_europe_pmc" ? ["index"]
         // The owner regressions on #412's build: doi's newer form, with the "<" and ">" of older SICI-form DOIs.
         : operation.name === "acquire_open_full_text" ? ["doi"]
         // Owner answer 219b: the findings card's newer form, with each finding's YouTube-comments declaration.

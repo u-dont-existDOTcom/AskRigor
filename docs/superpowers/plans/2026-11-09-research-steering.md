@@ -113,11 +113,57 @@ so stopping first stays the more reliable way to steer.
 
 ### The time estimates
 
-`PLAN_TASK_MINUTES` are starting planning ranges per source (a search 1 to 2 minutes, a paper read in full 3 to 6, a
-method audit 8 to 15, a forum thread 2 to 6, a video's comments 5 to 15). Runs after the release replace them with
-measured times: each run's receipts carry signed times, and the call record shows each call's duration. The release
-comes first (the owner, 9 Nov: "release it now only if you think that would help you develop the rest smarter")
-because ChatGPT reaches only production, so how ChatGPT's modes follow the framing and the menu can't be seen before.
+The starting `PLAN_TASK_MINUTES` (a search 1 to 2 minutes, a paper read in full 3 to 6, a method audit 8 to 15, a forum
+thread 2 to 6, a video's comments 5 to 15) were replaced on 9 Nov by times measured on the live build: the owner's go-ahead
+of 17:02 UTC ("Start them"), DEVELOPMENT / DISCOVERY data, criteria written before the runs (kit
+`/home/joel/askrigor-releases/20261109-timing/regress` on the owner's laptop: `criteria.md`, `measure.py`,
+`calibrate.py`).
+
+**The runs.** Fourteen questions (twelve from the owner's regression list, the owner's Syrian rue oil question word for
+word, and a made-up sodium and memory question after AskRigor#434) through Codex's AskRigor app (`gpt-6.1-sol` at
+reasoning effort xhigh), every event's arrival time recorded, card saving off for the runs. When a run stopped to ask,
+the person answered "you decide how to spend the research time, and go on". Phase 1 (17:09 to 18:13 UTC) counted a
+checked quick answer as the end, but a run that stops at its menu checks its quick answer first; phase 2 (18:14 to 19:25
+UTC) resumed each run's own thread past its menu. All 14 ended in a checked answer, in 10.5 to 41 minutes of working time.
+
+**What the runs showed.**
+
+| Measure | Result |
+|---|---|
+| Framing given with the plain answer | 14 of 14, about half a minute in |
+| Redirecting questions asked | 0 of 14, the Syrian rue oil form and the sodium direction included |
+| First menu AskRigor accepted | 1.4 to 2.9 minutes in; 24 of 42 menu calls refused (the fields guessed): fixed by `RESEARCH_MENU_SHAPE` |
+| First menu said ask (balanced) | 14 of 14 |
+| Run stopped and waited when asked | 3 of 14; 5 made their own allocation, 6 researched on. Codex runs tasks to the end by design, so this is a lower bound for ChatGPT |
+| People's reports in the first menu | 11 of 14; not for the nap, the antivenom emergency or the PITCH trial's rates |
+| The antivenom emergency | a menu and 17 minutes of research; "don't delay the antivenom" first said plainly at minute 9.6: fixed by `URGENT_FIRST` |
+
+**The times.** Thirteen go-ahead menus (the person's allocation, or the model's own): the research after each, until the
+next menu or the turn's end, split by kind with each batch of parallel calls' time shared among its calls, and divided
+by the sources the menu's tasks declared. Minutes per declared source, median (middle half), against the starting
+range: a paper read in full 1.7 (0.7 to 2.1) against 3 to 6; a forum thread 0.65 (0.4 to 1.3) against 2 to 6; a method
+audit 2.4 (2.4 to 3.2, three menus) against 8 to 15; a video's comments 1.7 (0.5 to 4.0) against 5 to 15; a study search
+1.1 (0.4 to 3.2) against 1 to 2. After the tasks, the final check and writing the answer took 6.7 minutes (4.0 to 8.7),
+which the menu didn't mention. Work after an allocation took 0.64 of the allocated minutes at the median (0.59 to 0.90).
+
+New values: study search 0.5 to 2.5 minutes, abstract 0.2 to 0.5 (no measured task declared it), paper in full 1 to
+2.5, method audit 2 to 4, forum thread 0.5 to 1.5, video's comments 1 to 4, video claims 1 to 3, registry record 0.3 to
+1; and `ANSWER_MINUTES`, 4 to 10, said beside the tasks ("Then the final check and writing the answer"), outside the
+five minutes that decide whether to ask. With them, 12 of the 13 measured windows fall inside the predicted range (3 of
+13 before), and the middle run took 0.83 of the predicted middle (0.71 to 1.09). In-sample: these are the runs the values
+were fitted on, one model at one effort; ChatGPT Instant ran about four times faster than Pro in the owner's Syrian rue
+comparison. Later runs confirm or correct them.
+
+Even with the measured times, all 14 first menus come to more than five minutes of recommended research, so balanced
+would still ask before each: whether to raise that threshold is the owner's (question 284).
+
+**The two new cases, against their criteria.** Syrian rue oil: people's reports from the start (five Reddit threads,
+one claiming oral use, and a seller's "harmal oil" page with no assay); the oils told apart in a table (fixed oil,
+essential oil, the traditional olive-oil preparation at 0.057% harmine, an alkaloid extract); "unknown potency", in
+either direction; the interaction warning kept; the 1999 table not found (the live build searches no index of all
+journals: owner answer 283a); no question about which oil the person has (the owner's reply, now `FORM_PEOPLE_USE`).
+Sodium and memory: framing named dietary against blood sodium and memory against dementia measures; every study labelled
+by how it was read; the adjustment reported as weakening, not vanishing; no bare "significant".
 
 ### Next stages
 
@@ -152,16 +198,28 @@ Built:
 
 - `WORDS_ARE_NOT_SIZES` at the screen and at the menu: a source's significant, rich, high, substantial or strong, in
   any language, is not a size; find the sense and the number and compare it with what the question needs, or say the
-  source gives none. It applies HRP's `effect_magnitude` and `NumericExposureOverridesAmbiguousLabels`; an HRP rule of
-  its own waits for the owner's approval of its words.
+  source gives none. It applies HRP's `effect_magnitude` and `NumericExposureOverridesAmbiguousLabels`, and since
+  owner answer 282a (9 Nov) HRP 20.6.41's own `WordsAreNotSizes`, with the stress test `RichSourceWithoutAnAmount`,
+  outside the core (released 9 Nov, owner answer 285a).
 - `PEOPLE_FIRST_WHEN_USED` at the screen, and `PEOPLE_TASK_MISSING` on a first menu with no task reading people's
   reports: when HRP's `ForumSignalDefaultTrigger` applies, such as for a widely used old remedy, people's reports come
   from the start, beside the studies (`NoFixedStudiesThenCommunitySequence`). Whether the trigger applies is the model's
   judgment; AskRigor checks only the task kinds.
 
-Found, for a later build: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a
-journal neither indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route
-then read it.
+Found: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a journal neither
+indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route then read it.
+Owner answer 283a (9 Nov): build it as a new input of the existing search tools, so no app needs a refresh. Built:
+`search_europe_pmc` with `later_inputs.index` `all_journals` searches OpenAlex (`packages/sources/src/openalex.ts`),
+with its own receipt source `openalex`, counted by the final check as the source beyond PubMed and Europe PMC; the
+screen names it for plant, food, farming and traditional remedies. OpenAlex holds the 1999 paper (looked up by its
+DOI); its title's broken spacing kept it off the first page of broad English and French searches, but a live check
+of the adapter at 18:50 UTC with a French search limited to 1995 to 2003 ("huile Peganum harmala Zygophyllaceae")
+found it first, as the limitation text advises (search in the paper's own language). The index finds many other oil
+and seed papers PubMed lacks. Keyless use shares about 100 searches a day per server address; the owner made a free
+key on 9 Nov (its own allowance, about 1,000 searches a day, nothing prepaid), which goes into the server's settings
+as `OPENALEX_API_KEY` with the release that carries the search, moved unseen by a script as owner answer 177a
+allowed for the Atlas secret.
+The privacy notice names OpenAlex: date it on the release day.
 
 ## Not done
 

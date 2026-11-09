@@ -120,8 +120,8 @@ describe("owner-approved question 84: accepted lessons, 84a (2026-10-12)", () =>
       await expect((protocol === "hrp" ? undoHandoffTarget : undoReviewProvenance)(await loadCurrent(protocol))).resolves.toBe(beforePrevious);
       await expect(getProtocolManifest(protocol)).resolves.toEqual({
         name: protocol === "hrp" ? "HRP" : "AskRigor.com universal saved instructions",
-        version: protocol === "hrp" ? "20.6.40" : "20.5.46",
-        revisionDate: protocol === "hrp" ? "2026-11-05" : "2026-10-21",
+        version: protocol === "hrp" ? "20.6.41" : "20.5.46",
+        revisionDate: protocol === "hrp" ? "2026-11-09" : "2026-10-21",
         sha256: hash(await loadCurrent(protocol)),
       });
     });
