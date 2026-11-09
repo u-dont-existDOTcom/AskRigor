@@ -162,7 +162,14 @@ Built:
 
 Found: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a journal neither
 indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route then read it.
-Owner answer 283a (9 Nov): build it as a new input of the existing search tools, so no app needs a refresh.
+Owner answer 283a (9 Nov): build it as a new input of the existing search tools, so no app needs a refresh. Built:
+`search_europe_pmc` with `later_inputs.index` `all_journals` searches OpenAlex (`packages/sources/src/openalex.ts`),
+with its own receipt source `openalex`, counted by the final check as the source beyond PubMed and Europe PMC; the
+screen names it for plant, food, farming and traditional remedies. OpenAlex holds the 1999 paper (looked up by its
+DOI), but its title's broken spacing kept it off the first page of the English and French searches tried on 9 Nov;
+the index finds many other oil and seed papers PubMed lacks. Keyless use shares about 100 searches a day per server
+address; an `OPENALEX_API_KEY` the owner gets for free raises it, once added to the server's settings by the owner.
+The privacy notice names OpenAlex: date it on the release day.
 
 ## Not done
 

@@ -33,6 +33,16 @@ export {
   type EuropePmcFullTextArticle
 } from "./europe-pmc-full-text.js";
 export {
+  abstractFromInvertedIndex,
+  OPENALEX_ABSTRACT_MAX_CHARACTERS,
+  OPENALEX_DEFAULT_PAGE_SIZE,
+  OPENALEX_LIMITATIONS,
+  OPENALEX_MAX_PAGE_SIZE,
+  searchOpenAlex,
+  type OpenAlexRecord,
+  type SearchOpenAlexInput
+} from "./openalex.js";
+export {
   resolveUnpaywallOpenAccess,
   type UnpaywallConfig,
   type UnpaywallOpenAccessData,

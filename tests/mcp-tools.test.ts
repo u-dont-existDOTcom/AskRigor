@@ -129,7 +129,8 @@ afterEach(async () => {
 const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not found, try synonyms, older or variant terms, " +
   "the components of a mixed exposure, and citation chains.";
 const NOT_FOUND_SEARCHES_NOTE = " Before saying studies don't exist, also search the key name's other spellings and " +
-  "older names, and a source beyond PubMed and Europe PMC: your own web search finds journals they don't index, and " +
+  "older names, and a source beyond PubMed and Europe PMC: search_europe_pmc with later_inputs.index \"all_journals\" " +
+  "searches OpenAlex, a free index of nearly all journals, your own web search finds journals they don't index, and " +
   "search_clinical_trials covers trial registries (HRP UserNamedInterventionSweep, " +
   "HistoricalVocabularyAndCitationBackchain and NoHumanEvidenceAbsenceClaimBeforeSweep).";
 

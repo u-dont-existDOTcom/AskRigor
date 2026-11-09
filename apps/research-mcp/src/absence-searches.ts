@@ -32,7 +32,8 @@ export const SPARSE_SEARCH_NOTE = " Few records: before saying anything was not 
  * words come first, and the test's asks after them.
  */
 export const SMALL_LITERATURE_SEARCH_NOTE = `${SPARSE_SEARCH_NOTE} Before saying studies don't exist, also search the ` +
-  "key name's other spellings and older names, and a source beyond PubMed and Europe PMC: your own web search finds " +
+  "key name's other spellings and older names, and a source beyond PubMed and Europe PMC: search_europe_pmc with " +
+  "later_inputs.index \"all_journals\" searches OpenAlex, a free index of nearly all journals, your own web search finds " +
   "journals they don't index, and search_clinical_trials covers trial registries " +
   `(${ABSENCE_SWEEP_RULES}).`;
 

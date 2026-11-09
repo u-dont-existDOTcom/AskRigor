@@ -191,9 +191,16 @@ export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own repo
   "task near the top for what people who used it report about this effect, and call plan_research again before " +
   "showing the menu.";
 
+/**
+ * Owner answer 283a (9 Nov 2026): the paper that decided the owner's Syrian rue question sat in a journal PubMed and
+ * Europe PMC don't index. Which questions reach such journals is the model's judgment.
+ */
+export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditional remedy, or a question PubMed's " +
+  "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
+  "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
 const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the Atlas, with no full-text reading, long " +
   "threads or video audits yet, ending with a provisional short answer. " + PEOPLE_FIRST_WHEN_USED + " " +
-  WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action plan_research and later_inputs.researchMenu: " +
+  ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action plan_research and later_inputs.researchMenu: " +
   "the next tasks the screen found, each with its kind, what it could change and how many sources it covers. AskRigor " +
   "gives each a time range and says whether to ask the person first.";
 

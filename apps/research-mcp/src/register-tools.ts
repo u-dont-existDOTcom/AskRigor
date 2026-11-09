@@ -68,6 +68,8 @@ import {
   escapedDoi,
   searchClinicalTrials,
   searchEuropePmc,
+  searchOpenAlex,
+  OPENALEX_MAX_PAGE_SIZE,
   searchPubmed,
   getYoutubeComments,
   getYoutubeVideo,
@@ -568,6 +570,18 @@ const europePmcSearchEnvelopeSchema = z.object({
   }).strict().optional(),
   data: z.array(europePmcRecordSchema)
 }).strict();
+// Owner answer 283a, runtime only (owner answer 189a): with later_inputs.index all_journals, the same envelope from
+// OpenAlex, whose records add the free copy it knows of, its kind of work and whether the abstract was cut. The published
+// schema keeps no provider value or closed record (openToolOutputSchema), so apps loaded before need no refresh.
+const ALL_JOURNALS_OUTPUT_SHAPE = {
+  provider: z.enum(["europe_pmc", "openalex"]),
+  record_type: z.enum(["europe_pmc_search_result", "openalex_search_result"]),
+  data: z.array(europePmcRecordSchema.extend({
+    oa_url: z.string().optional(),
+    type: z.string().optional(),
+    abstract_cut: z.boolean().optional()
+  }))
+};
 const searchClinicalTrialsInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
   page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.clinicalTrialsPageSize).optional().describe(
@@ -1399,7 +1413,12 @@ function defineResearchOperations(
       outputSchema: europePmcSearchEnvelopeSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE),
       annotations: READ_ONLY_ANNOTATIONS
     },
-    async ({ query, date_range, page_size, cursor }) => {
+    async (args) => {
+      const { query, date_range, page_size, cursor } = args;
+      // Owner answer 283a (9 Nov 2026): later_inputs.index all_journals searches OpenAlex instead (later-inputs.ts).
+      if ((args as { index?: unknown }).index === "all_journals") {
+        return searchAllJournals(query, date_range, page_size, cursor);
+      }
       const sections = europePmcSections(query);
       const scope = sections.length === 0 ? {} : {
         full_text_scope: { sections, coverage: EUROPE_PMC_FULL_TEXT_COVERAGE }
@@ -3083,7 +3102,7 @@ const RESEARCH_RECEIPT_OUTPUT_SHAPE = {
  * that failed signs nothing.
  */
 function literatureSearchReceipt(
-  source: "pubmed" | "europepmc" | "ctgov",
+  source: "pubmed" | "europepmc" | "ctgov" | "openalex",
   query: string,
   result: { error?: unknown; pagination: { returned: number }; data: unknown },
   total: number | undefined,
@@ -3104,7 +3123,8 @@ function literatureSearchReceipt(
     ids,
     // The owner, 6 Nov 2026: each Europe PMC record's identifiers, by their places in ids, so the final check counts the
     // studies a search listed exactly (reading-summary.ts). A PubMed record carries its PMID alone.
-    ...(source === "europepmc" && records.length > 0 ? { rg: europePmcRecordGroups(records, ids) } : {}),
+    ...((source === "europepmc" || source === "openalex") && records.length > 0
+      ? { rg: europePmcRecordGroups(records, ids) } : {}),
     ...(sections.length === 0 ? {} : { ft: sections }),
     ...(total === undefined ? {} : { n: total }),
     ...(dateRange === undefined ? {} : { dr: `${dateRange.start}/${dateRange.end}` })
@@ -3182,6 +3202,78 @@ export function literatureOutageNote(
     .some((kind) => error.code === `${provider}_${kind}`) ||
     (error.code === `${provider}_request_failed` && error.http_status === undefined);
   return !providerSide ? "" : provider === "pubmed" ? PUBMED_OUTAGE_NOTE : EUROPE_PMC_OUTAGE_NOTE;
+}
+
+// Owner answer 283a (9 Nov 2026): the free all-journal index. A search past OpenAlex's free daily allowance comes back
+// rate_limited; the result says the index could not be searched, so an answer never reads nothing found into it.
+export const ALL_JOURNALS_LIMIT_NOTE = " OpenAlex's free daily allowance for AskRigor is used up, or requests came too " +
+  "fast (it resets daily), so this search shows nothing about whether such papers exist. If it stays unavailable, say " +
+  "in the answer that the all-journal index could not be searched, and use your own web search for journals PubMed " +
+  "and Europe PMC don't index.";
+export const ALL_JOURNALS_OUTAGE_NOTE = " OpenAlex's search did not work (its side, not this query), so this search " +
+  "shows nothing about whether such papers exist; use your own web search for journals PubMed and Europe PMC don't " +
+  "index, and say so in the answer if it stays unavailable.";
+export const ALL_JOURNALS_READ_NOTE = " These records come from many publishers, often without an abstract: read a " +
+  "paper before relying on what it reports, and get its text by its DOI (acquire_open_full_text; oa_url is a free " +
+  "copy OpenAlex knows of).";
+
+function openAlexApiKey(): string | undefined {
+  const key = (process.env.OPENALEX_API_KEY ?? "").trim();
+  return key === "" ? undefined : key;
+}
+
+async function searchAllJournals(
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  pageSize: number | undefined,
+  cursor: string | undefined
+): Promise<CallToolResult> {
+  const apiKey = openAlexApiKey();
+  const capped = pageSize !== undefined && pageSize > OPENALEX_MAX_PAGE_SIZE;
+  const search = (size: number | undefined) => searchOpenAlex({
+    query,
+    ...(dateRange === undefined ? {} : { dateRange }),
+    ...(size === undefined ? {} : { pageSize: Math.min(size, OPENALEX_MAX_PAGE_SIZE) }),
+    ...(cursor === undefined ? {} : { cursor }),
+    ...(apiKey === undefined ? {} : { apiKey })
+  });
+  const totalOf = (page: { raw_metadata?: unknown }) => (page.raw_metadata as { hit_count?: number } | undefined)?.hit_count;
+  try {
+    const result = await readSmallSearchWhole(await search(pageSize), cursor === undefined, totalOf, search);
+    const total = totalOf(result);
+    const code = result.error?.code;
+    const note = code === undefined ? (result.pagination.returned > 0 ? ALL_JOURNALS_READ_NOTE : "")
+      : code === "openalex_rate_limited" ? ALL_JOURNALS_LIMIT_NOTE
+      : ["openalex_upstream_unavailable", "openalex_response_invalid", "openalex_unreachable", "openalex_request_failed"]
+        .includes(code) ? ALL_JOURNALS_OUTAGE_NOTE : "";
+    return withResearchReceipt(europePmcToolResult(
+      `OpenAlex (all journals) search returned ${result.pagination.returned} record(s); access status ` +
+        `${result.access_status}.` + (capped ? ` Its pages hold at most ${OPENALEX_MAX_PAGE_SIZE} records here.` : "") +
+        (total === undefined || total > WHOLE_SEARCH_RECORDS ? "" : SPARSE_SEARCH_NOTE) + note,
+      result
+    ), literatureSearchReceipt("openalex", query, result, total, dateRange));
+  } catch (error) {
+    return europePmcToolResult(
+      "OpenAlex (all journals) search retrieval failed; access status error.",
+      errorEnvelope({
+        provider: "openalex",
+        recordType: "openalex_search_result",
+        query: { query, ...(dateRange === undefined ? {} : { date_range: dateRange }) },
+        pagination: {
+          ...(cursor === undefined ? {} : { cursor }),
+          page_size: Math.min(pageSize ?? OPENALEX_MAX_PAGE_SIZE, OPENALEX_MAX_PAGE_SIZE),
+          exhausted: false
+        },
+        returned: 0,
+        accessStatus: "error",
+        code: "openalex_tool_failed",
+        message: error instanceof Error && error.message === "Invalid OpenAlex search input"
+          ? "OpenAlex search input was invalid" : "OpenAlex operation failed",
+        retryable: false,
+        data: []
+      })
+    );
+  }
 }
 
 // Claude clients abandon a tool call after 60 seconds. Provider polling ends
@@ -3979,6 +4071,7 @@ function collectResearchOperations(
         : name === "get_youtube_video" || name === "get_youtube_comments" || name === "search_youtube_comments"
           ? publishedOutputSchema.extend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
         : name === "fetch_clinical_trial" ? publishedOutputSchema.extend(CLINICAL_TRIAL_REGISTRATION_OUTPUT_SHAPE)
+        : name === "search_europe_pmc" ? publishedOutputSchema.extend(ALL_JOURNALS_OUTPUT_SHAPE)
           : name === "validate_study_method_audit" ? studyMethodAuditRouteOutputSchema.safeExtend(RESEARCH_RECEIPT_OUTPUT_SHAPE)
             : publishedOutputSchema;
       const outputSchema = openToolOutputSchema(runtimeOutputSchema, publishedOutputSchema);
