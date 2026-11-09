@@ -42,6 +42,7 @@ import {
 } from "./research-contribution-check.js";
 
 import { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange } from "./research-use-notice-changes.js";
+import { PostgresResearchCallRecordStore } from "./research-call-record.js";
 export { contributionPrivacyBoundarySchema, researchContributionProposalInputSchema };
 export { RESEARCH_USE_NOTICE_CHANGES, type ResearchUseNoticeChange };
 
@@ -978,6 +979,14 @@ implements ResearchContributorAccessStore {
       query_timeout: options.queryTimeoutMillis,
       statement_timeout: options.statementTimeoutMillis,
     });
+  }
+
+  /**
+   * The call record (owner answer 280a) on this store's pool and schema, so the server opens no second pool; this store
+   * keeps the pool's lifetime.
+   */
+  callRecordStore(): PostgresResearchCallRecordStore {
+    return new PostgresResearchCallRecordStore(this.pool, this.schema);
   }
 
   async getAccount(accountKey: string): Promise<ResearchUseAccountRecord | null> {

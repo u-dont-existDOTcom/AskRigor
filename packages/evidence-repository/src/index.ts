@@ -16,6 +16,14 @@ export {
 } from "./contracts.js";
 export { deterministicUuid, sha256, stableJson } from "./hash.js";
 export {
+  RESEARCH_CALL_RECORD_RETENTION_DAYS,
+  RESEARCH_CALL_RECORD_RETENTION_MS,
+  InMemoryResearchCallRecordStore,
+  PostgresResearchCallRecordStore,
+  type ResearchCallRecordEntry,
+  type ResearchCallRecordStore,
+} from "./research-call-record.js";
+export {
   buildSyntheticPublicLeadProjection,
   communityDeadLetterErrorCode,
   computeCommunitySourceIndependenceKeys,

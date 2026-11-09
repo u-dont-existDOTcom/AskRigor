@@ -40,6 +40,7 @@ import {
   type PublicEvidenceGapIntakeService,
   type ResearchContributionReviewService,
   type ResearchContributorAccessService,
+  type ResearchCallRecordStore,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -143,6 +144,7 @@ import {
   protocolRequestError,
   successfulToolResult
 } from "./tool-result.js";
+import { researchCallRecordingOptions } from "./research-call-recording.js";
 import {
   automatedScoutInputSchema,
   deleteResumedGeminiScoutInteraction,
@@ -893,6 +895,7 @@ export interface RegisterToolsOptions {
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
+  researchCallRecord?: ResearchCallRecordStore;
   researchContributionReviewService?: ResearchContributionReviewService;
   /** The owner's findings actions for the Atlas: their stores, canonical reader and GitHub inbox. */
   atlasReview?: AtlasReview;
@@ -2012,6 +2015,7 @@ function defineResearchOperations(
     },
     createManageResearchAccessHandler({
       service: options.researchContributorAccessService,
+      callRecord: options.researchCallRecord,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
       signIn: options.signIn,
       toolListVersion: options.toolListVersion,
@@ -3914,7 +3918,10 @@ export function registerTools(
   // result reaches a client that reads only text with its payload in the text too (lesson #59, tool-result.ts). The
   // Custom GPT Action adapter calls operation.execute itself and returns structured output alone.
   for (const operation of operations) {
-    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute));
+    const recording = options.researchCallRecord === undefined || options.researchContributorAccessService === undefined
+      ? undefined : researchCallRecordingOptions(options.researchCallRecord,
+        options.researchContributorAccessService, options.mcpSurface ?? "/mcp");
+    register(operation.name, operation.mcpConfig, forTextClients(operation.name, operation.execute, recording));
   }
 }
 

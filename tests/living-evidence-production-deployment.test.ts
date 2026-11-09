@@ -497,7 +497,7 @@ describe("production living-evidence deployment", () => {
       '"0022_atlas_votes_comments",\n      "0023_research_findings_save_switch",\n      "0024_atlas_kept_for_research",\n      ' +
       '"0025_atlas_placements",\n      "0026_atlas_reports",\n      "0027_atlas_glance_rows",\n      ' +
       '"0028_research_use_notice_v5",\n      "0029_atlas_research_behind",\n      "0030_atlas_challenges",\n      ' +
-      '"0031_research_notice_acceptance",\n    ]');
+      '"0031_research_notice_acceptance",\n      "0032_research_call_record",\n    ]');
     // append_only_guard on exactly the eight canonical tables; the two private review tables are not among them.
     const guarded = migration.slice(migration.indexOf("FOREACH table_name IN ARRAY ARRAY["));
     expect([...guarded.slice(0, guarded.indexOf("] LOOP")).matchAll(/'([a-z_]+)'/gu)].map(([, table]) => table))
@@ -866,10 +866,10 @@ describe("production living-evidence deployment", () => {
     // people's reports (owner answer 229a), 0027, a problem's rows at a glance, 0028, notice version 5 (owner answer
     // 253a), 0029, the research behind each finding (owner answers 254a and 255a), and 0030, the findings that challenge
     // the usual view (the owner, 6 November 2026).
-    expect(order.slice(-11)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
+    expect(order.slice(-12)).toEqual(["0021_atlas_publications", "0022_atlas_votes_comments",
       "0023_research_findings_save_switch", "0024_atlas_kept_for_research", "0025_atlas_placements", "0026_atlas_reports",
       "0027_atlas_glance_rows", "0028_research_use_notice_v5", "0029_atlas_research_behind", "0030_atlas_challenges",
-      "0031_research_notice_acceptance"]);
+      "0031_research_notice_acceptance", "0032_research_call_record"]);
     // One table and its sequence, safe to run again; the reason lists replaced on every run.
     expect(migration).toContain("CREATE SEQUENCE IF NOT EXISTS atlas_publication_number_seq AS bigint START WITH 1001");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS atlas_publications (");
