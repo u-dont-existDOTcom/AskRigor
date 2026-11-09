@@ -163,10 +163,39 @@ export function adjustmentGuidance(detail: AdjustmentDetail): string {
       "and an offer to look deeper; say nothing about the rest unless the person asks.";
 }
 
+/**
+ * The owner, 9 November 2026, after a Syrian rue oil comparison: answers without AskRigor called an oil "potentially
+ * strong" from an abstract that called it rich in the active alkaloids and gave no amount ("significant is a weasel word
+ * in science"). The paper's full text had the amounts, about 0.9% of the oil, and none of the answers read it: the word
+ * is a reason to find the number, not to accept or dismiss the claim. This applies HRP's effect_magnitude ("A bare
+ * significant or nonsignificant label is not a magnitude") and NumericExposureOverridesAmbiguousLabels at the moment
+ * sources are read. Which sense a word carries is the model's judgment, in any language; nothing here matches words.
+ */
+export const WORDS_ARE_NOT_SIZES = "A source's significant, rich, high, substantial or strong, in any language, is not a " +
+  "size: find which sense it has (statistically significant, a large amount, or only detected) and the number behind " +
+  "it, and compare that number with what the question needs, such as the amount in a usual dose; when the source gives " +
+  "no number, say so beside the claim and don't let the word carry the conclusion. Write significant in the answer " +
+  "only with its sense and its number.";
+
+/**
+ * The owner, same day: the quick screen of a widely used old remedy should first have asked what people who use it
+ * report, not only what studies measured. This applies HRP's ForumSignalDefaultTrigger and
+ * NoFixedStudiesThenCommunitySequence to the screen; whether they apply is the model's judgment.
+ */
+const FORUM_TRIGGER_APPLIES = "When the question is about something people take or do, and HRP's " +
+  "ForumSignalDefaultTrigger applies (for example a traditional or widely used remedy, or studies that are few or depend " +
+  "on the preparation or route),";
+export const PEOPLE_FIRST_WHEN_USED = `${FORUM_TRIGGER_APPLIES} screen what people who used it report from the start, ` +
+  "beside the studies, not after them.";
+export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own reports. ${FORUM_TRIGGER_APPLIES} add a ` +
+  "task near the top for what people who used it report about this effect, and call plan_research again before " +
+  "showing the menu.";
+
 const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the Atlas, with no full-text reading, long " +
-  "threads or video audits yet, ending with a provisional short answer. Then call manage_research_access with action " +
-  "plan_research and later_inputs.researchMenu: the next tasks the screen found, each with its kind, what it could " +
-  "change and how many sources it covers. AskRigor gives each a time range and says whether to ask the person first.";
+  "threads or video audits yet, ending with a provisional short answer. " + PEOPLE_FIRST_WHEN_USED + " " +
+  WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action plan_research and later_inputs.researchMenu: " +
+  "the next tasks the screen found, each with its kind, what it could change and how many sources it covers. AskRigor " +
+  "gives each a time range and says whether to ask the person first.";
 
 /**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
@@ -318,8 +347,15 @@ const LOOP_WORDS: Readonly<Record<(typeof RESEARCH_LOOPS)[number], string>> = {
 
 const range = ([low, high]: [number, number]): string => low === high ? `about ${low} min` : `about ${low} to ${high} min`;
 
-/** The plan_research result's text: the menu to show, and what to do next by the account's style. */
-export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>): string {
+/** Whether a task reads people's own reports: a thread, a video's comments, or a look prompted by a study finding. */
+const readsPeoplesReports = ({ kind, loop }: PlannedTask): boolean =>
+  kind === "forum_thread" || kind === "video_comments" || loop === "studies_to_people";
+
+/**
+ * The plan_research result's text: the menu to show, and what to do next by the account's style. allocated is true
+ * once the person gave their own allocation, when the menu's numbering must stay as it is.
+ */
+export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<number>, allocated = false): string {
   const lines = result.tasks.map(({ n, task, could_change, loop, minutes }) =>
     `${n}. ${task}: ${CHANGE_WORDS[could_change]}${loop === undefined ? "" : `, ${LOOP_WORDS[loop]}`}; ` +
     `${minutes === null ? "no estimate" : range(minutes)}${done.has(n) ? " (done)" : ""}.`);
@@ -331,6 +367,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
       "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation,
   ];
+  if (!allocated && !result.tasks.some(readsPeoplesReports)) parts.push(PEOPLE_TASK_MISSING);
   if (result.target_matches_plain_answer === false) {
     parts.push("This research_target is not the one registered with the plain answer: give plan_research and " +
       "finalize_research the research target word for word as register_plain_answer's result quoted it, or the " +
@@ -357,6 +394,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
     "Before each task, say in one line what you will read, how deep, and why. A task that runs out of its time stops " +
       "and says what it reached and whether more time is worth it; a new finding that could change the conclusion " +
       "comes back to the person unless they chose autonomous research.",
+    WORDS_ARE_NOT_SIZES,
     "If the person stops you or changes direction, call plan_research again with done and their new allocation; the " +
       "research target stays word for word the same.",
     "Leads between people's reports and studies are part of the research when the question has both: when the screen " +

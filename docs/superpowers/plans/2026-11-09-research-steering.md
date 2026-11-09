@@ -114,8 +114,10 @@ so stopping first stays the more reliable way to steer.
 ### The time estimates
 
 `PLAN_TASK_MINUTES` are starting planning ranges per source (a search 1 to 2 minutes, a paper read in full 3 to 6, a
-method audit 8 to 15, a forum thread 2 to 6, a video's comments 5 to 15). Before release, the regression runs replace
-them with measured times: each run's receipts carry signed times, and the call record shows each call's duration.
+method audit 8 to 15, a forum thread 2 to 6, a video's comments 5 to 15). Runs after the release replace them with
+measured times: each run's receipts carry signed times, and the call record shows each call's duration. The release
+comes first (the owner, 9 Nov: "release it now only if you think that would help you develop the rest smarter")
+because ChatGPT reaches only production, so how ChatGPT's modes follow the framing and the menu can't be seen before.
 
 ### Next stages
 
@@ -128,6 +130,38 @@ them with measured times: each run's receipts carry signed times, and the call r
    next-step results apply the person's research style. Drafted when the measurements show what the results alone
    don't do.
 4. Loading the protocol one stage at a time, as an experiment against today's loading.
+
+## Added on 9 Nov, after the owner's Syrian rue oil comparison
+
+The owner compared one question ("would Syrian rue oil work as a strong MAOI like Syrian rue tea?") four ways: ChatGPT's
+Medium, Extra High and Pro modes without AskRigor, and Instant with it (1 min 58 s against Pro's 7 min 21 s). The three
+without AskRigor called a solvent-extracted seed oil potentially strong from a 1999 abstract (Hassani and El Hadek, Acta
+Botanica Gallica 146:353-359, doi 10.1080/12538078.1999.10515822) that calls the oil a rich source of the alkaloids and
+gives no amount; Instant with AskRigor said not to expect tea-like strength. AskRigor's run never met that paper: PubMed
+and Europe PMC don't index the journal. Its list of next questions also skipped what people who take the oil report.
+
+Checked before any page went up: the paper's full text (Table 2) gives harmine plus harmaline of about 8.7 to 8.9 mg per
+gram of the hexane-extracted oil (0.87 to 0.89%; the printed total for sample 1, 9667, should be 8667), against about
+99 mg per gram in dry seeds measured elsewhere (Herraiz et al. 2010). Per gram of seed the oil carries about 1% of the
+seeds' alkaloids, but per gram of oil it is about a tenth as concentrated as the seeds, so a spoonful swallowed could
+carry a real dose. The traditional olive-oil preparation of the 2015 knee trial held about 0.06%. So the comparison is
+not the success it looked like, and its page was held back (draft kept outside the repository); none of the four
+answers read the numbers that decide the question.
+
+Built:
+
+- `WORDS_ARE_NOT_SIZES` at the screen and at the menu: a source's significant, rich, high, substantial or strong, in
+  any language, is not a size; find the sense and the number and compare it with what the question needs, or say the
+  source gives none. It applies HRP's `effect_magnitude` and `NumericExposureOverridesAmbiguousLabels`; an HRP rule of
+  its own waits for the owner's approval of its words.
+- `PEOPLE_FIRST_WHEN_USED` at the screen, and `PEOPLE_TASK_MISSING` on a first menu with no task reading people's
+  reports: when HRP's `ForumSignalDefaultTrigger` applies, such as for a widely used old remedy, people's reports come
+  from the start, beside the studies (`NoFixedStudiesThenCommunitySequence`). Whether the trigger applies is the model's
+  judgment; AskRigor checks only the task kinds.
+
+Found, for a later build: AskRigor's study search reaches PubMed and Europe PMC only. The deciding paper sat in a
+journal neither indexes; a free scholarly index such as OpenAlex would have found it, and InfoAccess's free PDF route
+then read it.
 
 ## Not done
 

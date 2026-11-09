@@ -1050,7 +1050,8 @@ async function planResearchAction(
     minutesSince: Math.max(0, Math.round((Date.now() - Date.parse(read.issuedAt)) / 60_000)),
   });
   return {
-    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? [])) +
+    content: [{ type: "text", text: planResearchText(result, new Set(plan.done ?? []),
+      plan.allocation !== undefined && plan.allocation.length > 0) +
       (problems.length === 0 ? "" : ` ${problems.join(" ")}`) }],
     structuredContent: manageResearchAccessRuntimeOutputSchema.parse({
       ok: true,

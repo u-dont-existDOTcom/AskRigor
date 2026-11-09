@@ -19,8 +19,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
+  PEOPLE_FIRST_WHEN_USED,
+  PEOPLE_TASK_MISSING,
   PLAN_TASK_KINDS,
   PLAN_TASK_MINUTES,
+  WORDS_ARE_NOT_SIZES,
   adjustmentGuidance,
   framingGuidance,
   planResearch,
@@ -276,6 +279,46 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(adjustmentGuidance("all")).toContain("list each key study's adjusted variables with each one's likely role");
     const all = planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, adjustmentDetail: "all" });
     expect(planResearchText(all, new Set())).toContain(adjustmentGuidance("all"));
+  });
+
+  // The owner, 9 Nov 2026, after the Syrian rue oil comparison: a word such as "significant" or "rich" is not a size,
+  // and a widely used old remedy's screen should ask first what people who use it report.
+  it("says a word is not a size at the screen and at the menu, in every style", () => {
+    expect(WORDS_ARE_NOT_SIZES).toContain("is not a size");
+    expect(WORDS_ARE_NOT_SIZES).toContain("in any language");
+    expect(WORDS_ARE_NOT_SIZES).toContain("compare that number with what the question needs");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      const steering: ResearchSteering = { ...DEFAULT_RESEARCH_STEERING, style };
+      for (const words of [
+        framingGuidance(steering, undefined),
+        framingGuidance(steering, { likely_question: TARGET }),
+        planResearchText(planResearch(menu(), steering), new Set()),
+      ]) {
+        expect(words).toContain(WORDS_ARE_NOT_SIZES);
+      }
+      expect(framingGuidance(steering, undefined)).toContain(PEOPLE_FIRST_WHEN_USED);
+    }
+  });
+
+  it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", () => {
+    const studiesOnly = menu({ tasks: [TASKS[0]!, TASKS[1]!] });
+    expect(planResearchText(planResearch(studiesOnly, DEFAULT_RESEARCH_STEERING), new Set()))
+      .toContain(PEOPLE_TASK_MISSING);
+    expect(PEOPLE_TASK_MISSING).toContain("add a task near the top for what people who used it report");
+    // A forum thread, video comments, or a look at people's reports for a study finding each count.
+    for (const task of [TASKS[2]!, { task: "Read comments under the two most-watched videos", kind: "video_comments",
+      could_change: "confidence" } as const, { task: "Check people's reports for what the trial found",
+      kind: "other", could_change: "confidence", loop: "studies_to_people" } as const]) {
+      expect(planResearchText(planResearch(menu({ tasks: [TASKS[0]!, task] }), DEFAULT_RESEARCH_STEERING), new Set()))
+        .not.toContain(PEOPLE_TASK_MISSING);
+    }
+    // A study search prompted by people's reports doesn't read them.
+    expect(planResearchText(planResearch(menu({ tasks: [TASKS[3]!] }), DEFAULT_RESEARCH_STEERING), new Set()))
+      .toContain(PEOPLE_TASK_MISSING);
+    // Once the person allocated time by task number, the menu isn't changed under them.
+    const allocated = planResearch(menu({ tasks: [TASKS[0]!, TASKS[1]!], allocation: [{ task: 1, minutes: 5 }] }),
+      DEFAULT_RESEARCH_STEERING);
+    expect(planResearchText(allocated, new Set(), true)).not.toContain(PEOPLE_TASK_MISSING);
   });
 
   it("checks the research target against the plain answer's through the connector (AskRigor#434)", async () => {

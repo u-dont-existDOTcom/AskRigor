@@ -26,6 +26,10 @@ Not done: refusing research tools out of order before the soft version is measur
 Why: the owner, 9 Nov, answering 279: listing every adjusted variable "could be quite a lot of variables... default balanced mode might only mention the adjustments you think on a quick check look potentially inappropriate or controversial and might warrant further investigation".\
 Not done: every adjusted variable by default; a blocking check. · Decided: 9 Nov 2026 (owner answer 279a).
 
+**A source's "significant", "rich", "high" or "substantial" is not a size: the AI finds the sense and the number behind the word, compares the number with what the question needs (for an amount, the amount in a usual dose), or says beside the claim that the source gives none.**\
+Why: the owner, 9 Nov, after a Syrian rue oil comparison in which three ChatGPT modes without AskRigor called a seed oil potentially strong from an abstract that called it a rich source of the alkaloids and gave no amount: "significant is a weasel word in science with so many different possible meanings and often meaningless. we should make sure askrigor is really careful with that word." The paper's full text had the amounts (about 0.9% of the oil), and none of the four answers read it: the word is a reason to find the number, not to accept or dismiss the claim. HRP already says a bare significant label is not a magnitude (`effect_magnitude`, `NumericExposureOverridesAmbiguousLabels`); AskRigor's screen and menu now say it where sources are read.\
+Not done: a word list or a blocking check (which sense a word has is the model's judgment, in any language); a rule in HRP itself, which waits for the owner's approval of its words. · Decided: 9 Nov 2026 (the owner); built 9 Nov.
+
 **The answer opens with a short answer, and lists first the safest options that could work.**\
 Why: answers ran through their methods before the practical part, and the owner asked for the safest things to try first, "which are generally not drugs anyway".\
 Not done: a blanket "non-drug first" rule. · Decided: 15 Oct 2026 (owner answer 93a); 17 Oct (121a).
@@ -131,6 +135,10 @@ Decided: 4 Nov 2026 (owner answer 242a).
 **The loop between people's reports and studies is a numbered task the person sees on the menu: a study search for something people reported, or a look at people's reports for something a study found.**\
 Why: the owner, 9 Nov: "make sure we have the forum to study feedback loop in place when warranted, i really think that is a key feature that i've been asking for for a long time". On 5 Nov, judges reading 18 runs found 19 of 98 report leads searched in studies; a declaration checked only at the end didn't make the loop happen.\
 Not done: a blocking check; a loop task for a question with no people's-report side. · Decided: 9 Nov 2026 (the owner); built 9 Nov, not yet released.
+
+**For something people take or do, such as a widely used old remedy, the quick screen looks at what people who used it report from the start, and a first menu with no task reading people's reports says to add one near the top when HRP's forum trigger applies.**\
+Why: the owner, 9 Nov: AskRigor "should have thought to investigate first of all whether people actually use syrian rue oil as an MAOi, that's kind of obvious considering it is a very widely used very old herbal remedy". HRP's `ForumSignalDefaultTrigger` and `NoFixedStudiesThenCommunitySequence` already ask for this; the quick screen hadn't done it.\
+Not done: a blocking check; changing a menu after the person allocated its tasks by number. · Decided: 9 Nov 2026 (the owner); built 9 Nov.
 
 **People's own reports of what worked come first, Earth Clinic style, with AskRigor's research around each; reports come through a person's own AI or the Atlas form.**\
 Why: the owner, 3 Nov: people submitting what worked for them, "like earthclinic, but with the additional research around it", is one of the Atlas's main points.\
