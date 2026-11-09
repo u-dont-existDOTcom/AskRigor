@@ -20,7 +20,7 @@ Not done: keeping a copy of the quick answer (see Privacy and safety). · Decide
 
 **Research the person can steer: the framing goes with the quick answer, a cheap screen ends in a numbered menu of next tasks with times, and each account sets its research style once: guided, balanced (the default) or autonomous, with a check-back allowance of 10 minutes.**\
 Why: the owner's report AskRigor#434 (8 Nov): a 52-minute run stayed on a question asked backwards and gave less than the one-minute quick answer. The owner asked to frame first, ask only what could redirect the research, screen, then share out the time by task number ("1. 5 min, 2. 4 min, 7. 1 min"). HRP already had these steps and none ran, so AskRigor's results now say them where the AI acts: `register_plain_answer` takes the framing, `plan_research` makes the menu, and the quick-answer note says how long the research took.\
-Not done: refusing research tools out of order before the soft version is measured; a web app that runs the research (about $5 to $10 a question); keeping any research plan on the server; time estimates from anything but planning ranges until the regression runs measure them. · Decided: 9 Nov 2026 (owner answer 279a); built 9 Nov, not yet released.
+Not done: refusing research tools out of order before the soft version is measured; a web app that runs the research (about $5 to $10 a question); keeping any research plan on the server; time estimates from anything but planning ranges until the regression runs measure them. · Decided: 9 Nov 2026 (owner answer 279a); built and released 9 Nov.
 
 **What each key observational study adjusted for: the AI looks at each variable's likely role, and the answer mentions only adjustments that look doubtful on a quick check, unless the person chose to see all of them.**\
 Why: the owner, 9 Nov, answering 279: listing every adjusted variable "could be quite a lot of variables... default balanced mode might only mention the adjustments you think on a quick check look potentially inappropriate or controversial and might warrant further investigation".\
@@ -28,7 +28,7 @@ Not done: every adjusted variable by default; a blocking check. · Decided: 9 No
 
 **A source's "significant", "rich", "high" or "substantial" is not a size: the AI finds the sense and the number behind the word, compares the number with what the question needs (for an amount, the amount in a usual dose), or says beside the claim that the source gives none.**\
 Why: the owner, 9 Nov, after a Syrian rue oil comparison in which three ChatGPT modes without AskRigor called a seed oil potentially strong from an abstract that called it a rich source of the alkaloids and gave no amount: "significant is a weasel word in science with so many different possible meanings and often meaningless. we should make sure askrigor is really careful with that word." The paper's full text had the amounts (about 0.9% of the oil), and none of the four answers read it: the word is a reason to find the number, not to accept or dismiss the claim. HRP already says a bare significant label is not a magnitude (`effect_magnitude`, `NumericExposureOverridesAmbiguousLabels`); AskRigor's screen and menu now say it where sources are read.\
-Not done: a word list or a blocking check (which sense a word has is the model's judgment, in any language); a rule in HRP itself, which waits for the owner's approval of its words. · Decided: 9 Nov 2026 (the owner); built 9 Nov.
+Not done: a word list or a blocking check (which sense a word has is the model's judgment, in any language); a rule in HRP itself, which waits for the owner's approval of its words (question 282). · Decided: 9 Nov 2026 (the owner); built and released 9 Nov.
 
 **The answer opens with a short answer, and lists first the safest options that could work.**\
 Why: answers ran through their methods before the practical part, and the owner asked for the safest things to try first, "which are generally not drugs anyway".\
@@ -134,11 +134,11 @@ Decided: 4 Nov 2026 (owner answer 242a).
 
 **The loop between people's reports and studies is a numbered task the person sees on the menu: a study search for something people reported, or a look at people's reports for something a study found.**\
 Why: the owner, 9 Nov: "make sure we have the forum to study feedback loop in place when warranted, i really think that is a key feature that i've been asking for for a long time". On 5 Nov, judges reading 18 runs found 19 of 98 report leads searched in studies; a declaration checked only at the end didn't make the loop happen.\
-Not done: a blocking check; a loop task for a question with no people's-report side. · Decided: 9 Nov 2026 (the owner); built 9 Nov, not yet released.
+Not done: a blocking check; a loop task for a question with no people's-report side. · Decided: 9 Nov 2026 (the owner); built and released 9 Nov.
 
 **For something people take or do, such as a widely used old remedy, the quick screen looks at what people who used it report from the start, and a first menu with no task reading people's reports says to add one near the top when HRP's forum trigger applies.**\
 Why: the owner, 9 Nov: AskRigor "should have thought to investigate first of all whether people actually use syrian rue oil as an MAOi, that's kind of obvious considering it is a very widely used very old herbal remedy". HRP's `ForumSignalDefaultTrigger` and `NoFixedStudiesThenCommunitySequence` already ask for this; the quick screen hadn't done it.\
-Not done: a blocking check; changing a menu after the person allocated its tasks by number. · Decided: 9 Nov 2026 (the owner); built 9 Nov.
+Not done: a blocking check; changing a menu after the person allocated its tasks by number. · Decided: 9 Nov 2026 (the owner); built and released 9 Nov.
 
 **People's own reports of what worked come first, Earth Clinic style, with AskRigor's research around each; reports come through a person's own AI or the Atlas form.**\
 Why: the owner, 3 Nov: people submitting what worked for them, "like earthclinic, but with the additional research around it", is one of the Atlas's main points.\
@@ -194,11 +194,11 @@ Not done: even a one-line error log without a privacy-page change; keeping real 
 
 **A record of the calls AskRigor receives from each signed-in account, without their content, kept 7 days and shown only to that account.**\
 Why: the owner's report AskRigor#434: twice a free ChatGPT account answered without calling AskRigor, and nothing could tell "never called" from "called and refused". Each entry holds the tool, the time, the route, whether ChatGPT's signals came with it, the outcome and the time taken.\
-Not done: arguments, results, IP addresses, user agents or tokens; calls without a valid sign-in; showing it to anyone but the account, the owner included; keeping it past 7 days. · Decided: 9 Nov 2026 (owner answer 280a); privacy page changed first; built 9 Nov, not yet released.
+Not done: arguments, results, IP addresses, user agents or tokens; calls without a valid sign-in; showing it to anyone but the account, the owner included; keeping it past 7 days. · Decided: 9 Nov 2026 (owner answer 280a); privacy page changed first; built and released 9 Nov.
 
 **A new free-use notice asks again only when it collects or publishes more than the one a person accepted; a wording-only version carries their yes forward, and the owner's own login accepts each new version by the owner's standing instruction.**\
 Why: the owner, 6 Nov: "can we make it so that i don't have to keep accepting the askrigor notice every time you update? that's annoying". Each version declares in code, reviewed with it, whether it is material; the record keeps what was accepted, when and how (by the person, carried forward, or by the owner's instruction).\
-Not done: treating dev accounts or any login but the one the owner's review admits as the owner's; enrolling, reactivating or switching a login for the owner; judging materiality from the notice's words; writing over a revoke or a switch to paid made at the same moment (the acceptance saves only onto the row as read). · Decided: 6 Nov 2026 (the owner); built 7 Nov, not yet released.
+Not done: treating dev accounts or any login but the one the owner's review admits as the owner's; enrolling, reactivating or switching a login for the owner; judging materiality from the notice's words; writing over a revoke or a switch to paid made at the same moment (the acceptance saves only onto the row as read). · Decided: 6 Nov 2026 (the owner); built 7 Nov, released 9 Nov.
 
 **A question and answer are shared for improvement only when the person says yes and confirms the exact de-identified copy, which is kept encrypted with nothing naming the account, for 90 days, and deleted sooner with its code.**\
 Why: the owner, 30 Oct: "we aren't logging every question/answer but just the ones users send for improvement".\
@@ -214,7 +214,7 @@ Decided: 12 Oct 2026 (owner answer 78a); 17 Oct (109a); 21 Oct (154).
 
 **One report per incident: a defect that can be debugged gets one detailed bug report, and a preference, feature request or style feedback one lesson, never both.**\
 Why: the owner, in AskRigor#431: "Use one reporting path per problem; do not duplicate the same incident as both a bug report and a lesson candidate", after a run proposed both for one failure.\
-Not done: changing the protocols or the skill for it without the owner's approval (the rule is in AskRigor's results and docs). · Decided: 7 Nov 2026 (the owner, AskRigor#431); built, not yet released.
+Not done: changing the protocols or the skill for it without the owner's approval (the rule is in AskRigor's results and docs). · Decided: 7 Nov 2026 (the owner, AskRigor#431); released 9 Nov.
 
 **Serious rare harms are searched by name, apart from common side effects, and a harm not searched is reported as not checked, never as absent.**\
 Why: the owner, 20 Oct, on making it optional: "wouldn't that basically make it optional and then someone might die?"\
@@ -258,7 +258,7 @@ Not done: changing a published field or description in between (such fixes wait 
 
 **Every tool result also carries its payload as text, except in ChatGPT, which shows the model both; a protocol page's bytes go in raw, so an app that reads only text can check them.**\
 Why: some apps hand the model only a result's text, so the protocol, its index, PubMed records and full-text pages never reached it there (lesson #59), while ChatGPT's context and time limits make a copy costly. A call is ChatGPT's only by exact signals: a `_meta` key starting `openai/`, or a User-Agent starting `openai-mcp/`; any other call gets the copy, since a copy costs tokens where a missing payload breaks research. Each part stays under 50,000 characters, which Claude Code counts in the part it shows, and the whole under the about 150,000 claude.ai takes (measured 8 Nov).\
-Not done: patches tool by tool; guessing the app from anything else; changing the tool list, a higher Claude Code limit included. · Decided: 7 Nov 2026 (lesson #59's build; not yet released).
+Not done: patches tool by tool; guessing the app from anything else; changing the tool list, a higher Claude Code limit included. · Decided: 7 Nov 2026 (lesson #59's build); released 9 Nov.
 
 **New work targets the ChatGPT app, the Claude connector and the Codex plugin, not Custom GPTs.**\
 Why: the owner, 17 Oct: "GPTs are on the way out, so it doesn't make sense to build a new feature for custom GPT if it doesn't work for plugins".\

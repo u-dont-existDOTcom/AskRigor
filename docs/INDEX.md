@@ -116,6 +116,7 @@ records decisions and their sources; it adds no authority to the list above.
   health category, confirmed through the API, with the kinds of value (methods, hard cases, outcomes, leads, critique,
   benchmark), cautions and where each came from; none checked yet.
 - `audits/2026-11-07-owner-answer-275a-production-release.md`: the site update of #423 and #429, the Support page's Bitcoin address and research-job requests and the privacy notice's new section (owner answer 275a, 7 Nov 2026).
+- `audits/2026-11-09-owner-answer-281-production-release.md`: #433, research the person can steer (stage 1), the content-free call record, how a free account's notice was accepted, words that are not sizes and people's reports first, with the privacy notice of November 9 released first (owner answer 281, 9 Nov 2026).
 - `audits/2026-11-06-owner-answer-273a-production-release.md`: release of #422, how much of each study was read, closing questions and the findings that challenge the usual view, with the site update of 267b (owner answer 273a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answer-270a-production-release.md`: release of #421, the fixes from the owner-regression rerun (owner answer 270a, 6 Nov 2026).
 - `audits/2026-11-06-owner-answers-262a-260a-production-release.md`: release of #414 and #418 (owner answers 262a and
