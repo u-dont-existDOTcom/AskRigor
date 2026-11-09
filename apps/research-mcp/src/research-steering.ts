@@ -62,19 +62,30 @@ export type ResearchSteeringInput = z.output<typeof researchSteeringInputSchema>
 
 /**
  * The kinds of task a menu holds, each with a planning estimate in minutes per source (a search, an abstract, a paper,
- * a thread, a video or a registry record), low and high. They are starting values, to be replaced by the times measured
- * on the owner's regression runs before release (docs/superpowers/plans/2026-11-09-research-steering.md).
+ * a thread, a video or a registry record), low and high. Calibrated on 9 Nov 2026 from 14 of the owner's regression
+ * questions run through Codex's AskRigor app on the live build (13 go-ahead menus): the research after each go-ahead
+ * menu, split by kind of task and divided by the sources its tasks declared; low and high hold about the middle half of
+ * what was measured (docs/superpowers/plans/2026-11-09-research-steering.md, "The time estimates"). The starting values
+ * (a paper 3 to 6 minutes, a thread 2 to 6, an audit 8 to 15, a video's comments 5 to 15) were two to five times too
+ * long. One model at a high effort, fitted on the runs it is checked against: later runs confirm or correct it. A kind
+ * no measured task declared keeps its starting value (abstract_screen).
  */
 export const PLAN_TASK_MINUTES = Object.freeze({
-  study_search: [1, 2],
+  study_search: [0.5, 2.5],
   abstract_screen: [0.2, 0.5],
-  full_text: [3, 6],
-  method_audit: [8, 15],
-  forum_thread: [2, 6],
-  video_comments: [5, 15],
-  video_claims: [3, 8],
-  trial_registry: [1, 3],
+  full_text: [1, 2.5],
+  method_audit: [2, 4],
+  forum_thread: [0.5, 1.5],
+  video_comments: [1, 4],
+  video_claims: [1, 3],
+  trial_registry: [0.3, 1],
 } as const satisfies Record<string, readonly [number, number]>);
+/**
+ * After the tasks, the final check and writing the answer: 4.0 to 8.7 minutes in the middle half of the 13 measured
+ * go-ahead menus (median 6.7). The menu says it beside the tasks; it isn't part of the five minutes that decide whether
+ * to ask first.
+ */
+export const ANSWER_MINUTES = Object.freeze([4, 10] as const);
 export const PLAN_TASK_KINDS = ["study_search", "abstract_screen", "full_text", "method_audit", "forum_thread",
   "video_comments", "video_claims", "trial_registry", "other"] as const;
 export type PlanTaskKind = (typeof PLAN_TASK_KINDS)[number];
@@ -408,7 +419,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       `${range(result.recommended_minutes)} in all.`;
   const parts = [
     "The menu to show the person, in their language, numbered as here (times are rough planning estimates, and say " +
-      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation,
+      "whether a task means a quick look, reading in full or a method audit): " + lines.join(" ") + " " + recommendation +
+      ` Then the final check and writing the answer: about ${ANSWER_MINUTES[0]} to ${ANSWER_MINUTES[1]} min.`,
   ];
   if (!allocated && !result.tasks.some(readsPeoplesReports)) parts.push(PEOPLE_TASK_MISSING);
   if (result.target_matches_plain_answer === false) {
