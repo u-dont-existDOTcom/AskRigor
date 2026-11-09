@@ -283,8 +283,8 @@ describe("forum tools", () => {
     // 5 Nov 2026: the loop from people's reports to studies is asked for where the reports are read.
     expect(text.endsWith(`leave out promotion and jokes. ${COMMUNITY_LEADS_GUIDANCE}`)).toBe(true);
     expect(COMMUNITY_LEADS_GUIDANCE).toBe("Turn each option, dose, form, responder group or harm these reports raise " +
-      "that the question didn't name into a study search, and declare it in finalize_research's " +
-      "later_inputs.community_leads.");
+      "that the question didn't name into a study search, as a task on the person's menu (manage_research_access " +
+      "plan_research, loop people_to_studies), and declare it in finalize_research's later_inputs.community_leads.");
   });
   it("signs searches, including no results, with only thread digests", async () => {
     search.mockResolvedValueOnce({ access_state: "searched", threads: [{ url: URL, subreddit: "example", title: "Experiences" }], returned: 1, after: "next" })
