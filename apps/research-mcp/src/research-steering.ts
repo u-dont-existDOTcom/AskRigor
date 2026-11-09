@@ -198,11 +198,25 @@ export const PEOPLE_TASK_MISSING = `No task on this menu reads people's own repo
 export const ALL_JOURNALS_AT_THE_SCREEN = "For a plant, food, farming or traditional remedy, or a question PubMed's " +
   "journals cover thinly, also search all journals once (search_europe_pmc with later_inputs.index \"all_journals\", " +
   "OpenAlex): many of their journals are outside PubMed and Europe PMC.";
+/**
+ * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
+ * case's first plan_research call was refused, 12 of 22 in all, because the model guessed the fields (what_it_could_change,
+ * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal.
+ */
+export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
+  "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
+  "provisional_answer, what the screen suggests, in a few sentences; and tasks, the next tasks the screen found, in " +
+  "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
+  "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
+  "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
+  "people_to_studies or studies_to_people, only for a task between people's reports and studies; and minutes, [low, " +
+  "high], only for a task of kind other or one much longer or shorter than its kind's usual time}. Leave out any other " +
+  "field: allocation and done come only after the person answers or stops you.";
 const SCREEN_FIRST = "Screen first: searches, abstracts, thread titles and the Atlas, with no full-text reading, long " +
   "threads or video audits yet, ending with a provisional short answer. " + PEOPLE_FIRST_WHEN_USED + " " +
-  ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action plan_research and later_inputs.researchMenu: " +
-  "the next tasks the screen found, each with its kind, what it could change and how many sources it covers. AskRigor " +
-  "gives each a time range and says whether to ask the person first.";
+  ALL_JOURNALS_AT_THE_SCREEN + " " + WORDS_ARE_NOT_SIZES + " Then call manage_research_access with action " +
+  "plan_research and " + RESEARCH_MENU_SHAPE + " AskRigor gives each task a time range and says whether to ask the " +
+  "person first.";
 
 /**
  * What register_plain_answer's result says next, by the account's research style and the framing given with it. Whether
@@ -389,7 +403,7 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       "The recommended tasks would take more than about five minutes, so show") + " the menu and ask how to spend " +
       "the time: they may answer with task numbers and minutes, such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their " +
       "own words, or \"you decide\". Wait for the answer before any of these tasks, then call plan_research again " +
-      "with their allocation.");
+      "with their allocation as a list of {task, minutes}; for \"you decide\", the recommended tasks and minutes.");
   } else if (result.style === "autonomous") {
     parts.push("The person chose autonomous research: show the menu as what you are doing and go on with the " +
       `recommended tasks. Check back with them after about ${result.check_back_minutes} minutes of research, or ` +

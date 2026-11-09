@@ -19,9 +19,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
+  COULD_CHANGE,
   PEOPLE_FIRST_WHEN_USED,
   PEOPLE_TASK_MISSING,
   PLAN_TASK_KINDS,
+  RESEARCH_LOOPS,
+  RESEARCH_MENU_SHAPE,
+  planTaskSchema,
+  researchMenuSchema,
   PLAN_TASK_MINUTES,
   WORDS_ARE_NOT_SIZES,
   adjustmentGuidance,
@@ -298,6 +303,26 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       }
       expect(framingGuidance(steering, undefined)).toContain(PEOPLE_FIRST_WHEN_USED);
     }
+  });
+
+  // The timing runs of 9 Nov 2026: every case's first plan_research call was refused, the model guessing the fields.
+  it("names the menu's every field and value at the screen, and takes a menu written in that shape", () => {
+    const fields = [...Object.keys(researchMenuSchema.shape).filter((key) => key !== "allocation" && key !== "done"),
+      ...Object.keys(planTaskSchema.shape)];
+    for (const name of [...fields, ...PLAN_TASK_KINDS, ...COULD_CHANGE, ...RESEARCH_LOOPS]) {
+      expect(RESEARCH_MENU_SHAPE, name).toMatch(new RegExp(`\\b${name}\\b`, "u"));
+    }
+    expect(RESEARCH_MENU_SHAPE).toContain("allocation and done come only after the person answers or stops you");
+    for (const style of ["guided", "balanced", "autonomous"] as const) {
+      expect(framingGuidance({ ...DEFAULT_RESEARCH_STEERING, style }, undefined)).toContain(RESEARCH_MENU_SHAPE);
+    }
+    expect(researchMenuSchema.safeParse({ research_target: "Does the oil act like the tea?", plain_answer_receipt: "rr1~x",
+      provisional_answer: "Unknown so far.", tasks: [{ task: "Read the oil study's table", kind: "full_text",
+        could_change: "conclusion", sources: 1 }, { task: "Read what people who took the oil report", kind: "forum_thread",
+        could_change: "confidence", sources: 3, loop: "studies_to_people" }] }).success).toBe(true);
+    const asked = planResearchText(planResearch(menu(), DEFAULT_RESEARCH_STEERING), new Set());
+    expect(asked).toContain("then call plan_research again with their allocation as a list of {task, minutes}; for " +
+      "\"you decide\", the recommended tasks and minutes.");
   });
 
   it("asks for a people's-reports task when a first menu has none, and never renumbers an allocated one", () => {
