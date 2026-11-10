@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RESEARCH_USE_SCOPE, createJwtOAuthResourceServer } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from "../apps/research-mcp/src/server.js";
 import {
+  ASK_ABOVE_MINUTES,
   COULD_CHANGE,
   FORM_PEOPLE_USE,
   PEOPLE_FIRST_WHEN_USED,
@@ -35,6 +36,7 @@ import {
   framingGuidance,
   planResearch,
   planResearchText,
+  steeringSentence,
   taskMinutes,
   type ResearchMenuInput,
 } from "../apps/research-mcp/src/research-steering.js";
@@ -240,10 +242,12 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     // 1 (conclusion, 1-3: 2 min), then 2 (confidence, 1-5: 3 min) and 4 (0.5-3: 2 min): 7 minutes, within 10.
     expect(result.recommended).toEqual([{ task: 1, minutes: 2 }, { task: 2, minutes: 3 }, { task: 4, minutes: 2 }]);
     expect(result.recommended_minutes).toEqual([3, 11]);
-    // Balanced asks when the recommended tasks would take more than about five minutes.
+    // Balanced asks when the recommended tasks could take more than about 10 minutes (here 11), or unless the menu says
+    // the person's choices could not steer the research (owner answer 284).
     expect(result.next).toBe("ask");
-    const short = planResearch(menu({ tasks: [TASKS[3]!] }), DEFAULT_RESEARCH_STEERING);
-    expect(short).toMatchObject({ recommended: [{ task: 1, minutes: 2 }], recommended_minutes: [0.5, 3], next: "go_on" });
+    const short = planResearch(menu({ tasks: [TASKS[3]!], steering_could_help: false }), DEFAULT_RESEARCH_STEERING);
+    expect(short).toMatchObject({ recommended: [{ task: 1, minutes: 2 }], recommended_minutes: [0.5, 3], next: "go_on",
+      steering_could_help: false });
     // A smaller allowance keeps the first task even when it alone is longer.
     expect(planResearch(menu(), { ...DEFAULT_RESEARCH_STEERING, checkBackMinutes: 1 }).recommended)
       .toEqual([{ task: 1, minutes: 2 }]);
@@ -279,6 +283,59 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
       expect(words).toContain("later_inputs.community_leads");
       expect(words).toContain(adjustmentGuidance("flagged"));
     }
+  });
+
+  // Owner answer 284 (10 Nov 2026): balanced "should ask if the research could take longer than 10 mins OR if there is
+  // reason to believe from the initial analysis that steering could direct the research more usefully, which i'd say it
+  // usually can unless the prompt is quite precise".
+  it("asks in balanced when the tasks could pass 10 minutes or the person's choices could steer them (owner answer 284)", () => {
+    expect(ASK_ABOVE_MINUTES).toBe(10);
+    const plan = (overrides: Partial<ResearchMenuInput>, steering: ResearchSteering = DEFAULT_RESEARCH_STEERING) =>
+      planResearch(menu(overrides), steering);
+    const words = (result: ReturnType<typeof planResearch>) => planResearchText(result, new Set());
+    const steer = "say in one line what their choices could change, and ask how to spend the time: they may answer";
+    // A precise question whose tasks fit in 10 minutes goes on, the only case that does.
+    const precise = plan({ tasks: [TASKS[3]!], steering_could_help: false });
+    expect(precise.next).toBe("go_on");
+    expect(words(precise)).toContain("Do these tasks now, in this order, each within its minutes");
+    expect(words(precise)).not.toContain("so show the menu");
+    // Exactly 10 minutes at the high end is not more than 10; 11 is.
+    const own = (high: number) => ({ task: "Read the trial's table of harms", kind: "other" as const,
+      could_change: "conclusion" as const, minutes: [8, high] as [number, number] });
+    expect(plan({ tasks: [own(10)], steering_could_help: false })).toMatchObject({ recommended_minutes: [8, 10],
+      next: "go_on" });
+    const long = plan({ tasks: [own(11)], steering_could_help: false });
+    expect(long).toMatchObject({ recommended_minutes: [8, 11], next: "ask" });
+    expect(words(long)).toContain("The recommended tasks could take more than about 10 minutes, so show the menu and ask " +
+      "how to spend the time: they may answer");
+    expect(words(long)).not.toContain("say in one line what their choices could change");
+    // Choices that could steer it: asked even when the tasks are short, with what the choices could change.
+    const steerable = plan({ tasks: [TASKS[3]!], steering_could_help: true });
+    expect(steerable).toMatchObject({ next: "ask", steering_could_help: true });
+    expect(words(steerable)).toContain(`The person's choices could steer this research, so show the menu, ${steer}`);
+    // Left out, it counts as true, and the result says so.
+    const unsaid = plan({ tasks: [TASKS[3]!] });
+    expect(unsaid.next).toBe("ask");
+    expect(unsaid).not.toHaveProperty("steering_could_help");
+    expect(words(unsaid)).toContain("The person's choices could steer this research (steering_could_help was left out, " +
+      `and they usually can), so show the menu, ${steer}`);
+    expect(words(plan({}))).toContain("The recommended tasks could take more than about 10 minutes, and the person's " +
+      "choices could steer this research (steering_could_help was left out, and they usually can), so show the menu, " +
+      steer);
+    // Guided always asks, autonomous never waits, and a person's allocation is followed, whatever the menu says.
+    const guided = plan({ tasks: [TASKS[3]!], steering_could_help: false }, { ...DEFAULT_RESEARCH_STEERING,
+      style: "guided" });
+    expect(guided.next).toBe("ask");
+    expect(words(guided)).toContain("The person chose guided research, so show the menu and ask how to spend the time:");
+    expect(plan({ steering_could_help: true }, { ...DEFAULT_RESEARCH_STEERING, style: "autonomous" }).next)
+      .toBe("go_on");
+    expect(plan({ steering_could_help: true, allocation: [{ task: 1, minutes: 5 }] }).next).toBe("go_on");
+    // The field is a yes or no, named at the screen; the style's wording says when balanced asks.
+    expect(researchMenuSchema.safeParse({ ...menu(), steering_could_help: "yes" }).success).toBe(false);
+    expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when the person's own choices");
+    expect(steeringSentence(DEFAULT_RESEARCH_STEERING)).toContain("shows the menu of next tasks when they could take " +
+      "more than about 10 minutes or when your choices could steer the research, as they usually can unless the " +
+      "question is precise");
   });
 
   it("mentions only doubtful adjustments by default, and all of them when the person chose that", () => {
@@ -381,6 +438,12 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(same.structuredContent).toMatchObject({ ok: true, researchMenu: { target_matches_plain_answer: true,
       minutes_since_plain_answer: 0, next: "ask", style: "balanced" } });
     expect(text(same)).toContain("The menu to show the person, in their language, numbered as here");
+    // A precise question with short tasks goes on, and the result carries the menu's own steering_could_help.
+    const precise = await manage({ action: "plan_research", later_inputs: { researchMenu: {
+      ...menu(), tasks: [TASKS[3]!], steering_could_help: false, plain_answer_receipt: receipt } } });
+    expect(precise.isError).not.toBe(true);
+    expect(precise.structuredContent).toMatchObject({ ok: true, researchMenu: { next: "go_on",
+      steering_could_help: false } });
     const reworded = await manage({ action: "plan_research", later_inputs: { researchMenu: {
       ...menu(), research_target: "Sodium potassium ratio and blood pressure", plain_answer_receipt: receipt } } });
     expect(reworded.structuredContent).toMatchObject({ researchMenu: { target_matches_plain_answer: false } });

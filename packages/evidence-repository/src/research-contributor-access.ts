@@ -169,8 +169,9 @@ export type ResearchContributionProposalKind =
  * The research style an account sets once, for every research it runs (owner answer 279a, 9 November 2026, from the
  * owner's report AskRigor#434). style is how often the AI stops to ask the person: guided asks at the framing and before
  * every long task; balanced, the default, asks only questions that could redirect the research and shows the menu of
- * next tasks when the rest would take more than about five minutes; autonomous goes on through the passes and checks
- * back after checkBackMinutes. adjustmentDetail is what the answer says about the variables each key observational study
+ * next tasks when the rest could take more than about 10 minutes or the person's choices could steer the research, as
+ * they usually can unless the question is precise (owner answer 284, 10 November 2026); autonomous goes on through the
+ * passes and checks back after checkBackMinutes. adjustmentDetail is what the answer says about the variables each key observational study
  * adjusted for: flagged, the default, only those that look doubtful on a quick check ("default balanced mode might only
  * mention the adjustments you think on a quick check look potentially inappropriate or controversial"), or all. None of
  * them overrides a safety, privacy or truthfulness rule.

@@ -259,6 +259,7 @@ export const manageResearchAccessRuntimeOutputSchema = manageResearchAccessOutpu
     recommended: z.array(z.object({ task: z.number().int(), minutes: z.number() }).strict()),
     recommended_minutes: z.tuple([z.number(), z.number()]),
     next: z.enum(["ask", "go_on"]),
+    steering_could_help: z.boolean().optional(),
     style: z.enum(RESEARCH_STYLES),
     check_back_minutes: z.number().int(),
     adjustment_detail: z.enum(ADJUSTMENT_DETAILS),

@@ -199,13 +199,16 @@ list as it is), all on the MCP connector, and none a blocking check:
   `plan_research`. Without a framing, the result asks for one next time. The framing is not stored or signed.
 - **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
   (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
-  studies or the model's own time range), the person's allocation once given, the tasks done, and optionally the plain
-  answer's receipt. Each task gets a time range from its kind's planning estimate per source (`PLAN_TASK_MINUTES` in
-  `apps/research-mcp/src/research-steering.ts`, starting values until the regression runs measure them); tasks that
-  could change the conclusion are recommended first, then those that could change how sure it is, within the
-  check-back allowance; detail alone is never recommended. Guided always shows the menu and waits; balanced does when
-  the recommended tasks would take more than about five minutes; autonomous goes on and checks back after the
-  allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
+  studies or the model's own time range), whether the person's choices could steer the research
+  (`steering_could_help`, the model's judgment from the screen; left out, it counts as true), the person's allocation
+  once given, the tasks done, and optionally the plain answer's receipt. Each task gets a time range from its kind's
+  planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
+  timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could
+  change how sure it is, within the check-back allowance; detail alone is never recommended. Guided always shows the
+  menu and waits; balanced does when the recommended tasks could take more than about 10 minutes (the high end of
+  their range) or the person's choices could steer the research, as they usually can unless the question is precise
+  (owner answer 284, 10 November 2026), and then says in one line what their choices could change; autonomous goes on
+  and checks back after the allowance; a person's allocation is followed. The result also asks for a line before each task, says how to resume
   after a stop or a change of direction, asks for a task for each lead between people's reports and studies, and words
   the adjusted-variables look by the account's choice. With the plain answer's receipt it says whether the research
   target is the registered one, word for word but for case and spacing, and how many minutes have passed since. Nothing
