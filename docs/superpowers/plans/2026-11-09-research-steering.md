@@ -165,7 +165,7 @@ tasks' high estimate) and the menu's `steering_could_help`: the model's judgment
 left out, as HRP's `StructuredUserSteeringAndApproval` asks (approval required unless the scope is clear). Balanced
 goes on without asking only when the menu says false and the tasks fit in about 10 minutes; when it asks for the
 person's choices, the AI says in one line what they could change. Nothing judges whether a question is precise but the
-model.
+model. Released 10 Nov 2026 (owner answer 286a).
 
 **The two new cases, against their criteria.** Syrian rue oil: people's reports from the start (five Reddit threads,
 one claiming oral use, and a seller's "harmal oil" page with no assay); the oils told apart in a table (fixed oil,
