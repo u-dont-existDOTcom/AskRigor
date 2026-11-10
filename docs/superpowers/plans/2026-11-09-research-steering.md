@@ -175,6 +175,57 @@ journals: owner answer 283a); no question about which oil the person has (the ow
 Sodium and memory: framing named dietary against blood sodium and memory against dementia measures; every study labelled
 by how it was read; the adjustment reported as weakening, not vanishing; no bare "significant".
 
+### Checked on the released rule (10 Nov 2026)
+
+The owner's go-ahead of 20:31 UTC ("Yes, run them now"): the same 14 questions, preamble and replies, on the live build
+3c9e0612 (the 284 rule, the menu's spelled-out shape and the 9 Nov times), through Codex's AskRigor app (codex-cli
+0.167.0, `gpt-6.1-sol`, xhigh), three at a time, from 20:38 to 22:25 UTC. Card saving off for the run and back on after
+it (the call and the reply agree), no other tool called, no sign of saving in any run. Criteria written before
+(`/home/joel/askrigor-releases/20261110-timing/regress`: `criteria.md`, `measure.py`, `analysis/final.json`,
+`analysis/calibration-check.json`). DEVELOPMENT / DISCOVERY data: nothing was retuned during the run.
+
+| Measure | 9 Nov (five-minute rule) | 10 Nov (284 rule) |
+|---|---|---|
+| First menu call accepted | 0 of 14; 31 of 58 calls refused | 14 of 14; 2 of 22 refused |
+| First menu asks / goes on | 14 / 0 | 8 / 6 |
+| Next step as the rule says | (rule new on 10 Nov) | 14 of 14 |
+| The menu says the person's choices could steer it | (field new on 10 Nov) | 0 of 14 (false on all 14; never left out) |
+| The run stopped and waited when asked | 3 of 14 | 2 of 8; 3 made their own allocation, 3 researched on (one for a single call) |
+| Whole run to a checked answer, median (range) | 25.2 minutes (10.5 to 40.9) | 20.4 minutes (7.7 to 28.9) |
+| Done in one turn | 4 of 14 | 9 of 14 |
+| Final check | 14 ready with limits | 14 ready with limits |
+
+It asked for the kelp, low-dose naltrexone, symptom-cluster, vertigo-video, didgeridoo, nebulized-peroxide, bacopa and
+Syrian rue oil questions (high estimates 11 to 20 minutes) and went on for the nap, the PITCH trial, saffron against
+fluvoxamine, sodium and memory, sea buckthorn and the antivenom emergency (7 to 10). Against the expectations written
+before: most first menus asked; the PITCH trial and the nap went on, the peroxide question asked (20 minutes); first
+calls were accepted. So the asks landed on the open questions, but only through the time estimate: the model said the
+person's choices could not steer the research even for the symptom cluster and the Syrian rue oil, whose form changes
+its strength. Built: the field's wording now carries HRP's test for when approval is required (`RESEARCH_MENU_SHAPE`),
+"even when the question is clearly worded"; the next run after a release shows whether the model's answer moves.
+
+**The times.** The research after a go-ahead menu took 3.5 to 11.5 minutes (median 9.1) in all 12 windows, whatever
+the menu said. Of the six menus that went on by themselves (high estimates 7 to 10), three ran over (7.7 against 7, 9.7
+against 7, 9.2 against 8); the six after an allocation of 17 to 29 minutes used 0.31 to 0.62 of it. Per declared
+source, about half the frozen ranges: a paper in full 0.76 minutes (0.47 to 1.36) against 1 to 2.5, a method audit 1.27
+(0.98 to 2.13) against 2 to 4, a forum thread 0.33 (0.18 to 0.47) against 0.5 to 1.5; a study search 0.86 (0.62 to
+1.38) inside 0.5 to 2.5. The calls themselves took what they took on 9 Nov (a paper 0.20 minutes a call against 0.22)
+and the menus declared about as many sources (median 11 against 10). The final check and writing took 7.1 minutes (2.9
+to 10.4; 9 of 12 within the menu's 4 to 10). Not retuned: on the same questions the two days differ about twofold per
+source while the research stayed near 9 minutes, and the preamble asks for about 60 AskRigor calls, which may be what
+ends it; a third fit would fit that spread. A run without the call budget, or in ChatGPT, would tell them apart.
+
+**What the person's choices could change** (read, not computed). The three answers that stopped at the menu (the
+symptom cluster, the didgeridoo, and naltrexone after one more call) each showed the numbered tasks with their times and
+what each could change, the 4 to 10 minutes for checking and writing, and asked how to spend the time, with "you
+decide" offered; none said what the person's own situation or choices could change, which the result asks for only when
+the menu says it can be steered.
+
+**The owner's depression question, measured apart.** The one menu that said the person could steer it: [6, 13]
+minutes, ask for both reasons; not kept (the model's own allocation was refused for naming no tasks, and 40 research
+calls followed); "you decide" in turn 2; checked at 41.9 minutes, ready with limits. What it said about the
+Mediterranean diet is in the owner page's section of 10 Nov.
+
 ### Next stages
 
 1. Measure on the owner's regression list, on plan workers with no API spend: whether the framing asks the right

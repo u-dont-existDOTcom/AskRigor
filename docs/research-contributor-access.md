@@ -200,7 +200,9 @@ list as it is), all on the MCP connector, and none a blocking check:
 - **The menu of next tasks.** `plan_research` takes `later_inputs.researchMenu`: the research target, up to 12 tasks
   (each with its kind, how many sources, what it could change, and optionally a loop between people's reports and
   studies or the model's own time range), whether the person's choices could steer the research
-  (`steering_could_help`, the model's judgment from the screen; left out, it counts as true), the person's allocation
+  (`steering_could_help`, the model's judgment from the screen, with HRP's test for when approval is required: true
+  when a choice the person could make, or something only they know, could materially change what the research checks,
+  false only when the question already fixes all of that; left out, it counts as true), the person's allocation
   once given, the tasks done, and optionally the plain answer's receipt. Each task gets a time range from its kind's
   planning estimate per source (`PLAN_TASK_MINUTES` in `apps/research-mcp/src/research-steering.ts`, measured on the
   timing runs of 9 November 2026); tasks that could change the conclusion are recommended first, then those that could

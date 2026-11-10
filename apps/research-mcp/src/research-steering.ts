@@ -240,14 +240,19 @@ export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, 
 /**
  * The menu's exact shape, field by field. The timing runs of 9 Nov 2026 (Codex's AskRigor app on the live build): every
  * case's first plan_research call was refused, 12 of 22 in all, because the model guessed the fields (what_it_could_change,
- * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal.
+ * label, a sentence as could_change, invented kinds, no research_target) and learned them from the refusal. The runs of
+ * 10 Nov on the released 284 rule: every first call accepted, but steering_could_help false on all 14 questions, open
+ * ones included (a person's own three symptoms, an oil whose form changes its strength), against the owner's "usually
+ * can unless the prompt is quite precise"; so the field now carries HRP's own test for when approval is required.
  */
 export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
   "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
-  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when the person's own " +
-  "choices (which tasks, how deep, which reading or form they mean) could make the research more useful to them, as " +
-  "they usually can, and false only when the question is precise enough that they could not (HRP " +
-  "StructuredUserSteeringAndApproval); and tasks, the next tasks the screen found, in " +
+  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when a choice the " +
+  "person could make, or something only they know, could materially change what the research checks (HRP " +
+  "StructuredUserSteeringAndApproval): such as their own situation or what they have tried, the form, dose or route " +
+  "they use, what to compare it with, which outcome matters most to them, people's reports or studies, or how deep; " +
+  "as it usually can, even when the question is clearly worded; false only when the question already fixes all of " +
+  "that, such as one result of one named study; and tasks, the next tasks the screen found, in " +
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +

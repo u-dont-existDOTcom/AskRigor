@@ -332,7 +332,13 @@ describe("the menu of next tasks after a quick screen (owner answer 279a)", () =
     expect(plan({ steering_could_help: true, allocation: [{ task: 1, minutes: 5 }] }).next).toBe("go_on");
     // The field is a yes or no, named at the screen; the style's wording says when balanced asks.
     expect(researchMenuSchema.safeParse({ ...menu(), steering_could_help: "yes" }).success).toBe(false);
-    expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when the person's own choices");
+    expect(RESEARCH_MENU_SHAPE).toContain("steering_could_help, true when a choice the person could make, or " +
+      "something only they know, could materially change what the research checks (HRP " +
+      "StructuredUserSteeringAndApproval)");
+    // 10 Nov: the model said false for all 14 timing questions, open ones included; false is now only for a question
+    // that already fixes what to check: a clearly worded question is not yet one whose scope is fixed.
+    expect(RESEARCH_MENU_SHAPE).toContain("even when the question is clearly worded; false only when the question " +
+      "already fixes all of that, such as one result of one named study");
     expect(steeringSentence(DEFAULT_RESEARCH_STEERING)).toContain("shows the menu of next tasks when they could take " +
       "more than about 10 minutes or when your choices could steer the research, as they usually can unless the " +
       "question is precise");
