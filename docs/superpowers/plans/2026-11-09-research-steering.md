@@ -61,7 +61,8 @@ The stages, each working through a step the server already sees:
 
 **A setting per account** (stored like the quick-answer note: the choice only): Guided (ask at framing, menu after the
 screen, ask before any long task); Balanced, the default (ask only questions that could redirect it, screen, then the
-menu when the rest would take more than about five minutes); Autonomous (go on through the passes, report as it goes,
+menu when the rest would take more than about five minutes; since owner answer 284, 10 Nov, when it could take more
+than about 10 minutes or the person's choices could steer it); Autonomous (go on through the passes, report as it goes,
 check back after the time allowance). A time allowance before checking back, 10 minutes by default. Neither overrides
 safety, privacy or truthfulness rules.
 
@@ -156,6 +157,15 @@ comparison. Later runs confirm or correct them.
 
 Even with the measured times, all 14 first menus come to more than five minutes of recommended research, so balanced
 would still ask before each: whether to raise that threshold is the owner's (question 284).
+
+**The owner's answer to 284 (10 Nov 2026):** balanced "should ask if the research could take longer than 10 mins OR if
+there is reason to believe from the initial analysis that steering could direct the research more usefully, which i'd
+say it usually can unless the prompt is quite precise". Built as `ASK_ABOVE_MINUTES` (10, against the recommended
+tasks' high estimate) and the menu's `steering_could_help`: the model's judgment from the screen, counted as true when
+left out, as HRP's `StructuredUserSteeringAndApproval` asks (approval required unless the scope is clear). Balanced
+goes on without asking only when the menu says false and the tasks fit in about 10 minutes; when it asks for the
+person's choices, the AI says in one line what they could change. Nothing judges whether a question is precise but the
+model.
 
 **The two new cases, against their criteria.** Syrian rue oil: people's reports from the start (five Reddit threads,
 one claiming oral use, and a seller's "harmal oil" page with no assay); the oils told apart in a table (fixed oil,

@@ -50,8 +50,9 @@ export type Framing = z.output<typeof framingSchema>;
 export const researchSteeringInputSchema = z.object({
   style: z.enum(RESEARCH_STYLES).optional()
     .describe("guided: ask at the framing and before every long task; balanced (the default): ask only questions " +
-      "that could redirect the research, and show the menu of next tasks when they would take more than about five " +
-      "minutes; autonomous: go on through the passes and check back after the time allowance."),
+      "that could redirect the research, and show the menu of next tasks and wait when they could take more than " +
+      "about 10 minutes or the person's choices could steer the research, as they usually can unless the question is " +
+      "precise; autonomous: go on through the passes and check back after the time allowance."),
   checkBackMinutes: z.number().int().min(CHECK_BACK_MINUTES.min).max(CHECK_BACK_MINUTES.max).optional()
     .describe("Minutes of research before checking back with the person, 1 to 120; 10 by default."),
   adjustmentDetail: z.enum(ADJUSTMENT_DETAILS).optional()
@@ -82,7 +83,7 @@ export const PLAN_TASK_MINUTES = Object.freeze({
 } as const satisfies Record<string, readonly [number, number]>);
 /**
  * After the tasks, the final check and writing the answer: 4.0 to 8.7 minutes in the middle half of the 13 measured
- * go-ahead menus (median 6.7). The menu says it beside the tasks; it isn't part of the five minutes that decide whether
+ * go-ahead menus (median 6.7). The menu says it beside the tasks; it isn't part of the 10 minutes that decide whether
  * to ask first.
  */
 export const ANSWER_MINUTES = Object.freeze([4, 10] as const);
@@ -121,6 +122,10 @@ export const researchMenuSchema = z.object({
     .describe("The plain answer's research_receipt, so AskRigor can check the research target and the time since."),
   provisional_answer: z.string().trim().min(1).max(PLAN_LIMITS.provisional).optional()
     .describe("What the screen suggests so far, in a few sentences."),
+  steering_could_help: z.boolean().optional()
+    .describe("From the screen: true when the person's own choices, such as which tasks, how deep, or which reading " +
+      "or form they mean, could make the research more useful to them, as they usually can; false only when the " +
+      "question is precise enough that they could not. Left out, it counts as true."),
   tasks: z.array(planTaskSchema).min(1).max(PLAN_LIMITS.tasks)
     .describe("The next tasks the screen found, in the order you would do them."),
   allocation: z.array(z.object({
@@ -137,7 +142,8 @@ export type ResearchMenuInput = z.output<typeof researchMenuSchema>;
 const STYLE_WORDS: Readonly<Record<ResearchStyle, string>> = Object.freeze({
   guided: "guided (asks you at the start and before every long task)",
   balanced: "balanced (asks only questions that could redirect the research, and shows the menu of next tasks when " +
-    "they would take more than about five minutes)",
+    "they could take more than about 10 minutes or when your choices could steer the research, as they usually can " +
+    "unless the question is precise)",
   autonomous: "autonomous (goes on through the research and reports as it goes)",
 });
 
@@ -238,7 +244,10 @@ export const FORM_PEOPLE_USE = "When the answer turns on a form or preparation, 
  */
 export const RESEARCH_MENU_SHAPE = "later_inputs.researchMenu in exactly this shape: research_target, the research target " +
   "word for word as register_plain_answer's result quoted it; plain_answer_receipt, that call's research_receipt; " +
-  "provisional_answer, what the screen suggests, in a few sentences; and tasks, the next tasks the screen found, in " +
+  "provisional_answer, what the screen suggests, in a few sentences; steering_could_help, true when the person's own " +
+  "choices (which tasks, how deep, which reading or form they mean) could make the research more useful to them, as " +
+  "they usually can, and false only when the question is precise enough that they could not (HRP " +
+  "StructuredUserSteeringAndApproval); and tasks, the next tasks the screen found, in " +
   "order, each {task, what it does in the person's language; kind, one of study_search, abstract_screen, full_text, " +
   "method_audit, forum_thread, video_comments, video_claims, trial_registry or other; could_change, one of conclusion, " +
   "confidence or detail; sources, how many searches, abstracts, papers, threads, videos or records it covers; loop, " +
@@ -286,7 +295,16 @@ export function framingGuidance(steering: ResearchSteering, framing: Framing | u
   return parts.join(" ");
 }
 
-const FIVE_MINUTES = 5;
+/**
+ * Owner answer 284 (10 November 2026), in the owner's words: balanced "should ask if the research could take longer
+ * than 10 mins OR if there is reason to believe from the initial analysis that steering could direct the research more
+ * usefully, which i'd say it usually can unless the prompt is quite precise". So balanced asks when the recommended
+ * tasks' high estimate is past 10 minutes, and whenever the menu doesn't declare steering_could_help false: whether the
+ * person's choices could steer the research is the model's judgment from the screen, in any language, as HRP's
+ * StructuredUserSteeringAndApproval asks (approval_required against clear_scope_no_pause); this module only compares.
+ * It was five minutes: with the measured times, all 14 of the timing runs' first menus came to more than five.
+ */
+export const ASK_ABOVE_MINUTES = 10;
 
 export interface PlannedTask {
   n: number;
@@ -302,6 +320,8 @@ export interface ResearchPlanResult {
   recommended: { task: number; minutes: number }[];
   recommended_minutes: [number, number];
   next: "ask" | "go_on";
+  /** The menu's own steering_could_help, when it gave one. */
+  steering_could_help?: boolean;
   style: ResearchStyle;
   check_back_minutes: number;
   adjustment_detail: AdjustmentDetail;
@@ -371,7 +391,7 @@ export function planResearch(
   const answered = plan.allocation !== undefined && plan.allocation.length > 0;
   const next = answered || steering.style === "autonomous"
     ? "go_on"
-    : steering.style === "guided" || recommendedMinutes[1] > FIVE_MINUTES
+    : steering.style === "guided" || recommendedMinutes[1] > ASK_ABOVE_MINUTES || plan.steering_could_help !== false
       ? "ask"
       : "go_on";
   return {
@@ -379,6 +399,7 @@ export function planResearch(
     recommended,
     recommended_minutes: recommendedMinutes,
     next,
+    ...(plan.steering_could_help === undefined ? {} : { steering_could_help: plan.steering_could_help }),
     style: steering.style,
     check_back_minutes: steering.checkBackMinutes,
     adjustment_detail: steering.adjustmentDetail,
@@ -400,6 +421,24 @@ const LOOP_WORDS: Readonly<Record<(typeof RESEARCH_LOOPS)[number], string>> = {
 };
 
 const range = ([low, high]: [number, number]): string => low === high ? `about ${low} min` : `about ${low} to ${high} min`;
+
+/**
+ * Why the menu waits for the person (owner answer 284): guided research; or, for balanced, recommended tasks that could
+ * take more than about 10 minutes, the person's choices that could steer the research (the menu's steering_could_help,
+ * true when left out), or both.
+ */
+function askReason(result: ResearchPlanResult): string {
+  if (result.style === "guided") return "The person chose guided research, so show";
+  const reasons = [
+    ...(result.recommended_minutes[1] > ASK_ABOVE_MINUTES
+      ? [`the recommended tasks could take more than about ${ASK_ABOVE_MINUTES} minutes`] : []),
+    ...(result.steering_could_help === false ? [] : [result.steering_could_help === true
+      ? "the person's choices could steer this research"
+      : "the person's choices could steer this research (steering_could_help was left out, and they usually can)"]),
+  ];
+  const said = reasons.join(", and ");
+  return `${said.charAt(0).toUpperCase()}${said.slice(1)}, so show`;
+}
 
 /** Whether a task reads people's own reports: a thread, a video's comments, or a look prompted by a study finding. */
 const readsPeoplesReports = ({ kind, loop }: PlannedTask): boolean =>
@@ -433,8 +472,8 @@ export function planResearchText(result: ResearchPlanResult, done: ReadonlySet<n
       "minutes have"} passed since the plain answer was registered.`);
   }
   if (result.next === "ask") {
-    parts.push((result.style === "guided" ? "The person chose guided research, so show" :
-      "The recommended tasks would take more than about five minutes, so show") + " the menu and ask how to spend " +
+    parts.push(askReason(result) + " the menu" + (result.style !== "guided" && result.steering_could_help !== false
+      ? ", say in one line what their choices could change," : "") + " and ask how to spend " +
       "the time: they may answer with task numbers and minutes, such as \"1. 5 min, 2. 4 min, 7. 1 min\", in their " +
       "own words, or \"you decide\". Wait for the answer before any of these tasks, then call plan_research again " +
       "with their allocation as a list of {task, minutes}; for \"you decide\", the recommended tasks and minutes.");
