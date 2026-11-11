@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { verifyCarriedState } from "../apps/research-mcp/src/carried-state.js";
 import {
-  FIRST_PASS_GUIDANCE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE
+  FIRST_PASS_GUIDANCE, PASS_SCOPE, PASSING_NOTES_HEADING, REPEAT_PASS_GUIDANCE
 } from "../apps/research-mcp/src/final-check-messages.js";
 import {
   TOOL_LIST_REFRESH_HINT, finalizeResearch as finalizeResearchUnwrapped, uncheckedLine, type FinalizeResearchInput, type FinalizeResearchOutput
@@ -298,6 +298,13 @@ describe("the unchecked line and the previous check in finalize_research's resul
     expect(blocked.text).toContain("AskRigor's final check has not passed");
     // Nothing in a pass's own sentences asks for another check except a change to the draft itself.
     expect(REPEAT_PASS_GUIDANCE).toContain("don't call finalize_research again in this turn");
+    // Lesson 56 (5 Nov 2026): a pass was read as the end of discovery. Every passing result says, in its pass sentence,
+    // what a pass covers; a check that doesn't pass says nothing of it.
+    expect(PASS_SCOPE).toBe("a pass covers the six checks, not whether the search was complete");
+    expect(FIRST_PASS_GUIDANCE).toMatch(/^This check passed \(a pass covers the six checks, not whether the search was complete\): /u);
+    expect(REPEAT_PASS_GUIDANCE).toContain(`(${PASS_SCOPE}), so this result is the turn's last check`);
+    for (const passing of [first, again, later]) expect(passing.text).toContain(PASS_SCOPE);
+    expect(blocked.text).not.toContain(PASS_SCOPE);
     // A pass's notes are headed as being for a later answer; a check that doesn't pass keeps the plain heading.
     const noted = await call(base({ receipts: ["rr1~not-a-receipt~x"] }));
     expect(noted.output.status).toMatch(/^ready/u);

@@ -131,11 +131,12 @@ on every note or completed the research method: the AI remains responsible for t
 A pass is the turn's last check unless the draft itself changes (11 November 2026, not yet released). In the 10 November
 timing runs, 49 of 88 final-check calls came after the check had passed in the same turn, invited by "to change anything
 in it, call finalize_research again" on every pass and by notes about later inputs; HRP asks for another call only on
-`not_ready`. A passing result now says to give the checked draft now, word for word, followed only by the lines it gives
-for the answer's end; its notes about later inputs (`study_map`, `findings_card`, `source_lines` or `community_leads`)
-are for a later answer, under a heading that says so; and a change that fixes the answer itself (a limit that changes
-what this person should believe or do, limits repeated word for word, or an error found in it) is checked once more,
-the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
+`not_ready`. A passing result now says what a pass covers, the six checks, not whether the search was complete (lesson
+56: a research lane read a pass as the end of discovery), and to give the checked draft now, word for word, followed
+only by the lines it gives for the answer's end; its notes about later inputs (`study_map`, `findings_card`,
+`source_lines` or `community_leads`) are for a later answer, under a heading that says so; and a change that fixes the
+answer itself (a limit that changes what this person should believe or do, limits repeated word for word, or an error
+found in it) is checked once more, the turn's last. A pass after a pass in the same turn, known from the carried state's turn and last status and the
 round token, with no stored state, says it is the turn's last check and sets the runtime-only `turn_already_passed`.
 So that nothing needs a later call, the reading tools give the `source_reading` entry's exact fields
 (`{source, reading, quote}`) and the method audits the study map's exact shape before the first check, and a filed
